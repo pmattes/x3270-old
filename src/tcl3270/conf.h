@@ -21,11 +21,13 @@
 
 /* Libraries. */
 #define HAVE_LIBUTIL 1
+#define HAVE_LIBICUI18N 1
+#define HAVE_LIBSSL 1
 
 /* Header files. */
 #define HAVE_SYS_SELECT_H 1
-/* #undef HAVE_PTY_H */
-#define HAVE_LIBUTIL_H 1
+#define HAVE_PTY_H 1
+/* #undef HAVE_LIBUTIL_H */
 /* #undef HAVE_UTIL_H */
 /* #undef HAVE_TCLEXTEND_H */
 
@@ -36,6 +38,7 @@
 /* Optional parts. */
 #define X3270_ANSI 1
 #define X3270_APL 1
+#define X3270_DBCS 1
 #define X3270_FT 1
 #define X3270_LOCAL_PROCESS 1
 #define X3270_TN3270E 1

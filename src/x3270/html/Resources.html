@@ -109,7 +109,8 @@ x3270.charsetList	Default U.S. International: us-intl
 				Norwegian: norwegian
 				French: french
 				Hebrew: hebrew
-    Defines the "Character Set" pull-right menu.
+    Defines the "Character Set" pull-right menu.  Can contain '>' characters
+    to define a menu hierarchy.
 
 x3270.codepage.<i>hostCharset</i>	Default 37
     Code page definitions for various host character sets.  If x3270.charset is
@@ -301,6 +302,16 @@ x3270.emulatorFontList.<i>displayCharset</i>	Default: 3270 Font (14 point): #res
     components in the <i>displayCharset</i>).  This will find any
     constant-spaced fonts implementing that display character set.
 
+    An emulatorFontList resource can contain '>' characters to indicate a menu
+    hierarchy.  For example, an definition like this:
+        GoodFonts>8-point Font: 3278gt8
+	GoodFonts>12-point Font: 3270-12
+	BadFonts>16-point Font: 3270gt16
+	BadFonts>24-point Font: 3270gt24
+    will result in a two-level menu hierarchy.  The first level will have two
+    items, GoodFonts and BadFonts.  Each will have a pull-right with two
+    entries.
+
 x3270.eof		Default ^D
     Used in ANSI mode, when communicating in line-at-a-time mode (when x3270
     gathers a line of input before forwarding it to the host).  Defines a
@@ -335,6 +346,11 @@ x3270.extended		Default false		Switch -extended
     name which is passed to the host through TELNET negotiations, indicating
     support for the feature.  If the x3270.m3279 resource is true,
     x3270.extended is automatically assumed to be true as well.
+
+x3270.fixedSize
+    If set to a value <i>width</i>x<i>height</i>, specifies a fixed size
+    for the x3270 display.  The 3270 emulator will float in the center of the
+    window, if need be.
 
 x3270.ftCommand		Default ind$file
     Defines the host command used to transfer files.
@@ -452,11 +468,13 @@ x3270.keymap.norwegian7
 
 x3270.keypad		Default right
     This controls the position of the pop-up keypad.  It can have one of
-    four values: left, meaning a pop-up window positioned to the left of the
+    five values: left, meaning a pop-up window positioned to the left of the
     main x3270 window; right, meaning a pop-up window positioned to the right
     of the main x3270 window; bottom, meaning a pop-up window positioned below
-    the main x3270 window; and integral, making the keypad an extension of the
-    bottom of the main window itself.
+    the main x3270 window; integral, making the keypad an extension of the
+    bottom of the main window itself, and insideRight, placing the keypad
+    over the upper-right corner of the emulator window, just below the keypad
+    button on the menu bar.
 
 x3270.keypad.keyHeight	Default 24
     The height in pixels of all of the buttons on the keypad.
@@ -706,7 +724,8 @@ x3270.schemeList	Default Default 3279: default
 				Bright: bright
 				Reverse: reverse
 				Green Screen: greenScreen
-    Lists the options on the Color Scheme menu.
+    Lists the options on the Color Scheme menu.  Can contain '>' characters to
+    indicate a menu hierarchy.
 
 x3270.screenTrace	Default false		Switch -set screenTrace
 			Option Save Screen(s) in File  -clear screenTrace
@@ -747,6 +766,20 @@ x3270.showTiming	Default false		Switch -set showTiming
 			Option Show Timing	       -clear showTiming
     When true, x3270 will display on the status line the time that the host
     takes to unlock the keyboard after an AID is sent.
+
+x3270*suppress		No default
+    When set to true, suppresses a given menu item.  For example, setting
+    x3270executeActionOption.label to true will remove the Execute an
+    Action option on the File menu.  The names of the menu items generally
+    end in 'Option' and have label resources in X3270.xad.
+
+x3270.suppressActions	No default
+    A list of whitespace-separated action names, with or without parentheses,
+    which are to be ignored.  The actions will be completely inaccessible,
+    whether by keymaps, scripts, macros or the Execute an Action menu option.
+    This resource is intended to be used as a security precaution for users
+    who can define their own keymaps, but who do not have access to resource
+    definitions or command-line options.
 
 x3270.termName		Default IBM-327x-n	Switch -tn
     An alternate name to be sent in response to the host's "DO OPTION

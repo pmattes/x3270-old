@@ -530,6 +530,7 @@ save_yourself(void)
 
 #define PROFILE_ENV	"X3270PRO"
 #define NO_PROFILE_ENV	"NOX3270PRO"
+#define RDB_ENV		"X3270RDB"
 #define DEFAULT_PROFILE	"~/.x3270pro"
 
 extern XrmOptionDescRec options[];
@@ -713,32 +714,46 @@ void
 merge_profile(XrmDatabase *d)
 {
 	const char *fname;
+	char *env_resources;
 	XrmDatabase dd;
+	Boolean need_cl_merge = False;
 
-	/* Open the file. */
 	if (getenv(NO_PROFILE_ENV) != CN) {
 		profile_name = do_subst(DEFAULT_PROFILE, True, True);
-		return;
+	} else {
+		/* Open the file. */
+		fname = getenv(PROFILE_ENV);
+		if (fname == CN || *fname == '\0')
+			fname = DEFAULT_PROFILE;
+		profile_name = do_subst(fname, True, True);
+
+		/* Create a resource database from the file. */
+		dd = XrmGetFileDatabase(profile_name);
+		if (dd != NULL) {
+			/* Merge in the profile options. */
+			XrmMergeDatabases(dd, d);
+			need_cl_merge = True;
+		}
 	}
-	fname = getenv(PROFILE_ENV);
-	if (fname == CN || *fname == '\0')
-		fname = DEFAULT_PROFILE;
-	profile_name = do_subst(fname, True, True);
 
-	/* Create a resource database from the file. */
-	dd = XrmGetFileDatabase(profile_name);
-	if (dd == NULL)
-		goto done;
-
-	/* Merge in the profile options. */
-	XrmMergeDatabases(dd, d);
+	/* See if there are any environment resources. */
+	env_resources = getenv(RDB_ENV);
+	if (env_resources != NULL) {
+		dd = XrmGetStringDatabase(env_resources);
+		if (dd != NULL) {
+			XrmMergeDatabases(dd, d);
+			need_cl_merge = True;
+		}
+	}
 
 	/* Merge the saved command-line options back on top of those. */
-	dd = NULL;
-	XrmParseCommand(&dd, options, num_options, programname, &xargc, xargv);
-	XrmMergeDatabases(dd, d);
+	if (need_cl_merge) {
+		dd = NULL;
+		XrmParseCommand(&dd, options, num_options, programname,
+				&xargc, xargv);
+		XrmMergeDatabases(dd, d);
+	}
 
-    done:
 	/* Free the saved command-line options. */
 	XtFree(xcmd);
 	xcmd = CN;

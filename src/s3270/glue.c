@@ -109,7 +109,8 @@ struct toggle_name toggle_names[N_TOGGLES] = {
 #endif /*]*/
 	{ ResMarginedPaste,   MARGINED_PASTE },
 	{ ResRectangleSelect, RECTANGLE_SELECT },
-	{ ResCrosshair,       -1 }
+	{ ResCrosshair,       -1 },
+	{ ResVisibleControl,  -1 }
 };
 
 
@@ -377,9 +378,6 @@ parse_options(int *argcp, const char **argv)
 	appres.macros = CN;
 	appres.trace_dir = "/tmp";
 	appres.oversize = CN;
-#if defined(X3270_FT) /*[*/
-	appres.ft_command = "ind$file";
-#endif /*]*/
 #if defined(C3270) /*[*/
 	appres.meta_escape = "auto";
 	appres.curses_keypad = True;
@@ -969,8 +967,7 @@ int *char_width = &cw;
 static int ch = 7;
 int *char_height = &ch;
 
-static Boolean f = False;
-Boolean *debugging_font = &f;
+Boolean visible_control = False;
 
 Boolean flipped = False;
 

@@ -170,6 +170,8 @@ XtResource resources[] = {
 	  offset(locked_mcursor), XtRString, "X_cursor" },
 	{ ResMacros, ClsMacros, XtRString, sizeof(char *),
 	  offset(macros), XtRString, 0 },
+	{ ResFixedSize, ClsFixedSize, XtRString, sizeof(char *),
+	  offset(fixed_size), XtRString, 0 },
 #if defined(X3270_TRACE) /*[*/
 	{ ResTraceDir, ClsTraceDir, XtRString, sizeof(char *),
 	  offset(trace_dir), XtRString, "/tmp" },

@@ -22,7 +22,7 @@ extern Boolean keypad_changed;
 #if defined(X3270_KEYPAD) /*[*/
 
 extern enum kp_placement {
-	kp_right, kp_left, kp_bottom, kp_integral
+	kp_right, kp_left, kp_bottom, kp_integral, kp_inside_right
 } kp_placement;
 
 extern void keypad_first_up(void);

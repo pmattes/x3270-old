@@ -1,5 +1,5 @@
 '\" t
-.TH PR3287 1 "23 July 2003"
+.TH PR3287 1 "10 August 2003"
 .SH "NAME"
 pr3287 \-
 \s-1IBM\s+1
@@ -7,7 +7,7 @@ host printing tool
 .SH "SYNOPSIS"
 \fBpr3287\fP
 [ \fIoptions\fP ]       
-[ l: ] [[ \fILUname\fP [, \fILUname\fP ...]@] \fIhostname\fP [: \fIport\fP ]] 
+[ L: ] [[ \fILUname\fP [, \fILUname\fP ...]@] \fIhostname\fP [: \fIport\fP ]] 
 .SH "DESCRIPTION"
 \fBpr3287\fP
 opens a telnet connection to an
@@ -15,8 +15,10 @@ opens a telnet connection to an
 host, and emulates an \s-1IBM\s+1 3287 printer.
 It implements RFCs 2355 (TN3270E), 1576 (TN3270) and 1646 (LU name selection).
 .LP
-If the \fIhostname\fP is prefixed with \fBl:\fP, the connection will be made
+If the \fIhostname\fP is prefixed with \fBL:\fP, the connection will be made
 through an SSL tunnel.
+\fBpr3287\fP also supports TELNET START-TLS option negotiation without any
+need for command-line options.
 .LP
 A specific LU name to use may be specified by prepending it to the
 \fIhostname\fP
@@ -93,6 +95,10 @@ Causes
 \fIpr3287\fP
 to become a daemon (background) process.
 .TP
+\fB\-eojtimeout\fP \fIseconds\fP
+Causes \fIpr3287\fP to flush the print job after \fIseconds\fP seconds
+of inactivity.
+.TP
 \fB\-ignoreeoj\fP
 Ignore TN3270E PRINT-EOJ commands, relying on UNBIND commands to indicate
 the ends of print jobs.
@@ -114,8 +120,11 @@ thrashing for down or misconfigured hosts.
 .TP
 \fB\-trace\fP
 Turns on data stream tracing.
-Trace information is saved in the file
+Trace information is usually saved in the file
 \fB/tmp/x3trc.\fP\fIpid\fP.
+.TP
+\fB\-tracedir\fP \fIdir\fP
+Specifies the directory to save trace files in, instead of \fB/tmp\fP.
 .SH "SIGNALS"
 SIGINT, SIGHUP and SIGTERM cause the current print job to be flushed (any
 pending data to be printed) and \fIpr3287\fP to exit.
@@ -155,4 +164,4 @@ Derivative works based on this software must incorporate this copyright
 notice.
 .RE
 .SH "VERSION"
-pr3287 3.3.1-alpha9
+pr3287 3.3.1-alpha10

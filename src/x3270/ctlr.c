@@ -758,24 +758,6 @@ ctlr_read_modified(unsigned char aid_byte, Boolean all)
 }
 
 /*
- * Calculate the proper 3270 DS value for an internal field attribute.
- */
-static unsigned char
-calc_fa(unsigned char fa)
-{
-	register unsigned char r = 0x00;
-
-	if (FA_IS_PROTECTED(fa))
-		r |= 0x20;
-	if (FA_IS_NUMERIC(fa))
-		r |= 0x10;
-	if (FA_IS_MODIFIED(fa))
-		r |= 0x01;
-	r |= ((fa & FA_INTENSITY) << 2);
-	return r;
-}
-
-/*
  * Process a 3270 Read-Buffer command and transmit the data back to the
  * host.
  */
@@ -811,7 +793,7 @@ ctlr_read_buffer(unsigned char aid_byte)
 				*obptr++ = 1; /* for now */
 				*obptr++ = XA_3270;
 			}
-			fa = calc_fa(ea_buf[baddr].fa);
+			fa = ea_buf[baddr].fa & ~FA_PRINTABLE;
 			*obptr++ = code_table[fa];
 			if (any)
 				trace_ds("'");
@@ -909,7 +891,7 @@ ctlr_snap_buffer(void)
 			attr_count = obptr - obuf;
 			*obptr++ = 1; /* for now */
 			*obptr++ = XA_3270;
-			*obptr++ = code_table[calc_fa(ea_buf[baddr].fa)];
+			*obptr++ = code_table[ea_buf[baddr].fa & ~FA_PRINTABLE];
 			if (ea_buf[baddr].fg) {
 				space3270out(2);
 				*obptr++ = XA_FOREGROUND;

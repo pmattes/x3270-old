@@ -1,5 +1,5 @@
 '\" t
-.TH c3270 1 "25 July 2003"
+.TH c3270 1 "01 September 2003"
 .SH "NAME"
 c3270 \-
 curses-based 
@@ -3217,4 +3217,4 @@ c3270 is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
 .SH "VERSION"
-c3270 3.3.1-alpha9
+c3270 3.3.1-alpha10

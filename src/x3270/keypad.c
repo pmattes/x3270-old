@@ -26,6 +26,7 @@
 #include <X11/Xaw/Command.h>
 #include "appres.h"
 #include "resources.h"
+#include "screen.h"
 
 #include "actionsc.h"
 #include "keypadc.h"
@@ -262,8 +263,15 @@ keypad_placement_init(void)
 		kp_placement = kp_bottom;
 	else if (!strcmp(appres.keypad, KpIntegral))
 		kp_placement = kp_integral;
+	else if (!strcmp(appres.keypad, KpInsideRight))
+		kp_placement = kp_inside_right;
 	else
 		xs_error("Unknown value for %s", ResKeypad);
+
+	if (kp_placement == kp_integral && fixed_width) {
+		popup_an_error("Cannot have integral keypad and fixed size");
+		kp_placement = kp_right;
+	}
 }
 
 /*
@@ -656,6 +664,10 @@ keypad_popup_init(void)
 		break;
 	    case kp_integral:	/* can't happen */
 		return;
+	    case kp_inside_right:
+		vert = True;
+		pp = InsideRightP;
+		break;
 	}
 
 	/* Create a popup shell */

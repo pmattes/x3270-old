@@ -36,6 +36,48 @@ input, and X11 display output.</p>
 And other bugs may yet lurk.
 <p>However, once x3270 3.3 is stable enough and the broken features have
 been corrected, it will replace x3270 3.2.</p>
+<h2>Changes in x3270 3.3.1alpha10, 29. August 2003</h2>
+<ul>
+  <li>Bug Fixes:
+    <ul>
+      <li>Made nondisplay fields invisible to the <b>Ascii()</b> action.</li>
+      <li>Corrected start-field values at the beginning of data stream traces
+       and in the 3270 Read Buffer response.</li>
+      <li>Corrected a tight loop in the macro error cancellation logic.</li>
+      <li>Corrected a crash when connecting to a host and there is no menu
+       bar visible.</li>
+      <li>Corrected crashes in monochrome mode (<b>-mono</b>) and
+       pseudo-color mode (<b>-model 3278</b>).
+    </ul>
+  </li>
+  <li>New Features:
+    <ul>
+     <li>Added a <b>ReadBuffer()</b> action to dump the entire contents of
+      the 3270 buffer, including field attributes and extended attributes.</li>
+     <li>Added support for <b>suppress</b> resources for each menu item.
+      If set to <b>True</b>, that menu item will not appear.</li>
+     <li>Added a <b>suppressActions</b> resource, a list of the names of
+      actions to disable.  This is primarily for controlled environments where
+      the user does not have access to the <b>x3270</b> command line, but can
+      edit keymap definitions.</li>
+      <li>Added a <b>Setverbose</b> function to <tt>x3270_glue.expect</tt>
+       to allow verbosity to be changed on the fly.
+       <i>(Courtesy of David Taylor.)</i></li>
+      <li>Added the ability to define resources in an environment variable,
+       <b>$X3270RDB</b>.  The environment variable overrides values set in
+       the profile file, but is overridden by command-line options.</li>
+      <li>Added a <b>fixedSize</b> resource to force the <b>x3270</b> to a
+       particular size.  <b>fixedSize</b> has the value
+       <i>width</i><b>x</b><i>height</i>, in pixels.
+       The 3270 display will float in the center of the window, if need
+       be.</li>
+      <li>Added a new keypad position (<b>x3270.keypad</b>):
+       <b>insideRight</b>.  This positions the keypad on top of the upper
+       right-hand corner of the <b>x3270</b> window, just under the keypad
+       button on the menu bar.</li>
+    </ul>
+  </li>
+</ul>
 <h2>Changes in x3270 3.3.1alpha9, 24. July 2003</h2>
 <ul>
   <li>Bug Fixes:

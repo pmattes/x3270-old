@@ -14,17 +14,22 @@
 RM = rm -f
 CC = @CC@
 
-all: s3270 x3270if
+all:: s3270 x3270if
 
 SRCS = actions.c ansi.c apl.c charset.c ctlr.c ft.c ft_cut.c \
 	ft_dft.c glue.c host.c idle.c kybd.c macros.c print.c resources.c \
 	see.c sf.c smain.c tables.c telnet.c toggles.c trace_ds.c util.c \
-	xio.c XtGlue.c
+	@DBCS_C@ xio.c XtGlue.c
 VOBJS = actions.o ansi.o apl.o charset.o ctlr.o fallbacks.o ft.o ft_cut.o \
 	ft_dft.o glue.o host.o idle.o kybd.o macros.o print.o resources.o \
 	see.o sf.o smain.o tables.o telnet.o toggles.o trace_ds.o util.o \
-	xio.o XtGlue.o
+	@DBCS_O@ xio.o XtGlue.o
 OBJS1 = $(VOBJS) version.o
+@CNV@IDP = @ICU_DATA_PREFIX@
+@CNV@ICU_UCM = ibm-837_P100-2000.ucm ibm-300_P110-1997.ucm \
+@CNV@	ibm-1027_P100-1995.ucm  
+@CNV@ICU_CNV = $(IDP)_ibm-837_P100-2000.cnv $(IDP)_ibm-300_P110-1997.cnv \
+@CNV@	$(IDP)_ibm-1027_P100-1995.cnv
 
 LIBDIR = @libdir@
 prefix = @prefix@
@@ -54,14 +59,27 @@ fallbacks.c: mkfb X3270.xad
 
 s3270: $(OBJS1)
 	$(CC) -o $@ $(OBJS1) $(LDFLAGS) $(LIBS)
-x3270if: x3270if.o
-	$(CC) -o $@ x3270if.o
+x3270if: x3270if.c
+	$(CC) $(CFLAGS) -o $@ x3270if.c
+
+@CNV@all:: $(ICU_CNV)
+@CNV@$(IDP)_ibm-837_P100-2000.cnv: ibm-837_P100-2000.ucm
+@CNV@	makeconv -d . -p $(IDP) ibm-837_P100-2000.ucm
+@CNV@$(IDP)_ibm-300_P110-1997.cnv: ibm-300_P110-1997.ucm
+@CNV@	makeconv -d . -p $(IDP) ibm-300_P110-1997.ucm
+@CNV@$(IDP)_ibm-1027_P100-1995.cnv: ibm-1027_P100-1995.ucm
+@CNV@	makeconv -d . -p $(IDP) ibm-1027_P100-1995.ucm
 
 install:: s3270 x3270if
 	[ -d $(DESTDIR)$(BINDIR) ] || \
 		mkdir -p $(DESTDIR)$(BINDIR)
 	$(INSTALL_PROGRAM) s3270 $(DESTDIR)$(BINDIR)/s3270
 	$(INSTALL_PROGRAM) x3270if $(DESTDIR)$(BINDIR)/x3270if
+
+@CNV@install:: $(ICU_CNV)
+@CNV@	[ -d $(DESTDIR)$(LIBX3270DIR) ] || \
+@CNV@		mkdir -p $(DESTDIR)$(LIBX3270DIR)
+@CNV@	$(INSTALL) $(INSTDATAFLAGS) $(ICU_CNV) $(DESTDIR)$(LIBX3270DIR)
 
 install.man:
 	[ -d $(DESTDIR)$(MANDIR)/man1 ] || \
@@ -70,8 +88,10 @@ install.man:
 	$(INSTALL_DATA) x3270if.man $(DESTDIR)$(MANDIR)/man1/x3270if.1
 	$(INSTALL_DATA) x3270-script.man $(DESTDIR)$(MANDIR)/man1/x3270-script.1
 
-clean:
+clean::
 	$(RM) s3270 *.o
+@CNV@clean::
+@CNV@	$(RM) $(ICU_CNV)
 
 depend:
 	gccmakedep $(XCPPFLAGS) -s "# DO NOT DELETE" $(SRCS)

@@ -1,5 +1,5 @@
 '\" t
-.TH s3270 1 "07 February 2003"
+.TH s3270 1 "01 September 2003"
 .SH "NAME"
 s3270 \-
 \s-1IBM\s+1 host access tool
@@ -23,16 +23,24 @@ The full syntax for \fIhost\fP is:
 [\fIprefix\fP:]...[\fILUname\fP@]\fIhostname\fP[:\fIport\fP]
 .RE
 .LP
-Prepending a \fBp:\fP onto \fIhostname\fP causes the connection to go
+Prepending a \fBP:\fP onto \fIhostname\fP causes the connection to go
 through the \fItelnet-passthru\fP service rather than directly to the host.
 See \s-1PASSTHRU\s+1 below.
 .LP
-Prepending an \fBs:\fP onto \fIhostname\fP removes the "extended data
+Prepending an \fBS:\fP onto \fIhostname\fP removes the "extended data
 stream" option reported to the host.
 See \fB\-tn\fP below for further information.
 .LP
-Prepending an \fBn:\fP onto \fIhostname\fP
+Prepending an \fBN:\fP onto \fIhostname\fP
 turns off TN3270E support for the session.
+.LP
+Prepending an \fBL:\fP onto \fIhostname\fP
+causes \fBs3270\fP to first create an SSL tunnel to the host, and then
+create a TN3270 session inside the tunnel.  (This function is supported only if
+\fBs3270\fP was built with SSL/TLS support).
+Note that TLS-encrypted sessions using the TELNET START-TLS option are
+negotiated with the host automatically; for these sessions the \fBL:\fP prefix
+should not be used.
 .LP
 A specific LU name to use may be specified by prepending it to the
 \fIhostname\fP with an `\fB@\fP'.
@@ -1606,7 +1614,7 @@ Controls what happens when the destination file already exists.
 \fBappend\fP appends the source file to the destination file.
 .TP
 \fBRecfm\fP
-Controls the record format of files created on the host.
+Controls the record  of files created on the host.
 \fBfixed\fP creates a file with fixed-length records.
 \fBvariable\fP creates a file with variable-length records.
 \fBundefined\fP creates a file with undefined-length records (\s-1TSO\s+1 hosts only).
@@ -2282,6 +2290,7 @@ the last one on the command line is used.
 .SH "FILES"
 /usr/local/lib/x3270/ibm_hosts
 .br
+
 .SH "SEE ALSO"
 x3270(1), c3270(1), tcl3270(1), ibm_hosts(5), x3270-script(1), telnet(1), tn3270(1)
 .br
@@ -2318,4 +2327,4 @@ s3270 is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
 .SH "VERSION"
-s3270 3.2.20
+s3270 3.3.1-alpha10

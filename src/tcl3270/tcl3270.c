@@ -30,7 +30,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tcl3270.c,v 1.30 2003/01/28 19:34:14 pdm Exp $
+ * RCS: @(#) $Id: tcl3270.c,v 1.28.1.8 2003/08/19 22:20:19 pdm Exp $
  */
 
 /*
@@ -74,6 +74,7 @@
 #include "togglesc.h"
 #include "trace_dsc.h"
 #include "utilc.h"
+#include "widec.h"
 
 /*
  * The following variable is a special hack that is needed in order for
@@ -285,6 +286,7 @@ Tcl_AppInit(Tcl_Interp *interp)
      * Call Tcl_CreateCommands for the application-specific commands, if
      * they weren't already created by the init procedures called above.
      */
+    action_init();
     for (i = 0; i < actioncount; i++) {
 	if (Tcl_CreateObjCommand(interp, actions[i].string, x3270_cmd, NULL,
 		NULL) == NULL) {
@@ -689,12 +691,13 @@ sms_continue(void)
 /* Data query actions. */
 
 static void
-dump_range(int first, int len, Boolean in_ascii, unsigned char *buf,
+dump_range(int first, int len, Boolean in_ascii, struct ea *buf,
     int rel_rows unused, int rel_cols)
 {
 	register int i;
 	Tcl_Obj *o = NULL;
 	Tcl_Obj *row = NULL;
+	Boolean is_zero = False;
 
 	/*
 	 * The client has now 'looked' at the screen, so should they later
@@ -702,8 +705,10 @@ dump_range(int first, int len, Boolean in_ascii, unsigned char *buf,
 	 * from the host.  output_wait_needed is cleared by sms_host_output,
 	 * which is called from the write logic in ctlr.c.
 	 */
-	if (buf == screen_buf)
+	if (buf == ea_buf)
 		output_wait_needed = True;
+
+	is_zero = FA_IS_ZERO(get_field_attribute(first));
 
 	for (i = 0; i < len; i++) {
 		unsigned char c;
@@ -723,15 +728,37 @@ dump_range(int first, int len, Boolean in_ascii, unsigned char *buf,
 				row = Tcl_NewListObj(0, NULL);
 		}
 		if (in_ascii) {
-			c = cg2asc[buf[first + i]];
+			if (buf[first + i].fa) {
+				is_zero = FA_IS_ZERO(buf[first + i].fa);
+				c = ' ';
+			} else if (is_zero)
+				c = ' ';
+			else
+#if defined(X3270_DBCS) /*[*/
+			if (IS_LEFT(ctlr_dbcs_state(first + i))) {
+				int len;
+				char mb[16];
+
+				len = dbcs_to_mb(buf[first + i].cc,
+					         buf[first + i + 1].cc,
+					         mb);
+				if (len > 0)
+					Tcl_AppendToObj(row, mb, len);
+				continue;
+			} else if (IS_RIGHT(ctlr_dbcs_state(first + i))) {
+				continue;
+			} else
+#endif /*]*/
+			{
+				c = ebc2asc[buf[first + i].cc];
+			}
 			if (!c)
 				c = ' ';
 			Tcl_AppendToObj(row, (char *)&c, 1);
 		} else {
 			char s[5];
 
-			(void) sprintf(s, "0x%02x",
-				cg2ebc[buf[first + i]]);
+			(void) sprintf(s, "0x%02x", buf[first + i].cc);
 			Tcl_ListObjAppendElement(sms_interp, row,
 				Tcl_NewStringObj(s, -1));
 		}
@@ -749,7 +776,7 @@ dump_range(int first, int len, Boolean in_ascii, unsigned char *buf,
 
 static void
 dump_rectangle(int start_row, int start_col, int rows, int cols,
-    Boolean in_ascii, unsigned char *buf, int rel_cols)
+    Boolean in_ascii, struct ea *buf, int rel_cols)
 {
 	register int r, c;
 	Tcl_Obj *o = NULL;
@@ -761,7 +788,7 @@ dump_rectangle(int start_row, int start_col, int rows, int cols,
 	 * from the host.  output_wait_needed is cleared by sms_host_output,
 	 * which is called from the write logic in ctlr.c.
 	 */
-	if (buf == screen_buf)
+	if (buf == ea_buf)
 		output_wait_needed = True;
 
 	if (!rows || !cols)
@@ -784,15 +811,35 @@ dump_rectangle(int start_row, int start_col, int rows, int cols,
 			if (in_ascii) {
 				unsigned char ch;
 
-				ch = cg2asc[buf[loc]];
+				if (FA_IS_ZERO(get_field_attribute(loc)))
+					ch = ' ';
+				else
+
+#if defined(X3270_DBCS) /*[*/
+				if (IS_LEFT(ctlr_dbcs_state(loc))) {
+					int len;
+					char mb[16];
+
+					len = dbcs_to_mb(buf[loc].cc,
+						      buf[loc + 1].cc,
+						      mb);
+					if (len > 0)
+						Tcl_AppendToObj(row, mb, len);
+					continue;
+				} else if (IS_RIGHT(ctlr_dbcs_state(loc))) {
+					continue;
+				} else
+#endif /*]*/
+				{
+					ch = ebc2asc[buf[loc].cc];
+				}
 				if (!ch)
 					ch = ' ';
 				Tcl_AppendToObj(row, (char *)&ch, 1);
 			} else {
 				char s[5];
 
-				(void) sprintf(s, "0x%02x",
-					cg2ebc[buf[loc]]);
+				(void) sprintf(s, "0x%02x", buf[loc].cc);
 				Tcl_ListObjAppendElement(sms_interp, row,
 					Tcl_NewStringObj(s, -1));
 			}
@@ -812,7 +859,7 @@ dump_rectangle(int start_row, int start_col, int rows, int cols,
 
 static void
 dump_fixed(String params[], Cardinal count, const char *name, Boolean in_ascii,
-	unsigned char *buf, int rel_rows, int rel_cols, int caddr)
+	struct ea *buf, int rel_rows, int rel_cols, int caddr)
 {
 	int row, col, len, rows = 0, cols = 0;
 
@@ -863,7 +910,6 @@ dump_fixed(String params[], Cardinal count, const char *name, Boolean in_ascii,
 static void
 dump_field(Cardinal count, const char *name, Boolean in_ascii)
 {
-	unsigned char *fa;
 	int start, baddr;
 	int len = 0;
 
@@ -875,17 +921,16 @@ dump_field(Cardinal count, const char *name, Boolean in_ascii)
 		popup_an_error("%s: Screen is not formatted", name);
 		return;
 	}
-	fa = get_field_attribute(cursor_addr);
-	start = fa - screen_buf;
+	start = find_field_attribute(cursor_addr);
 	INC_BA(start);
 	baddr = start;
 	do {
-		if (IS_FA(screen_buf[baddr]))
+		if (ea_buf[baddr].fa)
 			break;
 		len++;
 		INC_BA(baddr);
 	} while (baddr != start);
-	dump_range(start, len, in_ascii, screen_buf, ROWS, COLS);
+	dump_range(start, len, in_ascii, ea_buf, ROWS, COLS);
 }
 
 void
@@ -893,7 +938,7 @@ Ascii_action(Widget w unused, XEvent *event unused, String *params,
     Cardinal *num_params)
 {
 	dump_fixed(params, *num_params, action_name(Ascii_action), True,
-		screen_buf, ROWS, COLS, cursor_addr);
+		ea_buf, ROWS, COLS, cursor_addr);
 }
 
 void
@@ -908,7 +953,7 @@ Ebcdic_action(Widget w unused, XEvent *event unused, String *params,
     Cardinal *num_params)
 {
 	dump_fixed(params, *num_params, action_name(Ebcdic_action), False,
-		screen_buf, ROWS, COLS, cursor_addr);
+		ea_buf, ROWS, COLS, cursor_addr);
 }
 
 void
@@ -945,10 +990,10 @@ status_string(void)
 	if (!formatted)
 		prot_stat = 'U';
 	else {
-		unsigned char *fa;
+		unsigned char fa;
 
 		fa = get_field_attribute(cursor_addr);
-		if (FA_IS_PROTECTED(*fa))
+		if (FA_IS_PROTECTED(fa))
 			prot_stat = 'P';
 		else
 			prot_stat = 'U';
@@ -1000,6 +1045,169 @@ Status_action(Widget w unused, XEvent *event unused, String *params,
 	Free(s);
 }
 
+static unsigned char
+calc_cs(unsigned char cs)
+{
+	switch (cs & CS_MASK) { 
+	case CS_APL:
+	    return 0xf1;
+	case CS_LINEDRAW:
+	    return 0xf2;
+	case CS_DBCS:
+	    return 0xf8;
+	default:
+	    return 0x00;
+	}
+}
+
+/*
+ * Internals of the ReadBuffer action.
+ * Operates on the supplied 'buf' parameter, which might be the live
+ * screen buffer 'ea_buf' or a copy saved with 'Snap'.
+ */
+static void
+do_read_buffer(String *params, Cardinal num_params, struct ea *buf)
+{
+	Tcl_Obj *o = NULL;
+	Tcl_Obj *row = NULL;
+	register int	baddr;
+	unsigned char	current_fg = 0x00;
+	unsigned char	current_gr = 0x00;
+	unsigned char	current_cs = 0x00;
+	char field_buf[1024];
+	unsigned char c;
+	Boolean in_ebcdic = False;
+
+	if (num_params > 0) {
+		if (num_params > 1) {
+			popup_an_error("%s: extra agruments",
+					action_name(ReadBuffer_action));
+			return;
+		}
+		if (!strncasecmp(params[0], "Ascii", strlen(params[0])))
+			in_ebcdic = False;
+		else if (!strncasecmp(params[0], "Ebcdic", strlen(params[0])))
+			in_ebcdic = True;
+		else {
+			popup_an_error("%s: first parameter must be "
+					"Ascii or Ebcdic",
+					action_name(ReadBuffer_action));
+			return;
+		}
+					                                        
+	}
+
+	baddr = 0;
+	do {
+		if (!(baddr % COLS)) {
+			/* New row. */
+			if (o == NULL)
+				o = Tcl_NewListObj(0, NULL);
+			if (row != NULL)
+				Tcl_ListObjAppendElement(sms_interp, o, row);
+			row = Tcl_NewListObj(0, NULL);
+		}
+		if (buf[baddr].fa) {
+			char *s = field_buf;
+			s += sprintf(s, "SF(%02x=%02x", XA_3270,
+					buf[baddr].fa);
+			if (buf[baddr].fg)
+				s += sprintf(s, ",%02x=%02x", XA_FOREGROUND,
+						buf[baddr].fg);
+			if (buf[baddr].gr)
+				s += sprintf(s, ",%02x=%02x", XA_HIGHLIGHTING,
+						buf[baddr].gr | 0xf0);
+			if (buf[baddr].cs & CS_MASK)
+				s += sprintf(s, ",%02x=%02x", XA_CHARSET,
+					     calc_cs(buf[baddr].cs));
+			s += sprintf(s, ")");
+			Tcl_ListObjAppendElement(sms_interp, row,
+				Tcl_NewStringObj(field_buf, -1));
+		} else {
+			if (buf[baddr].fg != current_fg) {
+				sprintf(field_buf, "SA(%02x=%02x)",
+						XA_FOREGROUND,
+						buf[baddr].fg);
+				Tcl_ListObjAppendElement(sms_interp, row,
+					Tcl_NewStringObj(field_buf, -1));
+				current_fg = buf[baddr].fg;
+			}
+			if (buf[baddr].gr != current_gr) {
+				sprintf(field_buf, "SA(%02x=%02x)",
+						XA_HIGHLIGHTING,
+						buf[baddr].gr | 0xf0);
+				Tcl_ListObjAppendElement(sms_interp, row,
+					Tcl_NewStringObj(field_buf, -1));
+				current_gr = buf[baddr].gr;
+			}
+			if ((buf[baddr].cs & ~CS_GE) !=
+					(current_cs & ~CS_GE)) {
+				sprintf(field_buf, "SA(%02x=%02x)",
+						XA_CHARSET,
+						calc_cs(buf[baddr].cs));
+				Tcl_ListObjAppendElement(sms_interp, row,
+					Tcl_NewStringObj(field_buf, -1));
+				current_cs = buf[baddr].cs;
+			}
+			if (in_ebcdic) {
+				if (buf[baddr].cs & CS_GE)
+					sprintf(field_buf, "GE(%02x)",
+							buf[baddr].cc);
+				else
+					sprintf(field_buf, "%02x",
+							buf[baddr].cc);
+				Tcl_ListObjAppendElement(sms_interp, row,
+					Tcl_NewStringObj(field_buf, -1));
+			} else {
+				switch (buf[baddr].cs & CS_MASK) {
+				case CS_BASE:
+				default:
+					if (buf[baddr].cs & CS_GE)
+						c = ge2asc[buf[baddr].cc];
+					else if (buf[baddr].cc == EBC_null)
+						c = 0;
+					else 
+						c = ebc2asc[buf[baddr].cc];
+					break;
+				case CS_APL:
+					c = cg2asc[buf[baddr].cc];
+					break;
+				case CS_LINEDRAW:
+					c = ' ';
+					break;
+#if defined(X3270_DBCS) /*[*/
+				case CS_DBCS:
+					c = ' '; /* XXX */
+					break;
+#endif /*]*/
+				}
+				sprintf(field_buf, "%02x", c);
+				Tcl_ListObjAppendElement(sms_interp, row,
+					Tcl_NewStringObj(field_buf, -1));
+			}
+		}
+		INC_BA(baddr);
+	} while (baddr != 0);
+
+	if (row) {
+		if (o) {
+			Tcl_ListObjAppendElement(sms_interp, o, row);
+			Tcl_SetObjResult(sms_interp, o);
+		} else
+			Tcl_SetObjResult(sms_interp, row);
+	}
+}
+
+/*
+ * ReadBuffer action.
+ */
+void
+ReadBuffer_action(Widget w unused, XEvent *event unused, String *params,
+    Cardinal *num_params)
+{
+	do_read_buffer(params, *num_params, ea_buf);
+}
+
 /*
  * "Snap" action, maintains a snapshot for consistent multi-field comparisons:
  *
@@ -1020,7 +1228,7 @@ Status_action(Widget w unused, XEvent *event unused, String *params,
  */
 
 static char *snap_status = NULL;
-static unsigned char *snap_buf = NULL;
+static struct ea *snap_buf = NULL;
 static int snap_rows = 0;
 static int snap_cols = 0;
 static int snap_field_start = -1;
@@ -1033,8 +1241,8 @@ snap_save(void)
 	output_wait_needed = True;
 	Replace(snap_status, status_string());
 
-	Replace(snap_buf, (unsigned char *)Malloc(ROWS*COLS));
-	(void) memcpy(snap_buf, screen_buf, ROWS*COLS);
+	Replace(snap_buf, (struct ea *)Malloc(sizeof(struct ea) * ROWS*COLS));
+	(void) memcpy(snap_buf, ea_buf, sizeof(struct ea) * ROWS*COLS);
 
 	snap_rows = ROWS;
 	snap_cols = COLS;
@@ -1043,16 +1251,14 @@ snap_save(void)
 		snap_field_start = -1;
 		snap_field_length = -1;
 	} else {
-		unsigned char *fa;
 		int baddr;
 
 		snap_field_length = 0;
-		fa = get_field_attribute(cursor_addr);
-		snap_field_start = fa - screen_buf;
+		snap_field_start = find_field_attribute(cursor_addr);
 		INC_BA(snap_field_start);
 		baddr = snap_field_start;
 		do {
-			if (IS_FA(screen_buf[baddr]))
+			if (ea_buf[baddr].fa)
 				break;
 			snap_field_length++;
 			INC_BA(baddr);
@@ -1179,13 +1385,20 @@ Snap_action(Widget w unused, XEvent *event unused, String *params,
 		dump_fixed(params + 1, *num_params - 1,
 			action_name(Ebcdic_action), False, snap_buf,
 			snap_rows, snap_cols, snap_caddr);
+	} else if (!strcasecmp(params[0], action_name(ReadBuffer_action))) {
+		if (snap_status == NULL) {
+			popup_an_error("No saved state");
+			return;
+		}
+		do_read_buffer(params + 1, *num_params - 1, snap_buf);
 	} else {
 		popup_an_error("%s: Argument must be Save, Status, Rows, Cols, "
-		    "%s, %s or %s",
+		    "%s, %s, %s or %s",
 		    action_name(Snap_action),
 		    action_name(Wait_action),
 		    action_name(Ascii_action),
-		    action_name(Ebcdic_action));
+		    action_name(Ebcdic_action),
+		    action_name(ReadBuffer_action));
 	}
 }
 

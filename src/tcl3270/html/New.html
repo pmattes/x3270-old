@@ -1,215 +1,80 @@
-<!doctype html public "-//w3c//dtd html 4.0 transitional//en">
+<!DOCTYPE doctype PUBLIC "-//w3c//dtd html 4.0 transitional//en">
 <html>
 <head>
-   <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
-   <meta name="GENERATOR" content="Mozilla/4.5 [en] (WinNT; U) [Netscape]">
-   <title>tcl3270 Version 3.2 -- New Features and Bug Fixes</title>
-   <link HREF="http://www.w3.org/StyleSheets/Core/Steely" TYPE="text/css" REL="stylesheet">
+   
+  <meta http-equiv="Content-Type"
+ content="text/html; charset=iso-8859-1">
+   
+  <meta name="Author" content="Paul Mattes">
+   
+  <meta name="GENERATOR"
+ content="Mozilla/4.5 [en] (WinNT; U) [Netscape]">
+  <title>tcl3270 3.3 New Features</title>
+       
+  <link href="http://www.w3.org/StyleSheets/Core/Steely" type="text/css"
+ rel="stylesheet">
 </head>
 <body>
-
-<h1>
-tcl3270 Version 3.2 -- New Features and Bug Fixes</h1>
-
-<h2>Changes in tcl3270 3.2.20, 14. February 2003</h2>
+<h1>New Features in tcl3270 3.3
+<hr width="100%"></h1>
+tcl3270 3.3 is the future development line for tcl3270. It is functionally equivalent
+to tcl3270 3.2.20, with the addition of SSL (Secure Sockets Layer) support
+and DBCS (Double Byte Character Set) support for East Asian languages --
+Chinese, Japanese and Korean.
+<p>The DBCS work required a significant change in the internal workings of
+tcl3270. For those familiar with the source code, the change was to store EBCDIC
+codes internally, and to dispense with the confusing CG-code representation
+of the 3270 display. This required changing all of the logic that manipulates
+field attributes, as well as the logic that translates the host output, keyboard
+input, and X11 display output.</p>
+<p>A few eggs were broken in that process:</p>
 <ul>
- <li>Bug Fixes:
-  <ul>
-   <li>Corrected the <b>Ebcdic</b> command so it no longer adds null bytes to
-    each returned element.</li>
-   <li>Allow TclX signal processing to work correctly.</li>
-  </ul>
- </li>
- <li>Enhancements:
-  <ul>
-   <li>Can now specify action(s) to perform when a session has been idle for
-    some period of time.</li>
-  </ul>
- </li>
+ <li>pr3287 does not support DBCS.</li>
+ <li>File Transfer does not handle DBCS characters properly.</li>
 </ul>
-<h2>Changes in tcl3270 3.2.19, 1. May 2002</h2>
+And other bugs may yet lurk.
+<p>However, once tcl3270 3.3 is stable enough and the broken features have
+been corrected, it will replace tcl3270 3.2.</p>
+<h2>Changes in tcl3270 3.3.1alpha10, 7. September 2003</h2>
 <ul>
- <li>Bug Fixes:
-  <ul>
-   <li>Corrected the behavior of the <b>Delete</b> command on an unformatted 
-    screen.</li>
-   <li>Improved the performance of CUT-mode file transfers.</li>
-   <li>Corrected the <b>Transfer</b> action.  Numeric arguments always failed,
-    and the <b>crlf</b> option was being passed to the host even for binary
-    transfers.</li>
-   <li>Made the interpretation of model numbers and the 3270 Extendended
-    Data Stream consistent with <b>x3270</b>, e.g. <b>-model 3270-2</b> means
-    no Extended Data Stream, while <b>-model 3278-2-E</b> causes the Extended
-    Data Stream to be enabled.</li>
-   <li>Corrected the display of TN3270E mode names in data stream traces.<li>
-   <li>Removed use of the <i>memccpy</i>() library function, which is
-    apparently broken on some platforms and causes malformed Query Reply
-    messages to be generated.</li>
-   <li>Fixed an infinite loop in the <b>SysReq</b> action in TN3270E mode.</li>
-  </ul>
- </li>
- <li>Enhancements:
-  <ul>
-   <li>Removed the association between the <b>-E</b> suffix on the model number
-    and the <b>-E</b> transmitted with the terminal name on the telnet session.
-    A <b>-e</b> will now be silently ignored in the model number value; the
-    <b>-E></b> transmitted with the telnet terminal type string (indicating
-    support for the 3270 Extended Data Stream) is now controlled by the
-    <b>tcl3270.extended</b> resource (which defaults to <b>true</b>), or by the
-    presence of an <b>s:</b> prefix on the hostname, which turns off the
-    <b>-E</b> when connecting to that host.</li>
-   <li>Allow CR/LF translation on binary transfers.</li>
-   <li>Allow ASCII files that already contain CR/LF sequences to be transferred
-    to the host.</li>
-   <li>Added simulation of /dev/fd/ for trace files.</li>
-   <li>Updated to autoconf 2.53.</li>
-   <li>Added a <b>Toggle</b> action.</li>
-  </ul>
- </li>
+  <li>Bug Fixes:
+    <ul>
+      <li>Made nondisplay fields invisible to the <b>Ascii()</b> action.</li>
+      <li>Corrected start-field values at the beginning of data stream traces
+       and in the 3270 Read Buffer response.</li>
+      <li>Corrected a tight loop in the macro error cancellation logic.</li>
+      <li>Fixed idle commands.  They were pretty much hopeless in 3.2.20.</li>
+      <li>Fixed a Unicode conversion crash.</li>
+      <li>Fixed a bug in processing the Modify Field order, which would cause
+       the character set attribute for the field to be accidentally reset to
+       the default.</li>
+      <li>Builds cleanly on Linux with <tt>-Wall -ansi -pedantic</tt>.</li>
+      <li>Builds without OpenSSL libraries being present.</li>
+      <li>Correctly records Field Attributes in the initial screen snapshot
+in a Data Stream Trace file.</li>
+      <li>Auto-Skip fields work properly.</li>
+      <li>"Dead" positions in DBCS fields are handled correctly.</li>
+      <li>Invalid host DBCS characters are handled better and are displayed
+in the Data Stream Trace file.</li>
+      <li>The <b>Erase</b> action now works properly with DBCS characters.</li>
+    </ul>
+  </li>
+  <li>New Features:
+    <ul>
+     <li>Added a <b>ReadBuffer()</b> action to dump the entire contents of
+      the 3270 buffer, including field attributes and extended attributes.</li>
+     <li>Added support for <b>suppress</b> resources for each menu item.
+      If set to <b>True</b>, that menu item will not appear.</li>
+      <li>The TELNET START-TLS option is now supported.</li>
+      <li>Four more Japanese host code pages have been added: 930, 939, 1390
+       and 1399. This uses new support for combined SBCS/DBCS code pages.</li>
+      <li>DBCS support for Simplfied Chinese and Japanese, including integration
+       with XIM.</li>
+      <li>Tunneled SSL support added (entire Telnet session inside of an SSL
+       tunnel).  Uses the OpenSSL library.  Toggled with an 'L:' prefix
+        on the hostname.</li>
+    </ul>
+  </li>
 </ul>
-<h2>Changes in tcl3270 3.2.18, 31. December 2001</h2>
-<ul>
- <li>Bug Fixes:
-  <ul>
-   <li>Create directories as needed for <tt>make install</tt>.</li>
-   <li>Added better error detection to full-table character set
-       definitions.</li>
-  </ul>
- </li>
- <li>Enhancements:
-  <ul>
-   <li>Included the autoconf <tt>configure.in</tt> file, so that users can
-    run a newer or customized <i>autoconf</i> on it.</li>
-   <li>Added a <b>color8</b> resource.  When set to <b>true</b>, <i>tcl3270</i>
-    will only do a Query Reply report on 8 colors.  The default of 16 seems to
-    confuse some hosts.</li>
-   <li>Added Euro symbol support, using ISO 8859-15 fonts.</li>
-   <li>Added a <b>traceFileSize</b> resource and <b>-tracefilesize</b> option
-    to limit the size of trace files.</li>
-  </ul>
- </li>
-</ul>
-<h2>Changes in tcl3270 3.2.17, 25. June 2001</h2>
-<ul>
- <li>Installation Changes:
-  <ul>
-   <li>Moved the feature disable logic (turning off NVT mode, file transfers,
-    etc.) to <b>configure --disable</b> options.</li>
-   <li>Allowed the location of the configuration directory (where the
-    character set files are) to be set with a new resource:
-    <tt>tcl3270.confDir</tt>.</li>
-  </ul>
- </li>
- <li>Bug Fixes:
-  <ul>
-   <li>Verified that tcl3270 builds with all permutations of disabled
-    features.</li>
-   <li>Fixed a problem with 3270 Modify Field orders that specify no
-    attributes.</li>
-   <li>Fixed a problem with misinterpreting skipped 3270 field attributes.</li>
-   <li>Compatibility changes for Cygwin.</li>
-   <li>Improved the performance of DFT file transfers.</li>
-  </ul>
- </li>
- <li>Character Set Improvements:
-  <ul>
-   <li>Added support for other 8-bit character sets (Latin-5, etc.).</li>
-   <li>Added support for Turkish, ISO Hebrew, Russian, Thai and Brazilian
-    character sets.</li>
-   <li>Added support for file-based character sets, in the <tt>charset</tt>
-    subdirectory of the configuration directory.</li>
-   <li>Added support for specifying an entire character set translation table,
-    rather than listing the exceptions from ISO 8859-1.</li>
-   <li>Added support for file transfer character sets (a definition of how
-    the host translates EBCDIC to ASCII for file transfers).</li>
-  </ul>
- </li>
- <li>Other Improvements:
-  <ul>
-   <li>Added support for <b>BackTab</b> in <b>String</b> actions, via the
-    <tt>\T</tt> sequence.</li>
-   <li>Allow IPv6-style square-bracket-delimited hostnames, and tightened the
-    rules for port numbers.</li>
-  </ul>
- </li>
-</ul>
-<h2>Changes in tcl3270 3.2.16, 28. February 2001</h2>
-<ul>
- <li>Removed the stray reference to x3270if from the Makefile template.</li>
- <li>Changed the configure script to find the BSD versions of the TclX
-  library.</li>
- <li>Added a timeout parameter to the <b>Wait</b> command.</li>
- <li>Added an Italian character set.<li>
- <li>Added translations ASCII file transfers, so square brackets, pipe 
-   characters and anything from the upper half of the IOS 8859-1 character set
-   stand a better chance of coming through correctly.</li> 
- <li>Corrected a subtle problem in TN3270E option negotiation.</li>
- <li>Improved SSCP-LU support.</li>
- <li>Restored the operation of CUT-mode file transfer. (It had been disabled
-   early in the 3.2 development cycle.)</li>
-</ul>
-<h2>Changes in tcl3270 3.2.15, 26. December 2000</h2>
-<ul>
-<li>Corrected the Makefile template to build tcl3270 instead of c3270.</li>
-<li>Changed the default terminal type to a 3278.</li>
-<li>Corrected the behavior of <b>Ascii</b> and <b>Snap Ascii</b> when four
-arguments are supplied.</li>
-<li>Changed the default version of the <b>tcl</b> library to 8.3 (8.2 is still
-supported with the <tt>configure --with-tcl=8.2</tt> option).</li>
-<li>Added support for Extended Tcl (TclX), via the <tt>configure
---with-tclx</tt> option.</li>
-<li>Fixed a problem with disconnecting from hosts when they send illegal
-commands in non-TN3270E mode.</li>
-<li>Allow, but ignore, Create Partition structured fields.</li>
-</ul>
-<h2>
-<b>Changes in tcl3270 3.2.14, 15. November 2000</b></h2>
-Corrected some problems with the internal event scheduler, which could
-cause timeouts to hang.
-<br>Added support for -xrm.
-<br>Updated the man pages and synchronized the HTML versions.
-<h2><b>Changes in tcl3270 3.2.12, 8. September 2000</b></h2>
-Added Rows and Cols commnds.
-<br>Corrected the documentation of the status fields (there are only 11 of 
-them).
-<h2>
-<b>Changes in tcl3270 3.2.11, 31. July 2000</b></h2>
-In a Query Reply, send the correct codepage when using non-US character
-sets.
-<br>Request the first LU name only once.
-<br>Added <b>cms_cmd.tcl3270</b> example script.
-<h2>
-<b>Changes in tcl3270 3.2.10, 5. July 2000</b></h2>
-Added an <b>n:</b> prefix to hostnames to selectively disable TN3270E.
-<br>Changed the reported CSCSGID to <tt>X'02B90025'</tt> (English-U.S.).
-<br>Fixed the <b>Attn</b> command to send TELNET IP, per RFC 2355.
-<br>Restored the ability to disable most components in <tt>parts.h</tt>,
-and made TN3270E mode a configurable component.
-<br>Removed old <tt>ARGSUSED</tt> lint hints.
-<h2>
-<b>Changes in tcl3270 3.2.9, 26. June 2000</b></h2>
-Fixed requesting the wrong LU after switching between TN3270E and TN3270
-modes.
-<br>Added a new <b>Snap</b> command.
-<br>Added new <b>Wait Disconnect</b> and <b>Wait Output</b> commands.
-<br>Changed <b>Wait</b> to <b>Wait InputField</b>, <b>Wait 3270</b> to
-<b>Wait
-3270Mode</b> and <b>Wait ansi</b> to <b>Wait NVTMode</b>. The old names
-are still supported for backwards-compatibility.
-<br>Fixed a problem with parameter processing in the <b>Transfer</b> command.
-<br>Catch empty hostnames.
-<br>Added stricter enforcement of user-specified LUs.
-<br>Catch failures of command-line-specified host connections.
-<br>Added <b>--</b> to separate tcl3270 options from script options, and
-pass those options to the script in $argv.
-<br>Added <b>-trace</b>.
-<br>Vastly improved tracing.
-<br>Fixed a nit in tracing Query Reply options.
-<h2>
-Changes in tcl3270 3.2.8, 1. June 2000</h2>
-Fixed a problem with initial host connection negotation and talking to
-a non-TN3270E host.
-<br>Added support for IND$FILE file transfers, via the new <b>Transfer</b>
-command.
 </body>
 </html>

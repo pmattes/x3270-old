@@ -182,6 +182,14 @@ EOF
 		AC_MSG_WARN(Disabling DBCS)
 		enable_dbcs="no"
 	fi
+	if test "$enable_dbcs" = "yes"
+	then	icu_enough=`expr $icu_suffix '>=' _2_2`
+		if test $icu_enough -eq 0
+		then	AC_MSG_WARN(ICU version must be 2.2 or later)
+			AC_MSG_WARN(Disabling DBCS)
+			enable_dbcs="no"
+		fi
+	fi
 fi
 
 dnl Checks for typedefs, structures, and compiler characteristics.

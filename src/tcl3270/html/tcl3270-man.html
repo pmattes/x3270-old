@@ -47,16 +47,24 @@ and supports IND$FILE file transfer.
 The full syntax for <i>host</i> is:
 <blockquote>[<i>prefix</i>:]...[<i>LUname</i>@]<i>hostname</i>[:<i>port</i>]</blockquote>
 <p>
-Prepending a <b>p:</b> onto <i>hostname</i> causes the connection to go
+Prepending a <b>P:</b> onto <i>hostname</i> causes the connection to go
 through the <i>telnet-passthru</i> service rather than directly to the host.
 See <a HREF="#Passthru"><font size=-1>PASSTHRU</font></a> below.
 <p>
-Prepending an <b>s:</b> onto <i>hostname</i> removes the "extended data
+Prepending an <b>S:</b> onto <i>hostname</i> removes the "extended data
 stream" option reported to the host.
 See <a HREF="#tn"><b>-tn</b></a> below for further information.
 <p>
-Prepending an <b>n:</b> onto <i>hostname</i>
+Prepending an <b>N:</b> onto <i>hostname</i>
 turns off TN3270E support for the session.
+<p>
+Prepending an <b>L:</b> onto <i>hostname</i>
+causes <b>tcl3270</b> to first create an SSL tunnel to the host, and then
+create a TN3270 session inside the tunnel.  (This function is supported only if
+<b>tcl3270</b> was built with SSL/TLS support).
+Note that TLS-encrypted sessions using the TELNET START-TLS option are
+negotiated with the host automatically; for these sessions the <b>L:</b> prefix
+should not be used.
 <p>
 A specific LU name to use may be specified by prepending it to the
 <i>hostname</i> with an `<b>@</b>'.
@@ -332,11 +340,14 @@ possibly waiting for a response.
 <tr><td >Reset</td>	<td >reset locked keyboard</td></tr>
 <tr><td >Right</td>	<td >move cursor right</td></tr>
 <tr><td >Right2</td>	<td >move cursor right 2 positions</td></tr>
+<tr><td >ReadBuffer Ascii</td>	<td >dump screen buffer in ASCII</td></tr>
+<tr><td >ReadBuffer Ebcdic</td>	<td >dump screen buffer in EBCDIC</td></tr>
 <tr><td >Rows</td>	<td >report screen size</td></tr>
 <tr><td >Snap</td>	<td >same as <b>Snap Save</b></td></tr>
 <tr><td >Snap Ascii</td>	<td >report saved screen data (see <b>Ascii</b>)</td></tr>
 <tr><td >Snap Cols</td>	<td >report saved screen size</td></tr>
 <tr><td >Snap Ebcdic</td>	<td >report saved screen data (see <b>Ebcdic</b>)</td></tr>
+<tr><td >Snap ReadBuffer</td>	<td >report saved screen data (see <b>ReadBuffer</b>)</td></tr>
 <tr><td >Snap Rows</td>	<td >report saved screen size</td></tr>
 <tr><td >Snap Save</td>	<td >save screen image</td></tr>
 <tr><td >Snap Status</td>	<td >report saved connection status</td></tr>
@@ -416,7 +427,7 @@ Controls what happens when the destination file already exists.
 <b>replace</b> overwrites the destination file with the source file.
 <b>append</b> appends the source file to the destination file.
 <dt><b>Recfm</b></dt><dd>
-Controls the record format of files created on the host.
+Controls the record  of files created on the host.
 <b>fixed</b> creates a file with fixed-length records.
 <b>variable</b> creates a file with variable-length records.
 <b>undefined</b> creates a file with undefined-length records (<font size=-1>TSO</font> hosts only).
@@ -575,12 +586,12 @@ tcl3270 is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
 <a NAME="Version"></a><h2>Version</h2>
-tcl3270 3.2.20
+tcl3270 3.3.1-alpha10
 <hr>
 <address>
 This HTML document and the accompanying troff document were generated with
 a set of write-only <b>m4</b> macros and the powerful <b>vi</b> editor.
-<br>Last modified 07 February 2003.
+<br>Last modified 29 August 2003.
 </address>
 </body>
 </html>

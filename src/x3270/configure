@@ -2138,7 +2138,7 @@ solaris2*)	XANSI=-D__EXTENSIONS__
 		;;
 darwin*)	XPRECOMP=-no-cpp-precomp
 		;;
-linux*)		XANSI=-D_BSD_SOURCE
+linux*)		XANSI="-D_POSIX_SOURCE -D_BSD_SOURCE"
 		;;
 esac
 
@@ -4002,6 +4002,16 @@ echo "${ECHO_T}not found" >&6
 		{ echo "$as_me:$LINENO: WARNING: Disabling DBCS" >&5
 echo "$as_me: WARNING: Disabling DBCS" >&2;}
 		enable_dbcs="no"
+	fi
+	if test "$enable_dbcs" != "no"
+	then	icu_enough=`expr $icu_suffix '>=' _2_2`
+		if test $icu_enough -eq 0
+		then	{ echo "$as_me:$LINENO: WARNING: ICU version must be 2.2 or later" >&5
+echo "$as_me: WARNING: ICU version must be 2.2 or later" >&2;}
+			{ echo "$as_me:$LINENO: WARNING: Disabling DBCS" >&5
+echo "$as_me: WARNING: Disabling DBCS" >&2;}
+			enable_dbcs="no"
+		fi
 	fi
 fi
 

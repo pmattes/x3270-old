@@ -50,6 +50,7 @@
 #include "printerc.h"
 #endif /*]*/
 #include "screenc.h"
+#include "seec.h"
 #include "statusc.h"
 #include "tablesc.h"
 #include "trace_dsc.h"
@@ -1352,6 +1353,7 @@ dump_range(int first, int len, Boolean in_ascii, struct ea *buf,
 {
 	register int i;
 	Boolean any = False;
+	Boolean is_zero = False;
 	char *linebuf;
 	char *s;
 
@@ -1367,6 +1369,8 @@ dump_range(int first, int len, Boolean in_ascii, struct ea *buf,
 	if (sms != SN && buf == ea_buf)
 		sms->output_wait_needed = True;
 
+	is_zero = FA_IS_ZERO(get_field_attribute(first));
+
 	for (i = 0; i < len; i++) {
 		if (i && !((first + i) % rel_cols)) {
 			*s = '\0';
@@ -1377,6 +1381,12 @@ dump_range(int first, int len, Boolean in_ascii, struct ea *buf,
 		if (in_ascii) {
 			unsigned char c;
 
+			if (buf[first + i].fa) {
+				is_zero = FA_IS_ZERO(buf[first + i].fa);
+				c = ' ';
+			} else if (is_zero)
+				c = ' ';
+			else
 #if defined(X3270_DBCS) /*[*/
 			if (IS_LEFT(ctlr_dbcs_state(first + i))) {
 				int len;
@@ -1526,6 +1536,143 @@ EbcdicField_action(Widget w unused, XEvent *event unused,
     String *params unused, Cardinal *num_params)
 {
 	dump_field(*num_params, action_name(EbcdicField_action), False);
+}
+
+static unsigned char
+calc_cs(unsigned char cs)
+{
+	switch (cs & CS_MASK) { 
+	case CS_APL:
+	    return 0xf1;
+	case CS_LINEDRAW:
+	    return 0xf2;
+	case CS_DBCS:
+	    return 0xf8;
+	default:
+	    return 0x00;
+	}
+}
+
+/*
+ * Internals of the ReadBuffer action.
+ * Operates on the supplied 'buf' parameter, which might be the live
+ * screen buffer 'ea_buf' or a copy saved with 'Snap'.
+ */
+static void
+do_read_buffer(String *params, Cardinal num_params, struct ea *buf)
+{
+	register int	baddr;
+	unsigned char	current_fg = 0x00;
+	unsigned char	current_gr = 0x00;
+	unsigned char	current_cs = 0x00;
+	char field_buf[1024];
+	char *s = field_buf;
+	unsigned char c;
+	Boolean in_ebcdic = False;
+
+	if (num_params > 0) {
+		if (num_params > 1) {
+			popup_an_error("%s: extra agruments",
+					action_name(ReadBuffer_action));
+			return;
+		}
+		if (!strncasecmp(params[0], "Ascii", strlen(params[0])))
+			in_ebcdic = False;
+		else if (!strncasecmp(params[0], "Ebcdic", strlen(params[0])))
+			in_ebcdic = True;
+		else {
+			popup_an_error("%s: first parameter must be "
+					"Ascii or Ebcdic",
+					action_name(ReadBuffer_action));
+			return;
+		}
+					                                        
+	}
+
+	baddr = 0;
+	do {
+		if (!(baddr % COLS)) {
+			if (baddr)
+				action_output(field_buf + 1);
+			s = field_buf;
+		}
+		if (buf[baddr].fa) {
+
+			s += sprintf(s, " SF(%02x=%02x", XA_3270,
+					buf[baddr].fa);
+			if (buf[baddr].fg)
+				s += sprintf(s, ",%02x=%02x", XA_FOREGROUND,
+						buf[baddr].fg);
+			if (buf[baddr].gr)
+				s += sprintf(s, ",%02x=%02x", XA_HIGHLIGHTING,
+						buf[baddr].gr | 0xf0);
+			if (buf[baddr].cs & CS_MASK)
+				s += sprintf(s, ",%02x=%02x", XA_CHARSET,
+					     calc_cs(buf[baddr].cs));
+			s += sprintf(s, ")");
+		} else {
+			if (buf[baddr].fg != current_fg) {
+				s += sprintf(s, " SA(%02x=%02x)", XA_FOREGROUND,
+							buf[baddr].fg);
+				current_fg = buf[baddr].fg;
+			}
+			if (buf[baddr].gr != current_gr) {
+				s += sprintf(s, " SA(%02x=%02x)",
+						XA_HIGHLIGHTING,
+						buf[baddr].gr | 0xf0);
+				current_gr = buf[baddr].gr;
+			}
+			if ((buf[baddr].cs & ~CS_GE) !=
+					(current_cs & ~CS_GE)) {
+				s += sprintf(s, " SA(%02x=%02x)", XA_CHARSET,
+						calc_cs(buf[baddr].cs));
+				current_cs = buf[baddr].cs;
+			}
+			if (in_ebcdic) {
+				if (buf[baddr].cs & CS_GE)
+					s += sprintf(s, " GE(%02x)",
+							buf[baddr].cc);
+				else
+					s += sprintf(s, " %02x", buf[baddr].cc);
+			} else {
+				switch (buf[baddr].cs & CS_MASK) {
+				case CS_BASE:
+				default:
+					if (buf[baddr].cs & CS_GE)
+						c = ge2asc[buf[baddr].cc];
+					else if (buf[baddr].cc == EBC_null)
+						c = 0;
+					else 
+						c = ebc2asc[buf[baddr].cc];
+					break;
+				case CS_APL:
+					c = cg2asc[buf[baddr].cc];
+					break;
+				case CS_LINEDRAW:
+					c = ' ';
+					break;
+#if defined(X3270_DBCS) /*[*/
+				case CS_DBCS:
+					c = ' '; /* XXX */
+					break;
+#endif /*]*/
+				}
+				s += sprintf(s, " %02x", c);
+			}
+		}
+		INC_BA(baddr);
+	} while (baddr != 0);
+	action_output(field_buf + 1);
+}
+
+/*
+ * ReadBuffer action.
+ */
+void
+ReadBuffer_action(Widget w unused, XEvent *event unused,
+    String *params, Cardinal *num_params)
+{
+	do_read_buffer(params, *num_params, ea_buf);
 }
 
 /*
@@ -1706,6 +1853,7 @@ snap_save(void)
  *  Snap AsciiField (not yet)
  *  Snap Ebcdic ...
  *  Snap EbcdicField (not yet)
+ *  Snap ReadBuffer
  *	runs the named command
  *  Snap Wait [tmo] Output
  *      wait for the screen to change, then do a Snap Save
@@ -1836,13 +1984,20 @@ Snap_action(Widget w unused, XEvent *event unused, String *params,
 		dump_fixed(params + 1, *num_params - 1,
 			action_name(Ebcdic_action), False, snap_buf,
 			snap_rows, snap_cols, snap_caddr);
+	} else if (!strcasecmp(params[0], action_name(ReadBuffer_action))) {
+		if (snap_status == NULL) {
+			popup_an_error("No saved state");
+			return;
+		}
+		do_read_buffer(params + 1, *num_params - 1, snap_buf);
 	} else {
 		popup_an_error("%s: Argument must be Save, Status, Rows, Cols, "
-		    "%s, %s or %s",
+		    "%s, %s %s, or %s",
 		    action_name(Snap_action),
 		    action_name(Wait_action),
 		    action_name(Ascii_action),
-		    action_name(Ebcdic_action));
+		    action_name(Ebcdic_action),
+		    action_name(ReadBuffer_action));
 	}
 }
 
@@ -2456,6 +2611,7 @@ Macro_action(Widget w unused, XEvent *event unused, String *params,
 	popup_an_error("no such macro: '%s'", params[0]);
 }
 
+#if defined(X3270_SCRIPT) /*[*/
 /*
  * Idle cancellation: cancels the idle command if the current sms or any sms
  * that called it caused an error.
@@ -2465,7 +2621,7 @@ cancel_if_idle_command(void)
 {
 	sms_t *s;
 
-	for (s = sms; s != NULL; s = sms->next) {
+	for (s = sms; s != NULL; s = s->next) {
 		if (s->type == ST_IDLE) {
 			cancel_idle_timer();
 			s->idle_error = True;
@@ -2474,6 +2630,7 @@ cancel_if_idle_command(void)
 		}
 	}
 }
+#endif /*]*/
 
 #if defined(X3270_PRINTER) /*[*/
 /* "Printer" action, starts or stops a printer session. */

@@ -202,9 +202,6 @@ setup_keymaps(const char *km, Boolean do_popup)
 static char *
 get_file_keymap(const char *name, char **pathp)
 {
-#if 0
-	char *home;
-#endif
 	char *path;
 	XrmDatabase dd = (XrmDatabase)NULL;
 	char *resname;
@@ -213,19 +210,6 @@ get_file_keymap(const char *name, char **pathp)
 	char *r = CN;
 
 	*pathp = CN;
-
-#if 0
-	/* Look for a user's keymap file. */
-	home = getenv("HOME");
-	if (home != CN) {
-		path = xs_buffer("%s/.x3270/keymap.%s", home, name);
-		dd = XrmGetFileDatabase(path);
-		if (dd != (XrmDatabase)NULL)
-			*pathp = path;
-		else
-			XtFree(path);
-	}
-#endif
 
 	/* Look for a global keymap file. */
 	if (dd == (XrmDatabase)NULL) {

@@ -114,6 +114,8 @@ Boolean		efont_matches = True;
 char	       *full_efontname;
 char	       *full_efontname_dbcs;
 Boolean		visible_control = False;
+unsigned	fixed_width, fixed_height;
+int		hhalo = HHALO, vhalo = VHALO;
 
 /* Statics */
 static Boolean	allow_resize;
@@ -358,6 +360,7 @@ static void lock_icon(enum mcursor_state state);
 static char *expand_cslist(const char *s);
 static const char *name2cs_3270(const char *name);
 static void hollow_cursor(int baddr);
+static void revert_later(XtPointer closure unused, XtIntervalId *id unused);
 #if defined(X3270_DBCS) /*[*/
 static void xlate_dbcs(unsigned char, unsigned char, XChar2b *);
 #endif /*]*/
@@ -452,6 +455,20 @@ screen_init(void)
 	register int i;
 
 	visible_control = toggled(VISIBLE_CONTROL);
+
+	/* Parse the fixed window size, if there is any. */
+	if (appres.fixed_size) {
+		char c;
+
+		if (sscanf(appres.fixed_size, "%ux%u%c", &fixed_width,
+					&fixed_height, &c) != 2 ||
+				!fixed_width ||
+				!fixed_height) {
+			popup_an_error("Invalid fixed size");
+			fixed_width = 0;
+			fixed_height = 0;
+		}
+	}
 
 	/* Initialize ss. */
 	nss.cursor_daddr = 0;
@@ -610,16 +627,48 @@ screen_reinit(unsigned cmask)
 
 	/* Set up a container for the menubar, screen and keypad */
 
-	if (cmask & (FONT_CHANGE | MODEL_CHANGE)) {
-		nss.screen_width  = SCREEN_WIDTH(ss->char_width);
-		nss.screen_height = SCREEN_HEIGHT((ss->char_height));
-	}
-
 	if (toggled(SCROLL_BAR))
 		scrollbar_width = SCROLLBAR_WIDTH;
 	else
 		scrollbar_width = 0;
-	container_width = cwidth_nkp = nss.screen_width+2 + scrollbar_width;
+
+	if (1/*cmask & (FONT_CHANGE | MODEL_CHANGE)*/) {
+		if (fixed_width) {
+			Dimension w, h;
+
+			/* Compute the halos. */
+			hhalo = 0;
+			w = SCREEN_WIDTH(ss->char_width) + scrollbar_width;
+			if (w > fixed_width) {
+				if (screen_redo == REDO_NONE)
+					Error("Font is too wide for fixed "
+							"width");
+				hhalo = HHALO;
+				(void) XtAppAddTimeOut(appcontext, 10,
+						       revert_later, 0);
+			} else
+				hhalo = (fixed_width - w) / 2;
+			vhalo = 0;
+			h = SCREEN_HEIGHT(ss->char_height);
+			if (h > fixed_height) {
+				if (screen_redo == REDO_NONE)
+					Error("Font is too tall for fixed "
+							"width");
+				vhalo = VHALO;
+				(void) XtAppAddTimeOut(appcontext, 10,
+						       revert_later, 0);
+			} else
+				vhalo = (fixed_height - h) / 2;
+		}
+		nss.screen_width  = SCREEN_WIDTH(ss->char_width);
+		nss.screen_height = SCREEN_HEIGHT((ss->char_height));
+	}
+
+	if (fixed_width)
+		container_width = fixed_width;
+	else
+		container_width = nss.screen_width+2 + scrollbar_width;
+	cwidth_nkp = container_width;
 #if defined(X3270_KEYPAD) /*[*/
 	mkw = min_keypad_width();
 	if (kp_placement == kp_integral && container_width < mkw) {
@@ -658,7 +707,10 @@ screen_reinit(unsigned cmask)
 	menubar_height = menubar_qheight(cwidth_curr);
 	menubar_init(container, container_width, cwidth_curr);
 
-	container_height = menubar_height + nss.screen_height+2;
+	if (fixed_height)
+		container_height = fixed_height;
+	else
+		container_height = menubar_height + nss.screen_height+2;
 #if defined(X3270_KEYPAD) /*[*/
 	if (kp_placement == kp_integral) {
 		(void) keypad_init(container, container_height,
@@ -712,25 +764,46 @@ set_toplevel_sizes(void)
 	tw = container_width;
 	th = container_height;
 #endif /*]*/
-	XtVaSetValues(toplevel,
-	    XtNwidth, tw,
-	    XtNheight, th,
-	    NULL);
-	if (!allow_resize)
+	if (fixed_width) {
 		XtVaSetValues(toplevel,
-		    XtNbaseWidth, tw,
-		    XtNbaseHeight, th,
-		    XtNminWidth, tw,
-		    XtNminHeight, th,
-		    XtNmaxWidth, tw,
-		    XtNmaxHeight, th,
+		    XtNwidth, fixed_width,
+		    XtNheight, fixed_height,
 		    NULL);
-	XtVaSetValues(container,
-	    XtNwidth, container_width,
-	    XtNheight, container_height,
-	    NULL);
-	main_width = tw;
-	main_height = th;
+		XtVaSetValues(toplevel,
+		    XtNbaseWidth, fixed_width,
+		    XtNbaseHeight, fixed_height,
+		    XtNminWidth, fixed_width,
+		    XtNminHeight, fixed_height,
+		    XtNmaxWidth, fixed_width,
+		    XtNmaxHeight, fixed_height,
+		    NULL);
+		XtVaSetValues(container,
+		    XtNwidth, fixed_width,
+		    XtNheight, fixed_height,
+		    NULL);
+		main_width = fixed_width;
+		main_height = fixed_height;
+	} else {
+		XtVaSetValues(toplevel,
+		    XtNwidth, tw,
+		    XtNheight, th,
+		    NULL);
+		if (!allow_resize)
+			XtVaSetValues(toplevel,
+			    XtNbaseWidth, tw,
+			    XtNbaseHeight, th,
+			    XtNminWidth, tw,
+			    XtNminHeight, th,
+			    XtNmaxWidth, tw,
+			    XtNmaxHeight, th,
+			    NULL);
+		XtVaSetValues(container,
+		    XtNwidth, container_width,
+		    XtNheight, container_height,
+		    NULL);
+		main_width = tw;
+		main_height = th;
+	}
 
 	/*
 	 * Start a timer ticking, in case the window manager doesn't approve
@@ -1259,7 +1332,11 @@ do_redraw(Widget w, XEvent *event, String *params unused,
 			startcol = 0;
 		if (startcol > 0)
 			startcol--;
+		if (startcol >= maxCOLS)
+			goto no_draw;
 		ncols = ssX_TO_COL(width+ss->char_width) + 2;
+		if (startcol + ncols > maxCOLS)
+			ncols = maxCOLS - startcol;
 		while ((ROWCOL_TO_BA(startrow, startcol) % maxCOLS) + ncols > maxCOLS)
 			ncols--;
 		for (row = startrow; row < endrow; row++) {
@@ -1272,6 +1349,8 @@ do_redraw(Widget w, XEvent *event, String *params unused,
 					ss->image[c0 + i].bits.cc = EBC_space;
 			}
 		}
+	    no_draw:
+		;
 					    
 	} else {
 		XFillRectangle(display, ss->window,
@@ -1402,7 +1481,7 @@ screen_disp(Boolean erasing)
 			    get_gc(ss, GC_NONDEFAULT | DEFAULT_PIXEL),
 			    0,
 			    ssROW_TO_Y(maxROWS-1)+SGAP-1,
-			    ssCOL_TO_X(maxCOLS)+HHALO,
+			    ssCOL_TO_X(maxCOLS)+hhalo,
 			    ssROW_TO_Y(maxROWS-1)+SGAP-1);
 			line_changed = False;
 		}
@@ -2768,12 +2847,6 @@ make_gcs(struct sstate *s)
 				s->selgc[i] = (GC)None;
 			}
 		}
-		if (s->clrselgc != (GC)None) {
-			XtReleaseGC(toplevel, s->clrselgc);
-			s->clrselgc = (GC)None;
-		}
-		xgcv.foreground = selbg_pixel;
-		s->clrselgc = XtGetGC(toplevel, GCForeground, &xgcv);
 	} else {
 		if (!appres.mono) {
 			make_gc_set(s, FA_INT_NORM_NSEL, normal_pixel,
@@ -2791,6 +2864,12 @@ make_gcs(struct sstate *s)
 			    appres.background);
 		}
 	}
+	if (s->clrselgc != (GC)None) {
+		XtReleaseGC(toplevel, s->clrselgc);
+		s->clrselgc = (GC)None;
+	}
+	xgcv.foreground = selbg_pixel;
+	s->clrselgc = XtGetGC(toplevel, GCForeground, &xgcv);
 
 	/* Create monochrome block cursor GC. */
 	if (appres.mono && s->mcgc == (GC)None) {
@@ -3136,7 +3215,7 @@ fa_color(unsigned char fa)
 		    (appres.modified_sel && FA_IS_MODIFIED(fa)))
 			return GC_NONDEFAULT | FA_INT_NORM_SEL;
 		else
-			return GC_NONDEFAULT |  ((fa >> 2) & 0x3);
+			return GC_NONDEFAULT | (fa & 0x0c);
 	}
 }
 
@@ -4865,45 +4944,10 @@ do_resize(void)
 	}
 }
 
-/*
- * Timeout routine called 0.5 sec after x3270 receives the last ConfigureNotify
- * message.  This is for window managers that use 'continuous' move or resize
- * actions.
- */
-
 static void
-stream_end(XtPointer closure unused, XtIntervalId *id unused)
+revert_screen(void)
 {
-	Boolean needs_moving = False;
 	const char *revert = CN;
-	char want_size[64];
-
-	trace_event("Stream timer expired %hux%hu+%hd+%hd\n",
-		cn.width, cn.height, cn.x, cn.y);
-
-	/* Not ticking any more. */
-	cn.ticking = False;
-
-	/* Save the new coordinates in globals for next time. */
-	if (cn.x != main_x || cn.y != main_y) {
-		main_x = cn.x;
-		main_y = cn.y;
-		needs_moving = True;
-	}
-
-	/*
-	 * If the dimensions are correct, do nothing, forget about any
-	 * reconfig we may need to revert, and get out.
-	 */
-	if (cn.width == main_width && cn.height == main_height) {
-		trace_event("  width and height match\n    doing nothing\n");
-		screen_redo = REDO_NONE;
-		goto done;
-	}
-
-	/* They're not correct. */
-	(void) sprintf(want_size, "%ux%u", main_width, main_height);
-	trace_event("  size mismatch, want %s\n", want_size);
 
 	/* If there's a reconfiguration pending, try to undo it. */
 	switch (screen_redo) {
@@ -4937,11 +4981,11 @@ stream_end(XtPointer closure unused, XtIntervalId *id unused)
 		trace_event("  size reassertion failed, window truncated\n"
 		    "    doing nothing\n");
 		screen_redo = REDO_NONE;
-		goto done;
+		return;
 	    case REDO_NONE:
 	        /* Initial configuration, or user-generated resize. */
 		do_resize();
-		goto done;
+		return;
 	    default:
 		break;
 	}
@@ -4955,6 +4999,63 @@ stream_end(XtPointer closure unused, XtIntervalId *id unused)
 	}
 
 	screen_redo = REDO_NONE;
+}
+
+static void
+revert_later(XtPointer closure unused, XtIntervalId *id unused)
+{
+	revert_screen();
+}
+
+/*
+ * Timeout routine called 0.5 sec after x3270 receives the last ConfigureNotify
+ * message.  This is for window managers that use 'continuous' move or resize
+ * actions.
+ */
+
+static void
+stream_end(XtPointer closure unused, XtIntervalId *id unused)
+{
+	Boolean needs_moving = False;
+
+	trace_event("Stream timer expired %hux%hu+%hd+%hd\n",
+		cn.width, cn.height, cn.x, cn.y);
+
+	/* Not ticking any more. */
+	cn.ticking = False;
+
+	/* Save the new coordinates in globals for next time. */
+	if (cn.x != main_x || cn.y != main_y) {
+		main_x = cn.x;
+		main_y = cn.y;
+		needs_moving = True;
+	}
+
+	/*
+	 * If the dimensions are correct, do nothing, forget about any
+	 * reconfig we may need to revert, and get out.
+	 */
+	if (cn.width == main_width && cn.height == main_height) {
+		trace_event("  width and height match\n    doing nothing\n");
+		screen_redo = REDO_NONE;
+		goto done;
+	}
+
+	/*
+	 * If the dimensions are bigger, perhaps we've gotten some extra
+	 * decoration.  Be persistent
+	 */
+	if (cn.width >= main_width && cn.height >= main_height) {
+		trace_event("  bigger\n    asserting desired size\n");
+		set_toplevel_sizes();
+		screen_redo = REDO_NONE;
+		goto done;
+	}
+
+	/* They're not correct. */
+	trace_event("  size mismatch, want %ux%u", main_width, main_height);
+
+	revert_screen();
 
     done:
 	if (needs_moving && !iconic) {
@@ -5373,8 +5474,8 @@ send_spot_loc(void)
 	XPoint spot;
 	XVaNestedList preedit_attr;
 
-	spot.x = (cursor_addr % COLS) * nss.char_width;
-	spot.y = ((cursor_addr / COLS) + ovs_offset) * nss.char_height;
+	spot.x = (cursor_addr % COLS) * nss.char_width + hhalo;
+	spot.y = ((cursor_addr / COLS) + ovs_offset) * nss.char_height + vhalo;
 	preedit_attr = XVaCreateNestedList(0, XNSpotLocation, &spot, NULL);
 	XSetICValues(ic, XNPreeditAttributes, preedit_attr, NULL);
 	XFree(preedit_attr);

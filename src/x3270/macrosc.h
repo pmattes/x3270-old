@@ -35,7 +35,11 @@ extern void AsciiField_action(Widget w, XEvent *event, String *params,
     Cardinal *num_params);
 extern void Ascii_action(Widget w, XEvent *event, String *params,
     Cardinal *num_params);
+#if defined(X3270_SCRIPT) /*[*/
 extern void cancel_if_idle_command(void);
+#else /*][*/
+#define cancel_if_idle_command()
+#endif /*]*/
 extern void CloseScript_action(Widget w, XEvent *event, String *params,
     Cardinal *num_params);
 extern void ContinueScript_action(Widget w, XEvent *event, String *params,
@@ -65,6 +69,8 @@ extern void push_command(char *);
 extern void push_idle(char *);
 extern void push_keymap_action(char *);
 extern void push_macro(char *, Boolean);
+extern void ReadBuffer_action(Widget w, XEvent *event, String *params,
+    Cardinal *num_params);
 extern void Script_action(Widget w, XEvent *event, String *params,
     Cardinal *num_params);
 #if defined(X3270_SCRIPT) /*[*/

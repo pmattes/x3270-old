@@ -267,6 +267,9 @@ install.byprefix:: $(ICU_CNV)
  ******************************************************************************/
 clean:: 
 	$(RM) $(FONTS) qcpp mkfb fallbacks.c
+#ifdef INSTALL_CNV
+	$(RM) $(ICU_CNV)
+#endif
 #ifdef PR3287
 	-cd pr3287 && $(MAKE) clean
 #endif

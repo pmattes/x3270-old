@@ -60,6 +60,7 @@
 extern FILE *tracef;
 extern int ignoreeoj;
 extern int ssl_host;
+extern unsigned long eoj_timeout;
 
 /*   connection state */
 enum cstate {
@@ -319,8 +320,26 @@ int
 process(int s)
 {
 	while (cstate != NOT_CONNECTED) {
-		if (net_input(s) < 0)
-			return -1;
+		fd_set rfds;
+		struct timeval t;
+		struct timeval *tp;
+		int nr;
+
+		FD_ZERO(&rfds);
+		FD_SET(s, &rfds);
+		if (eoj_timeout) {
+			t.tv_sec = eoj_timeout;
+			t.tv_usec = 0;
+			tp = &t;
+		} else
+			tp = NULL;
+		nr = select(s + 1, &rfds, NULL, NULL, tp);
+		if (nr == 0 && eoj_timeout)
+			print_eoj();
+		if (nr > 0 && FD_ISSET(s, &rfds)) {
+			if (net_input(s) < 0)
+				return -1;
+		}
 	}
 	return 0;
 }

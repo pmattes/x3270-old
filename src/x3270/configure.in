@@ -30,7 +30,7 @@ solaris2*)	XANSI=-D__EXTENSIONS__
 		;;
 darwin*)	XPRECOMP=-no-cpp-precomp
 		;;
-linux*)		XANSI=-D_BSD_SOURCE
+linux*)		XANSI="-D_POSIX_SOURCE -D_BSD_SOURCE"
 		;;
 esac
 AC_SUBST(XANSI)
@@ -201,6 +201,14 @@ EOF
 	else	AC_MSG_RESULT([not found])
 		AC_MSG_WARN(Disabling DBCS)
 		enable_dbcs="no"
+	fi
+	if test "$enable_dbcs" != "no"
+	then	icu_enough=`expr $icu_suffix '>=' _2_2`
+		if test $icu_enough -eq 0
+		then	AC_MSG_WARN(ICU version must be 2.2 or later)
+			AC_MSG_WARN(Disabling DBCS)
+			enable_dbcs="no"
+		fi
 	fi
 fi
 

@@ -26,6 +26,7 @@ extern void dbcs_to_unicode16(unsigned char ebc1, unsigned char ebc2,
     unsigned char c[]);
 
 extern int dbcs_to_mb(unsigned char ebc1, unsigned char ebc2, char *mb);
+extern int sbcs_to_mb(unsigned char ebc, char *mb);
 extern int mb_to_unicode(char *mb, int mblen, UChar *u, int ulen,
     UErrorCode *err);
 extern int dbcs_map8(UChar, unsigned char *);

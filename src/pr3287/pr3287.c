@@ -1,5 +1,5 @@
 /*
- * Copyright 2000, 2001, 2002 by Paul Mattes.
+ * Copyright 2000, 2001, 2002, 2003 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -30,6 +30,8 @@
  *		expand newlines to CR/LF
  *          -blanklines
  *		display blank lines even if they're empty (formatted LU3)
+ *          -eojtimeout n
+ *              time out end of job after n seconds
  *          -ffthru
  *		pass through SCS FF orders
  *          -ffskip
@@ -38,6 +40,8 @@
  *		keep trying to reconnect
  *	    -trace
  *		trace data stream to a file
+ *          -tracedir dir
+ *              directory to write trace file in
  *          -v
  *		verbose output about negotiation
  */
@@ -86,12 +90,14 @@ int ffthru = 0;
 int ffskip = 0;
 int verbose = 0;
 int ssl_host = 0;
+unsigned long eoj_timeout = 0L; /* end of job timeout */
 
 /* User options. */
 static enum { NOT_DAEMON, WILL_DAEMON, AM_DAEMON } bdaemon = NOT_DAEMON;
 static char *assoc = NULL;	/* TN3270 session to associate with */
 const char *command = "lpr";	/* command to run for printing */
 static int tracing = 0;		/* are we tracing? */
+static char *tracedir = "/tmp";	/* where we are tracing */
 
 /* Print a usage message and exit. */
 static void
@@ -108,11 +114,14 @@ usage(void)
 "  -command \"<cmd>\" use <cmd> for printing (default \"lpr\")\n"
 "  -blanklines      display blank lines even if empty (formatted LU3)\n"
 "  -crlf            expand newlines to CR/LF\n"
+"  -eojtimeout <seconds>\n"
+"                   time out end of print job\n"
 "  -ffthru          pass through SCS FF orders\n"
 "  -ffskip          skip FF orders at top of page",
 "  -ignoreeoj       ignore PRINT-EOJ commands\n"
 "  -reconnect       keep trying to reconnect\n"
-"  -trace           trace data stream to /tmp/x3trc.<pid>");
+"  -trace           trace data stream to /tmp/x3trc.<pid>\n"
+"  -tracedir <dir>  directory to keep trace information in");
 	exit(1);
 }
 
@@ -263,6 +272,14 @@ main(int argc, char *argv[])
 			blanklines = 1;
 		} else if (!strcmp(argv[i], "-crlf")) {
 			crlf = 1;
+		} else if (!strcmp(argv[i], "-eojtimeout")) {
+			if (argc <= i + 1 || !argv[i + 1][0]) {
+				(void) fprintf(stderr,
+				    "Missing value for -charset\n");
+				usage();
+			}
+			eoj_timeout = strtoul(argv[i + 1], NULL, 0);
+			i++;
 		} else if (!strcmp(argv[i], "-ignoreeoj")) {
 			ignoreeoj = 1;
 		} else if (!strcmp(argv[i], "-ffthru")) {
@@ -275,6 +292,14 @@ main(int argc, char *argv[])
 			verbose = 1;
 		} else if (!strcmp(argv[i], "-trace")) {
 			tracing = 1;
+		} else if (!strcmp(argv[i], "-tracedir")) {
+			if (argc <= i + 1 || !argv[i + 1][0]) {
+				(void) fprintf(stderr,
+				    "Missing value for -tracedir\n");
+				usage();
+			}
+			tracedir = argv[i + 1];
+			i++;
 		} else if (!strcmp(argv[i], "--help")) {
 			usage();
 		} else
@@ -347,7 +372,7 @@ main(int argc, char *argv[])
 		char tracefile[256];
 		time_t clk;
 
-		(void) sprintf(tracefile, "/tmp/x3trc.%d", getpid());
+		(void) sprintf(tracefile, "%s/x3trc.%d", tracedir, getpid());
 		tracef = fopen(tracefile, "a");
 		if (tracef == NULL) {
 			perror(tracefile);

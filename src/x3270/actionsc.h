@@ -28,7 +28,7 @@ enum iaction {
 extern enum iaction ia_cause;
 
 extern int              actioncount;
-extern XtActionsRec     actions[];
+extern XtActionsRec     *actions;
 
 extern const char       *ia_name[];
 
@@ -38,6 +38,7 @@ extern void action_debug(XtActionProc action, XEvent *event, String *params,
 #else /*][*/
 #define action_debug(a, e, p, n)
 #endif /*]*/
+extern void action_init(void);
 extern void action_internal(XtActionProc action, enum iaction cause,
     const char *parm1, const char *parm2);
 extern const char *action_name(XtActionProc action);

@@ -371,6 +371,51 @@ dbcs_to_mb(unsigned char ebc1, unsigned char ebc2, char *mb)
 }
 
 /*
+ * Translate an SBCS EBCDIC character to a local multi-byte character.
+ * Returns -1 for error, or the mb length.  NULL terminates.
+ */
+int
+sbcs_to_mb(unsigned char ebc, char *mb)
+{
+	UErrorCode err = U_ZERO_ERROR;
+	UChar Ubuf;
+	int len;
+
+	if (sbcs_converter == NULL) {
+		/* No SBCS converter, do EBCDIC to latin-1. */
+		if (local_converter == NULL) {
+			/* No local converter either, latin-1 is it. */
+			*mb = ebc2asc[ebc];
+			*(mb + 1) = '\0';
+			return 1;
+		}
+
+		/* Have a local converter; use it below. */
+		Ubuf = ebc2asc[ebc];
+	} else {
+		/* Have an SBCS converter.  Convert from SBCS to Unicode. */
+		err = U_ZERO_ERROR;
+		len = ucnv_toUChars(sbcs_converter, &Ubuf, 1, (char *)&ebc, 1,
+				&err);
+		if (err != U_ZERO_ERROR &&
+				err != U_STRING_NOT_TERMINATED_WARNING) {
+			trace_ds("[toUChars failed, ICU error %d]\n",
+			    (int)err);
+			return -1;
+		}
+	}
+
+	/* Convert from Unicode to the local encoding. */
+	len = ucnv_fromUChars(local_converter, mb, 16, &Ubuf, 1, &err);
+	if (err != U_ZERO_ERROR) {
+		trace_ds("[fromUnicode of U+%04x to local failed, ICU "
+		    "error %d]\n", Ubuf, (int)err);
+		return -1;
+	}
+	return len;
+}
+
+/*
  * Translate a local multi-byte string to Unicode characters.
  * Returns -1 for error, or the length.  NULL terminates.
  */

@@ -32,6 +32,7 @@
 #include "actionsc.h"
 #include "hostc.h"
 #include "macrosc.h"
+#include "menubarc.h"
 #include "popupsc.h"
 #include "screenc.h"
 #include "utilc.h"
@@ -132,6 +133,8 @@ static enum placement LeftD = Left;
 enum placement *LeftP = &LeftD;
 static enum placement RightD = Right;
 enum placement *RightP = &RightD;
+static enum placement InsideRightD = InsideRight;
+enum placement *InsideRightP = &InsideRightD;
 
 /* Place a popped-up shell */
 void
@@ -203,9 +206,21 @@ place_popup(Widget w, XtPointer client_data, XtPointer call_data unused)
 		    NULL);
 		break;
 	    case Right:
+		XtVaGetValues(w,
+		    XtNwidth, &popup_width,
+		    NULL);
 		XtVaSetValues(w,
 		    XtNx, x + win_width + 2,
 		    XtNy, y,
+		    NULL);
+		break;
+	    case InsideRight:
+		XtVaGetValues(w,
+		    XtNwidth, &popup_width,
+		    NULL);
+		XtVaSetValues(w,
+		    XtNx, x + win_width + 2 - popup_width,
+		    XtNy, y + menubar_qheight(0),
 		    NULL);
 		break;
 	}
@@ -781,9 +796,21 @@ Info_action(Widget w unused, XEvent *event, String *params,
 void
 popups_move(void)
 {
-	if (!error_popup.visible)
-		return;
+	static struct rop *rops[] = {
+		&error_popup,
+		&info_popup,
+		&printer_error_popup,
+		&printer_info_popup,
+		&child_error_popup,
+		&child_info_popup,
+		NULL
+	};
+	int i;
 
-	error_popup.moving = True;
-	XtPopdown(error_popup.shell);
+	for (i = 0; rops[i] != NULL; i++) {
+		if (rops[i]->visible) {
+			rops[i]->moving = True;
+			XtPopdown(rops[i]->shell);
+		}
+	}
 }

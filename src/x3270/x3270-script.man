@@ -1,5 +1,5 @@
 '\" t
-.TH X3270-SCRIPT 1 "24 July 2003"
+.TH X3270-SCRIPT 1 "19 August 2003"
 .SH "NAME"
 Scripting Facilities for x3270, s3270 and c3270
 .SH "SYNOPSIS"
@@ -312,6 +312,305 @@ This allows a script to wait for user input and continue.
 Outputs the single parameter to
 \fBContinueScript\fP.
 .TP
+\fBReadBuffer\fP(\fBAscii\fP)
+Dumps the contents of the screen buffer, one line at a time.
+Positions inside data fields are output as 2-digit hexadecimal codes in the
+current display character set (typically ISO 8859-1, but it varies with the
+host character set).
+Start-of-field characters (each of which takes up a display position) are
+output as \fBSF(aa=nn[,...])\fP, where \fIaa\fP is a field
+attribute type and \fInn\fP is its value.
+.PP
+.TS
+center;
+l l .
+T{
+.na
+.nh
+Attribute
+T}	T{
+.na
+.nh
+Values
+T}
+_
+T{
+.na
+.nh
+c0 basic 3270
+T}	T{
+.na
+.nh
+20 protected
+T}
+T{
+.na
+.nh
+
+T}	T{
+.na
+.nh
+10 numeric
+T}
+T{
+.na
+.nh
+
+T}	T{
+.na
+.nh
+04 detectable
+T}
+T{
+.na
+.nh
+
+T}	T{
+.na
+.nh
+08 intensified
+T}
+T{
+.na
+.nh
+
+T}	T{
+.na
+.nh
+0c non-display
+T}
+T{
+.na
+.nh
+
+T}	T{
+.na
+.nh
+01 modified
+T}
+T{
+.na
+.nh
+41 highlighting
+T}	T{
+.na
+.nh
+f1 blink
+T}
+T{
+.na
+.nh
+
+T}	T{
+.na
+.nh
+f2 reverse
+T}
+T{
+.na
+.nh
+
+T}	T{
+.na
+.nh
+f4 underscore
+T}
+T{
+.na
+.nh
+
+T}	T{
+.na
+.nh
+f8 intensify
+T}
+T{
+.na
+.nh
+42 foreground
+T}	T{
+.na
+.nh
+f0 neutral black
+T}
+T{
+.na
+.nh
+
+T}	T{
+.na
+.nh
+f1 blue
+T}
+T{
+.na
+.nh
+
+T}	T{
+.na
+.nh
+f2 red
+T}
+T{
+.na
+.nh
+
+T}	T{
+.na
+.nh
+f3 pink
+T}
+T{
+.na
+.nh
+
+T}	T{
+.na
+.nh
+f4 green
+T}
+T{
+.na
+.nh
+
+T}	T{
+.na
+.nh
+f5 turquoise
+T}
+T{
+.na
+.nh
+
+T}	T{
+.na
+.nh
+f6 yellow
+T}
+T{
+.na
+.nh
+
+T}	T{
+.na
+.nh
+f7 neutral white
+T}
+T{
+.na
+.nh
+
+T}	T{
+.na
+.nh
+f8 black
+T}
+T{
+.na
+.nh
+
+T}	T{
+.na
+.nh
+f9 deep blue
+T}
+T{
+.na
+.nh
+
+T}	T{
+.na
+.nh
+fa orange
+T}
+T{
+.na
+.nh
+
+T}	T{
+.na
+.nh
+fb purple
+T}
+T{
+.na
+.nh
+
+T}	T{
+.na
+.nh
+fc pale green
+T}
+T{
+.na
+.nh
+
+T}	T{
+.na
+.nh
+fd pale turquoise
+T}
+T{
+.na
+.nh
+
+T}	T{
+.na
+.nh
+fe grey
+T}
+T{
+.na
+.nh
+
+T}	T{
+.na
+.nh
+ff white
+T}
+T{
+.na
+.nh
+43 character set
+T}	T{
+.na
+.nh
+f0 default
+T}
+T{
+.na
+.nh
+
+T}	T{
+.na
+.nh
+f1 APL
+T}
+T{
+.na
+.nh
+
+T}	T{
+.na
+.nh
+f8 DBCS
+T}
+.TE
+.IP
+Extended attributes (which do not take up display positions) are output as
+\fBSA(aa=nn)\fP, with \fIaa\fP and \fInn\fP having
+the same definitions as above (though the basic 3270 attribute will never
+appear as an extended attribute).
+.IP
+In addition, NULL characters in the screen buffer are reported as ASCII
+character 00 instead of 20, even though they should be displayed as blanks.
+.TP
+\fBReadBuffer\fP(\fBEbcdic\fP)
+Equivalent to \fBSnap\fP(\fBAscii\fP), but with the data fields output as
+hexadecimal EBCDIC codes instead.
+Additionally, if a buffer position has the Graphic Escape attribute, it is
+displayed as \fBGE(\fIxx\fP)\fP.
+.TP
 \fBSnap\fP
 Equivalent to \fBSnap\fP(\fBSave\fP) (see below).
 .TP
@@ -323,6 +622,9 @@ Returns the number of columns in the saved screen image.
 .TP
 \fBSnap\fP(\fBEbcdic\fP,...)
 Performs the \fBEbcdic\fP action on the saved screen image.
+.TP
+\fBSnap\fP(\fBReadBuffer\fP)
+Performs the \fBReadBuffer\fP action on the saved screen image.
 .TP
 \fBSnap\fP(\fBRows\fP)
 Returns the number of rows in the saved screen image.
@@ -765,4 +1067,4 @@ c3270(1)
 .br
 s3270(1)
 .SH "VERSION"
-Version 3.3.1-alpha9
+Version 3.3.1-alpha10

@@ -40,6 +40,7 @@ void trace_rollover_check(void);
 #if defined(__GNUC__) /*[*/
 #define trace_ds(format, args...)
 #define trace_dsn(format, args...)
+#define trace_ds_nb(format, args...)
 #define trace_event(format, args...)
 #else /*][*/
 #define trace_ds 0 &&

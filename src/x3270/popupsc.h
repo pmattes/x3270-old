@@ -17,11 +17,12 @@
  */
 
 /* window placement enumeration */
-enum placement { Center, Bottom, Left, Right };
+enum placement { Center, Bottom, Left, Right, InsideRight };
 extern enum placement *CenterP;
 extern enum placement *BottomP;
 extern enum placement *LeftP;
 extern enum placement *RightP;
+extern enum placement *InsideRightP;
 
 /* form input editing enumeration */
 enum form_type { FORM_NO_WHITE, FORM_NO_CC, FORM_AS_IS };

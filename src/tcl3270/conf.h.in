@@ -20,6 +20,8 @@
 
 /* Libraries. */
 #undef HAVE_LIBUTIL
+#undef HAVE_LIBICUI18N
+#undef HAVE_LIBSSL
 
 /* Header files. */
 #undef HAVE_SYS_SELECT_H
@@ -35,6 +37,7 @@
 /* Optional parts. */
 #undef X3270_ANSI
 #undef X3270_APL
+#undef X3270_DBCS
 #undef X3270_FT
 #undef X3270_LOCAL_PROCESS
 #undef X3270_TN3270E

@@ -34,6 +34,7 @@
 #include "macrosc.h"
 #include "popupsc.h"
 #include "printc.h"
+#include "resources.h"
 #include "selectc.h"
 #include "togglesc.h"
 #include "trace_dsc.h"
@@ -79,7 +80,7 @@ static struct {
 static Boolean know_mods = False;
 #endif /*]*/
 
-XtActionsRec actions[] = {
+XtActionsRec all_actions[] = {
 #if defined(C3270) /*[*/
 	{ "Abort",		Abort_action },
 #endif /*]*/
@@ -215,6 +216,9 @@ XtActionsRec actions[] = {
 	{ "Printer",		Printer_action },
 #endif /*]*/
 	{ "Quit",		Quit_action },
+#if defined(X3270_SCRIPT) /*[*/
+	{ "ReadBuffer",		ReadBuffer_action },
+#endif /*]*/
 #if defined(X3270_MENUS) /*[*/
 	{ "Reconnect",		Reconnect_action },
 #endif /*]*/
@@ -255,7 +259,8 @@ XtActionsRec actions[] = {
 	{ "ignore",		ignore_action }
 };
 
-int actioncount = XtNumber(actions);
+int actioncount = XtNumber(all_actions);
+XtActionsRec *actions = NULL;
 
 enum iaction ia_cause;
 const char *ia_name[] = {
@@ -264,6 +269,62 @@ const char *ia_name[] = {
 	"Keymap", "Idle"
 };
 
+/* No-op action for suppressed actions. */
+static void
+suppressed_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
+{
+	action_debug(suppressed_action, event, params, num_params);
+}
+
+/* Look up an action name in the suppressed actions resource. */
+static Boolean
+action_suppressed(String name, char *suppress)
+{
+	char *s = suppress;
+	char *t;
+
+	while ((t = strstr(s, name)) != CN) {
+		char b;
+		char e = s[strlen(name)];
+
+		if (t == suppress)
+			b = '\0';
+		else
+			b = *(t - 1);
+		if ((b == '\0' || b == ')' || isspace(b)) &&
+		    (e == '\0' || e == '(' || isspace(e)))
+			return True;
+		s += strlen(name);
+	}
+	return False;
+}
+
+/*
+ * Action table initialization.
+ * Uses the suppressActions resource to prune the actions table.
+ */
+void
+action_init(void)
+{
+	char *suppress;
+	int i;
+
+	/* See if there are any filters at all. */
+	suppress = get_resource(ResSuppressActions);
+	if (suppress == CN) {
+		actions = all_actions;
+		return;
+	}
+
+	/* Yes, we'll need to copy the table and prune it. */
+	actions = (XtActionsRec *)Malloc(sizeof(all_actions));
+	memcpy(actions, all_actions, sizeof(all_actions));
+	for (i = 0; i < actioncount; i++) {
+		if (action_suppressed(actions[i].string, suppress))
+			actions[i].proc = suppressed_action;
+	}
+}
+
 /*
  * Return a name for an action.
  */
@@ -271,6 +332,13 @@ const char *
 action_name(XtActionProc action)
 {
 	register int i;
+
+	/*
+	 * XXX: It would be better if the real name could be displayed, with a
+	 * message indicating it is suppressed.
+	 */
+	if (action == suppressed_action)
+		return "(suppressed)";
 
 	for (i = 0; i < actioncount; i++)
 		if (actions[i].proc == action)

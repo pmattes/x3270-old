@@ -26,13 +26,13 @@
 #define fCHAR_WIDTH(f)	((f)->max_bounds.width)
 #define fCHAR_HEIGHT(f)	((f)->ascent + (f)->descent)
 
-#define HHALO	2	/* number of pixels to pad screen left-right */
-#define VHALO	1	/* number of pixels to pad screen top-bottom */
+#define HHALO  2       /* number of pixels to pad screen left-right */
+#define VHALO  1       /* number of pixels to pad screen top-bottom */
 
-#define cwX_TO_COL(x_pos, cw) 	(((x_pos)-HHALO) / (cw))
-#define chY_TO_ROW(y_pos, ch) 	(((y_pos)-VHALO) / (ch))
-#define cwCOL_TO_X(col, cw)	(((col) * (cw)) + HHALO)
-#define chROW_TO_Y(row, ch)	(((row)+1) * (ch) + VHALO)
+#define cwX_TO_COL(x_pos, cw) 	(((x_pos)-hhalo) / (cw))
+#define chY_TO_ROW(y_pos, ch) 	(((y_pos)-vhalo) / (ch))
+#define cwCOL_TO_X(col, cw)	(((col) * (cw)) + hhalo)
+#define chROW_TO_Y(row, ch)	(((row)+1) * (ch) + vhalo)
 
 #define ssX_TO_COL(x_pos) 	cwX_TO_COL(x_pos, ss->char_width)
 #define ssY_TO_ROW(y_pos) 	chY_TO_ROW(y_pos, ss->char_height)
@@ -46,8 +46,8 @@
 
 #define SGAP	(*descent+3) 	/* gap between screen and status line */
 
-#define SCREEN_WIDTH(cw)	(cwCOL_TO_X(maxCOLS, cw) + HHALO)
-#define SCREEN_HEIGHT(ch)	(chROW_TO_Y(maxROWS, ch) + VHALO+SGAP+VHALO)
+#define SCREEN_WIDTH(cw)	(cwCOL_TO_X(maxCOLS, cw) + hhalo)
+#define SCREEN_HEIGHT(ch)	(chROW_TO_Y(maxROWS, ch) + vhalo+SGAP+vhalo)
 
 /* selections */
 
@@ -74,3 +74,5 @@ union sp {
 extern int	 *char_width, *char_height;
 extern unsigned char *selected;		/* selection bitmap */
 extern int	 *ascent, *descent;
+extern unsigned	 fixed_width, fixed_height;
+extern int       hhalo, vhalo;

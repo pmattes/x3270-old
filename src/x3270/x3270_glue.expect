@@ -237,6 +237,13 @@ namespace eval x3270 {
 	proc Up {} { return [cmd "Up"] }
 	proc Wait {args} { return [cmd "Wait($args)"] }
 
+	# Extra function to toggle verbosity on the fly.
+	proc Setverbose {level} {
+		variable verbose
+		set verbose $level
+		return
+	}
+
 	# Export all the user-visible functions.
 	namespace export \[A-Z\]*
 }

@@ -36,6 +36,30 @@ input, and X11 display output.</p>
 And other bugs may yet lurk.
 <p>However, once c3270 3.3 is stable enough and the broken features have been
 corrected, it will replace c3270 3.2.</p>
+<h2>Changes in c3270 3.3.1alpha10, 7. September 2003</h2>
+<ul>
+  <li>Bug Fixes:
+   <ul>
+    <li>Made nondisplay fields invisible to the <b>Ascii()</b> action.</li>
+    <li>Corrected start-field values at the beginning of data stream traces
+     and in the 3270 Read Buffer response.</li>
+    <li>Corrected a tight loop in the macro error cancellation logic.</li>
+   </ul>
+  </li>
+  <li>New Features:
+   <ul>
+    <li>Added a <b>ReadBuffer()</b> action to dump the entire contents of
+     the 3270 buffer, including field attributes and extended attributes.</li>
+    <li>Added a <b>suppressActions</b> resource, a list of the names of
+     actions to disable.  This is primarily for controlled environments where
+     the user does not have access to the <b>c3270</b> command line, but can
+     edit keymap definitions.</li>
+    <li>Added a <b>Setverbose</b> function to <tt>x3270_glue.expect</tt>
+     to allow verbosity to be changed on the fly.
+     <i>(Courtesy of David Taylor.)</i></li>
+   </ul>
+  </li>
+</ul>
 <h2>Changes in c3270 3.3.1alpha9, 25. July 2003</h2>
 <ul>
   <li>Bug Fixes:

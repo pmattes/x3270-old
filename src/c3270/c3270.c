@@ -184,6 +184,7 @@ main(int argc, char *argv[])
 		xs_warning("Cannot find charset \"%s\"", appres.charset);
 		(void) charset_init(CN);
 	}
+	action_init();
 
 #if defined(HAVE_LIBREADLINE) /*[*/
 	/* Set up readline. */

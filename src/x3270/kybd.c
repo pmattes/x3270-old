@@ -695,12 +695,16 @@ key_Character(int code, Boolean with_ge, Boolean pasting)
 			was_si = (ea_buf[xaddr].cc == EBC_si);
 			ctlr_add(xaddr, EBC_space, CS_BASE);
 			ctlr_add_fg(xaddr, 0);
+#if defined(X3270_ANSI) /*[*/
 			ctlr_add_bg(xaddr, 0);
+#endif /*]*/
 			if (!was_si) {
 				INC_BA(xaddr);
 				ctlr_add(xaddr, EBC_so, CS_BASE);
 				ctlr_add_fg(xaddr, 0);
+#if defined(X3270_ANSI) /*[*/
 				ctlr_add_bg(xaddr, 0);
+#endif /*]*/
 			}
 		}
 
@@ -895,6 +899,7 @@ key_WCharacter(unsigned char code[])
 		return True;
 	}
 
+#if defined(X3270_ANSI) /*[*/
 	/* In ANSI mode? */
 	if (IN_ANSI) {
 	    char mb[16];
@@ -903,6 +908,7 @@ key_WCharacter(unsigned char code[])
 	    net_sends(mb);
 	    return True;
 	}
+#endif /*]*/
 
 	baddr = cursor_addr;
 	fa = get_field_attribute(baddr);
@@ -1513,7 +1519,7 @@ Delete_action(Widget w unused, XEvent *event, String *params,
 
 
 /*
- * Backspace.
+ * 3270-style backspace.
  */
 void
 BackSpace_action(Widget w unused, XEvent *event, String *params,
@@ -1548,25 +1554,12 @@ BackSpace_action(Widget w unused, XEvent *event, String *params,
 /*
  * Destructive backspace, like Unix "erase".
  */
-void
-Erase_action(Widget w unused, XEvent *event, String *params,
-    Cardinal *num_params)
+static void
+do_erase(void)
 {
 	int	baddr, faddr;
 	enum dbcs_state d;
 
-	action_debug(Erase_action, event, params, num_params);
-	reset_idle_timer();
-	if (kybdlock) {
-		enq_ta(Erase_action, CN, CN);
-		return;
-	}
-#if defined(X3270_ANSI) /*[*/
-	if (IN_ANSI) {
-		net_send_erase();
-		return;
-	}
-#endif /*]*/
 	baddr = cursor_addr;
 	faddr = find_field_attribute(baddr);
 	if (faddr == baddr || FA_IS_PROTECTED(ea_buf[baddr].fa)) {
@@ -1587,9 +1580,10 @@ Erase_action(Widget w unused, XEvent *event, String *params,
 	}
 
 	/*
-	 * If we landed on the right-hand side of a DBCS character, move to the left-hand side.
-	 * This ensures that if this is the end of a DBCS subfield, we will land on the SI, instead
-	 * of on the character following.
+	 * If we landed on the right-hand side of a DBCS character, move to the
+	 * left-hand side.
+	 * This ensures that if this is the end of a DBCS subfield, we will
+	 * land on the SI, instead of on the character following.
 	 */
 	d = ctlr_dbcs_state(cursor_addr);
 	if (IS_RIGHT(d)) {
@@ -1605,7 +1599,8 @@ Erase_action(Widget w unused, XEvent *event, String *params,
 		return;
 
 	/*
-	 * If we've just erased the last character of a DBCS subfield, erase the SO/SI pair as well.
+	 * If we've just erased the last character of a DBCS subfield, erase
+	 * the SO/SI pair as well.
 	 */
 	baddr = cursor_addr;
 	DEC_BA(baddr);
@@ -1613,6 +1608,25 @@ Erase_action(Widget w unused, XEvent *event, String *params,
 		cursor_move(baddr);
 		(void) do_delete();
 	}
+}
+
+void
+Erase_action(Widget w unused, XEvent *event, String *params,
+    Cardinal *num_params)
+{
+	action_debug(Erase_action, event, params, num_params);
+	reset_idle_timer();
+	if (kybdlock) {
+		enq_ta(Erase_action, CN, CN);
+		return;
+	}
+#if defined(X3270_ANSI) /*[*/
+	if (IN_ANSI) {
+		net_send_erase();
+		return;
+	}
+#endif /*]*/
+	do_erase();
 }
 
 
@@ -2369,7 +2383,7 @@ EraseInput_action(Widget w unused, XEvent *event, String *params, Cardinal *num_
 void
 DeleteWord_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
-	register int	baddr, baddr2, front_baddr, back_baddr, end_baddr;
+	register int baddr;
 	register unsigned char	fa;
 
 	action_debug(DeleteWord_action, event, params, num_params);
@@ -2396,66 +2410,31 @@ DeleteWord_action(Widget w unused, XEvent *event, String *params, Cardinal *num_
 		return;
 	}
 
-	/* Search backwards for a non-blank character. */
-	front_baddr = baddr;
-	while (ea_buf[front_baddr].cc == EBC_space ||
-	       ea_buf[front_baddr].cc == EBC_null)
-		DEC_BA(front_baddr);
-
-	/* If we ran into the edge of the field without seeing any non-blanks,
-	   there isn't any word to delete; just move the cursor. */
-	if (ea_buf[front_baddr].fa) {
-		cursor_move(front_baddr+1);
-		return;
+	/* Backspace over any spaces to the left of the cursor. */
+	for (;;) {
+		baddr = cursor_addr;
+		DEC_BA(baddr);
+		if (ea_buf[baddr].fa)
+			return;
+		if (ea_buf[baddr].cc == EBC_null ||
+		    ea_buf[baddr].cc == EBC_space)
+			do_erase();
+		else
+			break;
 	}
 
-	/* front_baddr is now pointing at a non-blank character.  Now search
-	   for the first blank to the left of that (or the edge of the field),
-	   leaving front_baddr pointing at the the beginning of the word. */
-	while (!ea_buf[front_baddr].fa &&
-	       ea_buf[front_baddr].cc != EBC_space &&
-	       ea_buf[front_baddr].cc != EBC_null)
-		DEC_BA(front_baddr);
-	INC_BA(front_baddr);
-
-	/* Find the end of the word, searching forward for the edge of the
-	   field or a non-blank. */
-	back_baddr = front_baddr;
-	while (!ea_buf[back_baddr].fa &&
-	       ea_buf[back_baddr].cc != EBC_space &&
-	       ea_buf[back_baddr].cc != EBC_null)
-		INC_BA(back_baddr);
-
-	/* Find the start of the next word, leaving back_baddr pointing at it
-	   or at the end of the field. */
-	while (ea_buf[back_baddr].cc == EBC_space ||
-	       ea_buf[back_baddr].cc == EBC_null)
-		INC_BA(back_baddr);
-
-	/* Find the end of the field, leaving end_baddr pointing at the field
-	   attribute of the start of the next field. */
-	end_baddr = back_baddr;
-	while (!ea_buf[end_baddr].fa)
-		INC_BA(end_baddr);
-
-	/* Copy any text to the right of the word we are deleting. */
-	baddr = front_baddr;
-	baddr2 = back_baddr;
-	while (baddr2 != end_baddr) {
-		ctlr_add(baddr, ea_buf[baddr2].cc, 0);
-		INC_BA(baddr);
-		INC_BA(baddr2);
+	/* Backspace until the character to the left of the cursor is blank. */
+	for (;;) {
+		baddr = cursor_addr;
+		DEC_BA(baddr);
+		if (ea_buf[baddr].fa)
+			return;
+		if (ea_buf[baddr].cc == EBC_null ||
+		    ea_buf[baddr].cc == EBC_space)
+			break;
+		else
+			do_erase();
 	}
-
-	/* Insert nulls to pad out the end of the field. */
-	while (baddr != end_baddr) {
-		ctlr_add(baddr, EBC_null, 0);
-		INC_BA(baddr);
-	}
-
-	/* Set the MDT and move the cursor. */
-	mdt_set(cursor_addr);
-	cursor_move(front_baddr);
 }
 
 

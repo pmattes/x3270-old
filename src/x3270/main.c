@@ -365,6 +365,7 @@ main(int argc, char *argv[])
 	a_encoding = XInternAtom(display, "CHARSET_ENCODING", False);
 	a_state = XInternAtom(display, "WM_STATE", False);
 
+	action_init();
 	XtAppAddActions(appcontext, actions, actioncount);
 
 	keymap_init(appres.key_map, False);

@@ -298,6 +298,61 @@ action, above, is executed.
 This allows a script to wait for user input and continue.
 Outputs the single parameter to
 <b>ContinueScript</b>.
+<dt><b>ReadBuffer</b>(<b>Ascii</b>)</dt><dd>
+Dumps the contents of the screen buffer, one line at a time.
+Positions inside data fields are output as 2-digit hexadecimal codes in the
+current display character set (typically ISO 8859-1, but it varies with the
+host character set).
+Start-of-field characters (each of which takes up a display position) are
+output as <b>SF(aa=nn[,...])</b>, where <i>aa</i> is a field
+attribute type and <i>nn</i> is its value.
+<p>
+<table BORDER cols=3 width="75%">
+<tr><td ><center>Attribute</center></td>	<td ><center>Values</center></td></tr>
+
+<tr><td ><center>c0 basic 3270</center></td>	<td ><center>20 protected</center></td></tr>
+<tr><td ></td>	<td ><center>10 numeric</center></td></tr>
+<tr><td ></td>	<td ><center>04 detectable</center></td></tr>
+<tr><td ></td>	<td ><center>08 intensified</center></td></tr>
+<tr><td ></td>	<td ><center>0c non-display</center></td></tr>
+<tr><td ></td>	<td ><center>01 modified</center></td></tr>
+<tr><td ><center>41 highlighting</center></td>	<td ><center>f1 blink</center></td></tr>
+<tr><td ></td>	<td ><center>f2 reverse</center></td></tr>
+<tr><td ></td>	<td ><center>f4 underscore</center></td></tr>
+<tr><td ></td>	<td ><center>f8 intensify</center></td></tr>
+<tr><td ><center>42 foreground</center></td>	<td ><center>f0 neutral black</center></td></tr>
+<tr><td ></td>	<td ><center>f1 blue</center></td></tr>
+<tr><td ></td>	<td ><center>f2 red</center></td></tr>
+<tr><td ></td>	<td ><center>f3 pink</center></td></tr>
+<tr><td ></td>	<td ><center>f4 green</center></td></tr>
+<tr><td ></td>	<td ><center>f5 turquoise</center></td></tr>
+<tr><td ></td>	<td ><center>f6 yellow</center></td></tr>
+<tr><td ></td>	<td ><center>f7 neutral white</center></td></tr>
+<tr><td ></td>	<td ><center>f8 black</center></td></tr>
+<tr><td ></td>	<td ><center>f9 deep blue</center></td></tr>
+<tr><td ></td>	<td ><center>fa orange</center></td></tr>
+<tr><td ></td>	<td ><center>fb purple</center></td></tr>
+<tr><td ></td>	<td ><center>fc pale green</center></td></tr>
+<tr><td ></td>	<td ><center>fd pale turquoise</center></td></tr>
+<tr><td ></td>	<td ><center>fe grey</center></td></tr>
+<tr><td ></td>	<td ><center>ff white</center></td></tr>
+<tr><td ><center>43 character set</center></td>	<td ><center>f0 default</center></td></tr>
+<tr><td ></td>	<td ><center>f1 APL</center></td></tr>
+<tr><td ></td>	<td ><center>f8 DBCS</center></td></tr>
+</table>
+<p>
+Extended attributes (which do not take up display positions) are output as
+<b>SA(aa=nn)</b>, with <i>aa</i> and <i>nn</i> having
+the same definitions as above (though the basic 3270 attribute will never
+appear as an extended attribute).
+<p>
+In addition, NULL characters in the screen buffer are reported as ASCII
+character 00 instead of 20, even though they should be displayed as blanks.
+<dt><b>ReadBuffer</b>(<b>Ebcdic</b>)</dt><dd>
+Equivalent to <b>Snap</b>(<b>Ascii</b>), but with the data fields output as
+hexadecimal EBCDIC codes instead.
+Additionally, if a buffer position has the Graphic Escape attribute, it is
+displayed as <b>GE(<i>xx</i>)</b>.
 <dt><b>Snap</b></dt><dd>
 Equivalent to <b>Snap</b>(<b>Save</b>) (see <a HREF="#save">below</a>).
 <dt><b>Snap</b>(<b>Ascii</b>,...)</dt><dd>
@@ -306,6 +361,8 @@ Performs the <b>Ascii</b> action on the saved screen image.
 Returns the number of columns in the saved screen image.
 <dt><b>Snap</b>(<b>Ebcdic</b>,...)</dt><dd>
 Performs the <b>Ebcdic</b> action on the saved screen image.
+<dt><b>Snap</b>(<b>ReadBuffer</b>)</dt><dd>
+Performs the <b>ReadBuffer</b> action on the saved screen image.
 <dt><b>Snap</b>(<b>Rows</b>)</dt><dd>
 Returns the number of rows in the saved screen image.
 <a NAME="save"></a><dt><b>Snap</b>(<b>Save</b>)</dt><dd>
@@ -502,12 +559,12 @@ ksh(1)
 <br>
 <a HREF="s3270-man.html">s3270(1)</a>
 <a NAME="Version"></a><h2>Version</h2>
-Version 3.3.1-alpha9
+Version 3.3.1-alpha10
 <hr>
 <address>
 This HTML document and the accompanying troff document were generated with
 a set of write-only <b>m4</b> macros and the powerful <b>vi</b> editor.
-<br>Last modified 24 July 2003.
+<br>Last modified 28 August 2003.
 </address>
 </body>
 </html>

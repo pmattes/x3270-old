@@ -99,9 +99,12 @@ install.man:
 	$(INSTALL_DATA) ibm_hosts.man $(DESTDIR)$(MANDIR)/man5/ibm_hosts.5
 @PR@	-cd pr3287 && $(MAKE) install.man
 
-clean:
+clean::
 	$(RM) c3270 *.o mkfb fallbacks.c
+@PR@clean::
 @PR@	-cd pr3287 && $(MAKE) clean
+@CNV@clean::
+@CNV@	$(RM) $(ICU_CNV)
 
 depend:
 	gccmakedep $(XCPPFLAGS) -s "# DO NOT DELETE" $(SRCS)
