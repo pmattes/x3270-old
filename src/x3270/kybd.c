@@ -887,7 +887,11 @@ do_reset(Boolean explicit)
 	 * If explicit (from the keyboard), unlock the keyboard now.
 	 * Otherwise (from the host), schedule a deferred keyboard unlock.
 	 */
-	if (explicit || ft_state != FT_NONE) {
+	if (explicit
+#if defined(X3270_FT) /*[*/
+	    || ft_state != FT_NONE
+#endif /*]*/
+	   ) {
 		kybdlock_clr(-1, "do_reset");
 	} else if (kybdlock &
   (KL_DEFERRED_UNLOCK | KL_OIA_TWAIT | KL_OIA_LOCKED | KL_AWAITING_FIRST)) {
@@ -3074,12 +3078,23 @@ Default_action(Widget w unused, XEvent *event, String *params, Cardinal *num_par
 		    case XK_Tab:
 			action_internal(Tab_action, IA_DEFAULT, CN, CN);
 			break;
+#if defined(XK_ISO_Left_Tab) /*[*/
+		    case XK_ISO_Left_Tab:
+			action_internal(BackTab_action, IA_DEFAULT, CN, CN);
+			break;
+#endif /*]*/
 		    case XK_Clear:
 			action_internal(Clear_action, IA_DEFAULT, CN, CN);
 			break;
 		    case XK_Sys_Req:
 			action_internal(SysReq_action, IA_DEFAULT, CN, CN);
 			break;
+#if defined(XK_EuroSign) /*[*/
+		    case XK_EuroSign:
+			action_internal(Key_action, IA_DEFAULT, "currency",
+				CN);
+			break;
+#endif /*]*/
 
 #if defined(XK_3270_Duplicate) /*[*/
 		    /* Funky 3270 keysyms. */

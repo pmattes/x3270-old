@@ -1,1 +1,1 @@
-../x3270/actions.c
+../s3270/actions.c

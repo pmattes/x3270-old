@@ -58,11 +58,11 @@ static struct {
 	{ { "Shift" }, ShiftMask, False },
 	{ { (char *)NULL } /* Lock */, LockMask, False },
 	{ { "Ctrl" }, ControlMask, False },
-	{ { (char *)NULL }, Mod1Mask, False },
-	{ { (char *)NULL }, Mod2Mask, False },
-	{ { (char *)NULL }, Mod3Mask, False },
-	{ { (char *)NULL }, Mod4Mask, False },
-	{ { (char *)NULL }, Mod5Mask, False },
+	{ { CN }, Mod1Mask, False },
+	{ { CN }, Mod2Mask, False },
+	{ { CN }, Mod3Mask, False },
+	{ { CN }, Mod4Mask, False },
+	{ { CN }, Mod5Mask, False },
 	{ { "Button1" }, Button1Mask, False },
 	{ { "Button2" }, Button2Mask, False },
 	{ { "Button3" }, Button3Mask, False },
@@ -283,6 +283,11 @@ learn_modifiers(void)
 {
 	XModifierKeymap *mm;
 	int i, j, k;
+	static char *default_modname[] = {
+	    CN, CN, "Ctrl",
+	    "Mod1", "Mod2", "Mod3", "Mod4", "Mod5",
+	    "Button1", "Button2", "Button3", "Button4", "Button5"
+	};
 
 	mm = XGetModifierMapping(display);
 
@@ -333,6 +338,11 @@ learn_modifiers(void)
 			skeymask[i].name[k] = name;
 		}
 	}
+	for (i = 0; i < MODMAP_SIZE; i++) {
+		if (skeymask[i].name[0] == CN) {
+			skeymask[i].name[0] = default_modname[i];
+		}
+	}
 }
 
 #if defined(X3270_TRACE) /*[*/
@@ -380,8 +390,10 @@ key_symbolic_state(unsigned int state, int *iteration)
 		(void) strcat(rs, skeymask[ix_ix[i]].name[ix[ix_ix[i]]]);
 		comma = " ";
 	}
+#if defined(VERBOSE_EVENTS) /*[*/
 	if (leftover)
 		(void) sprintf(strchr(rs, '\0'), "%s?%d", comma, state);
+#endif /*]*/
 
 	/*
 	 * Iterate to the next.
