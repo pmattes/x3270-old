@@ -19,6 +19,7 @@
 
 struct host {
 	char *name;
+	char **parents;
 	char *hostname;
 	enum { PRIMARY, ALIAS, RECENT } entry_type;
 	char *loginstring;

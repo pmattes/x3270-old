@@ -23,7 +23,6 @@ extern char *do_subst(const char *s, Boolean do_vars, Boolean do_tilde);
 extern void fcatv(FILE *f, char *s);
 extern const char *get_message(const char *key);
 extern char *get_fresource(const char *fmt, ...);
-extern char *get_host_fresource(const char *fmt, ...);
 extern char *get_resource(const char *name);
 extern char *scatv(const char *s, char *buf, size_t len);
 extern int split_dbcs_resource(const char *value, char sep, char **part1,
@@ -44,3 +43,4 @@ extern void RemoveTimeOut(unsigned long cookie);
 extern KeySym StringToKeysym(char *s);
 extern char *KeysymToString(KeySym k);
 extern int read_resource_file(const char *filename, Boolean fatal);
+extern Boolean split_hier(char *label, char **base, char ***parents);

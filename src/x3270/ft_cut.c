@@ -400,7 +400,7 @@ cut_data_request(void)
 	/* XXX: Change the data field attribute so it doesn't display. */
 	attr = ea_buf[O_DR_SF].fa;
 	attr = (attr & ~FA_INTENSITY) | FA_INT_ZERO_NSEL;
-	ctlr_add_fa(O_DR_SF, attr);
+	ctlr_add_fa(O_DR_SF, attr, 0);
 
 	/* Send it up to the host. */
 	trace_ds("> FT DATA %u\n", from6(seq));

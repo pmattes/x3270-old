@@ -35,6 +35,7 @@ extern void AsciiField_action(Widget w, XEvent *event, String *params,
     Cardinal *num_params);
 extern void Ascii_action(Widget w, XEvent *event, String *params,
     Cardinal *num_params);
+extern void cancel_if_idle_command(void);
 extern void CloseScript_action(Widget w, XEvent *event, String *params,
     Cardinal *num_params);
 extern void ContinueScript_action(Widget w, XEvent *event, String *params,
@@ -61,6 +62,7 @@ extern void ps_set(char *s, Boolean is_hex);
 extern void Printer_action(Widget w, XEvent *event, String *params,
     Cardinal *num_params);
 extern void push_command(char *);
+extern void push_idle(char *);
 extern void push_keymap_action(char *);
 extern void push_macro(char *, Boolean);
 extern void Script_action(Widget w, XEvent *event, String *params,

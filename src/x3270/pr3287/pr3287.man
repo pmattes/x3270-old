@@ -1,5 +1,5 @@
 '\" t
-.TH PR3287 1 "20 March 2003"
+.TH PR3287 1 "23 July 2003"
 .SH "NAME"
 pr3287 \-
 \s-1IBM\s+1
@@ -116,6 +116,12 @@ thrashing for down or misconfigured hosts.
 Turns on data stream tracing.
 Trace information is saved in the file
 \fB/tmp/x3trc.\fP\fIpid\fP.
+.SH "SIGNALS"
+SIGINT, SIGHUP and SIGTERM cause the current print job to be flushed (any
+pending data to be printed) and \fIpr3287\fP to exit.
+.LP
+SIGUSR1 causes the current print job to be flushed without otherwise
+affecting the \fIpr3287\fP process.
 .SH "SEE ALSO"
 x3270(1), telnet(1), tn3270(1)
 .br
@@ -132,7 +138,7 @@ RFC 1646, TN3270 Extensions for LUname and Printer Selection
 RFC 2355, TN3270 Enhancements
 .SH "COPYRIGHTS"
 .LP
-Modifications Copyright 1993, 1994, 1995, 1996, 1997, 1999, 2000, 2001 ,by Paul Mattes.
+Modifications Copyright  1993-1996, 1997, 1999-2003 by Paul Mattes.
 .br
 Original X11 Port Copyright 1990 by Jeff Sparkes.
 .RS
@@ -149,4 +155,4 @@ Derivative works based on this software must incorporate this copyright
 notice.
 .RE
 .SH "VERSION"
-pr3287 3.3.1-alpha7
+pr3287 3.3.1-alpha9

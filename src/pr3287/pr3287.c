@@ -59,6 +59,7 @@
 #include "globals.h"
 #include "trace_dsc.h"
 #include "ctlrc.h"
+#include "telnetc.h"
 
 #if defined(_IOLBF) /*[*/
 #define SETLINEBUF(s)	setvbuf(s, (char *)NULL, _IOLBF, BUFSIZ)
@@ -70,9 +71,7 @@
 #define INADDR_NONE	0xffffffffL
 #endif /*]*/
 
-/* External functions. */
-extern int negotiate(int s, const char *lu, const char *assoc);
-extern int process(int s);
+/* Externals. */
 extern int charset_init(const char *csname);
 extern char *build;
 extern FILE *tracef;
@@ -86,6 +85,7 @@ int crlf = 0;
 int ffthru = 0;
 int ffskip = 0;
 int verbose = 0;
+int ssl_host = 0;
 
 /* User options. */
 static enum { NOT_DAEMON, WILL_DAEMON, AM_DAEMON } bdaemon = NOT_DAEMON;
@@ -98,22 +98,21 @@ static void
 usage(void)
 {
 	(void) fprintf(stderr, "usage: %s [options] [lu[,lu...]@]host[:port]\n"
-"Options:\n"
+"Options:\n%s\n%s\n%s\n", programname,
 "  -daemon          become a daemon after connecting\n"
 "  -assoc <session> associate with a session (TN3270E only)\n"
 "  -charset <name>  use built-in alternate EBCDIC-to-ASCII mappings\n"
 "  -charset @<file> use alternate EBCDIC-to-ASCII mappings from file\n"
 "  -charset =\"<ebc>=<asc> ...\"\n"
-"                   specify alternate EBCDIC-to-ASCII mappings\n"
+"                   specify alternate EBCDIC-to-ASCII mappings",
 "  -command \"<cmd>\" use <cmd> for printing (default \"lpr\")\n"
 "  -blanklines      display blank lines even if empty (formatted LU3)\n"
 "  -crlf            expand newlines to CR/LF\n"
 "  -ffthru          pass through SCS FF orders\n"
-"  -ffskip          skip FF orders at top of page\n"
+"  -ffskip          skip FF orders at top of page",
 "  -ignoreeoj       ignore PRINT-EOJ commands\n"
 "  -reconnect       keep trying to reconnect\n"
-"  -trace           trace data stream to /tmp/x3trc.<pid>\n",
-		programname);
+"  -trace           trace data stream to /tmp/x3trc.<pid>");
 	exit(1);
 }
 
@@ -195,6 +194,15 @@ fatal_signal(int sig)
 	exit(0);
 }
 
+/* Signal handler for SIGUSR1. */
+static void
+flush_signal(int sig)
+{
+	/* Flush any pending data and exit. */
+	trace_ds("Flush signal %d\n", sig);
+	(void) print_eoj();
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -208,11 +216,14 @@ main(int argc, char *argv[])
 	struct hostent *he;
 	struct in_addr ha;
 	struct servent *se;
-	u_short p;
+	unsigned short p;
 	struct sockaddr_in sin;
 	int s = -1;
 	int rc = 0;
 	int report_success = 0;
+#if defined(HAVE_LIBSSL) /*[*/
+	int any_prefixes = False;
+#endif /*]*/
 
 	/* Learn our name. */
 	if ((programname = strrchr(argv[0], '/')) != NULL)
@@ -273,6 +284,16 @@ main(int argc, char *argv[])
 		usage();
 
 	/* Pick apart the hostname, LUs and port. */
+#if defined(HAVE_LIBSSL) /*[*/
+	do {
+		if (!strncasecmp(argv[i], "l:", 2)) {
+			ssl_host = True;
+			argv[i] += 2;
+			any_prefixes = True;
+		} else
+			any_prefixes = False;
+	} while (any_prefixes);
+#endif /*]*/
 	if ((at = strchr(argv[i], '@')) != NULL) {
 		len = at - argv[i];
 		if (!len)
@@ -314,7 +335,7 @@ main(int argc, char *argv[])
 			(void) fprintf(stderr, "Invalid port: %s\n", port);
 			exit(1);
 		}
-		p = htons((u_short)l);
+		p = htons((unsigned short)l);
 	}
 
 	/* Remap the character set. */
@@ -363,6 +384,7 @@ main(int argc, char *argv[])
 	(void) signal(SIGTERM, fatal_signal);
 	(void) signal(SIGINT, fatal_signal);
 	(void) signal(SIGHUP, fatal_signal);
+	(void) signal(SIGUSR1, flush_signal);
 	(void) signal(SIGPIPE, SIG_IGN);
 
 	/*
@@ -403,9 +425,10 @@ main(int argc, char *argv[])
 
 		/* Say hello. */
 		if (verbose) {
-			(void) fprintf(stderr, "Connected to %s, port %u\n",
+			(void) fprintf(stderr, "Connected to %s, port %u%s\n",
 			    inet_ntoa(sin.sin_addr),
-			    ntohs(sin.sin_port));
+			    ntohs(sin.sin_port),
+			    ssl_host? " via SSL": "");
 			if (assoc != NULL)
 				(void) fprintf(stderr, "Associating with LU "
 				    "%s\n", assoc);
@@ -446,7 +469,7 @@ main(int argc, char *argv[])
 
 		/* Close the socket. */
 		if (s >= 0) {
-			close(s);
+			net_disconnect();
 			s = -1;
 		}
 

@@ -94,3 +94,13 @@ extern void toggle_cursorPos(struct toggle *t, enum toggle_type tt);
 extern void toggle_monocase(struct toggle *t, enum toggle_type tt);
 extern void toggle_scrollBar(struct toggle *t, enum toggle_type tt);
 extern void toggle_visible_control(struct toggle *t, enum toggle_type tt);
+
+/* font list */
+struct font_list {
+	char			*label;
+	char			**parents;
+	char			*font;
+	struct font_list	*next;
+};
+extern struct font_list *font_list;
+extern int font_count;

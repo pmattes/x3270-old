@@ -29,8 +29,11 @@
 #include <stdio.h>
 #include <errno.h>
 #include <string.h>
+#include <unistd.h>
+#include <stdlib.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <signal.h>
 #include "localdefs.h"
 #include "3270ds.h"
 #include "ctlrc.h"
@@ -72,6 +75,7 @@ static Boolean page_buf_initted = False;
 static Boolean any_3270_printable = False;
 static int any_3270_output = 0;
 static FILE *prfile = NULL;
+static int prpid = -1;
 static unsigned char wcc_line_length;
 
 static int ctlr_erase(void);
@@ -185,7 +189,6 @@ void
 ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 {
 	register unsigned char	*cp;
-	unsigned char	new_attr;
 	Boolean		last_cmd;
 	Boolean		last_zpt;
 	Boolean		wcc_keyboard_restore, wcc_sound_alarm;
@@ -205,21 +208,10 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 #define END_TEXT0	{ if (previous == TEXT) trace_ds("'"); }
 #define END_TEXT(cmd)	{ END_TEXT0; trace_ds(" %s", cmd); }
 
-#define ATTR2FA(attr) \
-	(FA_BASE | \
-	 (((attr) & 0x20) ? FA_PROTECT : 0) | \
-	 (((attr) & 0x10) ? FA_NUMERIC : 0) | \
-	 (((attr) & 0x01) ? FA_MODIFY : 0) | \
-	 (((attr) >> 2) & FA_INTENSITY))
-#define START_FIELDx(fa) { \
-			ctlr_add(FA_IS_ZERO(fa)?INVISIBLE:VISIBLE, 0, default_gr); \
-			trace_ds(see_attr(fa)); \
-		}
-#define START_FIELD0	{ START_FIELDx(FA_BASE); }
-#define START_FIELD(attr) { \
-			new_attr = ATTR2FA(attr); \
-			START_FIELDx(new_attr); \
-		}
+#define START_FIELD(fa) { \
+		ctlr_add(FA_IS_ZERO(fa)?INVISIBLE:VISIBLE, 0, default_gr); \
+		trace_ds(see_attr(fa)); \
+	}
 
 	if (buflen < 2)
 		return;
@@ -433,7 +425,7 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 				}
 			}
 			if (!any_fa)
-				START_FIELD0;
+				START_FIELD(0);
 			ctlr_add('\0', 0, default_gr);
 			last_cmd = True;
 			last_zpt = False;
@@ -843,12 +835,12 @@ process_scs(unsigned char *buf, int buflen)
 			break;
 		case SCS_HT:	/* horizontal tab */
 			END_TEXT("HT");
-			for (i = pp; i <= mpp; i++) {
+			for (i = pp + 1; i <= mpp; i++) {
 				if (htabs[i])
 					break;
 			}
 			if (i <= mpp)
-				i = mpp;
+				pp = i;
 			else {
 				if (add_scs(' ') < 0)
 					return PDS_FAILED;
@@ -933,66 +925,51 @@ process_scs(unsigned char *buf, int buflen)
 			break;
 		case SCS_SET:	/* set... */
 			/* Skip over the first byte of the order. */
-			cp++;
-			if (cp >= buf + buflen)
-				break;	/* be gentle */
-			switch (*cp) {
+			if (cp + 1 >= buf + buflen)
+				break;
+			switch (*++cp) {
 				case SCS_SHF:	/* set horizontal format */
 					END_TEXT("SHF");
 					/* Take defaults first. */
 					init_scs_horiz();
 					/*
-					 * Skip over the second byte of the
-					 * order.
-					 */
-					cp++;
-					/*
 					 * The length is next.  It includes the
 					 * length field itself.
 					 */
-					if (cp >= buf + buflen)
+					if (cp + 1 >= buf + buflen)
 						break;
-					cnt = *cp;
+					cnt = *++cp;
 					trace_ds("(%d)", cnt);
 					if (cnt < 2)
 						break;	/* no more data */
 					/* Skip over the length byte. */
-					cp++;
-					cnt--;
-					if (!cnt || cp >= buf + buflen)
+					if (!--cnt || cp + 1 >= buf + buflen)
 						break;
 					/* The MPP is next. */
-					mpp = *cp;
+					mpp = *++cp;
 					trace_ds(" mpp=%d", mpp);
 					if (!mpp || mpp > MAX_MPP)
 						mpp = MAX_MPP;
 					/* Skip over the MPP. */
-					cp++;
-					cnt--;
-					if (!cnt || cp >= buf + buflen)
+					if (!--cnt || cp + 1 >= buf + buflen)
 						break;
 					/* The LM is next. */
-					lm = *cp;
+					lm = *++cp;
 					trace_ds(" lm=%d", lm);
 					if (lm < 1 || lm >= mpp)
 						lm = 1;
 					/* Skip over the LM. */
-					cp++;
-					cnt--;
-					if (!cnt || cp >= buf + buflen)
+					if (!--cnt || cp + 1 >= buf + buflen)
 						break;
 					/* Skip over the RM. */
-					trace_ds(" rm=%d", *cp);
 					cp++;
-					cnt--;
+					trace_ds(" rm=%d", *cp);
 					/* Next are the tab stops. */
-					while (cnt && cp < buf + buflen) {
-						tab = *cp;
+					while (--cnt && cp + 1 < buf + buflen) {
+						tab = *++cp;
 						trace_ds(" tab=%d", tab);
 						if (tab >= 1 && tab <= mpp)
 							htabs[tab] = 1;
-						cp++;
-						cnt--;
 					}
 					break;
 				case SCS_SLD:	/* set line density */
@@ -1124,13 +1101,73 @@ process_scs(unsigned char *buf, int buflen)
 
 
 /*
+ * Special version of popen where the child ignores SIGINT.
+ */
+static FILE *
+popen_no_sigint(char *command)
+{
+	int fds[2];
+	FILE *f;
+
+	/* Create a pipe. */
+	if (pipe(fds) < 0) {
+		return NULL;
+	}
+
+	/* Create a stdio stream from the write end. */
+	f = fdopen(fds[1], "w");
+	if (f == NULL) {
+		close(fds[0]);
+		close(fds[1]);
+		return NULL;
+	}
+
+	/* Fork a child process. */
+	switch ((prpid = fork())) {
+	case 0:		/* child */
+		fclose(f);
+		dup2(fds[0], 0);
+		signal(SIGINT, SIG_IGN);
+		execl("/bin/sh", "sh", "-c", command, NULL);
+
+		/* execv failed, return nonzero status */
+		exit(1);
+		break;
+	case -1:	/* parent, error */
+		fclose(f);
+		close(fds[0]);
+		return NULL;
+	default:	/* parent, success */
+		close(fds[0]);
+		break;
+	}
+
+	return f;
+}
+
+static int
+pclose_no_sigint(FILE *f)
+{
+	int rc;
+	int status;
+
+	fclose(f);
+	rc = waitpid(prpid, &status, 0);
+	prpid = -1;
+	if (rc < 0)
+		return rc;
+	else
+		return status;
+}
+
+/*
  * Send a character to the printer.
  */
 static int
 stash(unsigned char c)
 {
 	if (prfile == NULL) {
-		prfile = popen(command, "w");
+		prfile = popen_no_sigint(command);
 		if (prfile == NULL) {
 			errmsg("%s: %s", command, strerror(errno));
 			return -1;
@@ -1138,7 +1175,7 @@ stash(unsigned char c)
 	}
 	if (fputc(c, prfile) == EOF) {
 		errmsg("Write error to '%s': %s", command, strerror(errno));
-		(void) pclose(prfile);
+		(void) pclose_no_sigint(prfile);
 		prfile = NULL;
 		return -1;
 	}
@@ -1156,7 +1193,7 @@ prflush(void)
 		if (fflush(prfile) < 0) {
 			errmsg("Flush error to '%s': %s", command,
 			    strerror(errno));
-			(void) pclose(prfile);
+			(void) pclose_no_sigint(prfile);
 			prfile = NULL;
 			return -1;
 		}
@@ -1457,7 +1494,7 @@ print_eoj(void)
 		int rc;
 
 		trace_ds("End of print job.\n");
-		rc = pclose(prfile);
+		rc = pclose_no_sigint(prfile);
 		if (rc) {
 			if (rc < 0)
 				errmsg("Close error on '%s': %s", command,

@@ -826,7 +826,6 @@ if test -n "$ac_init_help"; then
 Optional Features:
   --disable-FEATURE       do not include FEATURE (same as --enable-FEATURE=no)
   --enable-FEATURE[=ARG]  include FEATURE [ARG=yes]
-  --disable-ssl           leave out OpenSSL support
   --disable-ansi          leave out NVT (ANSI) support
   --disable-apl           leave out APL character support
   --enable-dbcs           include DBCS support
@@ -834,6 +833,7 @@ Optional Features:
   --disable-local-process leave out local process support
   --disable-printer       leave out printer session support
   --disable-script        leave out scripting support
+  --disable-ssl           leave out OpenSSL support
   --disable-tn3270e       leave out TN3270E support
   --disable-trace         leave out tracing support
 
@@ -842,7 +842,8 @@ Optional Packages:
   --without-PACKAGE       do not use PACKAGE (same as --with-PACKAGE=no)
   --without-readline      Don't use the readline library
   --without-pr3287        don't build pr3287
-  --with-ssl=DIR          location of installed OpenSSL libraries/include files
+  --with-ssl=DIR          specify OpenSSL install directory
+  --with-icu=DIR          specify ICU install directory
 
 Some influential environment variables:
   CC          C compiler command
@@ -1183,6 +1184,7 @@ ac_cpp='$CPP $CPPFLAGS'
 ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
 ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
 
 
 
@@ -2127,6 +2129,8 @@ hpux)		XPOSIX=-D_XOPEN_SOURCE_EXTENDED
 solaris2*)	XANSI=-D__EXTENSIONS__
 		;;
 darwin*)	XPRECOMP=-no-cpp-precomp
+		;;
+linux*)		XANSI="-D_POSIX_SOURCE -D_BSD_SOURCE"
 		;;
 aix*)		BROKEN_NEWTERM=1
 		;;
@@ -3883,6 +3887,349 @@ done
 
 
 
+# Check whether --with-ssl or --without-ssl was given.
+if test "${with_ssl+set}" = set; then
+  withval="$with_ssl"
+
+fi;
+if test "$enable_ssl" != no
+then	orig_CPPFLAGS="$CPPFLAGS"
+	unset any
+	for dir in "$with_ssl" /usr/local /usr/local/ssl /usr/lib/ssl /usr/pkg/ssl /usr/ssl /var/ssl /opt/ssl
+	do	header_fail=0
+		if test -n "$dir" -a ! -d "$dir/include"
+		then	header_fail=1
+			continue
+		fi
+		if test -n "$any"
+		then	{ echo "$as_me:$LINENO: retrying with -I$dir/include" >&5
+echo "$as_me: retrying with -I$dir/include" >&6;}
+		fi
+		if test -n "$dir"
+		then	CPPFLAGS="$orig_CPPFLAGS -I$dir/include"
+		fi
+
+for ac_header in openssl/ssl.h
+do
+as_ac_Header=`echo "ac_cv_header_$ac_header" | $as_tr_sh`
+if eval "test \"\${$as_ac_Header+set}\" = set"; then
+  echo "$as_me:$LINENO: checking for $ac_header" >&5
+echo $ECHO_N "checking for $ac_header... $ECHO_C" >&6
+if eval "test \"\${$as_ac_Header+set}\" = set"; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+fi
+echo "$as_me:$LINENO: result: `eval echo '${'$as_ac_Header'}'`" >&5
+echo "${ECHO_T}`eval echo '${'$as_ac_Header'}'`" >&6
+else
+  # Is the header compilable?
+echo "$as_me:$LINENO: checking $ac_header usability" >&5
+echo $ECHO_N "checking $ac_header usability... $ECHO_C" >&6
+cat >conftest.$ac_ext <<_ACEOF
+#line $LINENO "configure"
+#include "confdefs.h"
+$ac_includes_default
+#include <$ac_header>
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+         { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_header_compiler=yes
+else
+  echo "$as_me: failed program was:" >&5
+cat conftest.$ac_ext >&5
+ac_header_compiler=no
+fi
+rm -f conftest.$ac_objext conftest.$ac_ext
+echo "$as_me:$LINENO: result: $ac_header_compiler" >&5
+echo "${ECHO_T}$ac_header_compiler" >&6
+
+# Is the header present?
+echo "$as_me:$LINENO: checking $ac_header presence" >&5
+echo $ECHO_N "checking $ac_header presence... $ECHO_C" >&6
+cat >conftest.$ac_ext <<_ACEOF
+#line $LINENO "configure"
+#include "confdefs.h"
+#include <$ac_header>
+_ACEOF
+if { (eval echo "$as_me:$LINENO: \"$ac_cpp conftest.$ac_ext\"") >&5
+  (eval $ac_cpp conftest.$ac_ext) 2>conftest.er1
+  ac_status=$?
+  egrep -v '^ *\+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } >/dev/null; then
+  if test -s conftest.err; then
+    ac_cpp_err=$ac_c_preproc_warn_flag
+  else
+    ac_cpp_err=
+  fi
+else
+  ac_cpp_err=yes
+fi
+if test -z "$ac_cpp_err"; then
+  ac_header_preproc=yes
+else
+  echo "$as_me: failed program was:" >&5
+  cat conftest.$ac_ext >&5
+  ac_header_preproc=no
+fi
+rm -f conftest.err conftest.$ac_ext
+echo "$as_me:$LINENO: result: $ac_header_preproc" >&5
+echo "${ECHO_T}$ac_header_preproc" >&6
+
+# So?  What about this header?
+case $ac_header_compiler:$ac_header_preproc in
+  yes:no )
+    { echo "$as_me:$LINENO: WARNING: $ac_header: accepted by the compiler, rejected by the preprocessor!" >&5
+echo "$as_me: WARNING: $ac_header: accepted by the compiler, rejected by the preprocessor!" >&2;}
+    { echo "$as_me:$LINENO: WARNING: $ac_header: proceeding with the preprocessor's result" >&5
+echo "$as_me: WARNING: $ac_header: proceeding with the preprocessor's result" >&2;};;
+  no:yes )
+    { echo "$as_me:$LINENO: WARNING: $ac_header: present but cannot be compiled" >&5
+echo "$as_me: WARNING: $ac_header: present but cannot be compiled" >&2;}
+    { echo "$as_me:$LINENO: WARNING: $ac_header: check for missing prerequisite headers?" >&5
+echo "$as_me: WARNING: $ac_header: check for missing prerequisite headers?" >&2;}
+    { echo "$as_me:$LINENO: WARNING: $ac_header: proceeding with the preprocessor's result" >&5
+echo "$as_me: WARNING: $ac_header: proceeding with the preprocessor's result" >&2;};;
+esac
+echo "$as_me:$LINENO: checking for $ac_header" >&5
+echo $ECHO_N "checking for $ac_header... $ECHO_C" >&6
+if eval "test \"\${$as_ac_Header+set}\" = set"; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  eval "$as_ac_Header=$ac_header_preproc"
+fi
+echo "$as_me:$LINENO: result: `eval echo '${'$as_ac_Header'}'`" >&5
+echo "${ECHO_T}`eval echo '${'$as_ac_Header'}'`" >&6
+
+fi
+if test `eval echo '${'$as_ac_Header'}'` = yes; then
+  cat >>confdefs.h <<_ACEOF
+#define `echo "HAVE_$ac_header" | $as_tr_cpp` 1
+_ACEOF
+
+else
+  header_fail=1
+fi
+
+done
+
+		if test "$header_fail" -eq 0
+		then	break
+		fi
+		unset `echo ac_cv_header_openssl/ssl_h | $as_tr_sh`
+		CPPFLAGS="$orig_CPPFLAGS"
+		any=1
+	done
+	if test $header_fail -eq 1
+	then	{ echo "$as_me:$LINENO: WARNING: Disabling OpenSSL" >&5
+echo "$as_me: WARNING: Disabling OpenSSL" >&2;}
+		enable_ssl="no"
+		unset HAVE_LIBSSL
+	fi
+fi
+
+
+# Check whether --with-icu or --without-icu was given.
+if test "${with_icu+set}" = set; then
+  withval="$with_icu"
+
+fi;
+if test "$enable_dbcs" = yes
+then	orig_CPPFLAGS="$CPPFLAGS"
+	unset any
+	for dir in "$with_icu" /usr/local /usr/local/icu /usr/lib/icu /usr/pkg/icu /usr/icu /var/icu /opt/icu
+	do	header_fail=0
+		if test -n "$dir" -a ! -d "$dir/include"
+		then	header_fail=1
+			continue
+		fi
+		if test -n "$any"
+		then	{ echo "$as_me:$LINENO: retrying with -I$dir/include" >&5
+echo "$as_me: retrying with -I$dir/include" >&6;}
+		fi
+		if test -n "$dir"
+		then	CPPFLAGS="$orig_CPPFLAGS -I$dir/include"
+		fi
+
+for ac_header in unicode/ucnv.h
+do
+as_ac_Header=`echo "ac_cv_header_$ac_header" | $as_tr_sh`
+if eval "test \"\${$as_ac_Header+set}\" = set"; then
+  echo "$as_me:$LINENO: checking for $ac_header" >&5
+echo $ECHO_N "checking for $ac_header... $ECHO_C" >&6
+if eval "test \"\${$as_ac_Header+set}\" = set"; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+fi
+echo "$as_me:$LINENO: result: `eval echo '${'$as_ac_Header'}'`" >&5
+echo "${ECHO_T}`eval echo '${'$as_ac_Header'}'`" >&6
+else
+  # Is the header compilable?
+echo "$as_me:$LINENO: checking $ac_header usability" >&5
+echo $ECHO_N "checking $ac_header usability... $ECHO_C" >&6
+cat >conftest.$ac_ext <<_ACEOF
+#line $LINENO "configure"
+#include "confdefs.h"
+$ac_includes_default
+#include <$ac_header>
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+         { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_header_compiler=yes
+else
+  echo "$as_me: failed program was:" >&5
+cat conftest.$ac_ext >&5
+ac_header_compiler=no
+fi
+rm -f conftest.$ac_objext conftest.$ac_ext
+echo "$as_me:$LINENO: result: $ac_header_compiler" >&5
+echo "${ECHO_T}$ac_header_compiler" >&6
+
+# Is the header present?
+echo "$as_me:$LINENO: checking $ac_header presence" >&5
+echo $ECHO_N "checking $ac_header presence... $ECHO_C" >&6
+cat >conftest.$ac_ext <<_ACEOF
+#line $LINENO "configure"
+#include "confdefs.h"
+#include <$ac_header>
+_ACEOF
+if { (eval echo "$as_me:$LINENO: \"$ac_cpp conftest.$ac_ext\"") >&5
+  (eval $ac_cpp conftest.$ac_ext) 2>conftest.er1
+  ac_status=$?
+  egrep -v '^ *\+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } >/dev/null; then
+  if test -s conftest.err; then
+    ac_cpp_err=$ac_c_preproc_warn_flag
+  else
+    ac_cpp_err=
+  fi
+else
+  ac_cpp_err=yes
+fi
+if test -z "$ac_cpp_err"; then
+  ac_header_preproc=yes
+else
+  echo "$as_me: failed program was:" >&5
+  cat conftest.$ac_ext >&5
+  ac_header_preproc=no
+fi
+rm -f conftest.err conftest.$ac_ext
+echo "$as_me:$LINENO: result: $ac_header_preproc" >&5
+echo "${ECHO_T}$ac_header_preproc" >&6
+
+# So?  What about this header?
+case $ac_header_compiler:$ac_header_preproc in
+  yes:no )
+    { echo "$as_me:$LINENO: WARNING: $ac_header: accepted by the compiler, rejected by the preprocessor!" >&5
+echo "$as_me: WARNING: $ac_header: accepted by the compiler, rejected by the preprocessor!" >&2;}
+    { echo "$as_me:$LINENO: WARNING: $ac_header: proceeding with the preprocessor's result" >&5
+echo "$as_me: WARNING: $ac_header: proceeding with the preprocessor's result" >&2;};;
+  no:yes )
+    { echo "$as_me:$LINENO: WARNING: $ac_header: present but cannot be compiled" >&5
+echo "$as_me: WARNING: $ac_header: present but cannot be compiled" >&2;}
+    { echo "$as_me:$LINENO: WARNING: $ac_header: check for missing prerequisite headers?" >&5
+echo "$as_me: WARNING: $ac_header: check for missing prerequisite headers?" >&2;}
+    { echo "$as_me:$LINENO: WARNING: $ac_header: proceeding with the preprocessor's result" >&5
+echo "$as_me: WARNING: $ac_header: proceeding with the preprocessor's result" >&2;};;
+esac
+echo "$as_me:$LINENO: checking for $ac_header" >&5
+echo $ECHO_N "checking for $ac_header... $ECHO_C" >&6
+if eval "test \"\${$as_ac_Header+set}\" = set"; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  eval "$as_ac_Header=$ac_header_preproc"
+fi
+echo "$as_me:$LINENO: result: `eval echo '${'$as_ac_Header'}'`" >&5
+echo "${ECHO_T}`eval echo '${'$as_ac_Header'}'`" >&6
+
+fi
+if test `eval echo '${'$as_ac_Header'}'` = yes; then
+  cat >>confdefs.h <<_ACEOF
+#define `echo "HAVE_$ac_header" | $as_tr_cpp` 1
+_ACEOF
+
+else
+  header_fail=1
+fi
+
+done
+
+		if test "$header_fail" -eq 0
+		then	break
+		fi
+		unset `echo ac_cv_header_unicode/ucnv_h | $as_tr_sh`
+		CPPFLAGS="$orig_CPPFLAGS"
+		any=1
+	done
+	if test $header_fail -eq 1
+	then	{ echo "$as_me:$LINENO: WARNING: Disabling DBCS" >&5
+echo "$as_me: WARNING: Disabling DBCS" >&2;}
+		enable_dbcs="no"
+	fi
+fi
+
+# Figure out the ICU version, which depends on having found the ICU header
+# files above.
+if test "$enable_dbcs" = "yes"
+then	echo "$as_me:$LINENO: checking for ICU version strings" >&5
+echo $ECHO_N "checking for ICU version strings... $ECHO_C" >&6
+	cat >/tmp/icutst$$.c <<EOF
+#include "unicode/ucnv.h"
+#define xstr(s)	str(s)
+#define str(s)	#s
+int
+main(int argc, char *argv)
+{
+	printf("%s %s\n", xstr(U_ICU_VERSION_SUFFIX), U_ICUDATA_NAME);
+	return 0;
+}
+EOF
+	fail=0
+	${CC} ${CPPFLAGS} -o /tmp/icutst$$ /tmp/icutst$$.c || fail=1
+	rm -f /tmp/icutst$$.c
+	if test "$fail" != 1
+	then	icu_suffix=`/tmp/icutst$$ | awk '{print $1}'`
+		ICU_DATA_PREFIX=`/tmp/icutst$$ | awk '{print $2}'`
+		rm -f /tmp/icutst$$
+		if test -z "$icu_suffix" -o -z "$ICU_DATA_PREFIX"
+		then	fail=1
+		fi
+	fi
+	if test "$fail" -eq 0
+	then	echo "$as_me:$LINENO: result: $icu_suffix, $ICU_DATA_PREFIX" >&5
+echo "${ECHO_T}$icu_suffix, $ICU_DATA_PREFIX" >&6
+	else	echo "$as_me:$LINENO: result: not found" >&5
+echo "${ECHO_T}not found" >&6
+		{ echo "$as_me:$LINENO: WARNING: Disabling DBCS" >&5
+echo "$as_me: WARNING: Disabling DBCS" >&2;}
+		enable_dbcs="no"
+	fi
+fi
+
+
 
 for ac_func in vasprintf
 do
@@ -4110,52 +4457,22 @@ _ACEOF
 fi
 
 
-# Check whether --enable-ssl or --disable-ssl was given.
-if test "${enable_ssl+set}" = set; then
-  enableval="$enable_ssl"
-
-fi;
-
-checkssldir() { :
-	if test -f "$1/include/openssl/ssl.h"
-	then	ssldir="$1"
-		return 0
-	else	return 1
-	fi
-}
-
-
-# Check whether --with-ssl or --without-ssl was given.
-if test "${with_ssl+set}" = set; then
-  withval="$with_ssl"
-  checkssldir "$withval"
-fi;
-
-if test "$enable_ssl" != "no"
-then		echo "$as_me:$LINENO: checking for OpenSSL library install directory" >&5
-echo $ECHO_N "checking for OpenSSL library install directory... $ECHO_C" >&6
-	if test -z "$ssldir"
-	then	for basedir in /usr/local /usr/lib /usr/pkg /usr /var/ssl /opt
-		do	for dir in $basedir $basedir/ssl
-			do	checkssldir $dir && break 2
-			done
-		done
-	fi
-	if test -z "$ssldir"
-	then	echo "$as_me:$LINENO: result: Not found" >&5
-echo "${ECHO_T}Not found" >&6
-		echo
-		echo "Couldn't find OpenSSL library installation directory."
-		echo "Use the --with-ssl option to specify it."
-		exit 1
-	fi
-	echo "$as_me:$LINENO: result: $ssldir" >&5
-echo "${ECHO_T}$ssldir" >&6
-	if test "$ssldir" != /usr
-	then	CPPFLAGS="$CPPFLAGS -I$ssldir/include"
-		LDFLAGS="$LDFLAGS -L$ssldir/lib"
-	fi
-
+if test "$enable_ssl" != no
+then	orig_LDFLAGS="$LDFLAGS"
+	unset any
+	for dir in "$with_ssl" /usr/local /usr/pkg /usr /var /opt
+	do	lib_fail=0
+		if test -n "$dir" -a ! -d "$dir/ssl/lib"
+		then	lib_fail=1
+			continue
+		fi
+		if test -n "$any"
+		then	{ echo "$as_me:$LINENO: retrying with -L$dir/ssl/lib" >&5
+echo "$as_me: retrying with -L$dir/ssl/lib" >&6;}
+		fi
+		if test -n "$dir"
+		then	LDFLAGS="$orig_LDFLAGS -L$dir/ssl/lib"
+		fi
 
 echo "$as_me:$LINENO: checking for CRYPTO_malloc in -lcrypto" >&5
 echo $ECHO_N "checking for CRYPTO_malloc in -lcrypto... $ECHO_C" >&6
@@ -4220,12 +4537,11 @@ _ACEOF
   LIBS="-lcrypto $LIBS"
 
 else
-  { { echo "$as_me:$LINENO: error: Can't find libcrypto" >&5
-echo "$as_me: error: Can't find libcrypto" >&2;}
-   { (exit 1); exit 1; }; }
+  lib_fail=1
 fi
 
-
+		if test "$lib_fail" -eq 0
+		then
 echo "$as_me:$LINENO: checking for SSL_new in -lssl" >&5
 echo $ECHO_N "checking for SSL_new in -lssl... $ECHO_C" >&6
 if test "${ac_cv_lib_ssl_SSL_new+set}" = set; then
@@ -4289,58 +4605,41 @@ _ACEOF
   LIBS="-lssl $LIBS"
 
 else
-  { { echo "$as_me:$LINENO: error: Can't find libssl" >&5
-echo "$as_me: error: Can't find libssl" >&2;}
-   { (exit 1); exit 1; }; }
+  lib_fail=1
 fi
 
-	SSL=-DHAVE_LIBSSL
+		fi
+		if test "$lib_fail" -eq 0
+		then	break
+		fi
+		unset `echo ac_cv_lib_crypto_CRYPTO_malloc | $as_tr_sh`
+		unset `echo ac_cv_lib_ssl_SSL_new | $as_tr_sh`
+		LDFLAGS="$orig_LDFLAGS"
+		any=1
+	done
+	if test $lib_fail -eq 1
+	then	{ echo "$as_me:$LINENO: WARNING: Disabling OpenSSL" >&5
+echo "$as_me: WARNING: Disabling OpenSSL" >&2;}
+		enable_ssl="no"
+	fi
 fi
 
-
-checkicudir() { :
-	if test -f "$1/include/unicode/ucnv.h"
-	then	icudir="$1"
-		return 0
-	else	return 1
-	fi
-}
-
-if test "$enable_dbcs" = "yes"
-then		echo "$as_me:$LINENO: checking for ICU library install directory" >&5
-echo $ECHO_N "checking for ICU library install directory... $ECHO_C" >&6
-	if test -z "$icudir"
-	then	for basedir in /usr/local /usr/lib /usr/pkg /usr /var/icu /opt
-		do	for dir in $basedir $basedir/icu
-			do	checkicudir $dir && break 2
-			done
-		done
-	fi
-	if test -z "$icudir"
-	then	echo "$as_me:$LINENO: result: Not found" >&5
-echo "${ECHO_T}Not found" >&6
-		echo
-		echo "Couldn't find ICU library installation directory."
-		echo "Use the --with-icu option to specify it."
-		enable_dbcs="no"	# insufficient, hmm
-	else	echo "$as_me:$LINENO: result: $icudir" >&5
-echo "${ECHO_T}$icudir" >&6
-		if test "$icudir" != /usr
-		then	CPPFLAGS="$CPPFLAGS -I$icudir/include"
-			LDFLAGS="$LDFLAGS -L$icudir/lib"
+# Check for ICU libraries.
+if test "$enable_dbcs" = yes
+then	orig_LDFLAGS="$LDFLAGS"
+	unset any
+	for dir in "$with_icu" /usr/local /usr/local/icu /usr/pkg/icu /usr/icu /var/icu /opt/icu
+	do	lib_fail=0
+		if test -n "$dir" -a ! -d "$dir/lib"
+		then	lib_fail=1
+			continue
 		fi
-
-				icu_ver_file=$icudir/include/unicode/uversion.h
-		if test ! -f $ivu_ver_file
-		then	{ { echo "$as_me:$LINENO: error: Can't find ICU version file" >&5
-echo "$as_me: error: Can't find ICU version file" >&2;}
-   { (exit 1); exit 1; }; }
+		if test -n "$any"
+		then	{ echo "$as_me:$LINENO: retrying with -L$dir/lib" >&5
+echo "$as_me: retrying with -L$dir/lib" >&6;}
 		fi
-		icu_suffix=`awk '/#define.*U_ICU_VERSION_SUFFIX/ {print $3}' $icu_ver_file`
-		if test -z "$icu_suffix"
-		then	{ { echo "$as_me:$LINENO: error: Can't determine ICU version" >&5
-echo "$as_me: error: Can't determine ICU version" >&2;}
-   { (exit 1); exit 1; }; }
+		if test -n "$dir"
+		then	LDFLAGS="$orig_LDFLAGS -L$dir/lib"
 		fi
 
 as_ac_Lib=`echo "ac_cv_lib_icui18n_ucnv_open${icu_suffix}" | $as_tr_sh`
@@ -4407,102 +4706,22 @@ _ACEOF
   LIBS="-licui18n $LIBS"
 
 else
-  enable_dbcs="no"
+  lib_fail=1
 fi
 
-		if test "$enable_dbcs" = "no"
-		then	echo "Can't find libicui18n"
-		else
-									echo "$as_me:$LINENO: checking for ICU data prefix" >&5
-echo $ECHO_N "checking for ICU data prefix... $ECHO_C" >&6
-			cat >/tmp/icutst$$.c <<EOF
-#include "unicode/ucnv.h"
-
-int
-main(int argc, char *argv)
-{
-	printf("%s\n", U_ICUDATA_NAME);
-	return 0;
-}
-EOF
-			${CC} ${CPPFLAGS} -o /tmp/icutst$$ /tmp/icutst$$.c
-			rm -f /tmp/icutst$$.c
-			ICU_DATA_PREFIX=`/tmp/icutst$$`
-			rm -f /tmp/icutst$$
-			echo "$as_me:$LINENO: result: $ICU_DATA_PREFIX" >&5
-echo "${ECHO_T}$ICU_DATA_PREFIX" >&6
-
-			if test -z "$ICU_DATA_PREFIX"
-			then	{ echo "$as_me:$LINENO: WARNING: Cannot determine ICU data prefix" >&5
-echo "$as_me: WARNING: Cannot determine ICU data prefix" >&2;}
-				enable_dbcs="no"
-			else
-								# Extract the first word of "makeconv", so it can be a program name with args.
-set dummy makeconv; ac_word=$2
-echo "$as_me:$LINENO: checking for $ac_word" >&5
-echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6
-if test "${ac_cv_prog_makeconv_found+set}" = set; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  if test -n "$makeconv_found"; then
-  ac_cv_prog_makeconv_found="$makeconv_found" # Let the user override the test.
-else
-as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in $PATH
-do
-  IFS=$as_save_IFS
-  test -z "$as_dir" && as_dir=.
-  for ac_exec_ext in '' $ac_executable_extensions; do
-  if $as_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
-    ac_cv_prog_makeconv_found="found"
-    echo "$as_me:$LINENO: found $as_dir/$ac_word$ac_exec_ext" >&5
-    break 2
-  fi
-done
-done
-
-  test -z "$ac_cv_prog_makeconv_found" && ac_cv_prog_makeconv_found="notfound"
-fi
-fi
-makeconv_found=$ac_cv_prog_makeconv_found
-if test -n "$makeconv_found"; then
-  echo "$as_me:$LINENO: result: $makeconv_found" >&5
-echo "${ECHO_T}$makeconv_found" >&6
-else
-  echo "$as_me:$LINENO: result: no" >&5
-echo "${ECHO_T}no" >&6
-fi
-
-				if test "$makeconv_found" = "notfound"
-				then	{ echo "$as_me:$LINENO: WARNING: Cannot find makeconv" >&5
-echo "$as_me: WARNING: Cannot find makeconv" >&2;}
-					enable_dbcs="no"
-				fi
-			fi
+		if test "$lib_fail" -eq 0
+		then	break
 		fi
-
-	fi
-	if test "$enable_dbcs" = "no"
-	then	{ echo "$as_me:$LINENO: WARNING: Disabling DBCS." >&5
-echo "$as_me: WARNING: Disabling DBCS." >&2;}
+		unset `echo ac_cv_lib_icui18n_ucnv_open${icu_suffix} | $as_tr_sh`
+		LDFLAGS="$orig_LDFLAGS"
+		any=1
+	done
+	if test $lib_fail -eq 1
+	then	{ echo "$as_me:$LINENO: WARNING: Disabling DBCS" >&5
+echo "$as_me: WARNING: Disabling DBCS" >&2;}
+		enable_dbcs="no"
 	fi
 fi
-case "$enable_dbcs" in
-yes)	cat >>confdefs.h <<\_ACEOF
-#define X3270_DBCS 1
-_ACEOF
-
-	DBCS_C="wide.c"
-	DBCS_O="wide.o"
-	CNV=""
-	;;
-*)	CNV="#"
-	;;
-esac
-
-
-
-
 
 # Extract the first word of "less", so it can be a program name with args.
 set dummy less; ac_word=$2
@@ -4630,9 +4849,13 @@ _ACEOF
 
 	DBCS_C="wide.c"
 	DBCS_O="wide.o"
+	CNV=""
 	;;
-*)	;;
+*)	CNV="#"
+	;;
 esac
+
+
 
 
 # Check whether --enable-ft or --disable-ft was given.
@@ -4683,6 +4906,17 @@ _ACEOF
 
 	;;
 esac
+# Check whether --enable-ssl or --disable-ssl was given.
+if test "${enable_ssl+set}" = set; then
+  enableval="$enable_ssl"
+
+fi;
+case "$enable_ssl" in
+no)	;;
+*)	SSL=-DHAVE_LIBSSL
+	;;
+esac
+
 # Check whether --enable-tn3270e or --disable-tn3270e was given.
 if test "${enable_tn3270e+set}" = set; then
   enableval="$enable_tn3270e"
@@ -5288,15 +5522,14 @@ s,@XPRECOMP@,$XPRECOMP,;t t
 s,@BROKEN_NEWTERM@,$BROKEN_NEWTERM,;t t
 s,@PR@,$PR,;t t
 s,@CPP@,$CPP,;t t
-s,@SSL@,$SSL,;t t
-s,@makeconv_found@,$makeconv_found,;t t
+s,@LESSPATH@,$LESSPATH,;t t
+s,@MOREPATH@,$MOREPATH,;t t
+s,@LIBX3270DIR@,$LIBX3270DIR,;t t
 s,@DBCS_C@,$DBCS_C,;t t
 s,@DBCS_O@,$DBCS_O,;t t
 s,@CNV@,$CNV,;t t
 s,@ICU_DATA_PREFIX@,$ICU_DATA_PREFIX,;t t
-s,@LESSPATH@,$LESSPATH,;t t
-s,@MOREPATH@,$MOREPATH,;t t
-s,@LIBX3270DIR@,$LIBX3270DIR,;t t
+s,@SSL@,$SSL,;t t
 CEOF
 
 _ACEOF

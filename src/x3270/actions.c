@@ -261,7 +261,7 @@ enum iaction ia_cause;
 const char *ia_name[] = {
 	"String", "Paste", "Screen redraw", "Keypad", "Default", "Key",
 	"Macro", "Script", "Peek", "Typeahead", "File transfer", "Command",
-	"Keymap"
+	"Keymap", "Idle"
 };
 
 /*
@@ -509,6 +509,7 @@ check_usage(XtActionProc action, Cardinal nargs, Cardinal nargs_min,
 	else
 		popup_an_error("%s requires %d or %d arguments",
 		    action_name(action), nargs_min, nargs_max);
+	cancel_if_idle_command();
 	return -1;
 }
 

@@ -59,6 +59,7 @@
 #include "globals.h"
 #include "trace_dsc.h"
 #include "ctlrc.h"
+#include "telnetc.h"
 
 #if defined(_IOLBF) /*[*/
 #define SETLINEBUF(s)	setvbuf(s, (char *)NULL, _IOLBF, BUFSIZ)
@@ -70,9 +71,7 @@
 #define INADDR_NONE	0xffffffffL
 #endif /*]*/
 
-/* External functions. */
-extern int negotiate(int s, const char *lu, const char *assoc);
-extern int process(int s);
+/* Externals. */
 extern int charset_init(const char *csname);
 extern char *build;
 extern FILE *tracef;
@@ -193,6 +192,15 @@ fatal_signal(int sig)
 	(void) print_eoj();
 	errmsg("Exiting on signal %d", sig);
 	exit(0);
+}
+
+/* Signal handler for SIGUSR1. */
+static void
+flush_signal(int sig)
+{
+	/* Flush any pending data and exit. */
+	trace_ds("Flush signal %d\n", sig);
+	(void) print_eoj();
 }
 
 int
@@ -376,6 +384,7 @@ main(int argc, char *argv[])
 	(void) signal(SIGTERM, fatal_signal);
 	(void) signal(SIGINT, fatal_signal);
 	(void) signal(SIGHUP, fatal_signal);
+	(void) signal(SIGUSR1, flush_signal);
 	(void) signal(SIGPIPE, SIG_IGN);
 
 	/*
@@ -460,7 +469,7 @@ main(int argc, char *argv[])
 
 		/* Close the socket. */
 		if (s >= 0) {
-			close(s);
+			net_disconnect();
 			s = -1;
 		}
 

@@ -41,6 +41,7 @@
 #include "ctlrc.h"
 #include "ftc.h"
 #include "hostc.h"
+#include "idlec.h"
 #include "kybdc.h"
 #include "macrosc.h"
 #include "menubarc.h"
@@ -95,6 +96,7 @@ typedef struct sms {
 		ST_MACRO,	/* macro */
 		ST_COMMAND,	/* interactive command */
 		ST_KEYMAP,	/* keyboard map */
+		ST_IDLE,	/* idle command */
 		ST_CHILD,	/* child process */
 		ST_PEER		/* peer (external) process */
 	} type;
@@ -105,6 +107,7 @@ typedef struct sms {
 	Boolean output_wait_needed;
 	Boolean executing;	/* recursion avoidance */
 	Boolean accumulated;	/* accumulated time flag */
+	Boolean idle_error;	/* idle command caused an error */
 	unsigned long msec;	/* total accumulated time */
 	FILE   *outfile;
 	int	infd;
@@ -148,7 +151,9 @@ static int      ansi_save_ix = 0;
 static char    *expect_text = CN;
 static int	expect_len = 0;
 static const char *st_name[] = { "String", "Macro", "Command", "KeymapAction",
-				 "ChildScript", "PeerScript" };
+				 "IdleCommand", "ChildScript", "PeerScript" };
+static enum iaction st_cause[] = { IA_MACRO, IA_MACRO, IA_COMMAND, IA_KEYMAP,
+				 IA_IDLE, IA_MACRO, IA_MACRO };
 #define ST_sNAME(s)	st_name[(int)(s)->type]
 #define ST_NAME		ST_sNAME(sms)
 
@@ -312,6 +317,7 @@ new_sms(enum sms_type type)
 	s->output_wait_needed = False;
 	s->executing = False;
 	s->accumulated = False;
+	s->idle_error = False;
 	s->msec = 0L;
 
 	return s;
@@ -414,6 +420,14 @@ sms_pop(Boolean can_exit)
 	if (sms->wait_id != 0L)
 		RemoveTimeOut(sms->wait_id);
 
+	/*
+	 * If this was an idle command that generated an error, now is the
+	 * time to announce that.  (If we announced it when the error first
+	 * occurred, we might be telling the wrong party, such as a script.)
+	 */
+	if (sms->idle_error)
+		popup_an_error("Idle command disabled due to error");
+
 	/* Release the memory. */
 	s = sms;
 	sms = s->next;
@@ -515,7 +529,8 @@ execute_command(enum iaction cause, char *s, char **np)
 	};
 #define fail(n) { failreason = n; goto failure; }
 #define free_params() { \
-	if (cause == IA_MACRO || cause == IA_KEYMAP || cause == IA_COMMAND) { \
+	if (cause == IA_MACRO ||   cause == IA_KEYMAP || \
+	    cause == IA_COMMAND || cause == IA_IDLE) { \
 		Cardinal j; \
 		for (j = 0; j < count; j++) \
 			Free(params[j]); \
@@ -710,7 +725,8 @@ execute_command(enum iaction cause, char *s, char **np)
 		*np = s-1;
 
 	/* If it's a macro, do variable substitutions. */
-	if (cause == IA_MACRO || cause == IA_KEYMAP || cause == IA_COMMAND) {
+	if (cause == IA_MACRO || cause == IA_KEYMAP ||
+	    cause == IA_COMMAND || cause == IA_IDLE) {
 		Cardinal j;
 
 		for (j = 0; j < count; j++)
@@ -849,9 +865,7 @@ run_macro(void)
 		s = sms;
 		s->success = True;
 		s->executing = True;
-		es = execute_command((s->type == ST_MACRO)? IA_MACRO:
-		    ((s->type == ST_COMMAND)? IA_COMMAND: IA_KEYMAP),
-		    a, &nextm);
+		es = execute_command(st_cause[s->type], a, &nextm);
 		s->executing = False;
 		s->dptr = nextm;
 
@@ -870,6 +884,9 @@ run_macro(void)
 			/* Propogate it. */
 			if (sms->next != SN)
 				sms->next->success = False;
+
+			/* If it was an idle command, cancel it. */
+			cancel_if_idle_command();
 			break;
 		}
 
@@ -930,6 +947,13 @@ void
 push_keymap_action(char *s)
 {
 	push_xmacro(ST_KEYMAP, s, False);
+}
+
+/* Push an keymap action on the stack. */
+void
+push_idle(char *s)
+{
+	push_xmacro(ST_IDLE, s, False);
 }
 
 /* Push a string on the stack. */
@@ -1069,6 +1093,8 @@ run_script(void)
 		} else if (es == EM_ERROR) {
 			trace_dsn("%s[%d] error\n", ST_NAME, sms_depth);
 			script_prompt(False);
+			/* If it was an idle command, cancel it. */
+			cancel_if_idle_command();
 		} else
 			script_prompt(sms->success);
 		if (sms->state == SS_RUNNING)
@@ -1302,6 +1328,7 @@ sms_continue(void)
 		    case ST_MACRO:
 		    case ST_COMMAND:
 		    case ST_KEYMAP:
+		    case ST_IDLE:
 			run_macro();
 			break;
 		    case ST_PEER:
@@ -2427,6 +2454,25 @@ Macro_action(Widget w unused, XEvent *event unused, String *params,
 		}
 	}
 	popup_an_error("no such macro: '%s'", params[0]);
+}
+
+/*
+ * Idle cancellation: cancels the idle command if the current sms or any sms
+ * that called it caused an error.
+ */
+void
+cancel_if_idle_command(void)
+{
+	sms_t *s;
+
+	for (s = sms; s != NULL; s = sms->next) {
+		if (s->type == ST_IDLE) {
+			cancel_idle_timer();
+			s->idle_error = True;
+			trace_dsn("Cancelling idle command");
+			break;
+		}
+	}
 }
 
 #if defined(X3270_PRINTER) /*[*/

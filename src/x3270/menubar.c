@@ -64,6 +64,7 @@ extern Boolean		keypad_popped;
 
 static struct scheme {
 	char *label;
+	char **parents;
 	char *scheme;
 	struct scheme *next;
 } *schemes, *last_scheme;
@@ -71,23 +72,14 @@ static int scheme_count;
 static Widget  *scheme_widgets;
 static Widget options_menu;
 static Widget fonts_option;
-static int fm_index = 0;
-static int fm_next_index = 1;
-static struct kdcs {
-	struct kdcs *next;
-	int index;
-	char *charset_name;
-	char *menu_name;
-	int count;
-	int real_count;
-	Widget *fw;	/* font widgets */
-} *known_dcs = NULL;
-static Pixel fm_background;
+static Pixel fm_background = 0;
 static Dimension fm_borderWidth;
 static Pixel fm_borderColor;
 static Dimension fm_leftMargin;
+static Dimension fm_rightMargin;
 
 static struct charset {
+	char **parents;
 	char *label;
 	char *charset;
 	struct charset *next;
@@ -211,6 +203,100 @@ static void	toggle_init(Widget, int, const char *, const char *);
 #define	MENU_MIN_WIDTH	(LEFT_MARGIN + 3*(KEY_WIDTH+2*BORDER+SPACING) + \
 			 LEFT_MARGIN + KY_WIDTH + 2*BORDER + SPACING + \
 			 2*MENU_BORDER)
+
+/* Menu hierarchy structure. */
+struct menu_hier {
+	Widget menu_shell;		/* complexMenu widget */
+	char *name;			/* my name (root name is NULL) */
+	struct menu_hier *parent;	/* parent menu */
+	struct menu_hier *child;	/* child menu */
+	struct menu_hier *sibling;	/* sibling menu */
+};
+
+/*
+ * Add an entry to a menu hierarchy.
+ * Adds intermediate nodes as need, and returns the menu shell widget to
+ * add the leaf entry to.
+ */
+static Widget
+add_menu_hier(struct menu_hier *root, char **parents, ArgList args,
+		Cardinal num_args)
+{
+	struct menu_hier *h = root;
+	static int menu_num = 0;
+
+	/* Search for a parent match, creating levels as needed. */
+	while (parents && *parents) {
+		struct menu_hier *child, *last_child = NULL;
+
+		if (h->name != CN && !strcmp(h->name, *parents))
+			break;
+		last_child = h->child;
+		for (child = h->child; child != NULL; child = child->sibling) {
+			if (!strcmp(child->name, *parents))
+				break;
+			last_child = child;
+		}
+		if (child != NULL)
+			h = child;
+		else {
+			struct menu_hier *new_child;
+			char namebuf[64];
+			char *menu_name;
+			char *m;
+			int i;
+			Arg my_arglist[2];
+			ArgList merged_args;
+
+			new_child = (struct menu_hier *)XtCalloc(1,
+					sizeof(struct menu_hier));
+			new_child->name = *parents;
+			new_child->parent = h;
+			if (last_child != NULL)
+				last_child->sibling = new_child;
+			else
+				h->child = new_child;
+			h = new_child;
+
+			/*
+			 * Create a menu for the children of this new
+			 * intermediate node.
+			 */
+			sprintf(namebuf, "csMenu%d", menu_num++);
+			for (i = 0, m = namebuf + strlen(namebuf);
+			     (*parents)[i] && (m - namebuf < sizeof(namebuf));
+			     i++) {
+				if (isalnum((*parents)[i])) {
+					*m++ = (*parents)[i];
+				}
+			}
+			*m = '\0';
+			menu_name = XtNewString(namebuf);
+			h->menu_shell = XtVaCreatePopupShell(
+				menu_name, complexMenuWidgetClass,
+				h->parent->menu_shell,
+				NULL);
+
+			/*
+			 * Add this item to its parent's menu, as a pullright.
+			 */
+			XtSetArg(my_arglist[0], XtNrightBitmap, arrow);
+			XtSetArg(my_arglist[1], XtNmenuName, menu_name);
+			merged_args = XtMergeArgLists(my_arglist, 2, args,
+					num_args);
+			(void) XtCreateManagedWidget(
+			    h->name, cmeBSBObjectClass, h->parent->menu_shell,
+			    merged_args, 2 + num_args);
+			XtFree((XtPointer)merged_args);
+		}
+
+		/* Go on to the next level. */
+		parents++;
+	}
+
+	/* Add here. */
+	return h->menu_shell;
+}
 
 /*
  * Compute the potential height of the menu bar.
@@ -458,7 +544,7 @@ menubar_connect(Boolean ignored unused)
 		    NULL);
 
 #if defined(HAVE_LIBSSL) /*[*/
-	if (CONNECTED && ssl_host)
+	if (CONNECTED && secure_connection)
 		XtMapWidget(ssl_icon);
 	else
 		XtUnmapWidget(ssl_icon);
@@ -907,6 +993,7 @@ connect_menu_init(Boolean regen, Position x, Position y)
 	Boolean need_line = False;
 	int n_primary = 0;
 	int n_recent = 0;
+	struct menu_hier *root;
 
 	if (regen && (connect_menu != (Widget)NULL)) {
 		XtDestroyWidget(connect_menu);
@@ -920,7 +1007,9 @@ connect_menu_init(Boolean regen, Position x, Position y)
 		return;
 
 	/* Create the menu */
-	connect_menu = XtVaCreatePopupShell(
+	root = (struct menu_hier *)XtCalloc(1,
+			sizeof(struct menu_hier));
+	root->menu_shell = connect_menu = XtVaCreatePopupShell(
 	    "hostMenu", complexMenuWidgetClass, menu_parent,
 	    menubar_buttons ? XtNlabel : NULL, NULL,
 	    NULL);
@@ -938,7 +1027,7 @@ connect_menu_init(Boolean regen, Position x, Position y)
 			 * If there's already a 'recent' entry with the same
 			 * name, skip this one.
 			 */
-			{
+			if (h->parents == NULL) {
 				struct host *j;
 
 				for (j = hosts;
@@ -967,7 +1056,8 @@ connect_menu_init(Boolean regen, Position x, Position y)
 		}
 		any_hosts = True;
 		w = XtVaCreateManagedWidget(
-		    h->name, cmeBSBObjectClass, connect_menu, 
+		    h->name, cmeBSBObjectClass,
+		    add_menu_hier(root, h->parents, NULL, 0), 
 		    NULL);
 		XtAddCallback(w, XtNcallback, host_connect_callback,
 		    XtNewString(h->name));
@@ -1155,7 +1245,7 @@ ssl_icon_init(Position x, Position y)
 		    XtNy, y,
 		    XtNwidth, ssl_width+8,
 		    XtNheight, KEY_HEIGHT,
-		    XtNmappedWhenManaged, CONNECTED && ssl_host,
+		    XtNmappedWhenManaged, CONNECTED && secure_connection,
 		    NULL);
 	} else {
 		XtVaSetValues(ssl_icon, XtNx, x, NULL);
@@ -1262,7 +1352,7 @@ toggle_init(Widget menu, int ix, const char *name1, const char *name2)
 		t->w[1] = NULL;
 }
 
-static Widget *font_widgets;
+static Widget *font_widgets = NULL;
 static Widget other_font;
 static Widget font_shell = NULL;
 
@@ -1314,6 +1404,10 @@ scheme_init(void)
 	scheme_count = 0;
 	while (split_dresource(&cm, &label, &scheme) == 1) {
 		s = (struct scheme *)XtMalloc(sizeof(struct scheme));
+		if (!split_hier(label, &s->label, &s->parents)) {
+			XtFree((XtPointer)s);
+			continue;
+		}
 		s->label = label;
 		s->scheme = scheme;
 		s->next = (struct scheme *)NULL;
@@ -1349,7 +1443,10 @@ charsets_init(void)
 	charset_count = 0;
 	while (split_dresource(&cm, &label, &charset) == 1) {
 		s = (struct charset *)XtMalloc(sizeof(struct charset));
-		s->label = label;
+		if (!split_hier(label, &s->label, &s->parents)) {
+			XtFree((XtPointer)s);
+			continue;
+		}
 		s->charset = charset;
 		s->next = (struct charset *)NULL;
 		if (last_charset != (struct charset *)NULL)
@@ -1482,98 +1579,61 @@ is_efont(const char *font_name)
 static void
 create_font_menu(Boolean regen, Boolean even_if_unknown)
 {
-	const char *efc;
 	Widget t;
 	struct font_list *f;
 	int ix;
-	struct kdcs *k;
+	int count;
+	static struct menu_hier *root = NULL;
 
-	if (regen) {
-		fm_index = 0;
-		while (known_dcs != NULL) {
-			k = known_dcs->next;
-			Free(known_dcs->charset_name);
-			Free(known_dcs->menu_name);
-			Free(known_dcs->fw);
-			Free(known_dcs);
-			known_dcs = k;
-		}
+	if (root != NULL) {
+		XtDestroyWidget(root->menu_shell);
+		XtFree((XtPointer)root);
+		root = NULL;
 	}
+	Free(font_widgets);
 
-	if (fm_index == 0 && !even_if_unknown)
-		return;
+	root = (struct menu_hier *)XtCalloc(1, sizeof(struct menu_hier));
+	root->menu_shell = t = XtVaCreatePopupShell(
+	    "fontsMenu", complexMenuWidgetClass, menu_parent,
+	    XtNborderWidth, fm_borderWidth,
+	    XtNborderColor, fm_borderColor,
+	    XtNbackground, fm_background,
+	    NULL);
+	count = font_count;
+	if (count > MAX_MENU_OPTIONS)
+		count = MAX_MENU_OPTIONS;
+	if (font_count)
+		font_widgets = (Widget *)XtCalloc(count, sizeof(Widget));
+	else
+		font_widgets = NULL;
+	for (f = font_list, ix = 0; f; f = f->next, ix++) {
+		Arg args[3];
 
-	/* See if the name matches. */
-	efc = display_charset();
-	for (k = known_dcs; k != NULL; k = k->next) {
-		if (!strcasecmp(k->charset_name, efc))
+		if (ix >= MAX_MENU_OPTIONS)
 			break;
-	}
-	if (k != NULL) {
-		/* See if the list matches. */
-		if (k->count == font_count)
-			for (f = font_list, ix = 0;
-			     f != NULL;
-			     f = f->next, ix++) {
-				if (ix >= k->real_count) {
-					f = NULL;
-					break;
-				}
-				if (strcmp(XtName(k->fw[ix]), f->label))
-					break;
-			}
-		if (k->count != font_count || f != NULL) {
-			free(k->charset_name);
-			k->charset_name = NewString("(invalid)");
-			k = NULL;
-		}
-	}
-	if (k != NULL && k->index == fm_index)
-		return;
-	if (k == NULL) {
-		k = (struct kdcs *)Malloc(sizeof(struct kdcs));
-		k->index = fm_next_index++;
-		k->charset_name = NewString(efc);
-		k->menu_name = xs_buffer("fontsMenu%d", k->index);
-		k->next = known_dcs;
-		known_dcs = k;
-		t = XtVaCreatePopupShell(
-		    k->menu_name, complexMenuWidgetClass, menu_parent,
-		    XtNborderWidth, fm_borderWidth,
-		    XtNborderColor, fm_borderColor,
+		XtSetArg(args[0], XtNleftMargin, fm_leftMargin);
+		XtSetArg(args[1], XtNrightMargin, fm_rightMargin);
+		XtSetArg(args[2], XtNbackground, fm_background);
+		font_widgets[ix] = XtVaCreateManagedWidget(
+		    f->label, cmeBSBObjectClass,
+		    add_menu_hier(root, f->parents, args, 3),
+		    XtNleftBitmap,
+			is_efont(f->font)? diamond: no_diamond,
+		    XtNleftMargin, fm_leftMargin,
+		    XtNrightMargin, fm_rightMargin,
 		    XtNbackground, fm_background,
 		    NULL);
-		k->count = font_count;
-		k->real_count = font_count;
-		if (k->real_count > MAX_MENU_OPTIONS)
-			k->real_count = MAX_MENU_OPTIONS;
-		if (font_count)
-			k->fw = (Widget *)XtCalloc(k->real_count,
-						   sizeof(Widget));
-		else
-			k->fw = NULL;
-		for (f = font_list, ix = 0; f; f = f->next, ix++) {
-			if (ix >= MAX_MENU_OPTIONS)
-				break;
-			k->fw[ix] = XtVaCreateManagedWidget(
-			    f->label, cmeBSBObjectClass, t,
-			    XtNleftBitmap,
-				is_efont(f->font)? diamond: no_diamond,
-			    XtNleftMargin, fm_leftMargin,
-			    NULL);
-			XtAddCallback(k->fw[ix], XtNcallback, do_newfont,
-			    XtNewString(f->font));
-		}
-		if (!appres.no_other) {
-			other_font = XtVaCreateManagedWidget(
-			    "otherFontOption", cmeBSBObjectClass, t,
-			    NULL);
-			XtAddCallback(other_font, XtNcallback, do_otherfont, NULL);
-		}
+		XtAddCallback(font_widgets[ix], XtNcallback, do_newfont,
+		    XtNewString(f->font));
 	}
-	XtVaSetValues(fonts_option, XtNmenuName, k->menu_name, NULL);
-	fm_index = k->index;
-	font_widgets = k->fw;
+	if (!appres.no_other) {
+		other_font = XtVaCreateManagedWidget(
+		    "otherFontOption", cmeBSBObjectClass, t,
+		    NULL);
+		XtAddCallback(other_font, XtNcallback, do_otherfont, NULL);
+	}
+
+	XtVaSetValues(fonts_option, XtNmenuName, "fontsMenu", NULL);
 }
 
 /* Called when the character set changes. */
@@ -1634,6 +1694,7 @@ options_menu_init(Boolean regen, Position x, Position y)
 	int ix;
 	static Widget options_menu_button = NULL;
 	Widget dummy_font_menu, dummy_font_element;
+	struct menu_hier *root = NULL;
 
 	if (regen && (options_menu != (Widget)NULL)) {
 		XtDestroyWidget(options_menu);
@@ -1779,7 +1840,9 @@ options_menu_init(Boolean regen, Position x, Position y)
 		    NULL);
 		XtVaGetValues(dummy_font_element,
 		    XtNleftMargin, &fm_leftMargin,
+		    XtNrightMargin, &fm_rightMargin,
 		    NULL);
+		XtDestroyWidget(dummy_font_menu);
 
 		fonts_option = XtVaCreateManagedWidget(
 		    "fontsOption", cmeBSBObjectClass, options_menu,
@@ -1846,13 +1909,16 @@ options_menu_init(Boolean regen, Position x, Position y)
 
 		scheme_widgets = (Widget *)XtCalloc(scheme_count,
 		    sizeof(Widget));
-		t = XtVaCreatePopupShell(
+		root = (struct menu_hier *)XtCalloc(1,
+				sizeof(struct menu_hier));
+		root->menu_shell = XtVaCreatePopupShell(
 		    "colorsMenu", complexMenuWidgetClass, menu_parent,
 		    NULL);
 		s = schemes;
 		for (ix = 0, s = schemes; ix < scheme_count; ix++, s = s->next) {
 			scheme_widgets[ix] = XtVaCreateManagedWidget(
-			    s->label, cmeBSBObjectClass, t,
+			    s->label, cmeBSBObjectClass,
+			    add_menu_hier(root, s->parents, NULL, 0),
 			    XtNleftBitmap,
 				!strcmp(appres.color_scheme, s->scheme) ?
 				    diamond : no_diamond,
@@ -1876,14 +1942,18 @@ options_menu_init(Boolean regen, Position x, Position y)
 		    options_menu,
 		    NULL);
 
-		charset_widgets = (Widget *)XtCalloc(charset_count,
-		    sizeof(Widget));
-		t = XtVaCreatePopupShell(
+		root = (struct menu_hier *)XtCalloc(1,
+				sizeof(struct menu_hier));
+		root->menu_shell = XtVaCreatePopupShell(
 		    "charsetMenu", complexMenuWidgetClass, menu_parent,
 		    NULL);
+
+		charset_widgets = (Widget *)XtCalloc(charset_count,
+		    sizeof(Widget));
 		for (ix = 0, cs = charsets;
                      ix < charset_count;
                      ix++, cs = cs->next) {
+			t = add_menu_hier(root, cs->parents, NULL, 0);
 			charset_widgets[ix] = XtVaCreateManagedWidget(
 			    cs->label, cmeBSBObjectClass, t,
 			    XtNleftBitmap,

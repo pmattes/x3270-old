@@ -548,10 +548,11 @@ lookup_key(int code)
 			consumed++;
 			if (k->ncodes == consumed) {
 				j = ambiguous(k, consumed);
-				if (j == NULL)
+				if (j == NULL) {
+					current_match = k;
 					return status_ret(k->action,
 					    NULL);
-				else
+				} else
 					return status_ret(ignore, j);
 			} else
 				return status_ret(ignore, k);
@@ -712,18 +713,18 @@ keymap_init(void)
 	clear_keymap();
 
 	read_keymap("base");
-	if (appres.key_map == CN)
-		return;
-	s = s0 = NewString(appres.key_map);
-	while ((comma = strchr(s, ',')) != CN) {
-		*comma = '\0';
+	if (appres.key_map != CN) {
+		s = s0 = NewString(appres.key_map);
+		while ((comma = strchr(s, ',')) != CN) {
+			*comma = '\0';
+			if (*s)
+				read_keymap(s);
+			s = comma + 1;
+		}
 		if (*s)
 			read_keymap(s);
-		s = comma + 1;
+		Free(s0);
 	}
-	if (*s)
-		read_keymap(s);
-	Free(s0);
 
 	last_3270 = IN_3270;
 	last_nvt = IN_ANSI;

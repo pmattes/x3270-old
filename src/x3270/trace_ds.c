@@ -143,7 +143,7 @@ trace_ds(const char *fmt, ...)
 
 	/* print out remainder of message */
 	(void) vsprintf(tdsbuf, fmt, args);
-	trace_ds_s(tdsbuf, TRUE);
+	trace_ds_s(tdsbuf, True);
 	va_end(args);
 }
 
@@ -160,7 +160,7 @@ trace_ds_nb(const char *fmt, ...)
 
 	/* print out remainder of message */
 	(void) vsprintf(tdsbuf, fmt, args);
-	trace_ds_s(tdsbuf, FALSE);
+	trace_ds_s(tdsbuf, False);
 	va_end(args);
 }
 

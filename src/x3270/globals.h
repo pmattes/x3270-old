@@ -158,6 +158,9 @@ extern char		*qualified_host;
 extern char		*reconnect_host;
 extern int		screen_depth;
 extern Boolean		scroll_initted;
+#if defined(HAVE_LIBSSL) /*[*/
+extern Boolean		secure_connection;
+#endif /*]*/
 extern Boolean		shifted;
 extern Boolean		ssl_host;
 extern Boolean		*standard_font;
@@ -249,15 +252,6 @@ struct trans_list {
 	struct trans_list	*next;
 };
 extern struct trans_list *trans_list;
-
-/*   font list */
-struct font_list {
-	char			*label;
-	char			*font;
-	struct font_list	*next;
-};
-extern struct font_list *font_list;
-extern int font_count;
 
 /*   input key type */
 enum keytype { KT_STD, KT_GE };

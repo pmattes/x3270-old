@@ -69,7 +69,7 @@ static char *completion_entry(const char *, int);
 static FILE *pager = NULL;
 
 /* Base keymap. */
-static char *base_keymap =
+static char *base_keymap1 =
 "Ctrl<Key>]: Escape\n"
 "Ctrl<Key>a Ctrl<Key>a: Key(0x01)\n"
 "Ctrl<Key>a Ctrl<Key>]: Key(0x1d)\n"
@@ -79,7 +79,7 @@ static char *base_keymap =
 "Ctrl<Key>a <Key>r: Reset\n"
 "Ctrl<Key>a <Key>l: Redraw\n"
 "Ctrl<Key>a <Key>m: Compose\n"
-"Ctrl<Key>a <Key>^: Key(Notsign)\n"
+"Ctrl<Key>a <Key>^: Key(notsign)\n"
 "<Key>DC: Delete\n"
 "<Key>UP: Up\n"
 "<Key>DOWN: Down\n"
@@ -88,7 +88,8 @@ static char *base_keymap =
 "<Key>HOME: Home\n"
 "Ctrl<Key>a <Key>1: PA(1)\n"
 "Ctrl<Key>a <Key>2: PA(2)\n"
-"Ctrl<Key>a <Key>3: PA(3)\n"
+"Ctrl<Key>a <Key>3: PA(3)\n";
+static char *base_keymap2 =
 "<Key>F1: PF(1)\n"
 "Ctrl<Key>a <Key>F1: PF(13)\n"
 "<Key>F2: PF(2)\n"
@@ -100,7 +101,8 @@ static char *base_keymap =
 "<Key>F5: PF(5)\n"
 "Ctrl<Key>a <Key>F5: PF(17)\n"
 "<Key>F6: PF(6)\n"
-"Ctrl<Key>a <Key>F6: PF(18)\n"
+"Ctrl<Key>a <Key>F6: PF(18)\n";
+static char *base_keymap3 =
 "<Key>F7: PF(7)\n"
 "Ctrl<Key>a <Key>F7: PF(19)\n"
 "<Key>F8: PF(8)\n"
@@ -121,11 +123,13 @@ static char *base_3270_keymap =
 "Ctrl<Key>l: Redraw\n"
 "Ctrl<Key>i: Tab\n"
 "<Key>DC: Delete\n"
-"Ctrl<Key>h: BackSpace\n"
-"<Key>BACKSPACE: BackSpace\n"
+"Ctrl<Key>h: Erase\n"
+"<Key>BACKSPACE: Erase\n"
 "Ctrl<Key>j: Newline\n"
 "Ctrl<Key>m: Enter\n"
-"<Key>HOME: Home\n";
+"<Key>HOME: Home\n"
+"Ctrl<Key>a <Key>a: Attn\n"
+"<Key>END: FieldEnd\n";
 
 Boolean any_error_output = False;
 Boolean escape_pending = False;
@@ -170,7 +174,8 @@ main(int argc, char *argv[])
 {
 	const char	*cl_hostname = CN;
 
-	add_resource("keymap.base", NewString(base_keymap));
+	add_resource("keymap.base",
+	    xs_buffer("%s%s%s", base_keymap1, base_keymap2, base_keymap3));
 	add_resource("keymap.base.3270", NewString(base_3270_keymap));
 
 	argc = parse_command_line(argc, (const char **)argv, &cl_hostname);

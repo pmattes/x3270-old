@@ -303,7 +303,7 @@ xlate1(unsigned char from0, unsigned char from1, unsigned char to_buf[],
 		len = ucnv_fromUChars(to_cnv, tmp_to_buf, 3, Ubuf, len, &err);
 		if (err != U_ZERO_ERROR) {
 			trace_ds("[fromUnicode of U+%04x to %s failed, ICU "
-			    "error %d]\n", to_name, Ubuf[0], (int)err);
+			    "error %d]\n", Ubuf[0], to_name, (int)err);
 			return;
 		}
 		to_buf[0] = tmp_to_buf[0];

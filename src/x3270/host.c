@@ -128,7 +128,11 @@ hostfile_init(void)
 				continue;
 			}
 			h = (struct host *)Malloc(sizeof(*h));
-			h->name = NewString(name);
+			if (!split_hier(NewString(name), &h->name,
+						&h->parents)) {
+				Free(h);
+				continue;
+			}
 			h->hostname = NewString(hostname);
 
 			/*
@@ -667,6 +671,7 @@ save_recent(const char *hn)
 	if (hn != CN) {
 		h = (struct host *)Malloc(sizeof(*h));
 		h->name = NewString(hn);
+		h->parents = NULL;
 		h->hostname = NewString(hn);
 		h->entry_type = RECENT;
 		h->loginstring = CN;
@@ -717,6 +722,7 @@ save_recent(const char *hn)
 
 			h = (struct host *)Malloc(sizeof(*h));
 			h->name = NewString(ptr + 1);
+			h->parents = NULL;
 			h->hostname = NewString(ptr + 1);
 			h->entry_type = RECENT;
 			h->loginstring = CN;

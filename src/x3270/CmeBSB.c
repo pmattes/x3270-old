@@ -452,6 +452,9 @@ FlipOff(Widget w)
 {
     CmeBSBObject entry = (CmeBSBObject) w;
     Widget menu = NULL, temp;
+#define NUM_MENUS	16
+    Widget menus[NUM_MENUS];
+    int num_menus = 0;
 
     FlipColors(w);
     if (entry->cme_bsb.menu_name == NULL)
@@ -467,8 +470,16 @@ FlipOff(Widget w)
 	menu = XtNameToWidget(temp, entry->cme_bsb.menu_name);
 	if (menu == NULL) 
 	    temp = XtParent(temp);
-	else
+	else {
+#if defined(CmeDebug)
+	    printf("FlipOff(BSB %lx) parent '%s': menu is %lx '%s'\n",
+			    (unsigned long)w,
+			    XtParent(w)->core.name,
+			    (unsigned long)menu,
+			    entry->cme_bsb.menu_name);
+#endif
 	    break;
+	}
     }
 
     if (menu == NULL) {
@@ -478,7 +489,28 @@ FlipOff(Widget w)
 	XtAppWarning(XtWidgetToApplicationContext(w), error_buf);
 	return;
     }
-    XtPopdown(menu);
+
+    /* Pop down the last menu in the chain, not the first. */
+    menus[num_menus++] = menu;
+    while ((w = XawComplexMenuGetActiveEntry(menu)) != NULL) {
+#if defined(CmeDebug)
+	printf("FlipOff: menu has an active entry\n");
+#endif
+	entry = (CmeBSBObject) w;
+	temp = w;
+	while (temp != NULL) {
+	    menu = XtNameToWidget(temp, entry->cme_bsb.menu_name);
+	    if (menu == NULL) 
+		temp = XtParent(temp);
+	    else
+		break;
+	}
+	if (menu == NULL)
+	    break;
+    	menus[num_menus++] = menu;
+    }
+    while (num_menus)
+	XtPopdown(menus[--num_menus]);
 }
     
 /*      Function Name: FlipColors
@@ -734,6 +766,10 @@ PopupMenu(Widget w)
 	XtAppWarning(XtWidgetToApplicationContext(w), error_buf);
 	return;
     }
+#ifdef CmeDebug
+    printf("PopupMenu(%lx) '%s'\n", (unsigned long)menu,
+		    entry->cme_bsb.menu_name);
+#endif
     if (!XtIsRealized(menu))
 	XtRealizeWidget(menu);
 

@@ -11,6 +11,7 @@
 <a HREF="#Synopsis">Synopsis</a><br>
 <a HREF="#Description">Description</a><br>
 <a HREF="#Options">Options</a><br>
+<a HREF="#Signals">Signals</a><br>
 <a HREF="#See-Also">See Also</a><br>
 <a HREF="#Copyrights">Copyrights</a><br>
 <a HREF="#Version">Version</a><br>
@@ -22,13 +23,16 @@ host printing tool
 <a NAME="Synopsis"></a><h2>Synopsis</h2>
 <b>pr3287</b>
 [ <i>options</i> ]       
-[[ <i>LUname</i> [, <i>LUname</i> ...]@] <i>hostname</i> [: <i>port</i> ]] 
+[ l: ] [[ <i>LUname</i> [, <i>LUname</i> ...]@] <i>hostname</i> [: <i>port</i> ]] 
 <a NAME="Description"></a><h2>Description</h2>
 <b>pr3287</b>
 opens a telnet connection to an
 <font size=-1>IBM</font>
 host, and emulates an <font size=-1>IBM</font> 3287 printer.
 It implements RFCs 2355 (TN3270E), 1576 (TN3270) and 1646 (LU name selection).
+<p>
+If the <i>hostname</i> is prefixed with <b>l:</b>, the connection will be made
+through an SSL tunnel.
 <p>
 A specific LU name to use may be specified by prepending it to the
 <i>hostname</i>
@@ -116,6 +120,12 @@ Turns on data stream tracing.
 Trace information is saved in the file
 <b>/tmp/x3trc.</b><i>pid</i>.
 </dl>
+<a NAME="Signals"></a><h2>Signals</h2>
+SIGINT, SIGHUP and SIGTERM cause the current print job to be flushed (any
+pending data to be printed) and <i>pr3287</i> to exit.
+<p>
+SIGUSR1 causes the current print job to be flushed without otherwise
+affecting the <i>pr3287</i> process.
 <a NAME="See-Also"></a><h2>See Also</h2>
 x3270(1), telnet(1), tn3270(1)
 <br>
@@ -132,7 +142,7 @@ RFC 1646, TN3270 Extensions for LUname and Printer Selection
 RFC 2355, TN3270 Enhancements
 <a NAME="Copyrights"></a><h2>Copyrights</h2>
 <p>
-Modifications Copyright &copy; 1993, 1994, 1995, 1996, 1997, 1999, 2000, 2001 ,by Paul Mattes.
+Modifications Copyright  &copy; 1993-1996, 1997, 1999-2003 by Paul Mattes.
 <br>
 Original X11 Port Copyright &copy; 1990 by Jeff Sparkes.
 <blockquote>Permission to use, copy, modify, and distribute this software and its
@@ -145,12 +155,12 @@ Copyright &copy; 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.
 Derivative works based on this software must incorporate this copyright
 notice.</blockquote>
 <a NAME="Version"></a><h2>Version</h2>
-pr3287 3.2.20
+pr3287 3.3.1-alpha9
 <hr>
 <address>
 This HTML document and the accompanying troff document were generated with
 a set of write-only <b>m4</b> macros and the powerful <b>vi</b> editor.
-<br>Last modified 07 February 2003.
+<br>Last modified 23 July 2003.
 </address>
 </body>
 </html>

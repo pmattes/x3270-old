@@ -11,6 +11,7 @@ dnl FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
 
 dnl Process this file with autoconf to produce a configure script.
 AC_INIT(main.c)
+AC_PREREQ(2.50)
 AC_CONFIG_HEADER(conf.h)
 
 dnl Checks for programs.

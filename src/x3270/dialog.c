@@ -57,7 +57,6 @@ text_t t_numeric = T_NUMERIC;
 text_t t_hostfile = T_HOSTFILE;
 text_t t_unixfile = T_UNIXFILE;
 text_t t_command = T_COMMAND;
-text_t t_timeout = T_TIMEOUT;
 
 Boolean s_true = True;
 Boolean s_false = False;

@@ -1,5 +1,5 @@
 /*
- * Copyright 1995, 1996, 1999, 2000, 2001, 2002 by Paul Mattes.
+ * Copyright 1995, 1996, 1999, 2000, 2001, 2002, 2003 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -48,8 +48,9 @@ unsigned n_mono = 0;		/* number of mono definitions */
 #define MODE_PRINTER	0x00000080
 #define MODE_STANDALONE	0x00000100
 #define MODE_SCRIPT	0x00000200
+#define MODE_DBCS	0x00000400
 
-#define MODEMASK	0x000003ff
+#define MODEMASK	0x000007ff
 
 struct {
 	unsigned long ifdefs;
@@ -71,7 +72,8 @@ struct {
 	{ "X3270_APL", MODE_APL },
 	{ "X3270_PRINTER", MODE_PRINTER },
 	{ "STANDALONE", MODE_STANDALONE },
-	{ "X3270_SCRIPT", MODE_SCRIPT }
+	{ "X3270_SCRIPT", MODE_SCRIPT },
+	{ "X3270_DBCS", MODE_DBCS }
 };
 #define NPARTS	(sizeof(parts)/sizeof(parts[0]))
 
@@ -124,6 +126,12 @@ unsigned long is_defined =
 #else
 	0
 #endif
+|
+#if defined(X3270_DBCS)
+	MODE_DBCS
+#else
+	0
+#endif
     ;
 unsigned long is_undefined;
 
@@ -147,8 +155,10 @@ main(int argc, char *argv[])
 	int i;
 	int continued = 0;
 	const char *filename = "standard input";
-	FILE *t, *o;
+	FILE *u, *t, *o;
 	int cmode = 0;
+	unsigned long ifdefs;
+	unsigned long ifndefs;
 
 	/* Parse arguments. */
 	if ((me = strrchr(argv[0], '/')) != (char *)NULL)
@@ -180,28 +190,17 @@ main(int argc, char *argv[])
 
 	is_undefined = MODE_COLOR | (~is_defined & MODEMASK);
 
-	t = tmpfile();
-	if (t == NULL) {
+	/* Do #ifdef, comment and whitespace processing first. */
+	u = tmpfile();
+	if (u == NULL) {
 		perror("tmpfile");
 		exit(1);
 	}
 
-	/* Emit the initial boilerplate. */
-	fprintf(t, "/* This file was created automatically from %s by mkfb. */\n\n",
-	    filename);
-	fprintf(t, "#if !defined(USE_APP_DEFAULTS) /*[*/\n\n");
-	fprintf(t, "#include \"globals.h\"\n\n");
-	fprintf(t, "static unsigned char fsd[] = {\n");
-
-	/* Scan the file, emitting the fsd array and creating the indices. */
 	while (fgets(buf, BUFSZ, stdin) != (char *)NULL) {
 		char *s = buf;
 		int sl;
-		char c;
-		int white;
 		int i;
-		unsigned long ifdefs;
-		unsigned long ifndefs;
 
 		lno++;
 
@@ -216,9 +215,6 @@ main(int argc, char *argv[])
 		/* Remove trailing white space. */
 		while ((sl = strlen(s)) && isspace(s[sl-1]))
 			s[sl-1] = '\0';
-
-		if (continued)
-			goto emit_text;
 
 		/* Skip comments and empty lines. */
 		if (!*s || *s == '!')
@@ -322,12 +318,49 @@ main(int argc, char *argv[])
 			continue;
 		}
 
+		/* Emit the text. */
+		fprintf(u, "%lx %lx %d\n%s\n", ifdefs, ifndefs, lno, s);
+	}
+	if (ssp) {
+		fprintf(stderr, "%d missing #endif(s) in %s\n", ssp, filename);
+		fprintf(stderr, "last #ifdef was at line %u\n", ss[ssp-1].lno);
+		exit(1);
+	}
+
+	/* Re-scan, emitting code this time. */
+	rewind(u);
+	t = tmpfile();
+	if (t == NULL) {
+		perror("tmpfile");
+		exit(1);
+	}
+
+	/* Emit the initial boilerplate. */
+	fprintf(t, "/* This file was created automatically from %s by mkfb. */\n\n",
+	    filename);
+	fprintf(t, "#if !defined(USE_APP_DEFAULTS) /*[*/\n\n");
+	fprintf(t, "#include \"globals.h\"\n\n");
+	fprintf(t, "static unsigned char fsd[] = {\n");
+
+	/* Scan the file, emitting the fsd array and creating the indices. */
+	while (fscanf(u, "%lx %lx %d\n", &ifdefs, &ifndefs, &lno) == 3) {
+		char *s = buf;
+		char c;
+		int white;
+
+		if (fgets(buf, BUFSZ, u) == NULL)
+			break;
+		if (strlen(buf) > 0 && buf[strlen(buf)-1] == '\n')
+			buf[strlen(buf)-1] = '\0';
+
+#if 0
+		fprintf(stderr, "%lx %lx %d %s\n", ifdefs, ifndefs, lno, buf);
+#endif
+
 		/* Add array offsets. */
 		if (!(ifdefs & MODE_COLOR) && !(ifndefs & MODE_COLOR)) {
 			if (n_color >= ARRSZ || n_mono >= ARRSZ) {
-				fprintf(stderr,
-				    "%s, line %d: Buffer overflow\n",
-				    filename, lno);
+				fprintf(stderr, "%s, line %d: Buffer overflow\n", filename, lno);
 				exit(1);
 			}
 			a_color[n_color] = cc;
@@ -336,26 +369,20 @@ main(int argc, char *argv[])
 			l_mono[n_mono++] = lno;
 		} else if (ifdefs & MODE_COLOR) {
 			if (n_color >= ARRSZ) {
-				fprintf(stderr,
-				    "%s, line %d: Buffer overflow\n",
-				    filename, lno);
+				fprintf(stderr, "%s, line %d: Buffer overflow\n", filename, lno);
 				exit(1);
 			}
 			a_color[n_color] = cc;
 			l_color[n_color++] = lno;
 		} else {
 			if (n_mono >= ARRSZ) {
-				fprintf(stderr,
-				    "%s, line %d: Buffer overflow\n",
-				    filename, lno);
+				fprintf(stderr, "%s, line %d: Buffer overflow\n", filename, lno);
 				exit(1);
 			}
 			a_mono[n_mono] = cc;
 			l_mono[n_mono++] = lno;
 		}
 
-		/* Emit the text. */
-	    emit_text:
 		continued = 0;
 		white = 0;
 		while ((c = *s++) != '\0') {
@@ -413,11 +440,7 @@ main(int argc, char *argv[])
 			cc++;
 		}
 	}
-	if (ssp) {
-		fprintf(stderr, "%d missing #endif(s) in %s\n", ssp, filename);
-		fprintf(stderr, "last #ifdef was at line %u\n", ss[ssp-1].lno);
-		exit(1);
-	}
+	fclose(u);
 	fprintf(t, "};\n\n");
 
 	/* Emit the fallback arrays themselves. */

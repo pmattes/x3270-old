@@ -4504,13 +4504,17 @@ font_in_menu(char *font)
 }
 
 /* Add a font to the font menu. */
-static void
+static Boolean
 add_font_to_menu(char *label, char *font)
 {
 	struct font_list *f;
 
+	label = NewString(label);
 	f = (struct font_list *)XtMalloc(sizeof(*f));
-	f->label = NewString(label);
+	if (!split_hier(label, &f->label, &f->parents)) {
+		Free((XtPointer)f);
+		return False;
+	}
 	f->font = NewString(font);
 	f->next = NULL;
 	if (font_list)
@@ -4519,6 +4523,7 @@ add_font_to_menu(char *label, char *font)
 		font_list = f;
 	font_last = f;
 	font_count++;
+	return True;
 }
 
 /*
@@ -4537,6 +4542,7 @@ init_rsfonts(char *charset_name)
 	char *lasts;
 	XFontStruct *fs;
 	Boolean scalable;
+	char *hier_name;
 
 	/* Clear the old lists. */
 	while (rsfonts != NULL) {
@@ -4546,7 +4552,9 @@ init_rsfonts(char *charset_name)
 	}
 	while (font_list != NULL) {
 		f = font_list->next;
-		Free(font_list->label);
+		if (font_list->parents)
+			Free(font_list->parents);
+		/*Free(font_list->label);  a leak! */
 		Free(font_list->font);
 		Free(font_list);
 		font_list = f;
@@ -4583,8 +4591,10 @@ init_rsfonts(char *charset_name)
 				continue;
 
 			/* Add it to the font_list (menu). */
-			add_font_to_menu((label != CN)? label: NO_BANG(font),
-					    font);
+			if (!add_font_to_menu((label != CN)? label:
+						NO_BANG(font),
+					    font))
+				continue;
 
 			/* Add it to the resize menu, if possible. */
 			if (!resize)
@@ -4617,7 +4627,7 @@ init_rsfonts(char *charset_name)
 	}
 
 	/* Add 'fixed' to the menu, so there's at least one alternative. */
-	add_font_to_menu("fixed", "!fixed");
+	(void) add_font_to_menu("fixed", "!fixed");
 
 	/* Expand out wild-cards based on the display character set names. */
 	buf = dupcsn = NewString(charset_name);
@@ -4632,7 +4642,11 @@ init_rsfonts(char *charset_name)
 				if (check_charset(names[i], &fs[i], csn, False,
 					NULL, &scalable) &&
 				   !font_in_menu(names[i])) {
-					add_font_to_menu(names[i], names[i]);
+					hier_name = xs_buffer("%s>%s",
+							csn, names[i]);
+					(void) add_font_to_menu(hier_name,
+								names[i]);
+					Free(hier_name);
 				}
 			}
 			XFreeFontInfo(names, fs, count);
@@ -4646,7 +4660,11 @@ init_rsfonts(char *charset_name)
 				if (check_charset(names[i], &fs[i], csn, False,
 					NULL, &scalable) &&
 				   !font_in_menu(names[i])) {
-					add_font_to_menu(names[i], names[i]);
+					hier_name = xs_buffer("%s>%s",
+							csn, names[i]);
+					(void) add_font_to_menu(hier_name,
+								names[i]);
+					Free(hier_name);
 				}
 			}
 			XFreeFontInfo(names, fs, count);

@@ -4,78 +4,30 @@
    <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
    <meta name="Author" content="Paul Mattes">
    <meta name="GENERATOR" content="Mozilla/4.5 [en] (WinNT; U) [Netscape]">
-   <title>pr3287 3.2 New Features</title>
+   <title>pr3287 3.3 New Features</title>
    <link HREF="http://www.w3.org/StyleSheets/Core/Steely" TYPE="text/css" REL="stylesheet">
 </head>
 <body>
 
 <h1>
-New Features in pr3287 3.2
+New Features in pr3287 3.3
 <hr WIDTH="100%"></h1>
-<h2>Changes in pr3287 3.2.20, 14. February 2003</h2>
+<h2>Changes in pr3287 3.3.1alpha9, 30. July 2003</h2>
 <ul>
  <li>Bug Fixes:
   <ul>
-   <li>Vastly improved error handling.</li>
+   <li>Ignore SIGINT in the print job process, so that killing an
+    interactive pr3287 with ^C won't cause buffered data to be lost.</li>
+   <li>Fixed a problem with losing a byte of data after an SHF order.</li>
+   <li>Fixed the SCS HT order, which was completely broken.</li>
   </ul>
  </li>
  <li>Enhancements:
   <ul>
-   <li>Character set definitions can now be sent from <b>x3270</b> and
-    <b>c3270</b>.</li>
+   <li>Added support for SIGUSR1 to flush the print job.</li>
+   <li>Added support for the TELNET START-TLS option.</li>
   </ul>
  </li>
-</ul>
-<h2>Changes in pr3287 3.2.19, 1. May 2002</h2>
-<ul>
- <li>Bug Fixes:
-  <ul>
-   <li>Fixed a problem with interpreting certain SCS commands.</li>
-   <li>Fixed a problem with Repeat-To-Address orders which specify Format
-    Control orders instead of printable characters.</li>
-   <li>Properly implemented SCS transparent data.</li>
-  </ul>
- </li>
- <li>Enhancements:
-  <ul>
-   <li>Updated to autoconf 2.53.</li>
-   <li>Added a <b>-crlf</b> option, to expand newlines to CR/LF sequences in
-    the output.</li>
-   <li>Added a <b>-ffskip</b> option, to ignore FF orders if they occur at
-    the top  of a page.</li>
-   <li>Added a <b>-ffthru</b> option, to pass through SCS FF orders as ASCII
-    formfeed characters, instead of simulating them with linefeeds based on the
-    SCS MPL and TP parameters.</li>
-  </ul>
- </li>
-</ul>
-<h2>Changes in pr3287 3.2.18, 31. December 2001</h2>
-<ul>
- <li>Bug Fixes:
-  <ul>
-   <li>Fixed the EBCDIC-to-ASCII conversion problem that pretty much
-    disabled the initial 3.2.17 release.</li>
-   <li>Create directories as needed for <tt>make install</tt>.</li>
-  </ul>
- </li>
- <li>Enhancements:
-  <ul>
-   <li>Included the autoconf <tt>configure.in</tt> file, so that users can
-    run a newer or customized <i>autoconf</i> on it.</li>
-   <li>Added an <b>-ignoreeoj</b> option, to optionally ignore PRINT-EOJ
-    commands from hosts that are a little too generous with them.</li>
-  </ul>
- </li>
-</ul>
-<h2>Changes in pr3287 3.2.17, 25. June 2001</h2>
-<ul>
- <li>Implemented the TN3270 (non-TN3270E) printer ACK/NAK protocol.</li>
- <li>Fixed the interpretation of CR and EM orders in unformatted mode.</li>
- <li>Fixed a problem that disabled syslog() support in <b>-daemon</b> mode.</li>
- <li>Added a <b>-blanklines</b> switch, to print blank lines in LU3 formatted
-  mode even when they are all NULLs and orders.</li>
- <li>Added a <b>-reconnect</b> switch, to retry the host connection after
-  it is broken.</li>
 </ul>
 </body>
 </html>

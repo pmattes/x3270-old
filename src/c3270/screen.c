@@ -108,6 +108,8 @@ static int color_from_fa(unsigned char);
 static void screen_init2(void);
 static void set_status_row(int screen_rows, int emulator_rows);
 static Boolean ts_value(const char *s, enum ts *tsp);
+static int linedraw_to_acs(unsigned char c);
+static int apl_to_acs(unsigned char c);
 
 /* Initialize the screen. */
 void
@@ -434,6 +436,7 @@ screen_disp(Boolean erasing unused)
 {
 	int row, col;
 	int a;
+	int c;
 	unsigned char fa;
 	extern Boolean screen_alt;
 	struct screen_spec *cur_spec;
@@ -577,10 +580,25 @@ screen_disp(Boolean erasing unused)
 					}
 				} else if (!IS_RIGHT(d)) {
 #endif /*]*/
-					if (toggled(MONOCASE))
-						addch(asc2uc[ebc2asc[ea_buf[baddr].cc]]);
-					else
-						addch(ebc2asc[ea_buf[baddr].cc]);
+					if (ea_buf[baddr].cs == CS_LINEDRAW) {
+						c = linedraw_to_acs(ea_buf[baddr].cc);
+						if (c != -1)
+							addch(c);
+						else
+							addch(' ');
+					} else if (ea_buf[baddr].cs == CS_APL ||
+						   (ea_buf[baddr].cs & CS_GE)) {
+						c = apl_to_acs(ea_buf[baddr].cc);
+						if (c != -1)
+							addch(c);
+						else
+							addch(' ');
+					} else {
+						if (toggled(MONOCASE))
+							addch(asc2uc[ebc2asc[ea_buf[baddr].cc]]);
+						else
+							addch(ebc2asc[ea_buf[baddr].cc]);
+					}
 #if defined(X3270_DBCS) /*[*/
 				}
 #endif /*]*/
@@ -1155,4 +1173,208 @@ screen_80(void)
 		screen_disp(True);
 	}
 #endif /*]*/
+}
+
+/*
+ * Translate an x3270 font line-drawing character (the first two rows of a
+ * standard X11 fixed-width font) to a curses ACS character.
+ *
+ * Returns -1 if there is no translation.
+ */
+static int
+linedraw_to_acs(unsigned char c)
+{
+	switch (c) {
+#if defined(ACS_BLOCK) /*[*/
+	case 0x0:
+		return ACS_BLOCK;
+#endif /*]*/
+#if defined(ACS_DIAMOND) /*[*/
+	case 0x1:
+		return ACS_DIAMOND;
+#endif /*]*/
+#if defined(ACS_CKBOARD) /*[*/
+	case 0x2:
+		return ACS_CKBOARD;
+#endif /*]*/
+#if defined(ACS_DEGREE) /*[*/
+	case 0x7:
+		return ACS_DEGREE;
+#endif /*]*/
+#if defined(ACS_PLMINUS) /*[*/
+	case 0x8:
+		return ACS_PLMINUS;
+#endif /*]*/
+#if defined(ACS_BOARD) /*[*/
+	case 0x9:
+		return ACS_BOARD;
+#endif /*]*/
+#if defined(ACS_LANTERN) /*[*/
+	case 0xa:
+		return ACS_LANTERN;
+#endif /*]*/
+#if defined(ACS_LRCORNER) /*[*/
+	case 0xb:
+		return ACS_LRCORNER;
+#endif /*]*/
+#if defined(ACS_URCORNER) /*[*/
+	case 0xc:
+		return ACS_URCORNER;
+#endif /*]*/
+#if defined(ACS_ULCORNER) /*[*/
+	case 0xd:
+		return ACS_ULCORNER;
+#endif /*]*/
+#if defined(ACS_LLCORNER) /*[*/
+	case 0xe:
+		return ACS_LLCORNER;
+#endif /*]*/
+#if defined(ACS_PLUS) /*[*/
+	case 0xf:
+		return ACS_PLUS;
+#endif /*]*/
+#if defined(ACS_S1) /*[*/
+	case 0x10:
+		return ACS_S1;
+#endif /*]*/
+#if defined(ACS_S3) /*[*/
+	case 0x11:
+		return ACS_S3;
+#endif /*]*/
+#if defined(ACS_HLINE) /*[*/
+	case 0x12:
+		return ACS_HLINE;
+#endif /*]*/
+#if defined(ACS_S7) /*[*/
+	case 0x13:
+		return ACS_S7;
+#endif /*]*/
+#if defined(ACS_S9) /*[*/
+	case 0x14:
+		return ACS_S9;
+#endif /*]*/
+#if defined(ACS_LTEE) /*[*/
+	case 0x15:
+		return ACS_LTEE;
+#endif /*]*/
+#if defined(ACS_RTEE) /*[*/
+	case 0x16:
+		return ACS_RTEE;
+#endif /*]*/
+#if defined(ACS_BTEE) /*[*/
+	case 0x17:
+		return ACS_BTEE;
+#endif /*]*/
+#if defined(ACS_TTEE) /*[*/
+	case 0x18:
+		return ACS_TTEE;
+#endif /*]*/
+#if defined(ACS_VLINE) /*[*/
+	case 0x19:
+		return ACS_VLINE;
+#endif /*]*/
+#if defined(ACS_LEQUAL) /*[*/
+	case 0x1a:
+		return ACS_LEQUAL;
+#endif /*]*/
+#if defined(ACS_GEQUAL) /*[*/
+	case 0x1b:
+		return ACS_GEQUAL;
+#endif /*]*/
+#if defined(ACS_PI) /*[*/
+	case 0x1c:
+		return ACS_PI;
+#endif /*]*/
+#if defined(ACS_NEQUAL) /*[*/
+	case 0x1d:
+		return ACS_NEQUAL;
+#endif /*]*/
+#if defined(ACS_STERLING) /*[*/
+	case 0x1e:
+		return ACS_STERLING;
+#endif /*]*/
+#if defined(ACS_BULLET) /*[*/
+	case 0x1f:
+		return ACS_BULLET;
+#endif /*]*/
+	default:
+		return -1;
+	}
+}
+
+static int
+apl_to_acs(unsigned char c)
+{
+	switch (c) {
+#if defined(ACS_DEGREE) /*[*/
+	case 0xaf: /* CG 0xd1 */
+		return ACS_DEGREE;
+#endif /*]*/
+#if defined(ACS_LRCORNER) /*[*/
+	case 0xd4: /* CG 0xac */
+		return ACS_LRCORNER;
+#endif /*]*/
+#if defined(ACS_URCORNER) /*[*/
+	case 0xd5: /* CG 0xad */
+		return ACS_URCORNER;
+#endif /*]*/
+#if defined(ACS_ULCORNER) /*[*/
+	case 0xc5: /* CG 0xa4 */
+		return ACS_ULCORNER;
+#endif /*]*/
+#if defined(ACS_LLCORNER) /*[*/
+	case 0xc4: /* CG 0xa3 */
+		return ACS_LLCORNER;
+#endif /*]*/
+#if defined(ACS_PLUS) /*[*/
+	case 0xd3: /* CG 0xab */
+		return ACS_PLUS;
+#endif /*]*/
+#if defined(ACS_HLINE) /*[*/
+	case 0xd2: /* CG 0xaa */
+		return ACS_HLINE;
+#endif /*]*/
+#if defined(ACS_LTEE) /*[*/
+	case 0xc6: /* CG 0xa5 */
+		return ACS_LTEE;
+#endif /*]*/
+#if defined(ACS_RTEE) /*[*/
+	case 0xd6: /* CG 0xae */
+		return ACS_RTEE;
+#endif /*]*/
+#if defined(ACS_BTEE) /*[*/
+	case 0xc7: /* CG 0xa6 */
+		return ACS_BTEE;
+#endif /*]*/
+#if defined(ACS_TTEE) /*[*/
+	case 0xd7: /* CG 0xaf */
+		return ACS_TTEE;
+#endif /*]*/
+#if defined(ACS_VLINE) /*[*/
+	case 0x85: /* CG 0xa84? */
+		return ACS_VLINE;
+#endif /*]*/
+#if defined(ACS_LEQUAL) /*[*/
+	case 0x8c: /* CG 0xf7 */
+		return ACS_LEQUAL;
+#endif /*]*/
+#if defined(ACS_GEQUAL) /*[*/
+	case 0xae: /* CG 0xd9 */
+		return ACS_GEQUAL;
+#endif /*]*/
+#if defined(ACS_NEQUAL) /*[*/
+	case 0xbe: /* CG 0x3e */
+		return ACS_NEQUAL;
+#endif /*]*/
+#if defined(ACS_BULLET) /*[*/
+	case 0xa3: /* CG 0x93 */
+		return ACS_BULLET;
+#endif /*]*/
+	case 0xad:
+		return '[';
+	case 0xbd:
+		return ']';
+	default:
+		return -1;
+	}
 }

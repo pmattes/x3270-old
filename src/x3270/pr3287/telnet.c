@@ -52,6 +52,11 @@
 #include "ctlrc.h"
 #include "telnetc.h"
 
+#if !defined(TELOPT_STARTTLS) /*[*/
+#define TELOPT_STARTTLS        46
+#endif /*]*/
+#define TLS_FOLLOWS    1
+
 extern FILE *tracef;
 extern int ignoreeoj;
 extern int ssl_host;
@@ -211,10 +216,13 @@ const char *neg_type[4] = { "COMMAND-REJECT", "INTERVENTION-REQUIRED",
 			    neg_type[n]: "??")
 
 #if defined(HAVE_LIBSSL) /*[*/
+Boolean secure_connection = False;
 static SSL_CTX *ssl_ctx;
 static SSL *ssl_con;
+static Boolean need_tls_follows = False;
 static void ssl_init(void);
 static void client_info_callback(SSL *s, int where, int ret);
+static int continue_tls(unsigned char *sbbuf, int len);
 #endif /*]*/
 
 
@@ -242,13 +250,18 @@ negotiate(int s, char *lu, char *assoc)
 
 	/* init ssl */
 #if defined(HAVE_LIBSSL) /*[*/
-	if (ssl_host) {
+	if (ssl_host && !secure_connection) {
 		ssl_init();
+		if (ssl_con == NULL)
+			return -1;
 		SSL_set_fd(ssl_con, s);
 		if (!SSL_connect(ssl_con)) {
 			errmsg("SSL_connect failed: %s", strerror(errno));
 			return -1;
 		}       
+		secure_connection = True;
+		vtrace_str("TLS/DDL tunneled connection complete.  "
+			   "Connection is now secure.\n");
 	}
 #endif /*]*/
 
@@ -271,6 +284,9 @@ negotiate(int s, char *lu, char *assoc)
 		  E_OPT(TN3270E_FUNC_SYSREQ);
 	e_xmit_seq = 0;
 	response_required = TN3270E_RSF_NO_RESPONSE;
+#if defined(HAVE_LIBSSL) /*[*/
+	need_tls_follows = False;
+#endif /*]*/
 	telnet_state = TNS_DATA;
 
 	/* Clear statistics and flags. */
@@ -307,6 +323,25 @@ process(int s)
 			return -1;
 	}
 	return 0;
+}
+
+/* Disconnect from the host. */
+void
+net_disconnect(void)
+{
+	if (sock != -1) {
+		vtrace_str("SENT disconnect\n");
+		close(sock);
+		sock = -1;
+#if defined(HAVE_LIBSSL) /*[*/
+		if (ssl_con != NULL) {
+			SSL_shutdown(ssl_con);
+			SSL_free(ssl_con);
+			ssl_con = NULL;
+		}               
+		secure_connection = False;
+#endif /*]*/
+	}
 }
 
 /* Set up the LU list. */
@@ -384,14 +419,14 @@ net_input(int s)
 	int nr;
 
 #if defined(HAVE_LIBSSL) /*[*/
-	if (ssl_host)
+	if (ssl_con != NULL)
 		nr = SSL_read(ssl_con, (char *) netrbuf, BUFSZ);
 	else   
 #endif /*]*/
 	nr = read(s, (char *)netrbuf, BUFSZ);
 	if (nr < 0) {
 #if defined(HAVE_LIBSSL) /*[*/
-                if (ssl_host) {
+                if (ssl_con != NULL) {
 			unsigned long e;
 			char err_buf[1024];
 
@@ -585,6 +620,9 @@ telnet_fsm(unsigned char c)
 		    case TELOPT_SGA:
 		    case TELOPT_TM:
 		    case TELOPT_TN3270E:
+#if defined(HAVE_LIBSSL) /*[*/
+		    case TELOPT_STARTTLS:
+#endif /*]*/
 			if (!myopts[c]) {
 				if (c != TELOPT_TM)
 					myopts[c] = 1;
@@ -593,6 +631,24 @@ telnet_fsm(unsigned char c)
 				vtrace_str("SENT %s %s\n", cmd(WILL), opt(c));
 				check_in3270();
 			}
+#if defined(HAVE_LIBSSL) /*[*/
+			if (c == TELOPT_STARTTLS) {
+				static unsigned char follows_msg[] = {
+					IAC, SB, TELOPT_STARTTLS,
+					TLS_FOLLOWS, IAC, SE
+				};
+				/*
+				 * Send IAC SB STARTTLS FOLLOWS IAC SE
+				 * to announce that what follows is TLS.
+				 */
+				net_rawout(follows_msg, sizeof(follows_msg));
+				vtrace_str("SENT %s %s FOLLOWS %s\n",
+						cmd(SB),
+						opt(TELOPT_STARTTLS),
+						cmd(SE));
+				need_tls_follows = True;
+			}
+#endif /*]*/
 			break;
 		    default:
 			wont_opt[2] = c;
@@ -670,6 +726,14 @@ telnet_fsm(unsigned char c)
 				if (tn3270e_negotiate())
 					return -1;
 			}
+#if defined(HAVE_LIBSSL) /*[*/
+			else if (need_tls_follows &&
+					myopts[TELOPT_STARTTLS] &&
+					sbbuf[0] == TELOPT_STARTTLS) {
+				if (continue_tls(sbbuf, sbptr - sbbuf) < 0)
+					return -1;
+			}
+#endif /*]*/
 		} else {
 			telnet_state = TNS_SB;
 		}
@@ -1093,16 +1157,8 @@ net_exception(void)
 /*
  * Flavors of Network Output:
  *
- *   3270 mode
  *	net_output	send a 3270 record
- *
- *   ANSI mode; call each other in turn
- *	net_sendc	net_cookout for 1 byte
- *	net_sends	net_cookout for a null-terminated string
- *	net_cookout	send user data with cooked-mode processing, ANSI mode
- *	net_cookedout	send user data, ANSI mode, already cooked
- *	net_rawout	send telnet protocol data, ANSI mode
- *
+ *	net_rawout	send telnet protocol data
  */
 
 
@@ -1132,14 +1188,14 @@ net_rawout(unsigned const char *buf, int len)
 #		define n2w len
 #endif
 #if defined(HAVE_LIBSSL) /*[*/
-                if (ssl_host)
+                if (ssl_con != NULL)
 			nw = SSL_write(ssl_con, (const char *) buf, n2w);
 		else
 #endif /*]*/    
 		nw = write(sock, (const char *) buf, n2w);
 		if (nw < 0) {
 #if defined(HAVE_LIBSSL) /*[*/ 
-                        if (ssl_host) {
+                        if (ssl_con != NULL) {
 				unsigned long e;
 				char err_buf[1024];
 
@@ -1355,6 +1411,10 @@ opt(unsigned char c)
 		return TELOPT(c);
 	else if (c == TELOPT_TN3270E)
 		return "TN3270E";
+#if defined(HAVE_LIBSSL) /*[*/
+	else if (c == TELOPT_STARTTLS)
+		return "START-TLS";
+#endif /*]*/
 	else
 		return nnn((int)c);
 }
@@ -1695,7 +1755,7 @@ ssl_init(void)
 	ssl_con = SSL_new(ssl_ctx);
 	if (ssl_con == NULL) {
 		errmsg("SSL_new failed");
-		ssl_host = False;
+		return;
 	}
 	/* XXX: Get verify flags from a per-host resource. */
 	SSL_set_verify(ssl_con, 0/*xxx*/, NULL);
@@ -1723,6 +1783,45 @@ client_info_callback(SSL *s, int where, int ret)
 			    SSL_state_string(s), SSL_state_string_long(s));
 		}
 	}
+}
+
+/* Process a STARTTLS subnegotiation. */
+static int
+continue_tls(unsigned char *sbbuf, int len)
+{
+	/* Whatever happens, we're not expecting another SB STARTTLS. */
+	need_tls_follows = False;
+
+	/* Make sure the option is FOLLOWS. */
+	if (len < 2 || sbbuf[1] != TLS_FOLLOWS) {
+		/* Trace the junk. */
+		vtrace_str("%s ? %s\n", opt(TELOPT_STARTTLS), cmd(SE));
+		errmsg("TLS negotiation failure");
+		return -1;
+	}
+
+	/* Trace what we got. */
+	vtrace_str("%s FOLLOWS %s\n", opt(TELOPT_STARTTLS), cmd(SE));
+
+	/* Initialize the SSL library. */
+	ssl_init();
+	if (ssl_con == NULL) {
+		/* Failed. */
+		return -1;
+	}
+
+	/* Set up the TLS/SSL connection. */
+	SSL_set_fd(ssl_con, sock);
+	if (!SSL_connect(ssl_con)) {
+		errmsg("SSL_connect failed: %s", strerror(errno));
+		return -1;
+	}
+	secure_connection = True;
+
+	/* Success. */
+	vtrace_str("TLS/SSL negotiated connection complete.  "
+		  "Connection is now secure.\n");
+	return 0;
 }
 
 #endif /*]*/

@@ -115,59 +115,67 @@ static struct {
 	{ CN,  CN, 0, CN }
 };
 
+static const char *options_help[] = {
+	"Command-line options:",
+	"  " OptCharset " <name>",
+	"    Use EBCDIC character set <name>",
+	"  " OptClear " <toggle>",
+	"    Turn off the specified <toggle> option",
+	"  " OptDsTrace "",
+	"    Turn on data stream tracing",
+	"  " OptHostsFile " <file>",
+	"    Use <file> as the hosts file",
+	"  " OptKeymap " <file>",
+	"    Use the keymap in <file>",
+	"  " OptModel " <n>",
+	"    Emulate a 327x model <n>",
+	"  " OptMono "",
+	"    Emulate a monochrome 3278, even if the terminal can display color",
+	"  " OptOversize " <cols>x<rows>",
+	"    Make the screen oversized to <cols>x<rows>",
+	"  " OptSet " <toggle>",
+	"    Turn on the specified <toggle> option",
+	"  " OptTermName " <name>",
+	"    Send <name> as the TELNET terminal name",
+	"  -xrm \"c3270.<resourcename>: <value>\"",
+	"    Set a resource value",
+	NULL
+};
+
+static const char *ft_help[] = {
+	"Syntax:",
+	"  Transfer <keyword>=<value>...",
+	"Keywords:",
+	"  Direction=send|receive               default 'send'",
+	"  HostFile=<path>                      required",
+	"  LocalFile=<path>                     required",
+	"  Host=tso|vm                          default 'tso'",
+	"  Mode=ascii|binary                    default 'ascii'",
+	"  Cr=remove|add|keep                   default 'remove'",
+	"  Exist=keep|replace|append            default 'keep'",
+	"  Recfm=fixed|variable|undefined       for Direction=send",
+	"  Lrecl=<n>                            for Direction=send",
+	"  Blksize=<n>                          for Direction=send Host=tso",
+	"  Allocation=tracks|cylinders|avblock  for Direction=send Host=tso",
+	"  PrimarySpace=<n>                     for Direction=send Host=tso",
+	"  SecondarySpace=<n>                   for Direction=send Host=tso",
+	"Note that to embed a space in a value, you must quote the keyword, e.g.:",
+	"  Transfer Direction=send LocalFile=/tmp/foo \"HostFile=foo text a\" Host=vm",
+	NULL
+};
+
 static struct {
 	const char *name;
 	int flag;
 	const char *text;
+	const char **block;
 } help_subcommand[] = {
-	{ "all",		-1,		CN },
-	{ "3270",		P_3270,		CN },
-	{ "interactive",	P_INTERACTIVE,	CN },
-	{ "options",		P_OPTIONS,
-"Command-line options:\n"
-"  " OptCharset " <name>\n"
-"    Use EBCDIC character set <name>\n"
-"  " OptClear " <toggle>\n"
-"    Turn off the specified <toggle> option\n"
-"  " OptDsTrace "\n"
-"    Turn on data stream tracing\n"
-"  " OptHostsFile " <file>\n"
-"    Use <file> as the hosts file\n"
-"  " OptKeymap " <file>\n"
-"    Use the keymap in <file>\n"
-"  " OptModel " <n>\n"
-"    Emulate a 327x model <n>\n"
-"  " OptMono "\n"
-"    Emulate a monochrome 3278, even if the terminal can display color\n"
-"  " OptOversize " <cols>x<rows>\n"
-"    Make the screen oversized to <cols>x<rows>\n"
-"  " OptSet " <toggle>\n"
-"    Turn on the specified <toggle> option\n"
-"  " OptTermName " <name>\n"
-"    Send <name> as the TELNET terminal name\n"
-"  -xrm \"c3270.<resourcename>: <value>\"\n"
-"    Set a resource value" },
-	{ "scripting",		P_SCRIPTING,	CN },
-	{ "file-transfer",	P_TRANSFER,
-"Syntax:\n"
-"  Transfer <keyword>=<value>...\n"
-"Keywords:\n"
-"  Direction=send|receive               default 'send'\n"
-"  HostFile=<path>                      required\n"
-"  LocalFile=<path>                     required\n"
-"  Host=tso|vm                          default 'tso'\n"
-"  Mode=ascii|binary                    default 'ascii'\n"
-"  Cr=remove|add|keep                   default 'remove'\n"
-"  Exist=keep|replace|append            default 'keep'\n"
-"  Recfm=fixed|variable|undefined       for Direction=send\n"
-"  Lrecl=<n>                            for Direction=send\n"
-"  Blksize=<n>                          for Direction=send Host=tso\n"
-"  Allocation=tracks|cylinders|avblock  for Direction=send Host=tso\n"
-"  PrimarySpace=<n>                     for Direction=send Host=tso\n"
-"  SecondarySpace=<n>                   for Direction=send Host=tso\n"
-"Note that to embed a space in a value, you must quote the keyword, e.g.:\n"
-"  Transfer Direction=send LocalFile=/tmp/foo \"HostFile=foo text a\" Host=vm"
-	    },
+	{ "all",		-1,		CN, NULL },
+	{ "3270",		P_3270,		CN, NULL },
+	{ "interactive",	P_INTERACTIVE,	CN, NULL },
+	{ "options",		P_OPTIONS,	CN, options_help },
+	{ "scripting",		P_SCRIPTING,	CN, NULL },
+	{ "file-transfer",	P_TRANSFER,	CN, ft_help },
 	{ CN, 0, CN }
 };
 
@@ -214,6 +222,16 @@ Help_action(Widget w unused, XEvent *event unused, String *params,
 		}
 		if (help_subcommand[overall].text != CN) {
 			action_output(help_subcommand[overall].text);
+			return;
+		}
+		if (help_subcommand[overall].block != NULL) {
+			int j;
+
+			for (j = 0;
+			     help_subcommand[overall].block[j] != CN;
+			     j++) {
+				action_output(help_subcommand[overall].block[j]);
+			}
 			return;
 		}
 		for (i = 0; cmd_help[i].name != CN; i++) {

@@ -27,6 +27,7 @@
 
 #include "savec.h"
 #include "charsetc.h"
+#include "idlec.h"
 #include "popupsc.h"
 #include "utilc.h"
 
@@ -567,8 +568,10 @@ static void
 save_opt(FILE *f, const char *full_name, const char *opt_name,
     const char *res_name, const char *value)
 {
-	(void) fprintf(f, "! %s (%s)\nx3270.%s: %s\n",
-	    full_name, opt_name, res_name, value);
+	(void) fprintf(f, "! %s ", full_name);
+	if (opt_name != CN)
+		(void) fprintf(f, " (%s)", opt_name);
+	(void) fprintf(f, "\nx3270.%s: %s\n", res_name, value);
 }
 
 /* Save the current options settings in a profile. */
@@ -664,6 +667,16 @@ save_options(char *n)
 	if (charset_changed)
 		save_opt(f, "charset", OptCharset, ResCharset,
 		    get_charset_name());
+#if defined(X3270_SCRIPT) /*[*/
+	if (idle_changed) {
+		save_opt(f, "idle command", CN, ResIdleCommand, idle_command);
+		save_opt(f, "idle timeout", CN, ResIdleTimeout,
+				idle_timeout_string);
+		save_opt(f, "idle enabled", CN, ResIdleCommandEnabled,
+				(idle_user_enabled == IDLE_PERM)?
+				    "True": "False");
+	}
+#endif /*]*/
 
 	/* Done. */
 	(void) fclose(f);

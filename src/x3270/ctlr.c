@@ -1094,7 +1094,7 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 /* XXX: Should there be a ctlr_add_cs call here? */
 #define START_FIELD(fa) { \
 			current_fa = fa; \
-			ctlr_add_fa(buffer_addr, fa); \
+			ctlr_add_fa(buffer_addr, fa, 0); \
 			ctlr_add_cs(buffer_addr, 0); \
 			ctlr_add_fg(buffer_addr, 0); \
 			ctlr_add_gr(buffer_addr, 0); \
@@ -1407,7 +1407,8 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 					if (*cp == XA_3270) {
 						trace_ds(" 3270");
 						cp++;
-						ctlr_add_fa(buffer_addr, *cp);
+						ctlr_add_fa(buffer_addr, *cp,
+							ea_buf[buffer_addr].cs);
 						trace_ds(see_attr(*cp));
 					} else if (*cp == XA_FOREGROUND) {
 						trace_ds("%s",
@@ -2296,10 +2297,10 @@ ctlr_add(int baddr, unsigned char c, unsigned char cs)
  * Set a field attribute in the 3270 buffer.
  */
 void
-ctlr_add_fa(int baddr, unsigned char fa)
+ctlr_add_fa(int baddr, unsigned char fa, unsigned char cs)
 {
 	/* Put a null in the display buffer. */
-	ctlr_add(baddr, EBC_null, 0);
+	ctlr_add(baddr, EBC_null, cs);
 
 	/*
 	 * Store the new attribute, setting the 'printable' bits so that the

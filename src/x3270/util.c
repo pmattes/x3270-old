@@ -626,39 +626,6 @@ get_fresource(const char *fmt, ...)
 }
 
 /*
- * A version of get_resource that tries to find a host-specific definition
- * first, then finds the non-host version.
- */
-char *
-get_host_fresource(const char *fmt, ...)
-{
-	va_list args;
-	char *name;
-	char *r;
-
-	/* Format what they want. */
-	va_start(args, fmt);
-	name = xs_vsprintf(fmt, args);
-	va_end(args);
-
-	/* If we're connected, try by-host first. */
-	if (PCONNECTED) {
-		char *name_with_host;
-
-		name_with_host = xs_buffer("host.%s.%s", reconnect_host, name);
-		r = get_resource(name_with_host);
-		Free(name_with_host);
-		if (r != CN)
-			return r;
-	}
-
-	/* Try without. */
-	r = get_resource(name);
-	Free(name);
-	return r;
-}
-
-/*
  * Whitespace stripper.
  */
 char *
@@ -676,6 +643,41 @@ strip_whitespace(const char *s)
 		}
 	}
 	return t;
+}
+
+/*
+ * Hierarchy (a>b>c) splitter.
+ */
+Boolean
+split_hier(char *label, char **base, char ***parents)
+{
+	int n_parents = 0;
+	char *gt;
+	char *lp;
+
+	label = NewString(label);
+	for (lp = label; (gt = strchr(lp, '>')) != CN; lp = gt + 1) {
+		if (gt == lp)
+			return False;
+		n_parents++;
+	}
+	if (!*lp)
+		return False;
+
+	if (n_parents) {
+		*parents = (char **)Calloc(n_parents + 1, sizeof(char *));
+		for (n_parents = 0, lp = label;
+		     (gt = strchr(lp, '>')) != CN;
+		     lp = gt + 1) {
+			(*parents)[n_parents++] = lp;
+			*gt = '\0';
+		}
+		*base = lp;
+	} else {
+		(*parents) = NULL;
+		(*base) = label;
+	}
+	return True;
 }
 
 #if defined(X3270_DISPLAY) /*[*/

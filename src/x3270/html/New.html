@@ -36,6 +36,32 @@ input, and X11 display output.</p>
 And other bugs may yet lurk.
 <p>However, once x3270 3.3 is stable enough and the broken features have
 been corrected, it will replace x3270 3.2.</p>
+<h2>Changes in x3270 3.3.1alpha9, 24. July 2003</h2>
+<ul>
+  <li>Bug Fixes:
+    <ul>
+      <li>DBCS character set names are displayed only when DBCS support is
+       built into x3270.</li>
+      <li>Removed the concept of 'per-host' resources.  Use profiles for
+       this.</li>
+      <li>Fixed idle commands.  They were pretty much hopeless in 3.3.1alpha8
+       and 3.2.20.</li>
+      <li>Fixed a Unicode conversion crash.</li>
+      <li>Fixed a bug in processing the Modify Field order, which would cause
+       the character set attribute for the field to be accidentally reset to
+       the default.</li>
+    </ul>
+  </li>
+  <li>New Features:
+    <ul>
+      <li>User-specified lists (character sets, hosts, fonts, color schemes)
+       can now be organized into sub-lists.  The name <b>Bob>Fred>Tony</b>
+       specifies that there is a sub-list called <b>Bob</b>, which contains a
+       sub-list <b>Fred</b>, which contains the item <b>Tony</b>.</li>
+       <li>The TELNET START-TLS option is now supported.</li>
+    </ul>
+  </li>
+</ul>
 <h2>Changes in x3270 3.3.1alpha8, 15. April 2003</h2>
 <ul>
   <li>Bug Fixes:</li>

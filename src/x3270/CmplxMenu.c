@@ -112,7 +112,7 @@ static char defaultTranslations[] =
     "<EnterWindow>:     highlight()             \n\
      <LeaveWindow>:     leftWindow()            \n\
      <BtnMotion>:       highlight()             \n\
-     <BtnUp>:           saveUnhighlight() MenuPopdown()"; 
+     <BtnUp>:           saveUnhighlight() myMenuPopdown()"; 
 
 /*
  * Semi Public function definitions. 
@@ -137,6 +137,7 @@ static XtGeometryResult GeometryManager(Widget, XtWidgetGeometry *,
 static void PositionMenuAction(Widget, XEvent *, String *, Cardinal *);
 static void SaveUnhighlight(Widget, XEvent *, String *, Cardinal *);
 static void LeftWindow(Widget, XEvent *, String *, Cardinal *);
+static void MyMenuPopdown(Widget, XEvent *, String *, Cardinal *);
 static void Highlight(Widget, XEvent *, String *, Cardinal *);
 
 /* 
@@ -163,6 +164,7 @@ static XtActionsRec actionsList[] =
   {"highlight",         Highlight},
   {"saveUnhighlight",   SaveUnhighlight},
   {"leftWindow",	LeftWindow},
+  {"myMenuPopdown",	MyMenuPopdown},
 };
  
 static CompositeClassExtensionRec extension_rec = {
@@ -690,6 +692,10 @@ Unhighlight(Widget w, XEvent *event unused, String *params unused,
  
     if ( entry == NULL) return;
 
+#if defined(CmeDebug)
+    printf("Unhighlight(%lx) '%s': zapping %lx\n",
+		    (unsigned long)w, w->core.name, (unsigned long)entry);
+#endif
     cmw->complex_menu.entry_set = NULL;
     class = (CmeObjectClass) entry->object.widget_class;
     (class->cme_class.unhighlight) ( (Widget) entry);
@@ -703,10 +709,12 @@ SaveUnhighlight(Widget w, XEvent *event unused, String *params unused,
     CmeObject entry = cmw->complex_menu.entry_set;
     CmeObjectClass class;
  
+#if defined(CmeDebug)
+    printf("SaveUnhighlight(%lx) '%s', BtnUp\n",
+		    (unsigned long)w, cmw->core.name);
+#endif
     if ( entry == NULL) return;
 
-    cmw->complex_menu.prev_entry = entry;
-    cmw->complex_menu.entry_set = NULL;
     class = (CmeObjectClass) entry->object.widget_class;
     (class->cme_class.unhighlight) ( (Widget) entry);
 }
@@ -741,6 +749,44 @@ LeftWindow(Widget w, XEvent *event, String *params unused,
     (class->cme_class.unhighlight) ( (Widget) entry);
 }
 
+/*      Function Name: MyMenuPopdown
+ *      Description: BtnUp, time to pop this menu down (is that all?)
+ *      Arguments: w - the complex menu widget.
+ *                 event - the event that caused this action.
+ *                 params, num_params - ** NOT USED **
+ *      Returns: none
+ */
+
+static void
+MyMenuPopdown(Widget w, XEvent *event, String *params unused,
+	Cardinal *num_params unused)
+{ 
+    ComplexMenuWidget cmw = (ComplexMenuWidget) w;
+
+#if defined(CmeDebug1)
+    printf("MyMenuPopdown(%lx) '%s'\n", (unsigned long)w, w->core.name);
+#endif
+
+    if (((ShellWidget)w)->shell.popped_up) {
+#if defined(CmeDebug1)
+	printf("MyMenuPopdown: popping down myself\n");
+#endif
+	XtPopdown(w);
+    }
+
+    /* Cascade up. */
+    while (cmw->complex_menu.parent != NULL) {
+#if defined(CmeDebug1)
+	printf("MyMenuPopdown [cascade up]: parent %lx '%s'\n",
+			(unsigned long)cmw->complex_menu.parent,
+			cmw->complex_menu.parent->core.name);
+#endif
+	XtPopdown(cmw->complex_menu.parent);
+	cmw = (ComplexMenuWidget) cmw->complex_menu.parent;
+    }
+
+}
+
 /*      Function Name: Highlight
  *      Description: Highlights current entry.
  *      Arguments: w - the complex menu widget.
@@ -759,27 +805,48 @@ Highlight(Widget w, XEvent *event, String *params, Cardinal *num_params)
 
     
 #if defined(CmeDebug)
-    printf("Highlight(%x)\n", w);
+    printf("Highlight(%lx) '%s' ", (unsigned long)w, cmw->core.name);
 #endif
 
     if (shell_widget->shell.popped_up != TRUE) {
 #if defined(CmeDebug)
-	printf("bogus\n");
+	printf("not popped up -- bogus\n");
 #endif
 	return;
     }
 
-    if ( !XtIsSensitive(w) ) return;
+    if ( !XtIsSensitive(w) ) {
+#if defined(CmeDebug)
+	printf("not sensitive, nop\n");
+#endif
+        return;
+    }
     
     entry = GetEventEntry(w, event);
 
-    if (entry == cmw->complex_menu.entry_set) return;
+    if (entry == cmw->complex_menu.entry_set) {
+#if defined(CmeDebug)
+	printf("already set, nop\n");
+#endif
+	return;
+    }
 
+#if defined(CmeDebug)
+    printf("unhighlighting, ");
+#endif
     Unhighlight(w, event, params, num_params);  
 
-    if (entry == NULL) return;
+    if (entry == NULL) {
+#if defined(CmeDebug)
+	printf("no new entry, done\n");
+#endif
+        return;
+    }
 
     if ( !XtIsSensitive( (Widget) entry)) {
+#if defined(CmeDebug)
+	printf("new entry isn't sensitive, done\n");
+#endif
 	cmw->complex_menu.entry_set = NULL;
 	return;
     }
@@ -787,7 +854,24 @@ Highlight(Widget w, XEvent *event, String *params, Cardinal *num_params)
     cmw->complex_menu.entry_set = entry;
     class = (CmeObjectClass) entry->object.widget_class;
 
+#if defined(CmeDebug)
+    printf("highlighting %lx '%s'\n", (unsigned long)entry,
+		    XtParent(((Widget)entry))->core.name);
+#endif
     (class->cme_class.highlight) ( (Widget) entry);
+}
+
+static void
+NotifyCallback(XtPointer closure, XtIntervalId *id unused)
+{
+    CmeObject entry = closure;
+    CmeObjectClass class;
+
+#if defined(CmeDebug)
+    printf("NotifyCallback %lx\n", (unsigned long)entry);
+#endif
+    class = (CmeObjectClass) entry->object.widget_class;
+    (class->cme_class.notify)( (Widget) entry );
 }
 
 /*      Function Name: Notify
@@ -804,34 +888,24 @@ Notify(Widget w, XEvent *event unused, String *params unused,
 {
     ComplexMenuWidget cmw = (ComplexMenuWidget) w;
     CmeObject entry = cmw->complex_menu.entry_set;
-    CmeObjectClass class;
-    
-    if (entry == NULL)
-	entry = cmw->complex_menu.prev_entry;
-    if ( (entry == NULL) || !XtIsSensitive((Widget) entry) ) return;
 
-    if (cmw->complex_menu.parent != NULL) {
 #if defined(CmeDebug)
-	printf("Notify(%x): deferring to %x to parent %x\n", w, entry,
-	    cmw->complex_menu.parent);
+    printf("Notify(%lx) '%s': ", (unsigned long)w, cmw->core.name);
 #endif
-	XtVaSetValues(cmw->complex_menu.parent, XtNcMdefer, (Widget)entry,
-	    NULL);
-	return;
+
+    if (entry != NULL && XtIsSensitive((Widget) entry)) {
+#if defined(CmeDebug) /*[*/
+        printf("just notifying 0x%lx\n", (unsigned long)entry);
+#endif /*]*/
+	XtAppAddTimeOut(XtWidgetToApplicationContext(w),
+		    1L, NotifyCallback, (XtPointer)entry);
     }
-#if defined(CmeDebug)
+#if defined(CmeDebug) /*[*/
     else
-	printf("Notify(%x): not deferring\n", w);
-#endif
-    if (cmw->complex_menu.deferred_notify != NULL) {
-#if defined(CmeDebug)
-	printf("Notify: using deferred %x\n", w,
-	    cmw->complex_menu.deferred_notify);
-#endif
-	entry = (CmeObject)cmw->complex_menu.deferred_notify;
-    }
-    class = (CmeObjectClass) entry->object.widget_class;
-    (class->cme_class.notify)( (Widget) entry );
+        printf("no entry\n");
+#endif /*]*/
+    cmw->complex_menu.entry_set = NULL;
+    return;
 }
 
 /************************************************************
@@ -1161,7 +1235,11 @@ ChangeCursorOnGrab(Widget w, XtPointer junk unused, XtPointer garbage unused)
     ComplexMenuWidget cmw = (ComplexMenuWidget) w;
     
 #if defined(CmeDebug)
-    printf("ChangeCursorOnGrab(%x): parent=%x\n", w, cmw->complex_menu.parent);
+    printf("ChangeCursorOnGrab(%lx) '%s': parent=%lx '%s'\n", (unsigned long)w,
+		    cmw->core.name,
+		    (unsigned long)cmw->complex_menu.parent,
+		    cmw->complex_menu.parent?
+			    cmw->complex_menu.parent->core.name: "(null)");
 #endif
     cmw->complex_menu.deferred_notify = NULL;
     cmw->complex_menu.prev_entry = NULL;
@@ -1180,13 +1258,19 @@ ChangeCursorOnGrab(Widget w, XtPointer junk unused, XtPointer garbage unused)
 static void
 ClearParent(Widget w, XtPointer junk unused, XtPointer garbage unused)
 {
-    ComplexMenuWidget cmw = (ComplexMenuWidget) w;
-    
 #if defined(CmeDebug)
-    printf("ClearParent(%x): parent=%x\n", w, cmw->complex_menu.parent);
+    ComplexMenuWidget cmw = (ComplexMenuWidget) w;
+#endif
+
+#if defined(CmeDebug)
+    printf("ClearParent(%lx) '%s': parent=%lx '%s', popped down, notifying\n",
+		    (unsigned long)w,
+		    cmw->core.name,
+		    (unsigned long)cmw->complex_menu.parent,
+		    cmw->complex_menu.parent?
+			    cmw->complex_menu.parent->core.name: "(null)");
 #endif
     Notify(w, (XEvent *)NULL, (String *)NULL, (Cardinal *)NULL);
-    cmw->complex_menu.parent = NULL;
 }
 
 /*      Function Name: MakeSetValuesRequest

@@ -61,6 +61,11 @@
 #define TELOPT_NAWS	31
 #endif /*]*/
 
+#if !defined(TELOPT_STARTTLS) /*[*/
+#define TELOPT_STARTTLS	46
+#endif /*]*/
+#define TLS_FOLLOWS	1
+
 #define BUFSZ		4096
 #define TRACELINE	72
 
@@ -254,10 +259,13 @@ static const char *trsp_flag[2] = { "POSITIVE-RESPONSE", "NEGATIVE-RESPONSE" };
 #endif /*]*/
 
 #if defined(HAVE_LIBSSL) /*[*/
+Boolean secure_connection = False;
 static SSL_CTX *ssl_ctx;
 static SSL *ssl_con;
+static Boolean need_tls_follows = False;
 static void ssl_init(void);
 static void client_info_callback(SSL *s, int where, int ret);
+static void continue_tls(unsigned char *sbbuf, int len);
 #endif /*]*/
 
 static void output_possible(void);
@@ -556,13 +564,19 @@ net_connected(void)
 
 #if defined(HAVE_LIBSSL) /*[*/
 	/* Set up SSL. */
-	if (ssl_host) {
+	if (ssl_host && !secure_connection) {
 		SSL_set_fd(ssl_con, sock);
 		if (!SSL_connect(ssl_con)) {
 			popup_an_errno(errno, "SSL_connect failed");
 			net_disconnect();
 			return;
 		}
+		secure_connection = True;
+		trace_dsn("TLS/SSL tunneled connection complete.  "
+			  "Connection is now secure.\n");
+
+		/* Tell everyone else again. */
+		host_connected();
 	}
 #endif /*]*/
 
@@ -575,6 +589,9 @@ net_connected(void)
 		  E_OPT(TN3270E_FUNC_SYSREQ);
 	e_xmit_seq = 0;
 	response_required = TN3270E_RSF_NO_RESPONSE;
+#endif /*]*/
+#if defined(HAVE_LIBSSL) /*[*/
+	need_tls_follows = False;
 #endif /*]*/
 	telnet_state = TNS_DATA;
 	ibptr = ibuf;
@@ -645,11 +662,12 @@ void
 net_disconnect(void)
 {
 #if defined(HAVE_LIBSSL) /*[*/
-	if (ssl_host) {
+	if (ssl_con != NULL) {
 		SSL_shutdown(ssl_con);
 		SSL_free(ssl_con);
 		ssl_con = NULL;
 	}
+	secure_connection = False;
 #endif /*]*/
 	if (CONNECTED)
 		(void) shutdown(sock, 2);
@@ -689,7 +707,7 @@ net_input(void)
 #endif /*]*/
 
 #if defined(HAVE_LIBSSL) /*[*/
-	if (ssl_host)
+	if (ssl_con != NULL)
 		nr = SSL_read(ssl_con, (char *) netrbuf, BUFSZ);
 	else
 #else /*][*/
@@ -697,7 +715,7 @@ net_input(void)
 	nr = read(sock, (char *) netrbuf, BUFSZ);
 	if (nr < 0) {
 #if defined(HAVE_LIBSSL) /*[*/
-		if (ssl_host) {
+		if (ssl_con != NULL) {
 			unsigned long e;
 			char err_buf[1024];
 
@@ -1050,6 +1068,9 @@ telnet_fsm(unsigned char c)
 #if defined(X3270_TN3270E) /*[*/
 		    case TELOPT_TN3270E:
 #endif /*]*/
+#if defined(HAVE_LIBSSL) /*[*/
+		    case TELOPT_STARTTLS:
+#endif /*]*/
 			if (c != TELOPT_TN3270E || !non_tn3270e_host) {
 				if (!myopts[c]) {
 					if (c != TELOPT_TM)
@@ -1063,8 +1084,29 @@ telnet_fsm(unsigned char c)
 				}
 				if (c == TELOPT_NAWS)
 					send_naws();
+#if defined(HAVE_LIBSSL) /*[*/
+				if (c == TELOPT_STARTTLS) {
+					static unsigned char follows_msg[] = {
+						IAC, SB, TELOPT_STARTTLS,
+						TLS_FOLLOWS, IAC, SE
+					};
+
+					/*
+					 * Send IAC SB STARTTLS FOLLOWS IAC SE
+					 * to announce that what follows is TLS.
+					 */
+					net_rawout(follows_msg,
+							sizeof(follows_msg));
+					trace_dsn("SENT %s %s FOLLOWS %s\n",
+							cmd(SB),
+							opt(TELOPT_STARTTLS),
+							cmd(SE));
+					need_tls_follows = True;
+				}
+#endif /*]*/
 				break;
 			}
+			/*FALLTHRU*/
 		    default:
 			wont_opt[2] = c;
 			net_rawout(wont_opt, sizeof(wont_opt));
@@ -1144,6 +1186,14 @@ telnet_fsm(unsigned char c)
 					return -1;
 			}
 #endif /*]*/
+#if defined(HAVE_LIBSSL) /*[*/
+			else if (need_tls_follows &&
+				   myopts[TELOPT_STARTTLS] &&
+				   sbbuf[0] == TELOPT_STARTTLS) {
+				continue_tls(sbbuf, sbptr - sbbuf);
+			}
+#endif /*]*/
+
 		} else {
 			telnet_state = TNS_SB;
 		}
@@ -1631,14 +1681,14 @@ net_rawout(unsigned const char *buf, int len)
 #		define n2w len
 #endif
 #if defined(HAVE_LIBSSL) /*[*/
-		if (ssl_host)
+		if (ssl_con != NULL)
 			nw = SSL_write(ssl_con, (const char *) buf, n2w);
 		else
 #endif /*]*/
 		nw = write(sock, (const char *) buf, n2w);
 		if (nw < 0) {
 #if defined(HAVE_LIBSSL) /*[*/
-			if (ssl_host) {
+			if (ssl_con != NULL) {
 				unsigned long e;
 				char err_buf[1024];
 
@@ -2237,6 +2287,10 @@ opt(unsigned char c)
 		return TELOPT(c);
 	else if (c == TELOPT_TN3270E)
 		return "TN3270E";
+#if defined(HAVE_LIBSSL) /*[*/
+	else if (c == TELOPT_STARTTLS)
+		return "START-TLS";
+#endif /*]*/
 	else
 		return nnn((int)c);
 }
@@ -2878,6 +2932,50 @@ client_info_callback(SSL *s, int where, int ret)
 			    SSL_state_string(s), SSL_state_string_long(s));
 		}
 	}
+}
+
+/* Process a STARTTLS subnegotiation. */
+static void
+continue_tls(unsigned char *sbbuf, int len)
+{
+	/* Whatever happens, we're not expecting another SB STARTTLS. */
+	need_tls_follows = False;
+
+	/* Make sure the option is FOLLOWS. */
+	if (len < 2 || sbbuf[1] != TLS_FOLLOWS) {
+		/* Trace the junk. */
+		trace_dsn("%s ? %s\n", opt(TELOPT_STARTTLS), cmd(SE));
+		popup_an_error("TLS negotiation failure");
+		net_disconnect();
+		return;
+	}
+
+	/* Trace what we got. */
+	trace_dsn("%s FOLLOWS %s\n", opt(TELOPT_STARTTLS), cmd(SE));
+
+	/* Initialize the SSL library. */
+	ssl_init();
+	if (ssl_con == NULL) {
+		/* Failed. */
+		net_disconnect();
+		return;
+	}
+
+	/* Set up the TLS/SSL connection. */
+	SSL_set_fd(ssl_con, sock);
+	if (!SSL_connect(ssl_con)) {
+		popup_an_errno(errno, "SSL_connect failed");
+		net_disconnect();
+		return;
+	}
+	secure_connection = True;
+
+	/* Success. */
+	trace_dsn("TLS/SSL negotiated connection complete.  "
+		  "Connection is now secure.\n");
+
+	/* Tell the world that we are (still) connected, now in secure mode. */
+	host_connected();
 }
 
 #endif /*]*/

@@ -47,7 +47,11 @@
 #include "utilc.h"
 
 /* Macros. */
-#define IDLE_MS		(7L * 60L * 1000L)	/* 7 minutes */
+#define MSEC_PER_SEC	1000L
+#define IDLE_SEC	1L
+#define IDLE_MIN	60L
+#define IDLE_HR		(60L * 60L)
+#define IDLE_MS		(7L * IDLE_MIN * MSEC_PER_SEC)
 
 #if defined(X3270_DISPLAY) /*[*/
 #define FILE_WIDTH	300	/* width of file name widgets */
@@ -63,23 +67,40 @@
 #if defined(X3270_DISPLAY) && defined(X3270_MENUS) /*[*/
 extern Pixmap diamond;
 extern Pixmap no_diamond;
+extern Pixmap dot;
+extern Pixmap no_dot;
 #endif /*]*/
 
+/* Globals. */
+Boolean idle_changed = False;
+char *idle_command = CN;
+char *idle_timeout_string = CN;
+enum idle_enum idle_user_enabled = IDLE_DISABLED;
+
 /* Statics. */
-static Boolean idle_was_in3270 = False;
-static Boolean idle_enabled = False;	/* Enabled? */
-static char *idle_command = CN;
-static char *idle_timeout_string = CN;
+static Boolean idle_enabled = False;	/* validated and user-enabled */
+static unsigned long idle_n = 0L;
+static unsigned long idle_multiplier = IDLE_SEC;
 static unsigned long idle_id;
 static unsigned long idle_ms;
 static Boolean idle_randomize = False;
 static Boolean idle_ticking = False;
 
 static void idle_in3270(Boolean in3270);
+static int process_timeout_value(char *t);
 
 #if defined(X3270_DISPLAY) && defined(X3270_MENUS) /*[*/
+static enum idle_enum s_disabled = IDLE_DISABLED;
+static enum idle_enum s_session = IDLE_SESSION;
+static enum idle_enum s_perm = IDLE_PERM;
+static char hms = 'm';
+static Boolean fuzz = False;
+static char s_hours = 'h';
+static char s_minutes = 'm';
+static char s_seconds = 's';
 static Widget idle_dialog, idle_shell, command_value, timeout_value;
-static Widget enable_toggle, disable_toggle;
+static Widget enable_toggle, enable_perm_toggle, disable_toggle;
+static Widget hours_toggle, minutes_toggle, seconds_toggle, fuzz_toggle;
 static sr_t *idle_sr = (sr_t *)NULL;
 
 static void idle_cancel(Widget w, XtPointer client_data, XtPointer call_data);
@@ -91,25 +112,50 @@ static void okay_callback(Widget w, XtPointer call_parms,
     XtPointer call_data);
 static void toggle_enable(Widget w, XtPointer client_data,
     XtPointer call_data);
+static void mark_toggle(Widget w, Pixmap p);
+static void toggle_hms(Widget w, XtPointer client_data,
+    XtPointer call_data);
+static void toggle_fuzz(Widget w, XtPointer client_data,
+    XtPointer call_data);
 #endif /*]*/
 
 /* Initialization. */
 void
 idle_init(void)
 {
+	char *cmd, *tmo;
+
 	/* Register for state changes. */
 	register_schange(ST_3270_MODE, idle_in3270);
+	register_schange(ST_CONNECT, idle_in3270);
+
+	/* Get values from resources. */
+	cmd = get_resource(ResIdleCommand);
+	idle_command = cmd? NewString(cmd): CN;
+	tmo = get_resource(ResIdleTimeout);
+	idle_timeout_string = tmo? NewString(tmo): CN;
+	if (appres.idle_command_enabled)
+		idle_user_enabled = IDLE_PERM;
+	else
+		idle_user_enabled = IDLE_DISABLED;
+	if (idle_user_enabled &&
+	    idle_command != CN &&
+	    process_timeout_value(idle_timeout_string) == 0)
+		idle_enabled = True;
 
 	/* Seed the random number generator (we seem to be the only user). */
 	srandom(time(NULL));
 }
 
-/* Process a timeout value. */
-int
+/*
+ * Process a timeout value: <empty> or ~?[0-9]+[HhMmSs]
+ * Returns 0 for success, -1 for failure.
+ * Sets idle_ms and idle_randomize as side-effects.
+ */
+static int
 process_timeout_value(char *t)
 {
 	char *s = t;
-	unsigned long idle_n;
 	char *ptr;
 
 	if (s == CN || *s == '\0') {
@@ -128,19 +174,21 @@ process_timeout_value(char *t)
 	switch (*ptr) {
 	    case 'H':
 	    case 'h':
-		idle_n *= 60L * 60L;
+		idle_multiplier = IDLE_HR;
 		break;
 	    case 'M':
 	    case 'm':
-		idle_n *= 60L;
+		idle_multiplier = IDLE_MIN;
 		break;
 	    case 'S':
 	    case 's':
+	    case '\0':
+		idle_multiplier = IDLE_SEC;
 		break;
 	    default:
 		goto bad_idle;
 	}
-	idle_ms = idle_n * 1000L;
+	idle_ms = idle_n * idle_multiplier * MSEC_PER_SEC;
 	return 0;
 
     bad_idle:
@@ -152,28 +200,20 @@ process_timeout_value(char *t)
 
 /* Called when a host connects or disconnects. */
 static void
-idle_in3270(Boolean in3270)
+idle_in3270(Boolean in3270 unused)
 {
-	if (in3270 && !idle_was_in3270) {
-		/* Get the values from resources. */
-		char *cmd, *tmo;
-
-		cmd = get_host_fresource("%s", ResIdleCommand);
-		tmo = get_host_fresource("%s", ResIdleTimeout);
-		if (cmd != CN &&
-		    appres.idle_command_enabled &&
-		    process_timeout_value(tmo) == 0) {
-			Replace(idle_command, NewString(cmd));
-			Replace(idle_timeout_string, NewString(tmo));
-			idle_enabled = True;
-		}
-		idle_was_in3270 = True;
+	if (IN_3270) {
+		reset_idle_timer();
 	} else {
+		/* Not in 3270 mode any more, turn off the timeout. */
 		if (idle_ticking) {
 			RemoveTimeOut(idle_id);
 			idle_ticking = False;
 		}
-		idle_was_in3270 = False;
+
+		/* If the user didn't want it to be permanent, disable it. */
+		if (idle_user_enabled != IDLE_PERM)
+			idle_user_enabled = IDLE_DISABLED;
 	}
 }
 
@@ -184,18 +224,18 @@ static void
 idle_timeout(void)
 {
 	trace_event("Idle timeout\n");
-	push_macro(idle_command, False);
+	push_idle(idle_command);
 	reset_idle_timer();
 }
 
 /*
- * Reset (and re-enable) the idle timer.  Called when the user presses an AID
- * key.
+ * Reset (and re-enable) the idle timer.  Called when the user presses a key or
+ * clicks with the mouse.
  */
 void
 reset_idle_timer(void)
 {
-	if (idle_ms) {
+	if (idle_enabled) {
 		unsigned long idle_ms_now;
 
 		if (idle_ticking) {
@@ -205,10 +245,7 @@ reset_idle_timer(void)
 		idle_ms_now = idle_ms;
 		if (idle_randomize) {
 			idle_ms_now = idle_ms;
-			if (random() % 2)
-				idle_ms_now += random() % (idle_ms / 10L);
-			else
-				idle_ms_now -= random() % (idle_ms / 10L);
+			idle_ms_now -= random() % (idle_ms / 10L);
 		}
 #if defined(DEBUG_IDLE_TIMEOUT) /*[*/
 		trace_event("Setting idle timeout to %lu\n", idle_ms_now);
@@ -216,6 +253,32 @@ reset_idle_timer(void)
 		idle_id = AddTimeOut(idle_ms_now, idle_timeout);
 		idle_ticking = True;
 	}
+}
+
+/*
+ * Cancel the idle timer.  This is called when there is an error in
+ * processing the idle command.
+ */
+void
+cancel_idle_timer(void)
+{
+	if (idle_ticking) {
+		RemoveTimeOut(idle_id);
+		idle_ticking = False;
+	}
+	idle_enabled = False;
+}
+
+char *
+get_idle_command(void)
+{
+	return idle_command;
+}
+
+char *
+get_idle_timeout(void)
+{
+	return idle_timeout_string;
 }
 
 #if defined(X3270_DISPLAY) && defined(X3270_MENUS) /*[*/
@@ -228,18 +291,65 @@ reset_idle_timer(void)
 void
 popup_idle(void)
 {
+	char *its;
+	char *s;
+
 	/* Initialize it. */
 	if (idle_shell == (Widget)NULL)
 		idle_popup_init();
 
-	/* Pop it up. */
+	/*
+	 * Split the idle_timeout_string (the raw resource value) into fuzz,
+	 * a number, and h/m/s.
+	 */
+	its = NewString(idle_timeout_string);
+	if (its != CN) {
+		if (*its == '~') {
+			fuzz = True;
+			its++;
+		} else {
+			fuzz = False;
+		}
+		s = its;
+		while (isdigit(*s))
+			s++;
+		switch (*s) {
+		case 'h':
+		case 'H':
+			hms = 'h';
+			break;
+		case 'm':
+		case 'M':
+			hms = 'm';
+			break;
+		case 's':
+		case 'S':
+			hms = 's';
+			break;
+		default:
+			break;
+		}
+		*s = '\0';
+	}
+
+	/* Set the resource values. */
 	dialog_set(&idle_sr, idle_dialog);
 	XtVaSetValues(command_value,
 	    XtNstring, idle_command,
 	    NULL);
-	XtVaSetValues(timeout_value,
-	    XtNstring, idle_timeout_string,
-	    NULL);
+	XtVaSetValues(timeout_value, XtNstring, its, NULL);
+	mark_toggle(enable_toggle, (idle_user_enabled == IDLE_SESSION)?
+			diamond : no_diamond);
+	mark_toggle(enable_perm_toggle, (idle_user_enabled == IDLE_PERM)?
+			diamond : no_diamond);
+	mark_toggle(disable_toggle, (idle_user_enabled == IDLE_DISABLED)?
+			diamond : no_diamond);
+	mark_toggle(hours_toggle, (hms == 'h') ? diamond : no_diamond);
+	mark_toggle(minutes_toggle, (hms == 'm') ? diamond : no_diamond);
+	mark_toggle(seconds_toggle, (hms == 's') ? diamond : no_diamond);
+	mark_toggle(fuzz_toggle, fuzz ? dot : no_dot);
+
+	/* Pop it up. */
 	popup_popup(idle_shell, XtGrabNone);
 }
 
@@ -320,33 +430,98 @@ idle_popup_init(void)
 		XtWarning("Cannot find text source in dialog");
 	else
 		XtAddCallback(w, XtNcallback, dialog_text_callback,
-		    (XtPointer)&t_timeout);
+		    (XtPointer)&t_numeric);
 	dialog_register_sensitivity(timeout_value,
 	    BN, False,
 	    BN, False,
 	    BN, False);
 
-	/* Create send/receive toggles. */
+	/* Create the hour/minute/seconds radio buttons. */
+	hours_toggle = XtVaCreateManagedWidget(
+	    "hours", commandWidgetClass, idle_dialog,
+	    XtNfromVert, timeout_value,
+	    XtNvertDistance, CLOSE_VGAP,
+	    XtNhorizDistance, MARGIN,
+	    XtNborderWidth, 0,
+	    XtNsensitive, True,
+	    NULL);
+	dialog_apply_bitmap(hours_toggle, no_diamond);
+	XtAddCallback(hours_toggle, XtNcallback, toggle_hms,
+			(XtPointer)&s_hours);
+	minutes_toggle = XtVaCreateManagedWidget(
+	    "minutes", commandWidgetClass, idle_dialog,
+	    XtNfromVert, timeout_value,
+	    XtNvertDistance, CLOSE_VGAP,
+	    XtNfromHoriz, hours_toggle,
+	    XtNhorizDistance, MARGIN,
+	    XtNborderWidth, 0,
+	    XtNsensitive, True,
+	    NULL);
+	dialog_apply_bitmap(minutes_toggle, diamond);
+	XtAddCallback(minutes_toggle, XtNcallback, toggle_hms,
+			(XtPointer)&s_minutes);
+	seconds_toggle = XtVaCreateManagedWidget(
+	    "seconds", commandWidgetClass, idle_dialog,
+	    XtNfromVert, timeout_value,
+	    XtNvertDistance, CLOSE_VGAP,
+	    XtNfromHoriz, minutes_toggle,
+	    XtNhorizDistance, MARGIN,
+	    XtNborderWidth, 0,
+	    XtNsensitive, True,
+	    NULL);
+	dialog_apply_bitmap(seconds_toggle, no_diamond);
+	XtAddCallback(seconds_toggle, XtNcallback, toggle_hms,
+			(XtPointer)&s_seconds);
+
+	/* Create the fuzz toggle. */
+	fuzz_toggle = XtVaCreateManagedWidget(
+	    "fuzz", commandWidgetClass, idle_dialog,
+	    XtNfromVert, hours_toggle,
+	    XtNvertDistance, CLOSE_VGAP,
+	    XtNhorizDistance, MARGIN,
+	    XtNborderWidth, 0,
+	    XtNsensitive, True,
+	    NULL);
+	dialog_apply_bitmap(fuzz_toggle, no_dot);
+	XtAddCallback(fuzz_toggle, XtNcallback, toggle_fuzz, (XtPointer)NULL);
+
+	/* Create enable/disable toggles. */
 	enable_toggle = XtVaCreateManagedWidget(
 	    "enable", commandWidgetClass, idle_dialog,
-	    XtNfromVert, timeout_label,
+	    XtNfromVert, fuzz_toggle,
 	    XtNvertDistance, FAR_VGAP,
 	    XtNhorizDistance, MARGIN,
 	    XtNborderWidth, 0,
 	    NULL);
-	dialog_apply_bitmap(enable_toggle, idle_enabled ? diamond : no_diamond);
+	dialog_apply_bitmap(enable_toggle,
+			(idle_user_enabled == IDLE_SESSION)?
+			    diamond : no_diamond);
 	XtAddCallback(enable_toggle, XtNcallback, toggle_enable,
-	    (XtPointer)&s_true);
-	disable_toggle = XtVaCreateManagedWidget(
-	    "disable", commandWidgetClass, idle_dialog,
+	    (XtPointer)&s_session);
+	enable_perm_toggle = XtVaCreateManagedWidget(
+	    "enablePerm", commandWidgetClass, idle_dialog,
 	    XtNfromVert, enable_toggle,
 	    XtNvertDistance, CLOSE_VGAP,
 	    XtNhorizDistance, MARGIN,
 	    XtNborderWidth, 0,
 	    NULL);
-	dialog_apply_bitmap(disable_toggle, idle_enabled ? no_diamond : diamond);
+	dialog_apply_bitmap(enable_perm_toggle,
+			(idle_user_enabled == IDLE_PERM)?
+			    diamond : no_diamond);
+	XtAddCallback(enable_perm_toggle, XtNcallback, toggle_enable,
+	    (XtPointer)&s_perm);
+	disable_toggle = XtVaCreateManagedWidget(
+	    "disable", commandWidgetClass, idle_dialog,
+	    XtNfromVert, enable_perm_toggle,
+	    XtNvertDistance, CLOSE_VGAP,
+	    XtNhorizDistance, MARGIN,
+	    XtNborderWidth, 0,
+	    NULL);
+	dialog_apply_bitmap(disable_toggle,
+			(idle_user_enabled == IDLE_DISABLED)?
+			    diamond : no_diamond);
 	XtAddCallback(disable_toggle, XtNcallback, toggle_enable,
-	    (XtPointer)&s_false);
+	    (XtPointer)&s_disabled);
 
 	/* Set up the buttons at the bottom. */
 	okay_button = XtVaCreateManagedWidget(
@@ -394,6 +569,7 @@ okay_callback(Widget w unused, XtPointer call_parms unused,
 	XtPointer call_data unused)
 {
 	if (idle_start() == 0) {
+		idle_changed = True;
 		XtPopdown(idle_shell);
 	}
 }
@@ -405,31 +581,73 @@ mark_toggle(Widget w, Pixmap p)
 	XtVaSetValues(w, XtNleftBitmap, p, NULL);
 }
 
+/* Hour/minute/second options. */
+static void
+toggle_hms(Widget w unused, XtPointer client_data,
+	XtPointer call_data unused)
+{
+	/* Toggle the flag */
+	hms = *(char *)client_data;
+
+	/* Change the widget states. */
+	mark_toggle(hours_toggle, (hms == 'h') ? diamond : no_diamond);
+	mark_toggle(minutes_toggle, (hms == 'm') ? diamond : no_diamond);
+	mark_toggle(seconds_toggle, (hms == 's') ? diamond : no_diamond);
+}
+
+/* Fuzz option. */
+static void
+toggle_fuzz(Widget w unused, XtPointer client_data,
+	XtPointer call_data unused)
+{
+	/* Toggle the flag */
+	fuzz = !fuzz;
+
+	/* Change the widget state. */
+	mark_toggle(fuzz_toggle, fuzz ? dot : no_dot);
+}
+
 /* Enable/disable options. */
 static void
 toggle_enable(Widget w unused, XtPointer client_data,
 	XtPointer call_data unused)
 {
 	/* Toggle the flag */
-	idle_enabled = *(Boolean *)client_data;
+	idle_user_enabled = *(enum idle_enum *)client_data;
 
 	/* Change the widget states. */
-	mark_toggle(enable_toggle, idle_enabled ? diamond : no_diamond);
-	mark_toggle(disable_toggle, idle_enabled ? no_diamond : diamond);
-	dialog_check_sensitivity(&idle_enabled);
+	mark_toggle(enable_toggle,
+			(idle_user_enabled == IDLE_SESSION)?
+			    diamond: no_diamond);
+	mark_toggle(enable_perm_toggle,
+			(idle_user_enabled == IDLE_PERM)?
+			    diamond: no_diamond);
+	mark_toggle(disable_toggle,
+			(idle_user_enabled == IDLE_DISABLED)?
+			    diamond: no_diamond);
 }
 
 /*
- * Process the new parameters.
+ * Called when the user presses the OK button on the idle command dialog.
  * Returns 0 for success, -1 otherwise.
  */
 static int
 idle_start(void)
 {
-	char *cmd, *tmo;
+	char *cmd, *tmo, *its;
 
-	if (!idle_enabled) {
+	/* Update the globals, so the dialog has the same values next time. */
+	XtVaGetValues(command_value, XtNstring, &cmd, NULL);
+	Replace(idle_command, NewString(cmd));
+	XtVaGetValues(timeout_value, XtNstring, &tmo, NULL);
+	its = Malloc(strlen(tmo) + 3);
+	(void) sprintf(its, "%s%s%c", fuzz? "~": "", tmo, hms);
+	Replace(idle_timeout_string, its);
+
+	/* See if they've turned it off. */
+	if (!idle_user_enabled) {
 		/* If they're turned it off, cancel the timer. */
+		idle_enabled = False;
 		if (idle_ticking) {
 			RemoveTimeOut(idle_id);
 			idle_ticking = False;
@@ -439,31 +657,17 @@ idle_start(void)
 
 	/* They've turned it on, and possibly reconfigured it. */
 
-	/* Check the command. */
-	XtVaGetValues(command_value, XtNstring, &cmd, NULL);
-	if (!*cmd) {
-		popup_an_error("Must specify a command");
-		goto cant_idle;
+	/* Validate the timeout.  It should work, yes? */
+	if (process_timeout_value(its) < 0) {
+		return -1;
 	}
 
-	/* Validate the timeout. */
-	XtVaGetValues(timeout_value, XtNstring, &tmo, NULL);
-	if (process_timeout_value(tmo) < 0)
-		goto cant_idle;
-
-	/* Save the idle command. */
-	Replace(idle_command, NewString(cmd));
-	Replace(idle_timeout_string, NewString(tmo));
-
-	/* Seems okay.  Reset to the new interval. */
-	if (IN_3270)
+	/* Seems okay.  Reset to the new interval and command. */
+	idle_enabled = True;
+	if (IN_3270) {
 		reset_idle_timer();
+	}
 	return 0;
-
-    cant_idle:
-	idle_enabled = False;
-	dialog_check_sensitivity(&idle_enabled);
-	return -1;
 }
 
 #endif /*]*/

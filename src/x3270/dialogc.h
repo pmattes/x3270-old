@@ -36,12 +36,11 @@ struct toggle_list {                    /* List of toggle widgets */
 	Widget *widgets;
 };  
 
-typedef enum { T_NUMERIC, T_HOSTFILE, T_UNIXFILE, T_COMMAND, T_TIMEOUT } text_t;
+typedef enum { T_NUMERIC, T_HOSTFILE, T_UNIXFILE, T_COMMAND } text_t;
 extern text_t t_numeric;
 extern text_t t_hostfile;
 extern text_t t_unixfile;
 extern text_t t_command;
-extern text_t t_timeout;
 extern Boolean s_true, s_false;
 
 extern void dialog_set(sr_t **, Widget);

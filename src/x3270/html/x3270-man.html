@@ -58,20 +58,24 @@ It is similar to <i>tn3270</i>(1) except that it is X-based, not curses-based.
 The full syntax for <i>host</i> is:
 <blockquote>[<i>prefix</i>:]...[<i>LUname</i>@]<i>hostname</i>[:<i>port</i>]</blockquote>
 <p>
-Prepending a <b>p:</b> onto <i>hostname</i> causes the connection to go
+Prepending a <b>P:</b> onto <i>hostname</i> causes the connection to go
 through the <i>telnet-passthru</i> service rather than directly to the host.
 See <a HREF="#Passthru"><font size=-1>PASSTHRU</font></a> below.
 <p>
-Prepending an <b>s:</b> onto <i>hostname</i> removes the "extended data
+Prepending an <b>S:</b> onto <i>hostname</i> removes the "extended data
 stream" option reported to the host.
 See <a HREF="#tn"><b>-tn</b></a> below for further information.
 <p>
-Prepending an <b>n:</b> onto <i>hostname</i>
+Prepending an <b>N:</b> onto <i>hostname</i>
 turns off TN3270E support for the session.
 <p>
-Prepending an <b>l:</b> onto <i>hostname</i>
-turns on SSL encryption for the session (if <b>x3270</b> was built
-with SSL support).
+Prepending an <b>L:</b> onto <i>hostname</i>
+causes <b>x3270</b> to first create an SSL tunnel to the host, and then
+create a TN3270 session inside the tunnel.  (This function is supported only if
+<b>x3270</b> was built with SSL/TLS support).
+Note that TLS-encrypted sessions using the TELNET START-TLS option are
+negotiated with the host automatically; for these sessions the <b>L:</b> prefix
+should not be used.
 <p>
 A specific LU name to use may be specified by prepending it to the
 <i>hostname</i> with an `<b>@</b>'.
@@ -1374,12 +1378,12 @@ x3270 is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
 <a NAME="Version"></a><h2>Version</h2>
-x3270 3.3.1-alpha8
+x3270 3.3.1-alpha9
 <hr>
 <address>
 This HTML document and the accompanying troff document were generated with
 a set of write-only <b>m4</b> macros and the powerful <b>vi</b> editor.
-<br>Last modified 11 April 2003.
+<br>Last modified 24 July 2003.
 </address>
 </body>
 </html>

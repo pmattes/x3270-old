@@ -11,6 +11,7 @@ dnl FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
 
 dnl Process this file with autoconf to produce a configure script.
 AC_INIT(pr3287.c)
+AC_PREREQ(2.50)
 
 dnl Checks for programs.
 AC_PROG_INSTALL
@@ -25,7 +26,7 @@ solaris2*)	XANSI=-D__EXTENSIONS__
 		;;
 darwin*)	XPRECOMP=-no-cpp-precomp
 		;;
-linux*)		XANSI=-D_BSD_SOURCE
+linux*)		XANSI="-D_BSD_SOURCE -D_POSIX_SOURCE"
 		;;
 *)		XANSI=""
 		;;

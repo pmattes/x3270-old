@@ -28,7 +28,7 @@ void ctlr_aclear(int baddr, int count, int clear_ea);
 void ctlr_add(int baddr, unsigned char c, unsigned char cs);
 void ctlr_add_bg(int baddr, unsigned char color);
 void ctlr_add_cs(int baddr, unsigned char cs);
-void ctlr_add_fa(int baddr, unsigned char fa);
+void ctlr_add_fa(int baddr, unsigned char fa, unsigned char cs);
 void ctlr_add_fg(int baddr, unsigned char color);
 void ctlr_add_gr(int baddr, unsigned char gr);
 void ctlr_altbuffer(Boolean alt);

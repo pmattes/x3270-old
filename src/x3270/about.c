@@ -506,7 +506,7 @@ popup_about_status(void)
 		}
 #endif /*]*/
 #if defined(HAVE_LIBSSL) /*[*/
-		if (ssl_host) {
+		if (secure_connection) {
 			(void) sprintf(fbuf, "%s", get_message("secure"));
 			MAKE_LABEL2(fbuf);
 		}
