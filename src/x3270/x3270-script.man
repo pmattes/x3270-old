@@ -1,5 +1,5 @@
 '\" t
-.TH X3270-SCRIPT 1 "20 April 2002"
+.TH X3270-SCRIPT 1 "01 May 2002"
 .SH "NAME"
 Scripting Facilities for x3270, s3270 and c3270
 .SH "SYNOPSIS"
@@ -760,4 +760,4 @@ c3270(1)
 .br
 s3270(1)
 .SH "VERSION"
-Version 3.2.19beta
+Version 3.2.19

@@ -1,2 +1,2 @@
-version="3.2.19beta"
+version="3.2.19"
 adversion="3.2.18"

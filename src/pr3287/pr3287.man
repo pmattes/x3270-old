@@ -1,5 +1,5 @@
 '\" t
-.TH PR3287 1 "20 April 2002"
+.TH PR3287 1 "01 May 2002"
 .SH "NAME"
 pr3287 \-
 \s-1IBM\s+1
@@ -95,7 +95,7 @@ Ignore TN3270E PRINT-EOJ commands, relying on UNBIND commands to indicate
 the ends of print jobs.
 .TP
 \fB\-ffskip\fP
-In SCS mode, causes \fIpr3287\fP to ignore a FF (formfeed) order if it occurs
+Causes \fIpr3287\fP to ignore a FF (formfeed) order if it occurs
 at the top of a page.
 .TP
 \fB\-ffthru\fP
@@ -146,4 +146,4 @@ Derivative works based on this software must incorporate this copyright
 notice.
 .RE
 .SH "VERSION"
-pr3287 3.2.19beta
+pr3287 3.2.19

@@ -29,7 +29,7 @@
  *          -ffthru
  *		pass through SCS FF orders
  *          -ffskip
- *		skip SCS FF at top of page
+ *		skip FF at top of page
  *          -reconnect
  *		keep trying to reconnect
  *	    -trace
@@ -105,7 +105,7 @@ usage(void)
 "  -blanklines      display blank lines even if empty (formatted LU3)\n"
 "  -crlf            expand newlines to CR/LF\n"
 "  -ffthru          pass through SCS FF orders\n"
-"  -ffskip          skip SCS FF orders at top of page\n"
+"  -ffskip          skip FF orders at top of page\n"
 "  -ignoreeoj       ignore PRINT-EOJ commands\n"
 "  -reconnect       keep trying to reconnect\n"
 "  -trace           trace data stream to /tmp/x3trc.<pid>\n",

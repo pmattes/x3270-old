@@ -1,7 +1,7 @@
 Begin4
 Title:		c3270
-Version:	3.2.19beta
-Entered-date:	2002-04-20
+Version:	3.2.19
+Entered-date:	2002-05-01
 Description:	Curses-based 3270 Emulator
 		Complete IBM 3278/3279 emulation, TN3270E support, structured
 		fields, color xterm emulation, highly configurable
@@ -11,6 +11,6 @@ Author:		Paul Mattes (Paul.Mattes@usa.net)
 		Robert Viduya
 Maintained-by:	Paul Mattes (Paul.Mattes@usa.net)
 Primary-site:	metalab.unc.edu /pub/Linux/system/network/misc/
-		392 KB c3270-3.2.19beta.tgz
+		392 KB c3270-3.2.19.tgz
 Copying-policy:	GPL
 End

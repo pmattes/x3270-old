@@ -36,7 +36,7 @@ extern int blanklines;	/* display blank lines even if empty (formatted LU3) */
 extern int ignoreeoj;	/* ignore PRINT-EOJ commands */
 extern int crlf;	/* expand newline to CR/LF */
 extern int ffthru;	/* pass through SCS FF orders */
-extern int ffskip;	/* skip SCS FF orders at top of page */
+extern int ffskip;	/* skip FF orders at top of page */
 
 #define CS_GE 0x04	/* hack */
 
@@ -62,6 +62,7 @@ static int line_length = MAX_LL;
 static char page_buf[MAX_BUF];	/* swag */
 static int baddr = 0;
 static Boolean page_buf_initted = False;
+static Boolean any_3270_printable = False;
 static int any_3270_output = 0;
 static FILE *prfile = NULL;
 static unsigned char wcc_line_length;
@@ -1166,11 +1167,21 @@ uoutput(char c)
 		col = 0;
 		break;
 	case '\n':
-	case '\f':
 		for (i = 0; i < maxcol; i++) {
 			stash(buf[i]);
 		}
+		if (crlf)
+		    stash('\r');
 		stash(c);
+		col = maxcol = 0;
+		break;
+	case '\f':
+		if (any_3270_printable || !ffskip) {
+			for (i = 0; i < maxcol; i++) {
+				stash(buf[i]);
+			}
+			stash(c);
+		}
 		col = maxcol = 0;
 		break;
 	default:
@@ -1182,6 +1193,7 @@ uoutput(char c)
 				col++;
 		} else {
 			buf[col++] = c;
+			any_3270_printable = True;
 		}
 		if (col > maxcol)
 			maxcol = col;
@@ -1301,7 +1313,8 @@ dump_formatted(void)
 					stash('\n');
 					newlines--;
 				}
-				stash('\f');
+				if (any_3270_printable || !ffskip)
+					stash('\f');
 				blanks++;
 				break;
 			case '\0':
@@ -1324,6 +1337,8 @@ dump_formatted(void)
 				}
 				any_data++;
 				stash(visible? c: ' ');
+				if (visible)
+					any_3270_printable = True;
 				break;
 			}
 		}
@@ -1366,6 +1381,11 @@ print_eoj(void)
 	 * when an UNBIND is processed.
 	 */
 	scs_initted = False;
+
+	/*
+	 * Reset the FF suprpession logic.
+	 */
+	any_3270_printable = False;
 }
 
 static void

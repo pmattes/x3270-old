@@ -1,5 +1,5 @@
 '\" t
-.TH c3270 1 "20 April 2002"
+.TH c3270 1 "01 May 2002"
 .SH "NAME"
 c3270 \-
 curses-based 
@@ -3104,4 +3104,4 @@ notice.
 .RE
 5250 Emulation Code Copyright Minolta (Schweiz) AG, Beat Rubischon.
 .SH "VERSION"
-c3270 3.2.19beta
+c3270 3.2.19
