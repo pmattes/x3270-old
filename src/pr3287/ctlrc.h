@@ -23,3 +23,4 @@ void ctlr_add(unsigned char c, unsigned char cs, unsigned char gr);
 void ctlr_write(unsigned char buf[], int buflen, Boolean erase);
 void print_eoj(void);
 enum pds process_ds(unsigned char *buf, int buflen);
+enum pds process_scs(unsigned char *buf, int buflen);

@@ -55,15 +55,29 @@ static char page_buf[MAX_BUF];	/* swag */
 static int baddr = 0;
 static int initted = 0;
 static int any_output = 0;
-static FILE *prfile;
+static FILE *prfile = NULL;
 
 static void ctlr_erase(void);
-static void dump_page(void);
+static void dump_3270_page(void);
+static void stash(unsigned char c);
 
 #define DECODE_BADDR(c1, c2) \
 	((((c1) & 0xC0) == 0x00) ? \
 	(((c1) & 0x3F) << 8) | (c2) : \
 	(((c1) & 0x3F) << 6) | ((c2) & 0x3F))
+
+/* SCS constants and data. */
+#define MAX_MPP	132
+#define MAX_MPL	108
+
+static char linebuf[MAX_MPP+1];
+static char htabs[MAX_MPP+1];
+static char vtabs[MAX_MPL+1];
+static int lm, tm, bm, mpp, mpl;
+static int pp;
+static int line;
+static int scs_initted = 0;
+
 
 
 /*
@@ -456,11 +470,13 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 		}
 	}
 
+#if 0
 	/* Do the implied trailing newline, unless we just processed an EM. */
 	if (previous != ORDER || *cp != FCORDER_EM || wcc_line_length ||
 			any_output) {
 		ctlr_add('\n', default_cs, default_gr);
 	}
+#endif
 	trace_ds("\n");
 }
 
@@ -470,11 +486,464 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 #undef END_TEXT0
 #undef END_TEXT
 
+/*
+ * Process SCS (SNA Character Stream) data.
+ */
+
+/* Reinitialize the SCS virtual 3287. */
+static void
+init_scs_horiz(void)
+{
+	int i;
+
+	mpp = MAX_MPP;
+	lm = 1;
+	htabs[1] = 1;
+	for (i = 2; i <= MAX_MPP; i++) {
+		htabs[i] = 0;
+	}
+}
+
+static void
+init_scs_vert(void)
+{
+	int i;
+
+	mpl = 1;
+	tm = 1;
+	bm = mpl;
+	vtabs[1] = 1;
+	for (i = 0; i <= MAX_MPL; i++) {
+		vtabs[i] = 0;
+	}
+}
+
+static void
+init_scs(void)
+{
+	if (scs_initted)
+		return;
+
+	init_scs_horiz();
+	init_scs_vert();
+	pp = 1;
+	line = 1;
+	(void) memset(linebuf, ' ', MAX_MPP+1);
+	scs_initted = 1;
+}
+
+/*
+ * Our philosophy for automatic newlines and formfeeds is that we generate them
+ * only if the user attempts to put data outside the MPP/MPL-defined area.
+ * Therefore, the user can put a byte on the last column of each line, and on
+ * the last column of the last line of the page, and not need to worry about 
+ * suppressing their own NL or FF.
+ */
+
+/*
+ * Dump and reset the current line.
+ * This will always result in at least one byte of output to the printer (a
+ * newline).  The 'line' variable is always incremented, and may end up
+ * pointing past the bottom margin.  The 'pp' variable is set to the left
+ * margin.
+ */
+static void
+dump_scs_line(int reset_pp)
+{
+	int i;
+
+	/* Find the last non-space character in the line buffer. */
+	for (i = mpp; i >= 1; i--) {
+		if (linebuf[i] != ' ')
+			break;
+	}
+
+	/*
+	 * If there is data there, print it with a trailing newline and
+	 * clear out the line buffer for next time.  If not, just print the
+	 * newline.
+	 */
+	if (i >= 1) {
+		int j;
+
+		for (j = 1; j <= i; j++) {
+			stash(linebuf[j]);
+		}
+		(void) memset(linebuf, ' ', MAX_MPP+1);
+	}
+	stash('\n');
+	line++;
+	if (reset_pp)
+		pp = lm;
+}
+
+/* SCS formfeed. */
+static void
+scs_formfeed(void)
+{
+	/* Skip to the end of the physical page. */
+	while (line < mpl) {
+		stash('\n');
+		line++;
+	}
+	line = 1;
+
+	/* Skip the top margin. */
+	while (line < tm) {
+		stash('\n');
+		line++;
+	}
+}
+
+/*
+ * Add a printable character to the SCS virtual 3287.
+ * If the line position is past the bottom margin, we will skip to the top of
+ * the next page.  If the character position is past the MPP, we will skip to
+ * the left margin of the next line.
+ */
+static void
+add_scs(char c)
+{
+	/*
+	 * They're about to print something.
+	 * If the line is past the bottom margin, we need to skip to the
+	 * MPL, and then past the top margin.
+	 */
+	if (line > bm)
+		scs_formfeed();
+
+	/*
+	 * If this character would overflow the line, then dump the current
+	 * line and start over at the left margin.
+	 */
+	if (pp > mpp)
+		dump_scs_line(1);
+
+	/*
+	 * Store this character in the line buffer and advance the print
+	 * position.
+	 */
+	linebuf[pp++] = c;
+}
+
+/* Process a bufferful of SCS data. */
+enum pds
+process_scs(unsigned char *buf, int buflen)
+{
+	register unsigned char *cp;
+	int i;
+	int cnt;
+	int tab;
+	enum { NONE, DATA, ORDER } last = NONE;
+#	define END_TEXT(s) { \
+		if (last == DATA) \
+			trace_ds("'"); \
+		trace_ds(" " s); \
+		last = ORDER; \
+	}
+
+	trace_ds("< ");
+
+	init_scs();
+
+	for (cp = &buf[0]; cp < (buf + buflen); cp++) {
+		switch (*cp) {
+		case SCS_BS:	/* back space */
+			END_TEXT("BS");
+			if (pp != 1)
+				pp--;
+			break;
+		case SCS_CR:	/* carriage return */
+			END_TEXT("CR");
+			pp = lm;
+			break;
+		case SCS_ENP:	/* enable presentation */
+			END_TEXT("ENP");
+			/* No-op. */
+			break;
+		case SCS_FF:	/* form feed */
+			END_TEXT("FF");
+			/* Dump any pending data, and go to the next line. */
+			dump_scs_line(1);
+			/*
+			 * If there is a max page length, skip to the next
+			 * page.
+			 */
+			scs_formfeed();
+			break;
+		case SCS_HT:	/* horizontal tab */
+			END_TEXT("HT");
+			for (i = pp; i <= mpp; i++) {
+				if (htabs[i])
+					break;
+			}
+			if (i <= mpp)
+				i = mpp;
+			else
+				add_scs(' ');
+			break;
+		case SCS_INP:	/* inhibit presentation */
+			END_TEXT("INP");
+			/* No-op. */
+			break;
+		case SCS_IRS:	/* inter-record separator */
+			END_TEXT("IRS");
+		case SCS_NL:	/* new line */
+			if (*cp == SCS_NL)
+				END_TEXT("NL");
+			dump_scs_line(1);
+			break;
+		case SCS_VT:	/* vertical tab */
+			END_TEXT("VT");
+			for (i = line+1; i <= MAX_MPL; i++){
+				if (vtabs[i])
+					break;
+			}
+			if (i <= MAX_MPL) {
+				dump_scs_line(0);
+				while (line < i) {
+					stash('\n');
+					line++;
+				}
+				break;
+			} else {
+				/* fall through... */
+			}
+		case SCS_VCS:	/* vertical channel select */
+			if (*cp == SCS_VCS)
+				END_TEXT("VCS");
+		case SCS_LF:	/* line feed */
+			if (*cp == SCS_LF)
+				END_TEXT("LF");
+			dump_scs_line(0);
+			break;
+		case SCS_GE:	/* graphic escape */
+			END_TEXT("GE");
+			/* Skip over the order. */
+			cp++;
+			if (cp >= buf + buflen)
+				break;	/* be gentle */
+			/* No support, so all characters are spaces. */
+			trace_ds(" %02x", *cp);
+			add_scs(' ');
+			break;
+		case SCS_SA:	/* set attribute */
+			END_TEXT("SA");
+			/* We don't support it, skip it. */
+			trace_ds(" %02x %02x", *(cp + 1), *(cp + 2));
+			cp += 2;
+			break;
+		case SCS_TRN:	/* transparent */
+			END_TEXT("TRN");
+			/* Skip over the order. */
+			cp++;
+			/* Make sure a length byte is present. */
+			if (cp >= buf + buflen)
+				break;	/* be gentle */
+			/*
+			 * Next byte is the length of the transparent data,
+			 * not including the length byte itself.
+			 */
+			cnt = *cp;
+			trace_ds("(%d)", cnt);
+			/* Copy out the data literally. */
+			while (cnt && cp < buf + buflen) {
+				cp++;
+				trace_ds(" %02x", *cp);
+				add_scs(*cp);
+				cnt--;
+			}
+			break;
+		case SCS_SET:	/* set... */
+			/* Skip over the first byte of the order. */
+			cp++;
+			if (cp >= buf + buflen)
+				break;	/* be gentle */
+			switch (*cp) {
+				case SCS_SHF:	/* set horizontal format */
+					END_TEXT("SHF");
+					/* Take defaults first. */
+					init_scs_horiz();
+					/*
+					 * Skip over the second byte of the
+					 * order.
+					 */
+					cp++;
+					/*
+					 * The length is next.  It includes the
+					 * length field itself.
+					 */
+					if (cp >= buf + buflen)
+						break;
+					cnt = *cp;
+					trace_ds("(%d)", cnt);
+					if (cnt < 2)
+						break;	/* no more data */
+					/* Skip over the length byte. */
+					cp++;
+					cnt--;
+					if (!cnt || cp >= buf + buflen)
+						break;
+					/* The MPP is next. */
+					mpp = *cp;
+					trace_ds(" mpp=%d", mpp);
+					if (!mpp || mpp > MAX_MPP)
+						mpp = MAX_MPP;
+					/* Skip over the MPP. */
+					cp++;
+					cnt--;
+					if (!cnt || cp >= buf + buflen)
+						break;
+					/* The LM is next. */
+					lm = *cp;
+					trace_ds(" lm=%d", lm);
+					if (lm < 1 || lm >= mpp)
+						lm = 1;
+					/* Skip over the LM. */
+					cp++;
+					cnt--;
+					if (!cnt || cp >= buf + buflen)
+						break;
+					/* Skip over the RM. */
+					trace_ds(" rm=%d", *cp);
+					cp++;
+					cnt--;
+					/* Next are the tab stops. */
+					while (cnt && cp < buf + buflen) {
+						tab = *cp;
+						trace_ds(" tab=%d", tab);
+						if (tab >= 1 && tab <= mpp)
+							htabs[tab] = 1;
+						cp++;
+						cnt--;
+					}
+					break;
+				case SCS_SLD:	/* set line density */
+					END_TEXT("SLD");
+					/*
+					 * Skip over the second byte of the
+					 * order.
+					 */
+					cp++;
+					/*
+					 * The length is next.  It does not
+					 * include length field itself.
+					 */
+					if (cp >= buf + buflen)
+						break;
+					cnt = *cp;
+					trace_ds("(%d)", cnt);
+					if (cnt < 1 || cnt > 2)
+						break; /* be gentle */
+					/*
+					 * Skip over the length byte and data.
+					 */
+					if (cnt == 1)
+						trace_ds(" %02x", *(cp + 1));
+					else
+						trace_ds(" %02x%02x",
+						    *(cp + 2));
+					cp += cnt;
+					break;
+				case SCS_SVF:	/* set vertical format */
+					END_TEXT("SVF");
+					/* Take defaults first. */
+					init_scs_vert();
+					/*
+					 * Skip over the second byte of the
+					 * order.
+					 */
+					cp++;
+					/*
+					 * The length is next.  It includes the
+					 * length field itself.
+					 */
+					if (cp >= buf + buflen)
+						break;
+					cnt = *cp;
+					trace_ds("(%d)", cnt);
+					if (cnt < 2)
+						break;	/* no more data */
+					/* Skip over the length byte. */
+					cp++;
+					cnt--;
+					if (!cnt || cp >= buf + buflen)
+						break;
+					/* The MPL is next. */
+					mpl = *cp;
+					trace_ds(" mpl=%d", mpl);
+					if (!mpl || mpl > MAX_MPL)
+						mpl = 1;
+					/* Skip over the MPL. */
+					cp++;
+					cnt--;
+					if (!cnt || cp >= buf + buflen)
+						break;
+					/* The TM is next. */
+					tm = *cp;
+					trace_ds(" tm=%d", tm);
+					if (tm < 1 || tm >= mpl)
+						tm = 1;
+					/* Skip over the TM. */
+					cp++;
+					cnt--;
+					if (!cnt || cp >= buf + buflen)
+						break;
+					/* The BM is next. */
+					bm = *cp;
+					trace_ds(" bm=%d", bm);
+					if (bm < tm || bm >= mpl)
+						bm = mpl;
+					/* Skip over the BM. */
+					cp++;
+					cnt--;
+					/* Next are the tab stops. */
+					while (cnt && cp < buf + buflen) {
+						tab = *cp;
+						trace_ds(" tab=%d", tab);
+						if (tab >= 1 && tab <= mpp)
+							vtabs[tab] = 1;
+						cp++;
+						cnt--;
+					}
+					break;
+				default:
+					break;	/* be gentle */
+			}
+			break;
+		default:
+			/*
+			 * Stray control codes are spaces, all else gets
+			 * translated from EBCDIC to ASCII.
+			 */
+			if (*cp <= 0x3f) {
+				END_TEXT("?");
+				trace_ds("%02x", *cp);
+				add_scs(' ');
+			} else {
+				if (last == NONE)
+					trace_ds("'");
+				else if (last == ORDER)
+					trace_ds(" '");
+				trace_ds("%c", ebc2asc[*cp]);
+				add_scs(ebc2asc[*cp]);
+				last = DATA;
+			}
+			break;
+		}
+	}
+
+	if (last == DATA)
+		trace_ds("'");
+	trace_ds("\n");
+	return PDS_OKAY_NO_OUTPUT;
+}
+
 
 /*
- * This should use popen, but it's not worth it yet.
+ * Send a character to the printer.
  */
-void
+static void
 stash(unsigned char c)
 {
 	if (prfile == NULL) {
@@ -501,7 +970,7 @@ ctlr_add(unsigned char c, unsigned char cs, unsigned char gr)
 			baddr = (baddr - (baddr % MAX_LL) + MAX_LL) % MAX_BUF;
 			break;
 		case '\f':
-			dump_page();
+			dump_3270_page();
 			break;
 		default:
 			if ((c & 0x7f) < ' ')	/* just in case */
@@ -516,7 +985,7 @@ ctlr_add(unsigned char c, unsigned char cs, unsigned char gr)
 }
 
 static void
-dump_page(void)
+dump_3270_page(void)
 {
 	int i, j;
 	int blanks = 0;
@@ -558,10 +1027,14 @@ dump_page(void)
 void
 print_eoj(void)
 {
-	dump_page();
-	if (pclose(prfile) < 0)
-		perror(command);
-	prfile = NULL;
+	dump_3270_page();
+	if (prfile != NULL) {
+		if (pclose(prfile) < 0)
+			perror(command);
+		prfile = NULL;
+		trace_ds("End of print job.\n");
+	}
+	scs_initted = 0;
 }
 
 static void

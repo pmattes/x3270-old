@@ -246,8 +246,10 @@ negotiate(int s, char *lu, char *assoc)
 	(void) memset((char *) myopts, 0, sizeof(myopts));
 	(void) memset((char *) hisopts, 0, sizeof(hisopts));
 	e_funcs = E_OPT(TN3270E_FUNC_BIND_IMAGE) |
+		  E_OPT(TN3270E_FUNC_DATA_STREAM_CTL) |
 		  E_OPT(TN3270E_FUNC_RESPONSES) |
-		  E_OPT(TN3270E_FUNC_DATA_STREAM_CTL);
+		  E_OPT(TN3270E_FUNC_SCS_CTL_CODES) |
+		  E_OPT(TN3270E_FUNC_SYSREQ);
 	e_xmit_seq = 0;
 	response_required = TN3270E_RSF_NO_RESPONSE;
 	telnet_state = TNS_DATA;
@@ -437,7 +439,7 @@ telnet_fsm(unsigned char c)
 					return -1;
 			} else
 				(void) fprintf(stderr, "EOR received when not "
-				    "in 3270 mode, ignored.");
+				    "in 3270 mode, ignored.\n");
 			trace_str("RCVD EOR\n");
 			ibptr = ibuf;
 			telnet_state = TNS_DATA;
@@ -627,7 +629,7 @@ telnet_fsm(unsigned char c)
 
 /* Send a TN3270E terminal type request. */
 static void
-tn3270e_request(Boolean use_next)
+tn3270e_request(void)
 {
 	int tt_len, tb_len;
 	char *tt_out;
@@ -668,8 +670,7 @@ tn3270e_request(Boolean use_next)
 
 	/* Prep for the next LU. */
 	connected_lu = try_lu;
-	if (use_next)
-		next_lu();
+	next_lu();
 }
 
 /*
@@ -702,7 +703,7 @@ tn3270e_negotiate(void)
 			/* Host wants us to send our device type. */
 			vtrace_str("SEND DEVICE-TYPE SE\n");
 
-			tn3270e_request(False);
+			tn3270e_request();
 		} else {
 			vtrace_str("SEND ??%u SE\n", sbbuf[2]);
 		}
@@ -769,7 +770,7 @@ tn3270e_negotiate(void)
 			}
 			if (try_lu != NULL) {
 				/* Try the next LU. */
-				tn3270e_request(True);
+				tn3270e_request();
 			} else if (lus != NULL) {
 				/* No more LUs to try.  Give up. */
 				fprintf(stderr, "Cannot connect to "
@@ -952,14 +953,19 @@ process_eor(void)
 
 		switch (h->data_type) {
 		case TN3270E_DT_3270_DATA:
+		case TN3270E_DT_SCS_DATA:
 			if ((e_funcs & E_OPT(TN3270E_FUNC_BIND_IMAGE)) &&
 			    !tn3270e_bound)
 				return 0;
 			tn3270e_submode = E_3270;
 			check_in3270();
 			response_required = h->response_flag;
-			rv = process_ds(ibuf + EH_SIZE,
-			    (ibptr - ibuf) - EH_SIZE);
+			if (h->data_type == TN3270E_DT_3270_DATA)
+				rv = process_ds(ibuf + EH_SIZE,
+				    (ibptr - ibuf) - EH_SIZE);
+			else
+				rv = process_scs(ibuf + EH_SIZE,
+				    (ibptr - ibuf) - EH_SIZE);
 			if (rv < 0 &&
 			    response_required != TN3270E_RSF_NO_RESPONSE)
 				tn3270e_nak(rv);
@@ -981,6 +987,7 @@ process_eor(void)
 			if (tn3270e_submode == E_3270)
 				tn3270e_submode = E_NONE;
 			check_in3270();
+			print_eoj();
 			return 0;
 		case TN3270E_DT_SSCP_LU_DATA:
 		case TN3270E_DT_NVT_DATA:
