@@ -1,4 +1,4 @@
-.TH X3270-SCRIPT 1 "7 June 1994"
+.TH X3270-SCRIPT 1 "12 May 1995"
 .SH NAME
 x3270 \-script \- scripting facility for x3270
 .SH SYNOPSIS
@@ -105,10 +105,10 @@ The current number of columns defined on the screen, subject to the same
 difference for rows, above.
 .TP
 Cursor Row
-The current cursor row.
+The current cursor row (zero-origin).
 .TP
 Cursor Column
-The current cursor row.
+The current cursor column (zero-origin).
 .TP
 Window ID
 The X window identifier for the main
@@ -139,7 +139,12 @@ unlocks the keyboard.
 If the parameter to a String() action includes a code for one these actions,
 it will also wait for the keyboard to unlock before completing.
 .SH "NEW ACTIONS"
-The following actions have been defined or modified for use with scripts:
+The following actions have been defined or modified for use with scripts.
+(Note that unlike the display on the status line,
+.I row
+and
+.I col
+coordinates used in these actions use [0,0] as their origin, not [1,1]).
 .TP
 .B AnsiText()
 Outputs whatever data that has been output by the host in
@@ -154,6 +159,8 @@ This is a convenient way to capture
 mode output in a synchronous manner without trying to decode the screen
 contents.
 .TP
+.BI Ascii( row,col,rows,cols )
+.TP
 .BI Ascii( row,col,len )
 .TP
 .BI Ascii( len )
@@ -165,7 +172,11 @@ text representation of the screen contents.
 Each line is preceded by the string "data:\ ", and there are no control
 characters.
 .IP
-If all three parameters are given, that region of the screen is output.
+If four parameters are given, a rectangular region of the screen is output.
+.IP
+If three parameters are given,
+.I len
+characters are output, starting at the specified row and column.
 .IP
 If only the
 .I len
@@ -213,6 +224,8 @@ would exit when it detected end-of-file on standard input.)
 .B Disconnect()
 Disconnects from the host.
 .TP
+.BI Ebcdic( row,col,rows,cols )
+.TP
 .BI Ebcdic( row,col,len )
 .TP
 .BI Ebcdic( len )
@@ -233,10 +246,29 @@ codes.
 .BI Info( message )
 Pops up an informational message.
 .TP
+.BI Expect( text )
+.TP
+.BI Expect( text , timeout )
+Pauses the script until the specified
+.I text
+appears in the data stream from the host, or the specified
+.I timeout
+(in seconds) expires.
+If no
+.I timeout
+is specified, the default is 30 seconds.
+.I Text
+can contain standard C-language escape (backslash) sequences.
+No wild-card characters or pattern anchor characters are understood.
+.B Expect()
+is valid only in
+.SM ANSI
+mode.
+.TP
 .BI MoveCursor( row,col )
 Moves the cursor to the specified coordinates.
 .TP
-.B PauseScript
+.B PauseScript()
 Delays execution of a script until a
 .B ContinueScript
 command is executed (presumably by a keyboard command or a macro).

@@ -1,11 +1,13 @@
 #! /usr/local/bin/ksh
 # TSO login script
+#set -x
 
+# Set up login parameters
 tcp_host=ibm3172
 dial_user=VTAM
 sna_host=MOON
 userid=JFR
-password=jfr
+password=JFR
 
 typeset xs	# status
 typeset xp=""
@@ -61,7 +63,7 @@ function die
 }
 
 # Start x3270 and sync up
-XFILESEARCHPATH=X3270.ad ./x3270 -script -model 2 2>&1 |&
+x3270 -script -model 2 -color 2>&1 |&
 xp=$!
 xi || exit 1
 
@@ -95,23 +97,18 @@ do	sleep 2
 done
 
 # Make sure we are dialed to VTAM
-[ "$(ascii 0,21,5)" = "ENTER" ] || die "Couldn't get to VTAM"
+[ "$(ascii 0,64,4)" = "VTAM" ] || die "Couldn't get to VTAM"
 
 # Get to the SNA host
 string "$sna_host $userid"
 xi Enter
 
-# TSO login takes two screens.  Make sure the first is:
-#  "LOGON/LOGOFF in progress"
-[ "$(ascii 0,19,24)" = "LOGON/LOGOFF in progress" ] ||
-    die "Couldn't get to SNA host '$sna_host'"
-
-# Wait until that screen disappears
-while [ "$(ascii 0,19,24)" = "LOGON/LOGOFF in progress" ]
+# Pass VTAM digestion message
+while [ "$(ascii 0,21,20)" = "USS COMMAND HAS BEEN" ]
 do	sleep 2
 done
 
-# Make sure the next one is "TSO/E LOGON"
+# Now verify the "TSO/E LOGON" screen
 [ "$(ascii 0,33,11)" = "TSO/E LOGON" ] ||
     die "Couldn't get to TSO logon screen"
 
@@ -120,7 +117,8 @@ string "$password"
 xi Enter
 
 # Now look for "LOGON IN PROGRESS"
-[ "$(ascii 0,15,17)" = "LOGON IN PROGRESS" ] || die "Couldn't log on"
+integer nl=18+${#userid}
+[ "$(ascii 0,11,$nl)" = "$userid LOGON IN PROGRESS" ] || die "Couldn't log on"
 
 # Make sure TSO is waiting for a '***' enter
 xi	# empty command to get status information

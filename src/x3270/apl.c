@@ -11,6 +11,7 @@
  *	apl.c
  *		This module handles APL-specific actions.
  */
+
 #include <X11/Intrinsic.h>
 #define XK_APL
 #define XK_GREEK

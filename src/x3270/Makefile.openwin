@@ -1,4 +1,5 @@
-# x3270 Makefile for Sun OpenWindows, prior to version 3.3
+# x3270 Makefile for Sun OpenWindows 3.2 or earlier ONLY
+# (for newer versions of OpenWindows, use xmkmf)
 
 # NOTE: This makefile must be run with Sun make -- Gnu make will not work!
 
@@ -6,14 +7,27 @@
 XSVR4 = if [ `uname -r | cut -c1` -eq 5 ]; then echo -DSVR4; fi
 XLIBS = if [ `uname -r | cut -c1` -eq 5 ]; then echo -lnsl -lsocket; fi
 
-OBJECTS = ansi.o apl.o ctlr.o keypad.o kybd.o macros.o menubar.o \
-	  popups.o save.o screen.o scroll.o select.o tables.o status.o \
-	  telnet.o trace_ds.o x3270.o
-FONTS = 3270-12.fb 3270-12b.fb 3270.fb 3270b.fb 3270a.fb 3270ab.fb 3270d.fb
+OBJECTS = Cme.o CmeBSB.o CmeLine.o CmplxMenu.o ansi.o apl.o ctlr.o \
+	fallbacks.o keypad.o kybd.o macros.o menubar.o popups.o print.o save.o \
+	screen.o scroll.o select.o sf.o tables.o status.o telnet.o trace_ds.o \
+	util.o x3270.o
+FONTS = 3270.fb 3270b.fb 3270-12.fb 3270-12b.fb 3270-20.fb 3270-20b.fb \
+	3270d.fb 3270h.fb 3270gt8.fb 3270gt12.fb 3270gt12b.fb 3270gt16.fb \
+	3270gt16b.fb 3270gt24.fb 3270gt24b.fb 3270gt32.fb 3270gt32b.fb
 OPENWINHOME=/usr/openwin
-OPTFLAGS = -O
+LIBX3270DIR = $(INSTDIR)/lib/x3270
+HOSTSFILE = ibm_hosts
+DEFINES = -DLIBX3270DIR=\"$(LIBX3270DIR)\"
+
 # For debugging, set OPTFLAGS to -g
-CFLAGS = $(OPTFLAGS) -I$(OPENWINHOME)/include $(XSVR4:sh)
+OPTFLAGS = -O
+
+# To use a separate app-defaults file, rather than compiling it in,
+# uncomment the following lint:
+#EXTRA_DEFINES = -DUSE_APP_DEFAULTS
+
+CFLAGS = $(OPTFLAGS) $(EXTRA_DEFINES) -I$(OPENWINHOME)/include $(XSVR4:sh) \
+	 $(DEFINES)
 
 .bdf.fb:
 	$(OPENWINHOME)/bin/convertfont -d. -o `basename $@ .fb` $<
@@ -36,10 +50,16 @@ fonts: Families.list
 
 version.o: $(OBJECTS) version.txt mkversion.sh
 	@chmod +x mkversion.sh version.txt
-	sh ./mkversion.sh
+	sh ./mkversion.sh $(CC)
+
+fallbacks.c: mkfb X3270.ad
+	./mkfb X3270.ad >fallbacks.c
+
+mkfb: mkfb.c
+	$(CC) -o mkfb mkfb.c
 
 x3270: $(OBJECTS) version.o
-	$(CC) $(CFLAGS) -o x3270 $(OBJECTS) version.o -L$(OPENWINHOME)/lib \
+	$(CC) $(OPTFLAGS) -o x3270 $(OBJECTS) version.o -L$(OPENWINHOME)/lib \
 		$(LIBS) $(XLIBS:sh)
 
 Families.list: $(FONTS)
@@ -51,10 +71,12 @@ Families.list: $(FONTS)
 INSTDIR=$(OPENWINHOME)
 install: x3270 install.fonts
 	install -m 755 x3270 $(INSTDIR)/bin
-	install -m 644 X3270.ad $(INSTDIR)/lib/app-defaults/X3270
 	install -m 644 x3270.man $(INSTDIR)/man/man1/x3270.1
 	install -m 644 x3270-script.man $(INSTDIR)/man/man1/x3270-script.1
 	install -m 644 ibm_hosts.man $(INSTDIR)/man/man5/ibm_hosts.5
+	[ -d $(LIBX3270DIR) ] || mkdir $(LIBX3270DIR)
+	[ -r $(LIBX3270DIR)/$(HOSTSFILE) ] || \
+		install -m 644 $(HOSTSFILE) $(LIBX3270DIR)/$(HOSTSFILE)
 
 install.fonts: fonts
 	install -m 644 $(FONTS) $(INSTDIR)/lib/fonts
@@ -62,5 +84,9 @@ install.fonts: fonts
 	chmod 644 $(INSTDIR)/lib/fonts/Families.list
 	-$(OPENWINHOME)/bin/xset fp rehash
 
+# Run this only if you want to run a separate app-defaults file.
+install.app-defaults:
+	install -m 644 X3270.ad $(INSTDIR)/lib/app-defaults/X3270
+
 clean:
-	$(RM) -f x3270 $(OBJECTS) version.o $(FONTS)
+	$(RM) -f x3270 $(OBJECTS) version.o $(FONTS) mkfb fallbacks.c

@@ -1,17 +1,30 @@
 LOCAL_LIBRARIES = $(XAWLIB) $(XMULIB) $(XTOOLLIB) $(XLIB)
-           SRCS = ansi.c apl.c ctlr.c keypad.c kybd.c macros.c menubar.c \
-		  popups.c save.c screen.c scroll.c select.c status.c \
-		  tables.c telnet.c trace_ds.c x3270.c
-          VOBJS = ansi.o apl.o ctlr.o keypad.o kybd.o macros.o menubar.o \
-		  popups.o save.o screen.o scroll.o select.o status.o \
-		  tables.o telnet.o trace_ds.o x3270.o
+           SRCS = Cme.c CmeBSB.c CmeLine.c CmplxMenu.c \
+		  ansi.c apl.c ctlr.c keypad.c kybd.c macros.c menubar.c \
+		  popups.c print.c save.c screen.c scroll.c select.c sf.c \
+		  status.c tables.c telnet.c trace_ds.c util.c x3270.c
+          VOBJS = Cme.o CmeBSB.o CmeLine.o CmplxMenu.o \
+		  ansi.o apl.o ctlr.o fallbacks.o keypad.o kybd.o macros.o \
+		  menubar.o popups.o print.o save.o screen.o scroll.o select.o \
+		  sf.o status.o tables.o telnet.o trace_ds.o util.o x3270.o
            OBJS = $(VOBJS) version.o
-          FONTS = FontObj(3270)    FontObj(3270b) \
-		  FontObj(3270-12) FontObj(3270-12b) \
-		  FontObj(3270a)   FontObj(3270ab) \
-		  FontObj(3270d)
+          FONTS = FontObj(3270)     FontObj(3270b) \
+		  FontObj(3270-12)  FontObj(3270-12b) \
+		  FontObj(3270-20)  FontObj(3270-20b) \
+		  FontObj(3270d) \
+		  FontObj(3270h) \
+		  FontObj(3270gt8) \
+		  FontObj(3270gt12) FontObj(3270gt12b) \
+		  FontObj(3270gt16) FontObj(3270gt16b) \
+		  FontObj(3270gt24) FontObj(3270gt24b) \
+		  FontObj(3270gt32) FontObj(3270gt32b)
 
     FONTINSTDIR = $(FONTDIR)/misc
+
+    LIBX3270DIR = $(LIBDIR)/x3270
+      HOSTSFILE = ibm_hosts
+
+        DEFINES = -DLIBX3270DIR=\"$(LIBX3270DIR)\"
 
 #ifdef HPArchitecture
 EXTRA_DEFINES = -D_HPUX_SOURCE
@@ -23,10 +36,22 @@ EXTRA_DEFINES = -D_HPUX_SOURCE
 /* For Dynix/ptx, umcomment the following: */
 /* EXTRA_LIBRARIES = -lsocket -linet -lnsl */
 
+/*
+ * To use a separate app-defaults file rather than compiling it in,
+ * uncomment the following:
+ */
+/* EXTRA_DEFINES = -DUSE_APP_DEFAULTS */
+
 AllTarget($(FONTS) x3270)
 
 ComplexProgramTarget(x3270)
-InstallAppDefaults(X3270)
+
+/*
+ * To use a separate app-defaults file rather than compiling it in,
+ * uncomment the following:
+ */
+/* InstallAppDefaults(X3270) */
+
 InstallManPage(x3270-script,$(MANDIR))
 InstallManPage(ibm_hosts,$(MANDIR))
 
@@ -34,22 +59,45 @@ FontTarget(3270)
 FontTarget(3270b)
 FontTarget(3270-12)
 FontTarget(3270-12b)
-FontTarget(3270a)
-FontTarget(3270ab)
+FontTarget(3270-20)
+FontTarget(3270-20b)
 FontTarget(3270d)
+FontTarget(3270h)
+FontTarget(3270gt8)
+FontTarget(3270gt12)
+FontTarget(3270gt12b)
+FontTarget(3270gt16)
+FontTarget(3270gt16b)
+FontTarget(3270gt24)
+FontTarget(3270gt24b)
+FontTarget(3270gt32)
+FontTarget(3270gt32b)
 InstallMultipleFlags($(FONTS),$(FONTINSTDIR),$(INSTDATFLAGS))
+MakeDirectories(install,$(LIBX3270DIR))
 
 version.o: $(VOBJS) version.txt mkversion.sh
 	@chmod +x mkversion.sh version.txt
-	sh ./mkversion.sh
+	sh ./mkversion.sh $(CC)
+
+fallbacks.c: mkfb X3270.ad
+	./mkfb X3270.ad >fallbacks.c
+
+mkfb: mkfb.c
+	$(CC) -o mkfb mkfb.c
 
 /* Extra install rule to regenerate misc/fonts.dir */
 install:: $(FONTINSTDIR)/fonts.dir
 $(FONTINSTDIR)/fonts.dir::
 	chmod u+w $(FONTINSTDIR) $(FONTINSTDIR)/fonts.dir
-	$(MKFONTDIR) $(FONTINSTDIR)
+	$(BINDIR)/$(MKFONTDIR) $(FONTINSTDIR)
 	chmod u=rwx,go=rx $(FONTINSTDIR)
 	chmod a=r $(FONTINSTDIR)/fonts.dir
 
+/* Extra install rule for the sample ibm_hosts file (runs only if there is
+   no ibm_hosts file installed yet). */
+install:: $(HOSTSFILE)
+	@[ -r $(LIBX3270DIR)/$(HOSTSFILE) ] || \
+	$(INSTALL) -c $(INSTDATFLAGS) $(HOSTSFILE) $(LIBX3270DIR)/$(HOSTSFILE)
+
 clean:: 
-	$(RM) $(FONTS)
+	$(RM) $(FONTS) mkfb fallbacks.c

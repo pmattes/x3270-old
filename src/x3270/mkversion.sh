@@ -12,9 +12,8 @@ user=${LOGNAME-$USER}
 trap 'rm -f version.c' 0 1 2 15
 
 cat <<EOF >version.c
-char *app_defaults_version = "$adversion";
 char *build = "x3270 v$version $builddate $user";
 static char sccsid[] = "@(#)x3270 v$version $sccsdate $user";
 EOF
 
-cc -c version.c
+${1-cc} -c version.c

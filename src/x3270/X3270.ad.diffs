@@ -1,0 +1,132 @@
+Diffs file for upgrading X3270.ad from x3270 3.0.3.5 to x3270 3.0.3.7.
+
+Note that there are _no_ changes between x3270 3.0.3.6 and x3270 3.0.3.7.
+
+*** X3270.ad.orig	Wed Feb  1 10:12:21 1995
+--- X3270.ad	Wed Mar 29 09:36:32 1995
+***************
+*** 2,8 ****
+  ! piece of text but error and trace messages is defined here.
+  !
+  ! Basics
+! x3270.adVersion:			3.0.3.5
+  !
+  ! The first group of resource definitions are commented out, because they are
+  ! the defaults defined in x3270 itself.  They are listed here so you can
+--- 2,8 ----
+  ! piece of text but error and trace messages is defined here.
+  !
+  ! Basics
+! x3270.adVersion:			3.0.3.6
+  !
+  ! The first group of resource definitions are commented out, because they are
+  ! the defaults defined in x3270 itself.  They are listed here so you can
+***************
+*** 78,83 ****
+--- 78,84 ----
+  ! x3270.charset:			us
+  ! x3270.composeMap:			latin1
+  ! x3270.doConfirms:			true
++ ! x3270.debugTracing:			true
+  ! x3270.hostsFile:			/usr/lib/X11/x3270/ibm_hosts
+  ! x3270.invertKeypadShift:		false
+  ! x3270.keymap:
+***************
+*** 220,229 ****
+  x3270*otherFontOption.label:		Other Font...
+  x3270*lineModeOption.label:		Line Mode
+  x3270*characterModeOption.label:	Character Mode
+! x3270*model2Option.label:		Model 2 (24x80)
+! x3270*model3Option.label:		Model 3 (32x80)
+! x3270*model4Option.label:		Model 4 (43x80)
+! x3270*model5Option.label:		Model 5 (27x132)
+  !
+  ! Print commands
+  x3270.printTextCommand:			lpr
+--- 221,230 ----
+  x3270*otherFontOption.label:		Other Font...
+  x3270*lineModeOption.label:		Line Mode
+  x3270*characterModeOption.label:	Character Mode
+! x3270*model2Option.label:		Model 2 (80x24)
+! x3270*model3Option.label:		Model 3 (80x32)
+! x3270*model4Option.label:		Model 4 (80x43)
+! x3270*model5Option.label:		Model 5 (132x27)
+  !
+  ! Print commands
+  x3270.printTextCommand:			lpr
+***************
+*** 315,321 ****
+  	<FocusOut>:			FocusEvent()\n\
+  	<ConfigureNotify>:		Configure()
+  x3270*screen.translations:	#override \n\
+! 	<Expose>:			Redraw()
+  x3270icon.translations:	#override \n\
+  	<Expose>:			Redraw()
+  x3270.keypadPopup.translations: \
+--- 316,324 ----
+  	<FocusOut>:			FocusEvent()\n\
+  	<ConfigureNotify>:		Configure()
+  x3270*screen.translations:	#override \n\
+! 	<Expose>:			Redraw()\n\
+! 	<VisibilityNotify>:		Visible()\n\
+! 	<GraphicsExpose>:		GraphicsExpose()
+  x3270icon.translations:	#override \n\
+  	<Expose>:			Redraw()
+  x3270.keypadPopup.translations: \
+***************
+*** 869,877 ****
+  	<Btn3Down>:		ignore()\n\
+  	<Btn3Motion>:		ignore()\n\
+  	<Btn3Up>:		insert-selection(CLIPBOARD,PRIMARY)\n\
+! 	<BtnUp>:		select-end(CLIPBOARD,PRIMARY)\n\
+  	<Key>F18:		insert-selection(CLIPBOARD,PRIMARY)\n\
+! 	<Key>F20:		Cut()\n
+  ! APL keymap modifier.
+  x3270.keymap.apl:	#override \
+  	!:Alt<Key>bracketleft:	Key(apl_leftarrow)\n\
+--- 872,882 ----
+  	<Btn3Down>:		ignore()\n\
+  	<Btn3Motion>:		ignore()\n\
+  	<Btn3Up>:		insert-selection(CLIPBOARD,PRIMARY)\n\
+! 	<BtnUp>:		select-end(PRIMARY)\n\
+! 	<Key>F16:		set-select(CLIPBOARD)\n\
+! 	Shift<Key>F18:		insert-selection(PRIMARY)\n\
+  	<Key>F18:		insert-selection(CLIPBOARD,PRIMARY)\n\
+! 	<Key>F20:		set-select(CLIPBOARD) Cut()\n
+  ! APL keymap modifier.
+  x3270.keymap.apl:	#override \
+  	!:Alt<Key>bracketleft:	Key(apl_leftarrow)\n\
+***************
+*** 1033,1042 ****
+  	:<Key>braceleft:	Key("ae")\n\
+  	:<Key>braceright:	Key("aring")\n\
+  	:<Key>bar:		Key("oslash")\n
+  ! Keymap modifier for RS/6000s with French AZERTY keyboards, which allows
+  ! the diaeresis and circumflex keys to work intuitively (press diaereses,
+  ! press "a", get "adiaeresis, etc.)
+! x3270.keymap.fr6k:
+  	Shift<Key>dead_diaeresis:	Compose() Key(quotedbl)\n\
+  	<Key>dead_circumflex:		Compose() Key(asciicircum)\n
+  !
+--- 1038,1058 ----
+  	:<Key>braceleft:	Key("ae")\n\
+  	:<Key>braceright:	Key("aring")\n\
+  	:<Key>bar:		Key("oslash")\n
++ ! German keymap courtesy of Karlheinz Kandler
++ x3270.keymap.german7:	\
++ 	:<Key>bracketleft:	Key("adiaeresis")\n\
++ 	:<Key>bracketright:	Key("udiaeresis")\n\
++ 	:<Key>backslash:	Key("odiaeresis")\n\
++ 	:<Key>braceleft:	Key("Adiaeresis")\n\
++ 	:<Key>braceright:	Key("Udiaeresis")\n\
++ 	:<Key>bar:		Key("Odiaeresis")\n\
++ 	:<Key>asciicircum:	Key("^")\n\
++ 	:<Key>asciitilde:	Key("ssharp")\n\
++ 	:<Key>at:		Key("section")\n
+  ! Keymap modifier for RS/6000s with French AZERTY keyboards, which allows
+  ! the diaeresis and circumflex keys to work intuitively (press diaereses,
+  ! press "a", get "adiaeresis, etc.)
+! x3270.keymap.fr6k:	\
+  	Shift<Key>dead_diaeresis:	Compose() Key(quotedbl)\n\
+  	<Key>dead_circumflex:		Compose() Key(asciicircum)\n
+  !

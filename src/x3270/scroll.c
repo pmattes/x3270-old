@@ -1,5 +1,5 @@
 /*
- * Copyright 1994 by Paul Mattes.
+ * Copyright 1994, 1995 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -12,28 +12,27 @@
  *		Scrollbar support
  */
 
-#include <X11/Intrinsic.h>
 #include "globals.h"
-
-/* Externals */
-extern unsigned char *screen_buf;
-extern unsigned char *ea_buf;
+#include "ctlr.h"
 
 /* Globals */
-unsigned char **buf_save = (unsigned char **)NULL;
-unsigned char **ea_save = (unsigned char **)NULL;
-int	n_saved = 0;
-int	scroll_next = 0;
-float	thumb_top = 0.0;
-float	thumb_shown = 1.0;
-int	scrolled_back = 0;
-Boolean	need_saving = True;
 Boolean	scroll_initted = False;
 
 /* Statics */
-static void sync_scroll();
-static char *sbuf = (char *)NULL;
-static int sa_bufsize;
+static unsigned char **buf_save = (unsigned char **) NULL;
+static struct ea **ea_save = (struct ea **) NULL;
+static int      n_saved = 0;
+static int      scroll_next = 0;
+static float    thumb_top = 0.0;
+static float    thumb_top_base = 0.0;
+static float    thumb_shown = 1.0;
+static int      scrolled_back = 0;
+static Boolean  need_saving = True;
+static Boolean  vscreen_swapped = False;
+static char    *sbuf = CN;
+static int      sa_bufsize;
+static char    *zbuf = CN;
+static void     sync_scroll();
 
 /*
  * Initialize (or re-initialize) the scrolling parameters and save area.
@@ -45,21 +44,29 @@ scroll_init()
 	int sa_size;
 	unsigned char *s;
 
-	if (sbuf) {
+	if (appres.save_lines % maxROWS)
+		appres.save_lines =
+		    ((appres.save_lines+maxROWS-1)/maxROWS) * maxROWS;
+	if (!appres.save_lines)
+		appres.save_lines = maxROWS;
+	if (sbuf != CN) {
 		XtFree(sbuf);
+		XtFree(zbuf);
 		XtFree((char *)buf_save);
 		XtFree((char *)ea_save);
 	}
 	sa_size = appres.save_lines + maxROWS;
 	buf_save = (unsigned char **)XtCalloc(sizeof(unsigned char *), sa_size);
-	ea_save = (unsigned char **)XtCalloc(sizeof(unsigned char *), sa_size);
-	sa_bufsize = 2 * sa_size * maxCOLS;
+	ea_save = (struct ea **)XtCalloc(sizeof(struct ea *), sa_size);
+	sa_bufsize = (sa_size * (sizeof(unsigned char) + sizeof(struct ea))) * maxCOLS;
 	sbuf = XtMalloc(sa_bufsize);
+	zbuf = XtMalloc(maxCOLS);
+	(void) memset(zbuf, '\0', maxCOLS);
 	s = (unsigned char *)sbuf;
 	for (i = 0; i < sa_size; s += maxCOLS, i++)
 		buf_save[i] = s;
-	for (i = 0; i < sa_size; s += maxCOLS, i++)
-		ea_save[i] = s;
+	for (i = 0; i < sa_size; s += (maxCOLS * sizeof(struct ea)), i++)
+		ea_save[i] = (struct ea *)s;
 	scroll_reset();
 	scroll_initted = True;
 }
@@ -74,7 +81,7 @@ scroll_reset()
 	scroll_next = 0;
 	n_saved = 0;
 	scrolled_back = 0;
-	thumb_top = 0.0;
+	thumb_top_base = thumb_top = 0.0;
 	thumb_shown = 1.0;
 	need_saving = True;
 	screen_set_thumb(thumb_top, thumb_shown);
@@ -85,23 +92,89 @@ scroll_reset()
  * Save <n> lines of data from the top of the screen.
  */
 void
-scroll_save(n)
+scroll_save(n, trim_blanks)
 int n;
+Boolean trim_blanks;
 {
 	int i;
 
+	/* Trim trailing blank lines from 'n', if requested */
+	if (trim_blanks) {
+		while (n) {
+			if (memcmp((char *)(screen_buf+((n-1)*COLS)),
+				   zbuf, COLS))
+				break;
+			else
+				n--;
+		}
+		if (!n)
+			return;
+	}
+
+	/* Scroll to bottom on "output". */
 	if (scrolled_back)
 		sync_scroll(0);
+
+	/* Save the screen contents. */
 	for (i = 0; i < n; i++) {
-		MEMORY_MOVE((char *)buf_save[scroll_next],
-		    (char *)screen_buf+(i*COLS), COLS);
-		MEMORY_MOVE((char *)ea_save[scroll_next],
-		    (char *)ea_buf+(i*COLS), COLS);
+		if (i < COLS) {
+			MEMORY_MOVE((char *)buf_save[scroll_next],
+			    (char *)screen_buf+(i*COLS),
+			    COLS);
+			MEMORY_MOVE((char *)ea_save[scroll_next],
+			    (char *)(ea_buf+(i*COLS)),
+			    COLS*sizeof(struct ea));
+			if (COLS < maxCOLS) {
+				(void) memset((char *)(buf_save[scroll_next] + COLS), '\0',
+				    maxCOLS - COLS);
+				(void) memset((char *)(ea_save[scroll_next] + COLS), '\0',
+				    (maxCOLS - COLS)*sizeof(struct ea));
+			}
+		} else {
+			(void) memset((char *)buf_save[scroll_next], '\0',
+			    maxCOLS);
+			(void) memset((char *)ea_save[scroll_next], '\0',
+			    maxCOLS*sizeof(struct ea));
+		}
 		scroll_next = (scroll_next + 1) % appres.save_lines;
 		if (n_saved < appres.save_lines)
 			n_saved++;
 	}
-	thumb_top = ((float)n_saved / (float)(appres.save_lines + ROWS));
+
+	/* Reset the thumb. */
+	thumb_top_base =
+	    thumb_top =
+	    ((float)n_saved / (float)(appres.save_lines + maxROWS));
+	thumb_shown = 1.0 - thumb_top;
+	screen_set_thumb(thumb_top, thumb_shown);
+}
+
+/*
+ * Add blank lines to the scroll buffer to make it a multiple of the
+ * screen size.
+ */
+void
+scroll_round()
+{
+	int n;
+
+	if (!(n_saved % maxROWS))
+		return;
+
+	/* Zero the scroll buffer. */
+	for (n = maxROWS - (n_saved % maxROWS); n; n--) {
+		(void) memset((char *)buf_save[scroll_next], '\0', maxCOLS);
+		(void) memset((char *)ea_save[scroll_next], '\0',
+			    maxCOLS*sizeof(struct ea));
+		scroll_next = (scroll_next + 1) % appres.save_lines;
+		if (n_saved < appres.save_lines)
+			n_saved++;
+	}
+
+	/* Reset the thumb. */
+	thumb_top_base =
+	    thumb_top =
+	    ((float)n_saved / (float)(appres.save_lines + maxROWS));
 	thumb_shown = 1.0 - thumb_top;
 	screen_set_thumb(thumb_top, thumb_shown);
 }
@@ -114,7 +187,7 @@ scroll_to_bottom()
 {
 	if (scrolled_back) {
 		sync_scroll(0);
-		screen_set_thumb(thumb_top, thumb_shown);
+		/* screen_set_thumb(thumb_top, thumb_shown); */
 	}
 	need_saving = True;
 }
@@ -129,13 +202,13 @@ save_image()
 
 	if (!need_saving)
 		return;
-	for (i = 0; i < ROWS; i++) {
+	for (i = 0; i < maxROWS; i++) {
 		MEMORY_MOVE((char *)buf_save[appres.save_lines+i],
 		            (char *)screen_buf + (i*COLS),
 		            COLS);
 		MEMORY_MOVE((char *)ea_save[appres.save_lines+i],
-		            (char *)ea_buf + (i*COLS),
-		            COLS);
+		            (char *)(ea_buf + (i*COLS)),
+		            COLS*sizeof(struct ea));
 	}
 	need_saving = False;
 }
@@ -147,42 +220,83 @@ static void
 sync_scroll(sb)
 int sb;
 {
+	int slop;
 	int i;
 	int scroll_first;
-	extern Boolean screen_changed;
+	float tt0;
+
+	(void) unselect(0, ROWS*COLS);
+
+	/*
+	 * If in 3270 mode, round to a multiple of the screen size and
+	 * set the scroll bar.
+	 */
+	if (ever_3270) {
+		if ((slop = (sb % maxROWS))) {
+			if (slop <= maxROWS/2)
+				sb -= slop;
+			else
+				sb += maxROWS - slop;
+		}
+		if (sb)
+			kybd_scroll_lock(True);
+		else
+			kybd_scroll_lock(False);
+	}
+
+	/* Update the status line. */
+	if (ever_3270)
+		status_scrolled(sb / maxROWS);
+	else
+		status_scrolled(0);
+
+	/* Swap screen sizes. */
+	if (sb && !scrolled_back && ((COLS < maxCOLS) || (ROWS < maxROWS))) {
+		COLS = maxCOLS;
+		ROWS = maxROWS;
+		vscreen_swapped = True;
+	} else if (!sb && scrolled_back && vscreen_swapped) {
+		ctlr_shrink();
+		COLS = 80;
+		ROWS = 24;
+		vscreen_swapped = False;
+	}
 
 	scroll_first = (scroll_next+appres.save_lines-sb) % appres.save_lines;
 
 	/* Update the screen. */
-	for (i = 0; i < ROWS; i++)
+	for (i = 0; i < maxROWS; i++)
 		if (i < sb) {
 			MEMORY_MOVE((char *)screen_buf + (i*COLS),
 				    (char *)buf_save[(scroll_first+i) % appres.save_lines],
 				    COLS);
-			MEMORY_MOVE((char *)ea_buf + (i*COLS),
+			MEMORY_MOVE((char *)(ea_buf + (i*COLS)),
 				    (char *)ea_save[(scroll_first+i) % appres.save_lines],
-				    COLS);
+				    COLS*sizeof(struct ea));
 		} else {
 			MEMORY_MOVE((char *)screen_buf + (i*COLS),
 				    (char *)buf_save[appres.save_lines+i-sb],
 				    COLS);
-			MEMORY_MOVE((char *)ea_buf + (i*COLS),
+			MEMORY_MOVE((char *)(ea_buf + (i*COLS)),
 				    (char *)ea_save[appres.save_lines+i-sb],
-				    COLS);
+				    COLS*sizeof(struct ea));
 		}
 
-	/* Don't even try to keep the cursor consistent. */
-	if (sb)
-		enable_cursor(False);
-	else if (CONNECTED)
-		enable_cursor(True);
+	/* Disable the cursor if we're scrolled back, enable it if not. */
+	enable_cursor(sb == 0);
 
 	scrolled_back = sb;
-	screen_changed = True;
+	ctlr_changed(0, ROWS*COLS);
+	blink_start();
+
+	tt0 = ((float)n_saved / (float)(appres.save_lines + maxROWS));
+	thumb_shown = 1.0 - tt0;
+	thumb_top = ((float)(n_saved-sb) / (float)(appres.save_lines + maxROWS));
+	screen_set_thumb(thumb_top, thumb_shown);
 }
 
 /*
- * Callback for "scroll" action (moving the thumb to a particular spot).
+ * Callback for "scroll" action (incrementing the thumb in one direction).
  */
 void
 scroll_proc(n, total)
@@ -191,6 +305,7 @@ int total;
 {
 	float pct;
 	int nss;
+	int nsr;
 
 	if (!n_saved)
 		return;
@@ -206,21 +321,29 @@ int total;
 	if (n > 0) {	/* scroll forward */
 		if (nss > scrolled_back)
 			sync_scroll(0);
-		else
-			sync_scroll(scrolled_back - nss);
+		else {
+			nsr = scrolled_back - nss;
+			if (ever_3270 && (nsr % maxROWS))
+				nsr -= nsr % maxROWS;
+			sync_scroll(nsr);
+		}
 	} else {	/* scroll back */
 		if (scrolled_back + nss > n_saved)
 			sync_scroll(n_saved);
-		else
-			sync_scroll(scrolled_back + nss);
+		else {
+			nsr = scrolled_back + nss;
+			if (ever_3270 && (nsr % maxROWS))
+				nsr += maxROWS - (nsr % maxROWS);
+			sync_scroll(nsr);
+		}
 	}
 
-	screen_set_thumb((float)(n_saved - scrolled_back) / (float)(appres.save_lines + ROWS),
+	screen_set_thumb((float)(n_saved - scrolled_back) / (float)(appres.save_lines + maxROWS),
 	    thumb_shown);
 }
 
 /*
- * Callback for "jump" action (incrementing the thumb in one direction).
+ * Callback for "jump" action (moving the thumb to a particular spot).
  */
 void
 jump_proc(top)
@@ -231,8 +354,8 @@ float top;
 		screen_set_thumb(thumb_top, thumb_shown);
 		return;
 	}
-	if (top > thumb_top) {	/* too far down */
-		screen_set_thumb(thumb_top, thumb_shown);
+	if (top > thumb_top_base) {	/* too far down */
+		screen_set_thumb(thumb_top_base, thumb_shown);
 		sync_scroll(0);
 	} else {
 		save_image();

@@ -1,5 +1,5 @@
 /*
- * Copyright 1993, 1994 by Paul Mattes.
+ * Copyright 1993, 1994, 1995 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -13,11 +13,7 @@
  *		font names, information.
  */
 
-#include <stdio.h>
-#include <ctype.h>
-#include <sys/types.h>
-#include <sys/time.h>
-#include <X11/Intrinsic.h>
+#include "globals.h"
 #include <X11/Shell.h>
 #include <X11/StringDefs.h>
 #include <X11/Xaw/Command.h>
@@ -25,7 +21,14 @@
 #include <X11/Xaw/Form.h>
 #include <X11/Xaw/Label.h>
 #include <X11/Xaw/Text.h>
-#include "globals.h"
+#if defined(__STDC__)
+#include <stdarg.h>
+#else
+#include <varargs.h>
+#endif
+#include "objects.h"
+
+static char vmsgbuf[4096];
 
 
 /*
@@ -49,7 +52,7 @@ Window w;
  * Find the base window (the one with the wmgr decorations) and the virtual
  * root, so we can pop up a window relative to them.
  */
-static void
+void
 toplevel_geometry(x, y, width, height)
 Dimension *x, *y, *width, *height;
 {
@@ -117,6 +120,8 @@ static enum placement CenterD = Center;
 enum placement *CenterP = &CenterD;
 static enum placement BottomD = Bottom;
 enum placement *BottomP = &BottomD;
+static enum placement LeftD = Left;
+enum placement *LeftP = &LeftD;
 static enum placement RightD = Right;
 enum placement *RightP = &RightD;
 
@@ -133,6 +138,7 @@ XtPointer call_data;
 	Dimension win_width, win_height;
 	Dimension popup_width, popup_height;
 	enum placement p = *(enum placement *)client_data;
+	extern Dimension main_width;
 
 	/* Get and fix the popup's dimensions */
 	XtRealizeWidget(w);
@@ -177,6 +183,15 @@ XtPointer call_data;
 		    XtNy, y + win_height + 2,
 		    NULL);
 		break;
+	    case Left:
+		XtVaGetValues(w,
+		    XtNwidth, &popup_width,
+		    NULL);
+		XtVaSetValues(w,
+		    XtNx, x - popup_width - (win_width - main_width) - 2,
+		    XtNy, y,
+		    NULL);
+		break;
 	    case Right:
 		XtVaSetValues(w,
 		    XtNx, x + win_width + 2,
@@ -187,7 +202,7 @@ XtPointer call_data;
 }
 
 /* Action called when "Return" is pressed in data entry popup */
-static void
+void
 Confirm(w, event, params, num_params)
 Widget w;
 XEvent *event;
@@ -196,10 +211,15 @@ Cardinal *num_params;
 {
 	Widget w2;
 
-	/* Find the Connect button */
-	w2 = XtNameToWidget(XtParent(w), "confirmButton");
+	/* Find the Confirm or Okay button */
+	w2 = XtNameToWidget(XtParent(w), ObjConfirmButton);
+	if (w2 == NULL)
+		w2 = XtNameToWidget(XtParent(w), ObjOkayButton);
+	if (w2 == NULL)
+		w2 = XtNameToWidget(w, ObjOkayButton);
 	if (w2 == NULL) {
-		XtWarning("Confirm: can't find comfirmButton\n");
+		xs_warning("Confirm: cannot find %s or %s", ObjConfirmButton,
+		    ObjOkayButton);
 		return;
 	}
 
@@ -299,9 +319,6 @@ Boolean no_spaces;
 	Widget shell;
 	Widget dialog;
 	Widget w;
-	static XtActionsRec ar[] = {
-		{"confirm", Confirm }
-	};	
 
 	/* Create the popup shell */
 
@@ -317,30 +334,26 @@ Boolean no_spaces;
 	/* Create a dialog in the popup */
 
 	dialog = XtVaCreateManagedWidget(
-	    "dialog", dialogWidgetClass, shell,
+	    ObjDialog, dialogWidgetClass, shell,
 	    XtNvalue, "",
 	    NULL);
-	XtVaSetValues(XtNameToWidget(dialog, "label"),
+	XtVaSetValues(XtNameToWidget(dialog, XtNlabel),
 	    NULL);
-
-	/* Add an action to the dialog */
-
-	XtAppAddActions(appcontext, ar, 1);
 
 	/* Add "Confirm" and "Cancel" buttons to the dialog */
 
 	w = XtVaCreateManagedWidget(
-	    "confirmButton", commandWidgetClass, dialog,
+	    ObjConfirmButton, commandWidgetClass, dialog,
 	    NULL);
 	XtAddCallback(w, XtNcallback, callback, (XtPointer)dialog);
 	if (callback2) {
 		w = XtVaCreateManagedWidget(
-			"confirm2Button", commandWidgetClass, dialog,
+			ObjConfirm2Button, commandWidgetClass, dialog,
 			NULL);
 		XtAddCallback(w, XtNcallback, callback2, (XtPointer)dialog);
 	}
 	w = XtVaCreateManagedWidget(
-	    "cancelButton", commandWidgetClass, dialog,
+	    ObjCancelButton, commandWidgetClass, dialog,
 	    NULL);
 	XtAddCallback(w, XtNcallback, cancel_button_callback, (XtPointer) shell);
 
@@ -349,14 +362,14 @@ Boolean no_spaces;
 
 	/* Modify the translations for the objects in the dialog */
 
-	w = XtNameToWidget(dialog, "value");
+	w = XtNameToWidget(dialog, XtNvalue);
 	if (w == NULL)
-		XtWarning("Can't find 'value' in dialog");
+		xs_warning("Cannot find \"%s\" in dialog", XtNvalue);
 
 	/* Set a callback for text modifications */
 	w = XawTextGetSource(w);
 	if (w == NULL)
-		XtWarning("Can't find text source in dialog");
+		XtWarning("Cannot find text source in dialog");
 	else
 		XtAddCallback(w, XtNcallback, popup_dialog_callback, NULL);
 
@@ -409,22 +422,21 @@ error_popup_init()
 	    NULL);
 	XtAddCallback(error_shell, XtNpopupCallback, place_popup,
 	    (XtPointer) CenterP);
-	XtAddCallback(error_shell, XtNpopdownCallback, error_popdown,
-	    (XtPointer) NULL);
+	XtAddCallback(error_shell, XtNpopdownCallback, error_popdown, PN);
 
 	/* Create a dialog in the popup */
 
 	error_form = XtVaCreateManagedWidget(
 	    "errorDialog", dialogWidgetClass, error_shell,
 	    NULL);
-	XtVaSetValues(XtNameToWidget(error_form, "label"),
+	XtVaSetValues(XtNameToWidget(error_form, XtNlabel),
 	    XtNlabel, "first line\nsecond line",
 	    NULL);
 
 	/* Add "OK" button to the dialog */
 
 	w = XtVaCreateManagedWidget(
-	    "okayButton", commandWidgetClass, error_form,
+	    ObjOkayButton, commandWidgetClass, error_form,
 	    NULL);
 	XtAddCallback(w, XtNcallback, saw_error, 0);
 
@@ -435,20 +447,35 @@ error_popup_init()
 
 /* Pop up an error dialog. */
 void
-popup_an_error(msg)
-char *msg;
+#if defined(__STDC__)
+popup_an_error(char *fmt, ...)
+#else
+popup_an_error(va_alist)
+va_dcl
+#endif
 {
+	va_list args;
+
+#if defined(__STDC__)
+	va_start(args, fmt);
+#else
+	char *fmt;
+	va_start(args);
+	fmt = va_arg(args, char *);
+#endif
+
+	(void) vsprintf(vmsgbuf, fmt, args);
 	if (!error_shell) {
-		(void) fprintf(stderr, "%s: %s\n", programname, msg);
+		(void) fprintf(stderr, "%s: %s\n", programname, vmsgbuf);
 		exit(1);
 	}
 
 	if (scripting()) {
-		script_error(msg);
+		script_error(vmsgbuf);
 		return;
 	}
 
-	XtVaSetValues(error_form, XtNlabel, msg, NULL);
+	XtVaSetValues(error_form, XtNlabel, vmsgbuf, NULL);
 	if (!error_popup_visible) {
 		ring_bell();
 		error_popup_visible = True;
@@ -458,40 +485,41 @@ char *msg;
 
 /* Pop up an error dialog, based on an error number. */
 void
-popup_an_errno(msg, errn)
-char *msg;
-int errn;
+#if defined(__STDC__)
+popup_an_errno(int errn, char *fmt, ...)
+#else
+popup_an_errno(va_alist)
+va_dcl
+#endif
 {
+	va_list args;
 	char *s;
 	extern int sys_nerr;
+#if !defined(__FreeBSD__)
 	extern char *sys_errlist[];
+#endif
+
+#if defined(__STDC__)
+	va_start(args, fmt);
+#else
+	int errn;
+	char *fmt;
+	va_start(args);
+	errn = va_arg(args, int);
+	fmt = va_arg(args, char *);
+#endif
+	(void) vsprintf(vmsgbuf, fmt, args);
+	s = XtNewString(vmsgbuf);
 
 	if (errn > 0) {
 		if (errn < sys_nerr)
-			s = xs_buffer2("%s:\n%s", msg, sys_errlist[errn]);
-		else {
-			s = XtMalloc(strlen(msg) + 32);
-			(void) sprintf(s, "%s:\nError %d", msg, errn);
-		}
-		popup_an_error(s);
-		XtFree(s);
+			popup_an_error("%s:\n%s", s, sys_errlist[errn]);
+		else
+			popup_an_error("%s:\nError %d", s, errn);
 	} else
-		popup_an_error(msg);
+		popup_an_error(s);
+	XtFree(s);
 }
-
-/* Popup an error dialog, with one string argument. */
-void
-xs_popup_an_error(msg, arg)
-char *msg;
-char *arg;
-{
-	char *buf;
-
-	buf = xs_buffer(msg, arg);
-	popup_an_error(buf);
-	XtFree(buf);
-}
-
 
 
 /*
@@ -537,22 +565,21 @@ info_popup_init()
 	    NULL);
 	XtAddCallback(info_shell, XtNpopupCallback, place_popup,
 	    (XtPointer) CenterP);
-	XtAddCallback(info_shell, XtNpopdownCallback, info_popdown,
-	    (XtPointer) NULL);
+	XtAddCallback(info_shell, XtNpopdownCallback, info_popdown, PN);
 
 	/* Create a dialog in the popup */
 
 	info_form = XtVaCreateManagedWidget(
 	    "infoDialog", dialogWidgetClass, info_shell,
 	    NULL);
-	XtVaSetValues(XtNameToWidget(info_form, "label"),
+	XtVaSetValues(XtNameToWidget(info_form, XtNlabel),
 	    XtNlabel, "first line\nsecond line",
 	    NULL);
 
 	/* Add "OK" button to the dialog */
 
 	w = XtVaCreateManagedWidget(
-	    "okayButton", commandWidgetClass, info_form,
+	    ObjOkayButton, commandWidgetClass, info_form,
 	    NULL);
 	XtAddCallback(w, XtNcallback, saw_info, 0);
 
@@ -563,15 +590,30 @@ info_popup_init()
 
 /* Pop up an info dialog. */
 void
-popup_an_info(msg)
-char *msg;
+#if defined(__STDC__)
+popup_an_info(char *fmt, ...)
+#else
+popup_an_info(va_alist)
+va_dcl
+#endif
 {
+	va_list args;
+
+#if defined(__STDC__)
+	va_start(args, fmt);
+#else
+	char *fmt;
+	va_start(args);
+	fmt = va_arg(args, char *);
+#endif
+
+	(void) vsprintf(vmsgbuf, fmt, args);
 	if (!info_shell) {
-		(void) printf("%s: %s\n", programname, msg);
+		(void) printf("%s: %s\n", programname, vmsgbuf);
 		return;
 	}
 
-	XtVaSetValues(info_form, XtNlabel, msg, NULL);
+	XtVaSetValues(info_form, XtNlabel, vmsgbuf, NULL);
 	if (!info_popup_visible) {
 		info_popup_visible = True;
 		popup_popup(info_shell, XtGrabNonexclusive);
@@ -592,10 +634,9 @@ extern int ns_bsent;
 extern int ns_rsent;
 extern int linemode;
 extern char *build;
-extern char ttype_val[];
 extern Pixmap icon;
-extern Boolean *overstrike;
 extern struct trans_list *trans_list;
+extern struct trans_list *temp_keymaps;
 
 /* Called when OK is pressed on the options popup */
 /*ARGSUSED*/
@@ -652,10 +693,10 @@ time_t ts;
 	return buf;
 }
 
-#define MAKE_LABEL(label, n) { \
+#define MAKE_SMALL(label, n) { \
 	w_prev = w; \
 	w = XtVaCreateManagedWidget( \
-	    "nameLabel", labelWidgetClass, options_form, \
+	    ObjSmallLabel, labelWidgetClass, options_form, \
 	    XtNborderWidth, 0, \
 	    XtNlabel, label, \
 	    XtNfromVert, w, \
@@ -665,9 +706,23 @@ time_t ts;
 	vd = n; \
 	}
 
+#define MAKE_LABEL(label, n) { \
+	w_prev = w; \
+	w = XtVaCreateManagedWidget( \
+	    ObjNameLabel, labelWidgetClass, options_form, \
+	    XtNborderWidth, 0, \
+	    XtNlabel, label, \
+	    XtNfromVert, w, \
+	    XtNfromHoriz, left_anchor, \
+	    XtNleft, XtChainLeft, \
+	    XtNvertDistance, (n), \
+	    NULL); \
+	vd = n; \
+	}
+
 #define MAKE_VALUE(label) { \
 	v = XtVaCreateManagedWidget( \
-	    "dataLabel", labelWidgetClass, options_form, \
+	    ObjDataLabel, labelWidgetClass, options_form, \
 	    XtNborderWidth, 0, \
 	    XtNlabel, label, \
 	    XtNfromVert, w_prev, \
@@ -680,7 +735,7 @@ time_t ts;
 
 #define MAKE_LABEL2(label) { \
 	w = XtVaCreateManagedWidget( \
-	    "nameLabel", labelWidgetClass, options_form, \
+	    ObjNameLabel, labelWidgetClass, options_form, \
 	    XtNborderWidth, 0, \
 	    XtNlabel, label, \
 	    XtNfromVert, w_prev, \
@@ -697,6 +752,7 @@ popup_options()
 {
 	Widget w = NULL, w_prev = NULL;
 	Widget v = NULL;
+	Widget left_anchor = NULL;
 	int vd = 4;
 	char fbuf[1024];
 	char *ftype;
@@ -720,7 +776,7 @@ popup_options()
 
 	/* Pretty picture */
 
-	w = XtVaCreateManagedWidget(
+	left_anchor = XtVaCreateManagedWidget(
 	    "icon", labelWidgetClass, options_form,
 	    XtNborderWidth, 0,
 	    XtNbitmap, icon,
@@ -730,22 +786,42 @@ popup_options()
 
 	/* Miscellany */
 
-	(void) XtVaCreateManagedWidget(
-	    "build", labelWidgetClass, options_form,
-	    XtNborderWidth, 0,
-	    XtNlabel, build,
-	    XtNfromHoriz, w,
-	    XtNleft, XtChainLeft,
-	    NULL);
+	MAKE_LABEL(build, 4);
+	MAKE_LABEL(get_message("processId"), 4);
+	(void) sprintf(fbuf, "%d", getpid());
+	MAKE_VALUE(fbuf);
+	MAKE_LABEL2(get_message("windowId"));
+	(void) sprintf(fbuf, "0x%lx", XtWindow(toplevel));
+	MAKE_VALUE(fbuf);
 
-	(void) sprintf(fbuf, "%s %d: %d %s x %d %s",
-	    get_message("model"), model_num,
+	/* Everything else at the left margin under the bitmap */
+	w = left_anchor;
+	left_anchor = NULL;
+
+	MAKE_SMALL("Copyright \251 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.\n\
+ All Rights Reserved.  GTRC hereby grants public use of this software.  Derivative\n\
+ works based on this software must incorporate this copyright notice.\n\
+\n\
+X11 Port Copyright \251 1990 by Jeff Sparkes.\n\
+Additional X11 Modifications Copyright \251 1993, 1994, 1995 by Paul Mattes.\n\
+ Permission to use, copy, modify, and distribute this software and its documentation\n\
+ for any purpose and without fee is hereby granted, provided that the above copyright\n\
+ notice appear in all copies and that both that copyright notice and this permission\n\
+ notice appear in supporting documentation.", 4);
+
+	(void) sprintf(fbuf, "%s %s: %d %s x %d %s, %s, %s",
+	    get_message("model"), model_name,
+	    maxCOLS, get_message("columns"),
 	    maxROWS, get_message("rows"),
-	    maxCOLS, get_message("columns"));
+	    appres.mono ? get_message("mono") :
+		(appres.m3279 ? get_message("fullColor") :
+		    get_message("pseudoColor")),
+	    (appres.extended && !std_ds_host) ? get_message("extendedDs") :
+		get_message("standardDs"));
 	MAKE_LABEL(fbuf, 4);
 
 	MAKE_LABEL(get_message("terminalName"), 4);
-	MAKE_VALUE(appres.termname ? appres.termname : ttype_val);
+	MAKE_VALUE(termtype);
 
 	MAKE_LABEL(get_message("emulatorFont"), 4);
 	MAKE_VALUE(efontname);
@@ -760,28 +836,25 @@ popup_options()
 	MAKE_LABEL(xbuf, 0);
 	XtFree(xbuf);
 
-	if (appres.mono) {
-		if (*overstrike) {
-			MAKE_LABEL(get_message("overstriking"), 4);
-		} else {
-			MAKE_LABEL(get_message("boldEmulatorFont"), 4);
-			MAKE_VALUE(bfontname);
-		}
-	}
-
 	if (appres.charset) {
 		MAKE_LABEL(get_message("characterSet"), 4);
 		MAKE_VALUE(appres.charset);
 	} else
 		MAKE_LABEL(get_message("defaultCharacterSet"), 4);
 
-	if (appres.key_map) {
+	if (appres.key_map || temp_keymaps != (struct trans_list *)NULL) {
 		struct trans_list *t;
 
 		fbuf[0] = '\0';
 		for (t = trans_list; t; t = t->next) {
 			if (fbuf[0])
 				(void) strcat(fbuf, ",");
+			(void) strcat(fbuf, t->name);
+		}
+		for (t = temp_keymaps; t; t = t->next) {
+			if (fbuf[0])
+				(void) strcat(fbuf, " ");
+			(void) strcat(fbuf, "+");
 			(void) strcat(fbuf, t->name);
 		}
 		MAKE_LABEL(get_message("keyboardMap"), 4)
@@ -813,6 +886,10 @@ popup_options()
 	if (CONNECTED) {
 		MAKE_LABEL(get_message("connectedTo"), 4);
 		MAKE_VALUE(current_host);
+		(void) sprintf(fbuf, "  %s", get_message("port"));
+		MAKE_LABEL2(fbuf);
+		(void) sprintf(fbuf, "%d", current_port);
+		MAKE_VALUE(fbuf);
 		if (IN_ANSI) {
 			if (linemode)
 				ftype = get_message("lineMode");
@@ -866,7 +943,7 @@ popup_options()
 	/* Add "OK" button at the lower left */
 
 	w = XtVaCreateManagedWidget(
-	    "okayButton", commandWidgetClass, options_form,
+	    ObjOkayButton, commandWidgetClass, options_form,
 	    XtNfromVert, w,
 	    XtNleft, XtChainLeft,
 	    XtNbottom, XtChainBottom,
@@ -892,9 +969,8 @@ XEvent *event;
 String *params;
 Cardinal *num_params;
 {
-	if (*num_params != 1) {
-		popup_an_error("Info requires 1 argument");
+	debug_action(Info, event, params, num_params);
+	if (check_usage(Info, *num_params, 1, 1) < 0)
 		return;
-	}
 	popup_an_info(params[0]);
 }

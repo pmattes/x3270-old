@@ -2,37 +2,37 @@ x3270 Character Set
 
 x3270 can use any constant-spaced X11 font, but in order to display special
 characters on the status line, it uses a family of special fonts with
-nonstandard ordering.
+nonstandard ordering. 
 
 The character set ordering was originally based on the character generator
 ROM for a particular IBM terminal, but has since been modified to include
 all of the graphics in later versions of the U.S. EBCDIC and ISO Latin-1
-character sets.
+character sets. 
 
-The column definitions are:
+The column definitions are: 
 
-    3270 CG	The index in the 3270 character set, and if the graphic is not
-    		in the Latin-1 character set, its name.
+3270 CG 
+   The index in the 3270 character set, and if the graphic is not in the
+   Latin-1 character set, its name. 
+EBCDIC 
+   The U.S. EBCDIC code that is displayed using that graphic. 
+Latin-1 
+   The ISO Latin-1 code and symbol name that is equivalent to that CG
+   index. If a full Latin-1 X11 font is used rather than a 3270 font, this
+   is the character that x3270 will display for the EBCDIC code listed
+   to the left. 
+ASCII-7 
+   The U.S. 7-bit ASCII symbol that is equivalent to that CG index. If
+   a 7-bit X11 font is used rather than a 3270 font, this is the character
+   that x3270 will display for the EBCDIC code listed to the left. 
+APL 
+   The name of the APL character displayed with the 3270a font, if
+   different from the Latin-1 character. 
 
-    EBCDIC	The U.S. EBCDIC code that is displayed using that graphic.
-
-    Latin-1	The ISO Latin-1 code and symbol name that is equivalent to
-		that CG index.  If a full Latin-1 X11 font is used rather than
-		a 3270 font, this is the character that x3270 will display
-		for the EBCDIC code listed to the left.
-
-    ASCII-7	The U.S. 7-bit ASCII symbol that is equivalent to that CG
-    		index.  If a 7-bit X11 font is used rather than a 3270 font,
-		this is the character that x3270 will display for the EBCDIC
-		code listed to the left.
-
-    APL		The name of the APL character displayed with the 3270a font, if
-		different from the Latin-1 character.
-
-All numbers are in hexadecimal.
+All numbers are in hexadecimal. 
 
 Note that CG indices 0xc0-0xcf and 0xe0-0xef correspond to field attribute
-bytes; they normally display as blanks and do not have names.
+bytes; they normally display as blanks and do not have names. 
 
 3270 CG           EBCDIC  Latin-1           ASCII-7        APL
 
@@ -260,3 +260,4 @@ fc box4
 fd underA
 fe magcard
 ff boxhuman
+

@@ -1,5 +1,5 @@
 '\\" t
-.TH IBM_HOSTS 5 "5 May 1994"
+.TH IBM_HOSTS 5 "5 October 1994"
 .SH NAME
 ibm_hosts \-
 host database for
@@ -12,14 +12,15 @@ The
 file contains information regarding IBM hosts on the network.
 An
 .I "IBM host"
-is a host which can communcate with a 3270 terminal emulator such as
+is a host which can communicate with a 3270 terminal emulator such as
 .B x3270
 or
 .B tn3270.
-For each host a single line is present with the following information:
+Each line defines a name in the following format
+(optional fields are shown in brackets):
 .nf
 
-	\fIname	type	hostname	loginstring\fP
+	\fIname	type	hostname\fP[/\fIport\fP]	[\fIloginstring\fP]
 
 .fi
 Items are separated by any number of blanks and/or TAB characters.
@@ -53,11 +54,22 @@ The
 .I hostname
 field is the Internet hostname or dot-notation Internet address of the host.
 .LP
+The
+.I hostname
+can also optionally include a non-default
+.I port
+number, appended to the
+.I hostname
+with
+a slash ``/'' character,
+.IR i . e .,
+.BR bluehost/97 .
+.LP
 The optional
 .I loginstring
 field specifies data to be sent to the host when the connection is made.  It
-may include embedded tabs, and embedded newline characters indicating the 3270
-ENTER key.
+may include embedded tab (\\t) and newline (\\n) characters indicating the
+3270 TAB and ENTER keys, respectively.
 The
 .I loginstring
 is not intended for entering usernames and passwords; rather it provides an
@@ -70,24 +82,34 @@ file:
 
 	mvs	primary	mvs-host
 	tso	alias	mvs-host
-	vm	primary	vtam\\t3\\n
+	mvs2	primary	mvs-host/4012
+	vm	primary	vtam	\\t3\\n
 
 .fi
-An 3270 emulator will display two names
-.RB ( mvs
+An 3270 emulator will display four names
+.RB ( mvs ,
+.BR mvs2 ,
+.B afhost
 and
 .BR vm )
 on its hosts menu.
-It will also accept the name
+The names
+.B mvs
+and
 .B tso
-as an alias for the same host as
-.BR mvs .
+will cause connections to the host
+.BR mvs-host.
+The name
+.B mvs2
+will also cause a connection to
+.BR mvs-host ,
+but to port 4012 rather than the emulator's default port (usually 23).
 The name
 .B vm
 will cause the 3270 emulator to connect to the host
 .B vtam
 (presumably some sort of host-selection front-end),
-then enter the string ``3'' on the first data-entry field on the screen, and
+then enter the string ``3'' on the second data-entry field on the screen, and
 send the ENTER AID sequence.
 .SH FILES
 /usr/lib/X11/x3270/ibm_hosts

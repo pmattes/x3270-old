@@ -1,5 +1,5 @@
 '\" t
-.TH X3270 1 "27 July 1994"
+.TH X3270 1 "22 May 1995"
 .SH NAME
 x3270 \-
 .SM IBM
@@ -9,54 +9,52 @@ host access tool
 [
 .I options
 ] [ [
-.B a:
+.IB prefix:
 ]
 .I hostname
-]
-.br
-.B x3270
 [
-.I options
-]
-.BI p: filename
+.I port
+] ]
 .SH DESCRIPTION
 .B x3270
 opens a telnet connection to an
 .SM IBM
 host in an X window.
-Since the window created by
+The window created by
 .B x3270
-can use its own font for displaying characters, is a fairly accurate
+can use its own font for displaying characters, so it is a fairly accurate
 representation of an
 .SM IBM
-3278.
+3278 or 3279.
 It is similar to
 .IR tn3270 (1)
 except that it is X-based, not curses-based.
 .LP
-Prepending an
-.B a:
-onto
-.I hostname
-puts
-.B x3270
-in initial
-.SM ANSI
-X3.64 emulation mode.
-See
-.SM "ANSI MODE"
-below for further information.
-.LP
 Prepending a
 .B p:
-causes
-.B x3270
-to play back the host commands contained in
-.IR filename,
-rather than connecting to a host.
+onto
+.I hostname
+causes the connection to go through the
+.I telnet-passthru
+service rather than directly to the host.
+See PASSTHRU below.
+.LP
+Prepending an
+.B s:
+onto
+.I hostname
+removes the "extended data stream" option reported to the host.
 See
-.SM "PLAYBACK FILES"
+.B \-tn
 below for further information.
+.LP
+The port to connect to defaults to
+.BR telnet .
+This can be overridden with the
+.RI \- port
+option, or by specifying a
+.I port
+on the command line.
 .SH OPTIONS
 .B x3270 
 is a toolkit based program, so it understands standard options and resources.
@@ -77,12 +75,25 @@ See
 .SM "APL SUPPORT"
 below.
 .TP
+.BI \-cc " range" : "value" "[,...]
+Sets character classes.
+See CHARACTER CLASSES, below.
+.TP
 .BI \-charset " name"
 Specifies an
 .SM EBCDIC
 national character set.
 See
 .SM CHARACTER SETS
+below.
+.TP
+.BI \-clear " toggle"
+Sets the initial value of
+.I toggle
+to
+.B false.
+The list of toggle names is under
+.SM MENUS
 below.
 .TP
 .BI \-efont " name"
@@ -94,36 +105,100 @@ below.
 .BI \-iconname " name"
 Specifies an alternate title for the program icon.
 .TP
+.BI \-iconx " x"
+Specifies the initial x coordinate for the program icon.
+.TP
+.BI \-icony " y"
+Specifies the initial y coordinate for the program icon.
+.TP
 .BI \-keymap " name"
 Specifies a keymap name and optional modifiers.
 See
 .SM KEYMAPS
 below.
 .TP
-.BI \-model " n"
-The type of 3278 to be emulated.
-The sizes of various emulated models are:
+.B \-keypad
+Turns on the keypad as soon as
+.B x3270
+starts.
+.TP
+.BI \-model " name"
+The model of 3270 display to be emulated.
+The model name is in three parts, any of which may be omitted:
+.IP
+The first part is the
+.BR "base model" ,
+which is either
+.B 3278
+or
+.BR 3279 .
+.B 3278
+specifies a monochrome 3270 display;
+.B 3279
+specifies a color 3270 display.
+When 3278 emulation is specified for a color X display, fields are displayed
+using pseudo-colors; see
+.SM PSEUDO-COLOR
+below.
+.IP
+The second part is the
+.BR "model number" ,
+which specifies the number of rows and columns.
+Model 4 is the default.
 .PP
 .RS
 .TS
 center;
-c c c l .
-Model	Columns	Rows
+c c c .
+Model Number	Columns	Rows
 _
 2	80	24
 3	80	30
-4	80	43	default
+4	80	43
 5	132	27
 .TE
 .RE
+.IP
+Note: Technically, there is no such 3270 display as a 3279-4 or 3279-5, but
+most hosts seem to work with them anyway.
+.IP
+The third part specifies the Extended 3270 Data Stream, and is given as
+.B \-E.
+It signals the host that the 3270 display is capable of displaying
+extended field attributes, and supports structured fields and query replies.
+A 3279 always uses the Extended Data Stream (whether or not
+.B \-E
+is specified); for a 3278 it is optional.
+.IP
+The default model for a color X display is
+.B 3279\-4\-E.
+For a monochrome X display, it is
+.BR 3278\-4\-E .
+(The behavior of previous versions of
+.B x3270
+on color X displays can be specified as
+.BR 3278\-4 ).
 .TP
 .B \-mono
-Forces monochrome emulation on a color display.
+Forces
+.B x3270
+to believe it is running on a monochrome X display.
 .TP
 .B \-once
 Causes
 .B x3270
 to exit after a host disconnects.
+This option has effect only if a hostname is specified on the command line.
+.TP
+.BI \-oversize " cols" x rows
+Makes the screen larger than the default for the chosen model number.
+This option has effect only in combination with extended data stream support
+(the
+.B \-E
+suffix on the model), and only if the host supports the Query Reply structured
+field.
+The number of columns multiplied by the number of rows must not exceed
+16383 (3fff hex), the limit of 14-bit 3270 buffer addressing.
 .TP
 .BI \-port " n"
 Specifies a different
@@ -135,13 +210,25 @@ can be a name from
 like
 .BR telnet ,
 or a number.
+This option changes the default port number used for all connections.
+(The positional parameter affects only the initial connection.)
+.TP
+.B \-reconnect
+Causes
+.B x3270
+to automatically reconnect to the host if it ever disconnects.
+This option has effect only if a hostname is specified on the command line.
 .TP
 .B \-sb
 Turns on the scrollbar.
-The scrollbar functions only in
-.SM ANSI
-mode.
 .B +sb turns the scrollbar off.
+.TP
+.BI \-scheme " name"
+Specifes a color scheme to use in 3279 mode.
+This option has effect only in combination with 3279 emulation.
+See
+.SM "COLOR SCHEMES"
+below.
 .TP
 .B \-script
 Causes
@@ -157,13 +244,35 @@ Specifies that
 lines should be saved for scrolling back.
 The default is 64.
 .TP
+.BI \-set " toggle"
+Sets the initial value of
+.I toggle
+to
+.B true.
+The list of toggle names is under
+.SM MENUS
+below.
+.TP
 .BI \-tn " name"
 Specifies the terminal name to be transmitted over the telnet connection.
 The default name is
-.BI IBM\-3278\- n
-where
-.I n
-is the model number.
+.BI IBM\- model_name,
+for example,
+.B IBM\-3279\-4\-E
+for a color X display, or
+.B IBM\-3278\-4\-E
+for a monochrome X display.
+.IP
+Some hosts are confused by the
+.B \-E
+suffix on the terminal name, and will ignore the extra screen area on
+models 3, 4 and 5.
+Prepending an
+.B :s
+on the hostname removes the
+.B \-E
+from the terminal name when connecting to such hosts.
+.IP
 The name can also be specified with the "x3270.termName" resource.
 .TP
 .B \-trace
@@ -174,18 +283,28 @@ file name, which defaults to
 .SH FONTS
 By default,
 .B x3270
-does not use the "*font" resource for its main display.
+does not use the "*font" resource for its main window.
 Instead, it uses a custom 14-point font called
 .BR 3270 ,
 which is a close
-approximation of a real 3278 display and allows
+approximation of a real 3270 display and allows
 .B x3270
 to display a complete
 .SM EBCDIC
 character set and special status-line symbols.
 A more compact font,
 .BR 3270\-12 ,
-is also supported.
+is also supported, as are the various sized fonts
+.BR 3270gt8 ,
+.BR 3270gt12 ,
+.BR 3270gt16 ,
+.BR 3270-20 ,
+.BR 3270gt24 ,
+and
+.BR 3270gt32 .
+The font
+.B 3270h
+is also included to allow display of Hebrew text.
 .LP
 The font may be specified with the
 .B \-efont
@@ -203,26 +322,6 @@ graphics that do not have
 .SM ASCII
 equivalents.
 .PP
-.B Note:
-.B x3270
-requires that fonts have a
-.SM SPACING
-property with the value
-.SM C.
-Many otherwise valid fonts are not properly configured and appear unusable.
-You may override the check by placing a `!' in front of the font name.
-.LP
-For speed,
-.B x3270
-also uses a second font for bold (high-intensity) characters.
-It finds this font by appending
-.B bold
-to the name of its emulator font; if such a font cannot be found, it uses the
-slower method of overstriking each bold character.
-The bold font may be specified explicitly with the
-.B \-bfont
-option or the "x3270.boldFont" resource.
-.PP
 One additional font,
 .BR 3270d ,
 is supplied.
@@ -235,6 +334,12 @@ The characters displayed are hexadecimal codes, which can be translated
 using a document provided with the
 .B x3270
 sources.
+.LP
+The font can be changed at any time through a menu option.
+It can also be implicitly changed by changing the size of the
+.B x3270
+window with the mouse: if the window is made larger, x3270 will try to
+change to a larger font, and vice-versa.
 .SH "CHARACTER SETS"
 The
 .B \-charset
@@ -242,7 +347,6 @@ option or the "x3270.charset" resource controls the
 .SM EBCDIC
 national character set used by
 .B x3270.
-By default, the U.S. character set (code 01) is used.
 Available sets include:
 .PP
 .TS
@@ -251,17 +355,22 @@ l c
 lfB c.
 Charset Name	Q121 Code
 _
-us	01
+bracket	\-
+us-intl	01
 german	03
 finnish	09
 uk	22
 norwegian	23
 french	30
+hebrew*	\-
 .TE
+.IP
+(*) requires a special font,
+.B 3270h
 .PP
-The charset name
-.B bracket
-is also supported to communicate with older
+The default character set is
+.BR bracket ,
+which is useful for common
 .SM IBM
 hosts which use
 .SM EBCDIC
@@ -270,6 +379,30 @@ codes 0xAD and 0xBD for the `[' and `]' characters, respectively.
 You can also specify national-language translations for your keyboard; see
 .SM KEYMAPS
 below.
+.SH "CHARACTER CLASSES"
+.B x3270
+supports character classes (groupings of characters chosen with a double
+mouse click) in the same manner as
+.IR xterm (1).
+The "x3270.charClass" resource or the
+.B \-cc
+option can be used to alter the character class table.
+The default table is the same as
+.IR xterm "'s;"
+It groups letters together, and puts most punctuation characters in individual
+classes.
+To put all non-whitespace characters together in the same class (and
+duplicate the behavior of some early versions of
+.BR x3270 ),
+use the following value:
+.PP
+.nf
+    33-127:48,161-255:48
+.fi
+.PP
+See
+.IR xterm (1)
+for further syntax details.
 .SH KEYPAD
 A keypad may optionally be displayed, with a mouse-clickable button for each
 3270 function key (these functions are also available from the keyboard).
@@ -281,6 +414,7 @@ Options are:
 .TS
 center;
 l l.
+left	in a separate window, to the left of the screen
 right	in a separate window, to the right of the screen
 bottom	in a separate window, below the screen
 integral	in the same window as the screen, below it
@@ -308,12 +442,30 @@ for details.
 You may specify a different
 .I ibm_hosts
 database with the "x3270.hostsFile" resource.
-.SH COLOR
+.SH "COLOR SCHEMES"
+When emulating a 3279 display, the X colors used to draw the display
+are selected by two resources: the "x3270.colorScheme" resource, which gives
+the name of the color scheme to use, and the
+individual "x3270.colorScheme.\fIxxx\fP" resources, which
+give the actual definitions.
+The color scheme resources are documented in the
+.B Docs/Resources
+file with the
+.B x3270
+source.
+.LP
+The color scheme may also be changed while
+.B x3270
+is running with a selection from the
+.B Options
+menu.
+.SH PSEUDO-COLOR
+When emulating a 3278 display on a color X display,
 .B x3270 
 does not understand
 .SM IBM
 3270 color protocols.
-It draws text in one of three colors depending on the field attributes.
+Instead, it draws text in one of three colors depending on the field attributes.
 Those colors may be customized using the following resources (shown with their
 default values):
 .nf
@@ -323,28 +475,19 @@ default values):
 	x3270.colorBackground:	black
 	x3270.selectBackground:	dim gray
 .fi
-.PP
-It is possible to get monochrome colors and behavior using the
-.B \-mono
-switch.
 .SH "ANSI MODE"
 Some hosts use an
 .SM ASCII
 front-end to do initial login negotiation, then later switch to 3270 mode.
-Prepending an
-.B a:
-onto the
-.I hostname
-causes
 .B x3270
-to emulate an
+will emulate an
 .SM ANSI
 X.64 terminal until the host places it in 3270 mode (telnet
 .SM BINARY
 and
 .SM "SEND EOR"
 modes).
-The emulation is far from complete, however, and not intended to make
+The emulation is fairly complete; however, it is not intended to make
 .B x3270
 a replacement for
 .IR xterm (1).
@@ -382,7 +525,7 @@ End of file	x3270.eof	^D
 .TE
 .SH MENUS
 .B x3270
-has a menu bar with three pull-down menus (Quit, Options, and
+has a menu bar with three pull-down menus (File, Options, and
 Connect) and a button to turn the keypad on and off.
 The pull-down menus are also available as pop-up menus by using the "Ctrl"
 key and the left, middle and right mouse buttons, respectively.
@@ -390,9 +533,70 @@ key and the left, middle and right mouse buttons, respectively.
 The menu bar can be turned off by setting the "x3270.menuBar" resource to
 .B false.
 .PP
-The top section of the Options menu is a series of toggles, options that may be
-either on or off.
-These toggles and their effects are as follows:
+The top sections of the File and Options menus are a series of toggles,
+options that may be either on or off.
+The toggles under the File menu are as follows:
+.TP
+.B Trace Data Stream
+If set, network traffic (both a hexadecimal representation and its
+interpretation) are logged to the file
+.BI /usr/tmp/x3trc. process_id,
+and a window is popped up to monitor the data.
+The file name is confirmed with a pop-up; the default directory name for the
+trace file can be changed with the "x3270.traceDir" resource.
+.TP
+.B Trace X Events
+If set, information about X events and the actions that
+.B x3270
+takes in response are logged to a file.
+This is the same file as used for tracing the data stream, above.
+X event tracing is useful for creating and debugging custom keymaps, macros
+and scripts.
+For example, it will tell you precisely what action was taken in response to
+pressing a particular key.
+If the key is not mapped, it will tell you the keysym name and keycode so you
+can add it to a custom keymap.
+.TP
+.B Save Screen(s) in File
+If set, saves an
+.SM ASCII
+representation of the current screen image in the file
+.BI /usr/tmp/x3scr. process_id.
+A pop-up allows the file name to be changed; the default directory name can be
+changed with the "x3270.traceDir" resource.
+The pop-up also has buttons to choose between saving just the current image,
+or continuously saving it as it is redrawn.
+.TP
+.B Save Changed Options in File
+Saves into a file the values of all options that have been changed since
+.B x3270
+was started.
+A pop-up allows the file name to be changed; the default file is
+.B .x3270pro
+in the user's home directory.
+If the file already exists, it is appended to.
+.B x3270
+will read the contents of this file the next time it starts up.
+The options settings in the file override any resources defined
+with
+.B xrdb
+or in the user's
+.B .Xdefaults
+file; command-line switches override the file.
+A different options file can be specified by the
+.B X3270PRO
+environment variable.
+If the environment variable
+.B NOX3270PRO
+is set, no options file will be read.
+.TP
+.B Execute an Action
+Allows an action name and parameters to be entered from the keyboard.
+This allows experimentation with actions without having to edit keymaps
+and repeatedly restart
+.B x3270.
+.LP
+The toggles under the Options menu are as follows:
 .TP
 .B Monocase
 If set,
@@ -421,24 +625,6 @@ is displayed on the status line.
 .B Track Cursor
 If set, the cursor position is displayed on the status line.
 .TP
-.B Trace Data Stream
-If set, network traffic (both a hexadecimal representation and its
-interpretation) are logged to the file
-.BI /usr/tmp/x3trc. process_id,
-and a window is popped up to monitor the data.
-The file name is confirmed with a pop-up; the default directory name for the
-trace file can be changed with the "x3270.traceDir" resource.
-.TP
-.B Save Screen(s) in File
-If set, saves an
-.SM ASCII
-representation of the current screen image in the file
-.BI /usr/tmp/x3scr. process_id.
-A pop-up allows the file name to be changed; the default directory name can be
-changed with the "x3270.traceDir" resource.
-The pop-up also has buttons to choose between saving just the current image,
-or continuously saving it as it is redrawn.
-.TP
 .B Scrollbar
 If set, the scrollbar appears.
 .TP
@@ -448,6 +634,114 @@ If set, the
 terminal emulator automatically assumes a
 .SM NEWLINE
 character when it reaches the end of a line.
+.TP
+.B "Paste with Left Margin"
+If set, puts restrictions on how pasted text is placed on the screen.
+The position of the cursor at the time the paste operation is begun is
+used as a left margin.
+No pasted text will fill any area of the screen to the left of that
+position.
+This option is useful for pasting into certain
+.SM IBM
+editors that use the left side of the screen for control information.
+.TP
+.B "Select by Rectangles"
+If set,
+.B x3270
+will always select rectangular areas of the screen.
+Otherwise,
+.B x3270
+selects by rectangles when in 3270 mode, but in
+.SM ANSI
+mode it selects continuous regions of the screen like
+.IR xterm (1).
+.PP
+The names of the toggles for use with the
+.B -set
+and
+.B -clear
+options are as follows:
+.LP
+.TS
+center;
+l l .
+Menu Option	Name
+_
+Monocase	monoCase
+Blinking Cursor	cursorBlink
+Blank Fill	blankFill
+Show Timing	showTiming
+Track Cursor	cursorPos
+Trace Data Stream	dsTrace
+Trace X Events	eventTrace
+Save Screen(s) in File	screenTrace
+Scrollbar	scrollBar
+Wraparound	lineWrap
+Paste with Left Margin	marginedPaste
+Select by Rectangles	rectangleSelect
+.TE
+.LP
+In addition, the toggle
+.B altCursor
+can be used to select the cursor type.
+If set, an underline cursor will be used.
+If clear, the normal block cursor will be used.
+.LP
+These names also represent resources that can be set in your .Xdefaults
+file.
+For example, if you always want to have the scrollbar on, you can add
+the following to your .Xdefaults:
+.br
+    x3270.scrollBar:	true
+.br
+.SH "STATUS LINE"
+The
+.B x3270
+status line contains a variety of information.
+From left to right, the fields are:
+.TP
+.B "comm status"
+Three symbols indicate the state of the connection to the host.
+If connected, the right-hand symbol is a solid box; if not, it is a
+question mark.
+.TP
+.B "keyboard lock"
+If the keyboard is locked, an "X" symbol and a message field indicate the
+reason for the keyboard lock.
+.TP
+.B "shift"
+Three characters indicate the keyboard modifier status.
+"M" indicates the Meta key, "A" the Alt key, and an up-arrow or "^"
+indicates the Shift key.
+.TP
+.B "compose"
+The letter "C" indicates that a composite character is in progress.
+If another symbol follows the "C", it is the first character of the
+composite.
+.TP
+.B "typeahead"
+The letter "T" indicates that one or more keystrokes are in the typeahead
+buffer.
+.TP
+.B "temporary keymap"
+The letter "K" indicates that a temporary keymap is in effect.
+.TP
+.B "reverse"
+The letter "R" indicates that the keyboard is in reverse field entry mode.
+.TP
+.B "insert mode"
+A thick caret "^" or the letter "I" indicates that the keyboard is in insert
+mode.
+.TP
+.B "timing"
+A clock symbol and a time in seconds indicate the time it took to process
+the last
+.SM AID
+or the time to connect to a host.
+This display is optional.
+.TP
+.B "cursor position"
+The cursor row and column are optionally displayed, separated by a "/".
 .SH ICONS
 If the
 .B \-activeicon
@@ -533,12 +827,28 @@ Replaces the bracket, brace and bar keys with common Finnish characters.
 .B norwegian7
 Replaces the bracket, brace and bar keys with common Norwegian characters.
 .PP
+A temporary keymap can also be specified while
+.B x3270
+is running with the Keymap() action.
+When the action Keymap(\fIn\fP) is executed, temporary keymap
+.I n
+is added to or deleted from the current keymap.
+Multiple temporary keymaps can be active simultaneously.
+The action Keymap(None) restores the original keymap.
+.B Note:
+When Keymap() is specified as part of a list of multiple actions in a keymap,
+it must be the last action in the list.
+.PP
+The temporary keymap
+.B hebrew
+is provided to allow entry of Hebrew characters.
+.PP
 The X Toolkit translation mechanism is used to provide keyboard emulation.
 It maps 
 .B events
 into 
 .B actions.
-The best documentation can be found with X11R5 X toolkit documents, but the
+The best documentation can be found with X toolkit documents, but the
 following should suffice for simple customization.
 .PP
 An Xt event consists of (at least) four fields.  The first is called a
@@ -548,10 +858,11 @@ it means those modifiers only.  The second field is the specific event,
 in 
 .B x3270
 usually just <Key>.  The third field is the detail field, which gives the
-actual key.  The name of the key may be determined using the R5
+actual key.  The name of the key may be determined using the
 .I xev
-program.  The last field is the action, which is the internal emulator
-function.  A complete list of actions may be found later in the manual.
+program or with the "Trace X Events" menu option.
+The last field is the action, which is the internal emulator function.
+A complete list of actions may be found later in the manual.
 .PP
 There are three levels of translation tables in
 .B x3270.
@@ -587,9 +898,9 @@ Shift<Key>Return	Newline()
 Shift<Key>Tab	BackTab()
 <Key>Tab	Tab()
 <Key>Home	Home()
-Meta<Key>Left	Left2()
+Meta<Key>Left	PreviousWord()
 <Key>Left	Left()
-Meta<Key>Right	Right2()
+Meta<Key>Right	NextWord()
 <Key>Right	Right()
 <Key>Up	Up()
 <Key>Down	Down()
@@ -645,9 +956,9 @@ Meta<Key>l	Redraw()
 Meta<Key>p	PrintText()
 Meta<Key>q	Quit()
 Meta<Key>r	Reset()
-Meta<Key>s	PlaybackStep()
 Ctrl<Key>u	DeleteField()
 Ctrl<Key>w	DeleteWord()
+:<Key>asciicircum	CircumNot()
 :<Key>	Default()
 .TE
 .RE
@@ -680,9 +991,9 @@ rectangular area between the current position and where the left button was
 last pressed.
 .PP
 .PP
-On color displays, the "x3270.selectBackground" resource is used to distinguish
-the selected text from the rest of the screen.
-On monochrome displays, selected text is in reverse video.
+On color X displays, the "x3270.selectBackground" resource is used to
+distinguish the selected text from the rest of the screen.
+On monochrome X displays, selected text is in reverse video.
 (It can be distinguished from a block cursor because the block cursor covers
 slightly less than an entire character position on the screen.)
 .PP
@@ -704,9 +1015,11 @@ Attn	attention key
 AltCursor	switch between block and underscore cursor
 BackSpace	move cursor left (or send ASCII BS)
 BackTab	tab to start of previous input field
+CircumNot	input "^" in ANSI mode, or "notsign" in 3270 mode
 Clear	clear screen
 Compose	next two keys form a special symbol
 CursorSelect	Cursor Select AID
+Cut	erase selected text
 Default	enter key literally
 Delete	delete character under cursor (or send ASCII DEL)
 DeleteField	delete the entire field
@@ -724,19 +1037,20 @@ HandleMenu(\fIname\fP)	pop up a menu
 Home	move cursor to first input field
 Insert	set insert mode
 Key(\fIkeysym\fP)	insert key \fIkeysym\fP
+Keymap(\fIkeymap\fP)	toggle alternate \fIkeymap\fP (or remove with \fBNone\fP)
 Left	move cursor left
 Left2	move cursor left 2 positions
 MoveCursor	move cursor to mouse position
 MonoCase	toggle uppercase-only mode
 Newline	move cursor to first field on next line (or send ASCII LF)
-PA(n)	Program Attention AID
-PA1-PA3	Program Attention AID
-PF(n)	Program Function AID
-PF1-PF24	Program Function AID
-PlaybackStep	step through a trace file
+NextWord	move cursor to next word
+PA(\fIn\fP)	Program Attention AID (\fIn\fP from 1 to 3)
+PF(\fIn\fP)	Program Function AID (\fIn\fP from 1 to 24)
+PreviousWord	move cursor to previous word
 PrintText(\fIcommand\fP)	print screen text on printer
 PrintWindow(\fIcommand\fP)	print screen image (bitmap) on printer
 Quit	exit \fBx3270\fP
+Reconnect	reconnect to previous host
 Redraw	redraw window
 Reset	reset locked keyboard
 Right	move cursor right
@@ -753,8 +1067,10 @@ _
 ignore	do nothing
 insert\-selection([\fIatom\fP[\fI,atom...\fP]])	paste selection
 move\-select	a combination of \fBMoveCursor\fP and \fBselect\-start\fP
+select\-end(\fIatom\fP[\fI,atom...\fP]])	complete selection and assign to atom(s)
 select\-extend	move the end of a selection
 select\-start	mark the beginning of a selection
+set\-select(\fIatom\fP[\fI,atom...\fP]])	assign exsting selection to atom(s)
 start\-extend	begin marking the end of a selection
 .TE
 .RE
@@ -826,6 +1142,14 @@ x3270.macros: \\
 .br
 	alt printer: PrintText("lpr -Plw2")
 .RE
+.IP
+You can also define a different set of macros for each host.
+If there is a resource named
+.RI ``x3270.macros. somehost '',
+it defines the macros menu for when
+.B x3270
+is connected to
+.I somehost.
 .TP
 .B The \-script Switch
 This facility allows
@@ -867,11 +1191,8 @@ character set and the entry of
 characters from the keyboard.
 .PP
 .SM APL
-characters are supported by a special font
-.RB ( 3270\-apl )
-which replaces the accented characters and special symbols with
-.SM APL
-graphics.
+characters are supported only in the special
+.B 3270 font.
 .PP
 Keyboard entry of
 .SM APL
@@ -907,8 +1228,6 @@ For convenience, an
 option is defined, which is an abbreviation for the following resource
 definitions:
 .RS
-x3270.emulatorFont: 3270\-apl
-.br
 .RI x3270.keymap: " your_keymap_name" ,apl
 .br
 x3270.charset: apl
@@ -1031,8 +1350,8 @@ apl_uptackjot	ef
 .TE
 .RE
 .SH "SCREEN PRINTING"
-Screen printing is handled through menu options or by the PrintText and
-PrintWindow keyboard actions.
+Screen printing is handled through options on the File menu or by the
+PrintText and PrintWindow keyboard actions.
 Each results in a pop-up to confirm the print command.
 .PP
 The PrintText action (usually assigned to the key <Meta>p) sends the current
@@ -1067,21 +1386,44 @@ For example, the following keymap will pop up a duplicate of the current
 screen image:
 .IP
 Meta<Key>g: PrintWindow("xwd \-id %d | xwud &")
-.SH "PLAYBACK FILES"
-.B x3270
-has the ability to trace the network traffic to and from a host, selected
-from a menu option.
-These network trace files can also be played back into
-.BR x3270 ,
-allowing applications (and x3270 itself) to be debugged.
-To connect x3270 to a trace file rather than a host, specify the file name
-prefixed with a
-.BR p: \.
-To step through each inbound message, press Meta-s.
+.LP
+If the command for PrintWindow or PrintText begins with an "@" character,
+the initial pop-up menu to confirm the print command is not displayed and
+the command cannot be edited.
 .SH BUGS
 Cursor highlighting will not work with if you use the
 .B NoTitleFocus
 option in your .twmrc file.
+.LP
+Pull-down menus may not work properly if the Caps Lock, Num Lock, Shift, Alt
+or Meta keys are pressed.
+This is a bug in the Athena menu widget and affects several other X
+applications as well.
+.SH PASSTHRU
+.B x3270
+supports the Sun
+.I telnet-passthru
+service provided by the
+.I in.telnet-gw
+server.
+This allows outbound telnet connections through a firewall machine.
+When a
+.B p:
+is prepended to a hostname,
+.B x3270
+acts much like the
+.IR itelnet(1)
+command.
+It contacts the machine named
+.B internet-gateway
+at the port defined in
+.B /etc/services
+as
+.B telnet-passthru
+(which defaults to 3514).
+It then passes the requested hostname and port to the
+.B in.telnet-gw
+server.
 .SH FILES
 .nf
 /usr/lib/X11/app\-defaults/X3270
@@ -1089,7 +1431,7 @@ option in your .twmrc file.
 .SH "SEE ALSO"
 telnet(1), tn3270(1), ibm_hosts(5), x3270-script(1)
 .br
-X Toolkit Intrinsics (R5 version)
+X Toolkit Intrinsics
 .br
 Data Stream Programmer's Reference, IBM GA23\-0059
 .br
@@ -1104,7 +1446,7 @@ notice.
 .LP
 X11 Port Copyright 1990 by Jeff Sparkes.
 .br
-Additional X11 Modifications Copyright 1993, 1994 by Paul Mattes.
+Additional X11 Modifications Copyright 1993, 1994, 1995 by Paul Mattes.
 .RS
 Permission to use, copy, modify, and distribute this software and its
 documentation for any purpose and without fee is hereby granted,

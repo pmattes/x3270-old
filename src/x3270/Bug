@@ -1,0 +1,94 @@
+If the pullright goes off the screen (and is automatically moved left over
+the main), it is unusable.
+
+---
+
+I had to reorder the BtnUp actions so that the pullright is withdrawn
+(unhighlight) before the first menu is popped (MenuPopdown), because
+MenuPopdown destroys _all_ grabs created after the one associated with
+the menu in question.
+
+Now that means that popping down the main menu (and perhaps the pullright
+as well) destroys the grab for any dialog popped up as a result of the
+menu.  This means that (1) the dialog doesn't have a grab any more, and
+(2) an error message comes out when the dialog pops down, because it doesn't
+have a grab.  Sheesh.
+
+One solution is to defer each dialog until after the primary menu has popped
+down, by saving the desired action somewhere and attaching it to a popdown
+callback for the main menu.  This is a little ugly, but it can be generalized
+with a simple wrapper (I think).
+
+This problem would affect errors and infos as well, even without pullrights:
+    Pop up menu.
+    Pop up error.
+    Pop down menu.
+    Pop down error.
+    Warning message (I think).
+
+Another solution is to fix the first problem without the reordering.
+
+What happened wrong is: (MenuPopdown() notify() unhighlight())
+    MenuPopdown(): pop down the main (destroys the pullright's grab)
+    notify(): notify the item
+    unhighlight(): unhighlight the item (pops down the pullright with an error)
+
+What happens now is: (notify() unhighlight() MenuPopdown())
+    notify(): notify the item (pops up the dialog)
+    unhighlight(): unhighlight the item (pops down the pullright and destroy's
+     the popup's grab)
+    MenuPopdown(): pop down the main
+
+What I want to do is:
+    unhighlight(): pop down the pullright
+    MenuPopdown(): pop down the main (but not quite?)
+    notify(): notify the current
+
+But currently 'notify' is based on the 'entry_set', which is NULLed by the
+unhighlight call.  I can add a "prev_entry", set by Unhighlight, which Notify
+uses...
+
+Works fine, but when a dialog starts from a pullright, the main menu isn't
+popped down until after the dialog exits.  It isn't active and there are no
+warnings, but it looks odd.  In fact, it's still there even when the main
+window is iconified.
+
+This is because (I think):
+    The pullright gets the BtnUp first.
+    It does an unhighlight (no op)
+    It does a MenuPopdown, pulling itself down.
+    It does a notify, popping up the dialog.
+      The dialog goes an exclusive grab, blocking propagation of the
+      original BtnUp to the main menu.
+    When the dialog pops down, the main menu gets its BtnUp and tears
+    itself down.
+
+So the correct sequence is, instead:
+    Btn1Up does _not_ cause a notify of the pullright.  The notify event
+    is saved somewhere.  When the main menu does its final notify, it
+    calls the notify for the rightmost pullright.
+This would require that the rightmost pullright know where its
+main menu is, and that the main menu know which menu items are pullrights
+(and if it is a pullright itself).
+
+Okay, how about two new attributes:
+
+    "parent", Widget:	if this menu was invoked as a pullright, the
+			menu widget that invoked it
+
+    "defer", Widget:	if this menu is a pullright, the widget that
+			should be notified when the topmost parent
+			exits
+
+When a menu pops up a pullright, it sets the pullright's "parent" attribute.
+
+When a menu is about to notify a CmeBSB, it checks "parent".  If it is
+non-NULL, this menu is a pullright; instead of notifying the CmeBSB, it
+sets "defer" in its "parent" widget.
+
+When a menu pops down, it checks "defer" to see if a pullright child has
+posted a notify.  If this menu is a pullright, it propogates "notify" to
+its parent; otherwise it notifies "defer" directly.
+
+"parent" is cleared when a menu pops down.
+"defer" is cleared when a menu pops up.

@@ -1,0 +1,266 @@
+<HTML>
+<TITLE>x3270 Character Set</TITLE>
+<H1>x3270 Character Set</H1>
+
+x3270 can use any constant-spaced X11 font, but in order to display special
+characters on the status line, it uses a family of special fonts with
+nonstandard ordering.
+<P>
+The character set ordering was originally based on the character generator
+ROM for a particular IBM terminal, but has since been modified to include
+all of the graphics in later versions of the U.S. EBCDIC and ISO Latin-1
+character sets.
+<P>
+The column definitions are:
+<DL>
+    <DT>3270 CG	<DD>The index in the 3270 character set, and if the graphic is not
+    		in the Latin-1 character set, its name.
+
+    <DT>EBCDIC	<DD>The U.S. EBCDIC code that is displayed using that graphic.
+
+    <DT>Latin-1	<DD>The ISO Latin-1 code and symbol name that is equivalent to
+		that CG index.  If a full Latin-1 X11 font is used rather than
+		a 3270 font, this is the character that x3270 will display
+		for the EBCDIC code listed to the left.
+
+    <DT>ASCII-7	<DD>The U.S. 7-bit ASCII symbol that is equivalent to that CG
+    		index.  If a 7-bit X11 font is used rather than a 3270 font,
+		this is the character that x3270 will display for the EBCDIC
+		code listed to the left.
+
+    <DT>APL		<DD>The name of the APL character displayed with the 3270a font, if
+		different from the Latin-1 character.
+</DL>
+
+All numbers are in hexadecimal.
+<P>
+Note that CG indices 0xc0-0xcf and 0xe0-0xef correspond to field attribute
+bytes; they normally display as blanks and do not have names.
+<PRE>
+3270 CG           EBCDIC  Latin-1           ASCII-7        APL
+
+00 null           00      20 space          space          
+01                41      e7 nobreakspace   space          Aunderbar
+02 ff             0c      20 space          space          
+03 cr             0d      20 space          space          
+04 nl             15      20 space          space          
+05 em             19      20 space          space          
+06 eightones      ff      20 space          space          
+07                ca      ad hyphen         minus          upcarettilde
+08                6e      3e greater        greater        
+09                4c      3c less           less           
+0a                ba      5b bracketleft    bracketleft    del
+0b                bb      5d bracketright   bracketright   delta
+0c                5d      29 parenright     parenright     
+0d                4d      28 parenleft      parenleft      
+0e                d0      7d braceright     braceright     
+0f                c0      7b braceleft      braceleft      
+10                40      20 space          space          
+11                7e      3d equal          equal          
+12                7d      27 apostrophe     apostrophe     
+13                7f      22 quotedbl       quotedbl       
+14                61      2f slash          slash          
+15                e0      5c backslash      backslash      
+16                4f      7c bar            bar            
+17                6a      a6 brokenbar      bar            
+18                6f      3f question       question       
+19                5a      21 exclam         exclam         
+1a                5b      24 dollar         dollar         
+1b                4a      a2 cent           c              
+1c                b1      a3 sterling       L              epsilon
+1d                b2      a5 yen            Y              iota
+1e                b6      b6 paragraph      P              multiply
+1f                9f      a4 currency       o              leftarrow
+20                f0      30 0              0              
+21                f1      31 1              1              
+22                f2      32 2              2              
+23                f3      33 3              3              
+24                f4      34 4              4              
+25                f5      35 5              5              
+26                f6      36 6              6              
+27                f7      37 7              7              
+28                f8      38 8              8              
+29                f9      39 9              9              
+2a                59      df ssharp         B              Runderbar
+2b                b5      a7 section        S              
+2c                7b      23 numbersign     numbersign     
+2d                7c      40 at             at             
+2e                6c      25 percent        percent        
+2f                6d      5f underscore     underscore     
+30                50      26 ampersand      ampersand      
+31                60      2d minus          minus          
+32                4b      2e period         period         
+33                6b      2c comma          comma          
+34                7a      3a colon          colon          
+35                4e      2b plus           plus           
+36                5f      ac notsign        asciicircum    
+37                bc      af macron         asciitilde     uptack
+38                90      b0 degree         asterisk       quad
+39                b3      b7 periodcentered period         rho
+3a                b0      5e asciicircum    asciicircum    alpha
+3b                a1      7e asciitilde     asciitilde     
+3c                bd      a8 diaeresis      asciitilde     bracketright
+3d                79      60 grave          grave          
+3e                be      b4 acute          apostrophe     notequal
+3f                9d      b8 cedilla        comma          circle
+40                44      e0 agrave         a              Dunderbar
+41                54      e8 egrave         e              Munderbar
+42                58      ec igrave         i              Qunderbar
+43                cd      f2 ograve         o              circlestile
+44                dd      f9 ugrave         u              deltastile
+45                46      e3 atilde         a              Funderbar
+46                cf      f5 otilde         o              circleslope
+47                df      ff ydiaeresis     y              upshoejot
+48                ad      dd Yacute         Y              bracketleft
+49                8d      fd yacute         y              upstile
+4a                51      e9 eacute         e              Junderbar
+4b                b7      bc onequarter     4              slope
+4c                b8      bd onehalf        2              divide
+4d                b9      be threequarters  4              
+4e                dc      fc udiaeresis     u              delstile
+4f                48      e7 ccedilla       c              Hunderbar
+50                43      e4 adiaeresis     a              Cunderbar
+51                53      eb ediaeresis     e              Lunderbar
+52                57      ef idiaeresis     i              Punderbar
+53                cc      f6 odiaeresis     o              squad
+54                a0      b5 mu             u              overbar
+55                42      e2 acircumflex    a              Bunderbar
+56                52      ea ecircumflex    e              Kunderbar
+57                56      ee icircumflex    i              Ounderbar
+58                cb      f4 ocircumflex    o              downcarettilde
+59                db      fb ucircumflex    u              quotedot
+5a                45      e1 aacute         a              Eunderbar
+5b                bf      d7 multiply       x              stile
+5c                55      ed iacute         i              Nunderbar
+5d                ce      f3 oacute         o              slopequad
+5e                de      fa uacute         u              quadquote
+5f                49      f1 ntilde         n              Iunderbar
+60                64      c0 Agrave         A              Uunderbar
+61                74      c8 Egrave         E              iotaunderbar
+62                78      cc Igrave         I              downcaret
+63                ed      d2 Ograve         O              circlebar
+64                fd      d9 Ugrave         U              circlestar
+65                66      c3 Atilde         A              Wunderbar
+66                ef      d5 Otilde         O              uptackjot
+67                da      b9 onesuperior    1              downtackup
+68                ea      b2 twosuperior    2              slashbar
+69                fa      b3 threesuperior  3              
+6a                9a      aa ordfeminine    a              rightshoe
+6b                9b      ba masculine      o              leftshoe
+6c                8a      ab guillemotleft  less           uparrow
+6d                8b      bb guillemotright greater        downarrow
+6e                aa      a1 exclamdown     exclam         upshoe
+6f                ab      bf questiondown   question       downshoe
+70                63      c4 Adiaeresis     A              Tunderbar
+71                73      cb Ediaeresis     E              quadjot
+72                77      cf Idiaeresis     I              righttack
+73                ec      d6 Odiaeresis     O              diaeresisdot
+74                fc      dc Udiaeresis     U              deltaunderbar
+75                62      c2 Acircumflex    A              Sunderbar
+76                72      ca Ecircumflex    E              diaeresis
+77                76      ce Icircumflex    I              lefttack
+78                eb      d4 Ocircumflex    O              slopebar
+79                fb      db Ucircumflex    U              deltilde
+7a                65      c1 Aacute         A              Vunderbar
+7b                71      c9 Eacute         E              upcaret
+7c                75      cd Iacute         I              epsilonunderbar
+7d                ee      d3 Oacute         O              quaddivide
+7e                fe      da Uacute         U              downtackjot
+7f                69      d1 Ntilde         N              Zunderbar
+80                81      61 a              a              
+81                82      62 b              b              
+82                83      63 c              c              
+83                84      64 d              d              
+84                85      65 e              e              
+85                86      66 f              f              
+86                87      67 g              g              
+87                88      68 h              h              
+88                89      69 i              i              
+89                91      6a j              j              
+8a                92      6b k              k              
+8b                93      6c l              l              
+8c                94      6d m              m              
+8d                95      6e n              n              
+8e                96      6f o              o              
+8f                97      70 p              p              
+90                98      71 q              q              
+91                99      72 r              r              
+92                a2      73 s              s              
+93                a3      74 t              t              
+94                a4      75 u              u              
+95                a5      76 v              v              
+96                a6      77 w              w              
+97                a7      78 x              x              
+98                a8      79 y              y              
+99                a9      7a z              z              
+9a                9c      e6 ae             a              splat
+9b                70      f8 oslash         0              diamond
+9c                47      e5 aring          a              Gunderbar
+9d                e1      f7 division       slash          
+9e fm             1e      3b semicolon      semicolon      
+9f dup            1c      2a asterisk       asterisk       
+a0                c1      41 A              A              
+a1                c2      42 B              B              
+a2                c3      43 C              C              
+a3                c4      44 D              D              
+a4                c5      45 E              E              
+a5                c6      46 F              F              
+a6                c7      47 G              G              
+a7                c8      48 H              H              
+a8                c9      49 I              I              
+a9                d1      4a J              J              
+aa                d2      4b K              K              
+ab                d3      4c L              L              
+ac                d4      4d M              M              
+ad                d5      4e N              N              
+ae                d6      4f O              O              
+af                d7      50 P              P              
+b0                d8      51 Q              Q              
+b1                d9      52 R              R              
+b2                e2      53 S              S              
+b3                e3      54 T              T              
+b4                e4      55 U              U              
+b5                e5      56 V              V              
+b6                e6      57 W              W              
+b7                e7      58 X              X              
+b8                e8      59 Y              Y              
+b9                e9      5a Z              Z              
+ba                9e      c6 AE             A              plusminus
+bb                80      d8 Ooblique       0              tilde
+bc                67      c5 Aring          A              Xunderbar
+bd                68      c7 Ccedilla       C              Yunderbar
+be                5e      3b semicolon      semicolon      
+bf                5c      2a asterisk       asterisk       
+d0                b4      a9 copyright      C              omega
+d1                af      ae registered     R              jot
+d2 boxA
+d3 insert
+d4 boxB
+d5 box6
+d6                8f      b1 plusminus      plus           rightarrow
+d7                ac      d0 ETH            D              downtack
+d8 rightarrow
+d9                ae      de THORN          space          notless
+da upshift
+db human
+dc underB
+dd downshift
+de boxquestion
+df boxsolid
+f0 badcommhi
+f1 commhi
+f2 commjag
+f3 commlo
+f4 clockleft
+f5 clockright
+d6 lock
+f7                8c      f0 eth            d              notgreater
+f8 leftarrow
+f9                8e      fe thorn          space          downstile
+fa keyleft
+fb keyright
+fc box4
+fd underA
+fe magcard
+ff boxhuman
+</PRE>

@@ -1,25 +1,22 @@
 #! /bin/sh
-# Dry run for x3270
+# Run x3270 from the current directory
 
-# bomb on any error
+# Bomb on any error
 set -e
 d=`pwd`/
 
-# say what you're doing
+# Say what you're doing
 set -x
 
-# set up the fonts
+# Set up the fonts
 mkfontdir .
 xset +fp $d
 xset fp rehash
 
-# set up the app-defaults
-XFILESEARCHPATH=X3270.ad; export XFILESEARCHPATH
-
-# run x3270
+# Run x3270
 set +e
 ./x3270 "$@"
 
-# clean up
+# Clean up
 xset -fp $d
 xset fp rehash

@@ -27,22 +27,48 @@
 #define HHALO	2	/* number of pixels to pad screen left-right */
 #define VHALO	1	/* number of pixels to pad screen top-bottom */
 
-#define X_TO_COL(x_pos)	(((x_pos)-HHALO) / *char_width)
-#define Y_TO_ROW(y_pos)	(((y_pos)-VHALO) / *char_height)
-#define COL_TO_X(col)	(((col) * *char_width)+HHALO)
-#define ROW_TO_Y(row)	((((row) * *char_height) + *char_height)+VHALO)
+#define cwX_TO_COL(x_pos, cw) 	(((x_pos)-HHALO) / (cw))
+#define chY_TO_ROW(y_pos, ch) 	(((y_pos)-VHALO) / (ch))
+#define cwCOL_TO_X(col, cw)	(((col) * (cw)) + HHALO)
+#define chROW_TO_Y(row, ch)	(((row)+1) * (ch) + VHALO)
 
-#define ssX_TO_COL(x_pos) (((x_pos)-HHALO) / ss->char_width)
-#define ssY_TO_ROW(y_pos) (((y_pos)-VHALO) / ss->char_height)
-#define ssCOL_TO_X(col)	(((col) * ss->char_width)+HHALO)
-#define ssROW_TO_Y(row)	((((row) * ss->char_height) + ss->char_height)+VHALO)
+#define ssX_TO_COL(x_pos) 	cwX_TO_COL(x_pos, ss->char_width)
+#define ssY_TO_ROW(y_pos) 	chY_TO_ROW(y_pos, ss->char_height)
+#define ssCOL_TO_X(col)		cwCOL_TO_X(col, ss->char_width)
+#define ssROW_TO_Y(row)		chROW_TO_Y(row, ss->char_height)
+
+#define X_TO_COL(x_pos) 	cwX_TO_COL(x_pos, *char_width)
+#define Y_TO_ROW(y_pos) 	chY_TO_ROW(y_pos, *char_height)
+#define COL_TO_X(col)		cwCOL_TO_X(col, *char_width)
+#define ROW_TO_Y(row)		chROW_TO_Y(row, *char_height)
 
 #define SGAP	((*efontinfo)->descent+3) 	/* gap between screen
 						   and status line */
+
+#define SCREEN_WIDTH(cw)	(cwCOL_TO_X(maxCOLS, cw) + HHALO)
+#define SCREEN_HEIGHT(ch)	(chROW_TO_Y(maxROWS, ch) + VHALO+SGAP+VHALO)
 
 /* selections */
 
 #define SELECTED(baddr)		(selected[(baddr)/8] & (1 << ((baddr)%8)))
 #define SET_SELECT(baddr)	(selected[(baddr)/8] |= (1 << ((baddr)%8)))
-#define SEL_BIT			4
-#define IMAGE_SEL		(SEL_BIT << 8)
+
+/*
+ * Screen position structure.
+ */
+union sp {
+	struct {
+		unsigned cg  : 8;	/* character code */
+		unsigned sel : 1;	/* selection status */
+		unsigned fg  : 6;	/* foreground color (flag/inv/0-15) */
+		unsigned gr  : 4;	/* graphic rendition */
+		unsigned cs  : 2;	/* character set */
+	} bits;
+	unsigned long word;
+};
+
+/*
+ * screen.c data structures. *
+ */
+extern int	 *char_width, *char_height;
+extern unsigned char *selected;		/* selection bitmap */

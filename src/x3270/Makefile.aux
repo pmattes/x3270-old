@@ -1,30 +1,44 @@
 # Auxiliary makefile for x3270
 
-TARDIR=x3270-3.0.2
+TARDIR=x3270-3.0.3
 
 all:
 	@echo "Must pick a specific make target."
 
 # Development tools.
 
-SOURCES = ansi.c apl.c ctlr.c keypad.c kybd.c macros.c menubar.c \
-	popups.c save.c screen.c scroll.c select.c status.c tables.c \
-	telnet.c trace_ds.c x3270.c
-HEADERS = 3270ds.h cg.h globals.h screen.h telnet.h
-BITMAPS = keypad.bm dot.bm arrow.bm ky.bm x3270.bm
-FONTS = 3270-12.bdf 3270-12b.bdf 3270.bdf 3270b.bdf 3270a.bdf 3270ab.bdf \
-	3270d.bdf
+SOURCES = Cme.c CmeBSB.c CmeLine.c CmplxMenu.c ansi.c apl.c ctlr.c keypad.c \
+	kybd.c macros.c menubar.c popups.c print.c save.c screen.c scroll.c \
+	select.c sf.c status.c tables.c telnet.c trace_ds.c util.c x3270.c
+HEADERS = 3270ds.h Cme.h CmeBSB.h CmeBSBP.h CmeLine.h CmeLineP.h CmeP.h \
+	CmplxMenu.h CmplxMenuP.h cg.h ctlr.h globals.h objects.h resources.h \
+	screen.h telnet.h
+BITMAPS = keypad.bm dot.bm arrow.bm diamond.bm no_diamond.bm ky.bm wait.bm \
+	x3270.bm
+FONTS = 3270.bdf 3270b.bdf 3270-12.bdf 3270-12b.bdf 3270-20.bdf 3270-20b.bdf \
+	3270d.bdf 3270h.bdf 3270gt8.bdf 3270gt12.bdf 3270gt12b.bdf \
+	3270gt16.bdf 3270gt16b.bdf 3270gt24.bdf 3270gt24b.bdf 3270gt32.bdf \
+	3270gt32b.bdf
 MISC = version.txt X3270.ad x3270.man x3270-script.man ibm_hosts.man \
-	Imakefile Imakefile.R4 mkversion.sh Makefile.aux Makefile.openwin \
-	dryrun README
+	mkfb.c Imakefile Imakefile.R4 mkversion.sh Makefile.aux \
+	Makefile.openwin dryrun example.ksh example.expect ibm_hosts \
+	Playback/playback.c Playback/playback.man Playback/Makefile \
+	README X3270.ad.diffs
 DOCS = Docs/Attributes Docs/FAQ Docs/Lineage Docs/Resources Docs/Bugs \
-	Docs/Build Docs/Charset Docs/Intro Docs/Wishlist Docs/New.3.0.2
+	Docs/Build Docs/Charset Docs/Intro Docs/Wishlist Docs/New.3.0.3
+HTML = README.html Docs/Attributes.html Docs/FAQ.html Docs/Lineage.html \
+	Docs/Resources.html Docs/Bugs.html Docs/Build.html \
+	Docs/Charset.html Docs/Intro.html Docs/Wishlist.html \
+	Docs/New.3.0.3.html Docs/x3270.man.html Docs/x3270-script.html \
+	Docs/ibm_hosts.html Docs/x3270.xbm
 
-FILES = $(SOURCES) $(HEADERS) $(BITMAPS) $(FONTS) $(MISC) $(DOCS)
+FILES = $(SOURCES) $(HEADERS) $(BITMAPS) $(FONTS) $(MISC) $(DOCS) $(HTML)
 
 tarlist: Makefile.aux
 	rm -f tarlist
-	for i in $(FILES); do echo $(TARDIR)/$$i; done >tarlist
+	for i in $(FILES); \
+	do echo $(TARDIR)/$$i; \
+	done >tarlist
 
 x3270.tar: $(FILES) tarlist
 	rm -f $(TARDIR)
@@ -38,14 +52,16 @@ x3270.tar.Z: x3270.tar
 x3270.tar.gz: x3270.tar
 	gzip < x3270.tar > $@
 
-x3270.uu: x3270.tar.Z
-	uuencode x3270.tar.Z < x3270.tar.Z > $@
+x3270.uu: x3270.tar.gz
+	. version.txt; \
+	uuencode x3270.tar.gz x3270-$$version.tar.gz < x3270.tar.gz > $@
 
 x3270.inflate: x3270.tar.Z
 	inflate x3270.tar.Z > $@
 
 lint:
-	lint -abhxz $(SOURCES) 2>&1 | tee lint.out
+	lint -abhxz $(SOURCES) -DLIBX3270DIR=\"/usr/lib/X11/x3270\" 2>&1 | \
+	 grep -v 'ossible pointer alignment problem' | tee lint.out
 
 ID: $(SOURCES) $(HEADERS)
 	mkid $(SOURCES) $(HEADERS)

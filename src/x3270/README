@@ -1,39 +1,47 @@
-x3270 Version 3.0.2
+x3270 3.0.3.7 General Release
 
-x3270 is an IBM 3278 terminal emulator for X windows.
+x3270 is an IBM 3278/3279 terminal emulator for X windows.
 
-Documentation is in the Docs directory.  The files are:
+Documentation is in the Docs directory. Each file is in two forms: a plain
+text file and a hypertext file with the suffix .html. The files are:
 
-    Intro	What x3270 is
+Intro 
+   What x3270 is 
+Lineage 
+   Where x3270 came from (copyright stuff) 
+Build 
+   How to build and install x3270 
+FAQ 
+   Frequently Asked Questions (what to do when something goes
+   wrong) 
+Attributes 
+   A translation table for 3270 field attributes 
+Resources 
+   Voluminous documentation of all the X resources used by x3270 
+Charset 
+   An explanation of x3270's use of fonts and character sets 
+New.3.0.3 
+   What's new in this release 
+Bugs 
+   What's broken in this release 
+Wishlist 
+   What isn't in this release 
 
-    Lineage	Where x3270 came from (copyright stuff)
+There is also a hypertext version of the x3270 man page, and of the man
+pages for x3270-script and ibm_hosts. 
 
-    Build	How to build and install x3270
+Please read Build before going ahead and building the program. Also, if you
+have a problem, scan through FAQ; there are lots of interesting answers
+there. 
 
-    FAQ		Frequently Asked Questions (what to do when something goes
-		 wrong)
-
-    Attributes	A translation table for 3270 field attributes
-
-    Resources	Voluminous documentation of all the X resources used by
-		x3270
-
-    Charset	An explanation of x3270's use of fonts and character sets
-
-    New.*	What's new in this release
-
-    Bugs	What's borken in this release
-
-    Wishlist	What isn't in this release
-
-Please read "Build" before going ahead and building the program.  Also, if you
-have a problem, scan through "FAQ"; there are lots of interesting answers
-there.
-
-Updates to x3270 are avaliable on ftp.x.org (export.lcs.mit.edu).  Fixes are
+Updates to x3270 are available on ftp.x.org and several X11R6 mirror sites,
+usually in the /contrib/applications/x3270 directory. Fixes are often
 distributed as patch files (you will need gnu patch to apply them) under the
-name fix.nn, e.g., the first fix to version 3.0.2 will be x3270-3.0.2.fix01.
+name fix.nn, e.g., the next fix to version 3.0.3 will be x3270-3.0.3.fix08. 
 
 Feel free to send comments, criticism, suggestions, complaints, etc., to Paul
-Mattes (x3270@cnt.com).  Problems will be addressed as time and resources
-permit.
+Mattes, x3270@cnt.com. Requests will be addressed as time and resources
+permit. 
+
+There is also an x3270 mailing list, which receives news about new releases.
+Send a message to x3270@cnt.com to get on the list. 

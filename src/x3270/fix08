@@ -1,0 +1,85 @@
+Changes from 3.0.3.7 to 3.0.3.8 (3.0.4.0?)
+
+The compose key didn't work with the "^" key.
+
+The 'playback' utility couldn't be built on AIX.
+
+The SysReq() action didn't produce trace messages.
+
+Found a much better way to handle NumLock on Sun keyboards.  Also
+fixed a bug in the FAQ, and documented ways to better utilize ANSI
+mode.  Fixes bug #333.
+
+Allow a connection to be broken with ECONNRESET without popping up an
+error message.  Fixes bug #334.
+
+Added a menu option to do rectangular selections in ANSI mode.
+
+Added a 20-point font.
+
+Added selection character classes: the -cc option and the charClass
+resource.
+
+Added pullright menus.
+
+Added a menu option for screen oversize, and clean up some of the oversize
+processing code.
+
+Propogate the CC= 'make' directive into the mkversion.sh script.
+
+The "ow" keymap modifier broke the Shift-Button1 move-cursor function.
+
+Added Save Options in File and clean up a lot of lint and warnings.
+
+Improved data stream tracing in ANSI mode.
+
+Added support for itelnetd via a 'p:' prefix.
+
+Another ANSI screen tracing fix.
+
+Fixed APL keyboard input.  Fixes bug #337.
+
+Build the app-defaults directly into x3270.  Create different app-defaults
+for monochrome and color.  Make the menus a little more Motif-like.
+
+Tightened up some duplicate strings.
+
+Some groundwork for background color and multiple character set support.
+
+Changed "GraphicsEscape" to "GraphicEscape" in traces.
+
+Changed keyboard entry of APL characters to include GEs.
+
+Made "-charset bracket" the default.
+
+Use ASCII ESC characters to identify characters with GEs in cut/paste text,
+_except_ for X'AD' and X'BD', which are generally cut/pasted as '[' and
+']'.
+
+Added support for 3270 line-drawing characters using GEs, and explicit
+non-support for APL characters in non-3270 and non-APL fonts.
+
+Added support for ANSI line-drawing characters and character sets.
+
+Give back old GCs when finished with them.
+
+Folded the APL font into the standard 3270 font.
+
+Implemented "color schemes", resources that control the X colors used to
+display 3270 colors.  These replace the multiple discrete resources used in
+the past.  The color scheme can be changed from a menu option.
+
+Added an Expect() action for scripts: Expect(string[,timeout]).  Pauses a
+script, waiting for a sequence of characters or a timeout (default 30
+seconds).  Valid in ANSI mode only.
+
+Fixed a bug where x3270 gave an extra script prompt if a hostname was
+put on the command line.
+
+Install a sample ibm_hosts file.  Made the default ibm_hosts path depend on the
+X11 configuration.
+
+Eliminated the -color and -extended options (they're still there for backwards
+confusion).  Made color (3279 mode) the default.  Lumped color and extended
+mode onto a new "model" syntax, with 3279-4-E or 3278-4-E the default,
+depending on the display depth.  Old color operation is now "-model 3278-4".

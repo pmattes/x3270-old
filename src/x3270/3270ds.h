@@ -20,44 +20,75 @@
  */
 
 /* 3270 commands */
-#define CMD_EAU		0x0f	/* erase all unprotected */
-#define CMD_EW		0x05	/* erase/write */
-#define CMD_EWA		0x0d	/* erase/write alternate */
-#define CMD_RB		0x02	/* read buffer */
-#define CMD_RM		0x06	/* read modified */
 #define CMD_W		0x01	/* write */
+#define CMD_RB		0x02	/* read buffer */
 #define CMD_NOP		0x03	/* no-op */
+#define CMD_EW		0x05	/* erase/write */
+#define CMD_RM		0x06	/* read modified */
+#define CMD_EWA		0x0d	/* erase/write alternate */
+#define CMD_RMA		0x0e	/* read modified all */
+#define CMD_EAU		0x0f	/* erase all unprotected */
+#define CMD_WSF		0x11	/* write structured field */
 
 /* SNA 3270 commands */
-#define SNA_CMD_EAU	0x6f
-#define SNA_CMD_EW	0xf5
-#define SNA_CMD_EWA	0x7e
-#define SNA_CMD_RB	0xf2
-#define SNA_CMD_RM	0xf6
-#define SNA_CMD_W	0xf1
+#define SNA_CMD_RMA	0x6e	/* read modified all */
+#define SNA_CMD_EAU	0x6f	/* erase all unprotected */
+#define SNA_CMD_EWA	0x7e	/* erase/write alternate */
+#define SNA_CMD_W	0xf1	/* write */
+#define SNA_CMD_RB	0xf2	/* read buffer */
+#define SNA_CMD_WSF	0xf3	/* write structured field */
+#define SNA_CMD_EW	0xf5	/* erase/write */
+#define SNA_CMD_RM	0xf6	/* read modified */
 
 /* 3270 orders */
-#define ORDER_SF	0x1d	/* start field */
-#define ORDER_SFE	0x29	/* start field extended */
-#define ORDER_SBA	0x11	/* set buffer address */
-#define ORDER_SA	0x28	/* set attribute */
-#define ORDER_MF	0x2c	/* modify field */
-#define ORDER_IC	0x13	/* insert cursor */
 #define ORDER_PT	0x05	/* program tab */
-#define ORDER_RA	0x3c	/* repeat to address */
-#define ORDER_EUA	0x12	/* erase unprotected to address */
 #define ORDER_GE	0x08	/* graphic escape */
+#define ORDER_SBA	0x11	/* set buffer address */
+#define ORDER_EUA	0x12	/* erase unprotected to address */
+#define ORDER_IC	0x13	/* insert cursor */
+#define ORDER_SF	0x1d	/* start field */
+#define ORDER_SA	0x28	/* set attribute */
+#define ORDER_SFE	0x29	/* start field extended */
 #define ORDER_YALE	0x2b	/* Yale sub command */
+#define ORDER_MF	0x2c	/* modify field */
+#define ORDER_RA	0x3c	/* repeat to address */
 
 #define FCORDER_NULL	0x00	/* format control: null */
-#define FCORDER_SUB	0x3f	/*		   substitute */
-#define FCORDER_DUP	0x1c	/*		   duplicate */
-#define FCORDER_FM	0x1e	/*		   field mark */
 #define FCORDER_FF	0x0c	/*		   form feed */
 #define FCORDER_CR	0x0d	/*		   carriage return */
 #define FCORDER_NL	0x15	/*		   new line */
 #define FCORDER_EM	0x19	/*		   end of medium */
+#define FCORDER_DUP	0x1c	/*		   duplicate */
+#define FCORDER_FM	0x1e	/*		   field mark */
+#define FCORDER_SUB	0x3f	/*		   substitute */
 #define FCORDER_EO	0xff	/*		   eight ones */
+
+/* Structured fields */
+#define SF_READ_PART	0x01	/* read partition */
+#define  SF_RP_QUERY	0x02	/*  query */
+#define  SF_RP_QLIST	0x03	/*  query list */
+#define   SF_RPQ_LIST	0x00	/*   QCODE list */
+#define   SF_RPQ_EQUIV	0x40	/*   equivalent+ QCODE list */
+#define   SF_RPQ_ALL	0x80	/*   all */
+#define SF_ERASE_RESET	0x03	/* erase/reset */
+#define  SF_ER_DEFAULT	0x00	/*  default */
+#define  SF_ER_ALT	0x80	/*  alternate */
+#define SF_SET_REPLY_MODE 0x09	/* set reply mode */
+#define  SF_SRM_FIELD	0x00	/*  field */
+#define  SF_SRM_XFIELD	0x01	/*  extended field */
+#define  SF_SRM_CHAR	0x02	/*  character */
+#define SF_OUTBOUND_DS	0x40	/* outbound 3270 DS */
+
+/* Query replies */
+#define QR_SUMMARY	0x80	/* summary */
+#define QR_USABLE_AREA	0x81	/* usable area */
+#define QR_ALPHA_PART	0x84	/* alphanumeric partitions */
+#define QR_CHARSETS	0x85	/* character sets */
+#define QR_COLOR	0x86	/* color */
+#define QR_HIGHLIGHTING	0x87	/* highlighting */
+#define QR_REPLY_MODES	0x88	/* reply modes */
+#define QR_IMP_PART	0xa6	/* implicit partition */
+#define QR_NULL		0xff	/* null */
 
 #define BA_TO_ROW(ba)		((ba) / COLS)
 #define BA_TO_COL(ba)		((ba) % COLS)
@@ -117,6 +148,8 @@
 	||						\
 	((c) & FA_INTENSITY) == FA_INT_HIGH_SEL		\
     )
+#define FA_IS_INTENSE(c)				\
+	((c & FA_INT_HIGH_SEL) == FA_INT_HIGH_SEL)
 
 /* Extended attributes */
 #define XA_ALL		0x00
@@ -133,8 +166,10 @@
 #define XA_HIGHLIGHTING	0x41
 #define  XAH_DEFAULT	0x00
 #define  XAH_NORMAL	0xf0
-#define  XAH_REVERSE	0xf1
+#define  XAH_BLINK	0xf1
+#define  XAH_REVERSE	0xf2
 #define  XAH_UNDERSCORE	0xf4
+#define  XAH_INTENSIFY	0xf8
 #define XA_FOREGROUND	0x42
 #define  XAC_DEFAULT	0x00
 #define XA_CHARSET	0x43
@@ -146,6 +181,7 @@
 #define  XAT_OPAQUE	0xff
 
 /* WCC definitions */
+#define WCC_RESET(c)		((c) & 0x40)
 #define WCC_START_PRINTER(c)	((c) & 0x08)
 #define WCC_SOUND_ALARM(c)	((c) & 0x04)
 #define WCC_KEYBOARD_RESTORE(c)	((c) & 0x02)
@@ -153,6 +189,7 @@
 
 /* AIDs */
 #define AID_NO		0x60	/* no AID generated */
+#define AID_QREPLY	0x61
 #define AID_ENTER	0x7d
 #define AID_PF1		0xf1
 #define AID_PF2		0xf2
@@ -186,3 +223,24 @@
 #define AID_PA3		0x6b
 #define AID_CLEAR	0x6d
 #define AID_SYSREQ	0xf0
+
+#define AID_SF		0x88
+#define SFID_QREPLY	0x81
+
+/* Colors */
+#define COLOR_NEUTRAL_BLACK	0
+#define COLOR_BLUE		1
+#define COLOR_RED		2
+#define COLOR_PINK		3
+#define COLOR_GREEN		4
+#define COLOR_TURQUOISE		5
+#define COLOR_YELLOW		6
+#define COLOR_NEUTRAL_WHITE	7
+#define COLOR_BLACK		8
+#define COLOR_DEEP_BLUE		9
+#define COLOR_ORANGE		10
+#define COLOR_PURPLE		11
+#define COLOR_PALE_GREEN	12
+#define COLOR_PALE_TURQUOISE	13
+#define COLOR_GREY		14
+#define COLOR_WHITE		15

@@ -1,5 +1,5 @@
 /*
- * Copyright 1993, 1994 by Paul Mattes.
+ * Copyright 1993, 1994, 1995 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -12,20 +12,9 @@
  *		ANSI terminal emulation.
  */
 
-#include <ctype.h>
-#include <X11/Intrinsic.h>
-#include <X11/Shell.h>
 #include "globals.h"
-
-/* Externals */
-extern unsigned char asc2cg[];
-extern int cursor_addr;
-extern Boolean is_altbuffer;
-extern unsigned char *screen_buf;
-extern unsigned char *ea_buf;
-
-/* Statics */
-static void ansi_scroll();
+#include <X11/Shell.h>
+#include "ctlr.h"
 
 #define	SC	1	/* save cursor position */
 #define RC	2	/* restore cursor position */
@@ -74,6 +63,13 @@ static void ansi_scroll();
 #define TB	45	/* text parameter done (ESC ] n ; xxx BEL) */
 #define TS	46	/* tab set */
 #define TC	47	/* tab clear */
+#define C2	48	/* character set designate (finish) */
+#define G0	49	/* select G0 character set */
+#define G1	50	/* select G1 character set */
+#define G2	51	/* select G2 character set */
+#define G3	52	/* select G3 character set */
+#define S2	53	/* select G2 for next character */
+#define S3	54	/* select G3 for next character */
 
 static enum state {
     DATA = 0, ESC = 1, CSDES = 2,
@@ -128,6 +124,13 @@ static enum state xterm_text();
 static enum state xterm_text_do();
 static enum state ansi_htab_set();
 static enum state ansi_htab_clear();
+static enum state ansi_cs_designate2();
+static enum state ansi_select_g0();
+static enum state ansi_select_g1();
+static enum state ansi_select_g2();
+static enum state ansi_select_g3();
+static enum state ansi_one_g2();
+static enum state ansi_one_g3();
 
 static enum state (*ansi_fn[])() = {
 /* 0 */		ansi_data_mode,
@@ -178,6 +181,13 @@ static enum state (*ansi_fn[])() = {
 /* 45 */	xterm_text_do,
 /* 46 */	ansi_htab_set,
 /* 47 */	ansi_htab_clear,
+/* 48 */	ansi_cs_designate2,
+/* 49 */	ansi_select_g0,
+/* 50 */	ansi_select_g1,
+/* 51 */	ansi_select_g2,
+/* 52 */	ansi_select_g3,
+/* 53 */	ansi_one_g2,
+/* 54 */	ansi_one_g3,
 };
 
 static unsigned char st[7][256] = {
@@ -186,7 +196,7 @@ static unsigned char st[7][256] = {
  */
 {
 	     /* 0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f  */
-/* 00 */       Xx,Xx,Xx,Xx,Xx,Xx,Xx,BL,BS,HT,LF,LF,NP,CR,Xx,Xx,
+/* 00 */       Xx,Xx,Xx,Xx,Xx,Xx,Xx,BL,BS,HT,LF,LF,NP,CR,G1,G0,
 /* 10 */       Xx,Xx,Xx,Xx,Xx,Xx,Xx,Xx,Xx,Xx,Xx,E1,Xx,Xx,Xx,Xx,
 /* 20 */       Pc,Pc,Pc,Pc,Pc,Pc,Pc,Pc,Pc,Pc,Pc,Pc,Pc,Pc,Pc,Pc,
 /* 30 */       Pc,Pc,Pc,Pc,Pc,Pc,Pc,Pc,Pc,Pc,Pc,Pc,Pc,Pc,Pc,Pc,
@@ -213,9 +223,9 @@ static unsigned char st[7][256] = {
 /* 10 */	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 /* 20 */	0, 0, 0, 0, 0, 0, 0, 0,CS,CS,CS,CS, 0, 0, 0, 0,
 /* 30 */	0, 0, 0, 0, 0, 0, 0,SC,RC, 0, 0, 0, 0, 0, 0, 0,
-/* 40 */	0, 0, 0, 0, 0,NL, 0, 0,TS, 0, 0, 0, 0,RI, 0, 0,
+/* 40 */	0, 0, 0, 0, 0,NL, 0, 0,TS, 0, 0, 0, 0,RI,S2,S3,
 /* 50 */	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,E2, 0,TM, 0, 0,
-/* 60 */	0, 0, 0,RS, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+/* 60 */	0, 0, 0,RS, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,G2,G3,
 /* 70 */	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 /* 80 */	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 /* 90 */	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -235,8 +245,8 @@ static unsigned char st[7][256] = {
 /* 00 */	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 /* 10 */	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 /* 20 */	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-/* 30 */	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-/* 40 */	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+/* 30 */       C2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+/* 40 */	0,C2,C2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 /* 50 */	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 /* 60 */	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 /* 70 */	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -343,25 +353,49 @@ static unsigned char st[7][256] = {
 },
 };
 
-static int saved_cursor = 0;
-#define NN	20
-static int n[NN], nx = 0;
-#define NT	256
-static char text[NT+1];
-static int tx = 0;
-static int ansi_ch;
-static unsigned char ea = 0;
-static int insert_mode = 0;
-static int auto_newline_mode = 0;
-static int appl_cursor = 0;		static int saved_appl_cursor = 0;
-static int wraparound_mode = 1;		static int saved_wraparound_mode = 1;
-static int rev_wraparound_mode = 0;	static int saved_rev_wraparound_mode = 0;
-static Boolean saved_altbuffer = False;
-static int scroll_top = -1;
-static int scroll_bottom = -1;
-static unsigned char tabs[(132+7)/8];
+/* Character sets. */
+#define CS_G0		0
+#define CS_G1		1
+#define CS_G2		2
+#define CS_G3		3
 
-static Boolean held_wrap = False;
+/* Character set designations. */
+#define CSD_LD		0
+#define CSD_UK		1
+#define CSD_US		2
+
+static int      saved_cursor = 0;
+#define NN	20
+static int      n[NN], nx = 0;
+#define NT	256
+static char     text[NT + 1];
+static int      tx = 0;
+static int      ansi_ch;
+static unsigned char gr = 0;
+static unsigned char fg = 0;
+static unsigned char bg = 0;
+static int	cset = CS_G0;
+static int	csd[4] = { CSD_US, CSD_US, CSD_US, CSD_US };
+static int	once_cset = -1;
+static int      insert_mode = 0;
+static int      auto_newline_mode = 0;
+static int      appl_cursor = 0;
+static int      saved_appl_cursor = 0;
+static int      wraparound_mode = 1;
+static int      saved_wraparound_mode = 1;
+static int      rev_wraparound_mode = 0;
+static int      saved_rev_wraparound_mode = 0;
+static Boolean  saved_altbuffer = False;
+static int      scroll_top = -1;
+static int      scroll_bottom = -1;
+static unsigned char *tabs = (unsigned char *) NULL;
+static char	gnnames[] = "()*+";
+static char	csnames[] = "0AB";
+static int	cs_to_change;
+
+static Boolean  held_wrap = False;
+
+static void     ansi_scroll();
 
 static enum state
 ansi_data_mode()
@@ -433,7 +467,12 @@ ansi_reset()
 	int i;
 	static Boolean first = True;
 
-	ea = 0;
+	gr = 0;
+	fg = 0;
+	bg = 0;
+	cset = CS_G0;
+	csd[0] = csd[1] = csd[2] = csd[3] = CSD_US;
+	once_cset = -1;
 	saved_cursor = 0;
 	insert_mode = 0;
 	auto_newline_mode = 0;
@@ -446,14 +485,17 @@ ansi_reset()
 	saved_altbuffer = False;
 	scroll_top = 1;
 	scroll_bottom = ROWS;
-	for (i = 0; i < sizeof(tabs); i++)
+	if (tabs == (unsigned char *)NULL)
+		XtFree((char *)tabs);
+	tabs = (unsigned char *)XtMalloc((COLS+7)/8);
+	for (i = 0; i < (COLS+7)/8; i++)
 		tabs[i] = 0x01;
 	held_wrap = False;
 	if (!first) {
 		ctlr_altbuffer(True);
 		ctlr_aclear(0, ROWS * COLS, 1);
 		ctlr_altbuffer(False);
-		ctlr_aclear(0, ROWS * COLS, 1);
+		ctlr_clear(False);
 	}
 	first = False;
 	return DATA;
@@ -563,6 +605,8 @@ int nn;
 		ctlr_aclear(0, cursor_addr + 1, 1);
 		break;
 	    case 2:	/* all (without moving cursor) */
+		if (cursor_addr == 0 && !is_altbuffer)
+			scroll_save(ROWS, True);
 		ctlr_aclear(0, ROWS * COLS, 1);
 		break;
 	}
@@ -667,10 +711,85 @@ int nn;
 }
 
 static enum state
-ansi_sgr(nn)
-int nn;
+ansi_sgr()
 {
-	ea = nn % 0xf;
+	int i;
+
+	for (i = 0; i <= nx && i < NN; i++)
+	    switch (n[i]) {
+		case 0:
+		    gr = 0;
+		    fg = 0;
+		    bg = 0;
+		    break;
+		case 1:
+		    gr |= GR_INTENSIFY;
+		    break;
+		case 4:
+		    gr |= GR_UNDERLINE;
+		    break;
+		case 5:
+		    gr |= GR_BLINK;
+		    break;
+		case 7:
+		    gr |= GR_REVERSE;
+		    break;
+		case 30:
+		    fg = 0xf0;	/* black */
+		    break;
+		case 31:
+		    fg = 0xf2;	/* red */
+		    break;
+		case 32:
+		    fg = 0xf4;	/* green */
+		    break;
+		case 33:
+		    fg = 0xf6;	/* yellow */
+		    break;
+		case 34:
+		    fg = 0xf1;	/* blue */
+		    break;
+		case 35:
+		    fg = 0xf3;	/* megenta */
+		    break;
+		case 36:
+		    fg = 0xfd;	/* cyan */
+		    break;
+		case 37:
+		    fg = 0xff;	/* white */
+		    break;
+		case 39:
+		    fg = 0;	/* default */
+		    break;
+		case 40:
+		    bg = 0xf0;	/* black */
+		    break;
+		case 41:
+		    bg = 0xf2;	/* red */
+		    break;
+		case 42:
+		    bg = 0xf4;	/* green */
+		    break;
+		case 43:
+		    bg = 0xf6;	/* yellow */
+		    break;
+		case 44:
+		    bg = 0xf1;	/* blue */
+		    break;
+		case 45:
+		    bg = 0xf3;	/* megenta */
+		    break;
+		case 46:
+		    bg = 0xfd;	/* cyan */
+		    break;
+		case 47:
+		    bg = 0xff;	/* white */
+		    break;
+		case 49:
+		    bg = 0;	/* default */
+		    break;
+	    }
+
 	return DATA;
 }
 
@@ -684,7 +803,7 @@ ansi_bell()
 static enum state
 ansi_newpage()
 {
-	ctlr_clear();
+	ctlr_clear(False);
 	return DATA;
 }
 
@@ -791,8 +910,28 @@ ansi_printing()
 
 	if (insert_mode)
 		(void) ansi_insert_chars(1);
-	ctlr_add(cursor_addr, asc2cg[ansi_ch]);
-	ctlr_add_ea(cursor_addr, ea);
+	switch (csd[(once_cset != -1) ? once_cset : cset]) {
+	    case CSD_LD:	/* line drawing "0" */
+		if (ansi_ch >= 0x5f && ansi_ch <= 0x7e)
+			ctlr_add(cursor_addr, (unsigned char)(ansi_ch - 0x5f),
+			    2);
+		else
+			ctlr_add(cursor_addr, asc2cg[ansi_ch], 0);
+		break;
+	    case CSD_UK:	/* UK "A" */
+		if (ansi_ch == '#')
+			ctlr_add(cursor_addr, 0x1e, 2);
+		else
+			ctlr_add(cursor_addr, asc2cg[ansi_ch], 0);
+		break;
+	    case CSD_US:	/* US "B" */
+		ctlr_add(cursor_addr, asc2cg[ansi_ch], 0);
+		break;
+	}
+	once_cset = -1;
+	ctlr_add_gr(cursor_addr, gr);
+	ctlr_add_fg(cursor_addr, fg);
+	ctlr_add_bg(cursor_addr, bg);
 	if (wraparound_mode) {
 		/*
 		 * There is a fascinating behavior of xterm which we will
@@ -938,7 +1077,57 @@ int nn;
 static enum state
 ansi_cs_designate()
 {
+	cs_to_change = strchr(gnnames, ansi_ch) - gnnames;
 	return CSDES;
+}
+
+static enum state
+ansi_cs_designate2()
+{
+	csd[cs_to_change] = strchr(csnames, ansi_ch) - csnames;
+	return DATA;
+}
+
+static enum state
+ansi_select_g0()
+{
+	cset = CS_G0;
+	return DATA;
+}
+
+static enum state
+ansi_select_g1()
+{
+	cset = CS_G1;
+	return DATA;
+}
+
+static enum state
+ansi_select_g2()
+{
+	cset = CS_G2;
+	return DATA;
+}
+
+static enum state
+ansi_select_g3()
+{
+	cset = CS_G3;
+	return DATA;
+}
+
+static enum state
+ansi_one_g2()
+{
+	once_cset = CS_G2;
+	return DATA;
+}
+
+static enum state
+ansi_one_g3()
+{
+	once_cset = CS_G3;
+	return DATA;
 }
 
 static enum state
@@ -956,6 +1145,9 @@ dec_set()
 		switch (n[i]) {
 		    case 1:	/* application cursor keys */
 			appl_cursor = 1;
+			break;
+		    case 2:	/* set G0-G3 */
+			csd[0] = csd[1] = csd[2] = csd[3] = CSD_US;
 			break;
 		    case 7:	/* wraparound mode */
 			wraparound_mode = 1;
@@ -1124,7 +1316,7 @@ int nn;
 		tabs[col/8] &= ~(1<<(col%8));
 		break;
 	    case 3:
-		for (i = 0; i < sizeof(tabs); i++)
+		for (i = 0; i < (COLS+7)/8; i++)
 			tabs[i] = 0;
 		break;
 	}
@@ -1140,8 +1332,12 @@ ansi_scroll()
 	held_wrap = False;
 
 	/* Save the top line */
-	if (scroll_top == 1 && scroll_bottom == ROWS && !is_altbuffer)
-		scroll_save(1);
+	if (scroll_top == 1 && scroll_bottom == ROWS) {
+		if (!is_altbuffer)
+			scroll_save(1, False);
+		ctlr_scroll();
+		return;
+	}
 
 	/* Scroll all but the last line up */
 	if (scroll_bottom > scroll_top)
@@ -1173,6 +1369,9 @@ unsigned int c;
 	ansi_ch = c;
 
 	scroll_to_bottom();
+
+	if (toggled(SCREEN_TRACE))
+		trace_char((char)c);
 
 	state = (*ansi_fn[st[(int)state][c]])(n[0], n[1]);
 }
@@ -1255,9 +1454,9 @@ int nn;
 }
 
 void
-toggle_wrap()
+toggle_lineWrap()
 {
-	if (toggled(LINEWRAP))
+	if (toggled(LINE_WRAP))
 		wraparound_mode = 1;
 	else
 		wraparound_mode = 0;

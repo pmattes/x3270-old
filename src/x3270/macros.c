@@ -1,5 +1,5 @@
 /*
- * Copyright 1993, 1994 by Paul Mattes.
+ * Copyright 1993, 1994, 1995 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -12,57 +12,63 @@
  *              This module handles macro and script processing.
  */
 
-#include <stdio.h>
-#include <ctype.h>
+#include "globals.h"
+#include <X11/StringDefs.h>
+#include <X11/Xaw/Dialog.h>
+#include <sys/wait.h>
 #include <errno.h>
-#include <unistd.h>
 #include <fcntl.h>
 #include <signal.h>
-#include <string.h>
-#include <memory.h>
-#include <sys/wait.h>
-#include <X11/Intrinsic.h>
-#include <X11/StringDefs.h>
-#include "globals.h"
 #include "3270ds.h"
+#include "ctlr.h"
 #include "screen.h"
+#include "resources.h"
 
 #define ANSI_SAVE_SIZE	4096
 
 /* Externals */
-extern Boolean kybdlock, oia_twait, oia_locked;
-extern unsigned char cg2asc[];
-extern unsigned char cg2ebc[];
-extern unsigned char *screen_buf;
-extern Boolean formatted;
-extern int cursor_addr;
-extern char *current_host;
-extern int linemode;
-extern FILE *tracef;
+extern int      linemode;
+extern FILE    *tracef;
 
 /* Globals */
 struct macro_def *macro_defs = (struct macro_def *)NULL;
 
 /* Statics */
-static struct macro_def *macro_last = (struct macro_def *)NULL;
+static struct macro_def *macro_last = (struct macro_def *) NULL;
 static XtInputId stdin_id;
-static char msc[1024];
-static int msc_len = 0;
+static char     msc[1024];
+static int      msc_len = 0;
 static enum {
-    SS_NONE,		/* not scripted */
-    SS_IDLE,		/* no script command active */
-    SS_RUNNING,		/* script command executing */
-    SS_KBWAIT,		/* script command awaiting keyboard unlock */
-    SS_PAUSED,		/* script blocked in PauseScript */
-    SS_CONNECT_WAIT,	/* script command awaiting connection to complete */
-    SS_WAIT,		/* wait command in progress */
-    SS_CLOSING		/* close command in progress */
+	SS_NONE,		/* not scripted */
+	SS_IDLE,		/* no script command active */
+	SS_RUNNING,		/* script command executing */
+	SS_KBWAIT,		/* script command awaiting keyboard unlock */
+	SS_PAUSED,		/* script blocked in PauseScript */
+	SS_CONNECT_WAIT,	/* script command awaiting connection to
+				 * complete */
+	SS_WAIT,		/* wait command in progress */
+	SS_EXPECTING,		/* expect command in progress */
+	SS_CLOSING		/* close command in progress */
 } script_state = SS_NONE;
-static Boolean script_success = True;
+static Boolean  script_success = True;
 static unsigned char *ansi_save_buf;
-static int ansi_save_cnt = 0;
-static int ansi_save_ix = 0;
-static void script_prompt();
+static int      ansi_save_cnt = 0;
+static int      ansi_save_ix = 0;
+static void     script_prompt();
+static char    *expect_text = CN;
+int		expect_len = 0;
+static XtIntervalId expect_id;
+static Boolean	script_any_input = False;
+
+/*
+ * Macro that defines when it's safe to continue a script.
+ */
+#define CAN_PROCEED ( \
+    (IN_3270 && formatted && cursor_addr && \
+      !(kybdlock & (KL_OIA_LOCKED | KL_OIA_TWAIT | KL_DEFERRED_UNLOCK))) || \
+    (IN_ANSI && !(kybdlock & KL_AWAITING_FIRST)) \
+)
+
 
 /*
  * Macro definitions look something like keymaps:
@@ -77,16 +83,48 @@ static void script_prompt();
 void
 macros_init()
 {
-	char *s, *name, *action;
+	char *s = CN;
+	char *name, *action;
 	struct macro_def *m;
 	int ns;
 	int ix = 1;
+	static char *last_s = CN;
 
-	if (!(s = appres.macros))
-		return;
-	s = XtNewString(s);
+	/* Free the previous macro definitions. */
+	while (macro_defs) {
+		m = macro_defs->next;
+		XtFree((XtPointer)macro_defs);
+		macro_defs = m;
+	}
+	macro_defs = (struct macro_def *)NULL;
+	macro_last = (struct macro_def *)NULL;
+	if (last_s) {
+		XtFree((XtPointer)last_s);
+		last_s = CN;
+	}
 
-	while ((ns = split_resource(&s, &name, &action)) == 1) {
+	/* Search for new ones. */
+	if (PCONNECTED) {
+		char *rname;
+		char *space;
+
+		rname = XtNewString(current_host);
+		if ((space = strchr(rname, ' ')))
+			*space = '\0';
+		s = xs_buffer("%s.%s", ResMacros, rname);
+		XtFree(rname);
+		rname = s;
+		s = get_resource(rname);
+		XtFree(rname);
+	}
+	if (!s) {
+		if (!(s = appres.macros))
+			return;
+		s = XtNewString(s);
+	}
+	last_s = s;
+
+	while ((ns = split_dresource(&s, &name, &action)) == 1) {
 		m = (struct macro_def *)XtMalloc(sizeof(*m));
 		m->name = name;
 		m->action = action;
@@ -118,16 +156,16 @@ script_init()
 	if (!appres.scripted)
 		return;
 
-	(void) setlinebuf(stdout);	/* even if it's a pipe */
+	(void) SETLINEBUF(stdout);	/* even if it's a pipe */
 
-	if (HALF_CONNECTED || (CONNECTED && !IN_3270 && !ansi_host))
+	if (HALF_CONNECTED || (CONNECTED && (kybdlock & KL_AWAITING_FIRST)))
 		script_state = SS_CONNECT_WAIT;
 	else {
 		script_state = SS_IDLE;
 		stdin_id = XtAppAddInput(appcontext, fileno(stdin),
 		    (XtPointer)XtInputReadMask,
 		    (XtInputCallbackProc)script_input,
-		    (XtPointer)fileno(stdin));
+		    (XtPointer)(long)fileno(stdin));
 	}
 
 	ansi_save_buf = (unsigned char *)XtMalloc(ANSI_SAVE_SIZE);
@@ -139,7 +177,8 @@ script_init()
  */
 enum em_stat { EM_CONTINUE, EM_PAUSE, EM_ERROR };
 static enum em_stat
-execute_command(s, np)
+execute_command(cause, s, np)
+enum iaction cause;
 char *s;
 char **np;
 {
@@ -154,7 +193,7 @@ char **np;
 		ME_PARMx	/* saw whitespace after parameter */
 	} state = ME_GND;
 	char c;
-	char action_name[64+1];
+	char aname[64+1];
 	char parm[1024+1];
 	int nx;
 	Cardinal count = 0;
@@ -163,28 +202,29 @@ char **np;
 	int failreason = 0;
 	static char *fail_text[] = {
 		/*1*/ "Action name must begin with an alphanumeric character",
-		/*2*/ "Syntax error, '(' expected",
-		/*3*/ "Syntax error, ')' expected"
+		/*2*/ "Syntax error, \"(\" expected",
+		/*3*/ "Syntax error, \")\" expected",
+		/*4*/ "Extra data after parameters"
 	};
 #define fail(n) { failreason = n; goto failure; }
 
 	parm[0] = '\0';
 	params[count] = parm;
 
-	while (c = *s++) switch (state) {
+	while ((c = *s++)) switch (state) {
 	    case ME_GND:
 		if (isspace(c))
 			continue;
 		else if (isalnum(c)) {
 			state = ME_FUNCTION;
 			nx = 0;
-			action_name[nx++] = c;
+			aname[nx++] = c;
 		} else
 			fail(1);
 		break;
 	    case ME_FUNCTION:
 		if (c == '(' || isspace(c)) {
-			action_name[nx] = '\0';
+			aname[nx] = '\0';
 			if (c == '(') {
 				nx = 0;
 				state = ME_LPAREN;
@@ -192,7 +232,7 @@ char **np;
 				state = ME_FUNCTIONx;
 		} else if (isalnum(c)) {
 			if (nx < 64)
-				action_name[nx++] = c;
+				aname[nx++] = c;
 		} else
 			fail(2);
 		break;
@@ -239,10 +279,14 @@ char **np;
 		}
 		break;
 	    case ME_BSL:
-		if (c != '"' && nx < 1024)
-			parm[nx++] = '\\';
-		if (nx < 1024)
-			parm[nx++] = c;
+		if (c == 'n' && nx < 1024)
+			parm[nx++] = '\n';
+		else {
+			if (c != '"' && nx < 1024)
+				parm[nx++] = '\\';
+			if (nx < 1024)
+				parm[nx++] = c;
+		}
 		state = ME_QPARM;
 		break;
 	    case ME_QPARM:
@@ -270,7 +314,7 @@ char **np;
 	/* Terminal state. */
 	switch (state) {
 	    case ME_FUNCTION:
-		action_name[nx] = '\0';
+		aname[nx] = '\0';
 		break;
 	    case ME_FUNCTIONx:
 		break;
@@ -290,15 +334,24 @@ char **np;
 			if (np)
 				*np = s;
 			else
-				popup_an_error("Extra data after parameters");
+				fail(4);
 		} else if (np)
 			*np = s;
 	} else if (np)
 		*np = s-1;
 
+	/* If it's a macro, do variable substitutions. */
+	if (cause == IA_MACRO) {
+		int j;
+
+		for (j = 0; j < count; j++)
+			params[j] = do_subst(params[j], True, False);
+	}
+
 	/* Search the action list. */
 	for (i = 0; i < actioncount; i++) {
-		if (!strcmp(action_name, actions[i].string)) {
+		if (!strcmp(aname, actions[i].string)) {
+			ia_cause = cause;
 			(*actions[i].proc)((Widget)NULL, (XEvent *)NULL,
 				count ? params : (String *)NULL,
 				&count);
@@ -307,12 +360,20 @@ char **np;
 		}
 	}
 
+	/* If it's a macro, undo variable substitutions. */
+	if (cause == IA_MACRO) {
+		int j;
+
+		for (j = 0; j < count; j++)
+			XtFree(params[j]);
+	}
+
 	if (i >= actioncount) {
-		xs_popup_an_error("Unknown action: %s", action_name);
+		popup_an_error("Unknown action: %s", aname);
 		return EM_ERROR;
 	}
 
-	if (oia_locked || oia_twait)
+	if (kybdlock & (KL_OIA_LOCKED | KL_OIA_TWAIT | KL_DEFERRED_UNLOCK))
 		return EM_PAUSE;
 	else
 		return EM_CONTINUE;
@@ -320,12 +381,12 @@ char **np;
     failure:
 	popup_an_error(fail_text[failreason-1]);
 	return EM_ERROR;
-}
 #undef fail
+}
 
 /* Public wrapper for macro version of execute_command(). */
 
-static char *pending_macro = (char *)NULL;
+static char *pending_macro = CN;
 
 static void
 run_pending_macro()
@@ -333,11 +394,11 @@ run_pending_macro()
 	char *a = pending_macro;
 	char *nextm;
 
-	pending_macro = (char *)NULL;
+	pending_macro = CN;
 
 	/* Keep executing commands off the line until one pauses. */
 	while (1) {
-		switch (execute_command(a, &nextm)) {
+		switch (execute_command(IA_MACRO, a, &nextm)) {
 		    case EM_ERROR:
 			return;			/* failed, abort others */
 		    case EM_CONTINUE:
@@ -372,7 +433,6 @@ run_msc()
 	char *ptr;
 	int cmd_len;
 	enum em_stat es;
-	char *np;
 
 	while ((int)script_state <= (int)SS_IDLE && msc_len) {
 
@@ -386,9 +446,9 @@ run_msc()
 		/* Execute it. */
 		script_state = SS_RUNNING;
 		script_success = True;
-		if (toggled(TRACE))
+		if (toggled(DS_TRACE))
 			(void) fprintf(tracef, "Script: %s\n", msc);
-		es = execute_command(msc, (char **)NULL);
+		es = execute_command(IA_SCRIPT, msc, (char **)NULL);
 		if (es == EM_PAUSE || (int)script_state >= (int)SS_KBWAIT) {
 			if (script_state == SS_RUNNING)
 				script_state = SS_KBWAIT;
@@ -400,7 +460,7 @@ run_msc()
 				return;
 			}
 		} else if (es == EM_ERROR) {
-			if (toggled(TRACE))
+			if (toggled(DS_TRACE))
 				(void) fprintf(tracef, "script error\n");
 			script_prompt(False);
 		} else
@@ -408,7 +468,7 @@ run_msc()
 		if (script_state == SS_RUNNING)
 			script_state = SS_IDLE;
 		else {
-			if (toggled(TRACE))
+			if (toggled(DS_TRACE))
 				(void) fprintf(tracef, "Script paused.\n");
 		}
 
@@ -443,13 +503,18 @@ XtPointer fd;
 	/* Read in what you can. */
 	nr = read((int)fd, buf, sizeof(buf));
 	if (nr < 0) {
-		popup_an_errno("script read", errno);
+		popup_an_errno(errno, "script read");
 		return;
 	}
-	if (nr == 0)
+	if (nr == 0) {
 		x3270_exit(0);
+		return;
+	}
 
-	/* Append it to the pending command, ignoring returns. */
+	/* Note that the script has spoken. */
+	script_any_input = True;
+
+	/* Append to the pending command, ignoring returns. */
 	ptr = buf;
 	while (nr--)
 		if ((c = *ptr++) != '\r')
@@ -462,12 +527,13 @@ XtPointer fd;
 static void
 script_restart()
 {
-	script_prompt(script_success);
+	if (script_any_input)
+		script_prompt(script_success);
 	stdin_id = XtAppAddInput(appcontext, fileno(stdin),
 	    (XtPointer)XtInputReadMask, (XtInputCallbackProc)script_input,
-	    (XtPointer)fileno(stdin));
+	    (XtPointer)(long)fileno(stdin));
 	script_state = SS_IDLE;
-	if (toggled(TRACE))
+	if (toggled(DS_TRACE))
 		(void) fprintf(tracef, "Script continued.\n");
 
 	/* There may be other commands backed up behind this one. */
@@ -480,7 +546,7 @@ script_continue()
 {
 	/* Handle pending macros first. */
 	if (pending_macro) {
-		if (oia_twait || oia_locked)
+		if (kybdlock & (KL_OIA_LOCKED|KL_OIA_TWAIT|KL_DEFERRED_UNLOCK))
 			return;
 		run_pending_macro();
 		if (pending_macro)
@@ -493,19 +559,20 @@ script_continue()
 	if (script_state == SS_PAUSED)
 		return;
 
+	if (script_state == SS_EXPECTING)
+		return;
+
 	if ((int)script_state >= (int)SS_CONNECT_WAIT) {
-		if (HALF_CONNECTED || (CONNECTED && !IN_3270 && !ansi_host))
+		if (HALF_CONNECTED ||
+		    (CONNECTED && (kybdlock & KL_AWAITING_FIRST)))
 			return;
 	}
 
-	if (script_state == SS_WAIT) {
-		if (!IN_3270 || !formatted || oia_twait || oia_locked ||
-		    !cursor_addr)
+	if ((script_state == SS_WAIT) && !CAN_PROCEED)
 		return;
-	}
 
 	if (script_state == SS_KBWAIT) {
-		if (oia_twait || oia_locked)
+		if (kybdlock & (KL_OIA_LOCKED|KL_OIA_TWAIT|KL_DEFERRED_UNLOCK))
 			return;
 	}
 	script_restart();
@@ -554,7 +621,7 @@ Cardinal count;
 char *name;
 Boolean in_ascii;
 {
-	int row, col, len;
+	int row, col, len, rows, cols;
 
 	switch (count) {
 	    case 0:	/* everything */
@@ -567,22 +634,40 @@ Boolean in_ascii;
 		col = cursor_addr % COLS;
 		len = atoi(params[0]);
 		break;
-	    case 3:	/* spelled out */
+	    case 3:	/* from (row,col), for n */
 		row = atoi(params[0]);
 		col = atoi(params[1]);
 		len = atoi(params[2]);
 		break;
+	    case 4:	/* from (row,col), for rows x cols */
+		row = atoi(params[0]);
+		col = atoi(params[1]);
+		rows = atoi(params[2]);
+		cols = atoi(params[3]);
+		len = 0;
+		break;
 	    default:
-		xs_popup_an_error("%s requires 0, 1 or 3 arguments", name);
+		popup_an_error("%s requires 0, 1, 3 or 4 arguments", name);
 		return;
 	}
 
-	if (row < 0 || row > ROWS || col < 0 || col > COLS || len < 0 ||
-	    (row * COLS) + col + len > ROWS * COLS) {
-		xs_popup_an_error("%s: Invalid argument", name);
+	if (
+	    (row < 0 || row > ROWS || col < 0 || col > COLS || len < 0) ||
+	    ((count < 4)  && ((row * COLS) + col + len > ROWS * COLS)) ||
+	    ((count == 4) && (cols < 0 || rows < 0 ||
+			      col + cols > COLS || row + rows > ROWS))
+	   ) {
+		popup_an_error("%s: Invalid argument", name);
 		return;
 	}
-	dump_range((row * COLS) + col, len, in_ascii);
+	if (count < 4)
+		dump_range((row * COLS) + col, len, in_ascii);
+	else {
+		int i;
+
+		for (i = 0; i < rows; i++)
+			dump_range(((row+i) * COLS) + col, cols, in_ascii);
+	}
 }
 
 static void
@@ -596,11 +681,11 @@ Boolean in_ascii;
 	int len = 0;
 
 	if (count != 0) {
-		xs_popup_an_error("%s requires 0 arguments", name);
+		popup_an_error("%s requires 0 arguments", name);
 		return;
 	}
 	if (!formatted) {
-		xs_popup_an_error("%s: Screen is not formatted", name);
+		popup_an_error("%s: Screen is not formatted", name);
 		return;
 	}
 	fa = get_field_attribute(cursor_addr);
@@ -624,7 +709,7 @@ XEvent *event;
 String *params;
 Cardinal *num_params;
 {
-	dump_fixed(params, *num_params, "Ascii", True);
+	dump_fixed(params, *num_params, action_name(ascii_fn), True);
 }
 
 /*ARGSUSED*/
@@ -635,7 +720,7 @@ XEvent *event;
 String *params;
 Cardinal *num_params;
 {
-	dump_field(*num_params, "AsciiField", True);
+	dump_field(*num_params, action_name(ascii_field_fn), True);
 }
 
 /*ARGSUSED*/
@@ -646,7 +731,7 @@ XEvent *event;
 String *params;
 Cardinal *num_params;
 {
-	dump_fixed(params, *num_params, "Ebcdic", False);
+	dump_fixed(params, *num_params, action_name(ebcdic_fn), False);
 }
 
 /*ARGSUSED*/
@@ -657,7 +742,7 @@ XEvent *event;
 String *params;
 Cardinal *num_params;
 {
-	dump_field(*num_params, "EbcdicField", False);
+	dump_field(*num_params, action_name(ebcdic_fn), False);
 }
 
 /*
@@ -702,9 +787,13 @@ Boolean success;
 	Boolean free_connect = False;
 	char em_mode;
 
+	if (toggled(DS_TRACE))
+		(void) fprintf(tracef, "Script prompting.\n");
+
 	if (!kybdlock)
 		kb_stat = 'U';
-	else if (!CONNECTED || oia_twait || oia_locked)
+	else if (!CONNECTED ||
+		 (kybdlock & (KL_OIA_LOCKED|KL_OIA_TWAIT|KL_DEFERRED_UNLOCK)))
 		kb_stat = 'L';
 	else
 		kb_stat = 'E';
@@ -745,7 +834,7 @@ Boolean success;
 	} else
 		em_mode = 'N';
 
-	(void) printf("%c %c %c %s %c %d %d %d %d %d 0x%x\n%s\n",
+	(void) printf("%c %c %c %s %c %d %d %d %d %d 0x%lx\n%s\n",
 	    kb_stat,
 	    fmt_stat,
 	    prot_stat,
@@ -772,21 +861,20 @@ XEvent *event;
 String *params;
 Cardinal *num_params;
 {
-	if (*num_params != 0) {
-		popup_an_error("Wait requires 0 arguments");
+	if (check_usage(wait_fn, *num_params, 0, 0) < 0)
 		return;
-	}
 	if (script_state != SS_RUNNING) {
-		popup_an_error("Wait: can only be called from scripts");
+		popup_an_error("%s: can only be called from scripts",
+		    action_name(wait_fn));
 		return;
 	}
 	if (!(CONNECTED || HALF_CONNECTED)) {
-		popup_an_error("Wait: not connected");
+		popup_an_error("%s: not connected", action_name(wait_fn));
 		return;
 	}
 
 	/* Is it already okay? */
-	if (IN_3270 && formatted && !oia_twait && !oia_locked && cursor_addr)
+	if (CAN_PROCEED)
 		return;
 
 	/* No, wait for it to happen. */
@@ -797,7 +885,8 @@ void
 script_connect_wait()
 {
 	if ((int)script_state >= (int)SS_RUNNING) {
-		if (HALF_CONNECTED || (CONNECTED && !IN_3270 && !ansi_host))
+		if (HALF_CONNECTED ||
+		    (CONNECTED && (kybdlock & KL_AWAITING_FIRST)))
 			script_state = SS_CONNECT_WAIT;
 	}
 }
@@ -808,15 +897,146 @@ scripting()
 	return (int)script_state > (int)SS_IDLE;
 }
 
+/* Translate an expect string (uses C escape syntax). */
+static void
+expand_expect(s)
+char *s;
+{
+	char *t = XtMalloc(strlen(s) + 1);
+	char c;
+	enum { XS_BASE, XS_BS, XS_O, XS_X } state = XS_BASE;
+	int n;
+	int nd;
+	static char hexes[] = "0123456789abcdef";
+
+	expect_text = t;
+
+	while ((c = *s++)) {
+		switch (state) {
+		    case XS_BASE:
+			if (c == '\\')
+				state = XS_BS;
+			else
+				*t++ = c;
+			break;
+		    case XS_BS:
+			switch (c) {
+			    case 'x':
+				nd = 0;
+				n = 0;
+				state = XS_X;
+				break;
+			    case 'r':
+				*t++ = '\r';
+				state = XS_BASE;
+				break;
+			    case 'n':
+				*t++ = '\n';
+				state = XS_BASE;
+				break;
+			    case 'b':
+				*t++ = '\b';
+				state = XS_BASE;
+				break;
+			    default:
+				if (c >= '0' && c <= '7') {
+					nd = 1;
+					n = c - '0';
+					state = XS_O;
+				} else {
+					*t++ = c;
+					state = XS_BASE;
+				}
+				break;
+			}
+			break;
+		    case XS_O:
+			if (nd < 3 && c >= '0' && c <= '7') {
+				n = (n * 8) + (c - '0');
+				nd++;
+			} else {
+				*t++ = n;
+				*t++ = c;
+				state = XS_BASE;
+			}
+			break;
+		    case XS_X:
+			if (isxdigit(c)) {
+				n = (n * 16) +
+				    strchr(hexes, tolower(c)) - hexes;
+				nd++;
+			} else {
+				if (nd) 
+					*t++ = n;
+				else
+					*t++ = 'x';
+				*t++ = c;
+				state = XS_BASE;
+			}
+			break;
+		}
+	}
+	expect_len = t - expect_text;
+}
+
+/* 'mem' version of strstr */
+static char *
+memstr(s1, s2, n1, n2)
+char *s1;
+char *s2;
+int n1;
+int n2;
+{
+	int i;
+
+	for (i = 0; i <= n1 - n2; i++, s1++)
+		if (*s1 == *s2 && !memcmp(s1, s2, n2))
+			return s1;
+	return CN;
+}
+
+/* Check for a match against an expect string. */
+static Boolean
+expect_matches()
+{
+	int ix, i;
+	unsigned char buf[ANSI_SAVE_SIZE];
+	unsigned char c;
+	char *t;
+
+	ix = (ansi_save_ix + ANSI_SAVE_SIZE - ansi_save_cnt) % ANSI_SAVE_SIZE;
+	for (i = 0; i < ansi_save_cnt; i++) {
+		c = ansi_save_buf[(ix + i) % ANSI_SAVE_SIZE];
+		if (c)
+			buf[i] = c;
+	}
+	t = memstr((char *)buf, expect_text, ansi_save_cnt, expect_len);
+	if (t != CN) {
+		ansi_save_cnt -=
+		    ((unsigned char *)t - buf) + strlen(expect_text) - 1;
+		XtFree(expect_text);
+		expect_text = CN;
+		return True;
+	} else
+		return False;
+}
+
 /* Store an ANSI character for use by the Ansi action. */
 void
 script_store(c)
 unsigned char c;
 {
+	/* Save the character in the buffer. */
 	ansi_save_buf[ansi_save_ix++] = c;
 	ansi_save_ix %= ANSI_SAVE_SIZE;
 	if (ansi_save_cnt < ANSI_SAVE_SIZE)
 		ansi_save_cnt++;
+
+	/* If a script is waiting to match a string, check now. */
+	if (script_state == SS_EXPECTING && expect_matches()) {
+		XtRemoveTimeOut(expect_id);
+		script_restart();
+	}
 }
 
 /* Dump whatever ANSI data has been sent by the host since last called. */
@@ -884,7 +1104,8 @@ String *params;
 Cardinal *num_params;
 {
 	if (w) {
-		popup_an_error("PauseScript can only be called from a script");
+		popup_an_error("%s can only be called from a script",
+		    action_name(pause_script_fn));
 		return;
 	}
 	script_state = SS_PAUSED;
@@ -900,14 +1121,13 @@ String *params;
 Cardinal *num_params;
 {
 	if (script_state != SS_PAUSED) {
-		popup_an_error("ContinueScript: No script waiting");
+		popup_an_error("%s: No script waiting",
+		    action_name(continue_script_fn));
 		return;
 	}
-	if (*num_params != 1) {
-		popup_an_error("ContinueScript requires 1 argument");
+	if (check_usage(continue_script_fn, *num_params, 1, 1) < 0)
 		return;
-	}
-	printf("data: %s\n", params[0]);
+	(void) printf("data: %s\n", params[0]);
 	script_state = SS_RUNNING;
 	script_restart();
 }
@@ -921,9 +1141,108 @@ XEvent *event;
 String *params;
 Cardinal *num_params;
 {
-	if (*num_params != 1) {
-		popup_an_error("Execute requires 1 argument");
+	if (check_usage(execute_fn, *num_params, 1, 1) < 0)
+		return;
+	(void) system(params[0]);
+}
+
+/* Timeout for Expect action. */
+/*ARGSUSED*/
+static void
+expect_timed_out(closure, id)
+XtPointer closure;
+XtIntervalId *id;
+{
+	if (script_state != SS_EXPECTING)
+		return;
+
+	XtFree(expect_text);
+	expect_text = CN;
+	popup_an_error("%s(): Timed out", action_name(expect_fn));
+	script_success = False;
+	script_restart();
+}
+
+/* Wait for a string from the host (ANSI mode only). */
+/*ARGSUSED*/
+void
+expect_fn(w, event, params, num_params)
+Widget w;
+XEvent *event;
+String *params;
+Cardinal *num_params;
+{
+	int tmo;
+
+	/* Verify the environment and parameters. */
+	if (w) {
+		popup_an_error("%s can only be called from a script",
+		    action_name(expect_fn));
 		return;
 	}
-	(void) system(params[0]);
+	if (check_usage(expect_fn, *num_params, 1, 2) < 0)
+		return;
+	if (!IN_ANSI) {
+		popup_an_error("%s() is valid only when connected in ANSI mode",
+		    action_name(expect_fn));
+	}
+	if (*num_params == 2) {
+		tmo = atoi(params[1]);
+		if (tmo < 1 || tmo > 600) {
+			popup_an_error("%s(): Invalid timeout: %s",
+			    action_name(expect_fn), params[1]);
+			return;
+		}
+	} else
+		tmo = 30;
+
+	/* See if the text is there already; if not, wait for it. */
+	expand_expect(params[0]);
+	if (!expect_matches()) {
+		expect_id = XtAppAddTimeOut(appcontext, tmo * 1000,
+		    expect_timed_out, 0);
+		script_state = SS_EXPECTING;
+	}
+	/* else allow script to proceed */
+}
+
+
+/* "Execute an Action" menu option */
+
+static Widget execute_action_shell = (Widget)NULL;
+
+/* Callback for "OK" button on execute action popup */
+/*ARGSUSED*/
+static void
+execute_action_callback(w, client_data, call_data)
+Widget w;
+XtPointer client_data;
+XtPointer call_data;
+{
+	char *text;
+
+	text = XawDialogGetValueString((Widget)client_data);
+	XtPopdown(execute_action_shell);
+	if (!text)
+		return;
+	if (pending_macro) {
+		popup_an_error("Macro already pending");
+		return;
+	}
+	pending_macro = text;
+	run_pending_macro();
+}
+
+/*ARGSUSED*/
+void
+execute_action_option(w, client_data, call_data)
+Widget w;
+XtPointer client_data;
+XtPointer call_data;
+{
+	if (execute_action_shell == NULL)
+		execute_action_shell = create_form_popup("ExecuteAction",
+		    execute_action_callback, (XtCallbackProc)NULL, False);
+
+	popup_popup(execute_action_shell, XtGrabExclusive);
 }

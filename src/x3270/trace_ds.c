@@ -1,5 +1,5 @@
 /*
- * Copyright 1993, 1994 by Paul Mattes.
+ * Copyright 1993, 1994, 1995 by Paul Mattes.
  *   Permission to use, copy, modify, and distribute this software and its
  *   documentation for any purpose and without fee is hereby granted,
  *   provided that the above copyright notice appear in all copies and that
@@ -12,34 +12,41 @@
  *		3270 data stream tracing.
  *
  */
-#include <sys/types.h>
-#include <stdio.h>
-#include <errno.h>
-#include <signal.h>
-#include <X11/Intrinsic.h>
+
+#include "globals.h"
 #include <X11/StringDefs.h>
 #include <X11/Xaw/Dialog.h>
-#include "globals.h"
+#include <errno.h>
+#include <signal.h>
+#include <time.h>
+#if defined(__STDC__)
+#include <stdarg.h>
+#else
+#include <varargs.h>
+#endif
 #include "3270ds.h"
+#include "resources.h"
+#include "ctlr.h"
 
 /* Externals */
-extern unsigned char ebc2asc[];
-extern char *build;
+extern char    *build;
 
 /* Statics */
-static int dscnt = 0;
-static int tracewindow_pid = -1;
+static int      dscnt = 0;
+static int      tracewindow_pid = -1;
 
 /* Globals */
-FILE *tracef = (FILE *)0;
+FILE           *tracef = (FILE *) 0;
+struct timeval  ds_ts;
+Boolean         trace_skipping = False;
 
-static char *
+char *
 unknown(value)
 unsigned char value;
 {
 	static char buf[64];
 
-	(void) sprintf(buf, "unknown[%x]", value);
+	(void) sprintf(buf, "unknown[0x%x]", value);
 	return buf;
 }
 
@@ -50,7 +57,7 @@ int baddr;
 {
 	static char buf[16];
 
-	(void) sprintf(buf, "(%d,%d)", baddr/COLS, baddr%COLS);
+	(void) sprintf(buf, "(%d,%d)", baddr/COLS + 1, baddr%COLS + 1);
 	return buf;
 }
 
@@ -160,6 +167,8 @@ unsigned char code;
 		return "Clear";
 	case AID_SYSREQ: 
 		return "SysReq";
+	case AID_QREPLY:
+		return "QueryReplyAID";
 	default: 
 		return unknown(code);
 	}
@@ -229,28 +238,32 @@ unsigned char setting;
 		return "default";
 	    case XAH_NORMAL:
 		return "normal";
+	    case XAH_BLINK:
+		return "blink";
 	    case XAH_REVERSE:
 		return "reverse";
 	    case XAH_UNDERSCORE:
 		return "underscore";
+	    case XAH_INTENSIFY:
+		return "intensify";
 	    default:
 		return unknown(setting);
 	}
 }
 
-static char *
+char *
 see_color(setting)
 unsigned char setting;
 {
 	static char *color_name[] = {
-	    "neutral/black",
+	    "neutralBlack",
 	    "blue",
 	    "red",
 	    "pink",
 	    "green",
 	    "turquoise",
 	    "yellow",
-	    "neutral/white",
+	    "neutralWhite",
 	    "black",
 	    "deepBlue",
 	    "orange",
@@ -388,29 +401,89 @@ unsigned char value;
 		(void) sprintf(buf, " transparency(%s)", see_transparency(value));
 		break;
 	    default:
-		(void) sprintf(buf, " %s(%x)", unknown(efa), value);
+		(void) sprintf(buf, " %s[0x%x]", unknown(efa), value);
 	}
 	return buf;
 }
 
+char *
+see_efa_only(efa)
+unsigned char efa;
+{
+	switch (efa) {
+	    case XA_ALL:
+		return "all";
+	    case XA_3270:
+		return "3270";
+	    case XA_VALIDATION:
+		return "validation";
+	    case XA_OUTLINING:
+		return "outlining";
+	    case XA_HIGHLIGHTING:
+		return "highlighting";
+	    case XA_FOREGROUND:
+		return "foreground";
+	    case XA_CHARSET:
+		return "charset";
+	    case XA_BACKGROUND:
+		return "background";
+	    case XA_TRANSPARENCY:
+		return "transparency";
+	    default:
+		return unknown(efa);
+	}
+}
+
+char *
+see_qcode(id)
+unsigned char id;
+{
+	static char buf[64];
+
+	switch (id) {
+	    case QR_CHARSETS:
+		return "CharacterSets";
+	    case QR_IMP_PART:
+		return "ImplicitPartition";
+	    case QR_SUMMARY:
+		return "Summary";
+	    case QR_USABLE_AREA:
+		return "UsableArea";
+	    case QR_COLOR:
+		return "Color";
+	    case QR_HIGHLIGHTING:
+		return "Highlighting";
+	    case QR_REPLY_MODES:
+		return "ReplyModes";
+	    case QR_ALPHA_PART:
+		return "AlphanumericPartitions";
+	    default:
+		(void) sprintf(buf, "unknown[0x%x]", id);
+		return buf;
+	}
+}
+
 /* Data Stream trace print, handles line wraps */
 
-void
-trace_ds(s)
+static char tdsbuf[4096];
+#define TDS_LEN	75
+
+static void
+trace_ds_s(s)
 char *s;
 {
 	int len = strlen(s);
 	Boolean nl = False;
 
-	if (!toggled(TRACE))
+	if (!toggled(DS_TRACE))
 		return;
 
 	if (s && s[len-1] == '\n') {
 		len--;
 		nl = True;
 	}
-	while (dscnt + len >= 72) {
-		int plen = 72-dscnt;
+	while (dscnt + len >= 75) {
+		int plen = 75-dscnt;
 
 		(void) fprintf(tracef, "%.*s ...\n... ", plen, s);
 		dscnt = 4;
@@ -427,12 +500,37 @@ char *s;
 	}
 }
 
+#if defined(__STDC__)
+void
+trace_ds(char *fmt, ...)
+#else
+void
+trace_ds(va_alist)
+va_dcl
+#endif
+{
+	va_list args;
+
+#if defined(__STDC__)
+	va_start(args, fmt);
+#else
+	char *fmt;
+	va_start(args);
+	fmt = va_arg(args, char *);
+#endif
+	/* print out remainder of message */
+	(void) vsprintf(tdsbuf, fmt, args);
+	trace_ds_s(tdsbuf);
+	va_end(args);
+}
+
 static Widget trace_shell = (Widget)NULL;
+static int trace_reason;
 
 /* Callback for "OK" button on trace popup */
 /*ARGSUSED*/
 static void
-trace_callback(w, client_data, call_data)
+tracefile_callback(w, client_data, call_data)
 Widget w;
 XtPointer client_data;
 XtPointer call_data;
@@ -441,84 +539,186 @@ XtPointer call_data;
 	char *tracecmd;
 	char *full_cmd;
 	long clock;
+	extern char *command_string;
 
 	if (w)
 		tfn = XawDialogGetValueString((Widget)client_data);
 	else
 		tfn = (char *)client_data;
-	tracef = fopen(tfn, "a");
-	if (tracef == (FILE *)NULL) {
-		popup_an_errno(tfn, errno);
+	tfn = do_subst(tfn, True, True);
+	if (strchr(tfn, '\'') ||
+	    (strlen(tfn) > 0 && tfn[strlen(tfn)-1] == '\\')) {
+		popup_an_error("Illegal file name: %s\n", tfn);
+		XtFree(tfn);
 		return;
 	}
-	(void) setlinebuf(tracef);
-	clock = time((long *)0);
-	(void) fprintf(tracef, "%s\nTrace started %s",
-	    build, ctime(&clock));
+	tracef = fopen(tfn, "a");
+	if (tracef == (FILE *)NULL) {
+		popup_an_errno(errno, tfn);
+		XtFree(tfn);
+		return;
+	}
+	(void) SETLINEBUF(tracef);
 
-	tracecmd = get_resource("traceCommand");
+	/* Display current status */
+	clock = time((long *)0);
+	(void) fprintf(tracef, "Trace started %s", ctime(&clock));
+	(void) fprintf(tracef, " Version: %s\n", build);
+	save_yourself();
+	(void) fprintf(tracef, " Command: %s\n", command_string);
+	(void) fprintf(tracef, " Model %s", model_name);
+	(void) fprintf(tracef, ", %s display", 
+	    appres.mono ? "monochrome" : "color");
+	if (appres.extended)
+		(void) fprintf(tracef, ", extended data stream");
+	if (!appres.mono)
+		(void) fprintf(tracef, ", %scolor",
+		    appres.m3279 ? "full " : "pseudo-");
+	if (appres.charset)
+		(void) fprintf(tracef, ", %s charset", appres.charset);
+	if (appres.apl_mode)
+		(void) fprintf(tracef, ", APL mode");
+	(void) fprintf(tracef, "\n");
+	if (CONNECTED)
+		(void) fprintf(tracef, " Connected to %s, port %u\n",
+		    current_host, current_port);
+
+	/* Start the monitor window */
+	tracecmd = get_resource(ResTraceCommand);
 	if (!tracecmd || !strcmp(tracecmd, "none"))
 		goto done;
 	switch (tracewindow_pid = fork()) {
 	    case 0:	/* child process */
-		full_cmd = xs_buffer2("%s <%s", tracecmd, tfn);
+		full_cmd = xs_buffer("%s <'%s'", tracecmd, tfn);
 		(void) execlp("xterm", "xterm", "-title", tfn,
-		    "-sb", "-e", "/bin/sh", "-c", full_cmd, (char *)0);
+		    "-sb", "-e", "/bin/sh", "-c", full_cmd, CN);
 		(void) perror("exec(xterm)");
 		_exit(1);
 	    default:	/* parent */
 		break;
 	    case -1:	/* error */
-		popup_an_errno("fork()", errno);
+		popup_an_errno(errno, "fork()");
 		break;
 	}
 
     done:
+	XtFree(tfn);
+
 	/* We're really tracing, turn the flag on. */
-	appres.toggle[TRACE].value = True;
-	menubar_retoggle(&appres.toggle[TRACE]);
+	appres.toggle[trace_reason].value = True;
+	appres.toggle[trace_reason].changed = True;
+	menubar_retoggle(&appres.toggle[trace_reason]);
 
 	if (w)
 		XtPopdown(trace_shell);
+
+	/* Snap the current TELNET options. */
+	if (net_snap_options()) {
+		(void) fprintf(tracef, " TELNET state:\n");
+		trace_netdata('<', obuf, obptr - obuf);
+	}
+
+	/* Dump the screen contents and modes into the trace file. */
+	if (CONNECTED && formatted) {
+		(void) fprintf(tracef, " Screen contents:\n");
+		ctlr_snap_buffer();
+		space3270out(2);
+		net_add_eor(obuf, obptr - obuf);
+		obptr += 2;
+		trace_netdata('<', obuf, obptr - obuf);
+	}
+	if (CONNECTED && ctlr_snap_modes()) {
+		(void) fprintf(tracef, " 3270 modes:\n");
+		space3270out(2);
+		net_add_eor(obuf, obptr - obuf);
+		obptr += 2;
+		trace_netdata('<', obuf, obptr - obuf);
+	}
+
+	(void) fprintf(tracef, " Data stream:\n");
+}
+
+/* Open the trace file. */
+static void
+tracefile_on(reason, tt)
+int reason;
+enum toggle_type tt;
+{
+	char tracefile[256];
+
+	if (tracef)
+		return;
+
+	(void) sprintf(tracefile, "%s/x3trc.%d", appres.trace_dir,
+		getpid());
+	trace_reason = reason;
+	if (tt == TT_INITIAL) {
+		tracefile_callback((Widget)NULL, tracefile, PN);
+		return;
+	}
+	if (trace_shell == NULL) {
+		trace_shell = create_form_popup("trace",
+		    tracefile_callback, (XtCallbackProc)NULL, True);
+		XtVaSetValues(XtNameToWidget(trace_shell, "dialog"),
+		    XtNvalue, tracefile,
+		    NULL);
+	}
+
+	/* Turn the toggle _off_ until the popup succeeds. */
+	appres.toggle[reason].value = False;
+	appres.toggle[reason].changed = True;
+
+	popup_popup(trace_shell, XtGrabExclusive);
+}
+
+/* Close the trace file. */
+static void
+tracefile_off()
+{
+	long clock;
+
+	clock = time((long *)0);
+	(void) fprintf(tracef, "Trace stopped %s", ctime(&clock));
+	if (tracewindow_pid != -1)
+		(void) kill(tracewindow_pid, SIGTERM);
+	tracewindow_pid = -1;
+	(void) fclose(tracef);
+	tracef = (FILE *) NULL;
 }
 
 /*ARGSUSED*/
 void
-toggle_trace(t, tt)
+toggle_dsTrace(t, tt)
 struct toggle *t;
 enum toggle_type tt;
 {
-	char tracefile[256];
-	long clock;
+	/* If turning on trace and no trace file, open one. */
+	if (toggled(DS_TRACE) && !tracef)
+		tracefile_on(DS_TRACE, tt);
 
-	if (toggled(TRACE)) {
-		(void) sprintf(tracefile, "%s/x3trc.%d", appres.trace_dir,
-			getpid());
-		if (tt == TT_INITIAL) {
-			trace_callback((Widget)NULL, tracefile,
-				(XtPointer)NULL);
-			return;
-		}
-		if (trace_shell == NULL) {
-			trace_shell = create_form_popup("trace",
-			    trace_callback, (XtCallbackProc)NULL, True);
-			XtVaSetValues(XtNameToWidget(trace_shell, "dialog"),
-			    XtNvalue, tracefile,
-			    NULL);
-		}
+	/* If turning off trace and not still tracing events, close the
+	   trace file. */
+	else if (!toggled(DS_TRACE) && !toggled(EVENT_TRACE))
+		tracefile_off();
 
-		/* Turn tracing _off_ until the popup succeeds. */
-		appres.toggle[TRACE].value = False;
+	if (toggled(DS_TRACE))
+		(void) gettimeofday(&ds_ts, (struct timezone *)NULL);
+}
 
-		popup_popup(trace_shell, XtGrabExclusive);
-	} else {
-		clock = time((long *)0);
-		(void) fprintf(tracef, "Trace stopped %s", ctime(&clock));
-		if (tracewindow_pid != -1)
-			(void) kill(tracewindow_pid, SIGTERM);
-		tracewindow_pid = -1;
-		(void) fclose(tracef);
-	}
+/*ARGSUSED*/
+void
+toggle_eventTrace(t, tt)
+struct toggle *t;
+enum toggle_type tt;
+{
+	/* If turning on event debug, and no trace file, open one. */
+	if (toggled(EVENT_TRACE) && !tracef)
+		tracefile_on(EVENT_TRACE, tt);
+
+	/* If turning off event debug, and not tracing the data stream,
+	   close the trace file. */
+	else if (!toggled(EVENT_TRACE) && !toggled(DS_TRACE))
+		tracefile_off();
 }
 
 /* Screen trace file support. */
@@ -544,9 +744,40 @@ do_screentrace()
 void
 trace_screen()
 {
-	if (!toggled(SCREENTRACE) | !screentracef)
+	trace_skipping = False;
+
+	if (!toggled(SCREEN_TRACE) | !screentracef)
 		return;
 	do_screentrace();
+}
+
+/* Called from ANSI emulation code to log a single character. */
+void
+trace_char(c)
+char c;
+{
+	if (!toggled(SCREEN_TRACE) | !screentracef)
+		return;
+	(void) fputc(c, screentracef);
+}
+
+/*
+ * Called when disconnecting in ANSI mode, to finish off the trace file
+ * and keep the next screen clear from re-recording the screen image.
+ * (In a gross violation of data hiding and modularity, trace_skipping is
+ * manipulated directly in ctlr_clear()).
+ */
+void
+trace_ansi_disc()
+{
+	int i;
+
+	(void) fputc('\n', screentracef);
+	for (i = 0; i < COLS; i++)
+		(void) fputc('=', screentracef);
+	(void) fputc('\n', screentracef);
+
+	trace_skipping = True;
 }
 
 /* Callback for "OK" button on screentrace popup */
@@ -563,15 +794,20 @@ XtPointer call_data;
 		tfn = XawDialogGetValueString((Widget)client_data);
 	else
 		tfn = (char *)client_data;
+	tfn = do_subst(tfn, True, True);
 	screentracef = fopen(tfn, "a");
 	if (screentracef == (FILE *)NULL) {
-		popup_an_errno(tfn, errno);
+		popup_an_errno(errno, tfn);
+		XtFree(tfn);
 		return;
 	}
+	XtFree(tfn);
+	(void) SETLINEBUF(screentracef);	/* XXX Temporary Debug */
 
 	/* We're really tracing, turn the flag on. */
-	appres.toggle[SCREENTRACE].value = True;
-	menubar_retoggle(&appres.toggle[SCREENTRACE]);
+	appres.toggle[SCREEN_TRACE].value = True;
+	appres.toggle[SCREEN_TRACE].changed = True;
+	menubar_retoggle(&appres.toggle[SCREEN_TRACE]);
 
 	if (w)
 		XtPopdown(screentrace_shell);
@@ -591,11 +827,14 @@ XtPointer call_data;
 		tfn = XawDialogGetValueString((Widget)client_data);
 	else
 		tfn = (char *)client_data;
+	tfn = do_subst(tfn, True, True);
 	screentracef = fopen(tfn, "a");
 	if (screentracef == (FILE *)NULL) {
-		popup_an_errno(tfn, errno);
+		popup_an_errno(errno, tfn);
+		XtFree(tfn);
 		return;
 	}
+	XtFree(tfn);
 
 	/* Save the current image, once. */
 	do_screentrace();
@@ -610,18 +849,17 @@ XtPointer call_data;
 
 /*ARGSUSED*/
 void
-toggle_screentrace(t, tt)
+toggle_screenTrace(t, tt)
 struct toggle *t;
 enum toggle_type tt;
 {
 	char tracefile[256];
 
-	if (toggled(SCREENTRACE)) {
+	if (toggled(SCREEN_TRACE)) {
 		(void) sprintf(tracefile, "%s/x3scr.%d", appres.trace_dir,
 			getpid());
 		if (tt == TT_INITIAL) {
-			screentrace_callback((Widget)NULL, tracefile,
-				(XtPointer)NULL);
+			screentrace_callback((Widget)NULL, tracefile, PN);
 			return;
 		}
 		if (screentrace_shell == NULL) {
@@ -631,10 +869,11 @@ enum toggle_type tt;
 			    XtNvalue, tracefile,
 			    NULL);
 		}
-		appres.toggle[SCREENTRACE].value = False;
+		appres.toggle[SCREEN_TRACE].value = False;
+		appres.toggle[SCREEN_TRACE].changed = True;
 		popup_popup(screentrace_shell, XtGrabExclusive);
 	} else {
-		if (ctlr_any_data())
+		if (ctlr_any_data() && !trace_skipping)
 			do_screentrace();
 		(void) fclose(screentracef);
 	}
