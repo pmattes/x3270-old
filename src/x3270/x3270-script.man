@@ -1,18 +1,34 @@
-.TH X3270-SCRIPT 1 "12 May 1995"
+.TH X3270-SCRIPT 1 "17 April 1997"
 .SH NAME
-x3270 \-script \- scripting facility for x3270
+Scripting Facilities for x3270
 .SH SYNOPSIS
 .B x3270
 .B \-script
 [
 .I x3270-options
 ]
+.br
+.B Script(
+.I command
+.B [
+.I , arg ...
+.B ] )
 .SH DESCRIPTION
 The
-.B \-script
-switch allows
+.B x3270
+scripting facilities allow
 .B x3270
 to be operated under the control of another program.
+.PP
+There are two basic methods.
+The first is the
+.B "peer script"
+facility, invoked by the
+.B \-script
+switch.
+This runs
+.B x3270
+as a child of another process.
 Typically this would be a script using
 .IR expect (1)
 or the co-process facility of the Korn Shell
@@ -23,6 +39,34 @@ switch is given,
 .B x3270
 looks for commands on its standard input, and places the responses on
 standard output and standard error output.
+.PP
+The second method is the
+.B "child script"
+facility, invoked by the
+.B Script()
+action.
+This runs a script as a child process of
+.B x3270.
+The child has access to pipes connected to
+.B x3270;
+.B x3270
+looks for commands on one pipe, and places the responses on the other.
+(The file descriptor of the pipe for commands to
+.B x3270
+is passed in the environment variable X3270INPUT; the file descriptor
+of the pipe for responses from
+.B x3270
+is passed in the environment variable X3270OUTPUT.)
+.PP
+(It is possible to mix the two methods: A script can invoke another script
+with the
+.B Script()
+action.
+Scripts may also be implicitly nested when a script invokes the
+.B Connect()
+action, and the
+.B ibm_hosts
+file specifies a login script for that host name.)
 .PP
 Commands are X actions; the syntax is the same as for the right-hand
 side of an X translation table (an
@@ -40,8 +84,7 @@ in general) is different when an action is initiated by a script.
 .PP
 Some actions generate output; some may delay completion until the certain
 external events occur, such as the host unlocking the keyboard.
-The completion of every command is marked by a two-line message on standard
-output.
+The completion of every command is marked by a two-line message.
 The first line is the current status of
 .BR x3270 ,
 documented below.
@@ -129,15 +172,38 @@ exits.
 (A script can exit without killing
 .B x3270
 by using the CloseScript action, below.)
+Note that this applies to peer scripts only; end-of-file on the pipe
+connected to a child script simply causes the pipes to be closed and
+the
+.B Script()
+action to complete.
 .PP
-The Quit() action always causes
-.B x3270 to exit.
+The
+.B Quit()
+action always causes
+.B x3270
+to exit.
 (When called from the keyboard, it will exit only if not connected to a host.)
 .PP
-The Clear(), Enter(), PF(), and PA() actions will not complete until the host
+The
+.BR Clear() ,
+.BR Enter() ,
+.BR PF() ,
+and
+.B PA()
+actions will not complete until the host
 unlocks the keyboard.
-If the parameter to a String() action includes a code for one these actions,
+If the parameter to a
+.B String()
+action includes a code for one these actions,
 it will also wait for the keyboard to unlock before completing.
+Similarly, the
+.B Script()
+action does not complete until end-of-file is
+detected on the pipe or the
+.B CloseScript()
+action is called by the child
+process.
 .SH "NEW ACTIONS"
 The following actions have been defined or modified for use with scripts.
 (Note that unlike the display on the status line,
@@ -150,7 +216,9 @@ coordinates used in these actions use [0,0] as their origin, not [1,1]).
 Outputs whatever data that has been output by the host in
 .SM ANSI
 mode
-since the last time that AnsiText() was called.
+since the last time that
+.B AnsiText()
+was called.
 The data is preceded by the string "data:\ ", and has had all control characters
 expanded into C backslash sequences.
 .IP
@@ -197,29 +265,38 @@ The command does not return until
 .B x3270
 is successfully connected in the proper mode, or the connection fails.
 .TP
-.BI ContinueScript( keyword )
-This command continues a script that is paused with
-.B PauseScript.
-The
-.I keyword
-parameter becomes the output of the
-.B PauseScript
-command, preceded by the string "data:\ ".
-Obviously, the
-.B ContinueScript
-command would not actually be used in a script; instead it must be generated
-by the keyboard or a macro.
-.TP
-.B CloseScript
+.BI CloseScript( status )
 Causes
 .B x3270
-to stop reading commands from standard input.
-This is useful to allow the script to exit, with
+to stop reading commands from the script.
+This is useful to allow a peer script to exit, with
 .B x3270
 proceeding interactively.
 (Without this command,
 .B x3270
 would exit when it detected end-of-file on standard input.)
+If the script was invoked by the
+.B Script()
+action, the optional
+.I status
+is used as the return status of
+.B Script();
+if nonzero,
+.B Script()
+will complete with an error, and if this script was invoked as part of
+login through the
+.B ibm_hosts
+file, the connection will be broken.
+.TP
+.BI ContinueScript( param )
+Allows a script that is waiting in a
+.B PauseScript()
+action, below, to continue.
+The
+.I param
+given is output by the
+.B PauseScript()
+action.
 .TP
 .B Disconnect()
 Disconnects from the host.
@@ -231,7 +308,9 @@ Disconnects from the host.
 .BI Ebcdic( len )
 .TP
 .B Ebcdic()
-The same function as Ascii() above, except that rather than generating
+The same function as
+.B Ascii()
+above, except that rather than generating
 .SM ASCII
 text, each character is output as a hexadecimal
 .SM EBCDIC
@@ -239,7 +318,9 @@ code, preceded by
 .BR 0x .
 .TP
 .B EbcdicField()
-The same function as AsciiField() above, except that it generates hexadecimal
+The same function as
+.B AsciiField()
+above, except that it generates hexadecimal
 .SM EBCDIC
 codes.
 .TP
@@ -269,20 +350,31 @@ mode.
 Moves the cursor to the specified coordinates.
 .TP
 .B PauseScript()
-Delays execution of a script until a
-.B ContinueScript
-command is executed (presumably by a keyboard command or a macro).
-The parameter to the
-.B ContinueScript
-command becomes the output of the
-.B PauseScript
-command, preceded by the string "data:\ ".
+Stops a script until the
+.B ContinueScript()
+action, above, is executed.
+This allows a script to wait for user input and continue.
+Outputs the single parameter to
+.B ContinueScript().
 .TP
 .B Wait()
 A useful utility for use at the beginning of scripts and after the Connect()
 action.
-Waits until the screen is formatted, and the host has positioned the cursor
-on a modifiable field.
+In 3270 mode, waits until the screen is formatted, and the host has positioned
+the cursor on a modifiable field.
+In ANSI mode, waits until the host sends at least one byte of data.
+.TP
+.B Wait(3270)
+Used when communicating with a host that switches between ANSI mode and 3270
+mode.
+Pauses the script or macro until the host negotiates 3270 mode, then waits for
+a formatted screen as above.
+.TP
+.B Wait(ansi)
+Used when communicating with a host that switches between 3270 mode and ANSI
+mode.
+Pauses the script or macro until the host negotiates ANSI mode, then waits for
+a byte from the host as above.
 .SH "SEE ALSO"
 expect(1)
 .br

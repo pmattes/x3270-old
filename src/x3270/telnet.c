@@ -1,16 +1,16 @@
 /*
- * Copyright 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.
- *  All Rights Reserved.  GTRC hereby grants public use of this software.
- *  Derivative works based on this software must incorporate this copyright
- *  notice.
- *
- * X11 Port Copyright 1990 by Jeff Sparkes.
- * Additional X11 Modifications Copyright 1993, 1994, 1995 by Paul Mattes.
+ * Modifications Copyright 1993, 1994, 1995 by Paul Mattes.
+ * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
  *  both that copyright notice and this permission notice appear in
  *  supporting documentation.
+ *
+ * Copyright 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.
+ *  All Rights Reserved.  GTRC hereby grants public use of this software.
+ *  Derivative works based on this software must incorporate this copyright
+ *  notice.
  */
 
 /*
@@ -34,8 +34,26 @@
 #include <fcntl.h>
 #include <netdb.h>
 
+#include "appres.h"
+
+#include "ansic.h"
+#include "ctlrc.h"
+#include "kybdc.h"
+#include "macrosc.h"
+#include "mainc.h"
+#include "menubarc.h"
+#include "popupsc.h"
+#include "statusc.h"
+#include "telnetc.h"
+#include "trace_dsc.h"
+#include "utilc.h"
+
 #if !defined(TELOPT_NAWS) /*[*/
 #define TELOPT_NAWS	31
+#endif /*]*/
+
+#if !defined(TELOPT_TN3270E) /*[*/
+#define TELOPT_TN3270E	40
 #endif /*]*/
 
 #define BUFSZ		4096
@@ -110,6 +128,8 @@ static void     net_interrupt();
 static int      non_blocking();
 static void     net_connected();
 static void     trace_str();
+static char    *cmd();
+static char    *opt();
 
 /* telnet states */
 #define TNS_DATA	0	/* receiving data */
@@ -130,22 +150,6 @@ static unsigned char	will_opt[]	= {
 	IAC, WILL, '_' };
 static unsigned char	wont_opt[]	= { 
 	IAC, WONT, '_' };
-
-#if defined(TELCMD) && defined(TELCMD_OK)
-#define cmd(c)	(TELCMD_OK(c) ? TELCMD(c) : nnn((int)c))
-#define ccmd(c)	cmd(c)
-#else
-#define ccmd(c)	(telcmds[(c) - SE])
-#define cmd(c)	(((c) >= SE && (c) <= IAC) ? ccmd(c) : nnn((int)c))
-#endif
-
-#if defined(TELOPT) && defined(TELOPT_OK)
-#define opt(c)	(TELOPT_OK(c) ? TELOPT(c) : nnn((int)c))
-#define copt(c)	opt(c)
-#else
-#define copt(c)	(telopts[c])
-#define opt(c)	(((c) <= TELOPT_EOR) ? copt(c) : nnn((int)c))
-#endif
 
 char *telquals[2] = { "IS", "SEND" };
 
@@ -285,6 +289,9 @@ Boolean	*pending;
 	/* set the socket to be non-delaying */
 	if (non_blocking(True) < 0)
 		close_fail;
+
+	/* don't share the socket with our children */
+	(void) fcntl(sock, F_SETFD, 1);
 
 	/* connect */
 	if (connect(sock, (struct sockaddr *) &sin, sizeof(sin)) == -1) {
@@ -456,11 +463,11 @@ int n;
 
 	n %= 256 * 256;
 	if ((n / 256) == IAC)
-		*buf++ = IAC;
+		*(unsigned char *)buf++ = IAC;
 	*buf++ = (n / 256);
 	n %= 256;
 	if (n == IAC)
-		*buf++ = IAC;
+		*(unsigned char *)buf++ = IAC;
 	*buf++ = n;
 	return buf - b0;
 }
@@ -482,8 +489,8 @@ send_naws()
 	(void) sprintf(naws_msg + naws_len, "%c%c", IAC, SE);
 	naws_len += 2;
 	net_rawout((unsigned char *)naws_msg, naws_len);
-	(void) sprintf(trace_msg, "SENT %s NAWS %d %d %s\n", ccmd(SB), maxCOLS,
-	    maxROWS, ccmd(SE));
+	(void) sprintf(trace_msg, "SENT %s NAWS %d %d %s\n", cmd(SB), maxCOLS,
+	    maxROWS, cmd(SE));
 	trace_str(trace_msg);
 }
 
@@ -513,7 +520,6 @@ unsigned char c;
 				kybdlock_clr(KL_AWAITING_FIRST, "telnet_fsm");
 				status_reset();
 				ps_process();
-				script_continue();
 			}
 			if (!ansi_data) {
 				trace_str("<.. ");
@@ -528,8 +534,7 @@ unsigned char c;
 			trace_str(see_chr);
 			if (!syncing) {
 				ansi_process((unsigned int) c);
-				if (appres.scripted)
-					script_store(c);
+				sms_store(c);
 			}
 		} else {
 			store3270in(c);
@@ -555,8 +560,7 @@ unsigned char c;
 				}
 				trace_str(see_chr);
 				ansi_process((unsigned int) c);
-				if (appres.scripted)
-					script_store(c);
+				sms_store(c);
 			} else
 				store3270in(c);
 			telnet_state = TNS_DATA;
@@ -621,44 +625,36 @@ unsigned char c;
 				do_opt[2] = c;
 				net_rawout(do_opt, sizeof(do_opt));
 				(void) sprintf(trace_msg, "SENT %s %s\n",
-				    ccmd(DO), opt(c));
+				    cmd(DO), opt(c));
 				trace_str(trace_msg);
+				check_in3270();
+				check_linemode(False);
 			}
-			check_in3270();
 			break;
 		    default:
 			dont_opt[2] = c;
 			net_rawout(dont_opt, sizeof(dont_opt));
 			(void) sprintf(trace_msg, "SENT %s %s\n",
-			    ccmd(DONT), opt(c));
+			    cmd(DONT), opt(c));
 			trace_str(trace_msg);
 			break;
 		}
 		telnet_state = TNS_DATA;
-		check_linemode(False);
 		break;
 	    case TNS_WONT:	/* telnet WONT DO OPTION command */
 		trace_str(opt(c));
 		trace_str("\n");
-		switch (c) {
-		    case TELOPT_BINARY:
-		    case TELOPT_EOR:
-		    case TELOPT_TTYPE:
-			if (hisopts[c]) {
-				dont_opt[2] = c;
-				net_rawout(dont_opt, sizeof(dont_opt));
-				(void) sprintf(trace_msg, "SENT %s %s\n",
-				    ccmd(DONT), opt(c));
-				trace_str(trace_msg);
-			}
-			/* fall through */
-		    default:
+		if (hisopts[c]) {
 			hisopts[c] = 0;
-			break;
+			dont_opt[2] = c;
+			net_rawout(dont_opt, sizeof(dont_opt));
+			(void) sprintf(trace_msg, "SENT %s %s\n",
+			    cmd(DONT), opt(c));
+			trace_str(trace_msg);
+			check_in3270();
+			check_linemode(False);
 		}
 		telnet_state = TNS_DATA;
-		check_in3270();
-		check_linemode(False);
 		break;
 	    case TNS_DO:	/* telnet PLEASE DO OPTION command */
 		trace_str(opt(c));
@@ -669,15 +665,18 @@ unsigned char c;
 		    case TELOPT_TTYPE:
 		    case TELOPT_SGA:
 		    case TELOPT_NAWS:
+		    case TELOPT_TM:
 			if (!myopts[c]) {
-				myopts[c] = 1;
+				if (c != TELOPT_TM)
+					myopts[c] = 1;
 				will_opt[2] = c;
 				net_rawout(will_opt, sizeof(will_opt));
 				(void) sprintf(trace_msg, "SENT %s %s\n",
-				    ccmd(WILL), opt(c));
+				    cmd(WILL), opt(c));
 				trace_str(trace_msg);
+				check_in3270();
+				check_linemode(False);
 			}
-			check_in3270();
 			if (c == TELOPT_NAWS)
 				send_naws();
 			break;
@@ -685,7 +684,7 @@ unsigned char c;
 			wont_opt[2] = c;
 			net_rawout(wont_opt, sizeof(wont_opt));
 			(void) sprintf(trace_msg, "SENT %s %s\n",
-			    ccmd(WONT), opt(c));
+			    cmd(WONT), opt(c));
 			trace_str(trace_msg);
 			break;
 		}
@@ -694,19 +693,15 @@ unsigned char c;
 	    case TNS_DONT:	/* telnet PLEASE DON'T DO OPTION command */
 		trace_str(opt(c));
 		trace_str("\n");
-		switch (c) {
-		    case TELOPT_BINARY:
-		    case TELOPT_EOR:
-		    case TELOPT_TTYPE:
+		if (myopts[c]) {
+			myopts[c] = 0;
 			wont_opt[2] = c;
 			net_rawout(wont_opt, sizeof(wont_opt));
 			(void) sprintf(trace_msg, "SENT %s %s\n",
-			    ccmd(WONT), opt(c));
+			    cmd(WONT), opt(c));
 			trace_str(trace_msg);
-			/* fall through */
-		    default:
-			myopts[c] = 0;
-			break;
+			check_in3270();
+			check_linemode(False);
 		}
 		telnet_state = TNS_DATA;
 		break;
@@ -737,10 +732,9 @@ unsigned char c;
 
 				(void) sprintf(trace_msg,
 				    "SENT %s %s %s %s %s\n",
-				    ccmd(SB), copt(TELOPT_TTYPE),
-				    telquals[TELQUAL_IS], termtype, ccmd(SE));
+				    cmd(SB), opt(TELOPT_TTYPE),
+				    telquals[TELQUAL_IS], termtype, cmd(SE));
 				trace_str(trace_msg);
-				check_in3270();
 			}
 		} else {
 			*sbptr = c;	/* just stuff it */
@@ -835,6 +829,50 @@ int	len;
 #endif /*]*/
 		;
 	}
+}
+
+/*
+ * net_hexansi_out
+ *	Send uncontrolled user data to the host in ANSI mode, performing IAC
+ *	and CR quoting as necessary.
+ */
+void
+net_hexansi_out(buf, len)
+unsigned char *buf;
+int len;
+{
+	unsigned char *tbuf;
+	unsigned char *xbuf;
+
+	if (!len)
+		return;
+
+	/* Trace the data. */
+	if (toggled(DS_TRACE)) {
+		int i;
+
+		(void) fprintf(tracef, ">");
+		for (i = 0; i < len; i++)
+			(void) fprintf(tracef, " %s", ctl_see((int) *(buf+i)));
+		(void) fprintf(tracef, "\n");
+	}
+
+	/* Expand it. */
+	tbuf = xbuf = (unsigned char *)XtMalloc(2*len);
+	while (len) {
+		unsigned char c = *buf++;
+
+		*tbuf++ = c;
+		len--;
+		if (c == IAC)
+			*tbuf++ = IAC;
+		else if (c == '\r' && (!len || *buf != '\n'))
+			*tbuf++ = '\0';
+	}
+
+	/* Send it to the host. */
+	net_rawout(xbuf, tbuf - xbuf);
+	XtFree(xbuf);
 }
 
 
@@ -1257,6 +1295,50 @@ int	c;
 	return buf;
 }
 
+#if !defined(TELCMD) || !defined(TELCMD_OK) /*[*/
+#undef TELCMD
+#define TELCMD(x)	telcmds[(x) - SE]
+#undef TELCMD_OK
+#define TELCMD_OK(x)	((x) >= SE && (x) <= IAC)
+#endif /*]*/
+
+/*
+ * cmd
+ *	Expands a TELNET command into a character string.
+ */
+static char *
+cmd(c)
+unsigned char c;
+{
+	if (TELCMD_OK(c))
+		return TELCMD(c);
+	else
+		return nnn((int)c);
+}
+
+#if !defined(TELOPT) || !defined(TELOPT_OK) /*[*/
+#undef TELOPT
+#define TELOPT(x)	telopts[(x)]
+#undef TELOPT_OK
+#define TELOPT_OK(x)	((x) >= TELOPT_BINARY && (x) <= TELOPT_EOR)
+#endif /*]*/
+
+/*
+ * opt
+ *	Expands a TELNET option into a character string.
+ */
+static char *
+opt(c)
+unsigned char c;
+{
+	if (TELOPT_OK(c))
+		return TELOPT(c);
+	else if (c == TELOPT_TN3270E)
+		return "TN3270E";
+	else
+		return nnn((int)c);
+}
+
 
 #define LINEDUMP_MAX	32
 
@@ -1359,7 +1441,7 @@ net_sendc(c)
 char	c;
 {
 	if (c == '\r' && !linemode)	/* CR must be quoted */
-		net_cookout("\r\n", 2);
+		net_cookout("\r\0", 2);
 	else
 		net_cookout(&c, 1);
 }
@@ -1422,14 +1504,14 @@ net_linemode()
 		dont_opt[2] = TELOPT_ECHO;
 		net_rawout(dont_opt, sizeof(dont_opt));
 		(void) sprintf(trace_msg, "SENT %s %s\n",
-		    ccmd(DONT), copt(TELOPT_ECHO));
+		    cmd(DONT), opt(TELOPT_ECHO));
 		trace_str(trace_msg);
 	}
 	if (hisopts[TELOPT_SGA]) {
 		dont_opt[2] = TELOPT_SGA;
 		net_rawout(dont_opt, sizeof(dont_opt));
 		(void) sprintf(trace_msg, "SENT %s %s\n",
-		    ccmd(DONT), copt(TELOPT_SGA));
+		    cmd(DONT), opt(TELOPT_SGA));
 		trace_str(trace_msg);
 	}
 }
@@ -1442,15 +1524,15 @@ net_charmode()
 	if (!hisopts[TELOPT_ECHO]) {
 		do_opt[2] = TELOPT_ECHO;
 		net_rawout(do_opt, sizeof(do_opt));
-		(void) sprintf(trace_msg, "SENT %s %s\n", ccmd(DO),
-		    copt(TELOPT_ECHO));
+		(void) sprintf(trace_msg, "SENT %s %s\n", cmd(DO),
+		    opt(TELOPT_ECHO));
 		trace_str(trace_msg);
 	}
 	if (!hisopts[TELOPT_SGA]) {
 		do_opt[2] = TELOPT_SGA;
 		net_rawout(do_opt, sizeof(do_opt));
-		(void) sprintf(trace_msg, "SENT %s %s\n", ccmd(DO),
-		    copt(TELOPT_SGA));
+		(void) sprintf(trace_msg, "SENT %s %s\n", cmd(DO),
+		    opt(TELOPT_SGA));
 		trace_str(trace_msg);
 	}
 }

@@ -1,6 +1,6 @@
 /*
- * Parts Copyright 1990 by Jeff Sparkes.
  * Copyright 1993, 1994, 1995 by Paul Mattes.
+ * Parts Copyright 1990 by Jeff Sparkes.
  *   Permission to use, copy, modify, and distribute this software and its
  *   documentation for any purpose and without fee is hereby granted,
  *   provided that the above copyright notice appear in all copies and that
@@ -21,6 +21,8 @@
 #include <varargs.h>
 #endif
 #include "resources.h"
+
+#include "utilc.h"
 
 /*
  * Internal version of sprintf that expands only %s's, and allocates its
@@ -562,4 +564,33 @@ int	c;
 	}
 	*p = '\0';
 	return buf;
+}
+
+/*
+ * Handle the permutations of strerror().
+ *
+ * Most systems implement strerror(), but some common ones (such as SunOS 4)
+ * don't.  There is no way to reliably detect this, so we have to implement
+ * our own, using sys_nerr and sys_errlist[].
+ *
+ * sys_nerr and sys_errlist[] are often declared in <errno.h>; however, many
+ * systems (such as SunOS 5) do not, so we have to declare them explicitly
+ * here.
+ *
+ * Finally, some systems (such as FreeBSD) use a different declaration for
+ * sys_errlist[], so our declaration has to be conditional.
+ */
+
+char *
+local_strerror(e)
+int e;
+{
+	extern int sys_nerr;
+#if !defined(__FreeBSD__)
+	extern char *sys_errlist[];
+#endif
+
+	if (e < 0 || e >= sys_nerr)
+		return "Undefined Error";
+	return sys_errlist[e];
 }

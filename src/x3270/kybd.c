@@ -1,16 +1,16 @@
 /*
- * Copyright 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.
- *  All Rights Reserved.  GTRC hereby grants public use of this software.
- *  Derivative works based on this software must incorporate this copyright
- *  notice.
- *
- * X11 Port Copyright 1990 by Jeff Sparkes.
- * Additional X11 Modifications Copyright 1993, 1994, 1995 by Paul Mattes.
+ * Modifications Copyright 1993, 1994, 1995, 1996 by Paul Mattes.
+ * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
  *  both that copyright notice and this permission notice appear in
  *  supporting documentation.
+ *
+ * Copyright 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.
+ *  All Rights Reserved.  GTRC hereby grants public use of this software.
+ *  Derivative works based on this software must incorporate this copyright
+ *  notice.
  */
 
 /*
@@ -23,9 +23,27 @@
 #include <X11/keysym.h>
 #include <fcntl.h>
 #include "3270ds.h"
+#include "appres.h"
 #include "ctlr.h"
 #include "cg.h"
 #include "resources.h"
+
+#include "actionsc.h"
+#include "ansic.h"
+#include "aplc.h"
+#include "ctlrc.h"
+#include "ftc.h"
+#include "keypadc.h"
+#include "kybdc.h"
+#include "macrosc.h"
+#include "popupsc.h"
+#include "printc.h"
+#include "screenc.h"
+#include "statusc.h"
+#include "tablesc.h"
+#include "telnetc.h"
+#include "trace_dsc.h"
+#include "utilc.h"
 
 /* Statics */
 #define NP	5
@@ -34,10 +52,6 @@ static int	n_pasting = 0;
 static int	pix = 0;
 static Time	paste_time;
 static enum	{ NONE, COMPOSE, FIRST } composing = NONE;
-static char *ia_name[] = {
-	"String", "Paste", "Screen redraw", "Keypad", "Default", "Key",
-	"Macro", "Script", "Peek", "Typeahead"
-};
 static unsigned char pf_xlate[] = { 
 	AID_PF1,  AID_PF2,  AID_PF3,  AID_PF4,  AID_PF5,  AID_PF6,
 	AID_PF7,  AID_PF8,  AID_PF9,  AID_PF10, AID_PF11, AID_PF12,
@@ -66,12 +80,10 @@ static Boolean		reverse = False;	/* reverse-input mode */
 /* Globals */
 unsigned int	kybdlock;
 unsigned char	aid = AID_NO;		/* current attention ID */
-enum iaction	ia_cause;
 struct trans_list *temp_keymaps;	/* temporary keymap list */
 
 /* Composite key mappings. */
 
-enum keytype { LATIN, APL };
 struct akeysym {
 	KeySym keysym;
 	enum keytype keytype;
@@ -79,7 +91,7 @@ struct akeysym {
 static struct akeysym cc_first;
 static struct composite {
 	struct akeysym k1, k2;
-	KeySym translation;
+	struct akeysym translation;
 } *composites = NULL;
 static int n_composites = 0;
 
@@ -93,6 +105,9 @@ static struct ta {
 	char *parm2;
 } *ta_head = (struct ta *) NULL,
   *ta_tail = (struct ta *) NULL;
+
+static char dxl[] = "0123456789abcdef";
+#define FROM_HEX(c)	(strchr(dxl, tolower(c)) - dxl)
 
 
 /*
@@ -166,19 +181,20 @@ run_ta()
 {
 	struct ta *ta;
 
-	if (kybdlock || !(ta = ta_head))
+	if (kybdlock || (ta = ta_head) == (struct ta *)NULL)
 		return False;
 
-	if (!(ta_head = ta->next)) {
+	if ((ta_head = ta->next) == (struct ta *)NULL) {
 		ta_tail = (struct ta *) NULL;
 		status_typeahead(False);
 	}
 
-	internal_action(ta->fn, IA_TYPEAHEAD, ta->parm1, ta->parm2);
-	if (ta->parm1)
+	action_internal(ta->fn, IA_TYPEAHEAD, ta->parm1, ta->parm2);
+	if (ta->parm1 != CN)
 		XtFree(ta->parm1);
-	if (ta->parm2)
+	if (ta->parm2 != CN)
 		XtFree(ta->parm2);
+	XtFree((XtPointer)ta);
 
 	return True;
 }
@@ -350,230 +366,15 @@ static void
 operator_error(error_type)
 int error_type;
 {
-	if (scripting())
+	if (sms_redirect())
 		popup_an_error("Keyboard locked");
-	if (appres.oerr_lock || scripting()) {
+	if (appres.oerr_lock || sms_redirect()) {
 		status_oerr(error_type);
 		mcursor_locked();
 		kybdlock_set((unsigned int)error_type, "operator_error");
 		(void) flush_ta();
 	} else
 		ring_bell();
-}
-
-
-static char *
-key_state(state)
-unsigned int state;
-{
-	static char rs[64];
-	char *comma = "";
-	static struct {
-		char *name;
-		unsigned int mask;
-	} keymask[] = {
-		{ "Shift", ShiftMask },
-		{ "Lock", LockMask },
-		{ "Control", ControlMask },
-		{ "Mod1", Mod1Mask },
-		{ "Mod2", Mod2Mask },
-		{ "Mod3", Mod3Mask },
-		{ "Mod4", Mod4Mask },
-		{ "Mod5", Mod5Mask },
-		{ "Button1", Button1Mask },
-		{ "Button2", Button2Mask },
-		{ "Button3", Button3Mask },
-		{ "Button4", Button4Mask },
-		{ "Button5", Button5Mask },
-		{ CN, 0 },
-	};
-	int i;
-
-	rs[0] = '\0';
-	for (i = 0; keymask[i].name; i++)
-		if (state & keymask[i].mask) {
-			(void) strcat(rs, comma);
-			(void) strcat(rs, keymask[i].name);
-			comma = "|";
-			state &= ~keymask[i].mask;
-		}
-	if (!rs[0])
-		(void) sprintf(rs, "%d", state);
-	else if (state)
-		(void) sprintf(strchr(rs, '\0'), "|%d", state);
-	return rs;
-}
-
-/*
- * Return a name for an action.
- */
-char *
-action_name(action)
-XtActionProc action;
-{
-	register int i;
-
-	for (i = 0; i < actioncount; i++)
-		if (actions[i].proc == (XtActionProc)action)
-			return actions[i].string;
-	return "(unknown)";
-}
-
-/*
- * Check the number of argument to an action, and possibly pop up a usage
- * message.
- *
- * Returns 0 if the argument count is correct, -1 otherwise.
- */
-int
-check_usage(action, nargs, nargs_min, nargs_max)
-XtActionProc action;
-Cardinal nargs;
-Cardinal nargs_min;
-Cardinal nargs_max;
-{
-	if (nargs >= nargs_min && nargs <= nargs_max)
-		return 0;
-	if (nargs_min == nargs_max)
-		popup_an_error("%s() requires %d argument%s",
-		    action_name(action), nargs_min, nargs_min == 1 ? "" : "s");
-	else
-		popup_an_error("%s() requires %d or %d arguments",
-		    action_name(action), nargs_min, nargs_max);
-	return -1;
-}
-
-/*
- * Display an action debug message
- */
-#define KSBUF	256
-void
-debug_action(action, event, params, num_params)
-void (*action)();
-XEvent *event;
-String *params;
-Cardinal *num_params;
-{
-	int i;
-	XKeyEvent *kevent;
-	KeySym ks;
-	XButtonEvent *bevent;
-	XMotionEvent *mevent;
-	XConfigureEvent *cevent;
-	XClientMessageEvent *cmevent;
-	XExposeEvent *exevent;
-	char *press = "Press";
-	char dummystr[KSBUF+1];
-	char *atom_name;
-
-	if (!toggled(EVENT_TRACE))
-		return;
-	if (!event) {
-		(void) fprintf(tracef, " %s", ia_name[(int)ia_cause]);
-	} else switch (event->type) {
-	    case KeyRelease:
-		press = "Release";
-	    case KeyPress:
-		kevent = (XKeyEvent *)event;
-		(void) XLookupString(kevent, dummystr, KSBUF, &ks, NULL);
-		(void) fprintf(tracef, "Key%s [state %s, keycode %d, keysym 0x%lx \"%s\"]",
-			    press, key_state(kevent->state),
-			    kevent->keycode, ks,
-			    ks == NoSymbol ? "NoSymbol" : XKeysymToString(ks));
-		break;
-	    case ButtonRelease:
-		press = "Release";
-	    case ButtonPress:
-		bevent = (XButtonEvent *)event;
-		(void) fprintf(tracef,
-		    "Button%s [state %s, button %d]",
-		    press, key_state(bevent->state),
-		    bevent->button);
-		break;
-	    case MotionNotify:
-		mevent = (XMotionEvent *)event;
-		(void) fprintf(tracef,
-		    "MotionNotify [state %s]", key_state(mevent->state));
-		break;
-	    case EnterNotify:
-		(void) fprintf(tracef, "EnterNotify");
-		break;
-	    case LeaveNotify:
-		(void) fprintf(tracef, "LeaveNotify");
-		break;
-	    case FocusIn:
-		(void) fprintf(tracef, "FocusIn");
-		break;
-	    case FocusOut:
-		(void) fprintf(tracef, "FocusOut");
-		break;
-	    case KeymapNotify:
-		(void) fprintf(tracef, "KeymapNotify");
-		break;
-	    case Expose:
-		exevent = (XExposeEvent *)event;
-		(void) fprintf(tracef, "Expose [%dx%d+%d+%d]",
-		    exevent->width, exevent->height, exevent->x, exevent->y);
-		break;
-	    case PropertyNotify:
-		(void) fprintf(tracef, "PropertyNotify");
-		break;
-	    case ClientMessage:
-		cmevent = (XClientMessageEvent *)event;
-		atom_name = XGetAtomName(display, (Atom)cmevent->data.l[0]);
-		(void) fprintf(tracef, "ClientMessage [%s]",
-		    (atom_name == CN) ? "(unknown)" : atom_name);
-		break;
-	    case ConfigureNotify:
-		cevent = (XConfigureEvent *)event;
-		(void) fprintf(tracef, "ConfigureNotify [%dx%d+%d+%d]",
-		    cevent->width, cevent->height, cevent->x, cevent->y);
-		break;
-	    default:
-		(void) fprintf(tracef, "Event %d", event->type);
-		break;
-	}
-	(void) fprintf(tracef, " -> %s(", action_name((XtActionProc)action));
-	for (i = 0; i < *num_params; i++) {
-		Boolean quoted;
-
-		quoted = (strchr(params[i], ' ')  != CN ||
-			  strchr(params[i], '\t') != CN);
-		(void) fprintf(tracef, "%s%s%s%s",
-		    i ? ", " : "",
-		    quoted ? "\"" : "",
-		    params[i],
-		    quoted ? "\"" : "");
-	}
-	(void) fprintf(tracef, ")\n");
-}
-
-/*
- * Wrapper for calling an action internally.
- */
-void
-internal_action(fn, cause, parm1, parm2)
-void (*fn)();
-enum iaction cause;
-char *parm1;
-char *parm2;
-{
-	Cardinal count = 0;
-	String parms[2];
-
-	parms[0] = parm1;
-	parms[1] = parm2;
-	if (parm1 != CN) {
-		if (parm2 != CN)
-			count = 2;
-		else
-			count = 1;
-	} else
-		count = 0;
-
-	ia_cause = cause;
-	(*fn)((Widget) NULL, (XEvent *) NULL, count ? parms : (String *) NULL,
-	    &count);
 }
 
 
@@ -616,7 +417,7 @@ unsigned char	aid_code;
 
 /*ARGSUSED*/
 void
-key_PF(w, event, params, num_params)
+PF_action(w, event, params, num_params)
 Widget w;
 XEvent *event;
 String *params;
@@ -624,23 +425,23 @@ Cardinal *num_params;
 {
 	int k;
 
-	debug_action(key_PF, event, params, num_params);
-	if (check_usage(key_PF, *num_params, 1, 1) < 0)
+	action_debug(PF_action, event, params, num_params);
+	if (check_usage(PF_action, *num_params, 1, 1) < 0)
 		return;
 	k = atoi(params[0]);
 	if (k < 0 || k > PF_SZ) {
-		popup_an_error("%s: invalid argument", action_name(key_PF));
+		popup_an_error("%s: invalid argument", action_name(PF_action));
 		return;
 	}
 	if (kybdlock)
-		enq_ta(key_PF, params[0], CN);
+		enq_ta(PF_action, params[0], CN);
 	else
 		key_AID(pf_xlate[k-1]);
 }
 
 /*ARGSUSED*/
 void
-key_PA(w, event, params, num_params)
+PA_action(w, event, params, num_params)
 Widget w;
 XEvent *event;
 String *params;
@@ -648,17 +449,17 @@ Cardinal *num_params;
 {
 	int k;
 
-	debug_action(key_PA, event, params, num_params);
-	if (check_usage(key_PA, *num_params, 1, 1) < 0)
+	action_debug(PA_action, event, params, num_params);
+	if (check_usage(PA_action, *num_params, 1, 1) < 0)
 		return;
 	k = atoi(params[0]);
 	if (k < 0 || k > PA_SZ) {
-		popup_an_error("%s: invalid argument %d", action_name(key_PA),
-		    k);
+		popup_an_error("%s: invalid argument %d",
+		    action_name(PA_action), k);
 		return;
 	}
 	if (kybdlock)
-		enq_ta(key_PA, params[0], CN);
+		enq_ta(PA_action, params[0], CN);
 	else
 		key_AID(pa_xlate[k-1]);
 }
@@ -669,26 +470,30 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-key_Attn(w, event, params, num_params)
+Attn_action(w, event, params, num_params)
 Widget w;
 XEvent *event;
 String *params;
 Cardinal *num_params;
 {
-	debug_action(key_Attn, event, params, num_params);
+	action_debug(Attn_action, event, params, num_params);
 	if (!IN_3270)
 		return;
 	if (kybdlock) {
-		enq_ta(key_Attn, CN, CN);
+		enq_ta(Attn_action, CN, CN);
 		return;
 	}
-	status_twait();
-	mcursor_waiting();
-	insert_mode(False);
-	kybdlock_set(KL_OIA_TWAIT | KL_OIA_LOCKED, "key_Attn");
+	if (appres.attn_lock) {
+		status_twait();
+		mcursor_waiting();
+		insert_mode(False);
+		kybdlock_set(KL_OIA_TWAIT | KL_OIA_LOCKED, "Attn_action");
+	}
 	net_break();
-	ticking_start(False);
-	status_ctlr_done();
+	if (appres.attn_lock) {
+		ticking_start(False);
+		status_ctlr_done();
+	}
 }
 
 
@@ -786,11 +591,15 @@ Boolean	with_ge;
 		} else {
 			/* Shift data over. */
 			if (end_baddr > baddr) {
-				ctlr_bcopy(baddr, baddr+1, end_baddr - baddr, 0);
-			} else {
+				/* At least one byte to copy, no wrap. */
+				ctlr_bcopy(baddr, baddr+1, end_baddr - baddr,
+				    0);
+			} else if (end_baddr < baddr) {
+				/* At least one byte to copy, wraps to top. */
 				ctlr_bcopy(0, 1, end_baddr, 0);
 				ctlr_add(0, screen_buf[(ROWS * COLS) - 1], 0);
-				ctlr_bcopy(baddr, baddr+1, ((ROWS * COLS) - 1) - baddr, 0);
+				ctlr_bcopy(baddr, baddr+1,
+				    ((ROWS * COLS) - 1) - baddr, 0);
 			}
 		}
 
@@ -839,7 +648,7 @@ Boolean	with_ge;
 		} while (!IS_FA(screen_buf[baddr]));
 	} else {
 		ctlr_add(baddr, (unsigned char)cgcode,
-		    (unsigned char)(with_ge ? 1 : 0));
+		    (unsigned char)(with_ge ? CS_GE : 0));
 		ctlr_add_fg(baddr, 0);
 		ctlr_add_gr(baddr, 0);
 		if (!reverse)
@@ -847,13 +656,16 @@ Boolean	with_ge;
 	}
 
 	/* Implement auto-skip, and don't land on attribute bytes. */
-	if (IS_FA(screen_buf[baddr]) &&
-	    FA_IS_SKIP(screen_buf[baddr]))
-		baddr = next_unprotected(baddr);
-	else while (IS_FA(screen_buf[baddr]))
-		INC_BA(baddr);
+	if (cgcode != CG_dup) {
+		if (IS_FA(screen_buf[baddr]) &&
+		    FA_IS_SKIP(screen_buf[baddr]))
+			baddr = next_unprotected(baddr);
+		else while (IS_FA(screen_buf[baddr]))
+			INC_BA(baddr);
 
-	cursor_move(baddr);
+		cursor_move(baddr);
+	}
+
 	mdt_set(fa);
 	return True;
 }
@@ -885,25 +697,26 @@ enum iaction	cause;
 			cc_first.keysym = c;
 			cc_first.keytype = keytype;
 			composing = FIRST;
-			status_compose(True, c);
+			status_compose(True, c, keytype);
 		} else {
 			ring_bell();
 			composing = NONE;
-			status_compose(False, 0);
+			status_compose(False, 0, KT_STD);
 		}
 		return;
 	    case FIRST:
 		composing = NONE;
-		status_compose(False, 0);
+		status_compose(False, 0, KT_STD);
 		for (i = 0; i < n_composites; i++)
 			if ((ak_eq(composites[i].k1, cc_first) &&
 			     ak_eq(composites[i].k2, ak)) ||
 			    (ak_eq(composites[i].k1, ak) &&
 			     ak_eq(composites[i].k2, cc_first)))
 				break;
-		if (i < n_composites)
-			c = composites[i].translation;
-		else {
+		if (i < n_composites) {
+			c = composites[i].translation.keysym;
+			keytype = composites[i].translation.keytype;
+		} else {
 			ring_bell();
 			return;
 		}
@@ -921,7 +734,7 @@ enum iaction	cause;
 					    "  dropped (control char)\n");
 			return;
 		}
-		(void) key_Character((int) asc2cg[c], keytype == APL);
+		(void) key_Character((int) asc2cg[c], keytype == KT_GE);
 	} else if (IN_ANSI) {
 		net_sendc((char) c);
 	} else {
@@ -935,26 +748,26 @@ enum iaction	cause;
  * Simple toggles.
  */
 /*ARGSUSED*/
-static void
-key_AltCr(w, event, params, num_params)
+void
+AltCursor_action(w, event, params, num_params)
 Widget w;
 XEvent *event;
 String *params;
 Cardinal *num_params;
 {
-	debug_action(key_AltCr, event, params, num_params);
+	action_debug(AltCursor_action, event, params, num_params);
 	do_toggle(ALT_CURSOR);
 }
 
 /*ARGSUSED*/
 void
-key_MonoCase(w, event, params, num_params)
+MonoCase_action(w, event, params, num_params)
 Widget w;
 XEvent *event;
 String *params;
 Cardinal *num_params;
 {
-	debug_action(key_MonoCase, event, params, num_params);
+	action_debug(MonoCase_action, event, params, num_params);
 	do_toggle(MONOCASE);
 }
 
@@ -963,13 +776,13 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-key_Flip(w, event, params, num_params)
+Flip_action(w, event, params, num_params)
 Widget w;
 XEvent *event;
 String *params;
 Cardinal *num_params;
 {
-	debug_action(key_Flip, event, params, num_params);
+	action_debug(Flip_action, event, params, num_params);
 	screen_flip();
 }
 
@@ -980,19 +793,19 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-key_FTab(w, event, params, num_params)
+Tab_action(w, event, params, num_params)
 Widget w;
 XEvent *event;
 String *params;
 Cardinal *num_params;
 {
-	debug_action(key_FTab, event, params, num_params);
+	action_debug(Tab_action, event, params, num_params);
 	if (IN_ANSI) {
 		net_sendc('\t');
 		return;
 	}
 	if (kybdlock) {
-		enq_ta(key_FTab, CN, CN);
+		enq_ta(Tab_action, CN, CN);
 		return;
 	}
 	cursor_move(next_unprotected(cursor_addr));
@@ -1004,7 +817,7 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-key_BTab(w, event, params, num_params)
+BackTab_action(w, event, params, num_params)
 Widget w;
 XEvent *event;
 String *params;
@@ -1013,11 +826,11 @@ Cardinal *num_params;
 	register int	baddr, nbaddr;
 	int		sbaddr;
 
-	debug_action(key_BTab, event, params, num_params);
+	action_debug(BackTab_action, event, params, num_params);
 	if (!IN_3270)
 		return;
 	if (kybdlock) {
-		enq_ta(key_BTab, CN, CN);
+		enq_ta(BackTab_action, CN, CN);
 		return;
 	}
 	baddr = cursor_addr;
@@ -1067,15 +880,25 @@ do_reset(explicit)
 Boolean explicit;
 {
 	/*
-	 * If explicit (from the keyboard) and there is typeahead,
-	 * simply flush it.
+	 * If explicit (from the keyboard) and there is typeahead or
+	 * a half-composed key, simply flush it.
 	 */
-	if (explicit && flush_ta())
-		return;
+	if (explicit) {
+		Boolean half_reset = False;
 
-	/* Always clear insert and reverse modes. */
+		if (flush_ta())
+			half_reset = True;
+		if (composing != NONE) {
+			composing = NONE;
+			status_compose(False, 0, KT_STD);
+			half_reset = True;
+		}
+		if (half_reset)
+			return;
+	}
+
+	/* Always clear insert mode. */
 	insert_mode(False);
-	/* reverse_mode(False); */
 
 	/* Otherwise, if not connect, reset is a no-op. */
 	if (!CONNECTED)
@@ -1092,7 +915,7 @@ Boolean explicit;
 	 * If explicit (from the keyboard), unlock the keyboard now.
 	 * Otherwise (from the host), schedule a deferred keyboard unlock.
 	 */
-	if (explicit) {
+	if (explicit || ft_state != FT_NONE) {
 		kybdlock_clr(-1, "do_reset");
 	} else if (kybdlock &
   (KL_DEFERRED_UNLOCK | KL_OIA_TWAIT | KL_OIA_LOCKED | KL_AWAITING_FIRST)) {
@@ -1106,18 +929,18 @@ Boolean explicit;
 	status_reset();
 	mcursor_normal();
 	composing = NONE;
-	status_compose(False, 0);
+	status_compose(False, 0, KT_STD);
 }
 
 /*ARGSUSED*/
 void
-key_Reset(w, event, params, num_params)
+Reset_action(w, event, params, num_params)
 Widget w;
 XEvent *event;
 String *params;
 Cardinal *num_params;
 {
-	debug_action(key_Reset, event, params, num_params);
+	action_debug(Reset_action, event, params, num_params);
 	do_reset(True);
 }
 
@@ -1127,19 +950,19 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-key_Home(w, event, params, num_params)
+Home_action(w, event, params, num_params)
 Widget w;
 XEvent *event;
 String *params;
 Cardinal *num_params;
 {
-	debug_action(key_Home, event, params, num_params);
+	action_debug(Home_action, event, params, num_params);
 	if (IN_ANSI) {
 		ansi_send_home();
 		return;
 	}
 	if (kybdlock) {
-		enq_ta(key_Home, CN, CN);
+		enq_ta(Home_action, CN, CN);
 		return;
 	}
 	if (!formatted) {
@@ -1165,19 +988,19 @@ do_left()
 
 /*ARGSUSED*/
 void
-key_Left(w, event, params, num_params)
+Left_action(w, event, params, num_params)
 Widget w;
 XEvent *event;
 String *params;
 Cardinal *num_params;
 {
-	debug_action(key_Left, event, params, num_params);
+	action_debug(Left_action, event, params, num_params);
 	if (IN_ANSI) {
 		ansi_send_left();
 		return;
 	}
 	if (kybdlock) {
-		enq_ta(key_Left, CN, CN);
+		enq_ta(Left_action, CN, CN);
 		return;
 	}
 	if (!flipped)
@@ -1230,19 +1053,19 @@ do_delete()
 
 /*ARGSUSED*/
 void
-key_Delete(w, event, params, num_params)
+Delete_action(w, event, params, num_params)
 Widget w;
 XEvent *event;
 String *params;
 Cardinal *num_params;
 {
-	debug_action(key_Delete, event, params, num_params);
+	action_debug(Delete_action, event, params, num_params);
 	if (IN_ANSI) {
 		net_sendc('\177');
 		return;
 	}
 	if (kybdlock) {
-		enq_ta(key_Delete, CN, CN);
+		enq_ta(Delete_action, CN, CN);
 		return;
 	}
 	if (!do_delete())
@@ -1262,18 +1085,18 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-key_BackSpace(w, event, params, num_params)
+BackSpace_action(w, event, params, num_params)
 Widget w;
 XEvent *event;
 String *params;
 Cardinal *num_params;
 {
-	debug_action(key_BackSpace, event, params, num_params);
+	action_debug(BackSpace_action, event, params, num_params);
 	if (IN_ANSI) {
 		net_send_erase();
 	} else {
 		if (kybdlock) {
-			enq_ta(key_BackSpace, CN, CN);
+			enq_ta(BackSpace_action, CN, CN);
 			return;
 		}
 		if (reverse)
@@ -1296,7 +1119,7 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-key_Erase(w, event, params, num_params)
+Erase_action(w, event, params, num_params)
 Widget w;
 XEvent *event;
 String *params;
@@ -1305,13 +1128,13 @@ Cardinal *num_params;
 	int	baddr;
 	unsigned char	*fa;
 
-	debug_action(key_Erase, event, params, num_params);
+	action_debug(Erase_action, event, params, num_params);
 	if (IN_ANSI) {
 		net_send_erase();
 		return;
 	}
 	if (kybdlock) {
-		enq_ta(key_Erase, CN, CN);
+		enq_ta(Erase_action, CN, CN);
 		return;
 	}
 	baddr = cursor_addr;
@@ -1332,7 +1155,7 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-key_Right(w, event, params, num_params)
+Right_action(w, event, params, num_params)
 Widget w;
 XEvent *event;
 String *params;
@@ -1340,13 +1163,13 @@ Cardinal *num_params;
 {
 	register int	baddr;
 
-	debug_action(key_Right, event, params, num_params);
+	action_debug(Right_action, event, params, num_params);
 	if (IN_ANSI) {
 		ansi_send_right();
 		return;
 	}
 	if (kybdlock) {
-		enq_ta(key_Right, CN, CN);
+		enq_ta(Right_action, CN, CN);
 		return;
 	}
 	if (!flipped) {
@@ -1362,8 +1185,8 @@ Cardinal *num_params;
  * Cursor left 2 positions.
  */
 /*ARGSUSED*/
-static void
-key_Left2(w, event, params, num_params)
+void
+Left2_action(w, event, params, num_params)
 Widget w;
 XEvent *event;
 String *params;
@@ -1371,11 +1194,11 @@ Cardinal *num_params;
 {
 	register int	baddr;
 
-	debug_action(key_Left2, event, params, num_params);
+	action_debug(Left2_action, event, params, num_params);
 	if (IN_ANSI)
 		return;
 	if (kybdlock) {
-		enq_ta(key_Left2, CN, CN);
+		enq_ta(Left2_action, CN, CN);
 		return;
 	}
 	baddr = cursor_addr;
@@ -1389,8 +1212,8 @@ Cardinal *num_params;
  * Cursor to previous word.
  */
 /*ARGSUSED*/
-static void
-previous_word(w, event, params, num_params)
+void
+PreviousWord_action(w, event, params, num_params)
 Widget w;
 XEvent *event;
 String *params;
@@ -1401,11 +1224,11 @@ Cardinal *num_params;
 	unsigned char  c;
 	Boolean prot;
 
-	debug_action(previous_word, event, params, num_params);
+	action_debug(PreviousWord_action, event, params, num_params);
 	if (IN_ANSI)
 		return;
 	if (kybdlock) {
-		enq_ta(previous_word, CN, CN);
+		enq_ta(PreviousWord_action, CN, CN);
 		return;
 	}
 	if (!formatted)
@@ -1459,8 +1282,8 @@ Cardinal *num_params;
  * Cursor right 2 positions.
  */
 /*ARGSUSED*/
-static void
-key_Right2(w, event, params, num_params)
+void
+Right2_action(w, event, params, num_params)
 Widget w;
 XEvent *event;
 String *params;
@@ -1468,11 +1291,11 @@ Cardinal *num_params;
 {
 	register int	baddr;
 
-	debug_action(key_Right2, event, params, num_params);
+	action_debug(Right2_action, event, params, num_params);
 	if (IN_ANSI)
 		return;
 	if (kybdlock) {
-		enq_ta(key_Right2, CN, CN);
+		enq_ta(Right2_action, CN, CN);
 		return;
 	}
 	baddr = cursor_addr;
@@ -1536,8 +1359,8 @@ int baddr;
  * Cursor to next unprotected word.
  */
 /*ARGSUSED*/
-static void
-next_word(w, event, params, num_params)
+void
+NextWord_action(w, event, params, num_params)
 Widget w;
 XEvent *event;
 String *params;
@@ -1546,11 +1369,11 @@ Cardinal *num_params;
 	register int	baddr;
 	unsigned char c;
 
-	debug_action(next_word, event, params, num_params);
+	action_debug(NextWord_action, event, params, num_params);
 	if (IN_ANSI)
 		return;
 	if (kybdlock) {
-		enq_ta(next_word, CN, CN);
+		enq_ta(NextWord_action, CN, CN);
 		return;
 	}
 	if (!formatted)
@@ -1604,7 +1427,7 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-key_Up(w, event, params, num_params)
+Up_action(w, event, params, num_params)
 Widget w;
 XEvent *event;
 String *params;
@@ -1612,13 +1435,13 @@ Cardinal *num_params;
 {
 	register int	baddr;
 
-	debug_action(key_Up, event, params, num_params);
+	action_debug(Up_action, event, params, num_params);
 	if (IN_ANSI) {
 		ansi_send_up();
 		return;
 	}
 	if (kybdlock) {
-		enq_ta(key_Up, CN, CN);
+		enq_ta(Up_action, CN, CN);
 		return;
 	}
 	baddr = cursor_addr - COLS;
@@ -1633,7 +1456,7 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-key_Down(w, event, params, num_params)
+Down_action(w, event, params, num_params)
 Widget w;
 XEvent *event;
 String *params;
@@ -1641,13 +1464,13 @@ Cardinal *num_params;
 {
 	register int	baddr;
 
-	debug_action(key_Down, event, params, num_params);
+	action_debug(Down_action, event, params, num_params);
 	if (IN_ANSI) {
 		ansi_send_down();
 		return;
 	}
 	if (kybdlock) {
-		enq_ta(key_Down, CN, CN);
+		enq_ta(Down_action, CN, CN);
 		return;
 	}
 	baddr = (cursor_addr + COLS) % (COLS * ROWS);
@@ -1660,7 +1483,7 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-key_Newline(w, event, params, num_params)
+Newline_action(w, event, params, num_params)
 Widget w;
 XEvent *event;
 String *params;
@@ -1669,13 +1492,13 @@ Cardinal *num_params;
 	register int	baddr;
 	register unsigned char	*fa;
 
-	debug_action(key_Newline, event, params, num_params);
+	action_debug(Newline_action, event, params, num_params);
 	if (IN_ANSI) {
 		net_sendc('\n');
 		return;
 	}
 	if (kybdlock) {
-		enq_ta(key_Newline, CN, CN);
+		enq_ta(Newline_action, CN, CN);
 		return;
 	}
 	baddr = (cursor_addr + COLS) % (COLS * ROWS);	/* down */
@@ -1693,17 +1516,17 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-key_Dup(w, event, params, num_params)
+Dup_action(w, event, params, num_params)
 Widget w;
 XEvent *event;
 String *params;
 Cardinal *num_params;
 {
-	debug_action(key_Dup, event, params, num_params);
+	action_debug(Dup_action, event, params, num_params);
 	if (IN_ANSI)
 		return;
 	if (kybdlock) {
-		enq_ta(key_Dup, CN, CN);
+		enq_ta(Dup_action, CN, CN);
 		return;
 	}
 	if (key_Character(CG_dup, False))
@@ -1716,17 +1539,17 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-key_FieldMark(w, event, params, num_params)
+FieldMark_action(w, event, params, num_params)
 Widget w;
 XEvent *event;
 String *params;
 Cardinal *num_params;
 {
-	debug_action(key_FieldMark, event, params, num_params);
+	action_debug(FieldMark_action, event, params, num_params);
 	if (IN_ANSI)
 		return;
 	if (kybdlock) {
-		enq_ta(key_FieldMark, CN, CN);
+		enq_ta(FieldMark_action, CN, CN);
 		return;
 	}
 	(void) key_Character(CG_fm, False);
@@ -1738,15 +1561,15 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-key_Enter(w, event, params, num_params)
+Enter_action(w, event, params, num_params)
 Widget w;
 XEvent *event;
 String *params;
 Cardinal *num_params;
 {
-	debug_action(key_Enter, event, params, num_params);
+	action_debug(Enter_action, event, params, num_params);
 	if (kybdlock)
-		enq_ta(key_Enter, CN, CN);
+		enq_ta(Enter_action, CN, CN);
 	else
 		key_AID(AID_ENTER);
 }
@@ -1754,15 +1577,15 @@ Cardinal *num_params;
 
 /*ARGSUSED*/
 void
-key_SysReq(w, event, params, num_params)
+SysReq_action(w, event, params, num_params)
 Widget w;
 XEvent *event;
 String *params;
 Cardinal *num_params;
 {
-	debug_action(key_SysReq, event, params, num_params);
+	action_debug(SysReq_action, event, params, num_params);
 	if (kybdlock)
-		enq_ta(key_SysReq, CN, CN);
+		enq_ta(SysReq_action, CN, CN);
 	else
 		key_AID(AID_SYSREQ);
 }
@@ -1773,19 +1596,19 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-key_Clear(w, event, params, num_params)
+Clear_action(w, event, params, num_params)
 Widget w;
 XEvent *event;
 String *params;
 Cardinal *num_params;
 {
-	debug_action(key_Clear, event, params, num_params);
+	action_debug(Clear_action, event, params, num_params);
 	if (IN_ANSI) {
 		ansi_send_clear();
 		return;
 	}
 	if (kybdlock && CONNECTED) {
-		enq_ta(key_Clear, CN, CN);
+		enq_ta(Clear_action, CN, CN);
 		return;
 	}
 	buffer_addr = 0;
@@ -1801,7 +1624,7 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-key_CursorSelect(w, event, params, num_params)
+CursorSelect_action(w, event, params, num_params)
 Widget w;
 XEvent *event;
 String *params;
@@ -1809,11 +1632,11 @@ Cardinal *num_params;
 {
 	register unsigned char	*fa, *sel;
 
-	debug_action(key_CursorSelect, event, params, num_params);
+	action_debug(CursorSelect_action, event, params, num_params);
 	if (IN_ANSI)
 		return;
 	if (kybdlock) {
-		enq_ta(key_CursorSelect, CN, CN);
+		enq_ta(CursorSelect_action, CN, CN);
 		return;
 	}
 	fa = get_field_attribute(cursor_addr);
@@ -1833,9 +1656,11 @@ Cardinal *num_params;
 		break;
 	    case CG_space:		/* space */
 	    case CG_null:		/* null */
+		mdt_set(fa);
 		key_AID(AID_SELECT);
 		break;
 	    case CG_ampersand:		/* & */
+		mdt_set(fa);
 		key_AID(AID_ENTER);
 		break;
 	    default:
@@ -1849,7 +1674,7 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-key_EraseEOF(w, event, params, num_params)
+EraseEOF_action(w, event, params, num_params)
 Widget w;
 XEvent *event;
 String *params;
@@ -1858,11 +1683,11 @@ Cardinal *num_params;
 	register int	baddr;
 	register unsigned char	*fa;
 
-	debug_action(key_EraseEOF, event, params, num_params);
+	action_debug(EraseEOF_action, event, params, num_params);
 	if (IN_ANSI)
 		return;
 	if (kybdlock) {
-		enq_ta(key_EraseEOF, CN, CN);
+		enq_ta(EraseEOF_action, CN, CN);
 		return;
 	}
 	baddr = cursor_addr;
@@ -1891,7 +1716,7 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-key_EraseInput(w, event, params, num_params)
+EraseInput_action(w, event, params, num_params)
 Widget w;
 XEvent *event;
 String *params;
@@ -1901,11 +1726,11 @@ Cardinal *num_params;
 	unsigned char	fa;
 	Boolean		f;
 
-	debug_action(key_EraseInput, event, params, num_params);
+	action_debug(EraseInput_action, event, params, num_params);
 	if (IN_ANSI)
 		return;
 	if (kybdlock) {
-		enq_ta(key_EraseInput, CN, CN);
+		enq_ta(EraseInput_action, CN, CN);
 		return;
 	}
 	if (formatted) {
@@ -1957,7 +1782,7 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-key_DeleteWord(w, event, params, num_params)
+DeleteWord_action(w, event, params, num_params)
 Widget w;
 XEvent *event;
 String *params;
@@ -1966,13 +1791,13 @@ Cardinal *num_params;
 	register int	baddr, baddr2, front_baddr, back_baddr, end_baddr;
 	register unsigned char	*fa;
 
-	debug_action(key_DeleteWord, event, params, num_params);
+	action_debug(DeleteWord_action, event, params, num_params);
 	if (IN_ANSI) {
 		net_send_werase();
 		return;
 	}
 	if (kybdlock) {
-		enq_ta(key_DeleteWord, CN, CN);
+		enq_ta(DeleteWord_action, CN, CN);
 		return;
 	}
 	if (!formatted)
@@ -2060,7 +1885,7 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-key_DeleteField(w, event, params, num_params)
+DeleteField_action(w, event, params, num_params)
 Widget w;
 XEvent *event;
 String *params;
@@ -2069,13 +1894,13 @@ Cardinal *num_params;
 	register int	baddr;
 	register unsigned char	*fa;
 
-	debug_action(key_DeleteField, event, params, num_params);
+	action_debug(DeleteField_action, event, params, num_params);
 	if (IN_ANSI) {
 		net_send_kill();
 		return;
 	}
 	if (kybdlock) {
-		enq_ta(key_DeleteField, CN, CN);
+		enq_ta(DeleteField_action, CN, CN);
 		return;
 	}
 	if (!formatted)
@@ -2105,17 +1930,17 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-key_Insert(w, event, params, num_params)
+Insert_action(w, event, params, num_params)
 Widget w;
 XEvent *event;
 String *params;
 Cardinal *num_params;
 {
-	debug_action(key_Insert, event, params, num_params);
+	action_debug(Insert_action, event, params, num_params);
 	if (IN_ANSI)
 		return;
 	if (kybdlock) {
-		enq_ta(key_Insert, CN, CN);
+		enq_ta(Insert_action, CN, CN);
 		return;
 	}
 	insert_mode(True);
@@ -2127,17 +1952,17 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-key_ToggleInsert(w, event, params, num_params)
+ToggleInsert_action(w, event, params, num_params)
 Widget w;
 XEvent *event;
 String *params;
 Cardinal *num_params;
 {
-	debug_action(key_ToggleInsert, event, params, num_params);
+	action_debug(ToggleInsert_action, event, params, num_params);
 	if (IN_ANSI)
 		return;
 	if (kybdlock) {
-		enq_ta(key_ToggleInsert, CN, CN);
+		enq_ta(ToggleInsert_action, CN, CN);
 		return;
 	}
 	if (insert)
@@ -2152,17 +1977,17 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-key_ToggleReverse(w, event, params, num_params)
+ToggleReverse_action(w, event, params, num_params)
 Widget w;
 XEvent *event;
 String *params;
 Cardinal *num_params;
 {
-	debug_action(key_ToggleReverse, event, params, num_params);
+	action_debug(ToggleReverse_action, event, params, num_params);
 	if (IN_ANSI)
 		return;
 	if (kybdlock) {
-		enq_ta(key_ToggleReverse, CN, CN);
+		enq_ta(ToggleReverse_action, CN, CN);
 		return;
 	}
 	reverse_mode(!reverse);
@@ -2175,7 +2000,7 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-key_FieldEnd(w, event, params, num_params)
+FieldEnd_action(w, event, params, num_params)
 Widget w;
 XEvent *event;
 String *params;
@@ -2185,11 +2010,11 @@ Cardinal *num_params;
 	unsigned char	*fa, c;
 	int	last_nonblank = -1;
 
-	debug_action(key_FieldEnd, event, params, num_params);
+	action_debug(FieldEnd_action, event, params, num_params);
 	if (IN_ANSI)
 		return;
 	if (kybdlock) {
-		enq_ta(key_FieldEnd, CN, CN);
+		enq_ta(FieldEnd_action, CN, CN);
 		return;
 	}
 	if (!formatted)
@@ -2219,6 +2044,54 @@ Cardinal *num_params;
 			baddr = last_nonblank;
 	}
 	cursor_move(baddr);
+}
+
+/*
+ * FieldExit for the 5250-like emulation.
+ * Erases from the current cursor position to the end of the field, and moves
+ * the cursor to the beginning of the next field.
+ *
+ * Derived from work (C) Minolta (Schweiz) AG, Beat Rubischon <bru@minolta.ch>
+ */
+/*ARGSUSED*/
+void
+FieldExit_action(w, event, params, num_params)
+Widget w;
+XEvent *event;
+String *params;
+Cardinal *num_params;
+{
+	register int    baddr;
+	register unsigned char  *fa;
+
+	action_debug(FieldExit_action, event, params, num_params);
+	if (IN_ANSI) {
+		net_sendc('\n');
+		return;
+	}
+	if (kybdlock) {
+		enq_ta(FieldExit_action, CN, CN);
+		return;
+	}
+	baddr = cursor_addr;
+	fa = get_field_attribute(baddr);
+	if (FA_IS_PROTECTED(*fa) || IS_FA(screen_buf[baddr])) {
+		operator_error(KL_OERR_PROTECTED);
+		return;
+	}
+	if (formatted) {        /* erase to next field attribute */
+		do {
+			  ctlr_add(baddr, CG_null, 0);
+			  INC_BA(baddr);
+		} while (!IS_FA(screen_buf[baddr]));
+		mdt_set(fa);
+		cursor_move(next_unprotected(cursor_addr));
+	} else {        /* erase to end of screen */
+		do {
+			ctlr_add(baddr, CG_null, 0);
+			INC_BA(baddr);
+		} while (baddr != 0);
+	}
 }
 
 
@@ -2275,7 +2148,7 @@ char keymap[32];
  */
 /*ARGSUSED*/
 void
-key_Shift(w, event, params, num_params)
+Shift_action(w, event, params, num_params)
 Widget w;
 XEvent *event;
 String *params;
@@ -2307,20 +2180,38 @@ KeySym assoc;
 	nxk++;
 }
 
-/* Translate a keysym name to a keysym, including APL characters. */
+/* Clear the extended association table. */
+void
+clear_xks()
+{
+	if (nxk) {
+		XtFree((XtPointer)xk);
+		xk = (struct xks *)NULL;
+		nxk = 0;
+	}
+}
+
+/*
+ * Translate a keysym name to a keysym, including APL and extended
+ * characters.
+ */
 static KeySym
 StringToKeysym(s, keytypep)
 char *s;
 enum keytype *keytypep;
 {
 	KeySym k;
+	int is_ge;
 
 	if (!strncmp(s, "apl_", 4)) {
-		k = APLStringToKeysym(s);
-		*keytypep = APL;
+		k = APLStringToKeysym(s, &is_ge);
+		if (is_ge)
+			*keytypep = KT_GE;
+		else
+			*keytypep = KT_STD;
 	} else {
 		k = XStringToKeysym(s);
-		*keytypep = LATIN;
+		*keytypep = KT_STD;
 	}
 	if (k == NoSymbol && strlen(s) == 1)
 		k = s[0] & 0xff;
@@ -2354,13 +2245,15 @@ build_composites()
 	struct composite *cp;
 
 	if (!appres.compose_map) {
-		xs_warning("Compose: No %s defined", ResComposeMap);
+		xs_warning("%s: No %s defined", action_name(Compose_action),
+		    ResComposeMap);
 		return False;
 	}
 	cn = xs_buffer("%s.%s", ResComposeMap, appres.compose_map);
 	if ((c = get_resource(cn)) == NULL) {
-		xs_warning("Compose: Cannot find %s \"%s\"",
-		    ResComposeMap, appres.compose_map);
+		xs_warning("%s: Cannot find %s \"%s\"",
+		    action_name(Compose_action), ResComposeMap,
+		    appres.compose_map);
 		return False;
 	}
 	XtFree(cn);
@@ -2370,14 +2263,15 @@ build_composites()
 		c = NULL;
 		if (sscanf(ln, " %63[^+ \t] + %63[^= \t] =%63s%1s",
 		    ksname[0], ksname[1], ksname[2], junk) != 3) {
-			xs_warning("Compose: Invalid syntax: %s", ln);
+			xs_warning("%s: Invalid syntax: %s",
+			    action_name(Compose_action), ln);
 			continue;
 		}
 		for (i = 0; i < 3; i++) {
 			k[i] = StringToKeysym(ksname[i], &a[i]);
 			if (k[i] == NoSymbol) {
-				xs_warning("Compose: Invalid KeySym: \"%s\"",
-				    ksname[i]);
+				xs_warning("%s: Invalid KeySym: \"%s\"",
+				    action_name(Compose_action), ksname[i]);
 				okay = False;
 				break;
 			}
@@ -2391,7 +2285,8 @@ build_composites()
 		cp->k1.keytype = a[0];
 		cp->k2.keysym = k[1];
 		cp->k2.keytype = a[1];
-		cp->translation = k[2];
+		cp->translation.keysym = k[2];
+		cp->translation.keytype = a[2];
 		n_composites++;
 	}
 	return True;
@@ -2408,33 +2303,30 @@ build_composites()
  * then a non-data key.  Oh well.
  */
 /*ARGSUSED*/
-static void
-Compose(w, event, params, num_params)
+void
+Compose_action(w, event, params, num_params)
 Widget w;
 XEvent *event;
 String *params;
 Cardinal *num_params;
 {
-	debug_action(Compose, event, params, num_params);
+	action_debug(Compose_action, event, params, num_params);
 
 	if (!composites && !build_composites())
 		return;
 
-	if (composing != NONE) {
-		composing = NONE;
-		status_compose(False, 0);
-		return;
+	if (composing == NONE) {
+		composing = COMPOSE;
+		status_compose(True, 0, KT_STD);
 	}
-	composing = COMPOSE;
-	status_compose(True, 0);
 }
 
 /*
  * Called by the toolkit for any key without special actions.
  */
 /*ARGSUSED*/
-static void
-Default(w, event, params, num_params)
+void
+Default_action(w, event, params, num_params)
 Widget w;
 XEvent *event;
 String *params;
@@ -2445,15 +2337,68 @@ Cardinal *num_params;
 	KeySym		ks;
 	int		ll;
 
-	debug_action(Default, event, params, num_params);
+	action_debug(Default_action, event, params, num_params);
 	ll = XLookupString(kevent, buf, 32, &ks, (XComposeStatus *) 0);
-	if (ll != 1) {
-		if (toggled(EVENT_TRACE))
-			(void) fprintf(tracef, " Default: Unknown keysym\n");
+	if (ll == 1) {
+		/* Remap certain control characters. */
+		switch (buf[0]) {
+		    case '\t':
+			action_internal(Tab_action, IA_DEFAULT, CN, CN);
+			break;
+		    case '\177':
+			action_internal(Delete_action, IA_DEFAULT, CN, CN);
+			break;
+		    case '\b':
+			action_internal(BackSpace_action, IA_DEFAULT, CN, CN);
+			break;
+		    case '\r':
+			action_internal(Enter_action, IA_DEFAULT, CN, CN);
+			break;
+		    case '\n':
+			action_internal(Newline_action, IA_DEFAULT, CN, CN);
+			break;
+		    default:
+			key_ACharacter((unsigned char) buf[0], KT_STD,
+			    IA_DEFAULT);
+		}
 		return;
 	}
 
-	key_ACharacter((unsigned char) buf[0], LATIN, IA_DEFAULT);
+	/* Pick some other reasonable defaults. */
+	switch (ks) {
+	    case XK_Up:
+		action_internal(Up_action, IA_DEFAULT, CN, CN);
+		break;
+	    case XK_Down:
+		action_internal(Down_action, IA_DEFAULT, CN, CN);
+		break;
+	    case XK_Left:
+		action_internal(Left_action, IA_DEFAULT, CN, CN);
+		break;
+	    case XK_Right:
+		action_internal(Right_action, IA_DEFAULT, CN, CN);
+		break;
+	    case XK_Insert:
+#if defined(XK_KP_Insert) /*[*/
+	    case XK_KP_Insert:
+#endif /*]*/
+		action_internal(Insert_action, IA_DEFAULT, CN, CN);
+		break;
+	    case XK_Delete:
+		action_internal(Delete_action, IA_DEFAULT, CN, CN);
+		break;
+	    case XK_Home:
+		action_internal(Home_action, IA_DEFAULT, CN, CN);
+		break;
+	    case XK_Tab:
+		action_internal(Tab_action, IA_DEFAULT, CN, CN);
+		break;
+	    default:
+		if (toggled(EVENT_TRACE))
+			(void) fprintf(tracef, " %s: Unknown keysym\n",
+			    action_name(Default_action));
+		break;
+	}
 }
 
 
@@ -2461,8 +2406,8 @@ Cardinal *num_params;
  * Key action.
  */
 /*ARGSUSED*/
-static void
-key(w, event, params, num_params)
+void
+Key_action(w, event, params, num_params)
 Widget w;
 XEvent *event;
 String *params;
@@ -2472,19 +2417,19 @@ Cardinal *num_params;
 	KeySym k;
 	enum keytype keytype;
 
-	debug_action(key, event, params, num_params);
+	action_debug(Key_action, event, params, num_params);
 	for (i = 0; i < *num_params; i++) {
 		char *s = params[i];
 
 		k = StringToKeysym(s, &keytype);
 		if (k == NoSymbol) {
 			popup_an_error("%s: Nonexistent or invalid KeySym: %s",
-			    action_name(key), s);
+			    action_name(Key_action), s);
 			continue;
 		}
 		if (k & ~0xff) {
 			popup_an_error("%s: Invalid KeySym: %s",
-			    action_name(key), s);
+			    action_name(Key_action), s);
 			continue;
 		}
 		key_ACharacter((unsigned char)(k & 0xff), keytype, IA_KEY);
@@ -2495,8 +2440,8 @@ Cardinal *num_params;
  * String action.
  */
 /*ARGSUSED*/
-static void
-string(w, event, params, num_params)
+void
+String_action(w, event, params, num_params)
 Widget w;
 XEvent *event;
 String *params;
@@ -2506,7 +2451,7 @@ Cardinal *num_params;
 	int len = 0;
 	char *s;
 
-	debug_action(string, event, params, num_params);
+	action_debug(String_action, event, params, num_params);
 
 	/* Determine the total length of the strings. */
 	for (i = 0; i < *num_params; i++)
@@ -2520,9 +2465,50 @@ Cardinal *num_params;
 	for (i = 0; i < *num_params; i++)
 		(void) strcat(s, params[i]);
 
-	/* Set the pending string to that and process it. */
+	/* Set a pending string. */
 	ps_set(s, False);
-	ps_process();
+}
+
+/*
+ * HexString action.
+ */
+/*ARGSUSED*/
+void
+HexString_action(w, event, params, num_params)
+Widget w;
+XEvent *event;
+String *params;
+Cardinal *num_params;
+{
+	int i;
+	int len = 0;
+	char *s;
+	char *t;
+
+	action_debug(HexString_action, event, params, num_params);
+
+	/* Determine the total length of the strings. */
+	for (i = 0; i < *num_params; i++) {
+		t = params[i];
+		if (!strncmp(t, "0x", 2) || !strncmp(t, "0X", 2))
+			t += 2;
+		len += strlen(t);
+	}
+	if (!len)
+		return;
+
+	/* Allocate a block of memory and copy them in. */
+	s = XtMalloc(len + 1);
+	*s = '\0';
+	for (i = 0; i < *num_params; i++) {
+		t = params[i];
+		if (!strncmp(t, "0x", 2) || !strncmp(t, "0X", 2))
+			t += 2;
+		(void) strcat(s, t);
+	}
+
+	/* Set a pending string. */
+	ps_set(s, True);
 }
 
 /*
@@ -2531,19 +2517,19 @@ Cardinal *num_params;
  *  If in 3270 mode, translate to "notsign".
  */
 /*ARGSUSED*/
-static void
-circum_not(w, event, params, num_params)
+void
+CircumNot_action(w, event, params, num_params)
 Widget w;
 XEvent *event;
 String *params;
 Cardinal *num_params;
 {
-	debug_action(circum_not, event, params, num_params);
+	action_debug(CircumNot_action, event, params, num_params);
 
 	if (IN_3270 && composing == NONE)
-		key_ACharacter(0xac, LATIN, IA_KEY);
+		key_ACharacter(0xac, KT_STD, IA_KEY);
 	else
-		key_ACharacter('^', LATIN, IA_KEY);
+		key_ACharacter('^', KT_STD, IA_KEY);
 }
 
 /* PA key action for String actions */
@@ -2559,7 +2545,7 @@ int n;
 		char nn[3];
 
 		(void) sprintf(nn, "%d", n);
-		enq_ta(key_PA, nn, CN);
+		enq_ta(PA_action, nn, CN);
 		return;
 	}
 	key_AID(pa_xlate[n-1]);
@@ -2578,7 +2564,7 @@ int n;
 		char nn[3];
 
 		(void) sprintf(nn, "%d", n);
-		enq_ta(key_PF, nn, CN);
+		enq_ta(PF_action, nn, CN);
 		return;
 	}
 	key_AID(pf_xlate[n-1]);
@@ -2697,14 +2683,14 @@ Boolean pasting;
 		    case BASE:
 			switch (c) {
 			    case '\b':
-				internal_action(key_Left, ia, CN, CN);
+				action_internal(Left_action, ia, CN, CN);
 				continue;
 			    case '\f':
 				if (pasting) {
 					key_ACharacter((unsigned char) ' ',
-					    LATIN, ia);
+					    KT_STD, ia);
 				} else {
-					internal_action(key_Clear, ia, CN, CN);
+					action_internal(Clear_action, ia, CN, CN);
 					if (IN_3270)
 						return len-1;
 					else
@@ -2712,9 +2698,9 @@ Boolean pasting;
 				}
 			    case '\n':
 				if (pasting)
-					internal_action(key_Newline, ia, CN, CN);
+					action_internal(Newline_action, ia, CN, CN);
 				else {
-					internal_action(key_Enter, ia, CN, CN);
+					action_internal(Enter_action, ia, CN, CN);
 					if (IN_3270)
 						return len-1;
 				}
@@ -2722,18 +2708,14 @@ Boolean pasting;
 			    case '\r':	/* ignored */
 				break;
 			    case '\t':
-				if (pasting)
-					key_ACharacter((unsigned char) ' ',
-					    LATIN, ia);
-				else
-					internal_action(key_FTab, ia, CN, CN);
+				action_internal(Tab_action, ia, CN, CN);
 				break;
 			    case '\\':	/* backslashes are NOT special when pasting */
 				if (!pasting)
 					state = BACKSLASH;
 				else
 					key_ACharacter((unsigned char) c,
-					    LATIN, ia);
+					    KT_STD, ia);
 				break;
 			    case '\033': /* ESC is special only when pasting */
 				if (pasting)
@@ -2743,22 +2725,22 @@ Boolean pasting;
 				if (pasting && appres.apl_mode)
 					key_ACharacter(
 					    (unsigned char) XK_Yacute,
-					    APL, ia);
+					    KT_GE, ia);
 				else
 					key_ACharacter((unsigned char) c,
-					    LATIN, ia);
+					    KT_STD, ia);
 				break;
 			    case ']':	/* APL right bracket */
 				if (pasting && appres.apl_mode)
 					key_ACharacter(
 					    (unsigned char) XK_diaeresis,
-					    APL, ia);
+					    KT_GE, ia);
 				else
 					key_ACharacter((unsigned char) c,
-					    LATIN, ia);
+					    KT_STD, ia);
 				break;
 			default:
-				key_ACharacter((unsigned char) c, LATIN,
+				key_ACharacter((unsigned char) c, KT_STD,
 				    ia);
 				break;
 			}
@@ -2767,22 +2749,22 @@ Boolean pasting;
 			switch (c) {
 			    case 'a':
 				popup_an_error("%s: bell not supported",
-				    action_name(string));
+				    action_name(String_action));
 				state = BASE;
 				break;
 			    case 'b':
-				internal_action(key_Left, ia, CN, CN);
+				action_internal(Left_action, ia, CN, CN);
 				state = BASE;
 				break;
 			    case 'f':
-				internal_action(key_Clear, ia, CN, CN);
+				action_internal(Clear_action, ia, CN, CN);
 				state = BASE;
 				if (IN_3270)
 					return len-1;
 				else
 					break;
 			    case 'n':
-				internal_action(key_Enter, ia, CN, CN);
+				action_internal(Enter_action, ia, CN, CN);
 				state = BASE;
 				if (IN_3270)
 					return len-1;
@@ -2792,20 +2774,24 @@ Boolean pasting;
 				state = BACKP;
 				break;
 			    case 'r':
-				internal_action(key_Newline, ia, CN, CN);
+				action_internal(Newline_action, ia, CN, CN);
 				state = BASE;
 				break;
 			    case 't':
-				internal_action(key_FTab, ia, CN, CN);
+				action_internal(Tab_action, ia, CN, CN);
 				state = BASE;
 				break;
 			    case 'v':
 				popup_an_error("%s: vertical tab not supported",
-				    action_name(string));
+				    action_name(String_action));
 				state = BASE;
 				break;
 			    case 'x':
 				state = BACKX;
+				break;
+			    case '\\':
+				key_ACharacter((unsigned char) c, KT_STD, ia);
+				state = BASE;
 				break;
 			    case '0': 
 			    case '1': 
@@ -2838,7 +2824,7 @@ Boolean pasting;
 				break;
 			    default:
 				popup_an_error("%s: unknown character after \\p",
-				    action_name(string));
+				    action_name(String_action));
 				state = BASE;
 				break;
 			}
@@ -2849,7 +2835,7 @@ Boolean pasting;
 				nc++;
 			} else if (!nc) {
 				popup_an_error("%s: unknown character after \\pf",
-				    action_name(string));
+				    action_name(String_action));
 				state = BASE;
 			} else {
 				do_pf(literal);
@@ -2865,7 +2851,7 @@ Boolean pasting;
 				nc++;
 			} else if (!nc) {
 				popup_an_error("%s: unknown character after \\pa",
-				    action_name(string));
+				    action_name(String_action));
 				state = BASE;
 			} else {
 				do_pa(literal);
@@ -2883,7 +2869,7 @@ Boolean pasting;
 				continue;
 			} else {
 				popup_an_error("%s: missing hex digits after \\x",
-				    action_name(string));
+				    action_name(String_action));
 				state = BASE;
 				continue;
 			}
@@ -2893,7 +2879,7 @@ Boolean pasting;
 				nc++;
 				break;
 			} else {
-				key_ACharacter((unsigned char) literal, LATIN,
+				key_ACharacter((unsigned char) literal, KT_STD,
 				    ia);
 				state = BASE;
 				continue;
@@ -2904,13 +2890,13 @@ Boolean pasting;
 				nc++;
 				break;
 			} else {
-				key_ACharacter((unsigned char) literal, LATIN,
+				key_ACharacter((unsigned char) literal, KT_STD,
 				    ia);
 				state = BASE;
 				continue;
 			}
 		    case XGE:	/* have seen ESC */
-			key_ACharacter((unsigned char) c, APL, ia);
+			key_ACharacter((unsigned char) c, KT_GE, ia);
 			state = BASE;
 			break;
 		}
@@ -2921,7 +2907,7 @@ Boolean pasting;
 	switch (state) {
 	    case OCTAL:
 	    case HEX:
-		key_ACharacter((unsigned char) literal, LATIN, ia);
+		key_ACharacter((unsigned char) literal, KT_STD, ia);
 		state = BASE;
 		break;
 	    case BACKPF:
@@ -2942,7 +2928,7 @@ Boolean pasting;
 
 	if (state != BASE)
 		popup_an_error("%s: missing data after \\",
-		    action_name(string));
+		    action_name(String_action));
 
 	return len;
 }
@@ -2979,8 +2965,8 @@ int *format;
 	XtFree(value);
 }
 
-static void
-insert_selection(w, event, params, num_params)
+void
+insert_selection_action(w, event, params, num_params)
 Widget w;
 XButtonEvent *event;
 String *params;
@@ -2989,13 +2975,14 @@ Cardinal *num_params;
 	int	i;
 	Atom	a;
 
-	debug_action(insert_selection, (XEvent *)event, params, num_params);
+	action_debug(insert_selection_action, (XEvent *)event, params,
+	    num_params);
 	n_pasting = 0;
 	for (i = 0; i < *num_params; i++) {
 		a = XInternAtom(display, params[i], True);
 		if (a == None) {
 			popup_an_error("%s: no atom for selection",
-			    action_name(insert_selection));
+			    action_name(insert_selection_action));
 			continue;
 		}
 		if (n_pasting < NP)
@@ -3009,15 +2996,98 @@ Cardinal *num_params;
 	}
 }
 
+/*
+ * Pretend that a sequence of hexadecimal characters was entered at the
+ * keyboard.  The input is a sequence of hexadecimal bytes, 2 characters
+ * per byte.  If connected in ANSI mode, these are treated as ASCII
+ * characters; if in 3270 mode, they are considered EBCDIC.
+ *
+ * Graphic Escapes are handled as \E.
+ */
+void
+hex_input(s)
+char *s;
+{
+	char *t;
+	Boolean escaped;
+	unsigned char *xbuf;
+	unsigned char *tbuf;
+	int nbytes = 0;
+
+	/* Validate the string. */
+	if (strlen(s) % 2) {
+		popup_an_error("%s: Odd number of characters in specification",
+		    action_name(HexString_action));
+		return;
+	}
+	t = s;
+	escaped = False;
+	while (*t) {
+		if (isxdigit(*t) && isxdigit(*(t + 1))) {
+			escaped = False;
+			nbytes++;
+		} else if (!strncmp(t, "\\E", 2) || !strncmp(t, "\\e", 2)) {
+			if (escaped) {
+				popup_an_error("%s: Double \\E",
+				    action_name(HexString_action));
+				return;
+			}
+			if (!IN_3270) {
+				popup_an_error("%s: \\E in ANSI mode",
+				    action_name(HexString_action));
+				return;
+			}
+			escaped = True;
+		} else {
+			popup_an_error("%s: Illegal character in specification",
+			    action_name(HexString_action));
+			return;
+		}
+		t += 2;
+	}
+	if (escaped) {
+		popup_an_error("%s: Nothing follows \\E",
+		    action_name(HexString_action));
+		return;
+	}
+
+	/* Allocate a temporary buffer. */
+	if (!IN_3270 && nbytes)
+		tbuf = xbuf = (unsigned char *)XtMalloc(nbytes);
+
+	/* Pump it in. */
+	t = s;
+	escaped = False;
+	while (*t) {
+		if (isxdigit(*t) && isxdigit(*(t + 1))) {
+			unsigned c;
+
+			c = (FROM_HEX(*t) * 16) + FROM_HEX(*(t + 1));
+			if (IN_3270)
+				key_Character(ebc2cg[c], escaped);
+			else
+				*tbuf++ = (unsigned char)c;
+			escaped = False;
+		} else if (!strncmp(t, "\\E", 2) || !strncmp(t, "\\e", 2)) {
+			escaped = True;
+		}
+		t += 2;
+	}
+	if (!IN_3270 && nbytes) {
+		net_hexansi_out(xbuf, nbytes);
+		XtFree((XtPointer)xbuf);
+	}
+}
+
 /*ARGSUSED*/
-static void
-ignore(w, event, params, num_params)
+void
+ignore_action(w, event, params, num_params)
 Widget w;
 XButtonEvent *event;
 String *params;
 Cardinal *num_params;
 {
-	debug_action(ignore, (XEvent *)event, params, num_params);
+	action_debug(ignore_action, (XEvent *)event, params, num_params);
 }
 
 /*
@@ -3029,8 +3099,8 @@ Cardinal *num_params;
  *   Keymap(None)	removes the previous keymap, if any
  */
 /*ARGSUSED*/
-static void
-toggle_keymap(w, event, params, num_params)
+void
+Keymap_action(w, event, params, num_params)
 Widget w;
 XEvent *event;
 String *params;
@@ -3042,9 +3112,9 @@ Cardinal *num_params;
 	struct trans_list *t, *prev;
 #	define TN (struct trans_list *)NULL
 
-	debug_action(toggle_keymap, event, params, num_params);
+	action_debug(Keymap_action, event, params, num_params);
 
-	if (check_usage(toggle_keymap, *num_params, 0, 1) < 0)
+	if (check_usage(Keymap_action, *num_params, 0, 1) < 0)
 		return;
 
 	if (*num_params == 0 || !strcmp(params[0], "None")) {
@@ -3057,8 +3127,8 @@ Cardinal *num_params;
 			XtFree((XtPointer)t);
 		}
 		tkm_last = temp_keymaps = TN;
-		screen_set_keymap((XtTranslations)NULL);
-		keypad_set_keymap((XtTranslations)NULL);
+		screen_set_temp_keymap((XtTranslations)NULL);
+		keypad_set_temp_keymap((XtTranslations)NULL);
 		status_kmap(False);
 		return;
 	}
@@ -3082,12 +3152,12 @@ Cardinal *num_params;
 		XtFree((XtPointer)t);
 
 		/* Rebuild the translation tables from the remaining ones. */
-		screen_set_keymap((XtTranslations)NULL);
-		keypad_set_keymap((XtTranslations)NULL);
+		screen_set_temp_keymap((XtTranslations)NULL);
+		keypad_set_temp_keymap((XtTranslations)NULL);
 		for (t = temp_keymaps; t != TN; t = t->next) {
 			trans = lookup_tt(t->name, CN);
-			screen_set_keymap(trans);
-			keypad_set_keymap(trans);
+			screen_set_temp_keymap(trans);
+			keypad_set_temp_keymap(trans);
 		}
 
 		/* Update the status line. */
@@ -3104,15 +3174,15 @@ Cardinal *num_params;
 	XtFree(kmname);
 	if (km == CN) {
 		popup_an_error("%s: can't find %s.%s",
-		    action_name(toggle_keymap), ResKeymap, k);
+		    action_name(Keymap_action), ResKeymap, k);
 		return;
 	}
 
 	/* Update the translation tables. */
 	trans = lookup_tt(k, km);
 	XtFree(km);
-	screen_set_keymap(trans);
-	keypad_set_keymap(trans);
+	screen_set_temp_keymap(trans);
+	keypad_set_temp_keymap(trans);
 
 	/* Add it to the list. */
 	t = (struct trans_list *)XtMalloc(sizeof(*t));
@@ -3129,91 +3199,57 @@ Cardinal *num_params;
 }
 #undef TN
 
-XtActionsRec actions[] = {
-	{ "AltCursor",  	(XtActionProc)key_AltCr },
-	{ "AnsiText",		(XtActionProc)ansi_text_fn },
-	{ "Ascii",		(XtActionProc)ascii_fn },
-	{ "AsciiField",		(XtActionProc)ascii_field_fn },
-	{ "Attn",		(XtActionProc)key_Attn },
-	{ "BackSpace",		(XtActionProc)key_BackSpace },
-	{ "BackTab",		(XtActionProc)key_BTab },
-	{ "CircumNot",		(XtActionProc)circum_not },
-	{ "Clear",		(XtActionProc)key_Clear },
-	{ "CloseScript",	(XtActionProc)close_script_fn },
-	{ "Compose",		(XtActionProc)Compose },
-	{ "Configure",		(XtActionProc)configure },
-	{ "Connect",		(XtActionProc)Connect },
-	{ "ContinueScript",	(XtActionProc)continue_script_fn },
-	{ "CursorSelect",	(XtActionProc)key_CursorSelect },
-	{ "Cut",		(XtActionProc)Cut },
-	{ "Default",		(XtActionProc)Default },
-	{ "Delete", 		(XtActionProc)key_Delete },
-	{ "DeleteField",	(XtActionProc)key_DeleteField },
-	{ "DeleteWord",		(XtActionProc)key_DeleteWord },
-	{ "Disconnect",		(XtActionProc)Disconnect },
-	{ "Down",		(XtActionProc)key_Down },
-	{ "Dup",		(XtActionProc)key_Dup },
-	{ "Ebcdic",		(XtActionProc)ebcdic_fn },
-	{ "EbcdicField",	(XtActionProc)ebcdic_field_fn },
-	{ "Enter",		(XtActionProc)key_Enter },
-	{ "EnterLeave",		(XtActionProc)enter_leave },
-	{ "Erase",		(XtActionProc)key_Erase },
-	{ "EraseEOF",		(XtActionProc)key_EraseEOF },
-	{ "EraseInput",		(XtActionProc)key_EraseInput },
-	{ "Execute",		(XtActionProc)execute_fn },
-	{ "Expect",		(XtActionProc)expect_fn },
-	{ "FieldEnd",		(XtActionProc)key_FieldEnd },
-	{ "FieldMark",		(XtActionProc)key_FieldMark },
-	{ "Flip",		(XtActionProc)key_Flip },
-	{ "FocusEvent",		(XtActionProc)focus_change },
-	{ "GraphicsExpose",	(XtActionProc)graphics_expose },
-	{ "HandleMenu",		(XtActionProc)handle_menu },
-	{ "HardPrint",		(XtActionProc)print_text },
-	{ "Home",		(XtActionProc)key_Home },
-	{ "Info",		(XtActionProc)Info },
-	{ "Insert",		(XtActionProc)key_Insert },
-	{ "Key",		(XtActionProc)key },
-	{ "Keymap",		(XtActionProc)toggle_keymap },
-	{ "KeymapEvent",	(XtActionProc)keymap_event },
-	{ "Left",		(XtActionProc)key_Left },
-	{ "Left2", 		(XtActionProc)key_Left2 },
-	{ "MonoCase",		(XtActionProc)key_MonoCase },
-	{ "MoveCursor",		(XtActionProc)MoveCursor },
-	{ "Newline",		(XtActionProc)key_Newline },
-	{ "NextWord",		(XtActionProc)next_word },
-	{ "PauseScript",	(XtActionProc)pause_script_fn },
-	{ "PA",			(XtActionProc)key_PA },
-	{ "PF",			(XtActionProc)key_PF },
-	{ "PreviousWord",	(XtActionProc)previous_word },
-	{ "PrintText",		(XtActionProc)print_text },
-	{ "PrintWindow",	(XtActionProc)print_window },
-	{ "Quit",		(XtActionProc)quit_event },
-	{ "Reconnect",		(XtActionProc)Reconnect },
-	{ "Redraw",		(XtActionProc)redraw },
-	{ "Reset",		(XtActionProc)key_Reset },
-	{ "Right",		(XtActionProc)key_Right },
-	{ "Right2",		(XtActionProc)key_Right2 },
-	{ "SetFont",		(XtActionProc)set_font },
-	{ "Shift",		(XtActionProc)key_Shift },
-	{ "StateChanged",	(XtActionProc)state_event },
-	{ "String",		(XtActionProc)string },
-	{ "SysReq",		(XtActionProc)key_SysReq },
-	{ "Tab",		(XtActionProc)key_FTab },
-	{ "ToggleInsert",	(XtActionProc)key_ToggleInsert },
-	{ "ToggleReverse",	(XtActionProc)key_ToggleReverse },
-	{ "Up",			(XtActionProc)key_Up },
-	{ "Visible",		(XtActionProc)visible },
-	{ "WMProtocols",	(XtActionProc)wm_protocols },
-	{ "Wait",		(XtActionProc)wait_fn },
-	{ "confirm",		(XtActionProc)Confirm },
-	{ "ignore",		(XtActionProc)ignore },
-	{ "insert-selection",	(XtActionProc)insert_selection },
-	{ "move-select",	(XtActionProc)move_select },
-	{ "select-end",		(XtActionProc)select_end },
-	{ "select-extend",	(XtActionProc)select_extend },
-	{ "select-start",	(XtActionProc)select_start },
-	{ "set-select",		(XtActionProc)set_select },
-	{ "start-extend",	(XtActionProc)start_extend },
-};
+/*
+ * Set up the cursor and input field for command input.
+ * Returns the length of the input field, or 0 if there is no field
+ * to set up.
+ */
+int
+kybd_prime()
+{
+	int baddr;
+	register unsigned char *fa;
+	int len = 0;
 
-int actioncount = XtNumber(actions);
+	/*
+	 * No point in trying if the screen isn't formatted, the keyboard
+	 * is locked, or we aren't in 3270 mode.
+	 */
+	if (!formatted || kybdlock || !IN_3270)
+		return 0;
+
+	fa = get_field_attribute(cursor_addr);
+	if (IS_FA(screen_buf[cursor_addr]) || FA_IS_PROTECTED(*fa)) {
+		/*
+		 * The cursor is not in an unprotected field.  Find the
+		 * next one.
+		 */
+		baddr = next_unprotected(cursor_addr);
+
+		/* If there isn't any, give up. */
+		if (!baddr)
+			return 0;
+
+		/* Move the cursor there. */
+	} else {
+		/* Already in an unprotected field.  Find its start. */
+		baddr = cursor_addr;
+		while (!IS_FA(screen_buf[baddr])) {
+			DEC_BA(baddr);
+		}
+		INC_BA(baddr);
+	}
+
+	/* Move the cursor to the beginning of the field. */
+	cursor_move(baddr);
+
+	/* Erase it. */
+	while (!IS_FA(screen_buf[baddr])) {
+		ctlr_add(baddr, 0, 0);
+		len++;
+		INC_BA(baddr);
+	}
+
+	/* Return the field length. */
+	return len;
+}

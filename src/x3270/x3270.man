@@ -1,5 +1,5 @@
 '\" t
-.TH X3270 1 "22 May 1995"
+.TH X3270 1 "25 September 1997"
 .SH NAME
 x3270 \-
 .SM IBM
@@ -279,7 +279,7 @@ The name can also be specified with the "x3270.termName" resource.
 Turns on data stream tracing at startup.
 Unlike turning it on from a menu option, there is no pop-up to confirm the
 file name, which defaults to
-.BI /usr/tmp/x3trc. process_id.
+.BI /tmp/x3trc. process_id.
 .SH FONTS
 By default,
 .B x3270
@@ -363,6 +363,8 @@ uk	22
 norwegian	23
 french	30
 hebrew*	\-
+icelandic \-
+belgian \-
 .TE
 .IP
 (*) requires a special font,
@@ -520,7 +522,7 @@ Erase previous word	x3270.werase	^W
 Redisplay line	x3270.rprnt	^R
 Ignore special meaning of next character	x3270.lnext	^V
 Interrupt	x3270.intr	^C
-Quit	x3270.quit	^\\\\
+Quit	x3270.quit	^\\\\ 
 End of file	x3270.eof	^D
 .TE
 .SH MENUS
@@ -533,14 +535,25 @@ key and the left, middle and right mouse buttons, respectively.
 The menu bar can be turned off by setting the "x3270.menuBar" resource to
 .B false.
 .PP
-The top sections of the File and Options menus are a series of toggles,
+Many sections of the File and Options menus are toggles,
 options that may be either on or off.
-The toggles under the File menu are as follows:
+The entries under the File menu are as follows:
+.TP
+.B File Transfer
+Initiates transferring a file between the IBM host and the local workstation,
+using the
+.B IND$FILE
+protocol.
+A pop-up menu allows specifying the file names and other attributes of the
+transfer.
+.br
+The IND$FILE program must be installed on the IBM host, and the 3270 cursor
+must be located in a field that will accept a TSO or VM/CMS command.
 .TP
 .B Trace Data Stream
 If set, network traffic (both a hexadecimal representation and its
 interpretation) are logged to the file
-.BI /usr/tmp/x3trc. process_id,
+.BI /tmp/x3trc. process_id,
 and a window is popped up to monitor the data.
 The file name is confirmed with a pop-up; the default directory name for the
 trace file can be changed with the "x3270.traceDir" resource.
@@ -561,7 +574,7 @@ can add it to a custom keymap.
 If set, saves an
 .SM ASCII
 representation of the current screen image in the file
-.BI /usr/tmp/x3scr. process_id.
+.BI /tmp/x3scr. process_id.
 A pop-up allows the file name to be changed; the default directory name can be
 changed with the "x3270.traceDir" resource.
 The pop-up also has buttons to choose between saving just the current image,
@@ -790,9 +803,9 @@ or
 .SM KEYBD
 environment variables.
 The types of supported keyboards include
-.BR sun\-k3 ,
-.BR sun\-k4 ,
-.BR sun\-k5 ,
+.BR sun_k3 ,
+.BR sun_k4 ,
+.BR sun_k5 ,
 .BR hp\-k1 ,
 .B hp\-pc
 and
@@ -882,9 +895,9 @@ The naming for a sun4 keyboard would be:
 .RS
 x3270.keymap.default:
 .br
-x3270.keymap.sun\-k4:
+x3270.keymap.sun_k4:
 .br
-x3270.keymap.sun\-k4.user:
+x3270.keymap.sun_k4.user:
 .RE
 .PP
 The basic default translation table is:
@@ -963,7 +976,7 @@ Ctrl<Key>w	DeleteWord()
 .TE
 .RE
 .PP
-Meta is the diamond shaped key on a sun\-k4, "Alt" on an
+Meta is the diamond shaped key on a sun_k4, "Alt" on an
 .SM NCD,
 "Extend Char" on an
 .SM HP.
@@ -1032,14 +1045,17 @@ EraseEOF	erase to end of current field
 EraseInput	erase all input fields
 Execute(\fIcmd\fP)	execute a command in a shell
 FieldEnd	move cursor to end of field
+FieldExit	clear to end of field and skip to next (5250 emulation)
 FieldMark	mark field
 HandleMenu(\fIname\fP)	pop up a menu
+HexString(\fIhex_digits\fP)	insert control-character string
 Home	move cursor to first input field
 Insert	set insert mode
 Key(\fIkeysym\fP)	insert key \fIkeysym\fP
 Keymap(\fIkeymap\fP)	toggle alternate \fIkeymap\fP (or remove with \fBNone\fP)
 Left	move cursor left
 Left2	move cursor left 2 positions
+Macro(\fImacro\fP)	run a macro
 MoveCursor	move cursor to mouse position
 MonoCase	toggle uppercase-only mode
 Newline	move cursor to first field on next line (or send ASCII LF)
@@ -1056,6 +1072,7 @@ Reset	reset locked keyboard
 Right	move cursor right
 Right2	move cursor right 2 positions
 SetFont(\fIfont\fP)	change emulator font
+Script(\fIcommand\fP[,\fIarg\fP...])	run a script
 String(\fIstring\fP)	insert string (simple macro facility)
 SysReq	System Request AID
 Tab	move cursor to next input field
@@ -1075,15 +1092,14 @@ start\-extend	begin marking the end of a selection
 .TE
 .RE
 .SH "MACROS AND SCRIPTS"
-There are several levels of macros and script functions available.
+There are several types of macros and script functions available.
 .TP
 .B The String() Action
 The simplest method for macros is provided via the String action, which can
 be bound to any key in a keymap.
 The arguments to String() are one or more double-quoted strings which are
 inserted directly as if typed.
-Hex constants may be entered in the form 0xff, and the C backslash conventions
-are honored as follows.
+The C backslash conventions are honored as follows.
 (Entries marked * mean that after sending the
 .SM AID
 code to the host,
@@ -1118,6 +1134,28 @@ control codes.
 Also, a backslash before a
 .B p
 must be doubled so it will not be removed when resource files are read.
+.IP
+There is also an alternate form of the String action, HexString, which is
+used to enter non-printing data.
+The argument to HexString is a string of hexadecimal digits, two per
+character.  A leading 0x or 0X is optional.
+In 3270 mode, the hexadecimal data represent EBCDIC characters, which are
+entered into the current field.
+In ANSI mode, the hexadecimal data represent ASCII characters, which are sent
+directly to the host.
+.TP
+The Script() Action
+This facility causes
+.B x3270
+to start a child process which can execute
+.B x3270
+actions.
+The child process' standard input and output are piped back to
+.BR x3270 .
+The
+.B Script()
+action is fully documented in
+.IR x3270-script (1).
 .TP
 .B The macros Resource
 An alternate method of defining macros is the "x3270.macros" resource.
@@ -1154,8 +1192,10 @@ is connected to
 .B The \-script Switch
 This facility allows
 .B x3270
-to operate under the control of a script.
-It is covered in
+to operate under the complete control of a script.
+.B x3270
+accepts actions from standard input, and prints results on standard output.
+The \-script switch is fully documented in
 .IR x3270-script (1).
 .B
 .SH "COMPOSITE CHARACTERS"
@@ -1184,8 +1224,8 @@ If your keyboard lacks such a key, you may set up your own "Compose" key with
 a keymap that maps some other keysym onto the "Compose" action.
 .SH "APL SUPPORT"
 .B x3270
-supports an
-.SM APL
+supports the full
+.SM APL2
 character set and the entry of
 .SM APL
 characters from the keyboard.
@@ -1248,106 +1288,135 @@ appearances.
 .PP
 The complete list of special
 .SM APL
-keysyms is as follows:
+keysyms is as follows.  Entries marked with an asterisk (*) represent
+simple aliases for standard \s-1EBCDIC\s+1 characters.
 .PP
 .RS
 .TS
-l c.
-Keysym	\s-1EBCDIC\s+1 Code
+l c l l l.
+\s-1APL\s+1 Symbol	Hex	x3270 Keysym	x3270 Key	x3270 Composed Keys
 _
-apl_Aunderbar	41
-apl_Bunderbar	42
-apl_Cunderbar	43
-apl_Dunderbar	44
-apl_Eunderbar	45
-apl_Funderbar	46
-apl_Gunderbar	47
-apl_Hunderbar	48
-apl_Iunderbar	49
-apl_Junderbar	51
-apl_Kunderbar	52
-apl_Lunderbar	53
-apl_Munderbar	54
-apl_Nunderbar	55
-apl_Ounderbar	56
-apl_Punderbar	57
-apl_Qunderbar	58
-apl_Runderbar	59
-apl_Sunderbar	62
-apl_Tunderbar	63
-apl_Uunderbar	64
-apl_Vunderbar	65
-apl_Wunderbar	66
-apl_Xunderbar	67
-apl_Yunderbar	68
-apl_Zunderbar	69
-apl_alpha	b0
-apl_bracketleft	ad
-apl_bracketright	bd
-apl_circle	9d
-apl_circlebar	cd
-apl_circleslope	cf
-apl_circlestar	fd
-apl_circlestile	cd
-apl_del	ba
-apl_delstile	dd
-apl_delta	bb
-apl_deltastile	dd
-apl_deltaunderbar	fc
-apl_deltilde	fb
-apl_diaeresis	72
-apl_diaeresisdot	ec
-apl_diamond	70
-apl_divide	b8
-apl_downarrow	8b
-apl_downcaret	78
-apl_downcarettilde	cb
-apl_downshoe	ab
-apl_downstile	8e
-apl_downtack	ac
-apl_downtackjot	fe
-apl_downtackup	da
-apl_epsilon	b1
-apl_epsilonunderbar	75
-apl_iota	b2
-apl_iotaunderbar	74
-apl_jot	af
-apl_leftarrow	9f
-apl_leftshoe	9b
-apl_lefttack	76
-apl_multiply	b6
-apl_notequal	be
-apl_notgreater	8c
-apl_notless	ae
-apl_omega	b4
-apl_overbar	a2
-apl_plusminus	9e
-apl_quad	90
-apl_quaddivide	ee
-apl_quadjot	73
-apl_quadquote	de
-apl_quotedot	db
-apl_rho	b3
-apl_rightarrow	8f
-apl_rightshoe	9a
-apl_righttack	77
-apl_slashbar	ea
-apl_slope	b7
-apl_slopebar	eb
-apl_slopequad	ce
-apl_splat	9c
-apl_squad	cc
-apl_stile	bf
-apl_tilde	80
-apl_uparrow	8a
-apl_upcaret	71
-apl_upcarettilde	ca
-apl_upshoe	aa
-apl_upshoejot	df
-apl_upstile	8d
-apl_uptack	bc
-apl_uptackjot	ef
+A underbar	41	apl_Aunderbar	Alt-A	A + underbar
+alpha	B0	apl_alpha	Alt-a
+B underbar	42	apl_Bunderbar	Alt-B	B + underbar
+bar	60*	apl_bar	-
+C underbar	43	apl_Cunderbar	Alt-C	C + underbar
+circle	9D	apl_circle	Alt-o
+circle bar	ED	apl_circlebar		circle + bar
+circle slope	CF	apl_circleslope		circle + slope
+circle star	FD	apl_circlestar		circle + star
+circle stile	CD	apl_circlestile		circle + stile
+colon	7A*	apl_colon	:
+comma	6B*	apl_comma	,
+D underbar	44	apl_Dunderbar	Alt-D	D + underbar
+del	BA	apl_del	Alt-g
+del stile	DC	apl_delstile		del + stile
+del tilde	FB	apl_deltilde		del + tilde
+delta	BB	apl_delta	Alt-h
+delta stile	DD	apl_deltastile		delta + stile
+delta underbar	FC	apl_deltaunderbar		delta + underbar
+diamond	70	apl_diamond		up caret + down caret
+dieresis	72	apl_dieresis	Alt-1
+dieresis dot	EC	apl_dieresisdot		dieresis + dot
+divide	B8	apl_divide	Alt-+
+dot	4B*	apl_dot	.
+down arrow	8B	apl_downarrow	Alt-u
+down caret	78	apl_downcaret	Alt-9
+down caret tilde	CB	apl_downcarettilde		down caret + tilde
+down shoe	AB	apl_downshoe	Alt-v
+down stile	8E	apl_downstile	Alt-d
+down tack	AC	apl_downtack	Alt-b
+down tack jot	FE	apl_downtackjot		down tack + jot
+down tack up tack	DA	apl_downtackuptack		down tack + up tack
+E underbar	45	apl_Eunderbar	Alt-E	E + underbar
+epsilon	B1	apl_epsilon	Alt-e
+epsilon underbar	75	apl_epsilonunderbar		epsilon + underbar
+equal	7E*	apl_equal	'='
+equal underbar	E1	apl_equalunderbar		equal + underbar
+F underbar	46	apl_Funderbar	Alt-F	F + underbar
+G underbar	47	apl_Gunderbar	Alt-G	G + underbar
+greater	6E*	apl_greater	>
+H underbar	48	apl_Hunderbar	Alt-H	H + underbar
+I underbar	49	apl_Iunderbar	Alt-I	I + underbar
+iota	B2	apl_iota	Alt-i
+iota underbar	74	apl_iotaunderbar		iota + underbar
+J underbar	51	apl_Junderbar	Alt-J	J + underbar
+jot	AF	apl_jot	alt-j
+K underbar	52	apl_Kunderbar	Alt-K	K + underbar
+L underbar	53	apl_Lunderbar	Alt-L	L + underbar
+left arrow	9F	apl_leftarrow	Alt-[
+left bracket	AD	apl_leftbracket	[
+left paren	4D*	apl_leftparen	(
+left shoe	9B	apl_leftshoe	Alt-z
+less	4C*	apl_less	<
+M underbar	54	apl_Munderbar	Alt-M	M + underbar
+N underbar	55	apl_Nunderbar	Alt-N	N + underbar
+not equal	BE	apl_notequal	Alt-8	equal + slash
+not greater	8C	apl_notgreater	Alt-4	less + equal
+not less	AE	apl_notless	Alt-6	greater + equal
+O underbar	56	apl_Ounderbar	Alt-O	O + underbar
+omega	B4	apl_omega	Alt-w
+overbar	A0	apl_overbar	Alt-2
+P underbar	57	apl_Punderbar	Alt-P	P + underbar
+plus	4E*	apl_plus	+
+Q underbar	58	apl_Qunderbar	Alt-Q	Q + underbar
+quad	90	apl_quad	Alt-l
+quad divide	EE	apl_quaddivide		quad + divide
+quad jot	73	apl_quadjot		quad + jot
+quad quote	DE	apl_quadquote		quad + quote
+quad slope	CE	apl_quadslope		quad + slope
+query	6F*	apl_query	?
+quote	7D*	apl_quote	'
+quote dot	DB	apl_quotedot		quote + dot
+R underbar	59	apl_Runderbar	Alt-R	R + underbar
+rho	B3	apl_rho	Alt-r
+right arrow	8F	apl_rightarrow	Alt-]
+right bracket	BD	apl_rightbracket	]
+right paren	5D*	apl_rightparen	)
+right shoe	9A	apl_rightshoe	Alt-x
+S underbar	62	apl_Sunderbar	Alt-S	S + underbar
+semicolon	5E*	apl_semicolon	;
+slash	61*	apl_slash	/
+slash bar	EA	apl_slashbar		slash + bar
+slope	B7	apl_slope	Alt-\\\\ 
+slope bar	EB	apl_slopebar		slope + bar
+squad	CC	apl_squad		quad + quad
+star	5C*	apl_star	*
+stile	BF	apl_stile	Alt-|
+T underbar	63	apl_Tunderbar	Alt-T	T + underbar
+tilde	80	apl_tilde	Alt-~
+times	B6	apl_times	Alt-=
+U underbar	64	apl_Uunderbar	Alt-U	U + underbar
+underbar	6D*	apl_underbar	'_'
+up arrow	8A	apl_uparrow	Alt-y
+up caret	71	apl_upcaret	Alt-0
+up caret tilde	CA	apl_upcarettilde		up caret + tilde
+up shoe	AA	apl_upshoe	Alt-c
+up shoe jot	DF	apl_upshoejot		up shoe + jot
+up stile	8D	apl_upstile	Alt-s
+up tack	BC	apl_uptack	Alt-n
+up tack jot	EF	apl_uptackjot		up tack + jot
+V underbar	65	apl_Vunderbar	Alt-V	V + underbar
+W underbar	66	apl_Wunderbar	Alt-W	W + underbar
+X underbar	67	apl_Xunderbar	Alt-X	X + underbar
+Y underbar	68	apl_Yunderbar	Alt-Y	Y + underbar
+Z underbar	69	apl_Zunderbar	Alt-Z	Z + underbar
 .TE
+.SH "5250 (AS/400) SUPPORT"
+.B x3270
+provides limited support for 5250 (AS/400) emulation.
+This is not native 5250 terminal emulation, but rather for use with hosts
+which allow a 3270 terminal to emulate a 5250.
+A 
+.B 5250
+keymap is defined, which maps the keyboard function keys to the 5250 emulator's
+PA/PF key sequences, as well as redefining the Return key to use the special
+FieldExit action.
+The command line for 5250 support is:
+.RS 1i
+.br
+x3270 -model 2 -keymap 5250
+.br
 .RE
 .SH "SCREEN PRINTING"
 Screen printing is handled through options on the File menu or by the
@@ -1426,7 +1495,6 @@ It then passes the requested hostname and port to the
 server.
 .SH FILES
 .nf
-/usr/lib/X11/app\-defaults/X3270
 /usr/lib/X11/x3270/ibm_hosts
 .SH "SEE ALSO"
 telnet(1), tn3270(1), ibm_hosts(5), x3270-script(1)
@@ -1437,16 +1505,10 @@ Data Stream Programmer's Reference, IBM GA23\-0059
 .br
 Character Set Reference, IBM GA27\-3831
 .SH COPYRIGHTS
-Copyright 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.
-.RS
-All Rights Reserved.  GTRC hereby grants public use of this software.
-Derivative works based on this software must incorporate this copyright
-notice.
-.RE
 .LP
-X11 Port Copyright 1990 by Jeff Sparkes.
+Modifications Copyright 1993, 1994, 1995, 1996, 1997 by Paul Mattes.
 .br
-Additional X11 Modifications Copyright 1993, 1994, 1995 by Paul Mattes.
+Original X11 Port Copyright 1990 by Jeff Sparkes.
 .RS
 Permission to use, copy, modify, and distribute this software and its
 documentation for any purpose and without fee is hereby granted,
@@ -1454,3 +1516,12 @@ provided that the above copyright notice appear in all copies and that
 both that copyright notice and this permission notice appear in
 supporting documentation.
 .RE
+Copyright 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.
+.RS
+All Rights Reserved.  GTRC hereby grants public use of this software.
+Derivative works based on this software must incorporate this copyright
+notice.
+.RE
+5250 Emulation Code copyright Minolta (Schweiz) AG, Beat Rubischon.
+.SH VERSION
+x3270 3.1.1.7

@@ -14,7 +14,6 @@
 
 #define ObjConfirmButton	"confirmButton"
 #define ObjConfirm2Button	"confirm2Button"
-#define ObjOkayButton		"okayButton"
 #define ObjCancelButton		"cancelButton"
 #define ObjDialog		"dialog"
 #define ObjSmallLabel		"smallLabel"

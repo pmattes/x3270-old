@@ -1,5 +1,5 @@
 /*
- * Copyright 1994, 1995 by Paul Mattes.
+ * Copyright 1994, 1995, 1996 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -16,33 +16,16 @@
 #include "globals.h"
 #include <errno.h>
 #include "3270ds.h"
+#include "appres.h"
 #include "screen.h"
 #include "cg.h"
 
-#if defined(__STDC__)
-#define MASK32	0xff000000U
-#define MASK24	0x00ff0000U
-#define MASK16	0x0000ff00U
-#define MASK08	0x000000ffU
-#define MINUS1	0xffffffffU
-#else
-#define MASK32	0xff000000
-#define MASK24	0x00ff0000
-#define MASK16	0x0000ff00
-#define MASK08	0x000000ff
-#define MINUS1	0xffffffff
-#endif
-
-#define SET16(ptr, val) { \
-    *ptr++ = (val & MASK16) >> 8; \
-    *ptr++ = (val & MASK08); \
-}
-#define SET32(ptr, val) { \
-    *ptr++ = (val & MASK32) >> 24; \
-    *ptr++ = (val & MASK24) >> 16; \
-    *ptr++ = (val & MASK16) >> 8; \
-    *ptr++ = (val & MASK08); \
-}
+#include "ctlrc.h"
+#include "ft_dftc.h"
+#include "kybdc.h"
+#include "sfc.h"
+#include "telnetc.h"
+#include "trace_dsc.h"
 
 /* Externals: ctlr.c */
 extern Boolean  screen_alt;
@@ -72,6 +55,7 @@ static unsigned char supported_replies[] = {
 	QR_HIGHLIGHTING,	/* 0x87 */
 	QR_REPLY_MODES,		/* 0x88 */
 	QR_IMP_PART,		/* 0xa6 */
+	QR_DDM,			/* 0x95 */
 };
 #define NSR	(sizeof(supported_replies)/sizeof(unsigned char))
 
@@ -139,6 +123,10 @@ int buflen;
 			trace_ds("OutboundDS");
 			sf_outbound_ds(cp, (int)fieldlen);
 			break;
+		    case SF_TRANSFER_DATA:   /* File transfer data         */
+			trace_ds("FileTransferData");
+			ft_dft_data(cp, (int)fieldlen);
+			break;
 		    default:
 			trace_ds("unsupported ID 0x%02x\n", cp[2]);
 			break;
@@ -180,8 +168,8 @@ int buflen;
 		trace_ds("\n");
 		query_reply_start();
 		for (i = 0; i < NSR; i++)
-			do_query_reply(supported_replies[i]);
-		query_reply_end();
+		      do_query_reply(supported_replies[i]);
+ 		query_reply_end();
 		break;
 	    case SF_RP_QLIST:
 		trace_ds(" QueryList ");
@@ -414,6 +402,8 @@ unsigned char code;
 	char *comma = "";
 	int obptr0 = obptr - obuf;
 	unsigned char *obptr_len;
+	unsigned short num, denom;
+	extern int default_screen;
 
 	if (qr_in_progress) {
 		trace_ds("> StructuredField\n");
@@ -428,7 +418,7 @@ unsigned char code;
 
 	    case QR_CHARSETS:
 		trace_ds("> QueryReply(CharacterSets)\n");
-		space3270out(16);
+		space3270out(23);
 		*obptr++ = 0x82;	/* flags: GE, CGCSGID present */
 		*obptr++ = 0x00;	/* more flags */
 		*obptr++ = *char_width;	/* SDW */
@@ -438,14 +428,22 @@ unsigned char code;
 		*obptr++ = 0x00;
 		*obptr++ = 0x00;
 		*obptr++ = 0x07;	/* DL */
-		*obptr++ = 0x00;	/* SET */
-		*obptr++ = 0x10;	/* FLAGS: non-loadable, single-plane,
-					   single-byte, no compare */
-		*obptr++ = 0x00;	/* LCID */
-		*obptr++ = 0x00;	/* CGCSGID */
-		*obptr++ = 0x67;	/* international */
+		*obptr++ = 0x00;	/* SET 0: */
+		*obptr++ = 0x10;	/*  FLAGS: non-loadable, single-plane,
+					     single-byte, no compare */
+		*obptr++ = 0x00;	/*  LCID */
+		*obptr++ = 0x00;	/*  CGCSGID: international */
+		*obptr++ = 0x67;
 		*obptr++ = 0x00;
 		*obptr++ = 0x26;
+		*obptr++ = 0x01;	/* SET 1: */
+		*obptr++ = 0x00;	/*  FLAGS: non-loadable, single-plane,
+					     single-byte, no compare */
+		*obptr++ = 0xf1;	/*  LCID */
+		*obptr++ = 0x03;	/*  CGCSGID: 3179-style APL2 */
+		*obptr++ = 0xc3;
+		*obptr++ = 0x01;
+		*obptr++ = 0x36;
 		break;
 
 	    case QR_IMP_PART:
@@ -485,9 +483,23 @@ unsigned char code;
 		*obptr++ = 0x00;	/* no special character features */
 		SET16(obptr, maxCOLS);	/* usable width */
 		SET16(obptr, maxROWS);	/* usable height */
-		*obptr++ = 0x00;	/* units (inches) */
-		SET32(obptr, MINUS1);	/* Xr */
-		SET32(obptr, MINUS1);	/* Yr */
+		*obptr++ = 0x01;	/* units (mm) */
+		num = XDisplayWidthMM(display, default_screen);
+		denom = XDisplayWidth(display, default_screen);
+		while (!(num %2) && !(denom % 2)) {
+			num /= 2;
+			denom /= 2;
+		}
+		SET16(obptr, (int)num);	/* Xr numerator */
+		SET16(obptr, (int)denom); /* Xr denominator */
+		num = XDisplayHeightMM(display, default_screen);
+		denom = XDisplayHeight(display, default_screen);
+		while (!(num %2) && !(denom % 2)) {
+			num /= 2;
+			denom /= 2;
+		}
+		SET16(obptr, (int)num);	/* Yr numerator */
+		SET16(obptr, (int)denom); /* Yr denominator */
 		*obptr++ = *char_width;	/* AW */
 		*obptr++ = *char_height;/* AH */
 		SET16(obptr, 0);	/* buffer */
@@ -539,6 +551,15 @@ unsigned char code;
 		*obptr++ = 0;		/* 1 partition */
 		SET16(obptr, maxROWS*maxCOLS);	/* buffer space */
 		*obptr++ = 0;		/* no special features */
+		break;
+
+	    case QR_DDM:
+		trace_ds("> QueryReply(DistributedDataManagement)\n");
+		space3270out(8);
+		SET16(obptr,0);		/* set reserved field to 0 */
+		SET16(obptr,2048);	/* set inbound length limit */
+		SET16(obptr,2048);	/* set outbound length limit */
+		SET16(obptr,0x0101);	/* NSS=01, DDMSS=01 */
 		break;
 
 	    default:

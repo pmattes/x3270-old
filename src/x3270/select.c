@@ -1,4 +1,13 @@
 /*
+ * Copyright 1993, 1994, 1995 by Paul Mattes.
+ *  Permission to use, copy, modify, and distribute this software and its
+ *  documentation for any purpose and without fee is hereby granted,
+ *  provided that the above copyright notice appear in all copies and that
+ *  both that copyright notice and this permission notice appear in
+ *  supporting documentation.
+ */
+
+/*
  * Portions of this code were taken from xterm/button.c:
  * Copyright 1987 by Digital Equipment Corporation, Maynard, Massachusetts.
  *
@@ -23,15 +32,6 @@
  */
 
 /*
- * Copyright 1993, 1994, 1995 by Paul Mattes.
- *  Permission to use, copy, modify, and distribute this software and its
- *  documentation for any purpose and without fee is hereby granted,
- *  provided that the above copyright notice appear in all copies and that
- *  both that copyright notice and this permission notice appear in
- *  supporting documentation.
- */
-
-/*
  *	select.c
  *		This module handles selections.
  */
@@ -41,10 +41,20 @@
 #include <X11/Xmu/Atoms.h>
 #include <X11/Xmu/StdSel.h>
 #include "3270ds.h"
+#include "appres.h"
 #include "ctlr.h"
 #include "screen.h"
 #include "cg.h"
 #include "resources.h"
+
+#include "actionsc.h"
+#include "ctlrc.h"
+#include "kybdc.h"
+#include "popupsc.h"
+#include "screenc.h"
+#include "selectc.h"
+#include "tablesc.h"
+#include "utilc.h"
 
 /*
  * Mouse side.
@@ -258,7 +268,7 @@ Time t;
  */
 /*ARGSUSED*/
 void
-select_start(w, event, params, num_params)
+select_start_action(w, event, params, num_params)
 Widget w;
 XEvent *event;
 String *params;
@@ -269,7 +279,7 @@ Cardinal *num_params;
 
 	if (w != *screen)
 		return;
-	debug_action(select_start, event, params, num_params);
+	action_debug(select_start_action, event, params, num_params);
 	BOUNDED_XY(event, x, y);
 	baddr = ROWCOL_TO_BA(y, x);
 	f_start = f_end = v_start = v_end = baddr;
@@ -291,7 +301,7 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-move_select(w, event, params, num_params)
+move_select_action(w, event, params, num_params)
 Widget w;
 XEvent *event;
 String *params;
@@ -302,7 +312,7 @@ Cardinal *num_params;
 
 	if (w != *screen)
 		return;
-	debug_action(move_select, event, params, num_params);
+	action_debug(move_select_action, event, params, num_params);
 	BOUNDED_XY(event, x, y);
 	baddr = ROWCOL_TO_BA(y, x);
 
@@ -333,7 +343,7 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-start_extend(w, event, params, num_params)
+start_extend_action(w, event, params, num_params)
 Widget w;
 XEvent *event;
 String *params;
@@ -344,7 +354,7 @@ Cardinal *num_params;
 
 	if (w != *screen)
 		return;
-	debug_action(start_extend, event, params, num_params);
+	action_debug(start_extend_action, event, params, num_params);
 
 	down1_time = 0L;
 
@@ -371,7 +381,7 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-select_extend(w, event, params, num_params)
+select_extend_action(w, event, params, num_params)
 Widget w;
 XEvent *event;
 String *params;
@@ -382,7 +392,7 @@ Cardinal *num_params;
 
 	if (w != *screen)
 		return;
-	debug_action(select_extend, event, params, num_params);
+	action_debug(select_extend_action, event, params, num_params);
 
 	/* Ignore initial drag events if are too near. */
 	if (down1_time != 0L &&
@@ -437,7 +447,7 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-select_end(w, event, params, num_params)
+select_end_action(w, event, params, num_params)
 Widget w;
 XEvent *event;
 String *params;
@@ -446,7 +456,7 @@ Cardinal *num_params;
 	int i;
 	int x, y;
 
-	debug_action(select_end, event, params, num_params);
+	action_debug(select_end_action, event, params, num_params);
 
 	if (n_owned == -1) {
 		for (i = 0; i < NS; i++)
@@ -501,7 +511,7 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-set_select(w, event, params, num_params)
+set_select_action(w, event, params, num_params)
 Widget w;
 XEvent *event;
 String *params;
@@ -509,7 +519,7 @@ Cardinal *num_params;
 {
 	int i;
 
-	debug_action(set_select, event, params, num_params);
+	action_debug(set_select_action, event, params, num_params);
 
 	if (!any_selected)
 		return;
@@ -529,13 +539,13 @@ Cardinal *num_params;
 }
 
 /*
- * MoveCursor function.  Not a selection operation, but it uses the same macros
+ * MoveCursor action.  Not a selection operation, but it uses the same macros
  * to map the mouse position onto a cursor position.
  * Usually bound to Shift<Btn1Down>.
  */
 /*ARGSUSED*/
 void
-MoveCursor(w, event, params, num_params)
+MoveCursor_action(w, event, params, num_params)
 Widget w;
 XEvent *event;
 String *params;
@@ -545,11 +555,11 @@ Cardinal *num_params;
 	register int baddr;
 	int row, col;
 
-	debug_action(MoveCursor, event, params, num_params);
+	action_debug(MoveCursor_action, event, params, num_params);
 
 	if (kybdlock) {
 		if (*num_params == 2)
-			enq_ta(MoveCursor, params[0], params[1]);
+			enq_ta(MoveCursor_action, params[0], params[1]);
 		return;
 	}
 
@@ -577,13 +587,13 @@ Cardinal *num_params;
 		break;
 	    default:		/* couln't say */
 		popup_an_error("%s: illegal argument count",
-		    action_name(MoveCursor));
+		    action_name(MoveCursor_action));
 		break;
 	}
 }
 
 /*
- * Cut function.
+ * Cut action.
  * For now, merely erases all unprotected characters currently selected.
  * In future, it may interact more with selections.
  */
@@ -592,7 +602,7 @@ Cardinal *num_params;
 
 /*ARGSUSED*/
 void
-Cut(w, event, params, num_params)
+Cut_action(w, event, params, num_params)
 Widget w;
 XEvent *event;
 String *params;
@@ -603,7 +613,7 @@ Cardinal *num_params;
 	unsigned long *target;
 	register unsigned char repl;
 
-	debug_action(Cut, event, params, num_params);
+	action_debug(Cut_action, event, params, num_params);
 
 	target = (unsigned long *)XtCalloc(ULS, ((ROWS*COLS)+(ULBS-1))/ULBS);
 
@@ -831,7 +841,7 @@ Boolean *ge;
 		    case 0:
 		    default:
 			return cg2asc[screen_buf[baddr]];
-		    case 1:
+		    case CS_GE:
 			if (screen_buf[baddr] == CG_Yacute)
 				return '[';
 			else if (screen_buf[baddr] == CG_diaeresis)
@@ -992,7 +1002,7 @@ Time t;
 				for (col = start_col; col <= end_col; col++) {
 					SET_SELECT(row*COLS + col);
 					if (really) {
-						osc = onscreen_char(i, &ge);
+						osc = onscreen_char(row*COLS + col, &ge);
 						if (ge)
 							store_sel('\033');
 						store_sel((char)osc);

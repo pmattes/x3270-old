@@ -28,6 +28,13 @@
 #endif
 #include "objects.h"
 
+#include "actionsc.h"
+#include "macrosc.h"
+#include "mainc.h"
+#include "popupsc.h"
+#include "screenc.h"
+#include "utilc.h"
+
 static char vmsgbuf[4096];
 
 
@@ -203,7 +210,7 @@ XtPointer call_data;
 
 /* Action called when "Return" is pressed in data entry popup */
 void
-Confirm(w, event, params, num_params)
+confirm_action(w, event, params, num_params)
 Widget w;
 XEvent *event;
 String *params;
@@ -214,12 +221,9 @@ Cardinal *num_params;
 	/* Find the Confirm or Okay button */
 	w2 = XtNameToWidget(XtParent(w), ObjConfirmButton);
 	if (w2 == NULL)
-		w2 = XtNameToWidget(XtParent(w), ObjOkayButton);
-	if (w2 == NULL)
-		w2 = XtNameToWidget(w, ObjOkayButton);
+		w2 = XtNameToWidget(w, ObjConfirmButton);
 	if (w2 == NULL) {
-		xs_warning("Confirm: cannot find %s or %s", ObjConfirmButton,
-		    ObjOkayButton);
+		xs_warning("confirm: cannot find %s", ObjConfirmButton);
 		return;
 	}
 
@@ -427,7 +431,7 @@ error_popup_init()
 	/* Create a dialog in the popup */
 
 	error_form = XtVaCreateManagedWidget(
-	    "errorDialog", dialogWidgetClass, error_shell,
+	    "dialog", dialogWidgetClass, error_shell,
 	    NULL);
 	XtVaSetValues(XtNameToWidget(error_form, XtNlabel),
 	    XtNlabel, "first line\nsecond line",
@@ -436,7 +440,7 @@ error_popup_init()
 	/* Add "OK" button to the dialog */
 
 	w = XtVaCreateManagedWidget(
-	    ObjOkayButton, commandWidgetClass, error_form,
+	    ObjConfirmButton, commandWidgetClass, error_form,
 	    NULL);
 	XtAddCallback(w, XtNcallback, saw_error, 0);
 
@@ -470,8 +474,8 @@ va_dcl
 		exit(1);
 	}
 
-	if (scripting()) {
-		script_error(vmsgbuf);
+	if (sms_redirect()) {
+		sms_error(vmsgbuf);
 		return;
 	}
 
@@ -570,7 +574,7 @@ info_popup_init()
 	/* Create a dialog in the popup */
 
 	info_form = XtVaCreateManagedWidget(
-	    "infoDialog", dialogWidgetClass, info_shell,
+	    "dialog", dialogWidgetClass, info_shell,
 	    NULL);
 	XtVaSetValues(XtNameToWidget(info_form, XtNlabel),
 	    XtNlabel, "first line\nsecond line",
@@ -579,7 +583,7 @@ info_popup_init()
 	/* Add "OK" button to the dialog */
 
 	w = XtVaCreateManagedWidget(
-	    ObjOkayButton, commandWidgetClass, info_form,
+	    ObjConfirmButton, commandWidgetClass, info_form,
 	    NULL);
 	XtAddCallback(w, XtNcallback, saw_info, 0);
 
@@ -620,357 +624,20 @@ va_dcl
 	}
 }
 
-
-/*
- * Options popup
- */
-
-static Widget options_shell = NULL;
-static Widget options_form;
-extern time_t ns_time;
-extern int ns_brcvd;
-extern int ns_rrcvd;
-extern int ns_bsent;
-extern int ns_rsent;
-extern int linemode;
-extern char *build;
-extern Pixmap icon;
-extern struct trans_list *trans_list;
-extern struct trans_list *temp_keymaps;
-
-/* Called when OK is pressed on the options popup */
-/*ARGSUSED*/
-static void
-saw_options(w, client_data, call_data)
-Widget w;
-XtPointer client_data;
-XtPointer call_data;
-{
-	XtPopdown(options_shell);
-}
-
-/* Called when the options popup is popped down */
-/*ARGSUSED*/
-static void
-destroy_options(w, client_data, call_data)
-Widget w;
-XtPointer client_data;
-XtPointer call_data;
-{
-	XtDestroyWidget(options_shell);
-	options_shell = NULL;
-}
-
-/* Return a time difference in English */
-static char *
-hms(ts)
-time_t ts;
-{
-	time_t t, td;
-	long hr, mn, sc;
-	static char buf[128];
-
-	(void) time(&t);
-
-	td = t - ts;
-	hr = td / 3600;
-	mn = (td % 3600) / 60;
-	sc = td % 60;
-
-	if (hr > 0)
-		(void) sprintf(buf, "%ld %s %ld %s %ld %s",
-		    hr, (hr == 1) ? get_message("hour") : get_message("hours"),
-		    mn, (mn == 1) ? get_message("minute") : get_message("minutes"),
-		    sc, (sc == 1) ? get_message("second") : get_message("seconds"));
-	else if (mn > 0)
-		(void) sprintf(buf, "%ld %s %ld %s",
-		    mn, (mn == 1) ? get_message("minute") : get_message("minutes"),
-		    sc, (sc == 1) ? get_message("second") : get_message("seconds"));
-	else
-		(void) sprintf(buf, "%ld %s",
-		    sc, (sc == 1) ? get_message("second") : get_message("seconds"));
-
-	return buf;
-}
-
-#define MAKE_SMALL(label, n) { \
-	w_prev = w; \
-	w = XtVaCreateManagedWidget( \
-	    ObjSmallLabel, labelWidgetClass, options_form, \
-	    XtNborderWidth, 0, \
-	    XtNlabel, label, \
-	    XtNfromVert, w, \
-	    XtNleft, XtChainLeft, \
-	    XtNvertDistance, (n), \
-	    NULL); \
-	vd = n; \
-	}
-
-#define MAKE_LABEL(label, n) { \
-	w_prev = w; \
-	w = XtVaCreateManagedWidget( \
-	    ObjNameLabel, labelWidgetClass, options_form, \
-	    XtNborderWidth, 0, \
-	    XtNlabel, label, \
-	    XtNfromVert, w, \
-	    XtNfromHoriz, left_anchor, \
-	    XtNleft, XtChainLeft, \
-	    XtNvertDistance, (n), \
-	    NULL); \
-	vd = n; \
-	}
-
-#define MAKE_VALUE(label) { \
-	v = XtVaCreateManagedWidget( \
-	    ObjDataLabel, labelWidgetClass, options_form, \
-	    XtNborderWidth, 0, \
-	    XtNlabel, label, \
-	    XtNfromVert, w_prev, \
-	    XtNfromHoriz, w, \
-	    XtNhorizDistance, 0, \
-	    XtNvertDistance, vd, \
-	    XtNleft, XtChainLeft, \
-	    NULL); \
-	}
-
-#define MAKE_LABEL2(label) { \
-	w = XtVaCreateManagedWidget( \
-	    ObjNameLabel, labelWidgetClass, options_form, \
-	    XtNborderWidth, 0, \
-	    XtNlabel, label, \
-	    XtNfromVert, w_prev, \
-	    XtNfromHoriz, v, \
-	    XtNhorizDistance, 0, \
-	    XtNvertDistance, vd, \
-	    XtNleft, XtChainLeft, \
-	    NULL); \
-	}
-
-/* Called when the "Options... About x3270..." button is pressed */
-void
-popup_options()
-{
-	Widget w = NULL, w_prev = NULL;
-	Widget v = NULL;
-	Widget left_anchor = NULL;
-	int vd = 4;
-	char fbuf[1024];
-	char *ftype;
-	char *xbuf;
-
-	/* Create the popup */
-
-	options_shell = XtVaCreatePopupShell(
-	    "optionsPopup", transientShellWidgetClass, toplevel,
-	    NULL);
-	XtAddCallback(options_shell, XtNpopupCallback, place_popup,
-	    (XtPointer) CenterP);
-	XtAddCallback(options_shell, XtNpopdownCallback, destroy_options,
-	    NULL);
-
-	/* Create a form in the popup */
-
-	options_form = XtVaCreateManagedWidget(
-	    "optionsForm", formWidgetClass, options_shell,
-	    NULL);
-
-	/* Pretty picture */
-
-	left_anchor = XtVaCreateManagedWidget(
-	    "icon", labelWidgetClass, options_form,
-	    XtNborderWidth, 0,
-	    XtNbitmap, icon,
-	    XtNfromVert, w,
-	    XtNleft, XtChainLeft,
-	    NULL);
-
-	/* Miscellany */
-
-	MAKE_LABEL(build, 4);
-	MAKE_LABEL(get_message("processId"), 4);
-	(void) sprintf(fbuf, "%d", getpid());
-	MAKE_VALUE(fbuf);
-	MAKE_LABEL2(get_message("windowId"));
-	(void) sprintf(fbuf, "0x%lx", XtWindow(toplevel));
-	MAKE_VALUE(fbuf);
-
-	/* Everything else at the left margin under the bitmap */
-	w = left_anchor;
-	left_anchor = NULL;
-
-	MAKE_SMALL("Copyright \251 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.\n\
- All Rights Reserved.  GTRC hereby grants public use of this software.  Derivative\n\
- works based on this software must incorporate this copyright notice.\n\
-\n\
-X11 Port Copyright \251 1990 by Jeff Sparkes.\n\
-Additional X11 Modifications Copyright \251 1993, 1994, 1995 by Paul Mattes.\n\
- Permission to use, copy, modify, and distribute this software and its documentation\n\
- for any purpose and without fee is hereby granted, provided that the above copyright\n\
- notice appear in all copies and that both that copyright notice and this permission\n\
- notice appear in supporting documentation.", 4);
-
-	(void) sprintf(fbuf, "%s %s: %d %s x %d %s, %s, %s",
-	    get_message("model"), model_name,
-	    maxCOLS, get_message("columns"),
-	    maxROWS, get_message("rows"),
-	    appres.mono ? get_message("mono") :
-		(appres.m3279 ? get_message("fullColor") :
-		    get_message("pseudoColor")),
-	    (appres.extended && !std_ds_host) ? get_message("extendedDs") :
-		get_message("standardDs"));
-	MAKE_LABEL(fbuf, 4);
-
-	MAKE_LABEL(get_message("terminalName"), 4);
-	MAKE_VALUE(termtype);
-
-	MAKE_LABEL(get_message("emulatorFont"), 4);
-	MAKE_VALUE(efontname);
-	if (*standard_font) {
-		if (*latin1_font)
-			ftype = get_message("fullFont");
-		else
-			ftype = get_message("asciiFont");
-	} else
-		ftype = get_message("cgFont");
-	xbuf = xs_buffer("  %s", ftype);
-	MAKE_LABEL(xbuf, 0);
-	XtFree(xbuf);
-
-	if (appres.charset) {
-		MAKE_LABEL(get_message("characterSet"), 4);
-		MAKE_VALUE(appres.charset);
-	} else
-		MAKE_LABEL(get_message("defaultCharacterSet"), 4);
-
-	if (appres.key_map || temp_keymaps != (struct trans_list *)NULL) {
-		struct trans_list *t;
-
-		fbuf[0] = '\0';
-		for (t = trans_list; t; t = t->next) {
-			if (fbuf[0])
-				(void) strcat(fbuf, ",");
-			(void) strcat(fbuf, t->name);
-		}
-		for (t = temp_keymaps; t; t = t->next) {
-			if (fbuf[0])
-				(void) strcat(fbuf, " ");
-			(void) strcat(fbuf, "+");
-			(void) strcat(fbuf, t->name);
-		}
-		MAKE_LABEL(get_message("keyboardMap"), 4)
-		MAKE_VALUE(fbuf);
-	} else
-		MAKE_LABEL(get_message("defaultKeyboardMap"), 4);
-	if (appres.compose_map) {
-		MAKE_LABEL(get_message("composeMap"), 4);
-		MAKE_VALUE(appres.compose_map);
-	} else {
-		MAKE_LABEL(get_message("noComposeMap"), 4);
-	}
-
-	if (appres.active_icon) {
-		MAKE_LABEL(get_message("activeIcon"), 4);
-		xbuf = xs_buffer("  %s", get_message("iconFont"));
-		MAKE_LABEL(xbuf, 0);
-		XtFree(xbuf);
-		MAKE_VALUE(appres.icon_font);
-		if (appres.label_icon) {
-			xbuf = xs_buffer("  %s", get_message("iconLabelFont"));
-			MAKE_LABEL(xbuf, 0);
-			XtFree(xbuf);
-			MAKE_VALUE(appres.icon_label_font);
-		}
-	} else
-		MAKE_LABEL(get_message("staticIcon"), 4);
-
-	if (CONNECTED) {
-		MAKE_LABEL(get_message("connectedTo"), 4);
-		MAKE_VALUE(current_host);
-		(void) sprintf(fbuf, "  %s", get_message("port"));
-		MAKE_LABEL2(fbuf);
-		(void) sprintf(fbuf, "%d", current_port);
-		MAKE_VALUE(fbuf);
-		if (IN_ANSI) {
-			if (linemode)
-				ftype = get_message("lineMode");
-			else
-				ftype = get_message("charMode");
-		} else
-			ftype = get_message("dsMode");
-		(void) sprintf(fbuf, "  %s, ", ftype);
-		(void) strcat(fbuf, hms(ns_time));
-
-		MAKE_LABEL(fbuf, 0);
-
-		if (IN_3270)
-			(void) sprintf(fbuf, "%s %d %s, %d %s\n%s %d %s, %d %s",
-			    get_message("sent"),
-			    ns_bsent, (ns_bsent == 1) ? get_message("byte") : get_message("bytes"),
-			    ns_rsent, (ns_rsent == 1) ? get_message("record") : get_message("records"),
-			    get_message("Received"),
-			    ns_brcvd, (ns_brcvd == 1) ? get_message("byte") : get_message("bytes"),
-			    ns_rrcvd, (ns_rrcvd == 1) ? get_message("record") : get_message("records"));
-		else
-			(void) sprintf(fbuf, "%s %d %s, %s %d %s",
-			    get_message("sent"),
-			    ns_bsent, (ns_bsent == 1) ? get_message("byte") : get_message("bytes"),
-			    get_message("received"),
-			    ns_brcvd, (ns_brcvd == 1) ? get_message("byte") : get_message("bytes"));
-		MAKE_LABEL(fbuf, 4);
-
-		if (IN_ANSI) {
-			struct ctl_char *c = net_linemode_chars();
-			int i;
-
-			MAKE_LABEL(get_message("specialCharacters"), 4);
-			for (i = 0; c[i].name; i++) {
-				if (!i || !(i % 4)) {
-					(void) sprintf(fbuf, "  %s", c[i].name);
-					MAKE_LABEL(fbuf, 0);
-				} else {
-					MAKE_LABEL2(c[i].name);
-				}
-				MAKE_VALUE(c[i].value);
-			}
-		}
-	} else if (HALF_CONNECTED) {
-		MAKE_LABEL(get_message("connectionPending"), 4);
-		MAKE_VALUE(current_host);
-		MAKE_LABEL(hms(ns_time), 0);
-	} else
-		MAKE_LABEL(get_message("notConnected"), 4);
-
-	/* Add "OK" button at the lower left */
-
-	w = XtVaCreateManagedWidget(
-	    ObjOkayButton, commandWidgetClass, options_form,
-	    XtNfromVert, w,
-	    XtNleft, XtChainLeft,
-	    XtNbottom, XtChainBottom,
-	    NULL);
-	XtAddCallback(w, XtNcallback, saw_options, 0);
-
-	/* Pop it up */
-
-	popup_popup(options_shell, XtGrabExclusive);
-}
-
-#undef MAKE_LABEL
-#undef MAKE_VALUE
 
 /*
  * Script actions
  */
 /*ARGSUSED*/
 void
-Info(w, event, params, num_params)
+Info_action(w, event, params, num_params)
 Widget w;
 XEvent *event;
 String *params;
 Cardinal *num_params;
 {
-	debug_action(Info, event, params, num_params);
-	if (check_usage(Info, *num_params, 1, 1) < 0)
+	action_debug(Info_action, event, params, num_params);
+	if (check_usage(Info_action, *num_params, 1, 1) < 0)
 		return;
 	popup_an_info(params[0]);
 }

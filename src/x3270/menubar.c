@@ -1,5 +1,5 @@
 /*
- * Copyright 1993, 1994, 1995 by Paul Mattes.
+ * Copyright 1993, 1994, 1995, 1996 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -20,7 +20,23 @@
 #include "CmplxMenu.h"
 #include "CmeBSB.h"
 #include "CmeLine.h"
+#include "appres.h"
 #include "resources.h"
+
+#include "actionsc.h"
+#include "aboutc.h"
+#include "ftc.h"
+#include "keypadc.h"
+#include "kybdc.h"
+#include "macrosc.h"
+#include "mainc.h"
+#include "menubarc.h"
+#include "popupsc.h"
+#include "printc.h"
+#include "savec.h"
+#include "screenc.h"
+#include "telnetc.h"
+#include "utilc.h"
 
 #define MACROS_MENU	"macrosMenu"
 
@@ -44,18 +60,29 @@ static struct scheme {
 static int scheme_count;
 static Widget  *scheme_widgets;
 
+static struct charset {
+	char *label;
+	char *charset;
+	struct charset *next;
+} *charsets, *last_charset;
+static int charset_count;
+static Widget  *charset_widgets;
+
 static void	scheme_init();
+static void	charsets_init();
 static void	options_menu_init();
 static void	keypad_button_init();
 static void	connect_menu_init();
 static void	macros_menu_init();
 static void	file_menu_init();
+static void	Bye();
 
 #include "dot.bm"
 #include "arrow.bm"
 #include "diamond.bm"
 #include "no_diamond.bm"
 #include "ky.bm"
+#include "null.bm"
 
 Boolean keypad_changed = False;
 
@@ -68,7 +95,9 @@ static Widget   menu_bar;
 static Boolean  menubar_buttons;
 static Widget   disconnect_button;
 static Widget   exit_button;
+static Widget   exit_menu;
 static Widget   macros_button;
+static Widget   ft_button;
 static Widget   connect_button;
 static Widget   keypad_button;
 static Widget   linemode_button;
@@ -80,13 +109,17 @@ static Widget   model_4_button;
 static Widget   model_5_button;
 static Widget   oversize_button;
 static Widget   keypad_option_button;
+static Widget	script_abort_button;
 static Widget   connect_menu;
 static Widget   macros_menu;
 
-static Pixmap   dot;
 static Pixmap   arrow;
-static Pixmap	diamond;
-static Pixmap	no_diamond;
+Pixmap dot;
+Pixmap diamond;
+Pixmap no_diamond;
+Pixmap null;
+
+static int	n_bye;
 
 static void     toggle_init();
 
@@ -100,7 +133,6 @@ static void     toggle_init();
 
 #define MO_OFFSET	1
 #define CN_OFFSET	2
-
 #define MENU_BORDER	2
 
 #define	MENU_MIN_WIDTH	(LEFT_MARGIN + 3*(KEY_WIDTH+2*BORDER+SPACING) + \
@@ -135,6 +167,7 @@ Dimension current_width;
 
 	if (!ever) {
 		scheme_init();
+		charsets_init();
 		ever = True;
 	}
 
@@ -155,16 +188,6 @@ Dimension current_width;
 		    XtNwidth, overall_width - 2*MENU_BORDER,
 		    XtNheight, height,
 		    NULL);
-#if 0
-		if (appres.mono)
-			XtVaSetValues(menu_bar,
-			    XtNbackgroundPixmap, gray,
-			    NULL);
-		else
-			XtVaSetValues(menu_bar,
-			    XtNbackground, keypadbg_pixel,
-			    NULL);
-#endif
 		menubar_buttons = True;
 	}
 
@@ -179,10 +202,12 @@ Dimension current_width;
 	    (char *) diamond_bits, diamond_width, diamond_height);
 	no_diamond = XCreateBitmapFromData(display, root_window,
 	    (char *) no_diamond_bits, no_diamond_width, no_diamond_height);
+	null = XCreateBitmapFromData(display, root_window,
+	    (char *) null_bits, null_width, null_height);
 
 	/* "File..." menu */
 
-	file_menu_init(menu_bar, 
+	file_menu_init(menu_bar,
 	    LEFT_MARGIN,
 	    TOP_MARGIN);
 
@@ -213,7 +238,7 @@ Dimension current_width;
 
 	/* Register a grab action for the popup versions of the menus */
 
-	XtRegisterGrabAction(handle_menu, True,
+	XtRegisterGrabAction(HandleMenu_action, True,
 	    (ButtonPressMask|ButtonReleaseMask),
 	    GrabModeAsync, GrabModeAsync);
 }
@@ -228,10 +253,35 @@ menubar_connect()	/* have connected to or disconnected from a host */
 		XtVaSetValues(disconnect_button,
 		    XtNsensitive, PCONNECTED,
 		    NULL);
-	if (exit_button)
-		XtVaSetValues(exit_button,
-		    XtNsensitive, !PCONNECTED,
-		    NULL);
+	if (exit_button) {
+		if (PCONNECTED) {
+			/* Remove the immediate callback. */
+			if (n_bye) {
+				XtRemoveCallback(exit_button, XtNcallback,
+				    Bye, 0);
+				n_bye--;
+			}
+
+			/* Set pullright for extra confirmation. */
+			XtVaSetValues(exit_button,
+			    XtNrightBitmap, arrow,
+			    XtNmenuName, "exitMenu",
+			    NULL);
+		} else {
+			/* Install the immediate callback. */
+			if (!n_bye) {
+				XtAddCallback(exit_button, XtNcallback,
+				    Bye, 0);
+				n_bye++;
+			}
+
+			/* Remove the pullright. */
+			XtVaSetValues(exit_button,
+			    XtNrightBitmap, NULL,
+			    XtNmenuName, NULL,
+			    NULL);
+		}
+	}
 	if (connect_menu) {
 		if (PCONNECTED && connect_button)
 			XtUnmapWidget(connect_button);
@@ -244,17 +294,17 @@ menubar_connect()	/* have connected to or disconnected from a host */
 				XtMapWidget(connect_button);
 		}
 	}
-	if (macros_menu) {
-		if (!PCONNECTED && macros_button)
-			XtUnmapWidget(macros_button);
-		else {
-			macros_menu_init(menu_bar,
-			    LEFT_MARGIN + CN_OFFSET*(KEY_WIDTH+2*BORDER+SPACING),
-			    TOP_MARGIN);
-			if (menubar_buttons && macros_button)
-				XtMapWidget(macros_button);
-		}
+	if (!PCONNECTED && macros_button)
+		XtUnmapWidget(macros_button);
+	else {
+		macros_menu_init(menu_bar,
+		    LEFT_MARGIN + CN_OFFSET*(KEY_WIDTH+2*BORDER+SPACING),
+		    TOP_MARGIN);
+		if (menubar_buttons && macros_button)
+			XtMapWidget(macros_button);
 	}
+	if (ft_button)
+		XtVaSetValues(ft_button, XtNsensitive, IN_3270, NULL);
 	if (linemode_button)
 		XtVaSetValues(linemode_button, XtNsensitive, IN_ANSI, NULL);
 	if (charmode_button)
@@ -302,6 +352,8 @@ menubar_newmode()	/* have switched telnet modes */
 	if (appres.toggle[RECTANGLE_SELECT].w[0])
 		XtVaSetValues(appres.toggle[RECTANGLE_SELECT].w[0],
 		    XtNsensitive, IN_ANSI, NULL);
+	if (ft_button)
+		XtVaSetValues(ft_button, XtNsensitive, IN_3270, NULL);
 }
 
 void
@@ -310,8 +362,21 @@ menubar_gone()		/* container has gone away */
 	menu_bar = (Widget) NULL;
 	connect_menu = (Widget) NULL;
 	connect_button = (Widget) NULL;
+	disconnect_button = (Widget) NULL;
+	script_abort_button = (Widget) NULL;
 	macros_menu = (Widget) NULL;
 	macros_button = (Widget) NULL;
+}
+
+/* Called to change the sensitivity of the "Abort Script" button. */
+void
+menubar_as_set(sensitive)
+Boolean sensitive;
+{
+	if (script_abort_button != (Widget)NULL)
+		XtVaSetValues(script_abort_button,
+		    XtNsensitive, sensitive,
+		    NULL);
 }
 
 
@@ -343,15 +408,26 @@ XtPointer call_data;
 	menubar_connect();
 }
 
+/* Called from the "Abort Script" button on the "File..." menu */
+/*ARGSUSED*/
+static void
+script_abort_callback(w, client_data, call_data)
+Widget w;
+XtPointer client_data;
+XtPointer call_data;
+{
+	abort_script();
+}
+
 /* "About x3270" popup */
 /*ARGSUSED*/
 static void
-show_options(w, userdata, calldata)
+show_about(w, userdata, calldata)
 Widget w;
 XtPointer userdata;
 XtPointer calldata;
 {
-	popup_options();
+	popup_about();
 }
 
 /* Called from the "Save" button on the save options dialog */
@@ -410,7 +486,19 @@ Dimension x, y;
 	w = XtVaCreateManagedWidget(
 	    "aboutOption", cmeBSBObjectClass, file_menu,
 	    NULL);
-	XtAddCallback(w, XtNcallback, show_options, NULL);
+	XtAddCallback(w, XtNcallback, show_about, NULL);
+
+	/* File Transfer */
+	if (!appres.secure) {
+		(void) XtCreateManagedWidget(
+		    "space", cmeLineObjectClass, file_menu,
+		    NULL, 0);
+		ft_button = XtVaCreateManagedWidget(
+		    "ftOption", cmeBSBObjectClass, file_menu,
+		    XtNsensitive, IN_3270,
+		    NULL);
+		XtAddCallback(ft_button, XtNcallback, popup_ft, NULL);
+	}
 
 	/* Trace Data Stream
 	   Trace X Events
@@ -460,6 +548,17 @@ Dimension x, y;
 		XtAddCallback(w, XtNcallback, execute_action_option, NULL);
 	}
 
+	/* Abort script */
+	(void) XtCreateManagedWidget(
+	    "space", cmeLineObjectClass, file_menu,
+	    NULL, 0);
+	script_abort_button = XtVaCreateManagedWidget(
+	    "abortScriptOption", cmeBSBObjectClass, file_menu,
+	    XtNsensitive, sms_active(),
+	    NULL);
+	XtAddCallback(script_abort_button, XtNcallback, script_abort_callback,
+	    0);
+
 	/* Disconnect */
 	(void) XtCreateManagedWidget(
 	    "space", cmeLineObjectClass, file_menu,
@@ -471,11 +570,20 @@ Dimension x, y;
 	XtAddCallback(disconnect_button, XtNcallback, disconnect, 0);
 
 	/* Exit x3270 */
+	if (exit_menu != (Widget)NULL)
+		XtDestroyWidget(exit_menu);
+	exit_menu = XtVaCreatePopupShell(
+	    "exitMenu", complexMenuWidgetClass, container,
+	    NULL);
+	w = XtVaCreateManagedWidget(
+	    "exitReallyOption", cmeBSBObjectClass, exit_menu,
+	    NULL);
+	XtAddCallback(w, XtNcallback, Bye, 0);
 	exit_button = XtVaCreateManagedWidget(
 	    "exitOption", cmeBSBObjectClass, file_menu,
-	    XtNsensitive, !PCONNECTED,
 	    NULL);
 	XtAddCallback(exit_button, XtNcallback, Bye, 0);
+	n_bye = 1;
 
 	/* File... */
 	if (menubar_buttons) {
@@ -594,7 +702,7 @@ Position x, y;
 		buf = xs_buffer("%s %s", get_message("reconnect"),
 		    current_host);
 		w = XtVaCreateManagedWidget(
-		    buf, cmeBSBObjectClass, connect_menu, 
+		    buf, cmeBSBObjectClass, connect_menu,
 		    NULL);
 		XtFree(buf);
 		XtAddCallback(w, XtNcallback, do_reconnect, PN);
@@ -614,7 +722,7 @@ Position x, y;
 			    cmeLineObjectClass, connect_menu, NULL, 0);
 		any_hosts = True;
 		w = XtVaCreateManagedWidget(
-		    h->name, cmeBSBObjectClass, connect_menu, 
+		    h->name, cmeBSBObjectClass, connect_menu,
 		    NULL);
 		XtAddCallback(w, XtNcallback, host_connect,
 		    XtNewString(h->name));
@@ -729,7 +837,7 @@ Position x, y;
 				    cmeLineObjectClass, macros_menu, NULL, 0);
 		}
 		w = XtVaCreateManagedWidget(
-		    m->name, cmeBSBObjectClass, macros_menu, 
+		    m->name, cmeBSBObjectClass, macros_menu,
 		    NULL);
 		XtAddCallback(w, XtNcallback, do_macro, (XtPointer)m);
 		any = True;
@@ -766,7 +874,7 @@ XtPointer call_data;
 	    case kp_right:
 	    case kp_bottom:
 		keypad_popup_init();
-		if (keypad_popped) 
+		if (keypad_popped)
 			XtPopdown(keypad_shell);
 		else
 			popup_popup(keypad_shell, XtGrabNone);
@@ -852,8 +960,7 @@ XtPointer call_data;
 	s = XawDialogGetValueString((Widget)client_data);
 	if (!s || !*s)
 		return;
-	if (sscanf(s, "%dx%d%c", &ovc, &ovr, &junk) == 2 &&
-	    ovc * ovr < 0x4000) {
+	if (sscanf(s, "%dx%d%c", &ovc, &ovr, &junk) == 2) {
 		XtPopdown(oversize_shell);
 		screen_change_model(model_num, ovc, ovr);
 	} else
@@ -913,7 +1020,7 @@ Widget w;
 XtPointer userdata;
 XtPointer calldata;
 {
-	(void) screen_newfont((char *)userdata, True);
+	screen_newfont((char *)userdata, True);
 }
 
 /* Called from the "Select Font" button on the font dialog */
@@ -934,7 +1041,7 @@ XtPointer call_data;
 }
 
 /*ARGSUSED*/
-void
+static void
 do_otherfont(w, userdata, calldata)
 Widget w;
 XtPointer userdata;
@@ -958,7 +1065,7 @@ scheme_init()
 	if (!appres.m3279)
 		return;
 
-	cm = get_resource(ResColorList);
+	cm = get_resource(ResSchemeList);
 	if (cm == CN)
 		return;
 
@@ -978,13 +1085,99 @@ scheme_init()
 }
 
 /*ARGSUSED*/
-void
+static void
 do_newscheme(w, userdata, calldata)
 Widget w;
 XtPointer userdata;
 XtPointer calldata;
 {
 	screen_newscheme((char *)userdata);
+}
+
+/* Initialze the character set list. */
+static void
+charsets_init()
+{
+	char *cm;
+	char *label;
+	char *charset;
+	struct charset *s;
+
+	cm = get_resource(ResCharsetList);
+	if (cm == CN)
+		return;
+
+	charset_count = 0;
+	while (split_dresource(&cm, &label, &charset) == 1) {
+		s = (struct charset *)XtMalloc(sizeof(struct charset));
+		s->label = label;
+		s->charset = charset;
+		s->next = (struct charset *)NULL;
+		if (last_charset != (struct charset *)NULL)
+			last_charset->next = s;
+		else
+			charsets = s;
+		last_charset = s;
+		charset_count++;
+	}
+}
+
+/*ARGSUSED*/
+static void
+do_newcharset(w, userdata, calldata)
+Widget w;
+XtPointer userdata;
+XtPointer calldata;
+{
+	struct charset *s;
+	int i;
+
+	/* Change the character set. */
+	screen_newcharset((char *)userdata);
+
+	/* Update the menu. */
+	for (i = 0, s = charsets; i < charset_count; i++, s = s->next)
+		XtVaSetValues(charset_widgets[i],
+		    XtNleftBitmap,
+			((appres.charset == CN) ||
+			 strcmp(appres.charset, s->charset)) ?
+			    no_diamond : diamond,
+		    NULL);
+}
+
+Widget keymap_shell = NULL;
+
+/* Called from the "Set Keymap" button on the keymap dialog */
+/*ARGSUSED*/
+static void
+keymap_button_callback(w, client_data, call_data)
+Widget w;
+XtPointer client_data;
+XtPointer call_data;
+{
+	char *s;
+
+	s = XawDialogGetValueString((Widget)client_data);
+	if (!s || !*s)
+		return;
+	XtPopdown(keymap_shell);
+	setup_keymaps(s, True);
+	screen_set_keymap();
+	keypad_set_keymap();
+}
+
+/* Callback from the "Keymap" menu option */
+/*ARGSUSED*/
+static void
+do_keymap(w, userdata, calldata)
+Widget w;
+XtPointer userdata;
+XtPointer calldata;
+{
+	if (keymap_shell == NULL)
+		keymap_shell = create_form_popup("Keymap",
+		    keymap_button_callback, (XtCallbackProc)NULL, True);
+	popup_popup(keymap_shell, XtGrabExclusive);
 }
 
 /* Called to change telnet modes */
@@ -1007,7 +1200,7 @@ XtPointer call_data;
 {
 	net_charmode();
 }
- 
+
 /* Called to change models */
 /*ARGSUSED*/
 static void
@@ -1019,8 +1212,6 @@ XtPointer call_data;
 	int m;
 
 	m = atoi(client_data);
-	if (m == model_num)
-		return;
 	switch (model_num) {
 	    case 2:
 		XtVaSetValues(model_2_button, XtNleftBitmap, no_diamond, NULL);
@@ -1036,7 +1227,7 @@ XtPointer call_data;
 		break;
 	}
 	XtVaSetValues(w, XtNleftBitmap, diamond, NULL);
-	screen_change_model(m, ov_cols, ov_rows);
+	screen_change_model(m, 0, 0);
 }
 
 static void
@@ -1044,7 +1235,7 @@ options_menu_init(container, x, y)
 Widget container;
 Position x, y;
 {
-	Widget m, t;
+	Widget m, t, w;
 	struct font_list *f;
 	int ix;
 
@@ -1215,6 +1406,47 @@ Position x, y;
 		    NULL);
 	}
 
+	/* Create the "character set" pullright */
+	if (charset_count) {
+		struct charset *s;
+		int i;
+
+		(void) XtCreateManagedWidget("space", cmeLineObjectClass, m,
+		    NULL, 0);
+
+		charset_widgets = (Widget *)XtCalloc(charset_count,
+		    sizeof(Widget));
+		t = XtVaCreatePopupShell(
+		    "charsetMenu", complexMenuWidgetClass, container,
+		    NULL);
+		for (i = 0, s = charsets; i < charset_count; i++, s = s->next) {
+			charset_widgets[i] = XtVaCreateManagedWidget(
+			    s->label, cmeBSBObjectClass, t,
+			    XtNleftBitmap,
+				((appres.charset == CN) ||
+				 strcmp(appres.charset, s->charset)) ?
+				    no_diamond : diamond,
+			    NULL);
+			XtAddCallback(charset_widgets[i], XtNcallback,
+			    do_newcharset, s->charset);
+		}
+		(void) XtVaCreateManagedWidget(
+		    "charsetOption", cmeBSBObjectClass, m,
+		    XtNrightBitmap, arrow,
+		    XtNmenuName, "charsetMenu",
+		    NULL);
+	}
+
+	/* Create the "keymap" option */
+	if (!appres.no_other) {
+		(void) XtCreateManagedWidget("space", cmeLineObjectClass, m,
+		    NULL, 0);
+		w = XtVaCreateManagedWidget(
+		    "keymapOption", cmeBSBObjectClass, m,
+		    NULL);
+		XtAddCallback(w, XtNcallback, do_keymap, NULL);
+	}
+
 	if (menubar_buttons) {
 		(void) XtVaCreateManagedWidget(
 		    "optionsMenuButton", menuButtonWidgetClass, container,
@@ -1246,7 +1478,7 @@ struct toggle *t;
 
 /*ARGSUSED*/
 void
-handle_menu(w, event, params, num_params)
+HandleMenu_action(w, event, params, num_params)
 Widget w;
 XEvent *event;
 String *params;
@@ -1254,8 +1486,8 @@ Cardinal *num_params;
 {
 	String p;
 
-	debug_action(handle_menu, event, params, num_params);
-	if (check_usage(handle_menu, *num_params, 1, 2) < 0)
+	action_debug(HandleMenu_action, event, params, num_params);
+	if (check_usage(HandleMenu_action, *num_params, 1, 2) < 0)
 		return;
 	if (!CONNECTED || *num_params == 1)
 		p = params[0];
@@ -1264,7 +1496,7 @@ Cardinal *num_params;
 	if (!XtNameToWidget(menu_bar, p)) {
 		if (strcmp(p, MACROS_MENU))
 			popup_an_error("%s: cannot find menu %s",
-			    action_name(handle_menu), p);
+			    action_name(HandleMenu_action), p);
 		return;
 	}
 	XtCallActionProc(menu_bar, "XawPositionComplexMenu", event, &p, 1);
@@ -1319,7 +1551,7 @@ hostfile_init()
 		struct host *h;
 		char *slash;
 
-		if (strlen(buf) > (unsigned) 1)
+		if (strlen(buf) > (unsigned)1 && buf[strlen(buf) - 1] == '\n')
 			buf[strlen(buf) - 1] = '\0';
 		while (isspace(*s))
 			s++;
@@ -1387,14 +1619,14 @@ char **loginstring;
 
 /*ARGSUSED*/
 void
-Connect(w, event, params, num_params)
+Connect_action(w, event, params, num_params)
 Widget w;
 XEvent *event;
 String *params;
 Cardinal *num_params;
 {
-	debug_action(Connect, event, params, num_params);
-	if (check_usage(Connect, *num_params, 1, 1) < 0)
+	action_debug(Connect_action, event, params, num_params);
+	if (check_usage(Connect_action, *num_params, 1, 1) < 0)
 		return;
 	if (CONNECTED || HALF_CONNECTED) {
 		popup_an_error("Already connected");
@@ -1408,19 +1640,19 @@ Cardinal *num_params;
 	 * we have identified the host type.
 	 */
 	if (!w && (CONNECTED || HALF_CONNECTED))
-		script_connect_wait();
+		sms_connect_wait();
 }
 
 /*ARGSUSED*/
 void
-Reconnect(w, event, params, num_params)
+Reconnect_action(w, event, params, num_params)
 Widget w;
 XEvent *event;
 String *params;
 Cardinal *num_params;
 {
-	debug_action(Reconnect, event, params, num_params);
-	if (check_usage(Reconnect, *num_params, 0, 0) < 0)
+	action_debug(Reconnect_action, event, params, num_params);
+	if (check_usage(Reconnect_action, *num_params, 0, 0) < 0)
 		return;
 	if (CONNECTED || HALF_CONNECTED) {
 		popup_an_error("Already connected");
@@ -1438,19 +1670,19 @@ Cardinal *num_params;
 	 * we have identified the host type.
 	 */
 	if (!w && (CONNECTED || HALF_CONNECTED))
-		script_connect_wait();
+		sms_connect_wait();
 }
 
 /*ARGSUSED*/
 void
-Disconnect(w, event, params, num_params)
+Disconnect_action(w, event, params, num_params)
 Widget w;
 XEvent *event;
 String *params;
 Cardinal *num_params;
 {
-	debug_action(Disconnect, event, params, num_params);
-	if (check_usage(Disconnect, *num_params, 0, 0) < 0)
+	action_debug(Disconnect_action, event, params, num_params);
+	if (check_usage(Disconnect_action, *num_params, 0, 0) < 0)
 		return;
 	x_disconnect(False);
 }

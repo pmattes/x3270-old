@@ -1,7 +1,7 @@
 x3270 Character Attributes
 
-This table translates the hexadecimal codes displayed by the debug font
-(3270d) into 3270 field attributes.
+This table translates the hexadecimal codes displayed by the debug font (3270d)
+into 3270 field attributes.
 
 n       Intensity       Selectable      Type            Modified
 C0      normal          -               -               -
@@ -36,4 +36,3 @@ EC      normal          -               auto-skip       mod
 ED      normal          sel             auto-skip       mod
 EE      high            sel             auto-skip       mod
 EF      zero            -               auto-skip       mod
-

@@ -1,16 +1,16 @@
 /*
- * Copyright 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.
- *  All Rights Reserved.  GTRC hereby grants public use of this software.
- *  Derivative works based on this software must incorporate this copyright
- *  notice.
- *
- * X11 Port Copyright 1990 by Jeff Sparkes.
- * Additional X11 Modifications Copyright 1993, 1994, 1995 by Paul Mattes.
+ * Modifications Copyright 1993, 1994, 1995, 1996 by Paul Mattes.
+ * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
  *  both that copyright notice and this permission notice appear in
  *  supporting documentation.
+ *
+ * Copyright 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.
+ *  All Rights Reserved.  GTRC hereby grants public use of this software.
+ *  Derivative works based on this software must incorporate this copyright
+ *  notice.
  */
 
 /*
@@ -31,10 +31,27 @@
 #include <X11/keysym.h>
 #include <errno.h>
 #include "3270ds.h"
+#include "appres.h"
 #include "screen.h"
 #include "ctlr.h"
 #include "cg.h"
 #include "resources.h"
+
+#include "actionsc.h"
+#include "ansic.h"
+#include "ctlrc.h"
+#include "keypadc.h"
+#include "kybdc.h"
+#include "mainc.h"
+#include "menubarc.h"
+#include "popupsc.h"
+#include "savec.h"
+#include "screenc.h"
+#include "scrollc.h"
+#include "statusc.h"
+#include "tablesc.h"
+#include "trace_dsc.h"
+#include "utilc.h"
 
 #if defined(SEPARATE_SELECT_H) /*[*/
 #include <sys/select.h>		/* fd_set declaration */
@@ -43,7 +60,7 @@
 #define SCROLLBAR_WIDTH	15
 /* #define _ST */
 
-/* Externals: x3270.c */
+/* Externals: main.c */
 extern char    *charset;
 
 /* Externals: ctlr.c */
@@ -54,17 +71,18 @@ extern int      last_changed;
 /* Globals */
 unsigned char  *selected;	/* selection bitmap */
 Dimension       main_width, main_height;
-Position        main_x, main_y;
 #include <X11/bitmaps/gray>
 Boolean         scrollbar_changed = False;
 Boolean         model_changed = False;
 Boolean		efont_changed = False;
 Boolean		oversize_changed = False;
 Boolean		scheme_changed = False;
+Boolean		charset_changed = True;
 Pixel           colorbg_pixel;
 Pixel           keypadbg_pixel;
 Boolean         flipped = False;
 int		field_colors[4];
+Position	main_x, main_y;
 
 /* Statics */
 static union sp *temp_image;	/* temporary for X display */
@@ -101,10 +119,24 @@ static Boolean  text_blinking_on = True;
 static Boolean  text_blinkers_exist = False;
 static Boolean  text_blink_scheduled = False;
 static XtIntervalId text_blink_id;
+static XtTranslations screen_t00 = NULL;
 static XtTranslations screen_t0 = NULL;
 static XtTranslations container_t0 = NULL;
-static XChar2b *rt_buf = (XChar2b *) NULL;
+static unsigned char *rt_buf8 = (unsigned char *) NULL;
+static XChar2b *rt_buf16 = (XChar2b *) NULL;
 static char    *color_name[16];
+static Boolean	configure_ticking = False;
+static XtIntervalId configure_id;
+static Boolean	configure_first = True;
+
+/* Globals for undoing reconfigurations. */
+static enum {
+    REDO_NONE, REDO_FONT, REDO_MODEL, REDO_KEYPAD, REDO_SCROLLBAR
+} screen_redo = REDO_NONE;
+static char *redo_old_font = CN;
+static int redo_old_model;
+static int redo_old_ov_cols;
+static int redo_old_ov_rows;
 
 static unsigned char blank_map[32];
 #define BKM_SET(n)	blank_map[(n)/8] |= 1 << ((n)%8)
@@ -142,7 +174,21 @@ static void     allocate_pixels();
 static int      fl_baddr();
 static GC       get_gc();
 static GC       get_selgc();
-static int	xfer_color_scheme();
+static void	default_color_scheme();
+static Boolean	xfer_color_scheme();
+static void	configure_stable();
+
+/* Resize font list. */
+struct rsfont {
+	struct rsfont *next;
+	char *name;
+	int width;
+	int height;
+	int total_width;	/* transient */
+	int total_height;	/* transient */
+	int area;		/* transient */
+};
+static struct rsfont *rsfonts;
 
 /*
  * The screen state structure.  This structure is swapped whenever we switch
@@ -187,6 +233,7 @@ XFontStruct   **efontinfo = &nss.efontinfo;
 Boolean        *standard_font = &nss.standard_font;
 Boolean        *latin1_font = &nss.latin1_font;
 Boolean        *debugging_font = &nss.debugging_font;
+Boolean        *extended_3270font = &nss.extended_3270font;
 
 #define BASE_MASK		0x0f	/* mask for 16 actual colors */
 #define INVERT_MASK		0x10	/* toggle for inverted colors */
@@ -199,27 +246,46 @@ Boolean        *debugging_font = &nss.debugging_font;
 
 #define DEFAULT_PIXEL		(appres.m3279 ? COLOR_BLUE : FA_INT_NORM_NSEL)
 #define PIXEL_INDEX(c)		((c) & BASE_MASK)
+
 
+/*
+ * Save 00 event translations.
+ */
+void
+save_00translations(w, t00)
+Widget w;
+XtTranslations *t00;
+{
+	*t00 = w->core.tm.translations;
+}
+
 /* 
  * Define our event translations
  */
 void
-set_translations(w, t0)
+set_translations(w, t00, t0)
 Widget w;
-XtTranslations *t0;
+XtTranslations *t00, *t0;
 {
 	struct trans_list *t;
+
+	if (t00 != (XtTranslations *)NULL)
+		XtOverrideTranslations(w, *t00);
 
 	if (appres.base_translations)
 		XtOverrideTranslations(w, appres.base_translations);
 
 	for (t = trans_list; t != NULL; t = t->next)
 		XtOverrideTranslations(w, lookup_tt(t->name, CN));
+
 	*t0 = w->core.tm.translations;
 }
 
+/*
+ * Add or clear a temporary keymap.
+ */
 void
-screen_set_keymap(trans)
+screen_set_temp_keymap(trans)
 XtTranslations trans;
 {
 	if (trans != (XtTranslations)NULL) {
@@ -231,6 +297,18 @@ XtTranslations trans;
 		XtUninstallTranslations(container);
 		XtOverrideTranslations(container, container_t0);
 	}
+}
+
+/*
+ * Change the baselevel keymap.
+ */
+void
+screen_set_keymap()
+{
+	XtUninstallTranslations(nss.widget);
+	set_translations(nss.widget, &screen_t00, &screen_t0);
+	XtUninstallTranslations(container);
+	set_translations(container, (XtTranslations *)NULL, &container_t0);
 }
 
 
@@ -251,8 +329,10 @@ Boolean font_changed;
 		register int i;
 
 		/* Decode the 'colorScheme' resource. */
-		if (appres.m3279)
-			(void) xfer_color_scheme(appres.color_scheme);
+		if (appres.m3279) {
+			default_color_scheme();
+			(void) xfer_color_scheme(appres.color_scheme, False);
+		}
 
 		/* Allocate colors. */
 		allocate_pixels();
@@ -332,10 +412,13 @@ Boolean font_changed;
 			XtFree((char *)temp_image);
 		temp_image = (union sp *) XtCalloc(sizeof(union sp), maxROWS*maxCOLS);
 
-		/* render_text buffer */
-		if (rt_buf)
-			XtFree((char *)rt_buf);
-		rt_buf = (XChar2b *)XtMalloc(maxCOLS * sizeof(XChar2b));
+		/* render_text buffers */
+		if (rt_buf8 != (unsigned char *)NULL)
+			XtFree((char *)rt_buf8);
+		rt_buf8 = (unsigned char *)XtMalloc(maxCOLS);
+		if (rt_buf16 != (XChar2b *)NULL)
+			XtFree((char *)rt_buf16);
+		rt_buf16 = (XChar2b *)XtMalloc(maxCOLS * sizeof(XChar2b));
 	} else
 		(void) memset((char *) nss.image, 0,
 		              sizeof(union sp) * maxROWS * maxCOLS);
@@ -385,7 +468,7 @@ Boolean font_changed;
 	/* Create scrollbar */
 	create_scrollbar(model_chngd);
 
-	set_translations(container, &container_t0);
+	set_translations(container, (XtTranslations *)NULL, &container_t0);
 	if (appres.mono)
 		XtVaSetValues(container, XtNbackgroundPixmap, gray, NULL);
 	else
@@ -435,7 +518,17 @@ set_toplevel_sizes()
 	    NULL);
 	main_width = tw;
 	main_height = th;
-	move_keypad();
+
+	/*
+	 * Start a timer ticking, in case the window manager doesn't approve
+	 * of the change.
+	 */
+	if (configure_ticking)
+		XtRemoveTimeOut(configure_id);
+	configure_id = XtAppAddTimeOut(appcontext, 500, configure_stable, 0);
+	configure_ticking = True;
+
+	keypad_move();
 }
 
 static void
@@ -451,7 +544,9 @@ inflate_screen()
 		    XtNy, menubar_height,
 		    XtNbackground, appres.mono ? appres.background : colorbg_pixel,
 		    NULL);
-		set_translations(nss.widget, &screen_t0);
+		save_00translations(nss.widget, &screen_t00);
+		set_translations(nss.widget, (XtTranslations *)NULL,
+		    &screen_t0);
 	}
 
 	/* Set the container and toplevel dimensions */
@@ -546,9 +641,10 @@ enum toggle_type tt;
 {
 	scrollbar_changed = True;
 
-	if (toggled(SCROLL_BAR))
+	if (toggled(SCROLL_BAR)) {
 		scrollbar_width = SCROLLBAR_WIDTH;
-	else {
+		screen_redo = REDO_SCROLLBAR;
+	} else {
 		scroll_to_bottom();
 		scrollbar_width = 0;
 	}
@@ -637,6 +733,9 @@ void
 screen_showikeypad(on)
 Boolean on;
 {
+	if (on)
+		screen_redo = REDO_KEYPAD;
+
 	if (keypad_xwidth > 0) {
 		XtDestroyWidget(nss.widget);
 		nss.widget = (Widget) NULL;
@@ -646,7 +745,7 @@ Boolean on;
 			create_scrollbar(False);
 		}
 		nss.window = XtWindow(nss.widget);
-		internal_action(redraw, IA_REDRAW, CN, CN);
+		action_internal(Redraw_action, IA_REDRAW, CN, CN);
 
 		menubar_resize(on ? container_width : cwidth_nkp);
 	} else
@@ -876,7 +975,7 @@ Boolean on;
  */
 /*ARGSUSED*/
 void
-redraw(w, event, params, num_params)
+Redraw_action(w, event, params, num_params)
 Widget	w;
 XEvent	*event;
 String	*params;
@@ -888,7 +987,7 @@ Cardinal *num_params;
 	register int i;
 	int     c0;
 
-	debug_action(redraw, event, params, num_params);
+	action_debug(Redraw_action, event, params, num_params);
 	if (w == nss.widget) {
 		keypad_first_up();
 		if (appres.active_icon && iconic) {
@@ -1076,9 +1175,10 @@ int len;
 	register int i;
 
 	for (i = 0; i < len; i++, buffer++) {
-		if (buffer->bits.gr || buffer->bits.sel)
-			return False;
-		if (!BKM_ISSET(buffer->bits.cg))
+		if (buffer->bits.gr ||
+		    buffer->bits.sel ||
+		    (buffer->bits.fg & INVERT_MASK) ||
+		    !BKM_ISSET(buffer->bits.cg))
 			return False;
 	}
 	return True;
@@ -1231,86 +1331,81 @@ union sp *attrs;	/* buffer to use for attributes */
 
 		if (toggled(MONOCASE)) {
 			for (i = 0; i < len; i++) {
-				rt_buf[i].byte1 = 0;
 				switch (buffer[i].bits.cs) {
 				    case 0:
-					rt_buf[i].byte2 =
+					rt_buf8[i] =
 					    asc2uc[xfmap[buffer[i].bits.cg]];
 					break;
 				    case 1:
-					rt_buf[i].byte2 =
-					    ge2asc[buffer[i].bits.cg];
+					rt_buf8[i] = ge2asc[buffer[i].bits.cg];
 					break;
 				    case 2:
-					rt_buf[i].byte2 = buffer[i].bits.cg;
+					rt_buf8[i] = buffer[i].bits.cg;
 					break;
 				}
 			}
 		} else for (i = 0; i < len; i++) {
-			rt_buf[i].byte1 = 0;
 			switch (buffer[i].bits.cs) {
 			    case 0:
-				rt_buf[i].byte2 = xfmap[buffer[i].bits.cg];
+				rt_buf8[i] = xfmap[buffer[i].bits.cg];
 				break;
 			    case 1:
-				rt_buf[i].byte2 = ge2asc[buffer[i].bits.cg];
+				rt_buf8[i] = ge2asc[buffer[i].bits.cg];
 				break;
 			    case 2:
-				rt_buf[i].byte2 = buffer[i].bits.cg;
+				rt_buf8[i] = buffer[i].bits.cg;
 				break;
 			}
 		}
-	} else if (nss.extended_3270font) {	/* 16-bit (new) x3270 font */
+	} else if (ss->extended_3270font) {	/* 16-bit (new) x3270 font */
 		if (toggled(MONOCASE)) {
 			for (i = 0; i < len; i++) {
-				rt_buf[i].byte1 = buffer[i].bits.cs;
+				rt_buf16[i].byte1 = buffer[i].bits.cs;
 				switch (buffer[i].bits.cs) {
 				    case 0:
-					rt_buf[i].byte2 =
+					rt_buf16[i].byte2 =
 					    cg2uc[buffer[i].bits.cg];
 					break;
 				    case 1:
 				    case 2:
-					rt_buf[i].byte2 = buffer[i].bits.cg;
+					rt_buf16[i].byte2 = buffer[i].bits.cg;
 					break;
 				}
 			}
 		} else
 			for (i = 0; i < len; i++) {
-				rt_buf[i].byte1 = buffer[i].bits.cs;
-				rt_buf[i].byte2 = buffer[i].bits.cg;
+				rt_buf16[i].byte1 = buffer[i].bits.cs;
+				rt_buf16[i].byte2 = buffer[i].bits.cg;
 			}
 	} else {				/* 8-bit (old) x3270 font */
 		if (toggled(MONOCASE)) {
 			for (i = 0; i < len; i++) {
-				rt_buf[i].byte1 = 0;
 				switch (buffer[i].bits.cs) {
 				    case 0:
-					rt_buf[i].byte2 =
+					rt_buf8[i] =
 					    cg2uc[buffer[i].bits.cg];
 					break;
 				    case 1:
-					rt_buf[i].byte2 =
+					rt_buf8[i] =
 					    ge2cg8[buffer[i].bits.cg];
 					break;
 				    case 2:
-					rt_buf[i].byte2 = CG_boxsolid;
+					rt_buf8[i] = CG_boxsolid;
 					break;
 				}
 			}
 		} else
 			for (i = 0; i < len; i++) {
-				rt_buf[i].byte1 = 0;
 				switch (buffer[i].bits.cs) {
 				    case 0:
-					rt_buf[i].byte2 = buffer[i].bits.cg;
+					rt_buf8[i] = buffer[i].bits.cg;
 					break;
 				    case 1:
-					rt_buf[i].byte2 =
+					rt_buf8[i] =
 					    ge2cg8[buffer[i].bits.cg];
 					break;
 				    case 2:
-					rt_buf[i].byte2 = CG_boxsolid;
+					rt_buf8[i] = CG_boxsolid;
 					break;
 				}
 			}
@@ -1335,11 +1430,22 @@ union sp *attrs;	/* buffer to use for attributes */
 		dgc = get_gc(ss, color);
 
 	/* Draw the text */
-	XDrawImageString16(display, ss->window, dgc, x, y, rt_buf, len);
+	if (ss->extended_3270font)
+		XDrawImageString16(display, ss->window, dgc, x, y, rt_buf16,
+		    len);
+	else
+		XDrawImageString(display, ss->window, dgc, x, y,
+		    (char *)rt_buf8, len);
 	if (ss->overstrike &&
 	    ((attrs->bits.gr & GR_INTENSIFY) ||
-	     (appres.mono && ((color & BASE_MASK) == FA_INT_HIGH_SEL))))
-		XDrawString16(display, ss->window, dgc, x+1, y, rt_buf, len);
+	     (appres.mono && ((color & BASE_MASK) == FA_INT_HIGH_SEL)))) {
+		if (ss->extended_3270font)
+			XDrawString16(display, ss->window, dgc, x+1, y,
+			    rt_buf16, len);
+		else
+			XDrawString(display, ss->window, dgc, x+1, y,
+			    (char *)rt_buf8, len);
+	}
 	if (attrs->bits.gr & GR_UNDERLINE)
 		XDrawLine(display,
 		    ss->window,
@@ -1423,7 +1529,7 @@ screen_flip()
 {
 	flipped = !flipped;
 
-	internal_action(redraw, IA_REDRAW, CN, CN);
+	action_internal(Redraw_action, IA_REDRAW, CN, CN);
 }
 
 /*
@@ -1466,7 +1572,7 @@ int first, last;
 		last = 0;
 
 	zero = FA_IS_ZERO(fa);
-	if (field_ea->fg)
+	if (field_ea->fg && (!appres.modified_sel || !FA_IS_MODIFIED(fa)))
 		field_color = field_ea->fg & COLOR_MASK;
 	else
 		field_color = fa_color(fa);
@@ -1481,7 +1587,7 @@ int first, last;
 			fa = c;
 			field_ea = char_ea;
 			zero = FA_IS_ZERO(fa);
-			if (field_ea->fg)
+			if (field_ea->fg && (!appres.modified_sel || !FA_IS_MODIFIED(fa)))
 				field_color = field_ea->fg & COLOR_MASK;
 			else
 				field_color = fa_color(fa);
@@ -1513,7 +1619,7 @@ int first, last;
 			if (!appres.mono)
 				b.bits.fg = e_color;
 
-			/* Find the right character. */
+			/* Find the right character and character set. */
 			if (zero) {
 				if (ss->debugging_font)
 					b.bits.cg = CG_space;
@@ -1531,7 +1637,14 @@ int first, last;
 					b.bits.cg = CG_space;
 				else {
 					b.bits.cg = c;
-					b.bits.cs = char_ea->cs;
+					if (char_ea->cs)
+						b.bits.cs = char_ea->cs;
+					else
+						b.bits.cs = field_ea->cs;
+					if (b.bits.cs & CS_GE)
+						b.bits.cs = 1;
+					else
+						b.bits.cs &= CS_MASK;
 				}
 
 			} /* otherwise, CG_null */
@@ -1703,7 +1816,7 @@ int baddr;
 	 */
 	if (ea_buf[baddr].fg)
 		color = ea_buf[baddr].fg & COLOR_MASK;
-	else if (fa2ea(fa)->fg)
+	else if (fa2ea(fa)->fg && (!appres.modified_sel || !FA_IS_MODIFIED(*fa)))
 		color = fa2ea(fa)->fg & COLOR_MASK;
 	else
 		color = fa_color(*fa);
@@ -1757,6 +1870,7 @@ Boolean invert;
 	union sp buffer;
 	unsigned char *fa;
 	int gr;
+	int blank_it = 0;
 
 	if (!invert) {
 		int flb = fl_baddr(baddr);
@@ -1773,18 +1887,27 @@ Boolean invert;
 	 */
 	buffer.word = 0L;
 	buffer.bits.cg = screen_buf[baddr];
+	buffer.bits.cs = ea_buf[baddr].cs;
+	if (buffer.bits.cs & CS_GE)
+		buffer.bits.cs = 1;
+	else
+		buffer.bits.cs &= CS_MASK;
 	fa = get_field_attribute(baddr);
 	gr = ea_buf[baddr].gr;
 	if (!gr)
 		gr = fa2ea(fa)->gr;
 	if (IS_FA(screen_buf[baddr])) {
 		if (!ss->debugging_font)
-			buffer.bits.cg = CG_space;
+			blank_it = 1;
 	} else if (FA_IS_ZERO(*fa)) {
-		buffer.bits.cg = CG_space;
+		blank_it = 1;
 	} else if (text_blinkers_exist && !text_blinking_on) {
 		if (gr & GR_BLINK)
-			buffer.bits.cg = CG_space;
+			blank_it = 1;
+	}
+	if (blank_it) {
+		buffer.bits.cg = CG_space;
+		buffer.bits.cs = 0;
 	}
 	buffer.bits.fg = char_color(baddr);
 	buffer.bits.gr |= (gr & GR_INTENSIFY);
@@ -2045,11 +2168,19 @@ struct sstate *s;
 		    &xgcv);
 	}
 
-	/* Create underscore cursor GCs. */
-	if (appres.use_cursor_color && s->ucgc == (GC)None) {
+	/* Create explicit cursor color cursor GCs. */
+	if (appres.use_cursor_color) {
+		if (s->ucgc != (GC)None) {
+			XtReleaseGC(toplevel, s->ucgc);
+			s->ucgc = (GC)None;
+		}
 		xgcv.foreground = cursor_pixel;
 		s->ucgc = XtGetGC(toplevel, GCForeground, &xgcv);
 
+		if (s->invucgc != (GC)None) {
+			XtReleaseGC(toplevel, s->invucgc);
+			s->invucgc = (GC)None;
+		}
 		xgcv.foreground = colorbg_pixel;
 		xgcv.background = cursor_pixel;
 		xgcv.font = s->efontinfo->fid;
@@ -2061,10 +2192,9 @@ struct sstate *s;
 	s->overstrike = (s->char_width > 1);
 }
 
-/* Transfer the colorScheme resource into arrays. */
-static int
-xfer_color_scheme(cs)
-char *cs;
+/* Set up a default color scheme. */
+static void
+default_color_scheme()
 {
 	static int default_attrib_colors[4] = {
 	    GC_NONDEFAULT | COLOR_GREEN,/* default */
@@ -2073,17 +2203,40 @@ char *cs;
 	    GC_NONDEFAULT | COLOR_WHITE	/* protected, intensified */
 	};
 	int i;
+
+	ibm_fb = FB_WHITE;
+	for (i = 0; i < 16; i++)
+		color_name[i] = XtNewString("white");
+	for (i = 0; i < 4; i++)
+		field_colors[i] = default_attrib_colors[i];
+}
+
+/* Transfer the colorScheme resource into arrays. */
+static Boolean
+xfer_color_scheme(cs, do_popup)
+char *cs;
+Boolean do_popup;
+{
+	int i;
 	char *scheme_name = CN;
 	char *s0 = CN, *scheme = CN;
 	char *tk;
-	int rv = 0;
+
+	char *tmp_color_name[16];
+	enum fallback_color tmp_ibm_fb;
+	char *tmp_colorbg_name;
+	char *tmp_selbg_name;
+	int tmp_field_colors[4];
 
 	if (cs == CN)
 		goto failure;
 	scheme_name = xs_buffer("%s.%s", ResColorScheme, cs);
 	s0 = scheme = get_resource(scheme_name);
 	if (scheme == CN) {
-		xs_warning("Can't find resource %s", scheme_name);
+		if (do_popup)
+			popup_an_error("Can't find resource %s", scheme_name);
+		else
+			xs_warning("Can't find resource %s", scheme_name);
 		goto failure;
 	}
 	for (i = 0; (tk = strtok(scheme, " \t\n")) != CN; i++) {
@@ -2098,54 +2251,74 @@ char *cs;
 		    case  4: case  5: case  6: case  7:
 		    case  8: case  9: case 10: case 11:
 		    case 12: case 13: case 14: case 15:	/* IBM color name */
-			color_name[i] = XtNewString(tk);
+			tmp_color_name[i] = tk;
 			break;
 		    case 16:	/* default for IBM colors */
 			if (!strcmp(tk, "white"))
-				ibm_fb = FB_WHITE;
+				tmp_ibm_fb = FB_WHITE;
 			else if (!strcmp(tk, "black"))
-				ibm_fb = FB_BLACK;
+				tmp_ibm_fb = FB_BLACK;
 			else {
-				xs_warning("Invalid default color");
+				if (do_popup)
+					popup_an_error("Invalid default color");
+				else
+					xs_warning("Invalid default color");
 				goto failure;
 			}
 			break;
 		    case 17:	/* screen background */
-			appres.colorbg_name = XtNewString(tk);
+			tmp_colorbg_name = tk;
 			break;
 		    case 18:	/* select background */
-			appres.selbg_name = XtNewString(tk);
+			tmp_selbg_name = tk;
 			break;
 		    case 19: case 20: case 21: case 22:	/* attribute colors */
-			field_colors[i-19] = atoi(tk);
-			if (field_colors[i-19] < 0 ||
-			    field_colors[i-19] > 0x0f) {
-				xs_warning("Invalid %s resource, ignoring",
-				    scheme_name);
+			tmp_field_colors[i-19] = atoi(tk);
+			if (tmp_field_colors[i-19] < 0 ||
+			    tmp_field_colors[i-19] > 0x0f) {
+				if (do_popup)
+					popup_an_error("Invalid %s resource, ignoring",
+					    scheme_name);
+				else
+					xs_warning("Invalid %s resource, ignoring",
+					    scheme_name);
 				goto failure;
 			}
-			field_colors[i-19] |= GC_NONDEFAULT;
+			tmp_field_colors[i-19] |= GC_NONDEFAULT;
 		}
 	}
 	if (i < 23) {
-		xs_warning("Insufficient data in %s resource", scheme_name);
+		if (do_popup)
+			popup_an_error("Insufficient data in %s resource",
+			    scheme_name);
+		else
+			xs_warning("Insufficient data in %s resource",
+			    scheme_name);
 		goto failure;
 	}
-	goto success;
 
-    failure:
-	rv = -1;
-	ibm_fb = FB_WHITE;
+	/* Success: transfer to live variables. */
 	for (i = 0; i < 16; i++)
-		color_name[i] = XtNewString("white");
+		color_name[i] = XtNewString(tmp_color_name[i]);
+	ibm_fb = tmp_ibm_fb;
+	appres.colorbg_name = XtNewString(tmp_colorbg_name);
+	appres.selbg_name = XtNewString(tmp_selbg_name);
 	for (i = 0; i < 4; i++)
-		field_colors[i] = default_attrib_colors[i];
-    success:
+		field_colors[i] = tmp_field_colors[i];
+
+	/* Clean up and exit. */
 	if (scheme_name != CN)
 		XtFree(scheme_name);
 	if (s0 != CN)
 		XtFree(s0);
-	return rv;
+	return True;
+
+    failure:
+	if (scheme_name != CN)
+		XtFree(scheme_name);
+	if (s0 != CN)
+		XtFree(s0);
+	return False;
 }
 
 /* Look up a GC, allocating it if necessary. */
@@ -2309,7 +2482,10 @@ unsigned char fa;
 		 * Color indices are the low-order 4 bits of a 3279 color
 		 * identifier (0 through 15)
 		 */
-		return field_colors[(fa >> 1) & 0x03];
+		if (appres.modified_sel && FA_IS_MODIFIED(fa))
+			return GC_NONDEFAULT | (appres.modified_sel_color & 0xf);
+		else
+			return field_colors[(fa >> 1) & 0x03];
 	} else {
 		/*
 		 * Color indices are the intensity bits (0 through 2)
@@ -2391,13 +2567,13 @@ static Boolean keypad_entered = False;
 
 /*ARGSUSED*/
 void
-focus_change(w, event, params, num_params)
+FocusEvent_action(w, event, params, num_params)
 Widget w;
 XFocusChangeEvent *event;
 String *params;
 Cardinal *num_params;
 {
-	debug_action(focus_change, (XEvent *)event, params, num_params);
+	action_debug(FocusEvent_action, (XEvent *)event, params, num_params);
 	switch (event->type) {
 	    case FocusIn:
 		if (event->detail != NotifyPointer) {
@@ -2415,13 +2591,13 @@ Cardinal *num_params;
 
 /*ARGSUSED*/
 void
-enter_leave(w, event, params, num_params)
+EnterLeave_action(w, event, params, num_params)
 Widget w;
 XCrossingEvent *event;
 String *params;
 Cardinal *num_params;
 {
-	debug_action(enter_leave, (XEvent *)event, params, num_params);
+	action_debug(EnterLeave_action, (XEvent *)event, params, num_params);
 	switch (event->type) {
 	    case EnterNotify:
 		keypad_entered = True;
@@ -2437,7 +2613,7 @@ Cardinal *num_params;
 
 /*ARGSUSED*/
 void
-keymap_event(w, event, params, num_params)
+KeymapEvent_action(w, event, params, num_params)
 Widget w;
 XEvent *event;
 String *params;
@@ -2445,7 +2621,7 @@ Cardinal *num_params;
 {
 	XKeymapEvent *k = (XKeymapEvent *)event;
 
-	debug_action(keymap_event, event, params, num_params);
+	action_debug(KeymapEvent_action, event, params, num_params);
 	shift_event(state_from_keymap(k->key_vector));
 }
 
@@ -2479,13 +2655,13 @@ query_window_state()
 
 /*ARGSUSED*/
 void
-state_event(w, event, params, num_params)
+StateChanged_action(w, event, params, num_params)
 Widget w;
 XEvent *event;
 String *params;
 Cardinal *num_params;
 {
-	debug_action(state_event, event, params, num_params);
+	action_debug(StateChanged_action, event, params, num_params);
 	query_window_state();
 }
 
@@ -2552,13 +2728,13 @@ Boolean in;
 
 /*ARGSUSED*/
 void
-quit_event(w, event, params, num_params)
+Quit_action(w, event, params, num_params)
 Widget  w;
 XEvent  *event;
 String  *params;
 Cardinal *num_params;
 {
-	debug_action(quit_event, event, params, num_params);
+	action_debug(Quit_action, event, params, num_params);
 	if (!w || !CONNECTED)
 		x3270_exit(0);
 }
@@ -2568,19 +2744,19 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-set_font(w, event, params, num_params)
+SetFont_action(w, event, params, num_params)
 Widget	w;
 XEvent	*event;
 String	*params;
 Cardinal *num_params;
 {
-	debug_action(set_font, event, params, num_params);
-	if (check_usage(set_font, *num_params, 1, 1) < 0)
+	action_debug(SetFont_action, event, params, num_params);
+	if (check_usage(SetFont_action, *num_params, 1, 1) < 0)
 		return;
-	(void) screen_newfont(params[0], True);
+	screen_newfont(params[0], True);
 }
 
-int
+void
 screen_newfont(fontname, do_popup)
 char *fontname;
 Boolean do_popup;
@@ -2591,12 +2767,12 @@ Boolean do_popup;
 
 	/* Can't change fonts in APL mode. */
 	if (appres.apl_mode)
-		return -1;
+		return;
 
 	if (efontname && !strcmp(fontname, efontname)) {
 		if (buf)
 			XtFree(buf);
-		return 0;
+		return;
 	}
 
 	if ((emsg = load_fixed_font(fontname, &new_fontinfo))) {
@@ -2604,8 +2780,14 @@ Boolean do_popup;
 			XtFree(buf);
 		if (do_popup)
 			popup_an_error("Font \"%s\"\n%s", fontname, emsg);
-		return -1;
+		return;
 	}
+
+	if (redo_old_font != CN)
+		XtFree(redo_old_font);
+	redo_old_font = XtNewString(efontname);
+	screen_redo = REDO_FONT;
+
 	nss.efontinfo = new_fontinfo;
 	set_font_globals(nss.efontinfo, fontname);
 
@@ -2614,7 +2796,6 @@ Boolean do_popup;
 	if (buf)
 		XtFree(buf);
 	efont_changed = True;
-	return 0;
 }
 
 /*
@@ -2649,7 +2830,7 @@ char *ef;
 {
 	unsigned long svalue, svalue2;
 	extern Atom a_3270;
-	extern Atom a_registry, a_iso8859;
+	extern Atom a_registry, a_iso8859, a_ISO8859;
 	extern Atom a_encoding, a_1;
 
 	if (efontname)
@@ -2666,14 +2847,18 @@ char *ef;
 		nss.latin1_font =
 		    nss.efontinfo->max_char_or_byte2 > 127 &&
 		    XGetFontProperty(f, a_registry, &svalue) &&
-		    svalue == a_iso8859 &&
+		    (svalue == a_iso8859  || svalue == a_ISO8859) &&
 		    XGetFontProperty(f, a_encoding, &svalue2) &&
 		    svalue2 == a_1;
 		nss.xfmap = nss.latin1_font ? cg2asc : cg2asc7;
 		nss.debugging_font = False;
 	} else {
+#if defined(BROKEN_MACH32)
+		nss.extended_3270font = False;
+#else
 		nss.extended_3270font = nss.efontinfo->max_byte1 > 0 ||
 			nss.efontinfo->max_char_or_byte2 > 255;
+#endif
 		nss.latin1_font = False;
 		nss.xfmap = (unsigned char *)NULL;
 		nss.debugging_font = !strcmp(efontname, "3270d");
@@ -2691,6 +2876,12 @@ int ovc, ovr;
 	if (CONNECTED ||
 	    (model_num == mn && ovc == ov_cols && ovr == ov_rows))
 		return;
+
+	redo_old_model = model_num;
+	redo_old_ov_cols = ov_cols;
+	redo_old_ov_rows = ov_rows;
+	screen_redo = REDO_MODEL;
+
 	model_changed = True;
 	if (ov_cols != ovc || ov_rows != ovr)
 		oversize_changed = True;
@@ -2708,16 +2899,48 @@ void
 screen_newscheme(s)
 char *s;
 {
+	Boolean xferred;
+
 	if (!appres.m3279)
 		return;
 
 	destroy_screen();
 	destroy_pixels();
-	(void) xfer_color_scheme(s);
+	xferred = xfer_color_scheme(s, True);
 	allocate_pixels();
+	if (xferred)
+		appres.color_scheme = s;
 	screen_init(True, False, True);
-	appres.color_scheme = s;
 	scheme_changed = True;
+}
+
+/*
+ * Change character sets.
+ */
+void
+screen_newcharset(csname)
+char *csname;
+{
+	char *resname;
+	char *cs;
+
+	/* Find the character set definition. */
+	resname = xs_buffer("%s.%s", ResCharset, csname);
+	cs = get_resource(resname);
+	XtFree(resname);
+	if (cs == NULL) {
+		popup_an_error("Cannot find charset \"%s\"", csname);
+		return;
+	}
+	appres.charset = XtNewString(csname);
+	charset = cs;
+
+	/* Change the translation tables. */
+	(void) memcpy((char *)ebc2cg, (char *)ebc2cg0, 256);
+	(void) memcpy((char *)cg2ebc, (char *)cg2ebc0, 256);
+	clear_xks();
+	remap_chars(charset);
+	charset_changed = True;
 }
 
 /*
@@ -2775,7 +2998,7 @@ ring_bell()
  */
 /*ARGSUSED*/
 void
-wm_protocols(w, event, params, num_params)
+WMProtocols_action(w, event, params, num_params)
 Widget w;
 XEvent *event;
 String *params;
@@ -2783,7 +3006,7 @@ Cardinal *num_params;
 {
 	XClientMessageEvent *cme = (XClientMessageEvent *)event;
 
-	debug_action(wm_protocols, event, params, num_params);
+	action_debug(WMProtocols_action, event, params, num_params);
 	if ((Atom)cme->data.l[0] == a_delete_me) {
 		if (w == toplevel)
 			x3270_exit(0);
@@ -2886,8 +3109,8 @@ aicon_font_init()
 	}
 	iss.efontinfo = XLoadQueryFont(display, appres.icon_font);
 	if (iss.efontinfo == NULL) {
-		xs_warning("Cannot load iconFont \"%s\"; activeIcon will not work",
-		    appres.icon_font);
+		xs_warning("Cannot load %s \"%s\"; activeIcon will not work",
+		    ResIconFont, appres.icon_font);
 		appres.active_icon = False;
 		return;
 	}
@@ -2903,7 +3126,8 @@ aicon_font_init()
 	if (appres.label_icon) {
 		ailabel_font = XLoadQueryFont(display, appres.icon_label_font);
 		if (ailabel_font == NULL) {
-			xs_warning("Cannot load iconLabelFont \"%s\" font; labelIcon will not work", appres.icon_label_font);
+			xs_warning("Cannot load %s \"%s\" font; labelIcon will not work",
+			    ResIconLabelFont, appres.icon_label_font);
 			appres.label_icon = False;
 			return;
 		}
@@ -2943,8 +3167,9 @@ Boolean model_chngd;
 	static Boolean ever = False;
 	extern Widget icon_shell;
 
+	make_gcs(&iss);
+
 	if (!ever) {
-		make_gcs(&iss);
 		iss.widget = icon_shell;
 		iss.window = XtWindow(iss.widget);
 		iss.cursor_daddr = 0;
@@ -3017,8 +3242,6 @@ char *l;
 /*
  * Resize font list parser.
  */
-struct rsfont *rsfonts;
-
 static void
 init_rsfonts()
 {
@@ -3051,26 +3274,41 @@ init_rsfonts()
  * Handle Configure events.
  */
 
+/*
+ * Timeout routine called 0.5 sec after Configure_action changes to a new
+ * font.  This function clears configure_ticking; if Configure_action is
+ * called again before this, it interprets it as the window manager objecting
+ * to the new window size and posts an error message.
+ */
+/*ARGSUSED*/
+static void
+configure_stable(closure, id)
+XtPointer closure;
+XtIntervalId *id;
+{
+	configure_ticking = False;
+}
+
 /*ARGSUSED*/
 void
-configure(w, event, params, num_params)
+Configure_action(w, event, params, num_params)
 Widget	w;
 XEvent	*event;
 String	*params;
 Cardinal *num_params;
 {
 	XConfigureEvent *re = (XConfigureEvent *) event;
-	Position xx, yy;
 	Boolean needs_moving = False;
+	Position xx, yy;
+	static Position main_x = 0, main_y = 0;
 	int current_area;
 	int requested_area;
 	struct rsfont *r;
 	struct rsfont *smallest = (struct rsfont *) NULL;
 	struct rsfont *largest = (struct rsfont *) NULL;
 	struct rsfont *best = (struct rsfont *) NULL;
-	char *new_font;
 
-	debug_action(configure, event, params, num_params);
+	action_debug(Configure_action, event, params, num_params);
 
 	/*
 	 * Get the new window coordinates.  If the configure event reports it
@@ -3090,18 +3328,81 @@ Cardinal *num_params;
 		needs_moving = True;
 	}
 
-	/*
-	 * If the window dimensions are unchanged, there is nothing more to
-	 * do but relocate the keypad.
-	 */
-	if (re->width == main_width && re->height == main_height)
+	/* If the window dimensions are "correct", there is nothing to do. */
+	if (re->width == main_width && re->height == main_height) {
+		configure_first = False;
 		goto done;
+	}
 
 	/*
-	 * If the resize font list is empty, we can't resize the screen.
-	 * Just restore the previous window size and relocate the keypad.
+	 * There are three possible reasons for being here:
+	 * (1) The user has (through the window manager) resized our
+	 *  window.
+	 * (2) We resized our window when our configuration changed (font,
+	 *  model, integral keypad or scrollbar); mwm thinks it is too big
+	 *  and scaled it back.
+	 * (3) Mwm thinks our initial screen size is too big, and scaled it
+	 *  back.
+	 *
+	 * 'configure_ticking' and the associated timeout attempt to detect
+	 * (2) and (3).  Whenever we set the toplevel dimensions, we set
+	 * the timer; if a changed configure comes in while the timer is
+	 * ticking, we assume it is an angry mwm.  If this is the very first
+	 * time we've sized the window, we must crash; otherwise, we can
+	 * simply back off to the previous configuration.
+	 *
+	 * If 'configure_ticking' is clear, we assume the cause is (1).
+	 * If resize fonts are available, we pick the best one and try it.
+	 * Otherwise, we restore the original toplevel dimensions.
 	 */
-	if (!rsfonts || !appres.allow_resize) {
+
+	/* If this was our first resize, crash. */
+	if (configure_first)
+		xs_error("This x3270 configuration does not fit on the X display.");
+
+	if (configure_ticking) {
+		/*
+		 * We must presume this is the window manager disapproving of
+		 * our last resize attempt.
+		 */
+		XtRemoveTimeOut(configure_id);
+		configure_ticking = False;
+		popup_an_error("This configuration does not fit on the X display");
+
+		/* Restore the old configuration... */
+		switch (screen_redo) {
+		    case REDO_FONT:
+			screen_newfont(redo_old_font, False);
+			break;
+		    case REDO_MODEL:
+			screen_change_model(redo_old_model,
+			    redo_old_ov_cols, redo_old_ov_rows);
+			break;
+		    case REDO_KEYPAD:
+			screen_showikeypad(appres.keypad_on = False);
+			break;
+		    case REDO_SCROLLBAR:
+			if (toggled(SCROLL_BAR)) {
+				toggle_toggle(&appres.toggle[SCROLL_BAR]);
+				toggle_scrollBar(&appres.toggle[SCROLL_BAR],
+				    TT_TOGGLE);
+			}
+			break;
+		    case REDO_NONE:
+		    default:
+			xs_error("Internal reconfiguration error.");
+			break;
+		}
+		screen_redo = REDO_NONE;
+
+		goto done;
+	}
+
+	/*
+	 * User-generated resize attempt.
+	 */
+	if (rsfonts == (struct rsfont *)NULL || !appres.allow_resize) {
+		/* Illegal or impossible. */
 		set_toplevel_sizes();
 		goto done;
 	}
@@ -3176,25 +3477,31 @@ Cardinal *num_params;
 
 	if (best == (struct rsfont *) NULL) {	/* no good fit */
 		if (requested_area > current_area) {
-			new_font = largest->name;
+			best = largest;
 		} else {
-			new_font = smallest->name;
+			best = smallest;
 		}
-	} else {
-		new_font = best->name;
 	}
 
 	/* Change fonts. */
-	if (efontname && !strcmp(new_font, efontname))
+	if (efontname && !strcmp(best->name, efontname)) {
+		if (toggled(EVENT_TRACE)) {
+			(void) fprintf(tracef, " keeping font '%s' (%dx%d)\n",
+			    best->name, best->total_width, best->total_height);
+		}
 		set_toplevel_sizes();
-	else
-		(void) screen_newfont(new_font, False);
-
-	return;
+	} else {
+		if (toggled(EVENT_TRACE)) {
+			(void) fprintf(tracef,
+			    " switching to font '%s' (%dx%d)\n",
+			    best->name, best->total_width, best->total_height);
+		}
+		screen_newfont(best->name, False);
+	}
 
     done:
-	if (needs_moving)
-		move_keypad();
+	if (needs_moving && !iconic)
+		keypad_move();
 }
 
 /*
@@ -3203,7 +3510,7 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-visible(w, event, params, num_params)
+Visible_action(w, event, params, num_params)
 Widget	w;
 XEvent	*event;
 String	*params;
@@ -3221,7 +3528,7 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-graphics_expose(w, event, params, num_params)
+GraphicsExpose_action(w, event, params, num_params)
 Widget	w;
 XEvent	*event;
 String	*params;

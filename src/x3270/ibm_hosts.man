@@ -1,5 +1,5 @@
 '\\" t
-.TH IBM_HOSTS 5 "5 October 1994"
+.TH IBM_HOSTS 5 "10 July 1995"
 .SH NAME
 ibm_hosts \-
 host database for
@@ -20,7 +20,7 @@ Each line defines a name in the following format
 (optional fields are shown in brackets):
 .nf
 
-	\fIname	type	hostname\fP[/\fIport\fP]	[\fIloginstring\fP]
+	\fIname	type hostname\fP[/\fIport\fP] [\fIactions\fP]
 
 .fi
 Items are separated by any number of blanks and/or TAB characters.
@@ -62,17 +62,22 @@ number, appended to the
 .I hostname
 with
 a slash ``/'' character,
-.IR i . e .,
+.IR e . g .,
 .BR bluehost/97 .
 .LP
 The optional
-.I loginstring
-field specifies data to be sent to the host when the connection is made.  It
-may include embedded tab (\\t) and newline (\\n) characters indicating the
-3270 TAB and ENTER keys, respectively.
+.I actions
+field specifies actions to be taken once the connection is made and a
+data-entry field is defined.
+If the text looks like an action,
+.IR e . g .,
+.BR PF(1) ,
+it is unmodified; otherwise it is taken as the parameter to the
+.B String()
+action.
 The
-.I loginstring
-is not intended for entering usernames and passwords; rather it provides an
+.I actions
+are not intended for entering usernames and passwords; rather they provide an
 automated way of specifying a front-end menu option.
 .SH EXAMPLE
 Given the following
@@ -83,7 +88,7 @@ file:
 	mvs	primary	mvs-host
 	tso	alias	mvs-host
 	mvs2	primary	mvs-host/4012
-	vm	primary	vtam	\\t3\\n
+	vm	primary	vtam	Tab() String(3) Enter()
 
 .fi
 An 3270 emulator will display four names
@@ -109,7 +114,7 @@ The name
 will cause the 3270 emulator to connect to the host
 .B vtam
 (presumably some sort of host-selection front-end),
-then enter the string ``3'' on the second data-entry field on the screen, and
+enter the string ``3'' on the second data-entry field on the screen, and
 send the ENTER AID sequence.
 .SH FILES
 /usr/lib/X11/x3270/ibm_hosts

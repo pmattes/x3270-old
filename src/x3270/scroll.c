@@ -13,7 +13,15 @@
  */
 
 #include "globals.h"
+#include "appres.h"
 #include "ctlr.h"
+
+#include "ctlrc.h"
+#include "kybdc.h"
+#include "screenc.h"
+#include "scrollc.h"
+#include "selectc.h"
+#include "statusc.h"
 
 /* Globals */
 Boolean	scroll_initted = False;

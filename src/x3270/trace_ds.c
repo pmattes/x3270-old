@@ -24,9 +24,21 @@
 #else
 #include <varargs.h>
 #endif
+#include <fcntl.h>
 #include "3270ds.h"
+#include "appres.h"
 #include "resources.h"
 #include "ctlr.h"
+
+#include "ctlrc.h"
+#include "menubarc.h"
+#include "popupsc.h"
+#include "printc.h"
+#include "savec.h"
+#include "tablesc.h"
+#include "telnetc.h"
+#include "trace_dsc.h"
+#include "utilc.h"
 
 /* Externals */
 extern char    *build;
@@ -457,6 +469,8 @@ unsigned char id;
 		return "ReplyModes";
 	    case QR_ALPHA_PART:
 		return "AlphanumericPartitions";
+	    case QR_DDM:
+		return "DistributedDataManagement";
 	    default:
 		(void) sprintf(buf, "unknown[0x%x]", id);
 		return buf;
@@ -540,6 +554,7 @@ XtPointer call_data;
 	char *full_cmd;
 	long clock;
 	extern char *command_string;
+	extern int children;
 
 	if (w)
 		tfn = XawDialogGetValueString((Widget)client_data);
@@ -547,7 +562,7 @@ XtPointer call_data;
 		tfn = (char *)client_data;
 	tfn = do_subst(tfn, True, True);
 	if (strchr(tfn, '\'') ||
-	    (strlen(tfn) > 0 && tfn[strlen(tfn)-1] == '\\')) {
+	    ((int)strlen(tfn) > 0 && tfn[strlen(tfn)-1] == '\\')) {
 		popup_an_error("Illegal file name: %s\n", tfn);
 		XtFree(tfn);
 		return;
@@ -559,6 +574,7 @@ XtPointer call_data;
 		return;
 	}
 	(void) SETLINEBUF(tracef);
+	(void) fcntl(fileno(tracef), F_SETFD, 1);
 
 	/* Display current status */
 	clock = time((long *)0);
@@ -595,6 +611,7 @@ XtPointer call_data;
 		(void) perror("exec(xterm)");
 		_exit(1);
 	    default:	/* parent */
+		++children;
 		break;
 	    case -1:	/* error */
 		popup_an_errno(errno, "fork()");
@@ -802,7 +819,8 @@ XtPointer call_data;
 		return;
 	}
 	XtFree(tfn);
-	(void) SETLINEBUF(screentracef);	/* XXX Temporary Debug */
+	(void) SETLINEBUF(screentracef);
+	(void) fcntl(fileno(screentracef), F_SETFD, 1);
 
 	/* We're really tracing, turn the flag on. */
 	appres.toggle[SCREEN_TRACE].value = True;
@@ -834,6 +852,7 @@ XtPointer call_data;
 		XtFree(tfn);
 		return;
 	}
+	(void) fcntl(fileno(screentracef), F_SETFD, 1);
 	XtFree(tfn);
 
 	/* Save the current image, once. */

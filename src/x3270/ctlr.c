@@ -1,16 +1,16 @@
 /*
- * Copyright 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.
- *  All Rights Reserved.  GTRC hereby grants public use of this software.
- *  Derivative works based on this software must incorporate this copyright
- *  notice.
- *
- * X11 Port Copyright 1990 by Jeff Sparkes.
- * Additional X11 Modifications Copyright 1993, 1994, 1995 by Paul Mattes.
+ * Modifications Copyright 1993, 1994, 1995, 1996 by Paul Mattes.
+ * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
  *  both that copyright notice and this permission notice appear in
  *  supporting documentation.
+ *
+ * Copyright 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.
+ *  All Rights Reserved.  GTRC hereby grants public use of this software.
+ *  Derivative works based on this software must incorporate this copyright
+ *  notice.
  */
 
 /*
@@ -24,13 +24,27 @@
 #include "globals.h"
 #include <errno.h>
 #include "3270ds.h"
+#include "appres.h"
 #include "ctlr.h"
 #include "screen.h"
 #include "cg.h"
 #include "resources.h"
 
-/* Externals: x3270.c */
-extern char    *pending_string;
+#include "ctlrc.h"
+#include "ft_cutc.h"
+#include "ftc.h"
+#include "kybdc.h"
+#include "macrosc.h"
+#include "popupsc.h"
+#include "screenc.h"
+#include "scrollc.h"
+#include "selectc.h"
+#include "sfc.h"
+#include "statusc.h"
+#include "tablesc.h"
+#include "telnetc.h"
+#include "trace_dsc.h"
+#include "utilc.h"
 
 /* Externals: kybd.c */
 extern unsigned char aid;
@@ -59,7 +73,6 @@ static void     set_formatted();
 static void     ctlr_blanks();
 static unsigned char fake_fa;
 static struct ea fake_ea;
-static Boolean  ps_is_loginstring = False;
 static Boolean  trace_primed = False;
 static unsigned char default_fg;
 static unsigned char default_gr;
@@ -198,22 +211,36 @@ int ovc, ovr;
 		defmod = 4;
 #endif
 		{
-			char mn[2];
+			char mnb[2];
 
-			mn[0] = defmod + '0';
-			mn[1] = '\0';
-			xs_warning("Unknown model, defaulting to %s", mn);
+			mnb[0] = defmod + '0';
+			mnb[1] = '\0';
+			xs_warning("Unknown model, defaulting to %s", mnb);
 		}
 		set_rows_cols(defmod, ovc, ovr);
 		return;
 	}
 
 	/* Apply oversize. */
-	if (ovc * ovr >= 0x4000)
-		xs_warning("Illegal %s, ignoring", ResOversize);
-	else if (ovc >= maxCOLS && ovr >= maxROWS) {
-		maxCOLS = COLS = ovc;
-		maxROWS = ROWS = ovr;
+	ov_cols = 0;
+	ov_rows = 0;
+	if (ovc != 0 || ovr != 0) {
+		if (ovc <= 0 || ovr <= 0)
+			popup_an_error("Invalid %s %dx%d:\nNegative or zero",
+			    ResOversize, ovc, ovr);
+		else if (ovc * ovr >= 0x4000)
+			popup_an_error("Invalid %s %dx%d:\nToo big",
+			    ResOversize, ovc, ovr);
+		else if (ovc > 0 && ovc < maxCOLS)
+			popup_an_error("Invalid %s cols (%d):\nLess than model %d cols (%d)",
+			    ResOversize, ovc, model_num, maxCOLS);
+		else if (ovr > 0 && ovr < maxROWS)
+			popup_an_error("Invalid %s rows (%d):\nLess than model %d rows (%d)",
+			    ResOversize, ovr, model_num, maxROWS);
+		else {
+			ov_cols = maxCOLS = COLS = ovc;
+			ov_rows = maxROWS = ROWS = ovr;
+		}
 	}
 
 	/* Update the model name. */
@@ -493,10 +520,11 @@ Boolean *anyp;
 }
 
 static void
-insert_sa(baddr, current_fgp, current_grp, anyp)
+insert_sa(baddr, current_fgp, current_grp, current_csp, anyp)
 int baddr;
 unsigned char *current_fgp;
 unsigned char *current_grp;
+unsigned char *current_csp;
 Boolean *anyp;
 {
 	if (reply_mode != SF_SRM_CHAR)
@@ -512,6 +540,15 @@ Boolean *anyp;
 			gr |= 0xf0;
 		insert_sa1(XA_HIGHLIGHTING, gr, current_grp, anyp);
 	}
+	if (memchr((char *)crm_attr, XA_CHARSET, crm_nattr)) {
+		unsigned char cs;
+
+		cs = ea_buf[baddr].cs & CS_MASK;
+		if (cs)
+			cs |= 0xf0;
+		insert_sa1(XA_CHARSET, cs, current_csp, anyp);
+	}
+
 }
 
 
@@ -529,6 +566,7 @@ Boolean all;
 	Boolean		short_read = False;
 	unsigned char	current_fg = 0x00;
 	unsigned char	current_gr = 0x00;
+	unsigned char	current_cs = 0x00;
 
 	trace_ds("> ");
 	obptr = obuf;
@@ -551,8 +589,7 @@ Boolean all;
 		short_read = True;
 		/* fall through... */
 
-	    case AID_NO:			/* AIDs that send no data */
-	    case AID_SELECT:			/* on READ MODIFIED */
+	    case AID_SELECT:			/* No data on READ MODIFIED */
 		if (!all)
 			send_data = False;
 		/* fall through... */
@@ -590,9 +627,11 @@ Boolean all;
 					if (send_data &&
 					    screen_buf[baddr]) {
 						insert_sa(baddr,
-						    &current_fg, &current_gr,
+						    &current_fg,
+						    &current_gr,
+						    &current_cs,
 						    &any);
-						if (ea_buf[baddr].cs) {
+						if (ea_buf[baddr].cs & CS_GE) {
 							space3270out(1);
 							*obptr++ = ORDER_GE;
 							if (any)
@@ -624,8 +663,11 @@ Boolean all;
 		do {
 			if (screen_buf[baddr]) {
 				insert_sa(baddr,
-				    &current_fg, &current_gr, &any);
-				if (ea_buf[baddr].cs) {
+				    &current_fg,
+				    &current_gr,
+				    &current_cs,
+				    &any);
+				if (ea_buf[baddr].cs & CS_GE) {
 					space3270out(1);
 					*obptr++ = ORDER_GE;
 					if (any)
@@ -684,6 +726,7 @@ unsigned char aid_byte;
 	int		attr_count;
 	unsigned char	current_fg = 0x00;
 	unsigned char	current_gr = 0x00;
+	unsigned char	current_cs = 0x00;
 
 	trace_ds("> ");
 	obptr = obuf;
@@ -730,11 +773,24 @@ unsigned char aid_byte;
 					    ea_buf[baddr].gr | 0xf0));
 					(*(obuf + attr_count))++;
 				}
+				if (ea_buf[baddr].cs & CS_MASK) {
+					space3270out(2);
+					*obptr++ = XA_CHARSET;
+					*obptr++ =
+					    (ea_buf[baddr].cs & CS_MASK) | 0xf0;
+					trace_ds("%s", see_efa(XA_CHARSET,
+					    (ea_buf[baddr].cs & CS_MASK) | 0xf0));
+					(*(obuf + attr_count))++;
+				}
 			}
 			any = False;
 		} else {
-			insert_sa(baddr, &current_fg, &current_gr, &any);
-			if (ea_buf[baddr].cs) {
+			insert_sa(baddr,
+			    &current_fg,
+			    &current_gr,
+			    &current_cs,
+			    &any);
+			if (ea_buf[baddr].cs & CS_GE) {
 				space3270out(1);
 				*obptr++ = ORDER_GE;
 				if (any)
@@ -777,6 +833,7 @@ ctlr_snap_buffer()
 	int		attr_count;
 	unsigned char	current_fg = 0x00;
 	unsigned char	current_gr = 0x00;
+	unsigned char	current_cs = 0x00;
 	unsigned char   av;
 
 	obptr = obuf;
@@ -804,6 +861,12 @@ ctlr_snap_buffer()
 				*obptr++ = ea_buf[baddr].gr | 0xf0;
 				(*(obuf + attr_count))++;
 			}
+			if (ea_buf[baddr].cs & CS_MASK) {
+				space3270out(2);
+				*obptr++ = XA_CHARSET;
+				*obptr++ = (ea_buf[baddr].cs & CS_MASK) | 0xf0;
+				(*(obuf + attr_count))++;
+			}
 		} else {
 			av = ea_buf[baddr].fg;
 			if (current_fg != av) {
@@ -823,7 +886,17 @@ ctlr_snap_buffer()
 				*obptr++ = XA_HIGHLIGHTING;
 				*obptr++ = av;
 			}
-			if (ea_buf[baddr].cs) {
+			av = ea_buf[baddr].cs & CS_MASK;
+			if (av)
+				av |= 0xf0;
+			if (current_cs != av) {
+				current_cs = av;
+				space3270out(3);
+				*obptr++ = ORDER_SA;
+				*obptr++ = XA_CHARSET;
+				*obptr++ = av;
+			}
+			if (ea_buf[baddr].cs & CS_GE) {
 				space3270out(1);
 				*obptr++ = ORDER_GE;
 			}
@@ -943,12 +1016,19 @@ Boolean erase;
 	int		any_fa;
 	unsigned char	efa_fg;
 	unsigned char	efa_gr;
+	unsigned char	efa_cs;
 	char		*paren = "(";
 	enum { NONE, ORDER, SBA, TEXT, NULLCH } previous = NONE;
 
 #define END_TEXT0	{ if (previous == TEXT) trace_ds("'"); }
 #define END_TEXT(cmd)	{ END_TEXT0; trace_ds(" %s", cmd); }
 
+#define ATTR2FA(attr) \
+	(FA_BASE | \
+	 (((attr) & 0x20) ? FA_PROTECT : 0) | \
+	 (((attr) & 0x10) ? FA_NUMERIC : 0) | \
+	 (((attr) & 0x01) ? FA_MODIFY : 0) | \
+	 (((attr) >> 2) & FA_INTENSITY))
 #define START_FIELDx(fa) { \
 			current_fa = &(screen_buf[buffer_addr]); \
 			ctlr_add(buffer_addr, fa, 0); \
@@ -959,14 +1039,7 @@ Boolean erase;
 		}
 #define START_FIELD0	{ START_FIELDx(FA_BASE); }
 #define START_FIELD(attr) { \
-			new_attr = FA_BASE; \
-			if ((attr) & 0x20) \
-				new_attr |= FA_PROTECT; \
-			if ((attr) & 0x10) \
-				new_attr |= FA_NUMERIC; \
-			if ((attr) & 0x01) \
-				new_attr |= FA_MODIFY; \
-			new_attr |= ((attr) >> 2) & FA_INTENSITY; \
+			new_attr = ATTR2FA(attr); \
 			START_FIELDx(new_attr); \
 		}
 
@@ -1058,6 +1131,22 @@ Boolean erase;
 		case ORDER_PT:	/* program tab */
 			END_TEXT("ProgramTab");
 			previous = ORDER;
+			/*
+			 * If the buffer address is the field attribute of
+			 * of an unprotected field, simply advance one
+			 * position.
+			 */
+			if (IS_FA(screen_buf[buffer_addr]) &&
+			    !FA_IS_PROTECTED(screen_buf[buffer_addr])) {
+				INC_BA(buffer_addr);
+				last_zpt = False;
+				last_cmd = True;
+				break;
+			}
+			/*
+			 * Otherwise, advance to the first position of the
+			 * next unprotected field.
+			 */
 			baddr = next_unprotected(buffer_addr);
 			if (baddr < buffer_addr)
 				baddr = 0;
@@ -1076,6 +1165,7 @@ Boolean erase;
 				}
 				if (baddr == 0)
 					last_zpt = True;
+
 			} else
 				last_zpt = False;
 			buffer_addr = baddr;
@@ -1104,7 +1194,10 @@ Boolean erase;
 				return;
 			}
 			do {
-				if (ra_ge || default_cs)
+				if (ra_ge)
+					ctlr_add(buffer_addr, ebc2cg0[*cp],
+					    CS_GE);
+				else if (default_cs)
 					ctlr_add(buffer_addr, ebc2cg0[*cp], 1);
 				else
 					ctlr_add(buffer_addr, ebc2cg[*cp], 0);
@@ -1148,7 +1241,7 @@ Boolean erase;
 			trace_ds(see_ebc(*cp));
 			if (*cp)
 				trace_ds("'");
-			ctlr_add(buffer_addr, ebc2cg0[*cp], 1);
+			ctlr_add(buffer_addr, ebc2cg0[*cp], CS_GE);
 			ctlr_add_fg(buffer_addr, default_fg);
 			ctlr_add_gr(buffer_addr, default_gr);
 			INC_BA(buffer_addr);
@@ -1172,7 +1265,11 @@ Boolean erase;
 						if (*cp == XA_3270) {
 							trace_ds(" 3270");
 							cp++;
-							START_FIELD(*cp);
+							new_attr = ATTR2FA(*cp);
+							ctlr_add(buffer_addr,
+							    new_attr,
+							    0);
+							trace_ds(see_attr(new_attr));
 						} else if (*cp == XA_FOREGROUND) {
 							trace_ds("%s",
 							    see_efa(*cp,
@@ -1186,6 +1283,17 @@ Boolean erase;
 								*(cp + 1)));
 							cp++;
 							ctlr_add_gr(buffer_addr, *cp & 0x07);
+						} else if (*cp == XA_CHARSET) {
+							int cs = 0;
+
+							trace_ds("%s",
+							    see_efa(*cp,
+								*(cp + 1)));
+							cp++;
+							if (*cp == 0xf1)
+								cs = 1;
+							ctlr_add(buffer_addr,
+							    screen_buf[buffer_addr], cs);
 						} else if (*cp == XA_ALL) {
 							trace_ds("%s",
 							    see_efa(*cp,
@@ -1213,6 +1321,7 @@ Boolean erase;
 			any_fa = 0;
 			efa_fg = 0;
 			efa_gr = 0;
+			efa_cs = 0;
 			for (i = 0; i < (int)na; i++) {
 				cp++;
 				if (*cp == XA_3270) {
@@ -1229,6 +1338,11 @@ Boolean erase;
 					trace_ds("%s", see_efa(*cp, *(cp + 1)));
 					cp++;
 					efa_gr = *cp & 0x07;
+				} else if (*cp == XA_CHARSET) {
+					trace_ds("%s", see_efa(*cp, *(cp + 1)));
+					cp++;
+					if (*cp == 0xf1)
+						efa_cs = 1;
 				} else if (*cp == XA_ALL) {
 					trace_ds("%s", see_efa(*cp, *(cp + 1)));
 					cp++;
@@ -1239,6 +1353,7 @@ Boolean erase;
 			}
 			if (!any_fa)
 				START_FIELD0;
+			ctlr_add(buffer_addr, screen_buf[buffer_addr], efa_cs);
 			ctlr_add_fg(buffer_addr, efa_fg);
 			ctlr_add_gr(buffer_addr, efa_gr);
 			INC_BA(buffer_addr);
@@ -1260,6 +1375,10 @@ Boolean erase;
 				trace_ds("%s", see_efa(*cp, *(cp + 1)));
 				default_fg = 0;
 				default_gr = 0;
+				default_cs = 0;
+			} else if (*cp == XA_CHARSET) {
+				trace_ds("%s", see_efa(*cp, *(cp + 1)));
+				default_cs = (*(cp + 1) == 0xf1) ? 1 : 0;
 			} else
 				trace_ds("%s[unsupported]",
 				    see_efa(*cp, *(cp + 1)));
@@ -1341,61 +1460,26 @@ Boolean erase;
 
 
 /*
- * Set the pending string.  's' must be NULL or point to XtMalloc'd memory.
- */
-void
-ps_set(s, is_loginstring)
-char *s;
-Boolean is_loginstring;
-{
-	static char *ps_source = CN;
-
-	XtFree(ps_source);
-	ps_source = CN;
-	ps_source = s;
-	pending_string = s;
-	ps_is_loginstring = is_loginstring;
-}
-
-/*
- * Process the pending input string
+ * Process pending input.
  */
 void
 ps_process()
 {
-	int	len;
-	int	len_left;
-
+	/* Process typeahead. */
 	while (run_ta())
 		;
-	if (!pending_string) {
-		script_continue();
-		return;
-	}
 
-	/* Add loginstring keystrokes only if safe yet. */
-	if (ps_is_loginstring) {
-		if (IN_3270) {
-			unsigned char	fa;
+	/* Process pending scripts and macros. */
+	sms_continue();
 
-			if (!formatted || kybdlock || !cursor_addr)
-				return;
-			fa = *get_field_attribute(cursor_addr);
-			if (FA_IS_PROTECTED(fa))
-				return;
-		} else if (IN_ANSI) {
-			if (kybdlock & KL_AWAITING_FIRST)
-				return;
-		}
-	}
-
-	len = strlen(pending_string);
-	if ((len_left = emulate_input(pending_string, len, False)))
-		pending_string += len - len_left;
-	else {
-		ps_set(CN, False);
-		script_continue();
-	}
+	/* Process file transfers. */
+	if (ft_state != FT_NONE &&	/* transfer in progress */
+	    formatted &&		/* screen is formatted */
+	    !screen_alt &&		/* 24x80 screen */
+	    !kybdlock &&		/* keyboard not locked */
+	    				/* magic field */
+	    IS_FA(screen_buf[1919]) && FA_IS_SKIP(screen_buf[1919]))
+		ft_cut_data();
 }
 
 /*
@@ -1546,8 +1630,9 @@ unsigned char	color;
 }
 
 /*
- * Copy a block of characters in the 3270 buffer, optionally including the
- * extended attributes.
+ * Copy a block of characters in the 3270 buffer, optionally including all of
+ * the extended attributes.  (The character set, which is actually kept in the
+ * extended attributes, is considered part of the characters here.)
  */
 void
 ctlr_bcopy(baddr_from, baddr_to, count, move_ea)
@@ -1556,6 +1641,7 @@ int	baddr_to;
 int	count;
 int	move_ea;
 {
+	/* Move the characters. */
 	if (memcmp((char *) &screen_buf[baddr_from],
 	           (char *) &screen_buf[baddr_to],
 		   count)) {
@@ -1572,6 +1658,40 @@ int	move_ea;
 		if (area_is_selected(baddr_to, count))
 			(void) unselect(baddr_to, count);
 	}
+
+	/*
+	 * If we aren't supposed to move all the extended attributes, move
+	 * the character sets separately.
+	 */
+	if (!move_ea) {
+		int i;
+		int any = 0;
+		int start, end, inc;
+
+		if (baddr_to < baddr_from || baddr_from + count < baddr_to) {
+			/* Scan forward. */
+			start = 0;
+			end = count + 1;
+			inc = 1;
+		} else {
+			/* Scan backward. */
+			start = count - 1;
+			end = -1;
+			inc = -1;
+		}
+
+		for (i = start; i != end; i += inc) {
+			if (ea_buf[baddr_to+i].cs != ea_buf[baddr_from+i].cs) {
+				ea_buf[baddr_to+i].cs = ea_buf[baddr_from+i].cs;
+				REGION_CHANGED(baddr_to + i, baddr_to + i + 1);
+				any++;
+			}
+		}
+		if (any && area_is_selected(baddr_to, count))
+			(void) unselect(baddr_to, count);
+	}
+
+	/* Move extended attributes. */
 	if (move_ea && memcmp((char *) &ea_buf[baddr_from],
 			      (char *) &ea_buf[baddr_to],
 			      count*sizeof(struct ea))) {

@@ -1,5 +1,5 @@
 /*
- * Copyright 1993, 1994, 1995 by Paul Mattes.
+ * Copyright 1993, 1994, 1995, 1996 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -14,7 +14,16 @@
 
 #include "globals.h"
 #include <X11/Shell.h>
+#include "appres.h"
 #include "ctlr.h"
+
+#include "ansic.h"
+#include "ctlrc.h"
+#include "screenc.h"
+#include "scrollc.h"
+#include "tablesc.h"
+#include "telnetc.h"
+#include "trace_dsc.h"
 
 #define	SC	1	/* save cursor position */
 #define RC	2	/* restore cursor position */
@@ -372,10 +381,15 @@ static char     text[NT + 1];
 static int      tx = 0;
 static int      ansi_ch;
 static unsigned char gr = 0;
+static unsigned char saved_gr = 0;
 static unsigned char fg = 0;
+static unsigned char saved_fg = 0;
 static unsigned char bg = 0;
+static unsigned char saved_bg = 0;
 static int	cset = CS_G0;
+static int	saved_cset = CS_G0;
 static int	csd[4] = { CSD_US, CSD_US, CSD_US, CSD_US };
+static int	saved_csd[4] = { CSD_US, CSD_US, CSD_US, CSD_US };
 static int	once_cset = -1;
 static int      insert_mode = 0;
 static int      auto_newline_mode = 0;
@@ -406,13 +420,29 @@ ansi_data_mode()
 static enum state
 dec_save_cursor()
 {
+	int i;
+
 	saved_cursor = cursor_addr;
+	saved_cset = cset;
+	for (i = 0; i < 4; i++)
+		saved_csd[i] = csd[i];
+	saved_fg = fg;
+	saved_bg = bg;
+	saved_gr = gr;
 	return DATA;
 }
 
 static enum state
 dec_restore_cursor()
 {
+	int i;
+
+	cset = saved_cset;
+	for (i = 0; i < 4; i++)
+		csd[i] = saved_csd[i];
+	fg = saved_fg;
+	bg = saved_bg;
+	gr = saved_gr;
 	cursor_move(saved_cursor);
 	held_wrap = False;
 	return DATA;
@@ -468,10 +498,15 @@ ansi_reset()
 	static Boolean first = True;
 
 	gr = 0;
+	saved_gr = 0;
 	fg = 0;
+	saved_fg = 0;
 	bg = 0;
+	saved_bg = 0;
 	cset = CS_G0;
+	saved_cset = CS_G0;
 	csd[0] = csd[1] = csd[2] = csd[3] = CSD_US;
+	saved_csd[0] = saved_csd[1] = saved_csd[2] = saved_csd[3] = CSD_US;
 	once_cset = -1;
 	saved_cursor = 0;
 	insert_mode = 0;
@@ -1242,6 +1277,7 @@ int top, bottom;
 	if (top <= bottom && (top > 1 || bottom < ROWS)) {
 		scroll_top = top;
 		scroll_bottom = bottom;
+		cursor_move(0);
 	} else {
 		scroll_top = 1;
 		scroll_bottom = ROWS;
@@ -1289,7 +1325,7 @@ xterm_text_do()
 		XtVaSetValues(toplevel, XtNtitle, text, NULL);
 		break;
 	    case 50:	/* font */
-		(void) screen_newfont(text, False);
+		screen_newfont(text, False);
 		break;
 	}
 	return DATA;

@@ -1,16 +1,16 @@
 /*
- * Copyright 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.
- *  All Rights Reserved.  GTRC hereby grants public use of this software.
- *  Derivative works based on this software must incorporate this copyright
- *  notice.
- *
- * X11 Port Copyright 1990 by Jeff Sparkes.
- * Additional X11 Modifications Copyright 1993, 1994 by Paul Mattes.
+ * Modifications Copyright 1993, 1994, 1995 by Paul Mattes.
+ * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
  *  both that copyright notice and this permission notice appear in
  *  supporting documentation.
+ *
+ * Copyright 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.
+ *  All Rights Reserved.  GTRC hereby grants public use of this software.
+ *  Derivative works based on this software must incorporate this copyright
+ *  notice.
  */
 
 /*
@@ -62,7 +62,7 @@ union sp {
 		unsigned sel : 1;	/* selection status */
 		unsigned fg  : 6;	/* foreground color (flag/inv/0-15) */
 		unsigned gr  : 4;	/* graphic rendition */
-		unsigned cs  : 2;	/* character set */
+		unsigned cs  : 3;	/* character set */
 	} bits;
 	unsigned long word;
 };

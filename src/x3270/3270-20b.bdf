@@ -1,39 +1,42 @@
 STARTFONT 2.1
-COMMENT ""
 COMMENT "20-point bold 3270 font"
-COMMENT "Uses nonstandard ordering"
+COMMENT "Uses nonstandard ordering:"
+COMMENT " Page 0: EBCDIC US-International set, CG order"
+COMMENT " Page 1: EBCDIC APL/APL2 set, CG order (incomplete)"
+COMMENT " Page 2: (first 16 characters only) DEC line-drawing characters from"
+COMMENT "  fixed-width X fonts"
+COMMENT ""
+COMMENT "Modifications Copyright 1995 by Paul Mattes"
+COMMENT " Permission to use, copy, modify, and distribute this software and"
+COMMENT " its documentation for any purpose and without fee is hereby"
+COMMENT " granted, provided that the above copyright notice appear in all"
+COMMENT " copies and that both that copyright notice and this permission"
+COMMENT " notice appear in supporting documentation."
 COMMENT ""
 COMMENT $XConsortium: 10x20.bdf,v 1.12 92/04/02 14:25:55 gildea Exp $
 COMMENT "$NCDId: @(#)10x20.bdf,v 1.11 1991/07/02 14:50:48 jim Exp $"
-COMMENT  ""
-COMMENT  "Copyright 1989-1991 Network Computing Devices, Inc."
-COMMENT  "NCD is a registered trademark of Network Computing Devices, Inc."
-COMMENT  ""
-COMMENT  "Permission to use, copy, modify, and distribute this software and"
-COMMENT  "its documentation for any purpose and without fee is hereby"
-COMMENT  "granted, provided that the above copyright notice appear in all"
-COMMENT  "copies and that both that copyright notice and this permission"
-COMMENT  "notice appear in supporting documentation, and that the name of"
-COMMENT  "NCD may not be used in advertising or publicity pertaining to"
-COMMENT  "distribution of the software without specific, written prior"
-COMMENT  "permission.  NCD makes no representations about the"
-COMMENT  "suitability of this software for any purpose.  It is provided ``as"
-COMMENT  "is'' without express or implied warranty."
-COMMENT  ""
-COMMENT  "NCD DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE,"
-COMMENT  "INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN"
-COMMENT  "NO EVENT SHALL NCD BE LIABLE FOR ANY SPECIAL, INDIRECT OR"
-COMMENT  "CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS"
-COMMENT  "OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT,"
-COMMENT  "NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN"
-COMMENT  "CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE."
-COMMENT  ""
-COMMENT  "x3270 Modifications Copyright 1995 by Paul Mattes"
-COMMENT  " Permission to use, copy, modify, and distribute this software and"
-COMMENT  " its documentation for any purpose and without fee is hereby"
-COMMENT  " granted, provided that the above copyright notice appear in all"
-COMMENT  " copies and that both that copyright notice and this permission"
-COMMENT  " notice appear in supporting documentation."
+COMMENT ""
+COMMENT "Copyright 1989-1991 Network Computing Devices, Inc."
+COMMENT "NCD is a registered trademark of Network Computing Devices, Inc."
+COMMENT ""
+COMMENT "Permission to use, copy, modify, and distribute this software and"
+COMMENT "its documentation for any purpose and without fee is hereby"
+COMMENT "granted, provided that the above copyright notice appear in all"
+COMMENT "copies and that both that copyright notice and this permission"
+COMMENT "notice appear in supporting documentation, and that the name of"
+COMMENT "NCD may not be used in advertising or publicity pertaining to"
+COMMENT "distribution of the software without specific, written prior"
+COMMENT "permission.  NCD makes no representations about the"
+COMMENT "suitability of this software for any purpose.  It is provided ``as"
+COMMENT "is'' without express or implied warranty."
+COMMENT ""
+COMMENT "NCD DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE,"
+COMMENT "INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN"
+COMMENT "NO EVENT SHALL NCD BE LIABLE FOR ANY SPECIAL, INDIRECT OR"
+COMMENT "CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS"
+COMMENT "OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT,"
+COMMENT "NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN"
+COMMENT "CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE."
 FONT 3270-20bold
 SIZE 20 75 75
 FONTBOUNDINGBOX 10 20 0 -5
@@ -48,7 +51,7 @@ FONT_DESCENT 5
 FONT_ASCENT 15
 COPYRIGHT "Copyright 1989-1991 Network Computing Devices, Inc."
 ENDPROPERTIES
-CHARS 311
+CHARS 312
 STARTCHAR null
 ENCODING 0
 SWIDTH 878 0
@@ -7473,6 +7476,33 @@ ffc0
 0000
 0000
 0000
+ENDCHAR
+STARTCHAR apl_intersect
+ENCODING 427
+SWIDTH 878 0
+DWIDTH 10 0
+BBX 10 20 0 -5
+BITMAP
+0e00
+0e00
+0e00
+0e00
+0e00
+0e00
+0e00
+0e00
+0e00
+ffc0
+0e00
+0e00
+0e00
+0e00
+0e00
+0e00
+0e00
+0e00
+0e00
+0e00
 ENDCHAR
 STARTCHAR apl_lowerright
 ENCODING 428

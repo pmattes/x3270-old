@@ -13,6 +13,15 @@ mkfontdir .
 xset +fp $d
 xset fp rehash
 
+# Set up the dynamic library path
+if [ -d /usr/openwin/lib ]
+then	LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/openwin/lib
+fi
+if [ -d /usr/ucblib ]
+then	LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/ucblib
+fi
+export LD_LIBRARY_PATH
+
 # Run x3270
 set +e
 ./x3270 "$@"

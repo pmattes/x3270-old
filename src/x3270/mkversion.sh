@@ -13,6 +13,7 @@ trap 'rm -f version.c' 0 1 2 15
 
 cat <<EOF >version.c
 char *build = "x3270 v$version $builddate $user";
+char *app_defaults_version = "$adversion";
 static char sccsid[] = "@(#)x3270 v$version $sccsdate $user";
 EOF
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 1993, 1994, 1995 by Paul Mattes.
+ * Copyright 1993, 1994, 1995, 199 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -16,23 +16,30 @@
 #include <X11/StringDefs.h>
 #include <X11/Shell.h>
 #include "3270ds.h"
+#include "appres.h"
 #include "screen.h"
 #include "cg.h"
 
+#include "kybdc.h"
+#include "statusc.h"
+#include "tablesc.h"
+#include "utilc.h"
 
 extern Window  *screen_window;
 extern GC       screen_gc();
 extern GC       screen_invgc();
 
-static unsigned char *status_buf;
-static char    *status_display;
+static XChar2b *status_2b;
+static unsigned char *status_1b;
+static XChar2b *display_2b;
 static Boolean  status_changed = False;
 
 static struct status_line {
 	Boolean         changed;
 	int             start, len, color;
-	unsigned char  *buf;
-	char           *display;
+	XChar2b        *s2b;
+	unsigned char  *s1b;
+	XChar2b        *d2b;
 }              *status_line;
 
 static int offsets[] = {
@@ -61,6 +68,33 @@ static int colors3279[SSZ] =  {
 
 #define CM	(60 * 10)	/* csec per minute */
 
+/*
+ * The status line is laid out thusly (M is maxCOLS):
+ *
+ *   0		"4" in a square
+ *   1		"A" underlined
+ *   2		solid box if connected, "?" in a box if not
+ *   3..7	empty
+ *   8...	message area
+ *   M-41	Meta indication ("M" or blank)
+ *   M-40	Alt indication ("A" or blank)
+ *   M-39	Shift indication (Special symbol/"^" or blank)
+ *   M-38..M-37	empty
+ *   M-36	Compose indication ("C" or blank)
+ *   M-35	Compose first character
+ *   M-34	empty
+ *   M-33	Typeahead indication ("T" or blank)
+ *   M-32	empty
+ *   M-31	Alternate keymap indication ("K" or blank)
+ *   M-30	Reverse input mode indication ("R" or blank)
+ *   M-29	Insert mode indication (Special symbol/"I" or blank)
+ *   M-28	empty
+ *   M-27	Script indication ("S" or blank)
+ *   M-26..M-16	empty
+ *   M-15..M-9	command timing (Clock symbol and m:ss, or blank)
+ *   M-7..M	cursor position (rrr/ccc or blank)
+ */
+
 /* Positions */
 
 #define LBOX	0		/* left-hand box */
@@ -80,6 +114,8 @@ static int colors3279[SSZ] =  {
 #define REVERSE (maxCOLS-30)	/* reverse input mode in effect */
 
 #define INSERT	(maxCOLS-29)	/* insert mode */
+
+#define SCRIPT	(maxCOLS-27)	/* script in progress */
 
 #define T0	(maxCOLS-15)	/* timings */
 #define	TCNT	7
@@ -112,6 +148,7 @@ static int      oia_shift = 0;
 static Boolean  oia_typeahead = False;
 static Boolean  oia_compose = False;
 static unsigned char oia_compose_char = 0;
+static enum keytype oia_compose_keytype = KT_STD;
 static enum msg {
 	DISCONNECTED,		/* X Not Connected */
 	CONNECTING,		/* X Connecting */
@@ -169,6 +206,7 @@ static int      msg_color3279[] = {
 static Boolean  oia_insert = False;
 static Boolean  oia_reverse = False;
 static Boolean  oia_kmap = False;
+static Boolean	oia_script = False;
 static char    *oia_cursor = (char *) 0;
 static char    *oia_timing = (char *) 0;
 
@@ -204,6 +242,7 @@ static void     paint_msg();
 static void     do_insert();
 static void     do_reverse();
 static void     do_kmap();
+static void	do_script();
 static void     do_shift();
 static void     do_typeahead();
 static void     do_compose();
@@ -247,12 +286,16 @@ Boolean font_changed;
 		if (status_line)
 			XtFree((char *)status_line);
 		status_line = (struct status_line *) XtCalloc(sizeof(struct status_line), SSZ);
-		if (status_buf)
-			XtFree((char *)status_buf);
-		status_buf = (unsigned char *) XtCalloc(sizeof(unsigned char), maxCOLS);
-		if (status_display)
-			XtFree(status_display);
-		status_display = XtCalloc(sizeof(char), maxCOLS);
+		if (status_2b != (XChar2b *)NULL)
+			XtFree((char *)status_2b);
+		status_2b = (XChar2b *)XtCalloc(sizeof(XChar2b), maxCOLS);
+		if (status_1b != (unsigned char *)NULL)
+			XtFree((char *)status_1b);
+		status_1b = (unsigned char *)XtCalloc(sizeof(unsigned char),
+		    maxCOLS);
+		if (display_2b != (XChar2b *)NULL)
+			XtFree((XtPointer)display_2b);
+		display_2b = (XChar2b *)XtCalloc(sizeof(XChar2b), maxCOLS);
 		offsets[SSZ] = maxCOLS;
 		if (appres.mono)
 			colors[1] = FA_INT_NORM_NSEL;
@@ -261,11 +304,12 @@ Boolean font_changed;
 			    colors3279[i] : colors[i];
 			status_line[i].start = offsets[i];
 			status_line[i].len = offsets[i+1] - offsets[i];
-			status_line[i].buf = status_buf + offsets[i];
-			status_line[i].display = status_display + offsets[i];
+			status_line[i].s2b = status_2b + offsets[i];
+			status_line[i].s1b = status_1b + offsets[i];
+			status_line[i].d2b = display_2b + offsets[i];
 		}
 	} else
-		(void) memset(status_display, 0, maxCOLS);
+		(void) memset(display_2b, 0, maxCOLS * sizeof(XChar2b));
 
 	for (i = 0; i < SSZ; i++)
 		status_line[i].changed = keep_contents;
@@ -281,9 +325,10 @@ Boolean font_changed;
 		do_insert(oia_insert);
 		do_reverse(oia_reverse);
 		do_kmap(oia_kmap);
+		do_script(oia_script);
 		do_shift(oia_shift);
 		do_typeahead(oia_typeahead);
-		do_compose(oia_compose, oia_compose_char);
+		do_compose(oia_compose, oia_compose_char, oia_compose_keytype);
 		do_cursor(oia_cursor);
 		do_timing(oia_timing);
 	}
@@ -300,9 +345,9 @@ status_disp()
 	for (i = 0; i < SSZ; i++)
 		if (status_line[i].changed) {
 			status_render(i);
-			(void) MEMORY_MOVE(status_line[i].display,
-			                   (char *) status_line[i].buf,
-					   status_line[i].len);
+			(void) MEMORY_MOVE(status_line[i].d2b,
+				   (char *) status_line[i].s2b,
+				   status_line[i].len * sizeof(XChar2b));
 			status_line[i].changed = False;
 		}
 	status_changed = False;
@@ -316,7 +361,8 @@ status_touch()
 
 	for (i = 0; i < SSZ; i++) {
 		status_line[i].changed = True;
-		(void) memset(status_line[i].display, 0, status_line[i].len);
+		(void) memset(status_line[i].d2b, 0,
+		    status_line[i].len * sizeof(XChar2b));
 	}
 	status_changed = True;
 }
@@ -460,6 +506,14 @@ Boolean on;
 	do_kmap(oia_kmap = on);
 }
 
+/* Toggle script mode */
+void
+status_script(on)
+Boolean on;
+{
+	do_script(oia_script = on);
+}
+
 /* Toggle shift mode */
 void
 status_shift_mode(state)
@@ -478,13 +532,15 @@ Boolean on;
 
 /* Set compose character */
 void
-status_compose(on, c)
+status_compose(on, c, keytype)
 Boolean on;
 unsigned char c;
+enum keytype keytype;
 {
 	oia_compose = on;
 	oia_compose_char = c;
-	do_compose(on, c);
+	oia_compose_keytype = keytype;
+	do_compose(on, c, keytype);
 }
 
 /* Display timing */
@@ -540,15 +596,21 @@ status_uncursor_pos()
 
 /* Update the status line by displaying "symbol" at column "col".  */
 static void
-status_add(col, symbol)
+status_add(col, symbol, keytype)
 	int	col;
 	unsigned char symbol;
+	enum keytype keytype;
 {
 	int	i;
+	XChar2b n2b;
 
-	if (status_buf[col] == symbol)
+	n2b.byte1 = (keytype == KT_STD) ? 0 : 1;
+	n2b.byte2 = symbol;
+	if (status_2b[col].byte1 == n2b.byte1 &&
+	    status_2b[col].byte2 == n2b.byte2)
 		return;
-	status_buf[col] = symbol;
+	status_2b[col] = n2b;
+	status_1b[col] = symbol;
 	status_changed = True;
 	for (i = 0; i < SSZ; i++)
 		if (col >= status_line[i].start &&
@@ -577,15 +639,26 @@ status_render(region)
 	/* The status region may change colors; don't be so clever */
 	if (region == WAIT_REGION) {
 		XDrawImageString(display, *screen_window, screen_gc(sl->color),
-		    COL_TO_X(sl->start), status_y, (char *) sl->buf, sl->len);
+		    COL_TO_X(sl->start), status_y, (char *) sl->s1b, sl->len);
 	} else {
 		for (i = 0; i < sl->len; i++) {
-			if (sl->buf[i] == (unsigned char) sl->display[i]) {
+			if (sl->s2b[i].byte1 == sl->d2b[i].byte1 &&
+			    sl->s2b[i].byte2 == sl->d2b[i].byte2) {
 				if (nd) {
-					XDrawImageString(display, *screen_window, screen_gc(sl->color),
-						COL_TO_X(sl->start + i0),
-						status_y,
-						(char *) sl->buf + i0, nd);
+					if (*extended_3270font)
+						XDrawImageString16(display,
+						    *screen_window,
+						    screen_gc(sl->color),
+						    COL_TO_X(sl->start + i0),
+						    status_y,
+						    sl->s2b + i0, nd);
+					else
+						XDrawImageString(display,
+						    *screen_window,
+						    screen_gc(sl->color),
+						    COL_TO_X(sl->start + i0),
+						    status_y,
+						    (char *) sl->s1b + i0, nd);
 					nd = 0;
 					i0 = -1;
 				}
@@ -594,24 +667,34 @@ status_render(region)
 					i0 = i;
 			}
 		}
-		if (nd)
-			XDrawImageString(display, *screen_window, screen_gc(sl->color),
-				COL_TO_X(sl->start + i0), status_y,
-				(char *) sl->buf + i0, nd);
+		if (nd) {
+			if (*extended_3270font)
+				XDrawImageString16(display, *screen_window,
+				    screen_gc(sl->color),
+				    COL_TO_X(sl->start + i0), status_y,
+				    sl->s2b + i0, nd);
+			else
+				XDrawImageString(display, *screen_window,
+				    screen_gc(sl->color),
+				    COL_TO_X(sl->start + i0), status_y,
+				    (char *) sl->s1b + i0, nd);
+		}
 	}
 
 	/* Leftmost region has unusual attributes */
 	if (*standard_font && region == CTLR_REGION) {
-		XDrawImageString(display, *screen_window, screen_invgc(sl->color),
-			COL_TO_X(sl->start + LBOX), status_y,
-			(char *) sl->buf + LBOX, 1);
+		XDrawImageString(display, *screen_window,
+		    screen_invgc(sl->color),
+		    COL_TO_X(sl->start + LBOX), status_y,
+		    (char *) sl->s1b + LBOX, 1);
 		XDrawRectangle(display, *screen_window, screen_gc(sl->color),
 		    COL_TO_X(sl->start + CNCT),
 		    status_y - (*efontinfo)->ascent + *char_height - 1,
 		    *char_width - 1, 0);
-		XDrawImageString(display, *screen_window, screen_invgc(sl->color),
-			COL_TO_X(sl->start + RBOX), status_y,
-			(char *) sl->buf + RBOX, 1);
+		XDrawImageString(display, *screen_window,
+		    screen_invgc(sl->color),
+		    COL_TO_X(sl->start + RBOX), status_y,
+		    (char *) sl->s1b + RBOX, 1);
 	}
 }
 
@@ -624,7 +707,7 @@ int len;
 	register int	i;
 
 	for (i = 0; i < status_line[WAIT_REGION].len; i++) {
-		status_add(M0+i, len ? msg[i] : nullblank);
+		status_add(M0+i, len ? msg[i] : nullblank, KT_STD);
 		if (len)
 			len--;
 	}
@@ -635,25 +718,25 @@ static void
 do_ctlr()
 {
 	if (*standard_font) {
-		status_add(LBOX, '4');
+		status_add(LBOX, '4', KT_STD);
 		if (oia_undera)
-			status_add(CNCT, 'A');
+			status_add(CNCT, 'A', KT_STD);
 		else
-			status_add(CNCT, ' ');
+			status_add(CNCT, ' ', KT_STD);
 		if (oia_boxsolid)
-			status_add(RBOX, ' ');
+			status_add(RBOX, ' ', KT_STD);
 		else
-			status_add(RBOX, '?');
+			status_add(RBOX, '?', KT_STD);
 	} else {
-		status_add(LBOX, CG_box4);
+		status_add(LBOX, CG_box4, KT_STD);
 		if (oia_undera)
-			status_add(CNCT, CG_underA);
+			status_add(CNCT, CG_underA, KT_STD);
 		else
-			status_add(CNCT, CG_null);
+			status_add(CNCT, CG_null, KT_STD);
 		if (oia_boxsolid)
-			status_add(RBOX, CG_boxsolid);
+			status_add(RBOX, CG_boxsolid, KT_STD);
 		else
-			status_add(RBOX, CG_boxquestion);
+			status_add(RBOX, CG_boxquestion, KT_STD);
 	}
 }
 
@@ -830,27 +913,34 @@ do_scrolled()
 	}
 }
 
-/* Insert, reverse, kmap, shift, compose */
+/* Insert, reverse, kmap, script, shift, compose */
 
 static void
 do_insert(on)
 Boolean on;
 {
-	status_add(INSERT, on ? (*standard_font ? 'I' : CG_insert) : nullblank);
+	status_add(INSERT, on ? (*standard_font ? 'I' : CG_insert) : nullblank, KT_STD);
 }
 
 static void
 do_reverse(on)
 Boolean on;
 {
-	status_add(REVERSE, on ? (*standard_font ? 'R' : CG_R) : nullblank);
+	status_add(REVERSE, on ? (*standard_font ? 'R' : CG_R) : nullblank, KT_STD);
 }
 
 static void
 do_kmap(on)
 Boolean on;
 {
-	status_add(KMAP, on ? (*standard_font ? 'K' : CG_K) : nullblank);
+	status_add(KMAP, on ? (*standard_font ? 'K' : CG_K) : nullblank, KT_STD);
+}
+
+static void
+do_script(on)
+Boolean on;
+{
+	status_add(SCRIPT, on ? (*standard_font ? 'S' : CG_S) : nullblank, KT_STD);
 }
 
 static void
@@ -858,33 +948,34 @@ do_shift(state)
 int state;
 {
 	status_add(SHIFT-2, (state & MetaKeyDown) ?
-		(*standard_font ? 'M' : CG_M) : nullblank);
+		(*standard_font ? 'M' : CG_M) : nullblank, KT_STD);
 	status_add(SHIFT-1, (state & AltKeyDown) ?
-		(*standard_font ? 'A' : CG_A) : nullblank);
+		(*standard_font ? 'A' : CG_A) : nullblank, KT_STD);
 	status_add(SHIFT, (state & ShiftKeyDown) ?
-		(*standard_font ? '^' : CG_upshift) : nullblank);
+		(*standard_font ? '^' : CG_upshift) : nullblank, KT_STD);
 }
 
 static void
 do_typeahead(state)
 int state;
 {
-	status_add(TYPEAHD, state ? (*standard_font ? 'T' : CG_T) : nullblank);
+	status_add(TYPEAHD, state ? (*standard_font ? 'T' : CG_T) : nullblank, KT_STD);
 }
 
 static void
-do_compose(on, c)
+do_compose(on, c, keytype)
 Boolean on;
 unsigned char c;
+enum keytype keytype;
 {
 	if (on) {
 		status_add(COMPOSE,
-		    (unsigned char)(*standard_font ? 'C' : CG_C));
+		    (unsigned char)(*standard_font ? 'C' : CG_C), KT_STD);
 		status_add(COMPOSE+1,
-		    c ? (*standard_font ? c : asc2cg[c]) : nullblank);
+		    c ? (*standard_font ? c : asc2cg[c]) : nullblank, keytype);
 	} else {
-		status_add(COMPOSE, nullblank);
-		status_add(COMPOSE+1, nullblank);
+		status_add(COMPOSE, nullblank, KT_STD);
+		status_add(COMPOSE+1, nullblank, KT_STD);
 	}
 }
 
@@ -897,17 +988,17 @@ char *buf;
 
 	if (buf) {
 		if (*standard_font) {
-			status_add(T0, nullblank);
-			status_add(T0+1, nullblank);
+			status_add(T0, nullblank, KT_STD);
+			status_add(T0+1, nullblank, KT_STD);
 		} else {
-			status_add(T0, CG_clockleft);
-			status_add(T0+1, CG_clockright);
+			status_add(T0, CG_clockleft, KT_STD);
+			status_add(T0+1, CG_clockright, KT_STD);
 		}
 		for (i = 0; i < (int) strlen(buf); i++)
-			status_add(T0+2+i, *standard_font ? buf[i] : asc2cg[(unsigned char) buf[i]]);
+			status_add(T0+2+i, *standard_font ? buf[i] : asc2cg[(unsigned char) buf[i]], KT_STD);
 	} else
 		for (i = 0; i < TCNT; i++)
-			status_add(T0+i, nullblank);
+			status_add(T0+i, nullblank, KT_STD);
 }
 
 /* Cursor position */
@@ -919,10 +1010,10 @@ char *buf;
 
 	if (buf)
 		for (i = 0; i < (int) strlen(buf); i++)
-			status_add(C0+i, *standard_font ? buf[i] : asc2cg[(unsigned char) buf[i]]);
+			status_add(C0+i, *standard_font ? buf[i] : asc2cg[(unsigned char) buf[i]], KT_STD);
 	else
 		for (i = 0; i < CCNT; i++)
-			status_add(C0+i, nullblank);
+			status_add(C0+i, nullblank, KT_STD);
 }
 
 /* Prepare status messages */

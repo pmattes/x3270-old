@@ -1,24 +1,25 @@
 STARTFONT 2.1
-COMMENT Copyright 1990 by the Georgia Institute of Technology.
-COMMENT  All rights reserved except for those rights explicitly mentioned
-COMMENT  below.
-COMMENT  Permission is granted to distribute freely or to modify and distribute
-COMMENT  freely any materials and information contained herein as long as the
-COMMENT  above copyright and all terms associated with it remain intact.
+COMMENT "16-point bold 3270 font"
+COMMENT "Uses nonstandard ordering:"
+COMMENT " Page 0: EBCDIC US-International set, CG order"
+COMMENT " Page 1: EBCDIC APL/APL2 set, CG order (incomplete)"
+COMMENT " Page 2: (first 16 characters only) DEC line-drawing characters from"
+COMMENT "  fixed-width X fonts"
 COMMENT ""
-COMMENT Modifications Copyright 1994, 1995 by Paul Mattes.
-COMMENT  Permission to use, copy, modify, and distribute this software and its
-COMMENT  documentation for any purpose and without fee is hereby granted,
-COMMENT  provided that the above copyright notice appear in all copies and that
-COMMENT  both that copyright notice and this permission notice appear in
-COMMENT  supporting documentation.
+COMMENT "Modifications Copyright 1994, 1995 by Paul Mattes."
+COMMENT " Permission to use, copy, modify, and distribute this software and"
+COMMENT " its documentation for any purpose and without fee is hereby granted,"
+COMMENT " provided that the above copyright notice appear in all copies and"
+COMMENT " that both that copyright notice and this permission notice appear in"
+COMMENT " supporting documentation."
 COMMENT ""
-COMMENT This font uses a nonstandard ordering, which was originally based on
-COMMENT the character generator for an IBM 3278 display.  It has since been
-COMMENT modified to include all printable graphics from the ISO Latin-1 set.
-COMMENT It is intended only for use with x3270 version 3.x.  Full documentation
-COMMENT for the character set, with translations to EBCDIC and Latin-1, are in
-COMMENT the file Docs/Charset included with the x3270 source distribution.
+COMMENT "Copyright 1990 by the Georgia Institute of Technology."
+COMMENT " All rights reserved except for those rights explicitly mentioned"
+COMMENT " below."
+COMMENT " Permission is granted to distribute freely or to modify and"
+COMMENT " distribute freely any materials and information contained herein as"
+COMMENT " long as the above copyright and all terms associated with it remain"
+COMMENT " intact."
 FONT 3270gt16bold
 SIZE 16 72 72
 FONTBOUNDINGBOX 9 16 0 -4
@@ -51,7 +52,7 @@ FONT_ASCENT 12
 FONT_DESCENT 4
 DEFAULT_CHAR 514
 ENDPROPERTIES
-CHARS 311
+CHARS 312
 STARTCHAR null
 ENCODING 0
 SWIDTH 563 0
@@ -6376,6 +6377,29 @@ ff80
 0000
 0000
 0000
+ENDCHAR
+STARTCHAR apl_intersect
+ENCODING 427
+SWIDTH 563 0
+DWIDTH 9 0
+BBX 9 16 0 -4
+BITMAP
+0c00
+0c00
+0c00
+0c00
+0c00
+0c00
+0c00
+ff80
+0c00
+0c00
+0c00
+0c00
+0c00
+0c00
+0c00
+0c00
 ENDCHAR
 STARTCHAR apl_lowerright
 ENCODING 428

@@ -1,24 +1,24 @@
 STARTFONT 2.1
 COMMENT "14-point bold 3270 font"
-COMMENT ""
 COMMENT "Uses nonstandard ordering:"
 COMMENT " Page 0: EBCDIC US-International set, CG order"
 COMMENT " Page 1: EBCDIC APL/APL2 set, CG order"
 COMMENT " Page 2: (first 16 characters only) DEC line-drawing characters from"
 COMMENT "  fixed-width X fonts"
 COMMENT ""
-COMMENT "Copyright 1989 by Georgia Tech Research Corporation, Atlanta, GA"
-COMMENT "30332.  All Rights Reserved."
-COMMENT " GTRC hereby grants public use of this software.  Derivative"
-COMMENT " works based on this software must incorporate this copyright"
-COMMENT " notice."
-COMMENT "X11 Port Copyright 1990 by Jeff Sparkes."
-COMMENT "Additional X11 Modifications Copyright 1993,1994,1995 by Paul Mattes."
+COMMENT "Modifications Copyright 1993, 1994, 1995 by Paul Mattes."
+COMMENT "Original X11 Port Copyright 1990 by Jeff Sparkes."
 COMMENT " Permission to use, copy, modify, and distribute this software and"
 COMMENT " its documentation for any purpose and without fee is hereby"
 COMMENT " granted, provided that the above copyright notice appear in all"
 COMMENT " copies and that both that copyright notice and this permission"
 COMMENT " notice appear in supporting documentation."
+COMMENT ""
+COMMENT "Copyright 1989 by Georgia Tech Research Corporation, Atlanta, GA"
+COMMENT "30332.  All Rights Reserved."
+COMMENT " GTRC hereby grants public use of this software.  Derivative"
+COMMENT " works based on this software must incorporate this copyright"
+COMMENT " notice."
 FONT 3270bold
 SIZE 14 72 72
 FONTBOUNDINGBOX 9 14 0 -3
@@ -5564,7 +5564,7 @@ BITMAP
 0000
 0000
 ENDCHAR
-STARTCHAR apl_equiv
+STARTCHAR apl_equalunderbar
 ENCODING 277
 SWIDTH 562 0
 DWIDTH 9 0
@@ -7937,26 +7937,26 @@ BITMAP
 0000
 0000
 ENDCHAR
-STARTCHAR apl_plus3
+STARTCHAR apl_intersect
 ENCODING 427
 SWIDTH 562 0
 DWIDTH 9 0
 BBX 9 14 0 -3
 BITMAP
-0000
-0000
-0000
-0000
 0c00
 0c00
-3f00
 0c00
 0c00
-0000
-0000
-0000
-0000
-0000
+0c00
+0c00
+ff80
+0c00
+0c00
+0c00
+0c00
+0c00
+0c00
+0c00
 ENDCHAR
 STARTCHAR apl_lowerright
 ENCODING 428

@@ -19,7 +19,13 @@
 #include <pwd.h>
 #include <errno.h>
 #include <time.h>
+#include "appres.h"
 #include "resources.h"
+
+#include "mainc.h"
+#include "savec.h"
+#include "popupsc.h"
+#include "utilc.h"
 
 
 /* Support for WM_SAVE_YOURSELF. */
@@ -31,6 +37,8 @@ extern Boolean	scrollbar_changed;
 extern Boolean	efont_changed;
 extern Boolean	oversize_changed;
 extern Boolean	scheme_changed;
+extern Boolean	keymap_changed;
+extern Boolean	charset_changed;
 
 char           *command_string = CN;
 
@@ -572,7 +580,7 @@ char *n;
 		(void) fprintf(f,
 "! x3270 profile\n\
 ! File created %s by %s\n\
-! This file overrides app-defaults and .Xdefaults.\n\
+! This file overrides xrdb and .Xdefaults.\n\
 ! To skip reading this file, set %s in the environment.\n\
 !\n",
 		    ct, build, NO_PROFILE_ENV);
@@ -606,13 +614,17 @@ char *n;
 		(void) sprintf(buf, "%d", model_num);
 		save_opt(f, "model", OptModel, ResModel, buf);
 	}
-	if (oversize_changed && ov_cols > 0 && ov_rows > 0) {
+	if (oversize_changed) {
 		(void) sprintf(buf, "%dx%d", ov_cols, ov_rows);
 		save_opt(f, "oversize", OptOversize, ResOversize, buf);
 	}
 	if (scheme_changed && appres.color_scheme != CN)
 		save_opt(f, "color scheme", OptColorScheme, ResColorScheme,
 		    appres.color_scheme);
+	if (keymap_changed && appres.key_map != (char *)NULL)
+		save_opt(f, "keymap", OptKeymap, ResKeymap, appres.key_map);
+	if (charset_changed && appres.charset != (char *)NULL)
+		save_opt(f, "charset", OptCharset, ResCharset, appres.charset);
 
 	/* Done. */
 	(void) fclose(f);

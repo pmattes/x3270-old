@@ -17,9 +17,17 @@
 #include <X11/StringDefs.h>
 #include <X11/Xaw/Dialog.h>
 
+#include "appres.h"
 #include "3270ds.h"
 #include "ctlr.h"
 #include "resources.h"
+
+#include "actionsc.h"
+#include "ctlrc.h"
+#include "popupsc.h"
+#include "printc.h"
+#include "tablesc.h"
+#include "utilc.h"
 
 /* Statics */
 
@@ -135,7 +143,7 @@ XtPointer call_data;
 /* Print the contents of the screen as text. */
 /*ARGSUSED*/
 void
-print_text(w, event, params, num_params)
+PrintText_action(w, event, params, num_params)
 Widget	w;
 XEvent	*event;
 String	*params;
@@ -144,11 +152,12 @@ Cardinal *num_params;
 	char *filter = get_resource(ResPrintTextCommand);
 	Boolean secure = appres.secure;
 
-	debug_action(print_text, event, params, num_params);
+	action_debug(PrintText_action, event, params, num_params);
 	if (*num_params > 0)
 		filter = params[0];
 	if (*num_params > 1)
-		XtWarning("PrintText: extra arguments ignored");
+		xs_warning("%s: extra arguments ignored",
+		    action_name(PrintText_action));
 	if (filter[0] == '@') {
 		filter++;
 		secure = True;
@@ -183,7 +192,7 @@ XtPointer call_data;
 {
 	Cardinal zero = 0;
 
-	print_text(w, (XEvent *)NULL, (String *)NULL, &zero);
+	PrintText_action(w, (XEvent *)NULL, (String *)NULL, &zero);
 }
 
 
@@ -191,7 +200,7 @@ XtPointer call_data;
 
 /*
  * Printing the window bitmap is a rather convoluted process:
- *    The PrintWindow action calls print_window(), or a menu option calls
+ *    The PrintWindow action calls PrintWindow_action(), or a menu option calls
  *	print_window_option().
  *    print_window_option() pops up the dialog.
  *    The OK button on the dialog triggers print_window_callback.
@@ -249,7 +258,7 @@ XtPointer call_data;
 /* Print the contents of the screen as a bitmap. */
 /*ARGSUSED*/
 void
-print_window(w, event, params, num_params)
+PrintWindow_action(w, event, params, num_params)
 Widget	w;
 XEvent	*event;
 String	*params;
@@ -260,14 +269,15 @@ Cardinal *num_params;
 	char *xfb = fb;
 	Boolean secure = appres.secure;
 
-	debug_action(print_window, event, params, num_params);
+	action_debug(PrintWindow_action, event, params, num_params);
 	if (*num_params > 0)
 		filter = params[0];
 	if (*num_params > 1)
-		XtWarning("PrintWindow: extra arguments ignored");
+		xs_warning("%s: extra arguments ignored",
+		    action_name(PrintWindow_action));
 	if (!filter) {
 		popup_an_error("%s: no command defined",
-		    action_name(print_window));
+		    action_name(PrintWindow_action));
 		return;
 	}
 	(void) sprintf(fb, filter, XtWindow(toplevel));
@@ -299,5 +309,5 @@ XtPointer call_data;
 {
 	Cardinal zero = 0;
 
-	print_window(w, (XEvent *)NULL, (String *)NULL, &zero);
+	PrintWindow_action(w, (XEvent *)NULL, (String *)NULL, &zero);
 }

@@ -1,6 +1,13 @@
 /* (from) $XConsortium: SimpleMenu.c,v 1.41 92/09/10 16:25:07 converse Exp $ */
 
 /*
+ * Modifications Copyright 1995 by Paul Mattes.
+ *   Permission to use, copy, modify, and distribute this software and its
+ *   documentation for any purpose and without fee is hereby granted,
+ *   provided that the above copyright notice appear in all copies and that
+ *   both that copyright notice and this permission notice appear in
+ *   supporting documentation.
+ *
  * Copyright 1989 Massachusetts Institute of Technology
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
@@ -19,13 +26,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN 
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * Modifications Copyright 1995 by Paul Mattes.
- *   Permission to use, copy, modify, and distribute this software and its
- *   documentation for any purpose and without fee is hereby granted,
- *   provided that the above copyright notice appear in all copies and that
- *   both that copyright notice and this permission notice appear in
- *   supporting documentation.
  */
 
 /*

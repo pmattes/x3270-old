@@ -1,16 +1,16 @@
 /*
- * Copyright 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.
- *  All Rights Reserved.  GTRC hereby grants public use of this software.
- *  Derivative works based on this software must incorporate this copyright
- *  notice.
- *
- * X11 Port Copyright 1990 by Jeff Sparkes.
- * Additional X11 Modifications Copyright 1993, 1994 by Paul Mattes.
+ * Modifications Copyright 1993, 1994, 1995 by Paul Mattes.
+ * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
  *  both that copyright notice and this permission notice appear in
  *  supporting documentation.
+ *
+ * Copyright 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.
+ *  All Rights Reserved.  GTRC hereby grants public use of this software.
+ *  Derivative works based on this software must incorporate this copyright
+ *  notice.
  */
 
 /*
@@ -78,6 +78,7 @@
 #define  SF_SRM_XFIELD	0x01	/*  extended field */
 #define  SF_SRM_CHAR	0x02	/*  character */
 #define SF_OUTBOUND_DS	0x40	/* outbound 3270 DS */
+#define SF_TRANSFER_DATA 0xd0   /* file transfer open request */
 
 /* Query replies */
 #define QR_SUMMARY	0x80	/* summary */
@@ -87,6 +88,8 @@
 #define QR_COLOR	0x86	/* color */
 #define QR_HIGHLIGHTING	0x87	/* highlighting */
 #define QR_REPLY_MODES	0x88	/* reply modes */
+#define QR_PC3270	0x93    /* PC3270 */
+#define QR_DDM    	0x95    /* distributed data management */
 #define QR_IMP_PART	0xa6	/* implicit partition */
 #define QR_NULL		0xff	/* null */
 
@@ -244,3 +247,35 @@
 #define COLOR_PALE_TURQUOISE	13
 #define COLOR_GREY		14
 #define COLOR_WHITE		15
+
+/* Data stream manipulation macros. */
+#if defined(__STDC__)
+#define MASK32	0xff000000U
+#define MASK24	0x00ff0000U
+#define MASK16	0x0000ff00U
+#define MASK08	0x000000ffU
+#define MINUS1	0xffffffffU
+#else
+#define MASK32	0xff000000
+#define MASK24	0x00ff0000
+#define MASK16	0x0000ff00
+#define MASK08	0x000000ff
+#define MINUS1	0xffffffff
+#endif
+
+#define SET16(ptr, val) { \
+	*((ptr)++) = ((val) & MASK16) >> 8; \
+	*((ptr)++) = ((val) & MASK08); \
+}
+#define GET16(val, ptr) { \
+	(val) = *((ptr)+1); \
+	(val) += *(ptr) << 8; \
+}
+#define SET32(ptr, val) { \
+	*((ptr)++) = ((val) & MASK32) >> 24; \
+	*((ptr)++) = ((val) & MASK24) >> 16; \
+	*((ptr)++) = ((val) & MASK16) >> 8; \
+	*((ptr)++) = ((val) & MASK08); \
+}
+#define HIGH8(s)        (((s) >> 8) & 0xff)
+#define LOW8(s)         ((s) & 0xff)
