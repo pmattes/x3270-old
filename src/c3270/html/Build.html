@@ -1,0 +1,44 @@
+<!doctype html public "-//w3c//dtd html 4.0 transitional//en">
+<html>
+<head>
+   <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+   <meta name="GENERATOR" content="Mozilla/4.74 [en] (Win98; U) [Netscape]">
+   <title>c3270 Build and Install Instructions</title>
+</head>
+<body>
+
+<h1>
+c3270 Build and Install Instructions</h1>
+<h2>All Platforms Except Sun Solaris 2 (and other SVR4-derived systems)</h2>
+To build <i>c3270</i>, type:
+<pre>&nbsp;&nbsp;&nbsp; make</pre>
+To install <i>c3270</i> in the default install directory (<tt>/usr/local</tt>),
+type:
+<pre>&nbsp;&nbsp;&nbsp; make install</pre>
+To install in a different directory, add an <tt>INSTALLDIR=</tt> clause
+to the <i>make</i> command, <i>e.g.</i>:
+<pre>&nbsp;&nbsp;&nbsp; make install INSTALLDIR=/tools</pre>
+
+<h2>Sun Solaris 2 and other SVR4-derived systems</h2>
+To build <i>c3270</i>, type:
+<pre>&nbsp;&nbsp;&nbsp; make -f Makefile.sun</pre>
+To install <i>c3270</i> in the default install directory (<tt>/usr/local</tt>),
+type:
+<pre>&nbsp;&nbsp;&nbsp; make -f Makefile.sun install</pre>
+To install in a different directory, add an <tt>INSTALLDIR=</tt> clause
+to the <i>make</i> command, <i>e.g.</i>:
+<pre>&nbsp;&nbsp;&nbsp; make -f Makefile.sun install INSTALLDIR=/tools</pre>
+<h3>
+Notes for Sun's C Compiler</h4>
+Do not use Sun's BSD-compatibility compiler, <tt>/usr/ucb/cc</tt>. This
+is good advice in general, but in particular, <i>c3270</i> will not build
+with it. If you have installed Sun's unbundled C compiler and have <tt>/usr/ucb</tt>
+in your $PATH before <tt>/usr/ccs/bin</tt>, then you might be using <tt>/usr/ucb/cc</tt>
+by accident. The workaround is to explicitly specify the compiler path
+to <i>make</i>:
+<blockquote>
+<pre>make -f Makefile.sun CC=/usr/ccs/bin/cc</pre>
+</blockquote>
+
+</body>
+</html>
