@@ -1,5 +1,6 @@
 /*
  * Modifications Copyright 1993, 1994, 1995, 1999, 2000, 2002 by Paul Mattes.
+ * RPQNAMES modifications Copyright 2004 by Don Russell.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -129,6 +130,7 @@
 #define QR_DBCS_ASIA	0x91	/* DBCS-Asia */
 #define QR_PC3270	0x93    /* PC3270 */
 #define QR_DDM    	0x95    /* distributed data management */
+#define QR_RPQNAMES	0xa1	/* RPQ names */
 #define QR_IMP_PART	0xa6	/* implicit partition */
 #define QR_NULL		0xff	/* null */
 

@@ -1127,6 +1127,7 @@ process_eor(void)
 				else
 					tn3270e_nak(rv);
 			}
+			print_unbind();
 			return 0;
 		case TN3270E_DT_SSCP_LU_DATA:
 		case TN3270E_DT_NVT_DATA:

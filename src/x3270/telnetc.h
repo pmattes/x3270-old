@@ -1,5 +1,6 @@
 /*
  * Copyright 1995, 1999, 2000, 2002 by Paul Mattes.
+ * RPQNAMES modifications Copyright 2004 by Don Russell.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -40,6 +41,7 @@ extern void net_interrupt(void);
 extern void net_linemode(void);
 extern struct ctl_char *net_linemode_chars(void);
 extern void net_output(void);
+extern const char *net_printable_local_ip_address(char *dst, size_t len);
 extern const char *net_query_bind_plu_name(void);
 extern const char *net_query_connection_state(void);
 extern const char *net_query_host(void);

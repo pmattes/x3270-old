@@ -1,5 +1,6 @@
 /*
  * Copyright 1993, 1994, 1995, 1999, 2000, 2001, 2002 by Paul Mattes.
+ * RPQNAMES modifications copyright 2004 by Don Russell.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -200,7 +201,8 @@ popup_about_copyright(void)
   2000, 2001, 2002 by Paul Mattes.\n\
 Original X11 Port Copyright \251 1990 by Jeff Sparkes.\n\
 File transfer code Copyright \251 1995 by Dick Altenbern.\n\
-Includes IAC IP patch by Carey Evans, 1998.", 4);
+Includes IAC IP patch by Carey Evans, 1998.\n\
+Includes RPQNAMES support by Don Russell, 2004.", 4);
 	MAKE_SMALL(" Permission to use, copy, modify, and distribute this software and its documentation\n\
  for any purpose and without fee is hereby granted, provided that the above copyright\n\
  notice appear in all copies and that both that copyright notice and this permission\n\

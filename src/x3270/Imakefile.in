@@ -49,9 +49,9 @@ LOCAL_LIBRARIES = $(XAWLIB) $(XMULIB) $(XTOOLLIB) $(XLIB)
 #ifdef INSTALL_CNV
             IDP = @ICU_DATA_PREFIX@
         ICU_UCM = ibm-837_P100-2000.ucm ibm-300_P110-1997.ucm \
-                  ibm-1027_P100-1995.ucm
+                  ibm-1027_P100-1995.ucm ibm-1385_P100-1997.ucm
         ICU_CNV = $(IDP)_ibm-837_P100-2000.cnv $(IDP)_ibm-300_P110-1997.cnv \
-                  $(IDP)_ibm-1027_P100-1995.cnv
+                  $(IDP)_ibm-1027_P100-1995.cnv $(IDP)_ibm-1385_P100-1997.cnv
 #endif
 
 /* Variables set by autoconf. */
@@ -186,6 +186,8 @@ $(IDP)_ibm-300_P110-1997.cnv: ibm-300_P110-1997.ucm
 	makeconv -d . -p $(IDP) ibm-300_P110-1997.ucm
 $(IDP)_ibm-1027_P100-1995.cnv: ibm-1027_P100-1995.ucm
 	makeconv -d . -p $(IDP) ibm-1027_P100-1995.ucm
+$(IDP)_ibm-1385_P100-1997.cnv: ibm-1385_P100-1997.ucm
+	makeconv -d . -p $(IDP) ibm-1385_P100-1997.ucm
 #endif
 
 /******************************************************************************

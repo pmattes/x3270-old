@@ -1,5 +1,6 @@
 /*
  * Copyright 1994, 1995, 1996, 1999, 2000, 2001 by Paul Mattes.
+ * RPQNAMES modifications Copyright 2004 by Don Russell.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -20,6 +21,7 @@
 
 #include "globals.h"
 #include <errno.h>
+#include <netinet/in.h>
 #include "3270ds.h"
 #include "appres.h"
 #include "screen.h"
@@ -35,6 +37,7 @@
 #include "screenc.h"
 #include "seec.h"
 #include "sfc.h"
+#include "tablesc.h"
 #include "telnetc.h"
 #include "trace_dsc.h"
 #include "utilc.h"
@@ -55,25 +58,53 @@ static enum pds sf_outbound_ds(unsigned char buf[], int buflen);
 static void query_reply_start(void);
 static void do_query_reply(unsigned char code);
 static void query_reply_end(void);
+static int get_utc_offset(void);
 
-static unsigned char supported_replies[] = {
-	QR_SUMMARY,		/* 0x80 */
-	QR_USABLE_AREA,		/* 0x81 */
-	QR_ALPHA_PART,		/* 0x84 */
-	QR_CHARSETS,		/* 0x85 */
-	QR_COLOR,		/* 0x86 */
-	QR_HIGHLIGHTING,	/* 0x87 */
-	QR_REPLY_MODES,		/* 0x88 */
+typedef void qr_single_fn_t(void);
+typedef Boolean qr_multi_fn_t(unsigned *subindex, Boolean *more);
+
+static qr_single_fn_t do_qr_summary, do_qr_usable_area, do_qr_alpha_part,
+	do_qr_charsets, do_qr_color, do_qr_highlighting, do_qr_reply_modes,
+	do_qr_imp_part, do_qr_null;
+static qr_multi_fn_t do_qr_rpqnames;
 #if defined(X3270_DBCS) /*[*/
-	QR_DBCS_ASIA,		/* 0x91 */
+static qr_single_fn_t do_qr_dbcs_asia;
 #endif /*]*/
-	QR_IMP_PART,		/* 0xa6 */
 #if defined(X3270_FT) /*[*/
-	QR_DDM,			/* 0x95 */
+static qr_single_fn_t do_qr_ddm;
 #endif /*]*/
-};
-#define NSR	(sizeof(supported_replies)/sizeof(unsigned char))
 
+static struct reply {
+	unsigned char code;
+	qr_single_fn_t *single_fn;
+	qr_multi_fn_t *multi_fn;
+} replies[] = {
+    { QR_SUMMARY,      do_qr_summary,      NULL },		/* 0x80 */
+    { QR_USABLE_AREA,  do_qr_usable_area,  NULL },		/* 0x81 */
+    { QR_ALPHA_PART,   do_qr_alpha_part,   NULL },		/* 0x84 */
+    { QR_CHARSETS,     do_qr_charsets,     NULL },		/* 0x85 */
+    { QR_COLOR,        do_qr_color,        NULL },		/* 0x86 */
+    { QR_HIGHLIGHTING, do_qr_highlighting, NULL },		/* 0x87 */
+    { QR_REPLY_MODES,  do_qr_reply_modes,  NULL },		/* 0x88 */
+#if defined(X3270_DBCS) /*[*/
+    { QR_DBCS_ASIA,    do_qr_dbcs_asia,    NULL },		/* 0x91 */
+#endif /*]*/
+#if defined(X3270_FT) /*[*/
+    { QR_DDM,          do_qr_ddm,          NULL },		/* 0x95 */
+#endif /*]*/
+    { QR_RPQNAMES,     NULL,               do_qr_rpqnames },	/* 0xa1 */
+    { QR_IMP_PART,     do_qr_imp_part,     NULL },		/* 0xa6 */
+
+    /* QR_NULL must be last in the table */
+    { QR_NULL,         do_qr_null,         NULL },		/* 0xff */
+};
+
+/*
+ * NSR_ALL is the number of query replies supported, including NULL.
+ * NSR is the number of query replies supported, except for NULL.
+ */
+#define NSR_ALL	(sizeof(replies)/sizeof(struct reply))
+#define NSR	(NSR_ALL - 1)
 
 
 /*
@@ -208,9 +239,9 @@ sf_read_part(unsigned char buf[], unsigned buflen)
 		query_reply_start();
 		for (i = 0; i < NSR; i++) {
 #if defined(X3270_DBCS) /*[*/
-			if (dbcs || supported_replies[i] != QR_DBCS_ASIA)
+			if (dbcs || replies[i].code != QR_DBCS_ASIA)
 #endif /*]*/
-				do_query_reply(supported_replies[i]);
+				do_query_reply(replies[i].code);
 		}
  		query_reply_end();
 		break;
@@ -240,14 +271,14 @@ sf_read_part(unsigned char buf[], unsigned buflen)
 				trace_ds(")\n");
 				for (i = 0; i < NSR; i++) {
 					if (memchr((char *)&buf[6],
-						   (char)supported_replies[i],
+						   (char)replies[i].code,
 						   buflen-6)
 #if defined(X3270_DBCS) /*[*/
 						   && (dbcs ||
-						       supported_replies[i] != QR_DBCS_ASIA)
+						       replies[i].code != QR_DBCS_ASIA)
 #endif /*]*/
 						   ) {
-						do_query_reply(supported_replies[i]);
+						do_query_reply(replies[i].code);
 						any++;
 					}
 				}
@@ -265,17 +296,17 @@ sf_read_part(unsigned char buf[], unsigned buflen)
 			trace_ds(")\n");
 			for (i = 0; i < NSR; i++)
 #if defined(X3270_DBCS) /*[*/
-				if (dbcs || supported_replies[i] != QR_DBCS_ASIA)
+				if (dbcs || replies[i].code != QR_DBCS_ASIA)
 #endif /*]*/
-					do_query_reply(supported_replies[i]);
+					do_query_reply(replies[i].code);
 			break;
 		    case SF_RPQ_ALL:
 			trace_ds("All\n");
 			for (i = 0; i < NSR; i++)
 #if defined(X3270_DBCS) /*[*/
-				if (dbcs || supported_replies[i] != QR_DBCS_ASIA)
+				if (dbcs || replies[i].code != QR_DBCS_ASIA)
 #endif /*]*/
-					do_query_reply(supported_replies[i]);
+					do_query_reply(replies[i].code);
 			break;
 		    default:
 			trace_ds("unknown request type 0x%02x\n", buf[5]);
@@ -592,245 +623,402 @@ query_reply_start(void)
 static void
 do_query_reply(unsigned char code)
 {
-	int len;
-	unsigned i;
-	const char *comma = "";
-	int obptr0 = obptr - obuf;
-	unsigned char *obptr_len;
-	unsigned short num, denom;
+	int i;
+	unsigned subindex = 0;
+	Boolean more = False;
+
+	/* Find the right entry in the reply table. */
+	for (i = 0; i < NSR_ALL; i++) {
+		if (replies[i].code == code)
+			break;
+	}
+	if (i >= NSR_ALL ||
+	    (replies[i].single_fn == NULL && replies[i].multi_fn == NULL))
+		return;
 
 	if (qr_in_progress) {
 		trace_ds("> StructuredField\n");
 		qr_in_progress = False;
 	}
 
-	space3270out(4);
-	obptr += 2;	/* skip length for now */
-	*obptr++ = SFID_QREPLY;
-	*obptr++ = code;
-	switch (code) {
+	do {
+		int obptr0 = obptr - obuf;
+		Boolean full = True;
 
-	    case QR_CHARSETS:
-		trace_ds("> QueryReply(CharacterSets)\n");
-		space3270out(64);
-#if defined(X3270_DBCS) /*[*/
-		if (dbcs)
-			*obptr++ = 0x8e;	/* flags: GE, CGCSGID, DBCS */
-		else
-#endif /*]*/
-			*obptr++ = 0x82;	/* flags: GE, CGCSGID present */
-		*obptr++ = 0x00;		/* more flags */
-		*obptr++ = *char_width;		/* SDW */
-		*obptr++ = *char_height;	/* SDW */
-		*obptr++ = 0x00;		/* no load PS */
-		*obptr++ = 0x00;
-		*obptr++ = 0x00;
-		*obptr++ = 0x00;
-#if defined(X3270_DBCS) /*[*/
-		if (dbcs)
-			*obptr++ = 0x0b;	/* DL (11 bytes) */
-		else
-#endif /*]*/
-			*obptr++ = 0x07;	/* DL (7 bytes) */
-
-		*obptr++ = 0x00;		/* SET 0: */
-#if defined(X3270_DBCS) /*[*/
-		if (dbcs)
-			*obptr++ = 0x00;	/*  FLAGS: non-load, single-
-						    plane, single-bute */
-		else
-#endif /*]*/
-			*obptr++ = 0x10;	/*  FLAGS: non-loadable,
-						    single-plane, single-byte,
-						    no compare */
-		*obptr++ = 0x00;		/*  LCID 0 */
-#if defined(X3270_DBCS) /*[*/
-		if (dbcs) {
-			*obptr++ = 0x00;	/*  SW 0 */
-			*obptr++ = 0x00;	/*  SH 0 */
-			*obptr++ = 0x00;	/*  SUBSN */
-			*obptr++ = 0x00;	/*  SUBSN */
-		}
-#endif /*]*/
-		SET32(obptr, cgcsgid);		/*  CGCSGID */
-		if (!*standard_font) {
-			/* special 3270 font, includes APL */
-			*obptr++ = 0x01;/* SET 1: */
-			*obptr++ = 0x10;/*  FLAGS: non-loadable, single-plane,
-					     single-byte, no compare */
-			*obptr++ = 0xf1;/*  LCID */
-#if defined(X3270_DBCS) /*[*/
-			if (dbcs) {
-				*obptr++ = 0x00;/*  SW 0 */
-				*obptr++ = 0x00;/*  SH 0 */
-				*obptr++ = 0x00;/*  SUBSN */
-				*obptr++ = 0x00;/*  SUBSN */
-			}
-#endif /*]*/
-			*obptr++ = 0x03;/*  CGCSGID: 3179-style APL2 */
-			*obptr++ = 0xc3;
-			*obptr++ = 0x01;
-			*obptr++ = 0x36;
-		}
-#if defined(X3270_DBCS) /*[*/
-		if (dbcs) {
-			*obptr++ = 0x80;	/* SET 0x80: */
-			*obptr++ = 0x20;	/*  FLAGS: DBCS */
-			*obptr++ = 0xf8;	/*  LCID: 0xf8 */
-			*obptr++ = *char_width * 2; /* SW */
-			*obptr++ = *char_height; /* SH */
-			*obptr++ = 0x41;	/*  SUBSN */
-			*obptr++ = 0x7f;	/*  SUBSN */
-			SET32(obptr, cgcsgid_dbcs); /* CGCSGID */
-		}
-#endif /*]*/
-		break;
-
-	    case QR_IMP_PART:
-		trace_ds("> QueryReply(ImplicitPartition)\n");
-		space3270out(13);
-		*obptr++ = 0x0;		/* reserved */
-		*obptr++ = 0x0;
-		*obptr++ = 0x0b;	/* length of display size */
-		*obptr++ = 0x01;	/* "implicit partition size" */
-		*obptr++ = 0x00;	/* reserved */
-		SET16(obptr, 80);	/* implicit partition width */
-		SET16(obptr, 24);	/* implicit partition height */
-		SET16(obptr, maxCOLS);	/* alternate height */
-		SET16(obptr, maxROWS);	/* alternate width */
-		break;
-
-	    case QR_NULL:
-		trace_ds("> QueryReply(Null)\n");
-		break;
-
-	    case QR_SUMMARY:
-		trace_ds("> QueryReply(Summary(");
-		space3270out(NSR);
-		for (i = 0; i < NSR; i++) {
-#if defined(X3270_DBCS) /*[*/
-			if (dbcs || supported_replies[i] != QR_DBCS_ASIA) {
-#endif /*]*/
-				trace_ds("%s%s", comma,
-				    see_qcode(supported_replies[i]));
-				comma = ",";
-				*obptr++ = supported_replies[i];
-#if defined(X3270_DBCS) /*[*/
-			}
-#endif /*]*/
-		}
-		trace_ds("))\n");
-		break;
-
-	    case QR_USABLE_AREA:
-		trace_ds("> QueryReply(UsableArea)\n");
-		space3270out(19);
-		*obptr++ = 0x01;	/* 12/14-bit addressing */
-		*obptr++ = 0x00;	/* no special character features */
-		SET16(obptr, maxCOLS);	/* usable width */
-		SET16(obptr, maxROWS);	/* usable height */
-		*obptr++ = 0x01;	/* units (mm) */
-		num = display_widthMM();
-		denom = display_width();
-		while (!(num %2) && !(denom % 2)) {
-			num /= 2;
-			denom /= 2;
-		}
-		SET16(obptr, (int)num);	/* Xr numerator */
-		SET16(obptr, (int)denom); /* Xr denominator */
-		num = display_heightMM();
-		denom = display_height();
-		while (!(num %2) && !(denom % 2)) {
-			num /= 2;
-			denom /= 2;
-		}
-		SET16(obptr, (int)num);	/* Yr numerator */
-		SET16(obptr, (int)denom); /* Yr denominator */
-		*obptr++ = *char_width;	/* AW */
-		*obptr++ = *char_height;/* AH */
-		SET16(obptr, maxCOLS*maxROWS);	/* buffer, questionable */
-		break;
-
-	    case QR_COLOR:
-		trace_ds("> QueryReply(Color)\n");
-		space3270out(4 + 2*15);
-		*obptr++ = 0x00;	/* no options */
-		*obptr++ = appres.color8? 8: 16; /* report on 8 or 16 colors */
-		*obptr++ = 0x00;	/* default color: */
-		*obptr++ = 0xf0 + COLOR_GREEN;	/*  green */
-		for (i = 0xf1; i <= (appres.color8? 0xf8: 0xff); i++) {
-			*obptr++ = i;
-			if (appres.m3279)
-				*obptr++ = i;
-			else
-				*obptr++ = 0x00;
-		}
-		break;
-
-	    case QR_HIGHLIGHTING:
-		trace_ds("> QueryReply(Highlighting)\n");
-		space3270out(11);
-		*obptr++ = 5;		/* report on 5 pairs */
-		*obptr++ = XAH_DEFAULT;	/* default: */
-		*obptr++ = XAH_NORMAL;	/*  normal */
-		*obptr++ = XAH_BLINK;	/* blink: */
-		*obptr++ = XAH_BLINK;	/*  blink */
-		*obptr++ = XAH_REVERSE;	/* reverse: */
-		*obptr++ = XAH_REVERSE;	/*  reverse */
-		*obptr++ = XAH_UNDERSCORE; /* underscore: */
-		*obptr++ = XAH_UNDERSCORE; /*  underscore */
-		*obptr++ = XAH_INTENSIFY; /* intensify: */
-		*obptr++ = XAH_INTENSIFY; /*  intensify */
-		break;
-
-	    case QR_REPLY_MODES:
-		trace_ds("> QueryReply(ReplyModes)\n");
-		space3270out(3);
-		*obptr++ = SF_SRM_FIELD;
-		*obptr++ = SF_SRM_XFIELD;
-		*obptr++ = SF_SRM_CHAR;
-		break;
-
-#if defined(X3270_DBCS) /*[*/
-	    case QR_DBCS_ASIA:
-		/* XXX: Should we support this, even when not in DBCS mode? */
-		trace_ds("> QueryReply(DbcsAsia)\n");
-		space3270out(7);
-		*obptr++ = 0x00;	/* flags (none) */
-		*obptr++ = 0x03;	/* field length 3 */
-		*obptr++ = 0x01;	/* SI/SO supported */
-		*obptr++ = 0x80;	/* character set ID 0x80 */
-		*obptr++ = 0x03;	/* field length 3 */
-		*obptr++ = 0x02;	/* input control */
-		*obptr++ = 0x01;	/* creation supported */
-		break;
-#endif /*]*/
-
-	    case QR_ALPHA_PART:
-		trace_ds("> QueryReply(AlphanumericPartitions)\n");
 		space3270out(4);
-		*obptr++ = 0;		/* 1 partition */
-		SET16(obptr, maxROWS*maxCOLS);	/* buffer space */
-		*obptr++ = 0;		/* no special features */
-		break;
+		obptr += 2;	/* skip length for now */
+		*obptr++ = SFID_QREPLY;
+		*obptr++ = code;
+
+		more = False;
+		if (replies[i].single_fn)
+			replies[i].single_fn();
+		else
+			full = replies[i].multi_fn(&subindex, &more);
+
+		if (full) {
+			int len;
+			unsigned char *obptr_len;
+
+			/* Fill in the length. */
+			obptr_len = obuf + obptr0;
+			len = (obptr - obuf) - obptr0;
+			SET16(obptr_len, len);
+		} else {
+			/* Back over the header. */
+			obptr -= 4;
+		}
+	} while (more);
+}
+
+static void
+do_qr_null(void)
+{
+	trace_ds("> QueryReply(Null)\n");
+}
+
+static void
+do_qr_summary(void)
+{
+	int i;
+	const char *comma = "";
+
+	trace_ds("> QueryReply(Summary(");
+	space3270out(NSR);
+	for (i = 0; i < NSR; i++) {
+#if defined(X3270_DBCS) /*[*/
+		if (dbcs || replies[i].code != QR_DBCS_ASIA) {
+#endif /*]*/
+			trace_ds("%s%s", comma, see_qcode(replies[i].code));
+			comma = ",";
+			*obptr++ = replies[i].code;
+#if defined(X3270_DBCS) /*[*/
+		}
+#endif /*]*/
+	}
+	trace_ds("))\n");
+}
+
+static void
+do_qr_usable_area(void)
+{
+	unsigned short num, denom;
+
+	trace_ds("> QueryReply(UsableArea)\n");
+	space3270out(19);
+	*obptr++ = 0x01;	/* 12/14-bit addressing */
+	*obptr++ = 0x00;	/* no special character features */
+	SET16(obptr, maxCOLS);	/* usable width */
+	SET16(obptr, maxROWS);	/* usable height */
+	*obptr++ = 0x01;	/* units (mm) */
+	num = display_widthMM();
+	denom = display_width();
+	while (!(num %2) && !(denom % 2)) {
+		num /= 2;
+		denom /= 2;
+	}
+	SET16(obptr, (int)num);	/* Xr numerator */
+	SET16(obptr, (int)denom); /* Xr denominator */
+	num = display_heightMM();
+	denom = display_height();
+	while (!(num %2) && !(denom % 2)) {
+		num /= 2;
+		denom /= 2;
+	}
+	SET16(obptr, (int)num);	/* Yr numerator */
+	SET16(obptr, (int)denom); /* Yr denominator */
+	*obptr++ = *char_width;	/* AW */
+	*obptr++ = *char_height;/* AH */
+	SET16(obptr, maxCOLS*maxROWS);	/* buffer, questionable */
+}
+
+static void
+do_qr_color(void)
+{
+	int i;
+
+	trace_ds("> QueryReply(Color)\n");
+	space3270out(4 + 2*15);
+	*obptr++ = 0x00;	/* no options */
+	*obptr++ = appres.color8? 8: 16; /* report on 8 or 16 colors */
+	*obptr++ = 0x00;	/* default color: */
+	*obptr++ = 0xf0 + COLOR_GREEN;	/*  green */
+	for (i = 0xf1; i <= (appres.color8? 0xf8: 0xff); i++) {
+		*obptr++ = i;
+		if (appres.m3279)
+			*obptr++ = i;
+		else
+			*obptr++ = 0x00;
+	}
+}
+
+static void
+do_qr_highlighting(void)
+{
+	trace_ds("> QueryReply(Highlighting)\n");
+	space3270out(11);
+	*obptr++ = 5;		/* report on 5 pairs */
+	*obptr++ = XAH_DEFAULT;	/* default: */
+	*obptr++ = XAH_NORMAL;	/*  normal */
+	*obptr++ = XAH_BLINK;	/* blink: */
+	*obptr++ = XAH_BLINK;	/*  blink */
+	*obptr++ = XAH_REVERSE;	/* reverse: */
+	*obptr++ = XAH_REVERSE;	/*  reverse */
+	*obptr++ = XAH_UNDERSCORE; /* underscore: */
+	*obptr++ = XAH_UNDERSCORE; /*  underscore */
+	*obptr++ = XAH_INTENSIFY; /* intensify: */
+	*obptr++ = XAH_INTENSIFY; /*  intensify */
+}
+
+static void
+do_qr_reply_modes(void)
+{
+	trace_ds("> QueryReply(ReplyModes)\n");
+	space3270out(3);
+	*obptr++ = SF_SRM_FIELD;
+	*obptr++ = SF_SRM_XFIELD;
+	*obptr++ = SF_SRM_CHAR;
+}
+
+#if defined(X3270_DBCS) /*[*/
+static void
+do_qr_dbcs_asia(void)
+{
+	/* XXX: Should we support this, even when not in DBCS mode? */
+	trace_ds("> QueryReply(DbcsAsia)\n");
+	space3270out(7);
+	*obptr++ = 0x00;	/* flags (none) */
+	*obptr++ = 0x03;	/* field length 3 */
+	*obptr++ = 0x01;	/* SI/SO supported */
+	*obptr++ = 0x80;	/* character set ID 0x80 */
+	*obptr++ = 0x03;	/* field length 3 */
+	*obptr++ = 0x02;	/* input control */
+	*obptr++ = 0x01;	/* creation supported */
+}
+#endif /*]*/
+
+static void
+do_qr_alpha_part(void)
+{
+	trace_ds("> QueryReply(AlphanumericPartitions)\n");
+	space3270out(4);
+	*obptr++ = 0;		/* 1 partition */
+	SET16(obptr, maxROWS*maxCOLS);	/* buffer space */
+	*obptr++ = 0;		/* no special features */
+}
+
+static void
+do_qr_charsets(void)
+{
+	trace_ds("> QueryReply(CharacterSets)\n");
+	space3270out(64);
+#if defined(X3270_DBCS) /*[*/
+	if (dbcs)
+		*obptr++ = 0x8e;	/* flags: GE, CGCSGID, DBCS */
+	else
+#endif /*]*/
+		*obptr++ = 0x82;	/* flags: GE, CGCSGID present */
+	*obptr++ = 0x00;		/* more flags */
+	*obptr++ = *char_width;		/* SDW */
+	*obptr++ = *char_height;	/* SDW */
+	*obptr++ = 0x00;		/* no load PS */
+	*obptr++ = 0x00;
+	*obptr++ = 0x00;
+	*obptr++ = 0x00;
+#if defined(X3270_DBCS) /*[*/
+	if (dbcs)
+		*obptr++ = 0x0b;	/* DL (11 bytes) */
+	else
+#endif /*]*/
+		*obptr++ = 0x07;	/* DL (7 bytes) */
+
+	*obptr++ = 0x00;		/* SET 0: */
+#if defined(X3270_DBCS) /*[*/
+	if (dbcs)
+		*obptr++ = 0x00;	/*  FLAGS: non-load, single-
+					    plane, single-bute */
+	else
+#endif /*]*/
+		*obptr++ = 0x10;	/*  FLAGS: non-loadable,
+					    single-plane, single-byte,
+					    no compare */
+	*obptr++ = 0x00;		/*  LCID 0 */
+#if defined(X3270_DBCS) /*[*/
+	if (dbcs) {
+		*obptr++ = 0x00;	/*  SW 0 */
+		*obptr++ = 0x00;	/*  SH 0 */
+		*obptr++ = 0x00;	/*  SUBSN */
+		*obptr++ = 0x00;	/*  SUBSN */
+	}
+#endif /*]*/
+	SET32(obptr, cgcsgid);		/*  CGCSGID */
+	if (!*standard_font) {
+		/* special 3270 font, includes APL */
+		*obptr++ = 0x01;/* SET 1: */
+		*obptr++ = 0x10;/*  FLAGS: non-loadable, single-plane,
+				     single-byte, no compare */
+		*obptr++ = 0xf1;/*  LCID */
+#if defined(X3270_DBCS) /*[*/
+		if (dbcs) {
+			*obptr++ = 0x00;/*  SW 0 */
+			*obptr++ = 0x00;/*  SH 0 */
+			*obptr++ = 0x00;/*  SUBSN */
+			*obptr++ = 0x00;/*  SUBSN */
+		}
+#endif /*]*/
+		*obptr++ = 0x03;/*  CGCSGID: 3179-style APL2 */
+		*obptr++ = 0xc3;
+		*obptr++ = 0x01;
+		*obptr++ = 0x36;
+	}
+#if defined(X3270_DBCS) /*[*/
+	if (dbcs) {
+		*obptr++ = 0x80;	/* SET 0x80: */
+		*obptr++ = 0x20;	/*  FLAGS: DBCS */
+		*obptr++ = 0xf8;	/*  LCID: 0xf8 */
+		*obptr++ = *char_width * 2; /* SW */
+		*obptr++ = *char_height; /* SH */
+		*obptr++ = 0x41;	/*  SUBSN */
+		*obptr++ = 0x7f;	/*  SUBSN */
+		SET32(obptr, cgcsgid_dbcs); /* CGCSGID */
+	}
+#endif /*]*/
+}
 
 #if defined(X3270_FT) /*[*/
-	    case QR_DDM:
-		trace_ds("> QueryReply(DistributedDataManagement)\n");
-		space3270out(8);
-		SET16(obptr,0);		/* set reserved field to 0 */
-		SET16(obptr,DFT_INBUF);	/* set inbound length limit */
-		SET16(obptr,DFT_OUTBUF);/* set outbound length limit */
-		SET16(obptr,0x0101);	/* NSS=01, DDMSS=01 */
-		break;
+static void
+do_qr_ddm(void)
+{
+	trace_ds("> QueryReply(DistributedDataManagement)\n");
+	space3270out(8);
+	SET16(obptr,0);		/* set reserved field to 0 */
+	SET16(obptr,DFT_INBUF);	/* set inbound length limit */
+	SET16(obptr,DFT_OUTBUF);/* set outbound length limit */
+	SET16(obptr,0x0101);	/* NSS=01, DDMSS=01 */
+}
 #endif /*]*/
 
+/*
+ * RPQNAMES query reply.
+ * Based on code from Don Russell, January 2004.
+ *
+ * "subindex" is the zero-based ordinal of the item to create.
+ */
+#define RPQ_HDRLEN	(4 + 4)		/* device, model */
+static Boolean
+do_qr_rpqnames(unsigned *subindex, Boolean *more)
+{
+	const char *rpqtext = CN;
+	char tz_buf[6];
+	char ip_namebuf[INET6_ADDRSTRLEN + 1];
+	unsigned long device = 0;
+	unsigned long model = 0;
+	const char *item_name;
+	int name_len;
+	int len;
+	int j;
+
+        /*
+	 * Define some char constants for literals that are placed in the
+	 * replies.  These include the trailing \0 but it is not included in
+	 * the replies.
+	 *
+	 * At least one item here must clearly identify the program so host-
+	 * based software can know these rpqnames are related to x3270.
+	 * (Another emulator might return a "UTC-OFFSET" item in a different
+	 * format.)
+	 */
+        static const char *c_rpqnames[] = {
+		"X3270-ID",		/* Include build string */
+		"UTC-OFFSET",		/* (+/)hhmm */
+		"WORKSTATION-IP",	/* decimal-dot or hex-colon of
+					   workstation */
+		"X3270RPQ"		/* Name of environment var, contents
+					   to send */
+	};
+
+	switch (*subindex) {
+
+	    case 0:	/* product name/version information */
+		rpqtext = build;
+		break;
+
+	    case 1: {	/* utc offset */
+		int x;
+		div_t hr_min;
+
+		x = get_utc_offset();
+		device = x << 16;
+		hr_min = div(x, 60);
+		sprintf(tz_buf, "%+.2d%.2d", hr_min.quot, hr_min.rem);
+		rpqtext = tz_buf;
+		break;
+	    }
+
+	    case 2:	/* workstation ip */
+		if (net_printable_local_ip_address(ip_namebuf,
+					INET6_ADDRSTRLEN) != NULL)
+			rpqtext = ip_namebuf;
+		break;
+
+	    case 3:	/* user-supplied info via environment var */
+		rpqtext = getenv(c_rpqnames[*subindex]);
+		break;
+
 	    default:
-		return;	/* internal error */
+	        *more = False;
+		return False;
 	}
-	obptr_len = obuf + obptr0;
-	len = (obptr - obuf) - obptr0;
-	SET16(obptr_len, len);
+
+	if (rpqtext == NULL) {
+		/*
+		 * Failed item.  Iterate to the next.
+		 */
+		(*subindex)++;
+		return False;
+	}
+
+	/*
+	 * Enforce the maximum length allowed, set the length byte,
+	 * and translate the result to EBCDIC.
+	 */
+	item_name = c_rpqnames[*subindex];
+	trace_ds("> QueryReply(RPQNames,%s)\n", item_name);
+	name_len = 1 + strlen(item_name) + 1;
+	len = name_len + strlen(rpqtext);
+	if (len > 255)
+		len = 255;
+	space3270out(RPQ_HDRLEN + len);
+	SET32(obptr, device);
+	SET32(obptr, model);
+	*obptr++ = len;
+	for (j = 0; item_name[j]; j++) {
+		*obptr++ = asc2ebc[(unsigned)item_name[j]];
+	}
+	*obptr++ = EBC_space;
+	len -= name_len;
+	for (j = 0; j < len; j++) {
+		*obptr++ = asc2ebc[(unsigned)rpqtext[j]];
+	}
+	(*subindex)++;
+	*more = True;
+	return True;
+}
+
+static void
+do_qr_imp_part(void)
+{
+	trace_ds("> QueryReply(ImplicitPartition)\n");
+	space3270out(13);
+	*obptr++ = 0x0;		/* reserved */
+	*obptr++ = 0x0;
+	*obptr++ = 0x0b;	/* length of display size */
+	*obptr++ = 0x01;	/* "implicit partition size" */
+	*obptr++ = 0x00;	/* reserved */
+	SET16(obptr, 80);	/* implicit partition width */
+	SET16(obptr, 24);	/* implicit partition height */
+	SET16(obptr, maxCOLS);	/* alternate height */
+	SET16(obptr, maxROWS);	/* alternate width */
 }
 
 static void
@@ -838,4 +1026,41 @@ query_reply_end(void)
 {
 	net_output();
 	kybd_inhibit(True);
+}
+
+/* Utility function used by the RPQNAMES query reply. */
+static int
+get_utc_offset(void)
+{
+	/*
+	 * Return the signed number of minutes we're offset from UTC.
+	 * Example: North America Pacific Standard Time = UTC - 8 Hours, so we
+	 * return (-8) * 60 = -480.
+	 * Since the smallest variance from UTC to warrant being called a
+	 * timezone is 30 minutes, we use small, positive values to mean
+	 * various errors:
+	 * 1 - Cannot determine local calendar time
+	 * 2 - Cannot determine UTC
+	 */
+	time_t here;
+	struct tm here_tm;
+	struct tm *utc_tm;
+	long delta;
+
+	if ((here = time(NULL)) == (time_t)(-1)) {
+		return 1;
+	}
+	memcpy(&here_tm, localtime(&here), sizeof(struct tm));
+	if ((utc_tm = gmtime(&here)) == NULL) {
+		return 2;
+	}
+
+	/*
+	 * Do not take Daylight Saving Time into account.
+	 * We just want the "raw" time difference.
+	 */
+	here_tm.tm_isdst = 0;
+	utc_tm->tm_isdst = 0;
+	delta = difftime(mktime(&here_tm), mktime(utc_tm));
+	return (int)(delta/60L);
 }

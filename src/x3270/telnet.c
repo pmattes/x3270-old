@@ -1,6 +1,7 @@
 /*
  * Modifications Copyright 1993, 1994, 1995, 1999,
  *  2000, 2001, 2002 by Paul Mattes.
+ * RPQNAMES modifications Copyright 2004 by Don Russell.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -3147,3 +3148,35 @@ net_query_host(void)
 }
 
 #endif /*]*/
+
+/*
+ * Return the local workstation's IP address as ASCII text.
+ * Don Russell, January 2004.
+ */
+const char *
+net_printable_local_ip_address(char *dst, size_t len)
+{
+	struct sockaddr name;
+	socklen_t namelen = sizeof(name);
+	void *src;
+
+	if (getsockname(sock, &name, &namelen) == -1) {
+	       	dst = '\0';
+		return NULL;
+	}
+
+	switch (name.sa_family) {
+	    case AF_INET: /* IPv4 address */
+		src = &(((struct sockaddr_in *)(&name))->sin_addr);
+		break;
+	    case AF_INET6: /* IPv6 address */
+		src = &(((struct sockaddr_in6 *)(&name))->sin6_addr);
+		break;
+	    default:
+		dst = '\0';
+		return NULL;
+	}
+
+	/* Error conditions already returned. */
+	return inet_ntop(name.sa_family, src, dst, len);
+}

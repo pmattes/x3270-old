@@ -1,5 +1,6 @@
 /*
  * Copyright 1993, 1994, 1995, 1999, 2000, 2001 by Paul Mattes.
+ * RPQNAMES modifications copyright 2004 by Don Russell.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -451,6 +452,8 @@ see_qcode(unsigned char id)
 		return "AlphanumericPartitions";
 	    case QR_DDM:
 		return "DistributedDataManagement";
+	    case QR_RPQNAMES:
+		return "RPQNames";
 	    default:
 		(void) sprintf(buf, "unknown[0x%x]", id);
 		return buf;

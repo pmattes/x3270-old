@@ -695,35 +695,39 @@ scs_formfeed(Boolean explicit)
 	if (explicit)
 		scs_any = 0;
 
-	/* Skip to the end of the physical page. */
-	while (line < mpl) {
-		if (crlf) {
-			if (stash('\r') < 0)
+	if (mpl > 1) {
+		/* Skip to the end of the physical page. */
+		while (line <= mpl) {
+			if (crlf) {
+				if (stash('\r') < 0)
+					return -1;
+			}
+			if (stash('\n') < 0)
 				return -1;
+			nls++;
+			line++;
 		}
-		if (stash('\n') < 0)
-			return -1;
-		nls++;
-		line++;
-	}
-	line = 1;
+		line = 1;
 
-	/* Skip the top margin. */
-	while (line < tm) {
-		if (crlf) {
-			if (stash('\r') < 0)
+		/* Skip the top margin. */
+		while (line < tm) {
+			if (crlf) {
+				if (stash('\r') < 0)
+					return -1;
+			}
+			if (stash('\n') < 0)
 				return -1;
+			nls++;
+			line++;
 		}
-		if (stash('\n') < 0)
-			return -1;
-		nls++;
-		line++;
-	}
 #if defined(DEBUG_FF) /*[*/
-	if (nls)
-		trace_ds(" [formfeed %s %d]", explicit? "explicit": "implicit",
-			nls);
+		if (nls)
+			trace_ds(" [formfeed %s %d]", explicit?
+				"explicit": "implicit", nls);
 #endif /*]*/
+	} else {
+		line = 1;
+	}
 	return 0;
 }
 
@@ -798,7 +802,9 @@ process_scs(unsigned char *buf, int buflen)
 	enum { NONE, DATA, ORDER } last = NONE;
 	int dbcs_subfield = 0;
 	unsigned cs = 0;
+#if defined(X3270_DBCS) /*[*/
 	unsigned char dbcs_c1 = 0;
+#endif /*]*/
 #	define END_TEXT(s) { \
 		if (last == DATA) \
 			trace_ds("'"); \
@@ -1614,19 +1620,20 @@ print_eoj(void)
 	page_buf_initted = 0;
 
 	/*
-	 * Make sure that the next SCS job starts with clean conditions.
-	 *
-	 * XXX: Not sure if this should happen at the end of each job, or
-	 * when an UNBIND is processed.
-	 */
-	scs_initted = False;
-
-	/*
 	 * Reset the FF suprpession logic.
 	 */
 	any_3270_printable = False;
 
 	return rc;
+}
+
+void
+print_unbind(void)
+{
+	/*
+	 * Make sure that the next SCS job starts with clean conditions.
+	 */
+	scs_initted = False;
 }
 
 static int
