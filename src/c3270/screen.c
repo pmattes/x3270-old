@@ -154,7 +154,8 @@ screen_init(void)
 		(void) fprintf(stderr, "Can't initialize terminal.\n");
 		exit(1);
 	}
-	(void) set_term(alt_screen);
+	if (appres.altscreen)
+		(void) set_term(alt_screen);
 
 	while (LINES < ROWS || COLS < cCOLS) {
 		char buf[2];
@@ -203,10 +204,10 @@ screen_init(void)
 		status_row = status_skip = 0;
 	} else if (LINES == maxROWS + 1) {
 		status_skip = 0;
-		status_row = maxROWS;
+		status_row = LINES - 1;
 	} else {
-		status_skip = maxROWS;
-		status_row = maxROWS + 1;
+		status_skip = LINES - 2;
+		status_row = LINES - 1;
 	}
 
 	/* Set up callbacks for state changes. */
@@ -253,6 +254,21 @@ screen_init(void)
 	screen_suspend();
 }
 
+/* Configure the TTY settings for a curses screen. */
+static void
+setup_tty(void)
+{
+	raw();
+	noecho();
+	nonl();
+	intrflush(stdscr,FALSE);
+	if (appres.curses_keypad)
+		keypad(stdscr, TRUE);
+	meta(stdscr, TRUE);
+	nodelay(stdscr, TRUE);
+	refresh();
+}
+
 /* Secondary screen initialization. */
 static void
 screen_init2(void)
@@ -263,15 +279,18 @@ screen_init2(void)
 	 */
 	escaped = False;
 
-	/* Set up the keyboard. */
-	raw();
-	noecho();
-	nonl();
-	intrflush(stdscr,FALSE);
-	if (appres.curses_keypad)
-		keypad(stdscr, TRUE);
-	meta(stdscr, TRUE);
-	nodelay(stdscr, TRUE);
+	/*
+	 * Set up the keyboard.
+	 * If we're using multiple screens, do it twice.
+	 */
+	setup_tty();
+	if (def_screen != NULL) {
+		set_term(def_screen);
+		setup_tty();
+		set_term(alt_screen);
+	}
+
+	/* Subscribe to input events. */
 	input_id = AddInput(0, kybd_input);
 }
 
@@ -350,7 +369,6 @@ screen_disp(Boolean erasing unused)
 
 	/* See if they've switched screens on us. */
 	if (def_screen != NULL && screen_alt != is_alt) {
-		endwin();
 		if (screen_alt) {
 			(void) write(1, altscreen_spec.mode_switch,
 			    strlen(altscreen_spec.mode_switch));
@@ -367,16 +385,6 @@ screen_disp(Boolean erasing unused)
 			cur_spec = &altscreen_spec;
 		}
 
-		/* Patch up the curses TTY modes. */
-		raw();
-		noecho();
-		nonl();
-		intrflush(stdscr,FALSE);
-		if (appres.curses_keypad)
-			keypad(stdscr, TRUE);
-		meta(stdscr, TRUE);
-		nodelay(stdscr, TRUE);
-
 		/* Figure out where the status line goes now, if it fits. */
 		if (cur_spec->rows < ROWS + 1) {
 			status_row = status_skip = 0;
@@ -384,11 +392,15 @@ screen_disp(Boolean erasing unused)
 			status_skip = 0;
 			status_row = ROWS;
 		} else {
-			status_skip = ROWS;
-			status_row = ROWS + 1;
+			status_skip = cur_spec->rows - 2;
+			status_row = cur_spec->rows - 1;
 		}
 
 		is_alt = screen_alt;
+
+		/* Tell curses to forget what may be on the screen already. */
+		endwin();
+		erase();
 	}
 
 	fa = *get_field_attribute(0);
@@ -681,18 +693,28 @@ screen_suspend(void)
 
 	if (!escaped) {
 		escaped = True;
-		endwin();
-		if (appres.altscreen) {
-			if (is_alt) {
-				set_term(def_screen);
-				endwin();
+		if (def_screen != NULL) {
+			/*
+			 * Call endwin() for the last-defined screen
+			 * (altscreen) first.  Note that this will leave
+			 * the curses screen set to defscreen when this
+			 * function exits; if the 3270 is really in altscreen
+			 * mode, we will have to switch it back when we resume
+			 * the screen, below.
+			 */
+			if (!is_alt)
 				set_term(alt_screen);
-			} else {
-				set_term(alt_screen);
-				endwin();
+			endwin();
+			if (is_alt)
 				set_term(def_screen);
-			}
 		}
+
+		/*
+		 * Call endwin() for the only screen, or if there are multiple
+		 * screens, for defscreen (the first-defined screen).
+		 */
+		endwin();
+
 		if (need_to_scroll)
 			printf("\n");
 		else
@@ -705,6 +727,13 @@ void
 screen_resume(void)
 {
 	escaped = False;
+	if (def_screen != NULL && is_alt) {
+		/*
+		 * When we suspended the screen, we switched to defscreen so
+		 * that endwin() got called in the right order.  Switch back.
+		 */
+		set_term(alt_screen);
+	}
 	screen_disp(False); /* in case something changed while we were escaped */
 	refresh();
 	input_id = AddInput(0, kybd_input);
@@ -860,10 +889,14 @@ draw_oia(void)
 {
 	int rmargin;
 
-	if (appres.altscreen)
-		rmargin = cCOLS;
-	else
-		rmargin = maxCOLS;
+	if (def_screen != NULL) {
+		if (is_alt)
+			rmargin = altscreen_spec.cols - 1;
+		else
+			rmargin = defscreen_spec.cols - 1;
+	} else {
+		rmargin = maxCOLS - 1;
+	}
 
 	/* Make sure the status line region is filled in properly. */
 	if (appres.m3279) {
