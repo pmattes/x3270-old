@@ -20,17 +20,21 @@ prefix = @prefix@
 exec_prefix = @exec_prefix@
 MANDIR = @mandir@
 BINDIR = @bindir@
+sysconfdir = @sysconfdir@
 
 #CDEBUGFLAGS = -g -Wall
 
 XCPPFLAGS = @CPPFLAGS@ @XANSI@ @XPRECOMP@
-CFLAGS = @CFLAGS@ $(XCPPFLAGS) $(CDEBUGFLAGS) @SSL@
+CFLAGS = @CFLAGS@ -DPR3287=1 $(XCPPFLAGS) $(CDEBUGFLAGS) @SSL@ @DBCS@ \
+	-DLIBX3270DIR=\"@LIBX3270DIR@\"
 LDFLAGS = @LDFLAGS@
 LIBS = @LIBS@
 INSTALL = @INSTALL@
 
-SRCS = pr3287.c ctlr.c trace_ds.c tables.c telnet.c sf.c charset.c see.c
-OBJECTS = pr3287.o ctlr.o trace_ds.o tables.o telnet.o sf.o charset.o see.o
+SRCS = pr3287.c ctlr.c trace_ds.c tables.c telnet.c sf.c charset.c see.c \
+	@DBCS_C@
+OBJECTS = pr3287.o ctlr.o trace_ds.o tables.o telnet.o sf.o charset.o see.o \
+	@DBCS_O@
 
 version.o: version.txt mkversion.sh
 	@chmod +x mkversion.sh version.txt

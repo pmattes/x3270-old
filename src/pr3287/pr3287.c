@@ -127,16 +127,13 @@ usage(void)
 
 /* Print an error message. */
 void
-errmsg(const char *fmt, ...)
+verrmsg(const char *fmt, va_list ap)
 {
-	va_list args;
 	static char buf[2][4096] = { "", "" };
 	static int ix = 0;
 
 	ix = !ix;
-	va_start(args, fmt);
-	(void) vsprintf(buf[ix], fmt, args);
-	va_end(args);
+	(void) vsprintf(buf[ix], fmt, ap);
 	trace_ds("Error: %s\n", buf[ix]);
 	if (!strcmp(buf[ix], buf[!ix])) {
 		if (verbose)
@@ -148,6 +145,16 @@ errmsg(const char *fmt, ...)
 		syslog(LOG_ERR, "%s: %s", programname, buf[ix]);
 	else
 		(void) fprintf(stderr, "%s: %s\n", programname, buf[ix]);
+}
+
+void
+errmsg(const char *fmt, ...)
+{
+	va_list args;
+
+	va_start(args, fmt);
+	(void) verrmsg(fmt, args);
+	va_end(args);
 }
 
 /* Memory allocation. */
@@ -371,6 +378,7 @@ main(int argc, char *argv[])
 	if (tracing) {
 		char tracefile[256];
 		time_t clk;
+		int i;
 
 		(void) sprintf(tracefile, "%s/x3trc.%d", tracedir, getpid());
 		tracef = fopen(tracefile, "a");
@@ -382,6 +390,11 @@ main(int argc, char *argv[])
 		clk = time((time_t *)0);
 		(void) fprintf(tracef, "Trace started %s", ctime(&clk));
 		(void) fprintf(tracef, " Version %s\n", build);
+		(void) fprintf(tracef, " Options:");
+		for (i = 0; i < argc; i++) {
+			(void) fprintf(tracef, " %s", argv[i]);
+		}
+		(void) fprintf(tracef, "\n");
 	}
 
 	/* Become a daemon. */
@@ -518,4 +531,33 @@ trace_str(const char *s)
 {
 	if (tracef)
 		fprintf(tracef, "%s", s);
+}
+
+/* Error pop-ups. */
+void
+popup_an_error(const char *fmt, ...)
+{
+	va_list args;
+
+	va_start(args, fmt);
+	(void) verrmsg(fmt, args);
+	va_end(args);
+}
+
+void
+popup_an_errno(int err, const char *fmt, ...)
+{
+	va_list args;
+
+	va_start(args, fmt);
+	if (err > 0) {
+		char msgbuf[4096];
+
+		(void) vsprintf(msgbuf, fmt, args);
+		errmsg("%s: %s", msgbuf, strerror(err));
+
+	} else {
+		(void) verrmsg(fmt, args);
+	}
+	va_end(args);
 }

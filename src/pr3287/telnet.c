@@ -267,8 +267,10 @@ negotiate(int s, char *lu, char *assoc)
 #endif /*]*/
 
 	/* Allocate the receive buffers. */
-	netrbuf = (unsigned char *)Malloc(BUFSZ);
-	ibuf = (unsigned char *)Malloc(BUFSIZ);
+	if (netrbuf == NULL)
+		netrbuf = (unsigned char *)Malloc(BUFSZ);
+	if (ibuf == NULL)
+		ibuf = (unsigned char *)Malloc(BUFSIZ);
 	ibuf_size = BUFSIZ;
 	ibptr = ibuf;
 
@@ -1125,6 +1127,7 @@ process_eor(void)
 				else
 					tn3270e_nak(rv);
 			}
+			print_unbind();
 			return 0;
 		case TN3270E_DT_SSCP_LU_DATA:
 		case TN3270E_DT_NVT_DATA:

@@ -27,5 +27,6 @@ enum pds {
 extern void ctlr_add(unsigned char c, unsigned char cs, unsigned char gr);
 extern void ctlr_write(unsigned char buf[], int buflen, Boolean erase);
 extern int print_eoj(void);
+extern void print_unbind(void);
 extern enum pds process_ds(unsigned char *buf, int buflen);
 extern enum pds process_scs(unsigned char *buf, int buflen);

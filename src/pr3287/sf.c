@@ -1,5 +1,5 @@
 /*
- * Copyright 1994, 1995, 1996, 1999, 2000 by Paul Mattes.
+ * Copyright 1994, 1995, 1996, 1999, 2000, 2004 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -20,23 +20,14 @@
 #include <errno.h>
 #include <sys/types.h>
 #include <stdio.h>
-#include "localdefs.h"
+#include "globals.h"
 #include "3270ds.h"
 #include <string.h>
-#if 0
-#include "appres.h"
-#include "screen.h"
-#include "cg.h"
-#endif
 
 #include "ctlrc.h"
 #if defined(X3270_FT) /*[*/
 #include "ft_dftc.h"
 #endif /*]*/
-#if 0
-#include "kybdc.h"
-#include "screenc.h"
-#endif
 #include "sfc.h"
 #include "telnetc.h"
 #include "trace_dsc.h"
@@ -57,6 +48,13 @@ static void query_reply_start(void);
 static void do_query_reply(unsigned char code);
 static void query_reply_end(void);
 
+/* Some permanent substitutions. */
+#define maxROWS 72
+#define maxCOLS 66
+#define char_width 10
+#define char_height 20
+#define standard_font 0
+
 static unsigned char supported_replies[] = {
 	QR_SUMMARY,		/* 0x80 */
 	QR_USABLE_AREA,		/* 0x81 */
@@ -65,6 +63,9 @@ static unsigned char supported_replies[] = {
 	QR_COLOR,		/* 0x86 */
 	QR_HIGHLIGHTING,	/* 0x87 */
 	QR_REPLY_MODES,		/* 0x88 */
+#if defined(X3270_DBCS) /*[*/
+	QR_DBCS_ASIA,		/* 0x91 */
+#endif /*]*/
 	QR_IMP_PART,		/* 0xa6 */
 #if defined(X3270_FT) /*[*/
 	QR_DDM,			/* 0x95 */
@@ -84,7 +85,8 @@ write_structured_field(unsigned char buf[], int buflen)
 	unsigned char *cp = buf;
 	Boolean first = True;
 	enum pds rv = PDS_OKAY_NO_OUTPUT;
-	enum pds rv_this;
+	enum pds rv_this = PDS_OKAY_NO_OUTPUT;
+	Boolean bad_cmd = False;
 
 	/* Skip the WSF command itself. */
 	cp++;
@@ -157,7 +159,7 @@ write_structured_field(unsigned char buf[], int buflen)
 		 * way to return the error indication.
 		 */
 		if (rv_this < 0)
-			return rv ? rv : rv_this;
+			bad_cmd = True;
 		else
 			rv |= rv_this;
 
@@ -167,7 +169,11 @@ write_structured_field(unsigned char buf[], int buflen)
 	}
 	if (first)
 		trace_ds(" (null)\n");
-	return rv;
+
+	if (bad_cmd && !rv)
+		return PDS_BAD_CMD;
+	else
+		return rv;
 }
 
 static enum pds
@@ -195,8 +201,12 @@ sf_read_part(unsigned char buf[], unsigned buflen)
 		}
 		trace_ds("\n");
 		query_reply_start();
-		for (i = 0; i < NSR; i++)
-		      do_query_reply(supported_replies[i]);
+		for (i = 0; i < NSR; i++) {
+#if defined(X3270_DBCS) /*[*/
+			if (dbcs || supported_replies[i] != QR_DBCS_ASIA)
+#endif /*]*/
+				do_query_reply(supported_replies[i]);
+		}
  		query_reply_end();
 		break;
 	    case SF_RP_QLIST:
@@ -226,7 +236,12 @@ sf_read_part(unsigned char buf[], unsigned buflen)
 				for (i = 0; i < NSR; i++) {
 					if (memchr((char *)&buf[6],
 						   (char)supported_replies[i],
-						   buflen-6)) {
+						   buflen-6)
+#if defined(X3270_DBCS) /*[*/
+						   && (dbcs ||
+						       supported_replies[i] != QR_DBCS_ASIA)
+#endif /*]*/
+						   ) {
 						do_query_reply(supported_replies[i]);
 						any++;
 					}
@@ -244,12 +259,18 @@ sf_read_part(unsigned char buf[], unsigned buflen)
 			}
 			trace_ds(")\n");
 			for (i = 0; i < NSR; i++)
-				do_query_reply(supported_replies[i]);
+#if defined(X3270_DBCS) /*[*/
+				if (dbcs || supported_replies[i] != QR_DBCS_ASIA)
+#endif /*]*/
+					do_query_reply(supported_replies[i]);
 			break;
 		    case SF_RPQ_ALL:
 			trace_ds("All\n");
 			for (i = 0; i < NSR; i++)
-				do_query_reply(supported_replies[i]);
+#if defined(X3270_DBCS) /*[*/
+				if (dbcs || supported_replies[i] != QR_DBCS_ASIA)
+#endif /*]*/
+					do_query_reply(supported_replies[i]);
 			break;
 		    default:
 			trace_ds("unknown request type 0x%02x\n", buf[5]);
@@ -317,10 +338,6 @@ static enum pds
 sf_set_reply_mode(unsigned char buf[], int buflen)
 {
 	unsigned char partition;
-#if 0
-	int i;
-	const char *comma = "(";
-#endif
 
 	if (buflen < 5) {
 		trace_ds(" error: wrong field length %d\n", buflen);
@@ -348,18 +365,6 @@ sf_set_reply_mode(unsigned char buf[], int buflen)
 		trace_ds(" unknown mode 0x%02x\n", buf[4]);
 		return PDS_BAD_CMD;
 	}
-#if 0
-	reply_mode = buf[4];
-	if (buf[4] == SF_SRM_CHAR) {
-		crm_nattr = buflen - 5;
-		for (i = 5; i < buflen; i++) {
-			crm_attr[i - 5] = buf[i];
-			trace_ds("%s%s", comma, see_efa_only(buf[i]));
-			comma = ",";
-		}
-		trace_ds("%s\n", crm_nattr ? ")" : "");
-	}
-#endif
 	return PDS_OKAY_NO_OUTPUT;
 }
 
@@ -441,32 +446,78 @@ do_query_reply(unsigned char code)
 
 	    case QR_CHARSETS:
 		trace_ds("> QueryReply(CharacterSets)\n");
-		space3270out(23);
-		*obptr++ = 0x82;	/* flags: GE, CGCSGID present */
-		*obptr++ = 0x00;	/* more flags */
-		*obptr++ = /**char_width*/ 7;	/* SDW */
-		*obptr++ = /**char_height*/ 9;/* SDH */
-		*obptr++ = 0x00;	/* Load PS format types */
+		space3270out(64);
+#if defined(X3270_DBCS) /*[*/
+		if (dbcs)
+			*obptr++ = 0x8e;	/* flags: GE, CGCSGID, DBCS */
+		else
+#endif /*]*/
+			*obptr++ = 0x82;	/* flags: GE, CGCSGID present */
+		*obptr++ = 0x00;		/* more flags */
+		*obptr++ = char_width;		/* SDW */
+		*obptr++ = char_height;		/* SDW */
+		*obptr++ = 0x00;		/* no load PS */
 		*obptr++ = 0x00;
 		*obptr++ = 0x00;
 		*obptr++ = 0x00;
-		*obptr++ = 0x07;	/* DL */
-		*obptr++ = 0x00;	/* SET 0: */
-		*obptr++ = 0x10;	/*  FLAGS: non-loadable, single-plane,
+#if defined(X3270_DBCS) /*[*/
+		if (dbcs)
+			*obptr++ = 0x0b;	/* DL (11 bytes) */
+		else
+#endif /*]*/
+			*obptr++ = 0x07;	/* DL (7 bytes) */
+
+		*obptr++ = 0x00;		/* SET 0: */
+#if defined(X3270_DBCS) /*[*/
+		if (dbcs)
+			*obptr++ = 0x00;	/*  FLAGS: non-load, single-
+						    plane, single-bute */
+		else
+#endif /*]*/
+			*obptr++ = 0x10;	/*  FLAGS: non-loadable,
+						    single-plane, single-byte,
+						    no compare */
+		*obptr++ = 0x00;		/*  LCID 0 */
+#if defined(X3270_DBCS) /*[*/
+		if (dbcs) {
+			*obptr++ = 0x00;	/*  SW 0 */
+			*obptr++ = 0x00;	/*  SH 0 */
+			*obptr++ = 0x00;	/*  SUBSN */
+			*obptr++ = 0x00;	/*  SUBSN */
+		}
+#endif /*]*/
+		SET32(obptr, cgcsgid);		/*  CGCSGID */
+		if (!standard_font) {
+			/* special 3270 font, includes APL */
+			*obptr++ = 0x01;/* SET 1: */
+			*obptr++ = 0x10;/*  FLAGS: non-loadable, single-plane,
 					     single-byte, no compare */
-		*obptr++ = 0x00;	/*  LCID */
-		*obptr++ = 0x00;	/*  CGCSGID: international */
-		*obptr++ = 0x67;
-		*obptr++ = 0x00;
-		*obptr++ = 0x26;
-		*obptr++ = 0x01;	/* SET 1: */
-		*obptr++ = 0x00;	/*  FLAGS: non-loadable, single-plane,
-					     single-byte, no compare */
-		*obptr++ = 0xf1;	/*  LCID */
-		*obptr++ = 0x03;	/*  CGCSGID: 3179-style APL2 */
-		*obptr++ = 0xc3;
-		*obptr++ = 0x01;
-		*obptr++ = 0x36;
+			*obptr++ = 0xf1;/*  LCID */
+#if defined(X3270_DBCS) /*[*/
+			if (dbcs) {
+				*obptr++ = 0x00;/*  SW 0 */
+				*obptr++ = 0x00;/*  SH 0 */
+				*obptr++ = 0x00;/*  SUBSN */
+				*obptr++ = 0x00;/*  SUBSN */
+			}
+#endif /*]*/
+			*obptr++ = 0x03;/*  CGCSGID: 3179-style APL2 */
+			*obptr++ = 0xc3;
+			*obptr++ = 0x01;
+			*obptr++ = 0x36;
+		}
+#if defined(X3270_DBCS) /*[*/
+		if (dbcs) {
+			*obptr++ = 0x80;	/* SET 0x80: */
+			*obptr++ = 0x20;	/*  FLAGS: DBCS */
+			*obptr++ = 0xf8;	/*  LCID: 0xf8 */
+			*obptr++ = char_width * 2; /* SW */
+			*obptr++ = char_height; /* SH */
+			*obptr++ = 0x41;	/*  SUBSN */
+			*obptr++ = 0x7f;	/*  SUBSN */
+			SET32(obptr, cgcsgid_dbcs); /* CGCSGID */
+		}
+#endif /*]*/
 		break;
 
 	    case QR_IMP_PART:
@@ -477,10 +528,10 @@ do_query_reply(unsigned char code)
 		*obptr++ = 0x0b;	/* length of display size */
 		*obptr++ = 0x01;	/* "implicit partition size" */
 		*obptr++ = 0x00;	/* reserved */
-		SET16(obptr, /*80*/72);	/* implicit partition width */
-		SET16(obptr, /*24*/66);	/* implicit partition height */
-		SET16(obptr, /*maxCOLS*/72);	/* alternate height */
-		SET16(obptr, /*maxROWS*/66);	/* alternate width */
+		SET16(obptr, 72);	/* implicit partition width */
+		SET16(obptr, 66);	/* implicit partition height */
+		SET16(obptr, maxCOLS);	/* alternate height */
+		SET16(obptr, maxROWS);	/* alternate width */
 		break;
 
 	    case QR_NULL:
@@ -491,10 +542,16 @@ do_query_reply(unsigned char code)
 		trace_ds("> QueryReply(Summary(");
 		space3270out(NSR);
 		for (i = 0; i < NSR; i++) {
-			trace_ds("%s%s", comma,
-			    see_qcode(supported_replies[i]));
-			comma = ",";
-			*obptr++ = supported_replies[i];
+#if defined(X3270_DBCS) /*[*/
+			if (dbcs || supported_replies[i] != QR_DBCS_ASIA) {
+#endif /*]*/
+				trace_ds("%s%s", comma,
+				    see_qcode(supported_replies[i]));
+				comma = ",";
+				*obptr++ = supported_replies[i];
+#if defined(X3270_DBCS) /*[*/
+			}
+#endif /*]*/
 		}
 		trace_ds("))\n");
 		break;
@@ -504,8 +561,8 @@ do_query_reply(unsigned char code)
 		space3270out(19);
 		*obptr++ = 0x01;	/* 12/14-bit addressing */
 		*obptr++ = 0x00;	/* no special character features */
-		SET16(obptr, /*maxCOLS*/72);	/* usable width */
-		SET16(obptr, /*maxROWS*/80);	/* usable height */
+		SET16(obptr, maxCOLS);	/* usable width */
+		SET16(obptr, maxROWS);	/* usable height */
 		*obptr++ = 0x01;	/* units (mm) */
 		num = /*display_widthMM()*/ 8*5/4;
 		denom = /*display_width()*/ 7 * 72;
@@ -523,8 +580,8 @@ do_query_reply(unsigned char code)
 		}
 		SET16(obptr, (int)num);	/* Yr numerator */
 		SET16(obptr, (int)denom); /* Yr denominator */
-		*obptr++ = /**char_width*/7;	/* AW */
-		*obptr++ = /**char_height*/9;/* AH */
+		*obptr++ = char_width;	/* AW */
+		*obptr++ = char_height;	/* AH */
 		SET16(obptr, 0);	/* buffer */
 		break;
 
@@ -565,11 +622,26 @@ do_query_reply(unsigned char code)
 		*obptr++ = SF_SRM_CHAR;
 		break;
 
+#if defined(X3270_DBCS) /*[*/
+	    case QR_DBCS_ASIA:
+		/* XXX: Should we support this, even when not in DBCS mode? */
+		trace_ds("> QueryReply(DbcsAsia)\n");
+		space3270out(7);
+		*obptr++ = 0x00;	/* flags (none) */
+		*obptr++ = 0x03;	/* field length 3 */
+		*obptr++ = 0x01;	/* SI/SO supported */
+		*obptr++ = 0x80;	/* character set ID 0x80 */
+		*obptr++ = 0x03;	/* field length 3 */
+		*obptr++ = 0x02;	/* input control */
+		*obptr++ = 0x01;	/* creation supported */
+		break;
+#endif /*]*/
+
 	    case QR_ALPHA_PART:
 		trace_ds("> QueryReply(AlphanumericPartitions)\n");
 		space3270out(4);
 		*obptr++ = 0;		/* 1 partition */
-		SET16(obptr, /*maxROWS*maxCOLS*/72*66);	/* buffer space */
+		SET16(obptr, maxROWS*maxCOLS);	/* buffer space */
 		*obptr++ = 0;		/* no special features */
 		break;
 

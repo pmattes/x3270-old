@@ -23,6 +23,8 @@
 #include <ctype.h>
 #include <stdlib.h>
 
+#include "widec.h"
+
 typedef struct {
 	const char *name;
 	unsigned char *map;
@@ -80,8 +82,16 @@ static cs_t cs[] = {
 	{ NULL, NULL }
 };
 
+unsigned long cgcsgid = 0x02b90025;
+unsigned long cgcsgid_dbcs = 0x02b90025;
+int dbcs = 0;
+
+char *encoding = CN;
+char *converters = CN;
+
 /*
  * Parse a remapping string (<ebc>=<iso>), and remap the specific EBCDIC code.
+ * Also understand the syntax "cgcsgid=<n>" for assigning a new CGCSGID.
  * Returns 0 for success, -1 for a parsing problem.
  */
 static int
@@ -90,6 +100,34 @@ remap_pair(const char *s)
 	unsigned long ebc, iso;
 	char *ptr;
 
+	if (!strncmp(s, "cgcsgid=", 8)) {
+		unsigned long c;
+
+		c = strtoul(s + 8, &ptr, 0);
+		if (c == 0 || *ptr != '\0')
+			return -1;
+		cgcsgid = c;
+		return 0;
+	}
+#if defined(X3270_DBCS) /*[*/
+	if (!strncmp(s, "cgcsgid_dbcs=", 13)) {
+		unsigned long c;
+
+		c = strtoul(s + 13, &ptr, 0);
+		if (c == 0 || *ptr != '\0')
+			return -1;
+		cgcsgid_dbcs = c;
+		return 0;
+	}
+	if (!strncmp(s, "encoding=", 9)) {
+		Replace(encoding, NewString((char *)s + 9));
+		return 0;
+	}
+	if (!strncmp(s, "converters=", 11)) {
+		Replace(converters, NewString((char *)s + 11));
+		return 0;
+	}
+#endif /*]*/
 	ebc = strtoul(s, &ptr, 0);
 	if (ptr == s || (ebc & ~0xff) || *ptr != '=')
 		return -1;
@@ -152,6 +190,13 @@ charset_init(const char *csname)
 			}
 		}
 		fclose(f);
+#if defined(X3270_DBCS) /*[*/
+		if (converters != CN) {
+			if (wide_init(converters, encoding) < 0)
+				return -1;
+			dbcs = 1;
+		}
+#endif /*]*/
 		return 0;
 	}
 
