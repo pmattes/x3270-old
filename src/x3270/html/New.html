@@ -108,3 +108,9 @@ Tomasetti).
 Avery).
 <LI>Removed use of sys_errlist[].
 </UL>
+<H2>Changes Since x3270 3.1.1.9</H2>
+<UL>
+<LI>Backed out the macro/script fix, which caused an infinite recursion loop
+and crash when String() was run from a macro.
+<LI>Changed the Attn() action to send TELNET IP.
+</UL>

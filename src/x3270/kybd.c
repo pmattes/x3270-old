@@ -479,26 +479,14 @@ Cardinal *num_params;
 	action_debug(Attn_action, event, params, num_params);
 	if (!IN_3270)
 		return;
-	if (kybdlock) {
-		enq_ta(Attn_action, CN, CN);
-		return;
-	}
-	if (appres.attn_lock) {
-		status_twait();
-		mcursor_waiting();
-		insert_mode(False);
-		kybdlock_set(KL_OIA_TWAIT | KL_OIA_LOCKED, "Attn_action");
-	}
-	net_break();
-	if (appres.attn_lock) {
-		ticking_start(False);
-		status_ctlr_done();
-	}
+	net_interrupt();
 }
 
 /*  
  * IAC IP, which works for 5250 System Request and interrupts the program
  * on an AS/400, even when the keyboard is locked.
+ *
+ * This is now the same as the Attn action.
  */
 /*ARGSUSED*/
 void

@@ -113,3 +113,9 @@ Changes Since x3270 3.1.1.8
    * Fixed a problem with macro/srcript interactions (fix submitted by Leon
      Avery).
    * Removed use of sys_errlist[].
+
+Changes Since x3270 3.1.1.9
+
+   * Backed out the macro/script fix, which caused an infinite recursion
+     loop and crash when String() was run from a macro.
+   * Changed the Attn() action to send TELNET IP.

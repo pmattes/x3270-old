@@ -745,7 +745,7 @@ Boolean is_login;
 		sms->is_login = True;
 	} else
 		sms->state = SS_INCOMPLETE;
-	if (sms_depth > 0)
+	if (sms_depth == 1)
 		sms_continue();
 }
 
@@ -769,7 +769,7 @@ Boolean is_hex;
 	} else
 		sms->state = SS_INCOMPLETE;
 	sms->is_hex = is_hex;
-	if (sms_depth > 0)
+	if (sms_depth == 1)
 		sms_continue();
 }
 
