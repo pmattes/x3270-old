@@ -44,7 +44,7 @@ LOCAL_LIBRARIES = $(XAWLIB) $(XMULIB) $(XTOOLLIB) $(XLIB)
         DEFINES = -DLIBX3270DIR=\"$(LIBX3270DIR)\"
 
 #ifdef HPArchitecture
-EXTRA_DEFINES = -D_HPUX_SOURCE
+HP_DEFINE = -D_HPUX_SOURCE
 #endif
 
 EXTRA_LIBRARIES = @LIBS@
@@ -90,13 +90,13 @@ fallbacks.c: mkfb X3270.xad
 mkfb: mkfb.c parts.h
 	$(CC) -o mkfb mkfb.c
 
-/*
- * To use a separate app-defaults file rather than compiling it into x3270,
- * uncomment the following three lines:
- */
-/* EXTRA_DEFINES = -DUSE_APP_DEFAULTS */
-/* InstallAppDefaults(X3270) */
-/* all:: X3270.ad */
+@DEFINE_UAD@
+#ifdef USE_APP_DEFAULTS
+AD_DEFINE = -DUSE_APP_DEFAULTS
+InstallAppDefaults(X3270)
+all:: X3270.ad
+#endif
+EXTRA_DEFINES = $(HP_DEFINE) $(AD_DEFINE)
 
 /* Rule for building pr3287. */
 all::

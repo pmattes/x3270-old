@@ -1060,7 +1060,7 @@ x3270.message.kmFromServer:			\ (expanded from '@server')
 !=============================================================================
 !
 ! App-defaults file version
-x3270.adVersion:		3.2.12
+x3270.adVersion:		3.2.14
 !
 ! Fonts
 #ifdef X3270_APL

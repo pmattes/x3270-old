@@ -418,8 +418,10 @@ host_connect(const char *n)
 	} else {
 		cstate = CONNECTED_INITIAL;
 		st_changed(ST_CONNECT, True);
+#if defined(X3270_DISPLAY) /*[*/
 		if (appres.reconnect && error_popup_visible())
 			popdown_an_error();
+#endif /*]*/
 	}
 
 	return 0;
@@ -514,8 +516,10 @@ host_connected(void)
 	cstate = CONNECTED_INITIAL;
 	st_changed(ST_CONNECT, True);
 
+#if defined(X3270_DISPLAY) /*[*/
 	if (appres.reconnect && error_popup_visible())
 		popdown_an_error();
+#endif /*]*/
 }
 
 /* Comparison function for the qsort. */

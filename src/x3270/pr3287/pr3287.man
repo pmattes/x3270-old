@@ -1,5 +1,5 @@
 '\" t
-.TH PR3287 1 "13 November 2000"
+.TH PR3287 1 "14 November 2000"
 .SH "NAME"
 pr3287 \-
 \s-1IBM\s+1
