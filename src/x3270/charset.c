@@ -52,6 +52,8 @@ Boolean charset_changed = False;
 unsigned long cgcsgid = DEFAULT_CGEN | DEFAULT_CSET;
 unsigned long cgcsgid_dbcs = 0L;
 char *default_display_charset = "3270cg-1a,3270cg-1,iso8859-1";
+char *converter_names;
+char *encoding;
 
 /* Statics. */
 static enum cs_result resource_charset(char *csname, char *cs, char *ftcs);
@@ -127,6 +129,30 @@ get_charset_def(const char *csname)
 	return get_fresource("%s.%s", ResCharset, csname);
 }
 
+#if defined(X3270_DBCS) /*[*/
+/*
+ * Initialize the DBCS conversion functions, based on resource values.
+ */
+static int
+wide_resource_init(char *csname)
+{
+	char *cn, *en;
+
+	cn = get_fresource("%s.%s", ResDbcsConverters, csname);
+	if (cn == CN)
+		return 0;
+
+	en = get_fresource("%s.%s", ResLocalEncoding, csname);
+	if (en == CN)
+		en = appres.local_encoding;
+	Replace(converter_names, cn);
+	Replace(encoding, en);
+
+	return wide_init(cn, en);
+
+}
+#endif /*]*/
+
 /*
  * Change character sets.
  */
@@ -190,7 +216,7 @@ charset_init(char *csname)
 	if (rc != CS_OKAY)
 		restore_charset();
 #if defined(X3270_DBCS) /*[*/
-	else if (wide_init(csname) < 0) {
+	else if (wide_resource_init(csname) < 0) {
 		restore_charset();
 		return CS_NOTFOUND;
 	}
@@ -538,6 +564,22 @@ remap_chars(char *csname, char *spec, remap_scope scope, int *ne)
 		if (ebc != 256) {
 			popup_an_error("Charset has %d entries, need 256", ebc);
 			rc = CS_BAD;
+		} else {
+			/*
+			 * The entire EBCDIC-to-ASCII mapping has been defined.
+			 * Make sure that any printable ASCII character that
+			 * doesn't now map back onto itself is mapped onto an
+			 * EBCDIC NUL.
+			 */
+			int i;
+
+			for (i = 0; i < 256; i++) {
+				if ((i & 0x7f) > 0x20 && i != 0x7f &&
+						asc2ebc[i] != 0 &&
+						ebc2asc[asc2ebc[i]] != i) {
+					asc2ebc[i] = 0;
+				}
+			}
 		}
 	} else {
 		while ((ns = split_dresource(&s, &ebcs, &isos))) {

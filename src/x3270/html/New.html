@@ -28,6 +28,40 @@ of the 3270 display.
 This required changing all of the logic that manipulates
 field attributes, as well as the logic that translates the host output, keyboard
 input, and X11 display output.</p>
+<h2>Changes in x3270 3.3.3, 22. May 2004</h2>
+<ul>
+  <li>Bug Fixes:
+    <ul>
+      <li>Fixed the <b>Transfer()</b> action, which didn't work at all.</li>
+       <b>xim</b>.</li>
+      <li>Fixed the default primary/alternate screen size (it was alternate,
+       it's supposed to be primary).</li>
+      <li>Fixed c3270 color support with ncurses and 80/132 screen-size
+       switching.
+       Sometimes only one of the screen sizes had color.</li>
+      <li>Fixed a memory leak in pr3287 when the <b>-reconnect</b> option
+       is used. (<i>Thanks to Marcelo Lemos for the fix.</i>)</li>
+       <li>Fixed the output of NVT-mode ANSI line-drawing characters in the
+        <b>Ascii()</b> scripting action.
+	 These were formerly all output as blanks; now they are output in
+	 the same was as x3270 3.2.</li>
+	<li>Fixed the display of NVT-mode ANSI line-drawing characters when
+	 x3270 is using a 3270 font.</li>
+	<li>Fixed the display of DBCS blanks, which sometimes displayed as
+	 'undefined' characters.</li>
+    </ul>
+  </li>
+  <li>New Features:
+    <ul>
+     <li>Added support for <i>dead</i> keys (acute, grave, circumflex, tilde,
+      diaeresis) to the default keymap, and improved the Latin-1 compose
+      map. (<i>Thanks to Marcelo Lemos for the change.</i>)</li>
+     <li>Added new actions for improved mouse interactions, and made them the
+      default.  Button 1 now moves the cursor, without the Shift key.</li>
+     <li>Added support for DBCS in pr3287.</li>
+    </ul>
+  </li>
+</ul>
 <h2>Changes in x3270 3.3.2, 1. December 2003</h2>
 <ul>
   <li>Bug Fixes:

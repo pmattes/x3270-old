@@ -150,6 +150,7 @@ extern int		maxCOLS;
 extern int		maxROWS;
 extern char		*model_name;
 extern int		model_num;
+extern Boolean		no_login_host;
 extern Boolean		non_tn3270e_host;
 extern int		ov_cols, ov_rows;
 extern Boolean		passthru_host;

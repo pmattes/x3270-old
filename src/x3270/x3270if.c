@@ -37,6 +37,9 @@
 
 #define IBS	1024
 
+#define NO_STATUS	(-1)
+#define ALL_FIELDS	(-2)
+
 extern int optind;
 extern char *optarg;
 
@@ -51,9 +54,8 @@ static void
 usage(void)
 {
 	(void) fprintf(stderr, "\
-usage: %s [-v] action[(param[,...])]\n\
-       %s [-v] -s field\n\
-       %s -i\n", me, me, me);
+usage: %s [-v] [-S] [-s field] [action[(param[,...])]]\n\
+       %s -i\n", me, me);
 	exit(2);
 }
 
@@ -83,7 +85,7 @@ int
 main(int argc, char *argv[])
 {
 	int c;
-	int fn = -1;
+	int fn = NO_STATUS;
 	char *ptr;
 	int iterative = 0;
 
@@ -94,15 +96,15 @@ main(int argc, char *argv[])
 		me = argv[0];
 
 	/* Parse options. */
-	while ((c = getopt(argc, argv, "is:v")) != -1) {
+	while ((c = getopt(argc, argv, "is:Sv")) != -1) {
 		switch (c) {
 		    case 'i':
-			if (fn != -1)
+			if (fn >= 0)
 				usage();
 			iterative++;
 			break;
 		    case 's':
-			if (fn != -1 || iterative)
+			if (fn >= 0 || iterative)
 				usage();
 			fn = (int)strtol(optarg, &ptr, 0);
 			if (ptr == optarg || *ptr != '\0' || fn < 0) {
@@ -111,6 +113,11 @@ main(int argc, char *argv[])
 				    optarg);
 				usage();
 			}
+			break;
+		    case 'S':
+			if (fn >= 0 || iterative)
+				usage();
+			fn = ALL_FIELDS;
 			break;
 		    case 'v':
 			verbose++;
@@ -122,11 +129,13 @@ main(int argc, char *argv[])
 	}
 
 	/* Validate positional arguments. */
-	if (fn != -1 || iterative) {
-		if (optind != argc)
+	if (optind == argc) {
+		/* No positional arguments. */
+		if (fn == NO_STATUS && !iterative)
 			usage();
 	} else {
-		if (optind != argc - 1)
+		/* Got positional arguments. */
+		if (iterative)
 			usage();
 	}
 
@@ -163,14 +172,14 @@ single_io(int fn, char *cmd)
 	}
 
 	/* Speak to x3270. */
-	if (fprintf(outf, "%s\n", (fn == -1)? cmd: "") < 0 ||
+	if (fprintf(outf, "%s\n", (cmd != NULL)? cmd: "") < 0 ||
 	    fflush(outf) < 0) {
 		perror("x3270if: printf");
 		exit(2);
 	}
 	if (verbose)
 		(void) fprintf(stderr, "i+ out %s\n",
-		    (fn == -1) ? cmd : "");
+		    (cmd != NULL) ? cmd : "");
 
 	/* Get the answer. */
 	while (fgets(buf, IBS, inf) != (char *)NULL) {
@@ -213,17 +222,23 @@ single_io(int fn, char *cmd)
 	}
 
 	/* Print status, if that's what they want. */
-	if (fn != -1) {
+	if (fn != NO_STATUS) {
 		char *sf = (char *)NULL;
 		char *sb = status;
+		int rc;
 
-		do {
-			if (!fn--)
-				break;
-			sf = strtok(sb, " \t");
-			sb = (char *)NULL;
-		} while (sf != (char *)NULL);
-		if (printf("%s\n", (sf != (char *)NULL) ? sf : "") < 0) {
+		if (fn == ALL_FIELDS) {
+			rc = printf("%s\n", status);
+		} else {
+			do {
+				if (!fn--)
+					break;
+				sf = strtok(sb, " \t");
+				sb = (char *)NULL;
+			} while (sf != (char *)NULL);
+			rc = printf("%s\n", (sf != (char *)NULL) ? sf : "");
+		}
+		if (rc < 0) {
 			perror("x3270if: printf");
 			exit(2);
 		}

@@ -1,5 +1,5 @@
 '\" t
-.TH x3270 1 "29 November 2003"
+.TH x3270 1 "22 May 2004"
 .SH "NAME"
 x3270 \-
 \s-1IBM\s+1 host access tool
@@ -2181,6 +2181,8 @@ Other actions are defined for use by scripts and are documented in
 \fIx3270-script\fP(1);
 still others are defined for internal use by \fBx3270\fP
 and are not documented here.
+Note that when an action with no parameters is used in a keymap, the
+parentheses and empty argument list are still required.
 .PP
 Actions marked with an asterisk (*) may block, sending data to the host and
 possibly waiting for a response.
@@ -5739,4 +5741,4 @@ x3270 is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
 .SH "VERSION"
-x3270 3.3.2
+x3270 3.3.3alpha1

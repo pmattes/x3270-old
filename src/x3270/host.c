@@ -33,6 +33,8 @@
 #include "utilc.h"
 #include "xioc.h"
 
+#include <errno.h>
+
 #define RECONNECT_MS		2000	/* 2 sec before reconnecting to host */
 #define RECONNECT_ERR_MS	5000	/* 5 sec before reconnecting to host */
 
@@ -40,6 +42,7 @@
 
 enum cstate	cstate = NOT_CONNECTED;
 Boolean		std_ds_host = False;
+Boolean		no_login_host = False;
 Boolean		non_tn3270e_host = False;
 Boolean		passthru_host = False;
 Boolean		ssl_host = False;
@@ -96,15 +99,18 @@ hostfile_init(void)
 	char buf[1024];
 	static Boolean hostfile_initted = False;
 	struct host *h;
+	char *hostfile_name;
 
 	if (hostfile_initted)
 		return;
-	else
-		hostfile_initted = True;
 
-	if (appres.hostsfile == CN)
-		appres.hostsfile = xs_buffer("%s/ibm_hosts", appres.conf_dir);
-	hf = fopen(appres.hostsfile, "r");
+	hostfile_initted = True;
+	hostfile_name = appres.hostsfile;
+	if (hostfile_name == CN)
+		hostfile_name = xs_buffer("%s/ibm_hosts", appres.conf_dir);
+	else
+		hostfile_name = do_subst(appres.hostsfile, True, True);
+	hf = fopen(hostfile_name, "r");
 	if (hf != (FILE *)NULL) {
 		while (fgets(buf, sizeof(buf), hf)) {
 			char *s = buf;
@@ -159,7 +165,11 @@ hostfile_init(void)
 			last_host = h;
 		}
 		(void) fclose(hf);
+	} else if (appres.hostsfile != CN) {
+		popup_an_errno(errno, "Cannot open " ResHostsFile " '%s'",
+				appres.hostsfile);
 	}
+	Free(hostfile_name);
 
 	/*
 	 * Read the recent-connection file, and prepend it to the hosts list.
@@ -221,10 +231,13 @@ parse_localprocess(const char *s)
  */
 static char *
 split_host(char *s, Boolean *ansi, Boolean *std_ds, Boolean *passthru,
-	Boolean *non_e, Boolean *secure, char *xluname, char **port,
-	Boolean *needed)
+	Boolean *non_e, Boolean *secure, Boolean *no_login, char *xluname,
+	char **port, Boolean *needed)
 {
 	char *lbracket = CN;
+	char *at = CN;
+	char *r = NULL;
+	Boolean colon = False;
 
 	*ansi = False;
 	*std_ds = False;
@@ -237,131 +250,220 @@ split_host(char *s, Boolean *ansi, Boolean *std_ds, Boolean *passthru,
 	*needed = False;
 
 	/*
-	 * The hostname may be in square brackets, to clearly delimit prefixes
-	 * and suffixes, and to prevent colons in the hostname (IPv6) from
-	 * being interpreted as delimiters.
+	 * Hostname syntax is:
+	 *  Zero or more optional prefixes (A:, S:, P:, N:, L:, C:).
+	 *  An optional LU name separated by '@'.
+	 *  A hostname optionally in square brackets (which quote any colons
+	 *   in the name).
+	 *  An optional port name or number separated from the hostname by a
+	 *  space or colon.
+	 * No additional white space or colons are allowed.
 	 */
-	lbracket = strchr(s, '[');
-	if (lbracket != CN) {
-		char *rbracket = strchr(lbracket + 1, ']');
 
-		if (rbracket == CN || rbracket == lbracket + 1)
-			return CN;
+	/* Strip leading whitespace. */
+	while (*s && isspace(*s))
+		s++;
+	if (!*s) {
+		popup_an_error("Empty hostname");
+		goto split_fail;
 	}
 
-	for (;;) {
-		char *at;
+	/* Strip trailing whitespace. */
+	while (isspace(*(s + strlen(s) - 1)))
+		*(s + strlen(s) - 1) = '\0';
 
-		if (!strncasecmp(s, "a:", 2)) {
+	/* Start with the prefixes. */
+	while (*s && *(s + 1) && isalpha(*s) && *(s + 1) == ':') {
+		switch (*s) {
+		case 'a':
+		case 'A':
 			*ansi = True;
-			s += 2;
-			*needed = True;
-			continue;
-		}
-		if (!strncasecmp(s, "s:", 2)) {
+			break;
+		case 's':
+		case 'S':
 			*std_ds = True;
-			s += 2;
-			*needed = True;
-			continue;
-		}
-		if (!strncasecmp(s, "p:", 2)) {
+			break;
+		case 'p':
+		case 'P':
 			*passthru = True;
-			s += 2;
-			*needed = True;
-			continue;
-		}
-		if (!strncasecmp(s, "n:", 2)) {
+			break;
+		case 'n':
+		case 'N':
 			*non_e = True;
-			s += 2;
-			*needed = True;
-			continue;
-		}
+			break;
 #if defined(HAVE_LIBSSL) /*[*/
-		if (!strncasecmp(s, "l:", 2)) {
+		case 'l':
+		case 'L':
 			*secure = True;
-			s += 2;
-			*needed = True;
-			continue;
-		}
+			break;
 #endif /*]*/
-		if ((at = strchr(s, '@')) != NULL) {
-			if (at != s) {
-				int nc = at - s;
-		
-				if (nc > LUNAME_SIZE)
-					nc = LUNAME_SIZE;
-				(void) strncpy(xluname, s, nc);
-				xluname[nc] = '\0';
-			}
-			s = at + 1;
-			*needed = True;
-			continue;
+		case 'c':
+		case 'C':
+			*no_login = True;
+			break;
+		default:
+			popup_an_error("Hostname syntax error:\n"
+					"Option '%c:' not supported", *s);
+			goto split_fail;
 		}
+		*needed = True;
+		s += 2;
 
-		break;
+		/* Allow whitespace around the prefixes. */
+		while (*s && isspace(*s))
+			s++;
 	}
-	if (*s) {
-		char *r;
-		char *sep;
 
-		/*
-		 * If the hostname is in square brackets, we had better be
-		 * pointing at it now.
-		 */
-		if (lbracket != CN) {
-			if (s != lbracket)
-				return CN;
-			else
-				s++;
+	/* Process the LU name. */
+	lbracket = strchr(s, '[');
+	at = strchr(s, '@');
+	if (at != CN && lbracket != CN && at > lbracket)
+		at = CN;
+	if (at != CN) {
+		char *t;
+		char *lu_last = at - 1;
+
+		if (at == s) {
+			popup_an_error("Hostname syntax error:\n"
+					"Empty LU name");
+			goto split_fail;
 		}
+		while (lu_last < s && isspace(*lu_last))
+			lu_last--;
+		for (t = s; t <= lu_last; t++) {
+			if (isspace(*t)) {
+				char *u = t + 1;
 
-		/* Allocate a new copy of the hostname. */
-		r = NewString(s);
-
-		/*
-		 * If the hostname is in square brackets, terminate the
-		 * hostname at the ']' and search the suffix after.
-		 */
-		if (lbracket != CN) {
-			sep = strchr(r, ']');
-			*sep++ = '\0';
-			switch (*sep) {
-			case '\0':
-				return r;
-			case ' ':
-			case ':':
+				while (isspace(*u))
+					u++;
+				if (*u != '@') {
+					popup_an_error("Hostname syntax "
+							"error:\n"
+							"Space in LU name");
+					goto split_fail;
+				}
 				break;
-			default:
-				Free(r);
-				return CN;
 			}
-			sep++;
-			while (*sep == ' ') {
-				sep++;
+			if (t - s < LUNAME_SIZE) {
+				xluname[t - s] = *t;
 			}
-			*port = sep;
-			return r;
+		}
+		xluname[t - s] = '\0';
+		s = at + 1;
+		while (*s && isspace(*s))
+			s++;
+		*needed = True;
+	}
+
+	/*
+	 * Isolate the hostname.
+	 * At this point, we've found its start, so we can malloc the buffer
+	 * that will hold the copy.
+	 */
+	if (lbracket != CN) {
+		char *rbracket;
+
+		/* Check for junk before the '['. */
+		if (lbracket != s) {
+			popup_an_error("Hostname syntax error:\n"
+					"Text before '['");
+			goto split_fail;
 		}
 
-		/* Search for a delimter. */
-		sep = strrchr(r, ':');
-		if (sep == NULL)
-			sep = strrchr(r, ' ');
-		else if (strrchr(r, ' ') != NULL) {
-			Free(r);
-			return CN;
+		s = r = NewString(lbracket + 1);
+
+		/*
+		 * Take whatever is inside square brackets, including
+		 * whitespace, unmodified -- except for empty strings.
+		 */
+		rbracket = strchr(s, ']');
+		if (rbracket == CN) {
+			popup_an_error("Hostname syntax error:\n"
+					"Missing ']'");
+			goto split_fail;
 		}
-		if (sep != CN) {
-			*sep++ = '\0';
-			while (*sep == ' ')
-				sep++;
-			*needed = True;
+		if (rbracket == s) {
+			popup_an_error("Empty hostname");
+			goto split_fail;
 		}
-		if (port != (char **) NULL)
-			*port = sep;
-		return r;
-	} else
-		return CN;
+		*rbracket = '\0';
+
+		/* Skip over any whitespace after the bracketed name. */
+		s = rbracket + 1;
+		while (*s && isspace(*s))
+			s++;
+		if (!*s)
+			goto split_success;
+		colon = (*s == ':');
+	} else {
+		char *name_end;
+
+		/* Check for an empty string. */
+		if (!*s || *s == ':') {
+			popup_an_error("Empty hostname");
+			goto split_fail;
+		}
+
+		s = r = NewString(s);
+
+		/* Find the end of the hostname. */
+		while (*s && !isspace(*s) && *s != ':')
+			s++;
+		name_end = s;
+
+		/* If the terminator is whitespace, skip the rest of it. */
+		while (*s && isspace(*s))
+			s++;
+
+		/*
+		 * If there's nothing but whitespace (or nothing) after the
+		 * name, we're done.
+		 */
+		if (*s == '\0') {
+			*name_end = '\0';
+			goto split_success;
+		}
+		colon = (*s == ':');
+		*name_end = '\0';
+	}
+
+	/*
+	 * If 'colon' is set, 's' points at it (or where it was).  Skip
+	 * it and any whitespace that follows.
+	 */
+	if (colon) {
+		s++;
+		while (*s && isspace(*s))
+			s++;
+		if (!*s) {
+			popup_an_error("Hostname syntax error:\n"
+					"Empty port name");
+			goto split_fail;
+		}
+	}
+
+	/*
+	 * Set the portname and find its end.
+	 * Note that trailing spaces were already stripped, so the end of the
+	 * portname must be a NULL.
+	 */
+	*port = s;
+	*needed = True;
+	while (*s && !isspace(*s) && *s != ':')
+		s++;
+	if (*s != '\0') {
+		popup_an_error("Hostname syntax error:\n"
+				"Multiple port names");
+		goto split_fail;
+	}
+	goto split_success;
+
+split_fail:
+	Free(r);
+	r = CN;
+
+split_success:
+	return r;
 }
 
 
@@ -422,7 +524,8 @@ host_connect(const char *n)
 
 		/* Strip off and remember leading qualifiers. */
 		if ((s = split_host(nb, &ansi_host, &std_ds_host,
-		    &passthru_host, &non_tn3270e_host, &ssl_host, luname, &port,
+		    &passthru_host, &non_tn3270e_host, &ssl_host,
+		    &no_login_host, luname, &port,
 		    &needed)) == CN)
 			return -1;
 
@@ -436,7 +539,8 @@ host_connect(const char *n)
 			Free(s);
 			if (!(s = split_host(target_name, &ansi_host,
 			    &std_ds_host, &passthru_host, &non_tn3270e_host,
-			    &ssl_host, luname, &port, &needed)))
+			    &ssl_host, &no_login_host, luname, &port,
+			    &needed)))
 				return -1;
 		}
 		chost = s;

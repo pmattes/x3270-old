@@ -125,6 +125,7 @@ x3270.charsetList:			U.S. English (CP 37): us-intl\n\
 					Brazilian (CP 275): brazilian\n\
 #ifdef X3270_DBCS
 					Chinese Simplified (CP 836+837): simplified-chinese\n\
+					Chinese GB 18030 (CP 836+837): chinese-gb18030\n\
 #endif
 					Finnish (CP 278): finnish\n\
 					French (CP 297): french\n\
@@ -305,14 +306,14 @@ x3270.keymap.base: \
 	Ctrl<Btn1Down>:			HandleMenu(fileMenu)\n\
 	Ctrl<Btn2Down>:			HandleMenu(optionsMenu)\n\
 	Ctrl<Btn3Down>:			HandleMenu(hostMenu,macrosMenu)\n\
-	<Btn1Down>:			select-start()\n\
-	~Shift<Btn1Motion>:		select-extend()\n\
+	<Btn1Down>:			SelectDown()\n\
+	~Shift<Btn1Motion>:		SelectMotion()\n\
 	<Btn2Down>:			ignore()\n\
 	<Btn2Motion>:			ignore()\n\
 	<Btn2Up>:			insert-selection(PRIMARY)\n\
 	<Btn3Down>:			start-extend()\n\
 	<Btn3Motion>:			select-extend()\n\
-	~Shift<BtnUp>:			select-end(PRIMARY)\n\
+	~Shift<BtnUp>:			SelectUp(PRIMARY)\n\
 	Shift<Key>Up:			KybdSelect(Up,PRIMARY)\n\
 	Shift<Key>Down:			KybdSelect(Down,PRIMARY)\n\
 	Shift<Key>Left:			KybdSelect(Left,PRIMARY)\n\
@@ -354,7 +355,12 @@ x3270.keymap.base: \
 	:<Key>F11:			PF(11)\n\
 	:<Key>F12:			PF(12)\n\
 	:<Key>Print:			PrintText()\n\
-	Alt<Key>q:			Quit()\n
+	Alt<Key>q:			Quit()\n\
+	:<Key>dead_acute:		Compose() Key(apostrophe)\n\
+	:<Key>dead_grave:	 	Compose() Key(grave)\n\
+        :<Key>dead_circumflex:          Compose() Key(asciicircum)\n\
+	:<Key>dead_tilde:	        Compose() Key(asciitilde)\n\
+	:<Key>dead_diaeresis:	        Compose() Key(quotedbl)\n
 !
 ! Base keymap for 3270 mode.  These mappings are added to the base keymap,
 ! but only when in 3270 mode.
@@ -1621,6 +1627,7 @@ x3270.composeMap.latin1: \
 	A + asterisk	= Aring			\n\
 	A + E		= AE			\n\
 	C + comma	= Ccedilla		\n\
+	C + apostrophe	= Ccedilla		\n\
 	E + grave	= Egrave		\n\
 	E + apostrophe	= Eacute		\n\
 	E + asciicircum	= Ecircumflex		\n\
@@ -1650,6 +1657,7 @@ x3270.composeMap.latin1: \
 	a + asterisk	= aring			\n\
 	a + e		= ae			\n\
 	c + comma	= ccedilla		\n\
+	c + apostrophe	= ccedilla		\n\
 	e + grave	= egrave		\n\
 	e + apostrophe	= eacute		\n\
 	e + asciicircum	= ecircumflex		\n\
@@ -1670,7 +1678,17 @@ x3270.composeMap.latin1: \
 	u + asciicircum	= ucircumflex		\n\
 	u + quotedbl	= udiaeresis		\n\
 	y + apostrophe	= yacute		\n\
-	y + quotedbl	= ydiaeresis		\n
+	y + quotedbl	= ydiaeresis		\n\
+	apostrophe + apostrophe  = apostrophe	\n\
+	apostrophe + space = apostrophe		\n\
+	asciicircum + asciicircum = asciicircum	\n\
+	asciicircum + space = asciicircum	\n\
+	asciitilde + asciitilde  = asciitilde	\n\
+	asciitilde + space = asciitilde		\n\
+	grave + grave   = grave			\n\
+	grave + space   = grave			\n\
+	quotedbl + quotedbl = quotedbl		\n\
+	quotedbl + space = quotedbl		\n
 #ifndef STANDALONE
 #ifdef X3270_APL
 !
@@ -1933,14 +1951,23 @@ x3270.charset.turkish: \
 x3270.codepage.turkish: 0x04800402
 x3270.displayCharset.turkish: iso8859-9
 ! Hebrew, uses standard ISO 8859-8 fonts
-x3270.charset.hebrew: \
- 0x41: 0xe0\n 0x42: 0xe1\n 0x43: 0xe2\n 0x44: 0xe3\n\
- 0x45: 0xe4\n 0x46: 0xe5\n 0x47: 0xe6\n 0x48: 0xe7\n\
- 0x49: 0xe8\n 0x51: 0xe9\n 0x52: 0xea\n 0x53: 0xea\n\
- 0x54: 0xec\n 0x55: 0xec\n 0x56: 0xee\n 0x57: 0xef\n\
- 0x58: 0xf0\n 0x59: 0xf1\n 0x62: 0xf2\n 0x63: 0xf3\n\
- 0x64: 0xf4\n 0x65: 0xf5\n 0x66: 0xf6\n 0x67: 0xf7\n\
- 0x68: 0xf8\n 0x69: 0xf9\n 0x71: 0xfa
+x3270.charset.hebrew: #table\n\
+  0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0 \
+  0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0 \
+  0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0 \
+  0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0 \
+ 32 224 225 226 227 228 229 230 231 232 162  46  60  40  43 124 \
+ 38 233 234 235 236 237 238 239 240 241  33  36  42  41  59 172 \
+ 45  47 242 243 244 245 246 247 248 249 166  44  37  95  62  63 \
+  0 250   0   0   0   0   0   0   0  96  58  35  64  39  61  34 \
+  0  97  98  99 100 101 102 103 104 105 171 187   0   0   0 177 \
+176 106 107 108 109 110 111 112 113 114   0   0   0 184   0 164 \
+181 126 115 116 117 118 119 120 121 122   0   0   0   0   0 174 \
+ 94 163 165 183 169 167 182 188 189 190  91  93 175 168 180 170 \
+123  65  66  67  68  69  70  71  72  73 173   0   0   0   0   0 \
+125  74  75  76  77  78  79  80  81  82 185   0   0   0   0   0 \
+ 92 186  83  84  85  86  87  88  89  90 178   0   0   0   0   0 \
+ 48  49  50  51  52  53  54  55  56  57 179   0   0   0   0 159
 ! This value is wrong, but I can't find a reference for the CGCSGID for
 ! Hebrew...
 x3270.codepage.hebrew: 424
@@ -1949,7 +1976,7 @@ x3270.emulatorFontList.3270cg-8,iso8859-8: Hebrew 14-point 3270 Font: 3270h
 ! Brazilian character set for x3270.
 ! With invaluable help from Ricardo Dias de Pinho - Rio de Janeiro(RJ) BRAZIL.
 x3270.codepage.brazilian: 275
-x3270.displayCharset.brazilian: iso8859-1
+x3270.displayCharset.brazilian: 3270cg-1a,3270cg-1,iso8859-1
 x3270.charset.brazilian: #table\n\
   0x00  0x00  0x00  0x00  0x00  0x00  0x00  0x00 \
   0x00  0x00  0x00  0x00  0x00  0x00  0x00  0x00 \
@@ -2091,6 +2118,27 @@ x3270.charset.simplified-chinese: #table\n\
 ! dbcsConverters are ICU converter names, of the form:
 !  [host-SBCS-converter+]host-DBCS-converter,display-font-converter
 x3270.dbcsConverters.simplified-chinese: ibm-837_P100-2000,gb2312-1980
+! Chinese, using GB18030 display fonts.
+x3270.codepage.chinese-gb18030: 0x04960344+0xffff0345
+x3270.displayCharset.chinese-gb18030: 3270cg-1a,3270cg-1,iso8859-1+gb18030.2000-1
+x3270.charset.chinese-gb18030: #table\n\
+   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0 \
+   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0 \
+   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0 \
+   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0 \
+  32   0   0   0   0   0   0   0   0   0 163  46  60  40  43 124 \
+  38   0   0   0   0   0   0   0   0   0  33 165  42  41  59 172 \
+  45  47   0   0   0   0   0   0   0   0 166  44  37  95  62  63 \
+   0   0   0   0   0   0   0   0   0  96  58  35  64  39  61  34 \
+   0  97  98  99 100 101 102 103 104 105   0   0   0   0   0   0 \
+   0 106 107 108 109 110 111 112 113 114   0   0   0   0   0   0 \
+ 126 175 115 116 117 118 119 120 121 122   0   0   0   0   0   0 \
+  94   0  92   0   0   0   0   0   0   0  91  93   0   0   0   0 \
+ 123  65  66  67  68  69  70  71  72  73   0   0   0   0   0   0 \
+ 125  74  75  76  77  78  79  80  81  82   0   0   0   0   0   0 \
+  36   0  83  84  85  86  87  88  89  90   0   0   0   0   0   0 \
+  48  49  50  51  52  53  54  55  56  57   0   0   0   0   0   0
+x3270.dbcsConverters.chinese-gb18030: ibm-837_P100-2000,gb18030
 ! Japanese.
 ! Note that the 'charset' definition applies only to the single-byte character
 ! set (1027), not the double-byte character set (300).

@@ -26,7 +26,15 @@ extern void KybdSelect_action(Widget w, XEvent *event, String *params,
 extern int mouse_baddr(Widget w, XEvent *e);
 extern void move_select_action(Widget w, XEvent *event, String *params,
     Cardinal *num_params);
+extern void SelectDown_action(Widget w, XEvent *event, String *params,
+    Cardinal *num_params);
 extern void reclass(char *s);
+extern void SelectDown_action(Widget w, XEvent *event, String *params,
+    Cardinal *num_params);
+extern void SelectMotion_action(Widget w, XEvent *event, String *params,
+    Cardinal *num_params);
+extern void SelectUp_action(Widget w, XEvent *event, String *params,
+    Cardinal *num_params);
 extern void select_end_action(Widget w, XEvent *event, String *params,
     Cardinal *num_params);
 extern void select_extend_action(Widget w, XEvent *event, String *params,

@@ -228,6 +228,11 @@ XtActionsRec all_actions[] = {
 	{ "Reset",		Reset_action },
 	{ "Right",		Right_action },
 	{ "Right2",		Right2_action },
+#if defined(X3270_DISPLAY) /*[*/
+	{ "SelectDown",		SelectDown_action },
+	{ "SelectMotion",	SelectMotion_action },
+	{ "SelectUp",		SelectUp_action },
+#endif /*]*/
 #if defined(X3270_SCRIPT) /*[*/
 	{ "Script",		Script_action },
 #endif /*]*/

@@ -1,29 +1,69 @@
 <html>
-<head>
-<title>x3270 Frequently Asked Questions</title>
-<link HREF="http://www.w3.org/StyleSheets/Core/Steely" TYPE="text/css" REL="stylesheet">
-</head>
-<body>
-<h1>x3270 Frequently Asked Questions</h1>
+ <head>
+ <title>x3270 Frequently Asked Questions</title>
+ <link HREF="http://www.w3.org/StyleSheets/Core/Steely" TYPE="text/css" REL="stylesheet">
+ </head>
+ <body>
+<h1>x3270, c3270, s3270, tcl3270 and pr3287 Frequently Asked Questions</h1>
 
-If you have a problem building, installing, or running <b>x3270</b>, please browse
-through this file first.
+If you have a problem building, installing, or running
+one of the programs in the <font color="#003366"><b>x3270</b></font> suite,
+please browse through this file first.
 
 <H2>General Questions</H2>
 
-<H3>Am I allowed to use it?</H3>
-
-    Yes.  Full copyright information is in the
-    <A HREF="Lineage.html">Lineage</A> file, but the gist
-    is that anyone is free to use the code, but not to sell it.  This was
-    not clear in earlier versions of <b>x3270</b>, but it is explicit here.
-<P>
-    You are also free to modify it and to distribute it, provided you include
-    the existing copyright notices, and don't profit from it.
-
 <H3>How do I change the keyboard mapping?</H3>
 
-    Look at the <A HREF="Keymap.html">Keymap</A> document.
+Look at the <A HREF="Keymap.html">x3270 Keymap</A> document or the
+<a href="c3270Keymap.html">c3270 Keymap</a> documents.
+
+<h3>Why can't I map the Alt, Ctrl or Shift keys in c3270?</h3>
+
+That's because <font color="#003366"><b>c3270</b></font> runs on dumb
+terminals, not on graphics displays.
+<p>
+c3270 can only respond to keys that generate input on a TTY device, and it can
+only respond differently to combinations of keys that generate different input
+on a TTY device.
+</p>
+<p>
+Most dumb terminals -- and that includes the Linux console -- do not generate
+any TTY input at all when the Alt, Ctrl or Shift keys are pressed.
+They generate input only when another key is pressed in combination with
+one of those keys.
+In addition, there is nothing in the input that indicates that the Alt or
+Shift key was pressed in combination with a key.
+The presence of the Ctrl key can be inferred by the ASCII code that is
+generated (the Ctrl key subtracts 0x20 from the ASCII value of the key without
+Ctrl).
+</p>
+<p>
+Furthermore, most terminals generate exactly the same TTY input for a given
+function key (F1..F12), whether or not Shift, Ctrl or Alt are pressed.
+This is complicated by the fact that the <i>curses</i> library, which is what
+<font color="#003366"><b>c3270</b></font> uses to do its I/O, does not even
+provide a way to convey such an event to
+<font color="#003366"><b>c3270</b></font> -- there is a "Function Key 1"
+event, but no "Shifted Function Key 1" event and no "Alt Function Key 1" event.
+</p>
+
+<h3>Is there a Windows version?</h3>
+
+Yes!
+Both <font color="#003366"><b>x3270</b></font> and
+<font color="#003366"><b>c3270</b></font> compile and run under Cygwin,
+the free Unix emulator for Windows.
+(In fact, they are standard packages with more recent versions of Cygwin).
+You can get Cygwin <a href="http://www.cygwin.com">here</a>.
+<p>
+If disk space is a concern, you can run
+<font color="#003366"><b>c3270</b></font> with a minimal set of
+Cygwin DLLs and one text file -- there is no need to install all of Cygwin.
+</p>
+<p>
+Note that there is not a native Win32 port of x3270, nor are there plans for
+one.
+</p>
 
 <H3>Why are the <b>[</b> and <b>]</b> characters displayed wrong?</H3>
 
@@ -34,15 +74,21 @@ through this file first.
 <H3>Make reports: Fatal error: Don't know how to make target `FontObj(3270)'.</H3>
 
     This generally means that you are running X11R4, rather than X11R5 or
-    X11R6.  <b>x3270</b> 3.2 does not run under X11R4.
+    X11R6.
+    <font color="#003366"><b>x3270</b></font>
+    does not run under X11R4.
 
 <h2>Other Problems</h2>
 
 <H3>x3270 Isn't Using the 3270 Font</H3>
 
-    One of the trickier areas; <b>x3270</b> uses its own fonts to replicate a
-    life-like IBM 3270.  This is not fatal, however; <b>x3270</b> can use any fixed-
-    width X font.  If it can't find its own font, it defaults to "fixed".
+One of the trickier areas;
+<font color="#003366"><b>x3270</b></font>
+uses its own fonts to replicate a
+life-like IBM 3270.  This is not fatal, however;
+<font color="#003366"><b>x3270</b></font>
+can use any fixed-width X font.
+If it can't find its own font, it defaults to "fixed".
 <P>
     The simplest probem to fix is that you haven't told your X server that
     there are new fonts it can use.  This is corrected with:
@@ -56,7 +102,7 @@ through this file first.
     Font Path:
       /usr/lib/X11/fonts/misc/,/usr/lib/X11/fonts/Speedo/,/usr/lib/X11/fonts/75dpi/,/usr/lib/X11/fonts/100dpi/
 </PRE>
-    <b>x3270</b>'s fonts are usually installed in /usr/local/fonts.  If this
+<font color="#003366"><b>x3270</b></font>'s fonts are usually installed in /usr/local/fonts.  If this
     (or some variation on it) does not appear in the "xset q" output, you can
     try:
 <PRE>
@@ -66,17 +112,23 @@ through this file first.
 
 <H3>x3270 isn't paying any attention to my keymap definition.</H3>
 
-    There are two likely causes for this problem: either <b>x3270</b> isn't seeing
+There are two likely causes for this problem: either
+<font color="#003366"><b>x3270</b></font>
+isn't seeing
     your keymap definition, or there is something wrong with the definition
     itself.
 <P>
-    You can tell exactly which keymap and keymap modifiers <b>x3270</b> is using with
+You can tell exactly which keymap and keymap modifiers
+<font color="#003366"><b>x3270</b></font>
+is using with
     the "About x3270" option on the "Options" menu.  There is an entry labeled
     "Keyboard map:" which lists the keymap(s) in effect.  If yours is missing,
     there are a number of possible causes:
 <UL>
 <LI>
-    There is a hierarchy of places that <b>x3270</b> looks for the keymap list,
+There is a hierarchy of places that
+<font color="#003366"><b>x3270</b></font>
+looks for the keymap list,
       and the one you are assuming may not be the one it finds.  In the
       following list, earlier objects override those below:
 <UL>
@@ -98,7 +150,8 @@ through this file first.
     <LI>A keymap definition is in two parts, the name of the keymap and the
       definition of the keymap.  The "x3270.keymap" resource controls the name
       of the keymap; then for each keymap type "x" there must be an additional
-      resourced named "x3270.keymap.x".  If this definition is missing, <b>x3270</b>
+      resourced named "x3270.keymap.x".  If this definition is missing,
+      <font color="#003366"><b>x3270</b></font>
       will not recognize the keymap.
 <LI>
     One other cause of missed keymaps is the symbol "sun" defined by the
@@ -139,16 +192,24 @@ through this file first.
 
 <H3>x3270 is misbehaving on a certain application.</H3>
 
-    If <b>x3270</b> produces a different display or interaction than a real 3270 or
-    some other emulator, it is entirely possible that <b>x3270</b> is at fault.
+If
+<font color="#003366"><b>x3270</b></font>
+produces a different display or interaction than a real 3270 or
+some other emulator, it is entirely possible that
+<font color="#003366"><b>x3270</b></font>
+is at fault.
     What you can do to help debug it is to capture a trace of the session.
     The easiest way to do this is:
 <PRE>
     x3270 -trace
 </PRE>
-    <b>x3270</b> will create a trace file in /tmp, which will contain a dump of
-    all of the data that <b>x3270</b> sent or received, along with its interpretation.
-    <b>x3270</b> will also pop up a window to view the file while it is being created;
+<font color="#003366"><b>x3270</b></font>
+will create a trace file in /tmp, which will contain a dump of
+all of the data that
+<font color="#003366"><b>x3270</b></font>
+sent or received, along with its interpretation.
+<font color="#003366"><b>x3270</b></font>
+will also pop up a window to view the file while it is being created;
     the title of that window is the full pathname of the trace file.  If you
     are familiar with the 3270 Data Stream protocol, you may be able to figure
     out the problem yourself; otherwise, after suitable editing to remove
@@ -163,12 +224,15 @@ through this file first.
 
 <H3>There is no termcap entry for "IBM-3278-xxx"</H3>
 
-    If you log into a non-IBM host with <b>x3270</b>, your TERM variable will be
+If you log into a non-IBM host with
+<font color="#003366"><b>x3270</b></font>
+your TERM variable will be
     set to "IBM-327x", which is not especially useful for running programs
     like vi.
 <P>
     One solution is to set your TERM variable to "xterm" after you log in,
-    and to set the number of lines and columns to match the current <b>x3270</b>
+    and to set the number of lines and columns to match the current
+    <font color="#003366"><b>x3270</b></font>
     model number (this is done through the "stty" command or with environment
     variables, depending on your system).
 <P>
@@ -184,19 +248,25 @@ through this file first.
 <H3>My screen isn't being drawn properly</H3>
 
     There is a bug in certain versions of the Linux Mach32 X server, which
-    causes the <b>x3270</b> screen to be drawn incompletely.  The screen image can
+    causes the
+    <font color="#003366"><b>x3270</b></font>
+    screen to be drawn incompletely.  The screen image can
     be restored by iconifying and un-iconifying the window.
 <P>
-    <b>x3270</b> can be modified to work around this problem.  An unfortunate
+<font color="#003366"><b>x3270</b></font>
+can be modified to work around this problem.  An unfortunate
     side-effect is that it will no longer be able to display APL characters,
     or line-drawing characters with any of the 3270 fonts.
 <P>
-    To rebuild <b>x3270</b> to work around this bug, edit the Imakefile and add a
+To rebuild
+<font color="#003366"><b>x3270</b></font>
+to work around this bug, edit the Imakefile and add a
     line at the top:
 <PRE>
     EXTRA_DEFINES = -DBROKEN_MACH32
 </PRE>
-    Then rebuild the makefile, the module "screen.o", and <b>x3270</b>:
+Then rebuild the makefile, the module "screen.o", and
+<font color="#003366"><b>x3270</b></font>:
 <PRE>
     rm screen.o
     xmkmf
@@ -205,25 +275,37 @@ through this file first.
 </PRE>
 
 <h3>The PF12 Key Doesn't Work on KDE</h3>
-KDE reserves the F12 key for "Mouse Emulation", so <b>x3270</b> cannot use
+KDE reserves the F12 key for "Mouse Emulation", so
+<font color="#003366"><b>x3270</b></font>
+cannot use
 this key.
-To allow <b>x3270</b> to use F12, pull up the KDE Control Center, look under
+To allow
+<font color="#003366"><b>x3270</b></font>
+to use F12, pull up the KDE Control Center, look under
 "Look & Feel", and under that, "Key Bindings".  Remove the binding for F12.
 
 <H2>Getting Help</H2>
 
-    If you are still having a problem with <b>x3270</b>, feel free to send e-mail to
-    Paul Mattes, <A HREF="mailto:Paul.Mattes@usa.net"><B>Paul.Mattes@usa.net</B></A>
+If you are still having a problem with
+<font color="#003366"><b>x3270</b></font>,
+feel free to send e-mail to
+    <A HREF="mailto:Paul.Mattes@usa.net"><B>Paul Mattes</B></A>
     No guarantees are made about responses to
     particular problems, but a patches are usually forthcoming in a few days.
-    You can also ask to be added to the <b>x3270</b> mailing list, where you can find out
+    You can also ask to be added to the
+    <font color="#003366"><b>x3270</b></font>
+    mailing list, where you can find out
     about new releases and bug fixes.
 <P>
-    When you send a question about <b>x3270</b>, please include the following
+When you send a question about
+<font color="#003366"><b>x3270</b></font>,
+please include the following
     information.  It makes it much easier to narrow down the problem.
 <OL>
-    <LI> The version of <b>x3270</b> you are using, including all patches, e.g.,
-        "3.1.0.0".  This is displayed at the top of the "About x3270" pop-up.
+	<LI> The version of
+	<font color="#003366"><b>x3270</b></font>
+	you are using, including all patches, e.g.,
+        "3.3.2".  This is displayed at the top of the "About x3270" pop-up.
 
     <LI> What kind of machine you are running on, e.g., "Sun SPARC-10".
 
@@ -239,5 +321,5 @@ To allow <b>x3270</b> to use F12, pull up the KDE Control Center, look under
     are also welcome.  Code changes for bug fixes and enhancements are also
     welcome, provided that you don't mind your code being placed (often
     anonymously) in the public domain.
-</body>
+ </body>
 </html>

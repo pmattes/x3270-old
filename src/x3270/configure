@@ -2138,7 +2138,7 @@ solaris2*)	XANSI=-D__EXTENSIONS__
 		;;
 darwin*)	XPRECOMP=-no-cpp-precomp
 		;;
-linux*)		XANSI="-D_POSIX_SOURCE -D_BSD_SOURCE"
+linux*)		XANSI="-D_POSIX_SOURCE -D_BSD_SOURCE -D_XOPEN_SOURCE"
 		;;
 esac
 
@@ -4663,8 +4663,10 @@ _ACEOF
 	DBCS_C="wide.c"
 	DBCS_O="wide.o"
 	INSTALL_CNV="#define INSTALL_CNV 1"
+	DBCS=-DX3270_DBCS=1
 	;;
 esac
+
 
 
 
@@ -4749,7 +4751,7 @@ if test "${enable_ssl+set}" = set; then
 fi;
 case "$enable_ssl" in
 no)	;;
-*)	SSL=-DHAVE_LIBSSL
+*)	SSL=-DHAVE_LIBSSL=1
 	;;
 esac
 
@@ -5372,6 +5374,7 @@ s,@DBCS_C@,$DBCS_C,;t t
 s,@DBCS_O@,$DBCS_O,;t t
 s,@INSTALL_CNV@,$INSTALL_CNV,;t t
 s,@ICU_DATA_PREFIX@,$ICU_DATA_PREFIX,;t t
+s,@DBCS@,$DBCS,;t t
 s,@SSL@,$SSL,;t t
 CEOF
 

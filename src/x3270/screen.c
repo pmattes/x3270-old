@@ -972,7 +972,13 @@ screen_connect(Boolean ignored unused)
 		return;		/* too soon */
 
 	if (CONNECTED) {
-		ctlr_erase(True);
+		/*
+		 * Clear the screen.
+		 * If we're in ANSI/NVT mode, go to the maximum screen
+		 * dimensions, otherwise go to the default 24x80 for 3270
+		 * or SSCP mode.
+		 */
+		ctlr_erase(IN_ANSI? True: False);
 		if (IN_3270)
 			scroll_round();
 		cursor_on();
@@ -1801,10 +1807,19 @@ render_text(union sp *buffer, int baddr, int len, Boolean block_cursor,
 			j++;
 			break;
 		    case CS_LINEDRAW:	/* DEC line drawing */
-			rt_buf[j].byte1 = 0;
-			rt_buf[j].byte2 = buffer[i].bits.cc;
+			if (ss->standard_font) {
+				rt_buf[j].byte1 = 0;
+				rt_buf[j].byte2 = buffer[i].bits.cc;
+			} else {
+				if (ss->extended_3270font) {
+					rt_buf[j].byte1 = 2;
+					rt_buf[j].byte2 = buffer[i].bits.cc;
+				} else {
+					rt_buf[j].byte1 = 0;
+					rt_buf[j].byte2 = 0;
+				}
+			}
 			j++;
-			 /* XXX: Needs to be verified. */
 			break;
 		    case CS_DBCS:	/* DBCS */
 #if defined(X3270_DBCS) /*[*/
@@ -2173,9 +2188,7 @@ draw_fields(union sp *buffer, int first, int last)
 				if (visible_control)
 					b.bits.cc = EBC_space;
 			} else if (((!visible_control || c != EBC_null) &&
-				    c != EBC_space &&
-				    d != DBCS_DEAD && d != DBCS_LEFT_WRAP &&
-				    d != DBCS_RIGHT_WRAP) ||
+				    (c != EBC_space || d != DBCS_NONE)) ||
 			           (gr & (GR_REVERSE | GR_UNDERLINE)) ||
 				   visible_control) {
 
@@ -2188,8 +2201,6 @@ draw_fields(union sp *buffer, int first, int last)
 				if (!text_blinking_on && (gr & GR_BLINK))
 					b.bits.cc = EBC_space;
 				else {
-					enum dbcs_state d;
-
 					if (visible_control && c == EBC_null) {
 						b.bits.cc = asc2ebc['.'];
 						is_vc = True;
@@ -5219,8 +5230,14 @@ xlate_dbcs(unsigned char c0, unsigned char c1, XChar2b *r)
 {
 	unsigned char wc[2];
 
-	/* First, handle special cases. */
-	if (c0 < 0x41 || c0 == 0xff) {
+	/* Translate NULLs to spaces. */
+	if (c0 == EBC_null && c1 == EBC_null) {
+		c0 = EBC_space;
+		c1 = EBC_space;
+	}
+	/* Then handle special cases. */
+	if ((c0 < 0x41 && (c0 != EBC_space && c1 != EBC_space)) || c0 == 0xff) {
+		/* Junk. */
 		r->byte1 = 0;
 		r->byte2 = 0;
 	} else if (dbcs_font.unicode) {

@@ -98,7 +98,7 @@ static Boolean	any_selected = False;
 
 extern Widget  *screen;
 
-#define CLICK_INTERVAL	200
+#define CLICK_INTERVAL	300
 
 #define event_x(event)		event->xbutton.x
 #define event_y(event)		event->xbutton.y
@@ -542,6 +542,192 @@ select_end_action(Widget w unused, XEvent *event, String *params,
 			cursor_move(saved_cursor_addr);
 			cursor_moved = False;
 		}
+		select_word(f_start, event_time(event));
+		break;
+	    case 3:
+		select_line(f_start, event_time(event));
+		break;
+	}
+	saw_motion = 0;
+}
+
+/*
+ * New-style selection actions.
+ *
+ * These actions work a bit more intuitively in 3270 mode than the historic
+ * ones.
+ *  SelectDown is usually bound to Btn1Down.
+ *  SelectMotion is usually bound to Btn1Motion.
+ *  SelectUp is usually bound to Btn1Up.
+ *
+ * SelectDown deselects on the first click, and remembers the screen position.
+ *
+ * SelectMotion extends the selection from the location remembered by
+ *  SelectDown to the current location.
+ *
+ * SelectUp moves the cursor on the first click.  On clicks two and three, it
+ *  selects a word or line.  On click four, it deselects and resets the click
+ *  counter to one.
+ */
+
+void
+SelectDown_action(Widget w unused, XEvent *event, String *params,
+    Cardinal *num_params)
+{
+	int x, y;
+	register int baddr;
+
+	action_debug(SelectDown_action, event, params, num_params);
+	if (event == NULL) {
+		popup_an_error("%s can only be used as a keymap action",
+		    action_name(SelectDown_action));
+		return;
+	}
+	if (w != *screen)
+		return;
+	BOUNDED_XY(event, x, y);
+	baddr = ROWCOL_TO_BA(y, x);
+
+	if (event_time(event) - down_time > CLICK_INTERVAL)
+		num_clicks = 0;
+
+	down_time = event_time(event);
+	if (num_clicks == 0) {
+		f_start = f_end = v_start = v_end = baddr;
+		down1_time = down_time;
+		if (any_selected) {
+			unselect(0, ROWS*COLS);
+		}
+	}
+}
+
+void
+SelectMotion_action(Widget w unused, XEvent *event, String *params,
+    Cardinal *num_params)
+{
+	int x, y;
+	register int baddr;
+
+	action_debug(SelectMotion_action, event, params, num_params);
+	if (event == NULL) {
+		popup_an_error("%s can only be used as a keymap action",
+		    action_name(SelectMotion_action));
+		return;
+	}
+	if (w != *screen)
+		return;
+
+	/* Ignore initial drag events if are too near. */
+	if (down1_time != 0L &&
+	    abs((int) event_x(event) - (int) down1_x) < *char_width &&
+	    abs((int) event_y(event) - (int) down1_y) < *char_height)
+		return;
+	else
+		down1_time = 0L;
+
+	BOUNDED_XY(event, x, y);
+	baddr = ROWCOL_TO_BA(y, x);
+
+	/*
+	 * If baddr falls outside if the v range, open up the v range.  In
+	 * addition, if we are extending one end of the v range, make sure the
+	 * other end at least covers the f range.
+	 */
+	if (baddr <= v_start) {
+		v_start = baddr;
+		v_end = f_end;
+	}
+	if (baddr >= v_end) {
+		v_end = baddr;
+		v_start = f_start;
+	}
+
+	/*
+	 * If baddr falls within the v range, narrow up the nearer end of the
+	 * v range.
+	 */
+	if (baddr > v_start && baddr < v_end) {
+		if (baddr - v_start < v_end - baddr)
+			v_start = baddr;
+		else
+			v_end = baddr;
+	}
+
+	num_clicks = 0;
+	saw_motion = 1;
+	grab_sel(v_start, v_end, False, event_time(event));
+}
+
+void
+SelectUp_action(Widget w unused, XEvent *event, String *params,
+    Cardinal *num_params)
+{
+	int x, y;
+	register int baddr;
+	int i;
+
+	action_debug(SelectUp_action, event, params, num_params);
+	if (event == NULL) {
+		popup_an_error("%s can only be used as a keymap action",
+		    action_name(SelectUp_action));
+		return;
+	}
+	if (w != *screen)
+		return;
+
+	if (n_owned == -1) {
+		for (i = 0; i < NS; i++)
+			own_sel[i].atom = None;
+		n_owned = 0;
+	}
+	for (i = 0; i < NS; i++) {
+		if (i < *num_params)
+			want_sel[i] = XInternAtom(display, params[i], False);
+		else
+			want_sel[i] = None;
+	}
+	if (*num_params == 0)
+		want_sel[0] = XA_PRIMARY;
+
+	BOUNDED_XY(event, x, y);
+	baddr = ROWCOL_TO_BA(y, x);
+
+	if (event_time(event) - up_time > CLICK_INTERVAL) {
+#if defined(DEBUG_CLICKS) /*[*/
+		printf("too long, reset\n");
+#endif /*]*/
+		num_clicks = 0;
+	}
+	up_time = event_time(event);
+
+	if (++num_clicks > 3) {
+#if defined(DEBUG_CLICKS) /*[*/
+		printf("wrap\n");
+#endif /*]*/
+		num_clicks = 1;
+	}
+
+#if defined(DEBUG_CLICKS) /*[*/
+	printf("%d clicks\n", num_clicks);
+#endif /*]*/
+	switch (num_clicks) {
+	    case 1:
+	        /*
+		 * If we saw motion, then take the selection.
+		 * Otherwise, if we're in 3270 mode, move the cursor.
+		 */
+		if (saw_motion) {
+			f_start = v_start;
+			f_end = v_end;
+			grab_sel(f_start, f_end, True, event_time(event));
+		} else if (IN_3270) {
+			cursor_move(baddr);
+		}
+		break;
+	    case 2:
+		/*
+		 * If we moved the 3270 cursor on the first click, put it back.
+		 */
 		select_word(f_start, event_time(event));
 		break;
 	    case 3:

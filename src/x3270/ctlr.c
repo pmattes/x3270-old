@@ -63,7 +63,7 @@ int             maxROWS, maxCOLS;
 int		ov_rows, ov_cols;
 int             model_num;
 int             cursor_addr, buffer_addr;
-Boolean         screen_alt = True;	/* alternate screen? */
+Boolean         screen_alt = False;	/* alternate screen? */
 Boolean         is_altbuffer = False;
 struct ea      *ea_buf;		/* 3270 device buffer */
 				/* ea_buf[-1] is the dummy default field
@@ -182,13 +182,13 @@ set_rows_cols(int mn, int ovc, int ovr)
 
 	switch (mn) {
 	case 2:
-		maxCOLS = COLS = 80;
-		maxROWS = ROWS = 24; 
+		maxCOLS = 80;
+		maxROWS = 24; 
 		model_num = 2;
 		break;
 	case 3:
-		maxCOLS = COLS = 80;
-		maxROWS = ROWS = 32; 
+		maxCOLS = 80;
+		maxROWS = 32; 
 		model_num = 3;
 		break;
 	case 4:
@@ -199,8 +199,8 @@ set_rows_cols(int mn, int ovc, int ovr)
 			return;
 		}
 #endif /*]*/
-		maxCOLS = COLS = 80;
-		maxROWS = ROWS = 43; 
+		maxCOLS = 80;
+		maxROWS = 43; 
 		model_num = 4;
 		break;
 	case 5:
@@ -211,8 +211,8 @@ set_rows_cols(int mn, int ovc, int ovr)
 			return;
 		}
 #endif /*]*/
-		maxCOLS = COLS = 132;
-		maxROWS = ROWS = 27; 
+		maxCOLS = 132;
+		maxROWS = 27; 
 		model_num = 5;
 		break;
 	default:
@@ -244,8 +244,8 @@ set_rows_cols(int mn, int ovc, int ovr)
 			popup_an_error("Invalid %s rows (%d):\nLess than model %d rows (%d)",
 			    ResOversize, ovr, model_num, maxROWS);
 		else {
-			ov_cols = maxCOLS = COLS = ovc;
-			ov_rows = maxROWS = ROWS = ovr;
+			ov_cols = maxCOLS = ovc;
+			ov_rows = maxROWS = ovr;
 		}
 	}
 
@@ -254,6 +254,10 @@ set_rows_cols(int mn, int ovc, int ovr)
 	    appres.m3279 ? '9' : '8',
 	    model_num,
 	    appres.extended ? "-E" : "");
+
+	/* Make sure that the current rows/cols are still 24x80. */
+	COLS = 80;
+	ROWS = 24;
 }
 
 

@@ -19,47 +19,68 @@
 <a NAME="Name"></a><h2>Name</h2>
 x3270if - command interface to x3270, c3270 and s3270
 <a NAME="Synopsis"></a><h2>Synopsis</h2>
-<b>x3270if</b> [ <b>-v</b> ] <i>action</i> [ ( <i>param</i> [ ,... ] )
-]
-<br>
-<b>x3270if</b> [ <b>-v</b> ] <b>-s</b> <i>field</i>
+<b>x3270if</b> [option]... [ <i>action</i> ]
 <br>
 <b>x3270if -i</b>
 <a NAME="Description"></a><h2>Description</h2>
 <b>x3270if</b> provides an interface between scripts and
 the 3270 emulators <i>x3270</i>, <i>c3270</i>, and <i>s3270</i>.
-.LP
-<b>x3270if</b> performs one of three functions.
-In <b>action mode</b> (the default), it passes a single action and optional
-parameters to the emulator for execution;
-the result of the command is written to standard output.
-In <b>status mode</b>, it reports to standard output the value of one of
-the emulator's status fields.
+<p>
+<b>x3270if</b> operates in one of two modes.
+In <b>action mode</b>, it passes a single action and parameters to the
+emulator for execution.
+The result of the action is written to standard output, along with the
+(optional) status of the emulator.
+(The action is optional as well, so that <b>x3270if</b> can just reports the
+emulator status.)
 In <b>iterative mode</b>, it forms a continuous conduit between a script and
 the emulator.
+<p>
+The <i>action</i> takes the form:
+<p>
+<i>action-name</i>(<i>param</i>[,<i>param</i>]...)
+<p>
+The parentheses are manatory, and usually must be quoted when <b>x3270if</b> is
+called from a shell script.
+<p>
+If any <i>param</i> contains a space or comma, it must be surrounded by
+double quotes.
 <a NAME="Options"></a><h2>Options</h2>
-<dl><dt><b>-v</b></dt><dd>
-Turns on verbose debug messages, showing the literal data that is passed
-between the emulator and <b>x3270if</b>.
-<dt><b>-s</b> <i>field</i></dt><dd>
-Puts <b>x3270if</b> in status mode: it outputs the value of an emulator
-status field.
+<dl><dt><b>-s</b> <i>field</i></dt><dd>
+Causes <b>x3270if</b> to write to stdout the value of one of the
+emulator status fields.
 <i>Field</i> is an integer in the range 0 through 11.
 The value 0 is a no-op and is used only to return exit status indicating the
 state of the emulator.
 The indices 1-11 and meanings of each field are documented on the
 <a HREF="x3270-script.html"><i>x3270-script</i>(1)</a> manual page.
+If an <i>action</i> is specified as well, the status field is written after the
+output of the action, separated by a newline.
+The <b>-s</b> option is mutually exclusive with the
+<b>-S</b> and <b>-i</b> options.
+<dt><b>-S</b></dt><dd>
+Causes <b>x3270if</b> to write to stdout the value of all of the
+emulator status fields.
+If an <i>action</i> is specified as well, the status fields are written after the
+output of the action, separated by a newline.
+The <b>-S</b> option is mutually exclusive with the
+<b>-s</b> and <b>-i</b> options.
 <dt><b>-i</b></dt><dd>
 Puts <b>x3270if</b> in iterative mode.
 Data from <b>x3270if</b>'s standard input is copied to the
 emulator's script input; data from the
 emulator's script output is copied to
 <b>x3270if</b>'s standard output.
+The <b>-i</b> option is mutually exclusive with the
+<b>-s</b> and <b>-S</b> options.
 <b>x3270if</b>
 runs until it detects end-of-file on its standard input or on the
 output from the emulator.
 (This mode exists primarily to give <i>expect</i>(1)
 a process to run, on systems which do not support bidirectional pipes.)
+<dt><b>-v</b></dt><dd>
+Turns on verbose debug messages, showing on stderr the literal data that is
+passed between the emulator and <b>x3270if</b>.
 </dl>
 <a NAME="Exit-Status"></a><h2>Exit Status</h2>
 In action mode, if the requested <i>action</i> succeeds,
@@ -88,7 +109,7 @@ Input to the emulator, output from the child process.
 <a HREF="s3270-man.html">s3270(1)</a>,
 <a HREF="x3270-script.html">x3270-script(1)</a>
 <a NAME="Copyright"></a><h2>Copyright</h2>
-Copyright &copy; 1999, 2000 by Paul Mattes.
+Copyright &copy; 1999, 2000, 2001, 2004 by Paul Mattes.
 <blockquote>Permission to use, copy, modify, and distribute this software and its
 documentation for any purpose and without fee is hereby granted,
 provided that the above copyright notice appear in all copies and that
@@ -98,7 +119,7 @@ supporting documentation.</blockquote>
 <address>
 This HTML document and the accompanying troff document were generated with
 a set of write-only <b>m4</b> macros and the powerful <b>vi</b> editor.
-<br>Last modified 29 November 2003.
+<br>Last modified 22 May 2004.
 </address>
 </body>
 </html>

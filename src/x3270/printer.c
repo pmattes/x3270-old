@@ -237,6 +237,18 @@ printer_start(const char *lu)
 		(void) fprintf(f, "# Created by %s\n", build);
 		(void) fprintf(f, "# Chararter set is '%s'\n",
 		    get_charset_name());
+		(void) fprintf(f, "cgcsgid=0x%08lx\n", cgcsgid);
+#if defined(X3270_DBCS) /*[*/
+		if (dbcs) {
+			(void) fprintf(f, "cgcsgid_dbcs=0x%08lx\n",
+				       cgcsgid_dbcs);
+			if (encoding != CN)
+				(void) fprintf(f, "encoding=%s\n",
+					       encoding);
+			(void) fprintf(f, "converters=%s\n",
+				       converter_names);
+		}
+#endif /*]*/
 		for (i = 0x40; i <= 0xff; i++) {
 		    if (ebc2asc[i] != ebc2asc0[i]) {
 			(void) fprintf(f, " %u=%u", i, ebc2asc[i]);

@@ -30,7 +30,7 @@ solaris2*)	XANSI=-D__EXTENSIONS__
 		;;
 darwin*)	XPRECOMP=-no-cpp-precomp
 		;;
-linux*)		XANSI="-D_POSIX_SOURCE -D_BSD_SOURCE"
+linux*)		XANSI="-D_POSIX_SOURCE -D_BSD_SOURCE -D_XOPEN_SOURCE"
 		;;
 esac
 AC_SUBST(XANSI)
@@ -317,12 +317,14 @@ no)	;;
 	DBCS_C="wide.c"
 	DBCS_O="wide.o"
 	INSTALL_CNV="#define INSTALL_CNV 1"
+	DBCS=-DX3270_DBCS=1
 	;;
 esac
 AC_SUBST(DBCS_C)
 AC_SUBST(DBCS_O)
 AC_SUBST(INSTALL_CNV)
 AC_SUBST(ICU_DATA_PREFIX)
+AC_SUBST(DBCS)
 AC_ARG_ENABLE(ft,[  --disable-ft            leave out file transfer support])
 case "$enable_ft" in
 ""|yes)	AC_DEFINE(X3270_FT,1)
@@ -357,7 +359,7 @@ esac
 AC_ARG_ENABLE(ssl,[  --disable-ssl           leave out OpenSSL support])
 case "$enable_ssl" in
 no)	;;
-*)	SSL=-DHAVE_LIBSSL
+*)	SSL=-DHAVE_LIBSSL=1
 	;;
 esac
 AC_SUBST(SSL)

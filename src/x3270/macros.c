@@ -170,9 +170,16 @@ static void wait_timed_out(void);
 /* Macro that defines when it's safe to continue a Wait()ing sms. */
 #define CAN_PROCEED ( \
     IN_SSCP || \
-    (IN_3270 && formatted && cursor_addr && !KBWAIT) || \
+    (IN_3270 && (no_login_host || (formatted && cursor_addr)) && !KBWAIT) || \
     (IN_ANSI && !(kybdlock & KL_AWAITING_FIRST)) \
 )
+
+static unsigned char ldtoasc[] = {
+	0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0xad,
+	0x3e, 0x3c, 0x5b, 0x5d, 0x29, 0x28, 0x7d, 0x7b,
+	0x20, 0x3d, 0x27, 0x22, 0x2f, 0x5c, 0x7c, 0xa6,
+	0x3f, 0x21, 0x24, 0xa2, 0xa3, 0xa5, 0xb6
+};
 
 /* Callbacks for state changes. */
 static void
@@ -1406,7 +1413,24 @@ dump_range(int first, int len, Boolean in_ascii, struct ea *buf,
 			} else
 #endif /*]*/
 			{
-				c = ebc2asc[buf[first + i].cc];
+				switch (buf[first + i].cs) {
+				case CS_BASE:
+					c = ebc2asc[buf[first + i].cc];
+					break;
+				case CS_APL:
+				case CS_BASE | CS_GE:
+					c = ge2asc[buf[first + i].cc];
+					break;
+				case CS_LINEDRAW:
+					if (buf[first + i].cc <= 0x1f)
+						c = ldtoasc[buf[first + i].cc];
+					else
+						c = ' ';
+					break;
+				default:
+					c = ' ';
+					break;
+				}
 			}
 			s += sprintf(s, "%c", c ? c : ' ');
 		} else {
