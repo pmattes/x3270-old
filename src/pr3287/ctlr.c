@@ -45,7 +45,7 @@ extern char *command;
 #define MAX_BUF				(MAX_LL * MAX_LL)
 
 static char *ll_name[] = { "(none) 132", "40", "64", "80" };
-static ll_len[] = { 132, 40, 64, 80 };
+static int ll_len[] = { 132, 40, 64, 80 };
 
 /* 3270 (formatted mode) data */
 static unsigned char default_gr;
@@ -956,6 +956,7 @@ stash(unsigned char c)
 			exit(1);
 		}
 	}
+	(void) fputc(c, prfile);
 	if (ferror(prfile)) {
 		errmsg("Write error to '%s'", command);
 		exit(1);
