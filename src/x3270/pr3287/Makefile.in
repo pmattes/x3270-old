@@ -26,7 +26,7 @@ BINDIR = @bindir@
 XCPPFLAGS = @CPPFLAGS@ @XANSI@ @XPRECOMP@
 CFLAGS = @CFLAGS@ $(XCPPFLAGS) $(CDEBUGFLAGS)
 LDFLAGS = @LDFLAGS@
-LIBS = @LIBS@
+LIBS = @LIBS@ @HACK_LIBS@
 INSTALL = @INSTALL@
 
 OBJECTS = pr3287.o ctlr.o trace_ds.o tables.o telnet.o sf.o charset.o see.o

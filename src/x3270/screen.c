@@ -178,8 +178,18 @@ static Widget	icon_shell;
 static struct font_list *font_last = (struct font_list *) NULL;
 
 #if defined(X3270_DBCS) /*[*/
-static Font dbcs_font = None;
-static XFontStruct *dbcs_font_struct = NULL;
+static struct {
+    Font font;
+    XFontStruct *font_struct;
+    Boolean unicode;
+    int char_height;
+    int char_width;
+    int ascent;
+    int descent;
+    int xtra_width;
+    int xtra_height;
+    int ascent_fudge;	/* amount to add to nss-based y coordinate */
+} dbcs_font;
 static void xim_init(void);
 XIM im;
 XIC ic;
@@ -225,7 +235,6 @@ static char *required_display_charsets;
 #define CROSSABLE	(toggled(CROSSHAIR) && IN_3270 && \
 			 cursor_enabled && crosshair_enabled)
 #define CROSSED(b)	((BA_TO_COL(b) == cursor_col) || \
-			 (BA_TO_COL(b) == cd_col) || \
 			 (BA_TO_ROW(b) == cursor_row))
 
 /*
@@ -254,6 +263,8 @@ struct sstate {
 	XFontStruct	*font;
 	int		ascent;
 	int		descent;
+	int		xtra_width;
+	int		xtra_height;
 	Boolean         standard_font;
 	Boolean		extended_3270font;
 	Boolean         font_8bit;
@@ -523,11 +534,79 @@ screen_reinit(unsigned cmask)
 		(void) memset((char *) nss.image, 0,
 		              sizeof(union sp) * maxROWS * maxCOLS);
 
+	/* Compute SBCS/DBCS size differences. */
+#if defined(X3270_DBCS) /*[*/
+	if ((cmask & FONT_CHANGE) && dbcs) {
+		int wdiff, hdiff;
+
+		/* Compute width difference. */
+		wdiff = (2 * nss.char_width) - dbcs_font.char_width;
+		if (wdiff > 0) {
+			/* SBCS font is too wide */
+			dbcs_font.xtra_width = wdiff;
+			dbcs_font.char_width += wdiff;
+#if defined(_ST) /*[*/
+			printf("SBCS wider %d\n", wdiff);
+#endif /*]*/
+		} else if (wdiff < 0) {
+			/* SBCS font is too narrow */
+			if (wdiff % 2) {
+				dbcs_font.xtra_width = 1;
+				dbcs_font.char_width += 1;
+#if defined(_ST) /*[*/
+				printf("SBCS odd\n");
+#endif /*]*/
+			}
+			nss.xtra_width = -wdiff;
+			nss.char_width += -wdiff;
+#if defined(_ST) /*[*/
+			printf("DBCS wider %d\n", -wdiff);
+#endif /*]*/
+		} else {
+			dbcs_font.xtra_width = nss.xtra_width = 0;
+#if defined(_ST) /*[*/
+			printf("Width matches.\n");
+#endif /*]*/
+		}
+
+		/* Compute height difference. */
+		hdiff = nss.char_height - dbcs_font.char_height;
+		if (hdiff > 0) {
+			/* SBCS font is too tall. */
+			dbcs_font.xtra_height = hdiff;
+			dbcs_font.char_height += hdiff;
+#if defined(_ST) /*[*/
+			printf("SBCS taller %d\n", wdiff);
+#endif /*]*/
+		} else if (hdiff < 0) {
+			/*  SBCS font is too short. */
+			nss.xtra_height = -hdiff;
+			nss.char_height += -hdiff;
+#if defined(_ST) /*[*/
+			printf("DBCS taller %d\n", -wdiff);
+#endif /*]*/
+		} else {
+			dbcs_font.xtra_height = nss.xtra_height = 0;
+#if defined(_ST) /*[*/
+			printf("Height matches\n");
+#endif /*]*/
+		}
+
+		/* Compute ascent/descent fudge. */
+		if (nss.ascent != dbcs_font.ascent) {
+			dbcs_font.ascent_fudge = nss.ascent - dbcs_font.ascent;
+#if defined(_ST) /*[*/
+			printf("Ascent fudge %d\n", dbcs_font.ascent_fudge);
+#endif /*]*/
+		}
+	}
+#endif /*]*/
+
 	/* Set up a container for the menubar, screen and keypad */
 
 	if (cmask & (FONT_CHANGE | MODEL_CHANGE)) {
 		nss.screen_width  = SCREEN_WIDTH(ss->char_width);
-		nss.screen_height = SCREEN_HEIGHT(ss->char_height);
+		nss.screen_height = SCREEN_HEIGHT((ss->char_height));
 	}
 
 	if (toggled(SCROLL_BAR))
@@ -657,6 +736,7 @@ set_toplevel_sizes(void)
 	configure_ticking = True;
 
 	keypad_move();
+	popups_move();
 }
 
 static void
@@ -1530,6 +1610,10 @@ render_text(union sp *buffer, int baddr, int len, Boolean block_cursor,
 	int n_texts = -1;
 	Boolean in_dbcs = False;
 	int clear_len = 0;
+	int n_sbcs = 0;
+#if defined(X3270_DBCS) /*[*/
+	int n_dbcs = 0;
+#endif /*]*/
 
 #if defined(_ST) /*[*/
 	(void) printf("render_text(baddr=%s, len=%d)\n", rcba(baddr), len);
@@ -1558,7 +1642,7 @@ render_text(union sp *buffer, int baddr, int len, Boolean block_cursor,
 
 	for (i = 0, j = 0; i < len; i++) {
 #if defined(X3270_DBCS) /*[*/
-		if (buffer[i].bits.cs != CS_DBCS || !dbcs) {
+		if (buffer[i].bits.cs != CS_DBCS || !dbcs || iconic) {
 #endif /*]*/
 			if (n_texts < 0 || in_dbcs) {
 				/* Switch from nothing or DBCS, to SBCS. */
@@ -1572,6 +1656,7 @@ render_text(union sp *buffer, int baddr, int len, Boolean block_cursor,
 				text[n_texts].nchars = 0;
 				text[n_texts].delta = 0;
 				text[n_texts].font = ss->fid;
+				n_sbcs++;
 			}
 			/* In SBCS. */
 			clear_len += ss->char_width;
@@ -1588,7 +1673,8 @@ render_text(union sp *buffer, int baddr, int len, Boolean block_cursor,
 				text[n_texts].chars = &rt_buf[j];
 				text[n_texts].nchars = 0;
 				text[n_texts].delta = 0;
-				text[n_texts].font = dbcs_font;
+				text[n_texts].font = dbcs_font.font;
+				n_dbcs++;
 			}
 			/* In DBCS. */
 			clear_len += 2 * ss->char_width;
@@ -1705,60 +1791,98 @@ render_text(union sp *buffer, int baddr, int len, Boolean block_cursor,
 	}
 
 	/* Draw the text */
-#if 0
-	if (one_at_a_time) {
-
-		/* Blank out the background, */
-		XFillRectangle(display, ss->window,
-			cleargc,
-			x, y - ss->ascent,
-			clear_len, ss->char_height);
-
-		/* Draw text one character at a time. */
-		for (i = 0; i < len; i++) {
-			x = ssCOL_TO_X(BA_TO_COL(baddr));
-			y = ssROW_TO_Y(BA_TO_ROW(baddr));
-
-			if (!rt_buf[i].byte1 &&
-			    IS_ODD(ss->odd_lbearing, rt_buf[i].byte2))
-				x -= PER_CHAR(ss->font, rt_buf[i].byte2).lbearing;
-
-			XDrawImageString16(display, ss->window, dgc, x, y,
-			    &rt_buf[i], 1);
-			if (ss->overstrike &&
-			    ((attrs->bits.gr & GR_INTENSIFY) ||
-			     ((appres.mono ||
-			       (!appres.m3279 && appres.highlight_bold)) &&
-			      ((color & BASE_MASK) == FA_INT_HIGH_SEL)))) {
-				XDrawString16(display, ss->window, dgc, x+1, y,
-				    &rt_buf[i], 1);
-			}
-			baddr++;
-		}
-	} else
-#endif
-	{
-		XFillRectangle(display, ss->window,
-			cleargc,
-			x, y - ss->ascent,
-			clear_len, ss->char_height);
+	XFillRectangle(display, ss->window,
+		cleargc,
+		x, y - ss->ascent,
+		clear_len, ss->char_height);
 #if defined(_ST) /*[*/
-		{
-			int k, l;
+	{
+		int k, l;
 
-			for (k = 0; k < n_texts; k++) {
-				printf("text[%d]: %d chars, %s:", k,
-				    text[k].nchars,
-				    (text[k].font == dbcs_font)?
-					"dbcs": "sbcs");
-				for (l = 0; l < text[k].nchars; l++) {
-				    printf(" %02x%02x", text[k].chars[l].byte1,
-					text[k].chars[l].byte2);
-				}
-				printf("\n");
+		for (k = 0; k < n_texts; k++) {
+			printf("text[%d]: %d chars, %s:", k,
+			    text[k].nchars,
+			    (text[k].font == dbcs_font.font)?
+				"dbcs": "sbcs");
+			for (l = 0; l < text[k].nchars; l++) {
+			    printf(" %02x%02x", text[k].chars[l].byte1,
+				text[k].chars[l].byte2);
 			}
+			printf("\n");
 		}
+	}
 #endif /*]*/
+	if (one_at_a_time ||
+	    (n_sbcs && ss->xtra_width)
+#if defined(X3270_DBCS) /*[*/
+	     ||
+	    (n_dbcs &&
+	     (dbcs_font.xtra_width || dbcs_font.ascent_fudge))
+#endif /*]*/
+	   ) {
+		int i, j;
+		int xn = x;
+		XTextItem16 text1;
+
+		/* XXX: do overstrike */
+		for (i = 0; i < n_texts; i++) {
+#if defined(X3270_DBCS) /*[*/
+			if (one_at_a_time || text[i].font == ss->fid) {
+#endif /*]*/
+				if (one_at_a_time || ss->xtra_width) {
+					for (j = 0; j < text[i].nchars;
+					     j++) {
+						text1.chars =
+						    &text[i].chars[j];
+						text1.nchars = 1;
+						text1.delta = 0;
+						text1.font = ss->fid;
+						XDrawText16(
+						    display,
+						    ss->window, dgc,
+						    xn, y, &text1,
+						    1);
+						xn += ss->char_width;
+					}
+				} else {
+					XDrawText16(display,
+					    ss->window, dgc, xn, y,
+					    &text[i], 1);
+					xn += ss->char_width *
+						text[i].nchars;
+				}
+#if defined(X3270_DBCS) /*[*/
+			} else {
+				if (dbcs_font.xtra_width) {
+					for (j = 0; j < text[i].nchars;
+					     j++) {
+						text1.chars =
+						    &text[i].chars[j];
+						text1.nchars = 1;
+						text1.delta = 0;
+						text1.font =
+						    dbcs_font.font;
+						XDrawText16(
+						    display,
+						    ss->window, dgc,
+						    xn,
+						    y - dbcs_font.ascent_fudge,
+						    &text1,
+						    1);
+						xn += dbcs_font.char_width;
+					}
+				} else {
+					XDrawText16(display,
+					    ss->window, dgc, xn,
+					    y - dbcs_font.ascent_fudge,
+					    &text[i], 1);
+					xn += dbcs_font.char_width *
+						text[i].nchars;
+				}
+			}
+#endif /*]*/
+		}
+	} else {
 		XDrawText16(display, ss->window, dgc, x, y, text, n_texts);
 		if (ss->overstrike &&
 		    ((attrs->bits.gr & GR_INTENSIFY) ||
@@ -1767,16 +1891,6 @@ render_text(union sp *buffer, int baddr, int len, Boolean block_cursor,
 			XDrawText16(display, ss->window, dgc, x+1, y,
 			    text, n_texts);
 		}
-#if 0
-		XDrawImageString16(display, ss->window, dgc, x, y, rt_buf, len);
-		if (ss->overstrike &&
-		    ((attrs->bits.gr & GR_INTENSIFY) ||
-		     ((appres.mono || (!appres.m3279 && appres.highlight_bold)) &&
-		      ((color & BASE_MASK) == FA_INT_HIGH_SEL)))) {
-			XDrawString16(display, ss->window, dgc, x+1, y,
-			    rt_buf, len);
-		}
-#endif
 	}
 
 	if (attrs->bits.gr & GR_UNDERLINE)
@@ -1881,31 +1995,12 @@ draw_fields(union sp *buffer, int first, int last)
 	Boolean	any_blink = False;
 	int	crossable = CROSSABLE;
 	enum dbcs_state d;
-	int	cd_col;
 	int	cursor_col, cursor_row;
 
-	/* Set up cd_addr for wide crosshairs. */
+	/* Set up cursor_col/cursor_row. */
 	if (crossable) {
 		cursor_col = BA_TO_COL(cursor_addr);
 		cursor_row = BA_TO_ROW(cursor_addr);
-		cd_col = cursor_col;
-		switch (ctlr_dbcs_state(cursor_addr)) {
-		case DBCS_NONE:
-		case DBCS_DEAD:
-		case DBCS_LEFT_WRAP:
-		case DBCS_RIGHT_WRAP:
-		    break;
-		case DBCS_LEFT:
-		case DBCS_SI:
-		    if (cursor_col != (COLS - 1))
-			    cd_col = cursor_col + 1;
-		    break;
-		case DBCS_RIGHT:
-		case DBCS_SB: /* XXX */
-		    if (cursor_col)
-			    cd_col = cursor_col - 1;
-		    break;
-		}
 	}
 
 	/* If there is any blinking text, override the suggested boundaries. */
@@ -1939,6 +2034,7 @@ draw_fields(union sp *buffer, int first, int last)
 		union sp	b;
 		Boolean		reverse = False;
 		Boolean		is_selected = False;
+		Boolean		is_crossed = False;
 
 		b.word = 0;	/* clear out all fields */
 
@@ -2036,10 +2132,16 @@ draw_fields(union sp *buffer, int first, int last)
 		}
 
 		/*
-		 * Compute selection state.  A cell is also considered selected
-		 * if it is part of a double-byte character and the other half
-		 * of the character is selected.
+		 * Compute selection state.
+		 *
+		 * DBCS characters always act as a unit, with the state
+		 * determined by the selection status and crosshair
+		 * intersection of either half.
+		 * - If either half is selected, both are considered selected.
+		 * - If either half lies in the crosshair, neither is
+		 *   considered selected.
 		 */
+
 		is_selected = (SELECTED(baddr) != 0);
 		switch (ctlr_dbcs_state(baddr)) {
 		case DBCS_NONE:
@@ -2060,17 +2162,8 @@ draw_fields(union sp *buffer, int first, int last)
 		    break;
 		}
 
-		/*
-		 * XOR the crosshair cursor with selections.
-		 */
-		if (crossable) {
-			if (is_selected ^ (CROSSED(baddr) && !reverse))
-				b.bits.sel = 1;
-		} else {
-			if (is_selected)
-				b.bits.sel = 1;
-		}
-		if (b.bits.sel) {
+		if (crossable && !reverse) {
+			is_crossed = CROSSED(baddr);
 			switch (ctlr_dbcs_state(baddr)) {
 			case DBCS_NONE:
 			case DBCS_DEAD:
@@ -2080,15 +2173,26 @@ draw_fields(union sp *buffer, int first, int last)
 			case DBCS_LEFT:
 			case DBCS_SI:
 			    if ((baddr % COLS) != (COLS - 1) &&
-				SELECTED(baddr + 1))
-				    b.bits.sel = 1;
+				CROSSED(baddr + 1))
+				    is_crossed = True;
 			    break;
 			case DBCS_RIGHT:
 			case DBCS_SB: /* XXX */
-			    if ((baddr % COLS) && SELECTED(baddr - 1))
-				    b.bits.sel = 1;
+			    if ((baddr % COLS) && CROSSED(baddr - 1))
+				    is_crossed = True;
 			    break;
 			}
+		}
+
+		/*
+		 * XOR the crosshair cursor with selections.
+		 */
+		if (crossable) {
+			if (is_selected ^ is_crossed)
+				b.bits.sel = 1;
+		} else {
+			if (is_selected)
+				b.bits.sel = 1;
 		}
 
 		if (!flipped)
@@ -3643,8 +3747,8 @@ load_fixed_font(const char *names, const char *reqd_display_charsets)
 			return r;
 		}
 	} else {
-		dbcs_font_struct = NULL;
-		dbcs_font = None;
+		dbcs_font.font_struct = NULL;
+		dbcs_font.font = None;
 		dbcs = False;
 	}
 #endif /*]*/
@@ -3747,11 +3851,18 @@ lff_single(const char *name, const char *reqd_display_charset, Boolean is_dbcs)
 			}
 
 #if defined(X3270_DBCS) /*[*/
-			if (!is_dbcs && dbcs_font_struct != NULL) {
-				if (pixel_size ==
-					get_pixel_size(dbcs_font_struct) &&
-				    f[i].max_bounds.width ==
-					dbcs_font_struct->max_bounds.width / 2) {
+			if (!is_dbcs && dbcs_font.font_struct != NULL) {
+				/*
+				 * When searching, we will accept only a
+				 * perfect match.
+				 * When not searching, we'll take whatever
+				 * the user gives us, and adjust accordingly.
+				 */
+				if (count == 1 ||
+				    (pixel_size ==
+					get_pixel_size(dbcs_font.font_struct) &&
+				     f[i].max_bounds.width ==
+					dbcs_font.font_struct->max_bounds.width )) {
 					best = i;
 					break;
 				} else
@@ -3816,8 +3927,22 @@ set_font_globals(XFontStruct *f, const char *ef, const char *fef, Font ff,
 #if defined(X3270_DBCS) /*[*/
 	if (is_dbcs) {
 		/* Hack. */
-		dbcs_font_struct = f;
-		dbcs_font = f->fid;
+		dbcs_font.font_struct = f;
+		dbcs_font.font = f->fid;
+		if (XGetFontProperty(f, a_registry, &svalue)) {
+			char *family_name;
+
+			family_name = XGetAtomName(display, svalue);
+			if (family_name != CN) {
+				dbcs_font.unicode = !strcasecmp(family_name,
+				    "iso10646");
+				XFree(family_name);
+			}
+		}
+		dbcs_font.char_width  = fCHAR_WIDTH(f);
+		dbcs_font.char_height = fCHAR_HEIGHT(f);
+		dbcs_font.ascent = f->ascent;
+		dbcs_font.descent = f->descent;
 		dbcs = True;
 		Replace(full_efontname_dbcs, XtNewString(fef));
 		return;
@@ -4775,8 +4900,10 @@ stream_end(XtPointer closure unused, XtIntervalId *id unused)
 	screen_redo = REDO_NONE;
 
     done:
-	if (needs_moving && !iconic)
+	if (needs_moving && !iconic) {
 		keypad_move();
+		popups_move();
+	}
 }
 
 void
@@ -4928,6 +5055,7 @@ name2cs_3270(const char *name)
 }
 
 #if defined(X3270_DBCS) /*[*/
+/* Translate an EBCDIC DBCS character to a display character. */
 static void
 xlate_dbcs(unsigned char c0, unsigned char c1, XChar2b *r)
 {
@@ -4937,6 +5065,11 @@ xlate_dbcs(unsigned char c0, unsigned char c1, XChar2b *r)
 	if (c0 < 0x41 || c0 == 0xff) {
 		r->byte1 = 0;
 		r->byte2 = 0;
+	} else if (dbcs_font.unicode) {
+		/* Translate from DBCS to Unicode. */
+		dbcs_to_unicode16(c0, c1, wc);
+		r->byte1 = wc[0];
+		r->byte2 = wc[1];
 	} else {
 		/* Translate from DBCS to X11 EUC. */
 		dbcs_to_wchar(c0, c1, wc);
@@ -4980,22 +5113,24 @@ im_callback(Display *display, XPointer client_data, XPointer call_data)
 		{ (XIMStyle)0,                              NULL }
 	};
 	char *im_style = (appres.preedit_type != CN)?
-	    appres.preedit_type: PT_OVER_THE_SPOT;
+	    strip_whitespace(appres.preedit_type): PT_OVER_THE_SPOT;
 	char c;
 
 #if defined(_ST) /*[*/
 	printf("im_callback\n");
 #endif /*]*/
 
+	if (!strcasecmp(im_style, "None"))
+		return;
+
 	/* Parse the offset value for OverTheSpot. */
-	if (!strncmp(im_style, PT_OVER_THE_SPOT, OTS_LEN) &&
+	if (!strncasecmp(im_style, PT_OVER_THE_SPOT, OTS_LEN) &&
 	    ((c = im_style[OTS_LEN]) == '+' ||
 	     c == '-')) {
 		ovs_offset = atoi(im_style + OTS_LEN);
 		im_style = NewString(im_style);
 		im_style[OTS_LEN] = '\0';
 	}
-	    
 
 	/* Open connection to IM server. */
 	if ((im = XOpenIM(display, NULL, NULL, NULL)) == NULL) {
@@ -5034,7 +5169,7 @@ im_callback(Display *display, XPointer client_data, XPointer call_data)
 
 	/* Set my preferred style. */
 	for (j = 0; im_styles[j].description != NULL; j++) {
-		if (!strcmp(im_styles[j].description, im_style)) {
+		if (!strcasecmp(im_styles[j].description, im_style)) {
 			style = im_styles[j].style;
 			break;
 		}

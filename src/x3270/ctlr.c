@@ -1085,7 +1085,9 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 	enum dbcs_state	d;
 	enum dbcs_why	why;
 	Boolean		aborted = False;
+#if defined(X3270_DBCS) /*[*/
 	unsigned char	euc[3];
+#endif /*]*/
 
 #define END_TEXT0	{ if (previous == TEXT) trace_ds("'"); }
 #define END_TEXT(cmd)	{ END_TEXT0; trace_ds(" %s", cmd); }
@@ -1247,6 +1249,7 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 			add_dbcs = False;
 			ra_ge = False;
 			previous = ORDER;
+#if defined(X3270_DBCS) /*[*/
 			if (dbcs) {
 				d = ctlr_lookleft_state(buffer_addr, &why);
 				if (d == DBCS_RIGHT) {
@@ -1286,7 +1289,9 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 			       euc[2] = '\0';
 			       dbcs_to_wchar(add_c1, add_c2, euc);
 			       trace_ds("'%s'", euc);
-			} else {
+			} else
+#endif /*]*/
+			{
 				if (*cp == ORDER_GE) {
 					ra_ge = True;
 					trace_ds("GraphicEscape");
@@ -1480,7 +1485,7 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 					cp++;
 					if (*cp == 0xf1)
 						efa_cs = CS_APL;
-					else if (*cp == 0xf8)
+					else if (dbcs && (*cp == 0xf8))
 						efa_cs = CS_DBCS;
 					else
 						efa_cs = CS_BASE;
@@ -1489,7 +1494,8 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 					cp++;
 				} else if (*cp == XA_INPUT_CONTROL) {
 					trace_ds("%s", see_efa(*cp, *(cp + 1)));
-					efa_ic = (*(cp + 1) == 1);
+					if (dbcs)
+					    efa_ic = (*(cp + 1) == 1);
 					cp++;
 				} else {
 					trace_ds("%s[unsupported]", see_efa(*cp, *(cp + 1)));
@@ -1695,6 +1701,7 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 			if (previous != TEXT)
 				trace_ds(" '");
 			previous = TEXT;
+#if defined(X3270_DBCS) /*[*/
 			add_dbcs = False;
 			d = ctlr_lookleft_state(buffer_addr, &why);
 			if (d == DBCS_RIGHT) {
@@ -1716,14 +1723,18 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 			       dbcs_to_wchar(add_c1, add_c2, euc);
 			       trace_ds("%s", euc);
 			} else {
+#endif /*]*/
 				add_c1 = *cp;
 				trace_ds("%s", see_ebc(*cp));
+#if defined(X3270_DBCS) /*[*/
 			}
+#endif /*]*/
 			ctlr_add(buffer_addr, add_c1, default_cs);
 			ctlr_add_fg(buffer_addr, default_fg);
 			ctlr_add_gr(buffer_addr, default_gr);
 			ctlr_add_ic(buffer_addr, default_ic);
 			INC_BA(buffer_addr);
+#if defined(X3270_DBCS) /*[*/
 			if (add_dbcs) {
 				ctlr_add(buffer_addr, add_c2, default_cs);
 				ctlr_add_fg(buffer_addr, default_fg);
@@ -1731,6 +1742,7 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 				ctlr_add_gr(buffer_addr, default_ic);
 				INC_BA(buffer_addr);
 			}
+#endif /*]*/
 			last_cmd = False;
 			last_zpt = False;
 			break;
@@ -1892,6 +1904,10 @@ ctlr_lookleft_state(int baddr, enum dbcs_why *why)
 	(((f) < 0 && (b) == ROWS*COLS - 1) || \
 	 ((f) >= 0 && (b) == (f)))
 
+	 /* If we're not in DBCS state, everything is DBCS_NONE. */
+	 if (!dbcs)
+		return DBCS_NONE;
+
 	/* Find the field attribute, if any. */
 	faddr = find_field_attribute(baddr);
 
@@ -1998,6 +2014,10 @@ ctlr_dbcs_postprocess(void)
 	Boolean so = False, si = False;
 	Boolean dbcs_field = False;
 	int rc = 0;
+
+	/* If we're not in DBCS mode, do nothing. */
+	if (!dbcs)
+		return 0;
 
 	/*
 	 * Find the field attribute for location 0.  If unformatted, it's the
@@ -2567,7 +2587,7 @@ ctlr_shrink(void)
 enum dbcs_state
 ctlr_dbcs_state(int baddr)
 {
-	return ea_buf[baddr].db;
+	return dbcs? ea_buf[baddr].db: DBCS_NONE;
 }
 #endif /*]*/
 

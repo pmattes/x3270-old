@@ -125,8 +125,8 @@ fprint_screen(FILE *f, Boolean even_if_empty)
 				(void) fputc(wc[1], f);
 				i++;
 			}
-#endif /*]*/
 			else
+#endif /*]*/
 				(void) fputc(c, f);
 		}
 	}

@@ -154,9 +154,84 @@ hms(time_t ts)
 	    NULL); \
 	}
 
-/* Called when the "About x3270..." button is pressed */
+/* Called when the "About x3270->Copyright" button is pressed */
 void
-popup_about(void)
+popup_about_copyright(void)
+{
+	Widget w = NULL, w_prev = NULL;
+	Widget left_anchor = NULL;
+	int vd = 4;
+
+	/* Create the popup */
+
+	about_shell = XtVaCreatePopupShell(
+	    "aboutConfigPopup", transientShellWidgetClass, toplevel,
+	    NULL);
+	XtAddCallback(about_shell, XtNpopupCallback, place_popup,
+	    (XtPointer) CenterP);
+	XtAddCallback(about_shell, XtNpopdownCallback, destroy_about,
+	    NULL);
+
+	/* Create a form in the popup */
+
+	about_form = XtVaCreateManagedWidget(
+	    ObjDialog, formWidgetClass, about_shell,
+	    NULL);
+
+	/* Pretty picture */
+
+	left_anchor = XtVaCreateManagedWidget(
+	    "icon", labelWidgetClass, about_form,
+	    XtNborderWidth, 0,
+	    XtNbitmap, icon,
+	    XtNfromVert, w,
+	    XtNleft, XtChainLeft,
+	    NULL);
+
+	/* Miscellany */
+
+	MAKE_LABEL(build, 4);
+
+	/* Everything else at the left margin under the bitmap */
+	w = left_anchor;
+	left_anchor = NULL;
+
+	MAKE_SMALL("Modifications and original code Copyright \251 1993, 1994, 1995, 1996, 1997, 1999,\n\
+  2000, 2001, 2002 by Paul Mattes.\n\
+Original X11 Port Copyright \251 1990 by Jeff Sparkes.\n\
+File transfer code Copyright \251 1995 by Dick Altenbern.\n\
+Includes IAC IP patch by Carey Evans, 1998.\n\
+ Permission to use, copy, modify, and distribute this software and its documentation\n\
+ for any purpose and without fee is hereby granted, provided that the above copyright\n\
+ notice appear in all copies and that both that copyright notice and this permission\n\
+ notice appear in supporting documentation.\n\
+\n\
+Copyright \251 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.\n\
+ All Rights Reserved.  GTRC hereby grants public use of this software.  Derivative\n\
+ works based on this software must incorporate this copyright notice.\n\
+\n\
+x3270 is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;\n\
+without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR\n\
+PURPOSE.  See the file LICENSE for more details.", 4);
+
+	/* Add "OK" button at the lower left */
+
+	w = XtVaCreateManagedWidget(
+	    ObjConfirmButton, commandWidgetClass, about_form,
+	    XtNfromVert, w,
+	    XtNleft, XtChainLeft,
+	    XtNbottom, XtChainBottom,
+	    NULL);
+	XtAddCallback(w, XtNcallback, saw_about, 0);
+
+	/* Pop it up */
+
+	popup_popup(about_shell, XtGrabExclusive);
+}
+
+/* Called when the "About x3270->Configuration" button is pressed */
+void
+popup_about_config(void)
 {
 	Widget w = NULL, w_prev = NULL;
 	Widget v = NULL;
@@ -164,16 +239,12 @@ popup_about(void)
 	int vd = 4;
 	char fbuf[1024];
 	const char *ftype;
-	const char *emode;
-#if defined(X3270_TN3270E) /*[*/
-	const char *eopts;
-#endif /*]*/
 	char *xbuf;
 
 	/* Create the popup */
 
 	about_shell = XtVaCreatePopupShell(
-	    "aboutPopup", transientShellWidgetClass, toplevel,
+	    "aboutCopyrightPopup", transientShellWidgetClass, toplevel,
 	    NULL);
 	XtAddCallback(about_shell, XtNpopupCallback, place_popup,
 	    (XtPointer) CenterP);
@@ -209,24 +280,6 @@ popup_about(void)
 	/* Everything else at the left margin under the bitmap */
 	w = left_anchor;
 	left_anchor = NULL;
-
-	MAKE_SMALL("Modifications and original code Copyright \251 1993, 1994, 1995, 1996, 1997, 1999,\n\
-  2000, 2001, 2002 by Paul Mattes.\n\
-Original X11 Port Copyright \251 1990 by Jeff Sparkes.\n\
-File transfer code Copyright \251 1995 by Dick Altenbern.\n\
-Includes IAC IP patch by Carey Evans, 1998.\n\
- Permission to use, copy, modify, and distribute this software and its documentation\n\
- for any purpose and without fee is hereby granted, provided that the above copyright\n\
- notice appear in all copies and that both that copyright notice and this permission\n\
- notice appear in supporting documentation.\n\
-\n\
-Copyright \251 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.\n\
- All Rights Reserved.  GTRC hereby grants public use of this software.  Derivative\n\
- works based on this software must incorporate this copyright notice.\n\
-\n\
-x3270 is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;\n\
-without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR\n\
-PURPOSE.  See the file LICENSE for more details.", 4);
 
 	(void) sprintf(fbuf, "%s %s: %d %s x %d %s, %s, %s",
 	    get_message("model"), model_name,
@@ -339,6 +392,70 @@ PURPOSE.  See the file LICENSE for more details.", 4);
 		}
 	} else
 		MAKE_LABEL(get_message("staticIcon"), 4);
+
+	/* Add "OK" button at the lower left */
+
+	w = XtVaCreateManagedWidget(
+	    ObjConfirmButton, commandWidgetClass, about_form,
+	    XtNfromVert, w,
+	    XtNleft, XtChainLeft,
+	    XtNbottom, XtChainBottom,
+	    NULL);
+	XtAddCallback(w, XtNcallback, saw_about, 0);
+
+	/* Pop it up */
+
+	popup_popup(about_shell, XtGrabExclusive);
+}
+
+/* Called when the "About x3270->Connection Status" button is pressed */
+void
+popup_about_status(void)
+{
+	Widget w = NULL, w_prev = NULL;
+	Widget v = NULL;
+	Widget left_anchor = NULL;
+	int vd = 4;
+	char fbuf[1024];
+	const char *ftype;
+	const char *emode;
+#if defined(X3270_TN3270E) /*[*/
+	const char *eopts;
+#endif /*]*/
+
+	/* Create the popup */
+
+	about_shell = XtVaCreatePopupShell(
+	    "aboutStatusPopup", transientShellWidgetClass, toplevel,
+	    NULL);
+	XtAddCallback(about_shell, XtNpopupCallback, place_popup,
+	    (XtPointer) CenterP);
+	XtAddCallback(about_shell, XtNpopdownCallback, destroy_about,
+	    NULL);
+
+	/* Create a form in the popup */
+
+	about_form = XtVaCreateManagedWidget(
+	    ObjDialog, formWidgetClass, about_shell,
+	    NULL);
+
+	/* Pretty picture */
+
+	left_anchor = XtVaCreateManagedWidget(
+	    "icon", labelWidgetClass, about_form,
+	    XtNborderWidth, 0,
+	    XtNbitmap, icon,
+	    XtNfromVert, w,
+	    XtNleft, XtChainLeft,
+	    NULL);
+
+	/* Miscellany */
+
+	MAKE_LABEL(build, 4);
+
+	/* Everything else at the left margin under the bitmap */
+	w = left_anchor;
+	left_anchor = NULL;
 
 	if (CONNECTED) {
 		MAKE_LABEL(get_message("connectedTo"), 4);

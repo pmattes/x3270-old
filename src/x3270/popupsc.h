@@ -51,6 +51,7 @@ extern void popup_child_output(Boolean is_err, abort_callback_t *a,
 extern void popup_popup(Widget shell, XtGrabKind grab);
 extern void popup_printer_output(Boolean is_err, abort_callback_t *a,
     const char *fmt, ...);
+extern void popups_move(void);
 extern void printer_popup_init(void);
 extern void toplevel_geometry(Position *x, Position *y, Dimension *width,
     Dimension *height);

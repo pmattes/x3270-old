@@ -63,8 +63,8 @@ else	DEFINE_PR3287="#undef PR3287"
 fi
 AC_SUBST(DEFINE_PR3287)
 
-dnl Check for --with-fontdir=xxx
-AC_ARG_WITH(fontdir,[  --with-fontdir=xxx      install fonts in directory xxx [ARG=misc]])
+dnl Check for --with-fontdir=DIR
+AC_ARG_WITH(fontdir,[  --with-fontdir=DIR      install fonts in directory DIR [DIR=misc]])
 case "$with_fontdir" in
 ""|yes|no)
 	IFONTDIR='$'"(FONTDIR)/misc"
@@ -186,11 +186,43 @@ AC_CHECK_FUNC(strtok_r,,AC_LIBOBJ(strtok_r)
 AC_DEFINE(NEED_STRTOK_R))
 AC_FUNC_FSEEKO
 
-dnl Check for -licui18n last.
+checkicudir() { :
+	if test -f "$1/include/unicode/ucnv.h"
+	then	icudir="$1"
+		return 0
+	else	return 1
+	fi
+}
+
+AC_ARG_WITH(icu, [  --with-icu=DIR          location of installed ICU libraries/include files], [checkicudir "$withval"], )
+
 if test "$enable_dbcs" = "yes"
-then	AC_CHECK_LIB(icui18n, ucnv_open_2_2, , [AC_MSG_ERROR(Can't find libicui18n)], $HACK_LIBS)
+then	dnl Check for ICU.
+	AC_MSG_CHECKING([for ICU library install directory])
+	if test -z "$icudir"
+	then	for basedir in /usr/local /usr/lib /usr/pkg /usr /var/icu /opt
+		do	for dir in $basedir $basedir/icu
+			do	checkicudir $dir && break 2
+			done
+		done
+	fi
+	if test -z "$icudir"
+	then	AC_MSG_RESULT([Not found])
+		echo
+		echo "Couldn't find ICU library installation directory."
+		echo "Use the --with-icu option to specify it."
+		exit 1
+	fi
+	AC_MSG_RESULT([$icudir])
+	if test "$icudir" != /usr
+	then	CPPFLAGS="$CPPFLAGS -I$icudir/include"
+		LDFLAGS="$LDFLAGS -L$icudir/lib"
+	fi
+
+	dnl Check for -licui18n.
+	AC_CHECK_LIB(icui18n, ucnv_open_2_2, , [AC_MSG_ERROR(Can't find libicui18n)], $HACK_LIBS)
+	AC_SUBST(HACK_LIBS)
 fi
-AC_SUBST(HACK_LIBS)
 
 dnl Check for xmkmkf
 AC_CHECK_PROG(xmkmf_found,xmkmf,found,notfound)

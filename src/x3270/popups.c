@@ -768,3 +768,36 @@ Info_action(Widget w unused, XEvent *event, String *params,
 		return;
 	popup_an_info(params[0]);
 }
+
+/*
+ * Move the popups that need moving.
+ */
+void
+popups_move(void)
+{
+	Position x = 0, y = 0;
+	Dimension win_width, win_height;
+	Dimension popup_width, popup_height;
+	Position xnew, ynew;
+
+	if (!error_popup.visible)
+		return;
+
+	toplevel_geometry(&x, &y, &win_width, &win_height);
+
+	XtVaGetValues(error_popup.shell,
+	    XtNwidth, &popup_width,
+	    XtNheight, &popup_height,
+	    NULL);
+	xnew = x + (win_width-popup_width) / (unsigned) 2;
+	if (xnew < 0)
+		xnew = 0;
+	ynew = y + (win_height-popup_height) / (unsigned) 2;
+	if (ynew < 0)
+		ynew = 0;
+	XtVaSetValues(error_popup.shell,
+	    XtNx, xnew,
+	    XtNy, ynew,
+	    NULL);
+	XRaiseWindow(display, XtWindow(error_popup.shell));
+}

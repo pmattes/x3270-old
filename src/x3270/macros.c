@@ -1328,7 +1328,9 @@ dump_range(int first, int len, Boolean in_ascii, struct ea *buf,
 	char *linebuf;
 	char *s;
 	Boolean did_left = False;
+#if defined(X3270_DBCS) /*[*/
 	unsigned char euc[2];
+#endif /*]*/
 
 	linebuf = Malloc(maxCOLS * 3 + 1);
 	s = linebuf;
@@ -1352,6 +1354,7 @@ dump_range(int first, int len, Boolean in_ascii, struct ea *buf,
 		if (in_ascii) {
 			unsigned char c;
 
+#if defined(X3270_DBCS) /*[*/
 			if (IS_LEFT(ctlr_dbcs_state(first + i))) {
 				dbcs_to_wchar(buf[first + i].cc,
 					      buf[first + i + 1].cc,
@@ -1363,7 +1366,9 @@ dump_range(int first, int len, Boolean in_ascii, struct ea *buf,
 					continue;
 				c = euc[1];
 				did_left = False;
-			} else {
+			} else
+#endif /*]*/
+			{
 				c = ebc2asc[buf[first + i].cc];
 				did_left = False;
 			}

@@ -30,6 +30,7 @@ extern int split_dbcs_resource(const char *value, char sep, char **part1,
     char **part2);
 extern int split_dresource(char **st, char **left, char **right);
 extern int split_lresource(char **st, char **value);
+extern char *strip_whitespace(const char *s);
 extern char *xs_buffer(const char *fmt, ...);
 extern void xs_error(const char *fmt, ...);
 extern void xs_warning(const char *fmt, ...);

@@ -185,7 +185,6 @@ void
 ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 {
 	register unsigned char	*cp;
-	unsigned char	new_attr;
 	Boolean		last_cmd;
 	Boolean		last_zpt;
 	Boolean		wcc_keyboard_restore, wcc_sound_alarm;
@@ -205,21 +204,10 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 #define END_TEXT0	{ if (previous == TEXT) trace_ds("'"); }
 #define END_TEXT(cmd)	{ END_TEXT0; trace_ds(" %s", cmd); }
 
-#define ATTR2FA(attr) \
-	(FA_BASE | \
-	 (((attr) & 0x20) ? FA_PROTECT : 0) | \
-	 (((attr) & 0x10) ? FA_NUMERIC : 0) | \
-	 (((attr) & 0x01) ? FA_MODIFY : 0) | \
-	 (((attr) >> 2) & FA_INTENSITY))
-#define START_FIELDx(fa) { \
-			ctlr_add(FA_IS_ZERO(fa)?INVISIBLE:VISIBLE, 0, default_gr); \
-			trace_ds(see_attr(fa)); \
-		}
-#define START_FIELD0	{ START_FIELDx(FA_BASE); }
-#define START_FIELD(attr) { \
-			new_attr = ATTR2FA(attr); \
-			START_FIELDx(new_attr); \
-		}
+#define START_FIELD(fa) { \
+		ctlr_add(FA_IS_ZERO(fa)?INVISIBLE:VISIBLE, 0, default_gr); \
+		trace_ds(see_attr(fa)); \
+	}
 
 	if (buflen < 2)
 		return;
@@ -433,7 +421,7 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 				}
 			}
 			if (!any_fa)
-				START_FIELD0;
+				START_FIELD(0);
 			ctlr_add('\0', 0, default_gr);
 			last_cmd = True;
 			last_zpt = False;

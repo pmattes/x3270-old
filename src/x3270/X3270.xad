@@ -240,10 +240,11 @@ x3270.emulatorFontList.3270cg-15a,3270cg-15,iso8859-15: \
 					20-point Font: #resize 3270e-20\n\
 					24-point Font: #resize 3270egt24\n\
 					32-point Font: #resize 3270egt32
-x3270.emulatorFontList.3270cg-1a,iso8859-1+gb2312.1980-0: \
-					16-point: 8x16+-isas-song ti-medium-r-normal--16-160-72-72-c-160-gb2312.1980-0\n\
-					16-point 3270: 3270c8x16+-isas-song ti-medium-r-normal--16-160-72-72-c-160-gb2312.1980-0\n\
-					24-point: 12x24+-isas-song ti-medium-r-normal--24-240-72-72-c-240-gb2312.1980-0
+x3270.emulatorFontList.3270cg-1a,3270cg-1,iso8859-1+gb2312.1980-0,iso10646-1: \
+					14-point 3270: 3270+-isas-song ti-medium-r-normal--16-160-72-72-c-160-gb2312.1980-0\n\
+					20-point 3270: 3270-20+-isas-song ti-medium-r-normal--16-160-72-72-c-160-gb2312.1980-0\n\
+					8x16: 8x16+-isas-song ti-medium-r-normal--16-160-72-72-c-160-gb2312.1980-0\n\
+					12x24: 12x24+-isas-song ti-medium-r-normal--24-240-72-72-c-240-gb2312.1980-0
 #endif
 !
 ! Print commands
@@ -876,7 +877,9 @@ x3270.executeActionPopup*confirmButton.label:	Execute
 x3270.saveOptionsPopup.title:			x3270 Save Changed Options
 x3270.saveOptionsPopup.dialog.label:		Enter Profile File Name
 x3270.saveOptionsPopup*confirmButton.label:	Save
-x3270.aboutPopup.title:				About x3270
+x3270.aboutCopyrightPopup.title:		x3270 Copyright
+x3270.aboutConfigPopup.title:			x3270 Configuration
+x3270.aboutStatusPopup.title:			x3270 Connection Status
 x3270.connectPopup*confirmButton.label:		Connect
 x3270.fontPopup*confirmButton.label:		Select Font
 x3270.keymapPopup*confirmButton.label:		Select Keymap
@@ -898,6 +901,9 @@ x3270.childInfoPopup*cancelButton.label:	Discard Output
 x3270*cancelButton.label:			Cancel
 #ifdef X3270_MENUS
 x3270*aboutOption.label:			About x3270...
+x3270*aboutCopyright.label:			Copyright
+x3270*aboutConfig.label:			Configuration
+x3270*aboutStatus.label:			Connection Status
 #ifdef X3270_FT
 x3270*ftOption.label:				File Transfer...
 #endif
@@ -1285,7 +1291,9 @@ x3270.saveOptionsPopup.width:			300
 !
 ! Nondefault definitions for complex pop-ups
 #ifdef COLOR
-x3270.aboutPopup*icon.foreground:		darkslateblue
+x3270.aboutCopyrightPopup*icon.foreground:	darkslateblue
+x3270.aboutConfigPopup*icon.foreground:		darkslateblue
+x3270.aboutStatusPopup*icon.foreground:		darkslateblue
 x3270.errorPopup*label.foreground:		firebrick
 x3270.printerErrorPopup*label.foreground:	firebrick
 x3270.childErrorPopup*label.foreground:		firebrick
@@ -1314,7 +1322,7 @@ x3270.kmPopup*sortKeymapOption.label:		Sort by Keymap
 x3270.kmPopup*sortEventOption.label:		Sort by Event
 x3270.kmPopup*text*background:			lavender
 x3270.kmPopup*text*foreground:			black
-x3270.kmPopup*text.height:			500
+x3270.kmPopup*text.height:			250
 x3270.kmPopup*text.width:			500
 !
 ! Basic event translations -- these should NEVER be changed without significant
@@ -1428,12 +1436,22 @@ x3270.executeActionPopup.translations: \
 	<Message>WM_PROTOCOLS:		PA-WMProtocols()
 x3270.saveOptionsPopup.translations: \
 	<Message>WM_PROTOCOLS:		PA-WMProtocols()
-x3270.aboutPopup.translations: \
+x3270.aboutCopyrightPopup.translations: \
 	<Message>WM_PROTOCOLS:		PA-WMProtocols()
-x3270.aboutPopup*translations:		#override \n\
+x3270.aboutCopyrightPopup*translations:	#override \n\
+	<Key>Return:			PA-confirm()
+x3270.aboutConfigPopup.translations: \
+	<Message>WM_PROTOCOLS:		PA-WMProtocols()
+x3270.aboutConfigPopup*translations:	#override \n\
+	<Key>Return:			PA-confirm()
+x3270.aboutStatusPopup.translations: \
+	<Message>WM_PROTOCOLS:		PA-WMProtocols()
+x3270.aboutStatusPopup*translations:	#override \n\
 	<Key>Return:			PA-confirm()
 x3270.kmPopup.translations: \
 	<Message>WM_PROTOCOLS:		PA-WMProtocols()
+x3270.kmPopup*translations:		#override \n\
+	<Key>Return:			PA-confirm()
 x3270.luPopup.translations: \
 	<Message>WM_PROTOCOLS:		PA-WMProtocols()
 #endif
@@ -2012,6 +2030,6 @@ x3270.charset.thai: #table\n\
 ! Note that the 'charset' definition applies only to the single-byte character
 ! set (836), not the double-byte character set (837).
 x3270.codepage.simplified-chinese: 0x04960344+0xffff0345
-x3270.displayCharset.simplified-chinese: 3270cg-1a,iso8859-1+gb2312.1980-0
+x3270.displayCharset.simplified-chinese: 3270cg-1a,3270cg-1,iso8859-1+gb2312.1980-0,iso10646-1
 x3270.charset.simplified-chinese: \n
 x3270.dbcsConverters.simplified-chinese: ibm-837_P100-2000,gb2312-1980

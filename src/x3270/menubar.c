@@ -549,12 +549,26 @@ script_abort_callback(Widget w unused, XtPointer client_data unused,
 	abort_script();
 }
 
-/* "About x3270" popup */
+/* "About x3270" popups */
 static void
-show_about(Widget w unused, XtPointer userdata unused,
+show_about_copyright(Widget w unused, XtPointer userdata unused,
     XtPointer calldata unused)
 {
-	popup_about();
+	popup_about_copyright();
+}
+
+static void
+show_about_config(Widget w unused, XtPointer userdata unused,
+    XtPointer calldata unused)
+{
+	popup_about_config();
+}
+
+static void
+show_about_status(Widget w unused, XtPointer userdata unused,
+    XtPointer calldata unused)
+{
+	popup_about_status();
 }
 
 /* Called from the "Save" button on the save options dialog */
@@ -603,6 +617,7 @@ static void
 file_menu_init(Boolean regen, Dimension x, Dimension y)
 {
 	static Widget file_menu = (Widget)NULL;
+	static Widget about_menu = (Widget)NULL;
 	Widget w;
 
 	if (regen && (file_menu != (Widget)NULL)) {
@@ -621,10 +636,26 @@ file_menu_init(Boolean regen, Dimension x, Dimension y)
 		    file_menu, NULL);
 
 	/* About x3270... */
+	about_menu = XtVaCreatePopupShell(
+	    "aboutMenu", complexMenuWidgetClass, file_menu,
+	    NULL);
+	w = XtVaCreateManagedWidget(
+	    "aboutCopyright", cmeBSBObjectClass, about_menu,
+	    NULL);
+	XtAddCallback(w, XtNcallback, show_about_copyright, NULL);
+	w = XtVaCreateManagedWidget(
+	    "aboutConfig", cmeBSBObjectClass, about_menu,
+	    NULL);
+	XtAddCallback(w, XtNcallback, show_about_config, NULL);
+	w = XtVaCreateManagedWidget(
+	    "aboutStatus", cmeBSBObjectClass, about_menu,
+	    NULL);
+	XtAddCallback(w, XtNcallback, show_about_status, NULL);
 	w = XtVaCreateManagedWidget(
 	    "aboutOption", cmeBSBObjectClass, file_menu,
+	    XtNrightBitmap, arrow,
+	    XtNmenuName, "aboutMenu",
 	    NULL);
-	XtAddCallback(w, XtNcallback, show_about, NULL);
 
 #if defined(X3270_FT) /*[*/
 	/* File Transfer */

@@ -849,7 +849,8 @@ Optional Packages:
   --with-x                use the X Window System
   --with-all-xinstall     install all components in system X11 directory
   --without-pr3287        don't build pr3287
-  --with-fontdir=xxx      install fonts in directory xxx ARG=misc
+  --with-fontdir=DIR      install fonts in directory DIR DIR=misc
+  --with-icu=DIR          location of installed ICU libraries/include files
 
 Some influential environment variables:
   CC          C compiler command
@@ -4099,8 +4100,47 @@ _ACEOF
 fi
 
 
+checkicudir() { :
+	if test -f "$1/include/unicode/ucnv.h"
+	then	icudir="$1"
+		return 0
+	else	return 1
+	fi
+}
+
+
+# Check whether --with-icu or --without-icu was given.
+if test "${with_icu+set}" = set; then
+  withval="$with_icu"
+  checkicudir "$withval"
+fi;
+
 if test "$enable_dbcs" = "yes"
-then
+then		echo "$as_me:$LINENO: checking for ICU library install directory" >&5
+echo $ECHO_N "checking for ICU library install directory... $ECHO_C" >&6
+	if test -z "$icudir"
+	then	for basedir in /usr/local /usr/lib /usr/pkg /usr /var/icu /opt
+		do	for dir in $basedir $basedir/icu
+			do	checkicudir $dir && break 2
+			done
+		done
+	fi
+	if test -z "$icudir"
+	then	echo "$as_me:$LINENO: result: Not found" >&5
+echo "${ECHO_T}Not found" >&6
+		echo
+		echo "Couldn't find ICU library installation directory."
+		echo "Use the --with-icu option to specify it."
+		exit 1
+	fi
+	echo "$as_me:$LINENO: result: $icudir" >&5
+echo "${ECHO_T}$icudir" >&6
+	if test "$icudir" != /usr
+	then	CPPFLAGS="$CPPFLAGS -I$icudir/include"
+		LDFLAGS="$LDFLAGS -L$icudir/lib"
+	fi
+
+
 echo "$as_me:$LINENO: checking for ucnv_open_2_2 in -licui18n" >&5
 echo $ECHO_N "checking for ucnv_open_2_2 in -licui18n... $ECHO_C" >&6
 if test "${ac_cv_lib_icui18n_ucnv_open_2_2+set}" = set; then
@@ -4169,8 +4209,8 @@ echo "$as_me: error: Can't find libicui18n" >&2;}
    { (exit 1); exit 1; }; }
 fi
 
-fi
 
+fi
 
 # Extract the first word of "xmkmf", so it can be a program name with args.
 set dummy xmkmf; ac_word=$2

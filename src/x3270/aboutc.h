@@ -16,4 +16,6 @@
  *		Global declarations for about.c.
  */
 
-extern void popup_about(void);
+extern void popup_about_copyright(void);
+extern void popup_about_config(void);
+extern void popup_about_status(void);

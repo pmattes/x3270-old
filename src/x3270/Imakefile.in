@@ -41,8 +41,7 @@ LOCAL_LIBRARIES = $(XAWLIB) $(XMULIB) $(XTOOLLIB) $(XLIB)
 		  FontObj(3270egt8) FontObj(3270gr) FontObj(3270gt12) \
 		  FontObj(3270gt12b) FontObj(3270gt16) FontObj(3270gt16b) \
 		  FontObj(3270gt24) FontObj(3270gt24b) FontObj(3270gt32) \
-		  FontObj(3270gt32b) FontObj(3270gt8) FontObj(3270h) \
-		  FontObj(3270c8x16)
+		  FontObj(3270gt32b) FontObj(3270gt8) FontObj(3270h)
       HOSTSFILE = ibm_hosts
 @INSTALL_CNV@
 #ifdef INSTALL_CNV
@@ -119,7 +118,6 @@ FontTarget(3270gt32)
 FontTarget(3270gt32b)
 FontTarget(3270gt8)
 FontTarget(3270h)
-FontTarget(3270c8x16)
 InstallMultipleFlags($(FONTS),$(FONTINSTDIR),$(INSTDATFLAGS))
 
 /* Extra directories. */

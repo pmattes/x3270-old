@@ -1,4 +1,4 @@
-This is the fifth Alpha release of DBCS support for x3270.  It is for debug
+This is the sixth Alpha release of DBCS support for x3270.  It is for debug
 and integration purposes only.
 
 Prerequisites
@@ -11,15 +11,17 @@ x3270 supports ONLY ICU version 2.2.
 How to Configure DBCS Support
 -----------------------------
 DBCS support is turned on with the '--enable-dbcs' option.
-pr3287 is not supported in this release, so the '--without-pr3287' option is
- mandatory.
-The installation directory for ICU must be passed explicitly to the configure
-script.  The example below assumes the default of /usr/local.
+The configure script will search for the ICU directory; if it cannot find
+it the '--with-icu' option can be used to speficy it.
 
 Typical DBCS configure options would be:
 
-    ./configure --without-pr3287 --enable-dbcs \
-	CPPFLAGS=-I/usr/local/include LDFLAGS=-L/usr/local/lib
+    ./configure --enable-dbcs
+
+To specify the ICU directory explicitly (e.g., /usr/fred/include and
+/usr/fred/lib):
+
+    ./configure --enable-dbcs --with-icu=/usr/fred
 
 How to Run x3270 in DBCS Mode
 -----------------------------
@@ -45,11 +47,12 @@ appear two lines below the cursor.  The default preedit type is
 
 Languages and Code Pages Supported
 ----------------------------------
- Charset Name       Code Pages X11 Fonts     Workstation Encoding
+ Charset Name       Code Pages X11 Charsets  Workstation Encoding
  ------------------ ---------- ------------- ---------------------
- simplified-chinese 836, 837   gb2312-1980.0 EUC-CN (GB 3212-1980)
+ simplified-chinese 836, 837   gb2312-1980-0 EUC-CN (GB 3212-1980)
+			       iso10646-1
 
 Known Limitations
 -----------------
-pr3287 does not build.
-The crosshair cursor does not work correctly.
+pr3287 does not support DBCS character sets.
+Flipped mode does not work, and is disabled.
