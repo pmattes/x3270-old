@@ -21,6 +21,7 @@ struct ctl_char {
 	char value[3];
 };
 
+extern void net_abort(void);
 extern void net_add_eor(unsigned char *buf, int len);
 extern void net_break(void);
 extern void net_charmode(void);
@@ -40,4 +41,5 @@ extern void net_send_kill(void);
 extern void net_send_werase(void);
 extern Boolean net_snap_options(void);
 extern void space3270out(int n);
+extern const char *tn3270e_current_opts(void);
 extern void trace_netdata(char direction, unsigned const char *buf, int len);

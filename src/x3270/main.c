@@ -357,6 +357,8 @@ main(int argc, char *argv[])
 	else
 		termtype = full_model_name;
 
+	hostfile_init();
+
 	keymap_init(appres.key_map);
 
 	if (appres.apl_mode) {

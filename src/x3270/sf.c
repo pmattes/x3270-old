@@ -38,10 +38,10 @@ extern unsigned char crm_attr[];
 
 /* Statics */
 static Boolean  qr_in_progress = False;
-static void sf_read_part(unsigned char buf[], unsigned buflen);
-static void sf_erase_reset(unsigned char buf[], int buflen);
-static void sf_set_reply_mode(unsigned char buf[], int buflen);
-static void sf_outbound_ds(unsigned char buf[], int buflen);
+static enum pds sf_read_part(unsigned char buf[], unsigned buflen);
+static enum pds sf_erase_reset(unsigned char buf[], int buflen);
+static enum pds sf_set_reply_mode(unsigned char buf[], int buflen);
+static enum pds sf_outbound_ds(unsigned char buf[], int buflen);
 static void query_reply_start(void);
 static void do_query_reply(unsigned char code);
 static void query_reply_end(void);
@@ -66,12 +66,14 @@ static unsigned char supported_replies[] = {
 /*
  * Process a 3270 Write Structured Field command
  */
-void
+enum pds
 write_structured_field(unsigned char buf[], int buflen)
 {
 	unsigned short fieldlen;
 	unsigned char *cp = buf;
 	Boolean first = True;
+	enum pds rv = PDS_OKAY_NO_OUTPUT;
+	enum pds rv_this;
 
 	/* Skip the WSF command itself. */
 	cp++;
@@ -89,7 +91,7 @@ write_structured_field(unsigned char buf[], int buflen)
 		/* Pick out the field length. */
 		if (buflen < 2) {
 			trace_ds("error: single byte at end of message\n");
-			return;
+			return rv ? rv : PDS_BAD_CMD;
 		}
 		fieldlen = (cp[0] << 8) + cp[1];
 		if (fieldlen == 0)
@@ -97,31 +99,32 @@ write_structured_field(unsigned char buf[], int buflen)
 		if (fieldlen < 3) {
 			trace_ds("error: field length %d too small\n",
 			    fieldlen);
-			return;
+			return rv ? rv : PDS_BAD_CMD;
 		}
 		if ((int)fieldlen > buflen) {
-			trace_ds("error: field length %d exceeds remaining message length %d\n",
+			trace_ds("error: field length %d exceeds remaining "
+			    "message length %d\n",
 			    fieldlen, buflen);
-			return;
+			return rv ? rv : PDS_BAD_CMD;
 		}
 
 		/* Dispatch on the ID. */
 		switch (cp[2]) {
 		    case SF_READ_PART:
 			trace_ds("ReadPartition");
-			sf_read_part(cp, (int)fieldlen);
+			rv_this = sf_read_part(cp, (int)fieldlen);
 			break;
 		    case SF_ERASE_RESET:
 			trace_ds("EraseReset");
-			sf_erase_reset(cp, (int)fieldlen);
+			rv_this = sf_erase_reset(cp, (int)fieldlen);
 			break;
 		    case SF_SET_REPLY_MODE:
 			trace_ds("SetReplyMode");
-			sf_set_reply_mode(cp, (int)fieldlen);
+			rv_this = sf_set_reply_mode(cp, (int)fieldlen);
 			break;
 		    case SF_OUTBOUND_DS:
 			trace_ds("OutboundDS");
-			sf_outbound_ds(cp, (int)fieldlen);
+			rv_this = sf_outbound_ds(cp, (int)fieldlen);
 			break;
 #if defined(X3270_FT) /*[*/
 		    case SF_TRANSFER_DATA:   /* File transfer data         */
@@ -131,8 +134,21 @@ write_structured_field(unsigned char buf[], int buflen)
 #endif /*]*/
 		    default:
 			trace_ds("unsupported ID 0x%02x\n", cp[2]);
+			rv_this = PDS_BAD_CMD;
 			break;
 		}
+
+		/*
+		 * Accumulate errors or output flags.
+		 * One real ugliness here is that if we have already
+		 * generated some output, then we have already positively
+		 * acknowledged the request, so if we fail here, we have no
+		 * way to return the error indication.
+		 */
+		if (rv_this < 0)
+			return rv ? rv : rv_this;
+		else
+			rv |= rv_this;
 
 		/* Skip to the next field. */
 		cp += fieldlen;
@@ -140,9 +156,10 @@ write_structured_field(unsigned char buf[], int buflen)
 	}
 	if (first)
 		trace_ds(" (null)\n");
+	return rv;
 }
 
-static void
+static enum pds
 sf_read_part(unsigned char buf[], unsigned buflen)
 {
 	unsigned char partition;
@@ -152,7 +169,7 @@ sf_read_part(unsigned char buf[], unsigned buflen)
 
 	if (buflen < 5) {
 		trace_ds(" error: field length %d too small\n", buflen);
-		return;
+		return PDS_BAD_CMD;
 	}
 
 	partition = buf[3];
@@ -163,7 +180,7 @@ sf_read_part(unsigned char buf[], unsigned buflen)
 		trace_ds(" Query");
 		if (partition != 0xff) {
 			trace_ds(" error: illegal partition\n");
-			return;
+			return PDS_BAD_CMD;
 		}
 		trace_ds("\n");
 		query_reply_start();
@@ -175,11 +192,11 @@ sf_read_part(unsigned char buf[], unsigned buflen)
 		trace_ds(" QueryList ");
 		if (partition != 0xff) {
 			trace_ds("error: illegal partition\n");
-			return;
+			return PDS_BAD_CMD;
 		}
 		if (buflen < 6) {
 			trace_ds("error: missing request type\n");
-			return;		/* error */
+			return PDS_BAD_CMD;
 		}
 		query_reply_start();
 		switch (buf[5]) {
@@ -225,7 +242,7 @@ sf_read_part(unsigned char buf[], unsigned buflen)
 			break;
 		    default:
 			trace_ds("unknown request type 0x%02x\n", buf[5]);
-			return;		/* error */
+			return PDS_BAD_CMD;
 		}
 		query_reply_end();
 		break;
@@ -233,7 +250,7 @@ sf_read_part(unsigned char buf[], unsigned buflen)
 		trace_ds(" ReadModifiedAll");
 		if (partition != 0x00) {
 			trace_ds(" error: illegal partition\n");
-			return;
+			return PDS_BAD_CMD;
 		}
 		trace_ds("\n");
 		ctlr_read_modified(AID_QREPLY, True);
@@ -242,7 +259,7 @@ sf_read_part(unsigned char buf[], unsigned buflen)
 		trace_ds(" ReadBuffer");
 		if (partition != 0x00) {
 			trace_ds(" error: illegal partition\n");
-			return;
+			return PDS_BAD_CMD;
 		}
 		trace_ds("\n");
 		ctlr_read_buffer(AID_QREPLY);
@@ -251,23 +268,24 @@ sf_read_part(unsigned char buf[], unsigned buflen)
 		trace_ds(" ReadModified");
 		if (partition != 0x00) {
 			trace_ds(" error: illegal partition\n");
-			return;
+			return PDS_BAD_CMD;
 		}
 		trace_ds("\n");
 		ctlr_read_modified(AID_QREPLY, False);
 		break;
 	    default:
 		trace_ds(" unknown type 0x%02x\n", buf[4]);
-		return;
+		return PDS_BAD_CMD;
 	}
+	return PDS_OKAY_OUTPUT;
 }
 
-static void
+static enum pds
 sf_erase_reset(unsigned char buf[], int buflen)
 {
 	if (buflen != 4) {
 		trace_ds(" error: wrong field length %d\n", buflen);
-		return;
+		return PDS_BAD_CMD;
 	}
 
 	switch (buf[3]) {
@@ -281,11 +299,12 @@ sf_erase_reset(unsigned char buf[], int buflen)
 		break;
 	    default:
 		trace_ds(" unknown type 0x%02x\n", buf[3]);
-		return;
+		return PDS_BAD_CMD;
 	}
+	return PDS_OKAY_NO_OUTPUT;
 }
 
-static void
+static enum pds
 sf_set_reply_mode(unsigned char buf[], int buflen)
 {
 	unsigned char partition;
@@ -294,14 +313,14 @@ sf_set_reply_mode(unsigned char buf[], int buflen)
 
 	if (buflen < 5) {
 		trace_ds(" error: wrong field length %d\n", buflen);
-		return;
+		return PDS_BAD_CMD;
 	}
 
 	partition = buf[3];
 	trace_ds("(0x%02x)", partition);
 	if (partition != 0x00) {
 		trace_ds(" error: illegal partition\n");
-		return;
+		return PDS_BAD_CMD;
 	}
 
 	switch (buf[4]) {
@@ -316,7 +335,7 @@ sf_set_reply_mode(unsigned char buf[], int buflen)
 		break;
 	    default:
 		trace_ds(" unknown mode 0x%02x\n", buf[4]);
-		return;
+		return PDS_BAD_CMD;
 	}
 	reply_mode = buf[4];
 	if (buf[4] == SF_SRM_CHAR) {
@@ -328,20 +347,21 @@ sf_set_reply_mode(unsigned char buf[], int buflen)
 		}
 		trace_ds("%s\n", crm_nattr ? ")" : "");
 	}
+	return PDS_OKAY_NO_OUTPUT;
 }
 
-static void
+static enum pds
 sf_outbound_ds(unsigned char buf[], int buflen)
 {
 	if (buflen < 5) {
 		trace_ds(" error: field length %d too short\n", buflen);
-		return;
+		return PDS_BAD_CMD;
 	}
 
 	trace_ds("(0x%02x)", buf[3]);
 	if (buf[3] != 0x00) {
 		trace_ds(" error: illegal partition 0x%0x\n", buf[3]);
-		return;
+		return PDS_BAD_CMD;
 	}
 
 	switch (buf[4]) {
@@ -374,8 +394,9 @@ sf_outbound_ds(unsigned char buf[], int buflen)
 		break;
 	    default:
 		trace_ds(" unknown type 0x%02x\n", buf[4]);
-		return;		/* error */
+		return PDS_BAD_CMD;
 	}
+	return PDS_OKAY_NO_OUTPUT;
 }
 
 static void

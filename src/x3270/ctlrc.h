@@ -12,6 +12,13 @@
  *		Global declarations for ctlr.c.
  */
 
+enum pds {
+	PDS_OKAY_NO_OUTPUT = 0,	/* command accepted, produced no output */
+	PDS_OKAY_OUTPUT = 1,	/* command accepted, produced output */
+	PDS_BAD_CMD = -1,	/* command rejected */
+	PDS_BAD_ADDR = -2	/* command contained a bad address */
+};
+
 void ctlr_aclear(int baddr, int count, int clear_ea);
 void ctlr_add(int baddr, unsigned char c, unsigned char cs);
 void ctlr_add_bg(int baddr, unsigned char color);
@@ -33,6 +40,7 @@ void ctlr_shrink(void);
 void ctlr_snap_buffer(void);
 Boolean ctlr_snap_modes(void);
 void ctlr_write(unsigned char buf[], int buflen, Boolean erase);
+void ctlr_write_sscp_lu(unsigned char buf[], int buflen);
 struct ea *fa2ea(unsigned char *fa);
 unsigned char *get_field_attribute(register int baddr);
 Boolean get_bounded_field_attribute(register int baddr, register int bound,
@@ -40,7 +48,7 @@ Boolean get_bounded_field_attribute(register int baddr, register int bound,
 void mdt_clear(unsigned char *fa);
 void mdt_set(unsigned char *fa);
 int next_unprotected(int baddr0);
-int process_ds(unsigned char *buf, int buflen);
+enum pds process_ds(unsigned char *buf, int buflen);
 void ps_process(void);
 void set_rows_cols(int mn, int ovc, int ovr);
 void ticking_start(Boolean anyway);

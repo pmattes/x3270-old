@@ -382,14 +382,18 @@ key_AID(unsigned char aid_code)
 		return;
 	}
 #endif /*]*/
-	status_twait();
-	mcursor_waiting();
-	insert_mode(False);
-	kybdlock_set(KL_OIA_TWAIT | KL_OIA_LOCKED, "key_AID");
+	if (!IN_SSCP) {
+		status_twait();
+		mcursor_waiting();
+		insert_mode(False);
+		kybdlock_set(KL_OIA_TWAIT | KL_OIA_LOCKED, "key_AID");
+	}
 	aid = aid_code;
 	ctlr_read_modified(aid, False);
-	ticking_start(False);
-	status_ctlr_done();
+	if (!IN_SSCP) {
+		ticking_start(False);
+		status_ctlr_done();
+	}
 }
 
 /*ARGSUSED*/
@@ -1060,7 +1064,7 @@ BackSpace_action(Widget w unused, XEvent *event, String *params,
 		register int	baddr;
 
 		baddr = cursor_addr;
-		INC_BA(baddr);
+		DEC_BA(baddr);
 		cursor_move(baddr);
 	}
 }
@@ -1509,10 +1513,16 @@ void
 SysReq_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
 	action_debug(SysReq_action, event, params, num_params);
-	if (kybdlock)
-		enq_ta(SysReq_action, CN, CN);
-	else
-		key_AID(AID_SYSREQ);
+	if (IN_ANSI)
+		return;
+	if (IN_E) {
+		net_abort();
+	} else {
+		if (kybdlock)
+			enq_ta(SysReq_action, CN, CN);
+		else
+			key_AID(AID_SYSREQ);
+	}
 }
 
 

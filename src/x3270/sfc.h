@@ -12,4 +12,4 @@
  *		Global declarations for sf.c.
  */
 
-extern void write_structured_field(unsigned char buf[], int buflen);
+extern enum pds write_structured_field(unsigned char buf[], int buflen);

@@ -163,6 +163,7 @@ enum cstate {
 	CONNECTED_3270,		/* connected in old-style 3270 mode */
 	CONNECTED_INITIAL_E,	/* connected in TN3270E mode, unnegotiated */
 	CONNECTED_NVT,		/* connected in TN3270E mode, NVT mode */
+	CONNECTED_SSCP,		/* connected in TN3270E mode, SSCP-LU mode */
 	CONNECTED_TN3270E	/* connected in TN3270E mode, 3270 mode */
 };
 extern enum cstate cstate;
@@ -172,7 +173,8 @@ extern enum cstate cstate;
 #define CONNECTED	((int)cstate >= (int)CONNECTED_INITIAL)
 #define IN_NEITHER	(cstate == CONNECTED_INITIAL)
 #define IN_ANSI		(cstate == CONNECTED_ANSI || cstate == CONNECTED_NVT)
-#define IN_3270		(cstate == CONNECTED_3270 || cstate == CONNECTED_TN3270E)
+#define IN_3270		(cstate == CONNECTED_3270 || cstate == CONNECTED_TN3270E || cstate == CONNECTED_SSCP)
+#define IN_SSCP		(cstate == CONNECTED_SSCP)
 #define IN_TN3270E	(cstate == CONNECTED_TN3270E)
 #define IN_E		(cstate >= CONNECTED_INITIAL_E)
 

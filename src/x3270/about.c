@@ -161,6 +161,7 @@ popup_about(void)
 	char fbuf[1024];
 	const char *ftype;
 	const char *emode;
+	const char *eopts;
 	char *xbuf;
 
 	/* Create the popup */
@@ -326,6 +327,9 @@ Copyright \251 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.\n\
 			else
 				ftype = get_message("charMode");
 			(void) sprintf(fbuf, "  %s%s, ", emode, ftype);
+		} else if (IN_SSCP) {
+			(void) sprintf(fbuf, "  %s%s, ", emode,
+			    get_message("sscpMode"));
 		} else if (IN_3270) {
 			(void) sprintf(fbuf, "  %s%s, ", emode,
 			    get_message("dsMode"));
@@ -334,6 +338,18 @@ Copyright \251 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.\n\
 		(void) strcat(fbuf, hms(ns_time));
 
 		MAKE_LABEL(fbuf, 0);
+
+		eopts = tn3270e_current_opts();
+		if (eopts != CN) {
+			(void) sprintf(fbuf, "  %s",
+	 			get_message("tn3270eOpts"));
+			MAKE_LABEL(fbuf, 0);
+			MAKE_VALUE(eopts);
+		} else {
+			(void) sprintf(fbuf, "  %s",
+				get_message("tn3270eNoOpts"));
+			MAKE_LABEL(fbuf, 0);
+		}
 
 		if (IN_3270)
 			(void) sprintf(fbuf, "%s %d %s, %d %s\n%s %d %s, %d %s",

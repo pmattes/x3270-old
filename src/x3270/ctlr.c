@@ -80,6 +80,7 @@ static unsigned char default_gr;
 static unsigned char default_cs;
 static void	ctlr_half_connect(Boolean ignored);
 static void	ctlr_connect(Boolean ignored);
+static int	sscp_start;
 static void ticking_stop(void);
 
 /*
@@ -301,6 +302,10 @@ ctlr_connect(Boolean ignored unused)
 		fake_fa = 0xE0;
 	else
 		fake_fa = 0xC4;
+	if (!IN_3270 || (IN_SSCP && (kybdlock & KL_OIA_TWAIT))) {
+		kybdlock_clr(KL_OIA_TWAIT, "ctlr_connect");
+		status_reset();
+	}
 
 	default_fg = 0x00;
 	default_gr = 0x00;
@@ -441,11 +446,11 @@ ctlr_erase(Boolean alt)
 /*
  * Interpret an incoming 3270 command.
  */
-int
+enum pds
 process_ds(unsigned char *buf, int buflen)
 {
 	if (!buflen)
-		return 0;
+		return PDS_OKAY_NO_OUTPUT;
 
 	scroll_to_bottom();
 
@@ -456,52 +461,60 @@ process_ds(unsigned char *buf, int buflen)
 	case SNA_CMD_EAU:
 		trace_ds("EraseAllUnprotected\n");
 		ctlr_erase_all_unprotected();
+		return PDS_OKAY_NO_OUTPUT;
 		break;
 	case CMD_EWA:	/* erase/write alternate */
 	case SNA_CMD_EWA:
 		trace_ds("EraseWriteAlternate");
 		ctlr_erase(True);
 		ctlr_write(buf, buflen, True);
+		return PDS_OKAY_NO_OUTPUT;
 		break;
 	case CMD_EW:	/* erase/write */
 	case SNA_CMD_EW:
 		trace_ds("EraseWrite");
 		ctlr_erase(False);
 		ctlr_write(buf, buflen, True);
+		return PDS_OKAY_NO_OUTPUT;
 		break;
 	case CMD_W:	/* write */
 	case SNA_CMD_W:
 		trace_ds("Write");
 		ctlr_write(buf, buflen, False);
+		return PDS_OKAY_NO_OUTPUT;
 		break;
 	case CMD_RB:	/* read buffer */
 	case SNA_CMD_RB:
 		trace_ds("ReadBuffer\n");
 		ctlr_read_buffer(aid);
+		return PDS_OKAY_OUTPUT;
 		break;
 	case CMD_RM:	/* read modifed */
 	case SNA_CMD_RM:
 		trace_ds("ReadModified\n");
 		ctlr_read_modified(aid, False);
+		return PDS_OKAY_OUTPUT;
 		break;
 	case CMD_RMA:	/* read modifed all */
 	case SNA_CMD_RMA:
 		trace_ds("ReadModifiedAll\n");
 		ctlr_read_modified(aid, True);
+		return PDS_OKAY_OUTPUT;
 		break;
 	case CMD_WSF:	/* write structured field */
 	case SNA_CMD_WSF:
 		trace_ds("WriteStructuredField");
-		write_structured_field(buf, buflen);
+		return write_structured_field(buf, buflen);
 		break;
 	case CMD_NOP:	/* no-op */
 		trace_ds("NoOp\n");
+		return PDS_OKAY_NO_OUTPUT;
 		break;
 	default:
 		/* unknown 3270 command */
 		popup_an_error("Unknown 3270 Data Stream command: 0x%X\n",
 		    buf[0]);
-		return -1;
+		return PDS_BAD_CMD;
 	}
 
 	return 0;
@@ -566,6 +579,9 @@ ctlr_read_modified(unsigned char aid_byte, Boolean all)
 	unsigned char	current_fg = 0x00;
 	unsigned char	current_gr = 0x00;
 	unsigned char	current_cs = 0x00;
+
+	if (IN_SSCP && aid_byte != AID_ENTER)
+		return;
 
 	trace_ds("> ");
 	obptr = obuf;
@@ -658,6 +674,14 @@ ctlr_read_modified(unsigned char aid_byte, Boolean all)
 		} while (baddr != sbaddr);
 	} else {
 		Boolean	any = False;
+		int nbytes = 0;
+
+		/*
+		 * If we're in SSCP-LU mode, the starting point is where the
+		 * host left the cursor.
+		 */
+		if (IN_SSCP)
+			baddr = sscp_start;
 
 		do {
 			if (screen_buf[baddr]) {
@@ -680,8 +704,16 @@ ctlr_read_modified(unsigned char aid_byte, Boolean all)
 					trace_ds("'");
 				trace_ds(see_ebc(cg2ebc[screen_buf[baddr]]));
 				any = True;
+				nbytes++;
 			}
 			INC_BA(baddr);
+
+			/*
+			 * If we're in SSCP-LU mode, end the return value at
+			 * 255 bytes, or where the screen wraps.
+			 */
+			if (IN_SSCP && (nbytes >= 255 || !baddr))
+				break;
 		} while (baddr != 0);
 		if (any)
 			trace_ds("'");
@@ -1453,6 +1485,49 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 #undef END_TEXT0
 #undef END_TEXT
 
+/*
+ * Write SSCP-LU data, which is quite a bit dumber than regular 3270
+ * output.
+ */
+void
+ctlr_write_sscp_lu(unsigned char buf[], int buflen)
+{
+	int i;
+	unsigned char *cp = buf;
+
+	for (i = 0; i < buflen; cp++, i++) {
+		switch (*cp) {
+		case FCORDER_NL:
+			/*
+			 * Insert NULLs to the end of the line and advance to
+			 * the beginning of the next line.
+			 */
+			while (buffer_addr % COLS) {
+				ctlr_add(buffer_addr, ebc2cg[0], default_cs);
+				ctlr_add_fg(buffer_addr, default_fg);
+				ctlr_add_gr(buffer_addr, default_gr);
+				INC_BA(buffer_addr);
+			}
+			break;
+#if 0
+		case FCORDER_NULL: /* perhaps redundant */
+			ctlr_add(buffer_addr, ebc2cg[0x40], default_cs);
+			ctlr_add_fg(buffer_addr, default_fg);
+			ctlr_add_gr(buffer_addr, default_gr);
+			INC_BA(buffer_addr);
+			break;
+#endif
+		default:
+			ctlr_add(buffer_addr, ebc2cg[*cp], default_cs);
+			ctlr_add_fg(buffer_addr, default_fg);
+			ctlr_add_gr(buffer_addr, default_gr);
+			INC_BA(buffer_addr);
+			break;
+		}
+	}
+	cursor_move(buffer_addr);
+	sscp_start = buffer_addr;
+}
 
 /*
  * Process pending input.
@@ -1512,6 +1587,7 @@ ctlr_clear(Boolean can_snap)
 	formatted = False;
 	default_fg = 0;
 	default_gr = 0;
+	sscp_start = 0;
 }
 
 /*

@@ -97,6 +97,11 @@ static unsigned char telnet_state;
 static int      syncing;
 static char     ttype_tmpval[13];
 
+static unsigned long e_funcs;	/* negotiated TN3270E functions */
+#define E_OPT(n)	(1 << (n))
+static unsigned short e_xmit_seq; /* transmit sequence number */
+static int response_required;
+
 #if defined(X3270_ANSI) /*[*/
 static int      ansi_data = 0;
 static unsigned char *lbuf = (unsigned char *)NULL;
@@ -115,7 +120,9 @@ static char     vrprnt;
 static char     vlnext;
 #endif /*]*/
 
-static int	tn3270e_done = 0;
+static int	tn3270e_negotiated = 0;
+static enum { E_NONE, E_3270, E_NVT, E_SSCP } tn3270e_submode = E_NONE;
+static int	tn3270e_bound = 0;
 static char	**lus = (char **)NULL;
 static char	**curr_lu = (char **)NULL;
 static char	*try_lu = CN;
@@ -129,6 +136,11 @@ static int non_blocking(Boolean on);
 static void net_connected(void);
 static void tn3270e_negotiate(void);
 static int process_eor(void);
+static const char *tn3270e_function_names(const unsigned char *, int);
+static void tn3270e_subneg_send(unsigned char, unsigned long);
+static unsigned long tn3270e_fdecode(const unsigned char *, int);
+static void tn3270e_ack(void);
+static void tn3270e_nak(enum pds);
 
 #if defined(X3270_ANSI) /*[*/
 static void do_data(char c);
@@ -179,11 +191,7 @@ static unsigned char	will_opt[]	= {
 static unsigned char	wont_opt[]	= { 
 	IAC, WONT, '_' };
 static unsigned char	functions_req[] = {
-	IAC, SB, TELOPT_TN3270E, TN3270E_OP_FUNCTIONS, TN3270E_OP_REQUEST,
-	IAC, SE };
-static unsigned char	functions_is[] = {
-	IAC, SB, TELOPT_TN3270E, TN3270E_OP_FUNCTIONS, TN3270E_OP_IS,
-	IAC, SE };
+	IAC, SB, TELOPT_TN3270E, TN3270E_OP_FUNCTIONS };
 
 const char *telquals[2] = { "IS", "SEND" };
 const char *reason_code[8] = { "CONN-PARTNER", "DEVICE-IN-USE", "INV-ASSOCIATE",
@@ -191,6 +199,26 @@ const char *reason_code[8] = { "CONN-PARTNER", "DEVICE-IN-USE", "INV-ASSOCIATE",
 	"UNSUPPORTED-REQ" };
 #define rsn(n)	(((n) <= TN3270E_REASON_UNSUPPORTED_REQ) ? \
 			reason_code[(n)] : "??")
+const char *function_name[5] = { "BIND-IMAGE", "DATA-STREAM-CTL", "RESPONSES",
+	"SCS-CTL-CODES", "SYSREQ" };
+#define fnn(n)	(((n) <= TN3270E_FUNC_SYSREQ) ? \
+			function_name[(n)] : "??")
+const char *data_type[9] = { "3270-DATA", "SCS-DATA", "RESPONSE", "BIND-IMAGE",
+	"UNBIND", "NVT-DATA", "REQUEST", "SSCP-LU-DATA", "PRINT-EOJ" };
+#define e_dt(n)	(((n) <= TN3270E_DT_PRINT_EOJ) ? \
+			data_type[(n)] : "??")
+const char *req_flag[1] = { " ERR-COND-CLEARED" };
+#define e_rq(fn, n) (((fn) == TN3270E_DT_REQUEST) ? \
+			(((n) <= TN3270E_RQF_ERR_COND_CLEARED) ? \
+			req_flag[(n)] : " ??") : "")
+const char *hrsp_flag[3] = { "NO-RESPONSE", "ERROR-RESPONSE",
+	"ALWAYS-RESPONSE" };
+#define e_hrsp(n) (((n) <= TN3270E_RSF_ALWAYS_RESPONSE) ? \
+			hrsp_flag[(n)] : "??")
+const char *trsp_flag[2] = { "POSITIVE-RESPONSE", "NEGATIVE-RESPONSE" };
+#define e_trsp(n) (((n) <= TN3270E_RSF_NEGATIVE_RESPONSE) ? \
+			trsp_flag[(n)] : "??")
+#define e_rsp(fn, n) (((fn) == TN3270E_DT_RESPONSE) ? e_trsp(n) : e_hrsp(n))
 
 
 /*
@@ -351,7 +379,7 @@ net_connect(const char *host, char *portname, Boolean ls, Boolean *pending)
 			sock = amaster;
 			(void) fcntl(sock, F_SETFD, 1);
 			net_connected();
-			host_in3270(False, myopts[TELOPT_TN3270E]);
+			host_in3270(CONNECTED_ANSI);
 			break;
 		}
 	} else {
@@ -482,6 +510,11 @@ net_connected(void)
 	/* set up telnet options */
 	(void) memset((char *) myopts, 0, sizeof(myopts));
 	(void) memset((char *) hisopts, 0, sizeof(hisopts));
+	e_funcs = E_OPT(TN3270E_FUNC_BIND_IMAGE) |
+		  E_OPT(TN3270E_FUNC_RESPONSES) |
+		  E_OPT(TN3270E_FUNC_SYSREQ);
+	e_xmit_seq = 0;
+	response_required = TN3270E_RSF_NO_RESPONSE;
 	telnet_state = TNS_DATA;
 	ibptr = ibuf;
 
@@ -492,7 +525,9 @@ net_connected(void)
 	ns_bsent = 0;
 	ns_rsent = 0;
 	syncing = 0;
-	tn3270e_done = 0;
+	tn3270e_negotiated = 0;
+	tn3270e_submode = E_NONE;
+	tn3270e_bound = 0;
 
 	setup_lus();
 
@@ -593,7 +628,7 @@ net_input(XtPointer closure unused, int *source unused, XtInputId *id unused)
 		if (local_process) {
 			/* More to do here, probably. */
 			if (IN_NEITHER) {	/* now can assume ANSI mode */
-				host_in3270(False, False);
+				host_in3270(CONNECTED_ANSI);
 				hisopts[TELOPT_ECHO] = 1;
 				check_linemode(False);
 				kybdlock_clr(KL_AWAITING_FIRST, "telnet_fsm");
@@ -697,7 +732,7 @@ telnet_fsm(unsigned char c)
 			break;
 		}
 		if (IN_NEITHER) {	/* now can assume ANSI mode */
-			host_in3270(False, False);
+			host_in3270(CONNECTED_ANSI);
 #if defined(X3270_ANSI)/*[*/
 			if (linemode)
 				cooked_init();
@@ -755,7 +790,7 @@ telnet_fsm(unsigned char c)
 			telnet_state = TNS_DATA;
 			break;
 		    case EOR:	/* eor, process accumulated input */
-			if (IN_3270) {
+			if (IN_3270 || (IN_E && tn3270e_negotiated)) {
 				ns_rrcvd++;
 				if (process_eor())
 					return -1;
@@ -997,6 +1032,14 @@ tn3270e_negotiate(void)
 {
 #define LU_MAX	32
 	static char reported_lu[LU_MAX+1];
+	int sblen;
+	unsigned long e_rcvd;
+
+	/* Find out how long the subnegotiation buffer is. */
+	for (sblen = 0; ; sblen++) {
+		if (sbbuf[sblen] == SE)
+			break;
+	}
 
 	vtrace_str("TN3270E ");
 
@@ -1051,10 +1094,7 @@ tn3270e_negotiate(void)
 			}
 
 			/* Tell them what we can do. */
-			net_rawout(functions_req, 7);
-
-			vtrace_str("SENT %s %s FUNCTIONS REQUEST %s\n",
-			    cmd(SB), opt(TELOPT_TN3270E), cmd(SE));
+			tn3270e_subneg_send(TN3270E_OP_REQUEST, e_funcs);
 			break;
 		}
 		case TN3270E_OP_REJECT:
@@ -1097,37 +1137,63 @@ tn3270e_negotiate(void)
 		case TN3270E_OP_REQUEST:
 
 			/* Host is telling us what functions they want. */
-			vtrace_str("REQUEST ");
+			vtrace_str("REQUEST %s SE\n",
+			    tn3270e_function_names(sbbuf+3, sblen-3));
 
-			if (sbbuf[3] == SE) {
-				/* Empty list: perfect. */
-				vtrace_str("SE\n");
+			e_rcvd = tn3270e_fdecode(sbbuf+3, sblen-3);
+			if (e_rcvd == e_funcs) {
+				/* Perfect.  Tell them so. */
+				tn3270e_subneg_send(TN3270E_OP_IS, e_funcs);
 
-				/* Tell them so. */
-				net_rawout(functions_is, 7);
-
-				vtrace_str("SENT %s %s FUNCTIONS IS %s",
-				    cmd(SB), opt(TELOPT_TN3270E), cmd(SE));
-
-				tn3270e_done = 1;
+				tn3270e_negotiated = 1;
 				check_in3270();
 			} else {
-				/* Non-empty list: sorry, too much. */
-				vtrace_str("... SE\n");
+				/* Not quite perfect. */
+				if (e_funcs & ~e_rcvd) {
+					/* They've removed something. */
+					e_funcs &= e_rcvd;
+				}
+				/*
+				 * Otherwise, they've added something, and
+				 * we can't do that.  Just retransmit.
+				 */
 
-				/* Tell them what we can do. */
-				net_rawout(functions_req, 7);
-
-				vtrace_str("SENT %s %s FUNCTIONS REQUEST %s",
-				    cmd(SB), opt(TELOPT_TN3270E), cmd(SE));
+				/* Tell them what we can do now. */
+				tn3270e_subneg_send(TN3270E_OP_REQUEST,
+				    e_funcs);
 			}
 			break;
 
 		case TN3270E_OP_IS:
 
-			/* They accept our request. */
-			vtrace_str("IS SE\n");
-			tn3270e_done = 1;
+			/* They accept our last request. */
+			vtrace_str("IS %s SE\n",
+			    tn3270e_function_names(sbbuf+3, sblen-3));
+			e_rcvd = tn3270e_fdecode(sbbuf+3, sblen-3);
+			if (e_rcvd != e_funcs) {
+				if (e_funcs & ~e_rcvd) {
+					/* They've removed something. */
+					e_funcs &= e_rcvd;
+					vtrace_str("Host illegally removed "
+						"function(s), continuing\n");
+				} else {
+					/*
+					 * They've added something.  Abandon
+					 * TN3270E, they're brain dead.
+					 */
+					vtrace_str("Host illegally added "
+						"function(s), aborting "
+						"TN3270E\n");
+					wont_opt[2] = TELOPT_TN3270E;
+					net_rawout(wont_opt, sizeof(wont_opt));
+					vtrace_str("SENT %s %s\n", cmd(WONT),
+						opt(TELOPT_TN3270E));
+					myopts[TELOPT_TN3270E] = 0;
+					check_in3270();
+					break;
+				}
+			}
+			tn3270e_negotiated = 1;
 			check_in3270();
 			break;
 
@@ -1142,10 +1208,90 @@ tn3270e_negotiate(void)
 	}
 }
 
+/* Expand a string of TN3270E function codes into text. */
+static const char *
+tn3270e_function_names(const unsigned char *buf, int len)
+{
+	int i;
+	static char text_buf[1024];
+	char *s = text_buf;
+
+	if (!len)
+		return("(null)");
+	for (i = 0; i < len; i++) {
+		s += sprintf(s, "%s%s", (s == text_buf) ? "" : " ",
+		    fnn(buf[i]));
+	}
+	return text_buf;
+}
+
+/* Expand the current TN3270E function codes into text. */
+const char *
+tn3270e_current_opts(void)
+{
+	int i;
+	static char text_buf[1024];
+	char *s = text_buf;
+
+	if (!e_funcs)
+		return CN;
+	for (i = 0; i < 32; i++) {
+		if (e_funcs & E_OPT(i))
+		s += sprintf(s, "%s%s", (s == text_buf) ? "" : " ",
+		    fnn(i));
+	}
+	return text_buf;
+}
+
+/* Transmit a TN3270E FUNCTIONS REQUEST message. */
+static void
+tn3270e_subneg_send(unsigned char op, unsigned long funcs)
+{
+	unsigned char proto_buf[7 + 32];
+	int proto_len;
+	int i;
+
+	/* Construct the buffers. */
+	(void) memcpy(proto_buf, functions_req, 4);
+	proto_buf[4] = op;
+	proto_len = 5;
+	for (i = 0; i < 32; i++) {
+		if (funcs & E_OPT(i))
+			proto_buf[proto_len++] = i;
+	}
+
+	/* Complete and send out the protocol message. */
+	proto_buf[proto_len++] = IAC;
+	proto_buf[proto_len++] = SE;
+	net_rawout(proto_buf, proto_len);
+
+	/* Complete and send out the trace text. */
+	vtrace_str("SENT %s %s FUNCTIONS REQUEST %s %s\n",
+	    cmd(SB), opt(TELOPT_TN3270E),
+	    tn3270e_function_names(proto_buf + 5, proto_len - 7),
+	    cmd(SE));
+}
+
+/* Translate a string of TN3270E functions into a bit-map. */
+static unsigned long
+tn3270e_fdecode(const unsigned char *buf, int len)
+{
+	unsigned long r = 0L;
+	int i;
+
+	/* Note that this code silently ignores options >= 32. */
+	for (i = 0; i < len; i++) {
+		if (buf[i] < 32)
+			r |= E_OPT(buf[i]);
+	}
+	return r;
+}
+
 static int
 process_eor(void)
 {
 	unsigned char *s;
+	enum pds rv;
 
 	if (syncing || !(ibptr - ibuf))
 		return(0);
@@ -1153,29 +1299,66 @@ process_eor(void)
 	if (IN_E) {
 		tn3270e_header *h = (tn3270e_header *)ibuf;
 
+		vtrace_str("RCVD TN3270E(%s%s %s %u)\n",
+		    e_dt(h->data_type),
+		    e_rq(h->data_type, h->request_flag),
+		    e_rsp(h->data_type, h->response_flag),
+		    h->seq_number[0] << 8 | h->seq_number[1]);
+
 		switch (h->data_type) {
 		case TN3270E_DT_3270_DATA:
-			/* In tn3270e 3270 mode */
-			if (!IN_TN3270E) {
-				host_in3270(True, True);
-			}
-			return process_ds(ibuf + EH_SIZE,
+			if ((e_funcs & E_OPT(TN3270E_FUNC_BIND_IMAGE)) &&
+			    !tn3270e_bound)
+				return 0;
+			tn3270e_submode = E_3270;
+			check_in3270();
+			response_required = h->response_flag;
+			rv = process_ds(ibuf + EH_SIZE,
 			    (ibptr - ibuf) - EH_SIZE);
+			if (rv < 0 &&
+			    response_required != TN3270E_RSF_NO_RESPONSE)
+				tn3270e_nak(rv);
+			else if (rv == PDS_OKAY_NO_OUTPUT &&
+			    response_required == TN3270E_RSF_ALWAYS_RESPONSE)
+				tn3270e_ack();
+			response_required = TN3270E_RSF_NO_RESPONSE;
+			return 0;
+		case TN3270E_DT_BIND_IMAGE:
+			if (!(e_funcs & E_OPT(TN3270E_FUNC_BIND_IMAGE)))
+				return 0;
+			tn3270e_bound = 1;
+			check_in3270();
+			return 0;
+		case TN3270E_DT_UNBIND:
+			if (!(e_funcs & E_OPT(TN3270E_FUNC_BIND_IMAGE)))
+				return 0;
+			tn3270e_bound = 0;
+			if (tn3270e_submode == E_3270)
+				tn3270e_submode = E_NONE;
+			check_in3270();
+			return 0;
 		case TN3270E_DT_NVT_DATA:
 			/* In tn3270e NVT mode */
-			if (!IN_TN3270E) {
-				host_in3270(False, True);
-			}
+			tn3270e_submode = E_NVT;
+			check_in3270();
 			for (s = ibuf; s < ibptr; s++) {
 				ansi_process(*s++);
 			}
 			return 0;
+		case TN3270E_DT_SSCP_LU_DATA:
+			if (!(e_funcs & E_OPT(TN3270E_FUNC_BIND_IMAGE)))
+				return 0;
+			tn3270e_submode = E_SSCP;
+			check_in3270();
+			ctlr_write_sscp_lu(ibuf + EH_SIZE,
+			                   (ibptr - ibuf) - EH_SIZE);
+			return 0;
 		default:
 			/* Should do something more extraordinary here. */
-			return 1;
+			return 0;
 		}
 	} else {
-		return process_ds(ibuf, ibptr - ibuf);
+		return process_ds(ibuf, ibptr - ibuf) < 0;
 	}
 	return 0;
 }
@@ -1598,27 +1781,58 @@ do_lnext(char c)
 
 /*
  * check_in3270
- *	Check for mode switches between ANSI and 3270 mode.
+ *	Check for switches between NVT, SSCP-LU and 3270 modes.
  */
 static void
 check_in3270(void)
 {
-	Boolean now3270 =
-	    (myopts[TELOPT_TN3270E] && tn3270e_done) ||
-	    (myopts[TELOPT_BINARY] &&
-	     myopts[TELOPT_EOR] &&
-	     myopts[TELOPT_TTYPE] &&
-	     hisopts[TELOPT_BINARY] &&
-	     hisopts[TELOPT_EOR]);
+	enum cstate new_cstate;
+	static const char *state_name[] = {
+		"unconnected",
+		"pending",
+		"connected initial",
+		"TN3270 NVT",
+		"TN3270 3270",
+		"TN3270E",
+		"TN3270E NVT",
+		"TN3270E SSCP-LU",
+		"TN3270E 3270"
+	};
 
-	if (now3270 != IN_3270) {
-		vtrace_str("Now operating in %s%s mode.\n",
-			myopts[TELOPT_TN3270E] ? "TN3270E " : "",
-			now3270 ? "3270" : "NVT");
-		host_in3270(now3270, myopts[TELOPT_TN3270E]);
+	if (myopts[TELOPT_TN3270E]) {
+		if (!tn3270e_negotiated)
+			new_cstate = CONNECTED_INITIAL_E;
+		else switch (tn3270e_submode) {
+		case E_NONE:
+			new_cstate = CONNECTED_INITIAL_E;
+			break;
+		case E_NVT:
+			new_cstate = CONNECTED_NVT;
+			break;
+		case E_3270:
+			new_cstate = CONNECTED_TN3270E;
+			break;
+		case E_SSCP:
+			new_cstate = CONNECTED_SSCP;
+			break;
+		}
+	} else if (myopts[TELOPT_BINARY] &&
+	           myopts[TELOPT_EOR] &&
+	           myopts[TELOPT_TTYPE] &&
+	           hisopts[TELOPT_BINARY] &&
+	           hisopts[TELOPT_EOR]) {
+		new_cstate = CONNECTED_3270;
+	} else {
+		new_cstate = CONNECTED_ANSI;
+	}
+
+	if (new_cstate != cstate) {
+		vtrace_str("Now operating in %s mode.\n",
+			state_name[new_cstate]);
+		host_in3270(new_cstate);
 
 		/* Allocate the initial 3270 input buffer. */
-		if (now3270 && !ibuf_size) {
+		if (new_cstate >= CONNECTED_INITIAL && !ibuf_size) {
 			ibuf = (unsigned char *)XtMalloc(BUFSIZ);
 			ibuf_size = BUFSIZ;
 			ibptr = ibuf;
@@ -1626,13 +1840,17 @@ check_in3270(void)
 
 #if defined(X3270_ANSI) /*[*/
 		/* Reinitialize line mode. */
-		if (!now3270 && linemode)
+		if ((new_cstate == CONNECTED_ANSI && linemode) ||
+		    new_cstate == CONNECTED_NVT)
 			cooked_init();
 #endif /*]*/
 
 		/* If we fell out of TN3270E, remove the state. */
-		if (!now3270)
-			tn3270e_done = 0;
+		if (!myopts[TELOPT_TN3270E]) {
+			tn3270e_negotiated = 0;
+			tn3270e_submode = E_NONE;
+			tn3270e_bound = 0;
+		}
 	}
 }
 
@@ -1811,22 +2029,31 @@ trace_netdata(char direction, unsigned const char *buf, int len)
 
 /*
  * net_output
- *	Send 3270 output over the network, tacking on the necessary
- *	telnet end-of-record command.
+ *	Send 3270 output over the network, prepending TN3270E headers and
+ *	tacking on the necessary telnet end-of-record command.
  */
 void
 net_output(void)
 {
-#define BSTART	(IN_TN3270E ? obuf_base : obuf)
+#define BSTART	((IN_TN3270E || IN_SSCP) ? obuf_base : obuf)
 
 	/* Set the TN3720E header. */
-	if (IN_TN3270E) {
+	if (IN_TN3270E || IN_SSCP) {
 		tn3270e_header *h = (tn3270e_header *)obuf_base;
 
-		h->data_type = TN3270E_DT_3270_DATA;
+		/* Check for sending a TN3270E response. */
+		if (response_required == TN3270E_RSF_ALWAYS_RESPONSE) {
+			tn3270e_ack();
+			response_required = TN3270E_RSF_NO_RESPONSE;
+		}
+
+		/* Set the outbound TN3270E header. */
+		h->data_type = IN_TN3270E ?
+			TN3270E_DT_3270_DATA : TN3270E_DT_SSCP_LU_DATA;
 		h->request_flag = 0;
 		h->response_flag = 0;
-		h->seq_number[0] = h->seq_number[1] = 0;
+		h->seq_number[0] = (e_xmit_seq >> 8) & 0xff;
+		h->seq_number[1] = e_xmit_seq & 0xff;
 	}
 
 	/* Count the number of IACs in the message. */
@@ -1862,11 +2089,71 @@ net_output(void)
 	space3270out(2);
 	*obptr++ = IAC;
 	*obptr++ = EOR;
+	if (IN_TN3270E || IN_SSCP) {
+		vtrace_str("SENT TN3270E(%s NO-RESPONSE %u)\n",
+			IN_TN3270E ? "3270-DATA" : "SSCP-LU-DATA", e_xmit_seq);
+		if (e_funcs & E_OPT(TN3270E_FUNC_RESPONSES))
+			e_xmit_seq = (e_xmit_seq + 1) & 0x7fff;
+	}
 	net_rawout(BSTART, obptr - BSTART);
 
 	trace_str("SENT EOR\n");
 	ns_rsent++;
 #undef BSTART
+}
+
+/* Send a TN3270E positive response to the server. */
+static void
+tn3270e_ack(void)
+{
+	unsigned char rsp_buf[9];
+	tn3270e_header *h, *h_in;
+	int rsp_len = EH_SIZE;
+
+	h = (tn3270e_header *)rsp_buf;
+	h_in = (tn3270e_header *)ibuf;
+
+	h->data_type = TN3270E_DT_RESPONSE;
+	h->request_flag = 0;
+	h->response_flag = TN3270E_RSF_POSITIVE_RESPONSE;
+	h->seq_number[0] = h_in->seq_number[0];
+	h->seq_number[1] = h_in->seq_number[1];
+	if (h->seq_number[1] == IAC)
+		rsp_buf[rsp_len++] = IAC;
+	rsp_buf[rsp_len++] = TN3270E_POS_DEVICE_END;
+	rsp_buf[rsp_len++] = IAC;
+	rsp_buf[rsp_len++] = EOR;
+	vtrace_str("SENT TN3270E(RESPONSE POSITIVE-RESPONSE "
+		"%u) DEVICE-END\n",
+		h_in->seq_number[0] << 8 | h_in->seq_number[1]);
+	net_rawout(rsp_buf, rsp_len);
+}
+
+/* Send a TN3270E negative response to the server. */
+static void
+tn3270e_nak(enum pds rv unused)
+{
+	unsigned char rsp_buf[9];
+	tn3270e_header *h, *h_in;
+	int rsp_len = EH_SIZE;
+
+	h = (tn3270e_header *)rsp_buf;
+	h_in = (tn3270e_header *)ibuf;
+
+	h->data_type = TN3270E_DT_RESPONSE;
+	h->request_flag = 0;
+	h->response_flag = TN3270E_RSF_NEGATIVE_RESPONSE;
+	h->seq_number[0] = h_in->seq_number[0];
+	h->seq_number[1] = h_in->seq_number[1];
+	if (h->seq_number[1] == IAC)
+		rsp_buf[rsp_len++] = IAC;
+	rsp_buf[rsp_len++] = TN3270E_NEG_COMMAND_REJECT;
+	rsp_buf[rsp_len++] = IAC;
+	rsp_buf[rsp_len++] = EOR;
+	vtrace_str("SENT TN3270E(RESPONSE NEGATIVE-RESPONSE %u) "
+		"COMMAND-REJECT\n",
+		h_in->seq_number[0] << 8 | h_in->seq_number[1]);
+	net_rawout(rsp_buf, rsp_len);
 }
 
 #if defined(X3270_TRACE) /*[*/
@@ -2016,6 +2303,46 @@ net_interrupt(void)
 	/* I don't know if we should first send TELNET synch ? */
 	net_rawout(buf, sizeof(buf));
 	trace_str("SENT IP\n");
+}
+
+/*
+ * net_abort
+ *	Send telnet AO.
+ *
+ */
+void
+net_abort(void)
+{
+	static unsigned char buf[] = { IAC, AO };
+
+	if (e_funcs & E_OPT(TN3270E_FUNC_SYSREQ)) {
+		/*
+		 * I'm not sure yet what to do here.  Should the host respond
+		 * to the AO by sending us SSCP-LU data (and putting us into
+		 * SSCP-LU mode), or should we put ourselves in it?
+		 * Time, and testers, will tell.
+		 */
+		switch (tn3270e_submode) {
+		case E_NONE:
+		case E_NVT:
+			break;
+		case E_SSCP:
+			net_rawout(buf, sizeof(buf));
+			trace_str("SENT AO\n");
+			if (tn3270e_bound ||
+			    !(e_funcs & E_OPT(TN3270E_FUNC_BIND_IMAGE))) {
+				tn3270e_submode = E_3270;
+				check_in3270();
+			}
+			break;
+		case E_3270:
+			net_rawout(buf, sizeof(buf));
+			trace_str("SENT AO\n");
+			tn3270e_submode = E_SSCP;
+			check_in3270();
+			break;
+		}
+	}
 }
 
 #if defined(X3270_ANSI) /*[*/

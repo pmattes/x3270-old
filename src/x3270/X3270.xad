@@ -974,9 +974,12 @@ x3270.charset.belgian: \
 *.message.staticIcon:			Static bitmap icon
 *.message.connectedTo:			Connected to:
 *.message.port:				Port:
-*.message.charMode:				ANSI character mode
-*.message.lineMode:				ANSI line mode
+*.message.charMode:				NVT character mode
+*.message.lineMode:				NVT line mode
 *.message.dsMode:				3270 mode
+*.message.sscpMode:				SSCP-LU mode
+*.message.tn3270eOpts:			TN3270E options:
+*.message.tn3270eNoOpts:		No TN3270E options
 *.message.connectionPending:		Connection pending to:
 *.message.notConnected:			Not connected
 *.message.specialCharacters:		Special characters:

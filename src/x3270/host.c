@@ -73,7 +73,7 @@ stoken(char **s)
 /*
  * Read the host file
  */
-static void
+void
 hostfile_init(void)
 {
 	FILE *hf;
@@ -455,15 +455,14 @@ host_disconnect(Boolean disable)
 
 /* The host has entered 3270 or ANSI mode, or switched between them. */
 void
-host_in3270(Boolean now3270, Boolean e)
+host_in3270(enum cstate new_cstate)
 {
-	if (now3270) {		/* ANSI -> 3270 */
-		cstate = e ? CONNECTED_TN3270E : CONNECTED_3270;
-		ever_3270 = True;
-	} else {		/* 3270 -> ANSI */
-		cstate = e ? CONNECTED_NVT : CONNECTED_ANSI;
-		ever_3270 = False;
-	}
+	Boolean now3270 = (new_cstate == CONNECTED_3270 ||
+			   new_cstate == CONNECTED_SSCP ||
+			   new_cstate == CONNECTED_TN3270E);
+
+	cstate = new_cstate;
+	ever_3270 = now3270;
 	st_changed(ST_3270_MODE, now3270);
 }
 
