@@ -243,6 +243,79 @@ split_dresource(char **st, char **left, char **right)
 	return 1;
 }
 
+/*
+ * Split a DBCS resource into its parts.
+ * Returns the number of parts found:
+ *	-1 error (empty sub-field)
+ *	 0 nothing found
+ *	 1 one and just one thing found
+ *	 2 two things found
+ *	 3 more than two things found
+ */
+int
+split_dbcs_resource(const char *value, char sep, char **part1, char **part2)
+{
+	int n_parts = 0;
+	const char *s = value;
+	const char *f_start = CN;	/* start of sub-field */
+	const char *f_end = CN;		/* end of sub-field */
+	char c;
+	char **rp;
+
+	*part1 = CN;
+	*part2 = CN;
+
+	for( ; ; ) {
+		c = *s;
+		if (c == sep || c == '\0') {
+			if (f_start == CN)
+				return -1;
+			if (f_end == CN)
+				f_end = s;
+			if (f_end == f_start) {
+				if (c == sep) {
+					if (*part1) {
+						Free(*part1);
+						*part1 = NULL;
+					}
+					if (*part2) {
+						Free(*part2);
+						*part2 = NULL;
+					}
+					return -1;
+				} else
+					return n_parts;
+			}
+			switch (n_parts) {
+			case 0:
+				rp = part1;
+				break;
+			case 1:
+				rp = part2;
+				break;
+			default:
+				return 3;
+			}
+			*rp = Malloc(f_end - f_start + 1);
+			strncpy(*rp, f_start, f_end - f_start);
+			(*rp)[f_end - f_start] = '\0';
+			f_end = CN;
+			f_start = CN;
+			n_parts++;
+			if (c == '\0')
+				return n_parts;
+		} else if (isspace(c)) {
+			if (f_end == CN)
+				f_end = s;
+		} else {
+			if (f_start == CN)
+				f_start = s;
+			f_end = CN;
+		}
+		s++;
+	}
+}
+
 #if defined(X3270_DISPLAY) /*[*/
 /*
  * List resource splitter, for lists of elements speparated by newlines.

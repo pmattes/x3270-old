@@ -122,8 +122,8 @@ XtActionsRec actions[] = {
 	{ PA_PFX "confirm",	PA_confirm_action },
 	{ "PrintWindow",	PrintWindow_action },
 #endif /*]*/
-	{ "PrintText",		PrintText_action },
 #if defined(X3270_DISPLAY) || defined(C3270) /*[*/
+	{ "PrintText",		PrintText_action },
 	{ "Flip",		Flip_action },
 	{ "Redraw",		Redraw_action },
 #endif /*]*/

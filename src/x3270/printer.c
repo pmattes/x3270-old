@@ -176,7 +176,7 @@ printer_start(const char *lu)
 	}
 	s = cmdline;
 	while ((s = strstr(s, "%H%")) != CN) {
-		cmd_len += strlen(qualified_host) - 3;
+		cmd_len += strlen(hostname) - 3;
 		s += 3;
 	}
 	s = cmdline;
@@ -203,7 +203,7 @@ printer_start(const char *lu)
 				s += 2;
 				continue;
 			} else if (!strncmp(s+1, "H%", 2)) {
-				(void) strcat(cmd_text, qualified_host);
+				(void) strcat(cmd_text, hostname);
 				s += 2;
 				continue;
 			} else if (!strncmp(s+1, "C%", 2)) {
@@ -220,7 +220,7 @@ printer_start(const char *lu)
 		buf1[1] = '\0';
 		(void) strcat(cmd_text, buf1);
 	}
-	trace_dsn("Printer command line: %s\n", cmd_text);
+	trace_event("Printer command line: %s\n", cmd_text);
 
 	/* Create the character set file. */
 	if (need_cs) {

@@ -1,5 +1,5 @@
 /*
- * Copyright 1993, 1994, 1995, 1999, 2000, 2001 by Paul Mattes.
+ * Copyright 1993, 1994, 1995, 1999, 2000, 2001, 2002 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -48,7 +48,6 @@
 #include "appres.h"
 #include "ctlr.h"
 #include "screen.h"
-#include "cg.h"
 #include "resources.h"
 
 #include "actionsc.h"
@@ -59,6 +58,9 @@
 #include "selectc.h"
 #include "tablesc.h"
 #include "utilc.h"
+#if defined(X3270_DBCS) /*[*/
+#include "widec.h"
+#endif /*]*/
 
 #define Max(x, y)	(((x) > (y))? (x): (y))
 #define Min(x, y)	(((x) < (y))? (x): (y))
@@ -211,25 +213,25 @@ reclass(char *s)
 static void
 select_word(int baddr, Time t)
 {
-	unsigned char fa = *get_field_attribute(baddr);
+	unsigned char fa = get_field_attribute(baddr);
 	unsigned char ch;
 	int class;
 
 	/* Find the initial character class */
 	if (FA_IS_ZERO(fa))
-		ch = CG_space;
+		ch = EBC_space;
 	else
-		ch = screen_buf[baddr];
-	class = char_class[cg2asc[ch]];
+		ch = ea_buf[baddr].cc;
+	class = char_class[ebc2asc[ch]];
 
 	/* Find the beginning */
 	for (f_start = baddr; f_start % COLS; f_start--) {
-		fa = *get_field_attribute(f_start);
+		fa = get_field_attribute(f_start);
 		if (FA_IS_ZERO(fa))
-			ch = CG_space;
+			ch = EBC_space;
 		else
-			ch = screen_buf[f_start];
-		if (char_class[cg2asc[ch]] != class) {
+			ch = ea_buf[f_start].cc;
+		if (char_class[ebc2asc[ch]] != class) {
 			f_start++;
 			break;
 		}
@@ -237,12 +239,12 @@ select_word(int baddr, Time t)
 
 	/* Find the end */
 	for (f_end = baddr; (f_end+1) % COLS; f_end++) {
-		fa = *get_field_attribute(f_end);
+		fa = get_field_attribute(f_end);
 		if (FA_IS_ZERO(fa))
-			ch = CG_space;
+			ch = EBC_space;
 		else
-			ch = screen_buf[f_end];
-		if (char_class[cg2asc[ch]] != class) {
+			ch = ea_buf[f_end].cc;
+		if (char_class[ebc2asc[ch]] != class) {
 			f_end--;
 			break;
 		}
@@ -604,7 +606,7 @@ void
 Cut_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
 	register int baddr;
-	unsigned char fa = *get_field_attribute(0);
+	unsigned char fa = get_field_attribute(0);
 	unsigned long *target;
 	register unsigned char repl;
 
@@ -614,19 +616,17 @@ Cut_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 
 	/* Identify the positions to empty. */
 	for (baddr = 0; baddr < ROWS*COLS; baddr++) {
-		unsigned char c = screen_buf[baddr];
-
-		if (IS_FA(c))
-			fa = c;
+		if (ea_buf[baddr].fa)
+			fa = ea_buf[baddr].fa;
 		else if ((IN_ANSI || !FA_IS_PROTECTED(fa)) && SELECTED(baddr))
 			target[baddr/ULBS] |= 1 << (baddr%ULBS);
 	}
 
 	/* Erase them. */
 	if (IN_3270)
-		repl = CG_null;
+		repl = EBC_null;
 	else
-		repl = CG_space;
+		repl = EBC_space;
 	for (baddr = 0; baddr < ROWS*COLS; baddr++)
 		if (target[baddr/ULBS] & (1 << (baddr%ULBS)))
 			ctlr_add(baddr, repl, 0);
@@ -886,7 +886,7 @@ lose_sel(Widget w unused, Atom *selection)
  * Somewhat convoluted logic to return an ASCII character for a given screen
  * position.
  *
- * The character has to be found indirectly from screen_buf and the field
+ * The character has to be found indirectly from ea_buf and the field
  * attirbutes, so that zero-intensity fields become blanks.
  */
 static Boolean osc_valid = False;
@@ -909,6 +909,11 @@ onscreen_char(int baddr, Boolean *ge)
 {
 	static int osc_baddr;
 	static unsigned char fa;
+#if defined(X3270_DBCS) /*[*/
+	int baddr2;
+	unsigned char wc[2];
+	enum dbcs_why why;
+#endif /*]*/
 
 	/* If we aren't moving forward, all bets are off. */
 	if (osc_valid && baddr < osc_baddr)
@@ -926,7 +931,7 @@ onscreen_char(int baddr, Boolean *ge)
 		/*
 		 * Find the attribute the old way.
 		 */
-		fa = *get_field_attribute(baddr);
+		fa = get_field_attribute(baddr);
 		osc_baddr = baddr;
 		osc_valid = True;
 	}
@@ -938,36 +943,54 @@ onscreen_char(int baddr, Boolean *ge)
 	if (FA_IS_ZERO(fa))
 		return ' ';
 
+#if defined(X3270_DBCS) /*[*/
+	/* Handle DBCS. */
+	switch (ctlr_lookleft_state(baddr, &why)) {
+	case DBCS_LEFT:
+	    baddr2 = baddr;
+	    INC_BA(baddr2);
+	    dbcs_to_wchar(ea_buf[baddr].cc, ea_buf[baddr2].cc, wc);
+	    return wc[0];
+	case DBCS_RIGHT:
+	    baddr2 = baddr;
+	    DEC_BA(baddr2);
+	    dbcs_to_wchar(ea_buf[baddr2].cc, ea_buf[baddr].cc, wc);
+	    return wc[1];
+	default:
+	    break;
+	}
+#endif /*]*/
+
 	switch (ea_buf[baddr].cs) {
-	    case 0:
+	    case CS_BASE:
 	    default:
-		switch (screen_buf[baddr]) {
-		    case CG_null:
+		switch (ea_buf[baddr].cc) {
+		    case EBC_null:
 			return 0;
-		    case CG_fm:
+		    case EBC_fm:
 			*ge = True;
 			return ';';
-		    case CG_dup:
+		    case EBC_dup:
 			*ge = True;
 			return '*';
 		    default:
-			return cg2asc[screen_buf[baddr]];
+			return ebc2asc[ea_buf[baddr].cc];
 		}
 	    case CS_GE:
-		switch (screen_buf[baddr]) {
-		    case CG_null:
+		switch (ea_buf[baddr].cc) {
+		    case EBC_null:
 			return 0;
-		    case CG_Yacute:
+		    case EBC_Yacute:
 			return '[';
-		    case CG_diaeresis:
+		    case EBC_diaeresis:
 			return ']';
 		    default:
 			*ge = True;
-			return cg2asc[screen_buf[baddr]];
+			return ebc2asc[ea_buf[baddr].cc];
 		}
-	    case 2:
+	    case CS_LINEDRAW:
 		/* vt100 line-drawing character */
-		return screen_buf[baddr] + 0x5f;
+		return ea_buf[baddr].cc + 0x5f;
 	}
 }
 
@@ -1059,6 +1082,10 @@ grab_sel(int start, int end, Boolean really, Time t)
 
 	if (!ever_3270 && !toggled(RECTANGLE_SELECT)) {
 		/* Continuous selections */
+		if (IS_RIGHT(ctlr_dbcs_state(start)))
+			DEC_BA(start);
+		if (IS_LEFT(ctlr_dbcs_state(end)))
+			INC_BA(end);
 		for (i = start; i <= end; i++) {
 			SET_SELECT(i);
 			if (really) {
@@ -1100,6 +1127,10 @@ grab_sel(int start, int end, Boolean really, Time t)
 	} else {
 		/* Rectangular selections */
 		if (start_row == end_row) {
+			if (IS_RIGHT(ctlr_dbcs_state(start)))
+				DEC_BA(start);
+			if (IS_LEFT(ctlr_dbcs_state(end)))
+				INC_BA(end);
 			for (i = start; i <= end; i++) {
 				SET_SELECT(i);
 				if (really) {
@@ -1131,7 +1162,17 @@ grab_sel(int start, int end, Boolean really, Time t)
 			}
 
 			for (row = start_row; row <= end_row; row++) {
-				for (col = start_col; col <= end_col; col++) {
+				int sc = start_col;
+				int ec = end_col;
+
+				if (sc &&
+				    IS_RIGHT(ctlr_dbcs_state(row*COLS + sc)))
+					sc = sc - 1;
+				if (ec < COLS-1 &&
+				    IS_LEFT(ctlr_dbcs_state(row*COLS + ec)))
+					ec = ec + 1;
+
+				for (col = sc; col <= ec; col++) {
 					SET_SELECT(row*COLS + col);
 					if (really) {
 						osc = onscreen_char(row*COLS + col, &ge);

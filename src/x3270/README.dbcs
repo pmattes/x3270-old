@@ -1,0 +1,55 @@
+This is the fourth Alpha release of DBCS support for x3270.  It is for debug
+and integration purposes only.
+
+Prerequisites
+-------------
+x3270 DBCS support requires the IBM ICU library, version 2.2.  It is available
+from IBM at
+    http://oss.software.ibm.com/icu/
+x3270 supports ONLY ICU version 2.2.
+
+How to Configure DBCS Support
+-----------------------------
+DBCS support is turned on with the '--enable-dbcs' option.
+pr3287 is not supported in this release, so the '--without-pr3287' option is
+ mandatory.
+The installation directory for ICU must be passed explicitly to the configure
+script.  The example below assumes the default of /usr/local.
+
+Typical DBCS configure options would be:
+
+    ./configure --without-pr3287 --enable-dbcs \
+	CPPFLAGS=-I/usr/local/include LDFLAGS=-L/usr/local/lib
+
+How to Run x3270 in DBCS Mode
+-----------------------------
+DBCS is an attribute of the host character set you select.  This may be
+selected from the command line, or from the Options->Character set menu
+option.
+
+For example, Simplified Chinese is selected via the option
+'-charset simplified-chinese'.
+
+In order to get multi-byte input, you must run an X Input Method (e.g., xcin),
+and you must specify proper locale in the LC_CTYPE or LC_ALL environment
+variable.  The input method name can be automatically derived from the
+locale, or can be specified by the XMODIFIERS environment variable or by the
+'-im' command-line option.
+
+The preedit type used by the input method can be specified by the '-pt' option,
+which takes the values 'Root' or 'OverTheSpot'.  The vertical offset of the
+preedit window for 'OverTheSpot' can be modified by adding a suffix to
+'OverTheSpot', e.g., '-pt OverTheSpot+2' will cause the preedit window to
+appear two lines below the cursor.  The default preedit type is
+'OverTheSpot+1'.
+
+Languages and Code Pages Supported
+----------------------------------
+ Charset Name       Code Pages X11 Fonts     Workstation Encoding
+ ------------------ ---------- ------------- ---------------------
+ simplified-chinese 836, 837   gb2312-1980.0 EUC-CN (GB 3212-1980)
+
+Known Limitations
+-----------------
+pr3287 does not build.
+The crosshair cursor does not work correctly.

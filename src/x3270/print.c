@@ -60,27 +60,25 @@ Boolean
 fprint_screen(FILE *f, Boolean even_if_empty)
 {
 	register int i;
-	unsigned char e;
 	char c;
 	int ns = 0;
 	int nr = 0;
 	Boolean any = False;
-	unsigned char fa = *get_field_attribute(0);
+	unsigned char fa = get_field_attribute(0);
 
 	for (i = 0; i < ROWS*COLS; i++) {
 		if (i && !(i % COLS)) {
 			nr++;
 			ns = 0;
 		}
-		e = screen_buf[i];
-		if (IS_FA(e)) {
+		if (ea_buf[i].fa) {
 			c = ' ';
-			fa = screen_buf[i];
+			fa = ea_buf[i].fa;
 		}
 		if (FA_IS_ZERO(fa))
 			c = ' ';
 		else
-			c = cg2asc[e];
+			c = ebc2asc[ea_buf[i].cc];
 		if (c == ' ')
 			ns++;
 		else {

@@ -26,6 +26,7 @@
 <a HREF="#Macros-and-Scripts">Macros and Scripts</a><br>
 <a HREF="#Composite-Characters">Composite Characters</a><br>
 <a HREF="#APL-Support">APL Support</a><br>
+<a HREF="#XIM-Support">XIM Support</a><br>
 <a HREF="#5250-AS400-Support">5250 (AS/400) Support</a><br>
 <a HREF="#Screen-Printing">Screen Printing</a><br>
 <a HREF="#Bugs">Bugs</a><br>
@@ -234,7 +235,7 @@ for a monochrome X display.
 Some hosts are confused by the <b>-E</b>
 suffix on the terminal name, and will ignore the extra screen area on
 models 3, 4 and 5.
-Prepending an <b>s:</b> on the hostname, or setting the "x3270.extended"
+Prepending an <b>:s</b> on the hostname, or setting the "x3270.extended"
 resource to "false", removes the <b>-E</b>
 from the terminal name when connecting to such hosts.
 <p>
@@ -400,12 +401,6 @@ See <a HREF="ibm_hosts.html"><i>ibm_hosts</i>(5)</a> for details.
 <p>
 You may specify a different <i>ibm_hosts</i>
 database with the "x3270.hostsFile" resource.
-<p>
-<b>x3270</b> saves a list of recently-accessed hosts in the file
-$HOME/.x3270connect.
-The name of this file can be changed with the x3270.connectFileName resource.
-To suppress this functionality, set the value of x3270.connectFileName to
-<b>none</b>.
 <a NAME="Color-Schemes"></a><h2>Color Schemes</h2>
 When emulating a 3279 display, the X colors used to draw the display
 are selected by two resources: the "x3270.colorScheme" resource, which gives
@@ -1262,6 +1257,16 @@ Entries marked with an (S) represent Sharp APL charatcers.
 <tr><td >Y underbar</td>	<td >68</td>	<td >apl_Yunderbar</td>	<td >Alt-Y</td>	<td >Y + underbar</td></tr>
 <tr><td >Z underbar</td>	<td >69</td>	<td >apl_Zunderbar</td>	<td >Alt-Z</td>	<td >Z + underbar</td></tr>
 </table>
+<a NAME="XIM-Support"></a><h2>XIM Support</h2>
+When compiled with DBCS support, <b>x3270</b> supports multi-byte input methods
+via the XIM protocol.
+<p>
+The input method is selected by the XMODIFIERS environment variable or the
+<b>-im</b> command-line option, or implied by the LC_CTYPE
+category of the locale.
+<p>
+The preedit type is specified by the <b>-pt</b> command-line option,
+with a default of <b>OverTheSpot+1</b>.
 <a NAME="5250-AS400-Support"></a><h2>5250 (AS/400) Support</h2>
 <b>x3270</b> provides limited support for 5250 (AS/400) emulation.
 This is not native 5250 terminal emulation, but rather for use with hosts
@@ -1331,8 +1336,7 @@ It then passes the requested hostname and port to the
 /usr/lib/X11/x3270/ibm_hosts
 <br>
 $HOME/.x3270pro
-<br>
-$HOME/.x3270connect
+
 <a NAME="See-Also"></a><h2>See Also</h2>
 <a HREF="s3270-man.html">s3270(1)</a>, <a HREF="c3270-man.html">c3270(1)</a>, <a HREF="tcl3270-man.html">tcl3270(1)</a>, <a HREF="ibm_hosts.html">ibm_hosts(5)</a>, <a HREF="x3270-script.html">x3270-script(1)</a>, <a HREF="pr3287-man.html">pr3287(1)</a>, telnet(1), tn3270(1)
 <br>
@@ -1367,12 +1371,12 @@ x3270 is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
 <a NAME="Version"></a><h2>Version</h2>
-x3270 3.2.20
+x3270 3.3.1-alpha4
 <hr>
 <address>
 This HTML document and the accompanying troff document were generated with
 a set of write-only <b>m4</b> macros and the powerful <b>vi</b> editor.
-<br>Last modified 07 February 2003.
+<br>Last modified 22 October 2002.
 </address>
 </body>
 </html>

@@ -22,18 +22,18 @@ LOCAL_LIBRARIES = $(XAWLIB) $(XMULIB) $(XTOOLLIB) $(XLIB)
 		  keypad.c kybd.c macros.c main.c menubar.c popups.c \
 		  printer.c print.c resources.c save.c screen.c scroll.c \
 		  see.c select.c sf.c status.c tables.c toggles.c telnet.c \
-		  trace_ds.c util.c xio.c
+		  trace_ds.c util.c @WIDE_C@ xio.c
           VOBJS = Cme.o CmeBSB.o CmeLine.o CmplxMenu.o Husk.o about.o \
 		  actions.o ansi.o apl.o charset.o child.o ctlr.o dialog.o \
 		  fallbacks.o ft.o ft_cut.o ft_dft.o host.o idle.o keymap.o \
 		  keypad.o kybd.o macros.o main.o menubar.o popups.o \
 		  printer.o print.o resources.o save.o screen.o scroll.o \
 		  see.o select.o sf.o status.o tables.o telnet.o toggles.o \
-		  trace_ds.o util.o xio.o @LIBOBJS@
+		  trace_ds.o util.o @WIDE_O@ xio.o @LIBOBJS@
           OBJS1 = $(VOBJS) version.o
           FONTS = FontObj(3270-12) FontObj(3270-12b) FontObj(3270-20) \
 		  FontObj(3270-20b) FontObj(3270) FontObj(3270b) \
-		  FontObj(3270d) FontObj(3270e-12) FontObj(3270e-12b) \
+		  FontObj(3270e-12) FontObj(3270e-12b) \
 		  FontObj(3270e-20) FontObj(3270e-20b) FontObj(3270e) \
 		  FontObj(3270eb) FontObj(3270egt12) FontObj(3270egt12b) \
 		  FontObj(3270egt16) FontObj(3270egt16b) FontObj(3270egt24) \
@@ -41,8 +41,13 @@ LOCAL_LIBRARIES = $(XAWLIB) $(XMULIB) $(XTOOLLIB) $(XLIB)
 		  FontObj(3270egt8) FontObj(3270gr) FontObj(3270gt12) \
 		  FontObj(3270gt12b) FontObj(3270gt16) FontObj(3270gt16b) \
 		  FontObj(3270gt24) FontObj(3270gt24b) FontObj(3270gt32) \
-		  FontObj(3270gt32b) FontObj(3270gt8) FontObj(3270h)
+		  FontObj(3270gt32b) FontObj(3270gt8) FontObj(3270h) \
+		  FontObj(3270c8x16)
       HOSTSFILE = ibm_hosts
+@INSTALL_CNV@
+#ifdef INSTALL_CNV
+          GBCNV = icudt22l_ibm-837_P100-2000.cnv
+#endif
 
 /* Variables set by autoconf. */
     FONTINSTDIR = @IFONTDIR@
@@ -53,7 +58,9 @@ autoconf_bindir = @bindir@
 autoconf_mandir = @mandir@
 autoconf_fontinstdir = @CIFONTDIR@
     LIBX3270DIR = @LIBX3270DIR@
-EXTRA_LIBRARIES = @LIBS@
+EXTRA_LDOPTIONS = @LDFLAGS@
+EXTRA_LIBRARIES = @LIBS@ @HACK_LIBS@
+ EXTRA_INCLUDES = @CPPFLAGS@
              CC = @CC@
         INSTALL = @INSTALL@
 @NIXCCOPTIONS@
@@ -86,7 +93,6 @@ FontTarget(3270-20)
 FontTarget(3270-20b)
 FontTarget(3270)
 FontTarget(3270b)
-FontTarget(3270d)
 FontTarget(3270e-12)
 FontTarget(3270e-12b)
 FontTarget(3270e-20)
@@ -113,6 +119,7 @@ FontTarget(3270gt32)
 FontTarget(3270gt32b)
 FontTarget(3270gt8)
 FontTarget(3270h)
+FontTarget(3270c8x16)
 InstallMultipleFlags($(FONTS),$(FONTINSTDIR),$(INSTDATFLAGS))
 
 /* Extra directories. */
@@ -188,6 +195,12 @@ $(DESTDIR)$(FONTINSTDIR)/fonts.dir::
 install:: $(HOSTSFILE)
 	@[ -r $(DESTDIR)$(LIBX3270DIR)/$(HOSTSFILE) ] || \
 		$(INSTALL) -c $(INSTDATFLAGS) $(HOSTSFILE) $(DESTDIR)$(LIBX3270DIR)/$(HOSTSFILE)
+
+#ifdef INSTALL_CNV
+/* Extra install rule for the simplified Chinese conversion table. */
+install:: $(GBCNV)
+	$(INSTALL) -c $(INSTDATAFLAGS) $(GBCNV) $(DESTDIR)$(LIBX3270DIR)
+#endif
 
 /*
  * Install rules for x3270if, x3270-script and ibm_hosts man pages.

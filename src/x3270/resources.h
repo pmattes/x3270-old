@@ -31,7 +31,6 @@
 #define ResBellVolume		"bellVolume"
 #define ResBlankFill		"blankFill"
 #define ResBoldColor		"boldColor"
-#define ResCbreak		"cbreak"
 #define ResCharClass		"charClass"
 #define ResCharset		"charset"
 #define ResCharsetList		"charsetList"
@@ -47,6 +46,7 @@
 #define ResCursorBlink		"cursorBlink"
 #define ResCursorColor		"cursorColor"
 #define ResCursorPos		"cursorPos"
+#define ResDbcsConverters	"dbcsConverters"
 #define ResDebugFont		"debugFont"
 #define ResDebugTracing		"debugTracing"
 #define ResDefScreen		"defScreen"
@@ -71,6 +71,7 @@
 #define ResIdleTimeout		"idleTimeout"
 #define ResInlcr		"inlcr"
 #define ResInputColor		"inputColor"
+#define ResInputMethod		"inputMethod"
 #define ResIntr			"intr"
 #define ResInvertKeypadShift	"invertKeypadShift"
 #define ResKeymap		"keymap"
@@ -102,6 +103,7 @@
 #define ResOnlcr		"onlcr"
 #define ResOversize		"oversize"
 #define ResPort			"port"
+#define ResPreeditType		"preeditType"
 #define ResPrinterCommand	"printer.command"
 #define ResPrinterLu		"printerLu"
 #define ResQuit			"quit"
@@ -124,6 +126,7 @@
 #define ResTraceMonitor		"traceMonitor"
 #define ResTypeahead		"typeahead"
 #define ResUseCursorColor	"useCursorColor"
+#define ResVisibleControl	"visibleControl"
 #define ResVisualBell		"visualBell"
 #define ResVisualSelect		"visualSelect"
 #define ResVisualSelectColor	"visualSelectColor"
@@ -133,13 +136,13 @@
 /* Dotted resource names. */
 #define DotActiveIcon		"." ResActiveIcon
 #define DotAplMode		"." ResAplMode
-#define DotCbreak		"." ResCbreak
 #define DotCharClass		"." ResCharClass
 #define DotCharset		"." ResCharset
 #define DotColorScheme		"." ResColorScheme
 #define DotDsTrace		"." ResDsTrace
 #define DotEmulatorFont		"." ResEmulatorFont
 #define DotExtended		"." ResExtended
+#define DotInputMethod		"." ResInputMethod
 #define DotKeymap		"." ResKeymap
 #define DotKeypadOn		"." ResKeypadOn
 #define DotM3279		"." ResM3279
@@ -148,6 +151,7 @@
 #define DotOnce			"." ResOnce
 #define DotOversize		"." ResOversize
 #define DotPort			"." ResPort
+#define DotPreeditType		"." ResPreeditType
 #define DotPrinterLu		"." ResPrinterLu
 #define DotReconnect		"." ResReconnect
 #define DotSaveLines		"." ResSaveLines
@@ -169,7 +173,6 @@
 #define ClsBellVolume		"BellVolume"
 #define ClsBlankFill		"BlankFill"
 #define ClsBoldColor		"BoldColor"
-#define ClsCbreak		"Cbreak"
 #define ClsCharClass		"CharClass"
 #define ClsCharset		"Charset"
 #define ClsColor8		"Color8"
@@ -203,6 +206,7 @@
 #define ClsIdleTimeout		"IdleTimeout"
 #define ClsInlcr		"Inlcr"
 #define ClsInputColor		"InputColor"
+#define ClsInputMethod		"InputMethod"
 #define ClsIntr			"Intr"
 #define ClsInvertKeypadShift	"InvertKeypadShift"
 #define ClsKeymap		"Keymap"
@@ -233,6 +237,7 @@
 #define ClsOnlcr		"Onlcr"
 #define ClsOversize		"Oversize"
 #define ClsPort			"Port"
+#define ClsPreeditType		"PreeditType"
 #define ClsPrinterLu		"PrinterLu"
 #define ClsQuit			"Quit"
 #define ClsReconnect		"Reconnect"
@@ -253,6 +258,7 @@
 #define ClsTraceMonitor		"TraceMonitor"
 #define ClsTypeahead		"Typeahead"
 #define ClsUseCursorColor	"UseCursorColor"
+#define ClsVisibleControl	"VisibleControl"
 #define ClsVisualBell		"VisualBell"
 #define ClsVisualSelect		"VisualSelect"
 #define ClsVisualSelectColor	"VisualSelectColor"
@@ -264,7 +270,6 @@
 #define OptAllBold		"-allbold"
 #define OptAltScreen		"-altscreen"
 #define OptAplMode		"-apl"
-#define OptCbreak		"-cbreak"
 #define OptCharClass		"-cc"
 #define OptCharset		"-charset"
 #define OptClear		"-clear"
@@ -277,6 +282,7 @@
 #define OptIconName		"-iconname"
 #define OptIconX		"-iconx"
 #define OptIconY		"-icony"
+#define OptInputMethod		"-im"
 #define OptKeymap		"-keymap"
 #define OptKeypadOn		"-keypad"
 #define OptLocalProcess		"-e"
@@ -287,10 +293,10 @@
 #define OptOnce			"-once"
 #define OptOversize		"-oversize"
 #define OptPort			"-port"
+#define OptPreeditType		"-pt"
 #define OptPrinterLu		"-printerlu"
 #define OptReconnect		"-reconnect"
 #define OptSaveLines		"-sl"
-#define OptSecure		"-secure"
 #define OptScripted		"-script"
 #define OptScrollBar		"-sb"
 #define OptSet			"-set"

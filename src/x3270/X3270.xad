@@ -116,6 +116,7 @@ x3270.charsetList:			U.S. English (CP 37): us-intl\n\
 					Belgian (CP 500): belgian\n\
 					Belgian w/Euro (CP 1148): belgian-euro\n\
 					Brazilian (CP 275): brazilian\n\
+					Chinese Simplified (CP 836+837): simplified-chinese\n\
 					Finnish (CP 278): finnish\n\
 					Finnish w/Euro (CP 1143): finnish-euro\n\
 					French (CP 297): french\n\
@@ -192,6 +193,7 @@ x3270.charsetList:			U.S. English (CP 37): us-intl\n\
 ! x3270.highlightSelect:		true
 ! x3270.idleCommand:
 ! x3270.idleTimeout:			~7m
+! x3270.inputMethod:
 ! x3270.invertKeypadShift:		false
 ! x3270.keymap:
 ! x3270.keypad:				right
@@ -207,6 +209,7 @@ x3270.charsetList:			U.S. English (CP 37): us-intl\n\
 ! x3270.numericLock:			false
 ! x3270.once:				false
 ! x3270.port:				telnet
+! x3270.preeditType:			OverTheSpot+1
 ! x3270.saveLines:			64
 ! x3270.scripted:			false
 ! x3270.termName:
@@ -226,8 +229,7 @@ x3270.emulatorFontList.3270cg-1a,3270cg-1,iso8859-1: \
 					16-point Font: #resize 3270gt16\n\
 					20-point Font: #resize 3270-20\n\
 					24-point Font: #resize 3270gt24\n\
-					32-point Font: #resize 3270gt32\n\
-					Debug Font: #noauto 3270d
+					32-point Font: #resize 3270gt32
 x3270.emulatorFontList.3270cg-15a,3270cg-15,iso8859-15: \
 					3270 Font (14 point): #resize 3270e\n\
 					8-point Font: #resize 3270egt8\n\
@@ -236,6 +238,10 @@ x3270.emulatorFontList.3270cg-15a,3270cg-15,iso8859-15: \
 					20-point Font: #resize 3270e-20\n\
 					24-point Font: #resize 3270egt24\n\
 					32-point Font: #resize 3270egt32
+x3270.emulatorFontList.3270cg-1a,iso8859-1+gb2312.1980-0: \
+					16-point: 8x16+-isas-song ti-medium-r-normal--16-160-72-72-c-160-gb2312.1980-0\n\
+					16-point 3270: 3270c8x16+-isas-song ti-medium-r-normal--16-160-72-72-c-160-gb2312.1980-0\n\
+					24-point: 12x24+-isas-song ti-medium-r-normal--24-240-72-72-c-240-gb2312.1980-0
 #endif
 !
 ! Print commands
@@ -363,10 +369,8 @@ x3270.keymap.base.3270: #override \
 	Meta<Key>p:			PrintText()\n\
 	Meta<Key>r:			Reset()\n\
 	Meta<Key>u:			Unselect()\n\
-	Ctrl<Key>c:			set-select(CLIPBOARD)\n\
 	Ctrl<Key>u:			DeleteField()\n\
-	Ctrl<Key>w:			DeleteWord()\n\
-	Ctrl<Key>v:			insert-selection(CLIPBOARD)\n
+	Ctrl<Key>w:			DeleteWord()\n
 !
 ! Start of keyboard-specific mappings.
 !
@@ -991,6 +995,7 @@ x3270*marginedPasteOption.label:		Paste with Left Margin
 x3270*rectangleSelectOption.label:		Select by Rectangles
 x3270*blankFillOption.label:			Blank Fill
 x3270*crosshairOption.label:			Crosshair Cursor
+x3270*visibleControlOption.label:		Visible Control Chars
 x3270*underlineCursorOption.label:		Underline Cursor
 x3270*blockCursorOption.label:			Block Cursor
 x3270*otherFontOption.label:			Other...
@@ -1022,11 +1027,14 @@ x3270.message.standardDs:			standard data stream
 x3270.message.terminalName:			Terminal name:
 x3270.message.luName:				LU name:
 x3270.message.emulatorFont:			Emulator font:
+x3270.message.emulatorFontDbcs:			DBCS emulator font:
 x3270.message.xFont:				standard X11 font
 x3270.message.cgFont:				special 3270 CG font
 x3270.message.characterSet:			Host EBCDIC character set:
+x3270.message.characterSetDbcs:			Host EBCDIC DBCS character set:
 x3270.message.defaultCharacterSet:		Default (us) EBCDIC character set
 x3270.message.displayCharacterSet:		Display character set:
+x3270.message.displayCharacterSetDbcs:		DBCS display character set:
 x3270.message.require:				require
 x3270.message.have:				have
 x3270.message.keyboardMap:			Keyboard map:
@@ -1061,6 +1069,7 @@ x3270.message.byte:				byte
 x3270.message.bytes:				bytes
 x3270.message.record:				record
 x3270.message.records:				records
+x3270.message.statusDbcs:			DBCS
 x3270.message.statusNotConnected:		Not Connected
 x3270.message.statusTwait:			Wait
 x3270.message.statusSyswait:			System
@@ -1107,7 +1116,7 @@ x3270.message.kmFromServer:			\ (expanded from '@server')
 !=============================================================================
 !
 ! App-defaults file version
-x3270.adVersion:		3.2.18
+x3270.adVersion:		3.3.1
 !
 ! Fonts
 #ifdef X3270_APL
@@ -1997,3 +2006,10 @@ x3270.charset.thai: #table\n\
  125  74  75  76  77  78  79  80  81  82 218 224 225 226 227 228 \
   92 159  83  84  85  86  87  88  89  90 229 230 231 232 233 234 \
   48  49  50  51  52  53  54  55  56  57 235 236 237 253 254 255
+! Simplified Chinese.
+! Note that the 'charset' definition applies only to the single-byte character
+! set (836), not the double-byte character set (837).
+x3270.codepage.simplified-chinese: 0x04960344+0xffff0345
+x3270.displayCharset.simplified-chinese: 3270cg-1a,iso8859-1+gb2312.1980-0
+x3270.charset.simplified-chinese: \n
+x3270.dbcsConverters.simplified-chinese: ibm-837_P100-2000,gb2312-1980

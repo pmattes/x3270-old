@@ -1585,6 +1585,7 @@ options_menu_init(Boolean regen, Position x, Position y)
 	toggle_init(t, MARGINED_PASTE, "marginedPasteOption", CN);
 	toggle_init(t, RECTANGLE_SELECT, "rectangleSelectOption", CN);
 	toggle_init(t, CROSSHAIR, "crosshairOption", CN);
+	toggle_init(t, VISIBLE_CONTROL, "visibleControlOption", CN);
 	(void) XtVaCreateManagedWidget("space", cmeLineObjectClass, t, NULL);
 	toggle_init(t, ALT_CURSOR, "underlineCursorOption",
 	    "blockCursorOption");

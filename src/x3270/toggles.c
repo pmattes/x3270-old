@@ -80,6 +80,7 @@ initialize_toggles(void)
 	appres.toggle[RECTANGLE_SELECT].upcall = toggle_nop;
 	appres.toggle[SCROLL_BAR].upcall =       toggle_scrollBar;
 	appres.toggle[CROSSHAIR].upcall =        toggle_crosshair;
+	appres.toggle[VISIBLE_CONTROL].upcall =  toggle_visible_control;
 #endif /*]*/
 #if defined(X3270_TRACE) /*[*/
 	appres.toggle[DS_TRACE].upcall =         toggle_dsTrace;

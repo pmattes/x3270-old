@@ -19,7 +19,6 @@
 
 extern int		buffer_addr;	/* buffer address */
 extern int		cursor_addr;	/* cursor address */
-extern struct ea	*ea_buf;	/* 3270 extended attribute buffer */
+extern struct ea	*ea_buf;	/* 3270 device buffer */
 extern Boolean		formatted;	/* contains at least one field? */
 extern Boolean		is_altbuffer;	/* in alternate-buffer mode? */
-extern unsigned char	*screen_buf;	/* 3270 display buffer */

@@ -686,7 +686,7 @@ tracefile_on(int reason, enum toggle_type tt)
 		return;
 
 	trace_reason = reason;
-	if (appres.secure && tt != TT_INITIAL) {
+	if (appres.secure) {
 		tracefile_callback((Widget)NULL, "none", PN);
 		return;
 	}

@@ -230,6 +230,8 @@ XtResource resources[] = {
 	  toggle_offset(RECTANGLE_SELECT), XtRString, ResFalse },
 	{ ResCrosshair, ClsCrosshair, XtRBoolean, sizeof(Boolean),
 	  toggle_offset(CROSSHAIR), XtRString, ResFalse },
+	{ ResVisibleControl, ClsVisibleControl, XtRBoolean, sizeof(Boolean),
+	  toggle_offset(VISIBLE_CONTROL), XtRString, ResFalse },
 
 #if defined(X3270_ANSI) /*[*/
 	{ ResIcrnl, ClsIcrnl, XtRBoolean, sizeof(Boolean),
@@ -259,6 +261,13 @@ XtResource resources[] = {
 #if defined(X3270_PRINTER) /*[*/
 	{ ResPrinterLu, ClsPrinterLu, XtRString, sizeof(char *),
 	  offset(printer_lu), XtRString, 0 },
+#endif /*]*/
+
+#if defined(X3270_DBCS) /*[*/
+	{ ResInputMethod, ClsInputMethod, XtRString, sizeof(char *),
+	  offset(input_method), XtRString, 0 },
+	{ ResPreeditType, ClsPreeditType, XtRString, sizeof(char *),
+	  offset(preedit_type), XtRString, PT_OVER_THE_SPOT "+1" },
 #endif /*]*/
 
 #if defined(USE_APP_DEFAULTS) /*[*/

@@ -26,6 +26,8 @@
 
 #include "globals.h"
 
+#include <locale.h>
+
 #include "resources.h"
 #include "appres.h"
 #include "cg.h"
@@ -38,6 +40,7 @@
 #endif /*]*/
 #include "tablesc.h"
 #include "utilc.h"
+#include "widec.h"
 
 #include <errno.h>
 
@@ -49,6 +52,7 @@ Boolean charset_changed = False;
 #define DEFAULT_CGEN	0x02b90000
 #define DEFAULT_CSET	0x00000025
 unsigned long cgcsgid = DEFAULT_CGEN | DEFAULT_CSET;
+unsigned long cgcsgid_dbcs = 0L;
 char *default_display_charset = "3270cg-1a,3270cg-1,iso8859-1";
 
 /* Statics. */
@@ -62,7 +66,8 @@ static void remap_one(unsigned char ebc, KeySym iso, remap_scope scope,
 static enum cs_result check_charset(void);
 static char *char_if_ascii7(unsigned long l);
 #endif /*]*/
-static void set_cgcsgid(char *spec);
+static void set_cgcsgids(char *spec);
+static int set_cgcsgid(char *spec, unsigned long *idp);
 static void set_charset_name(char *csname);
 
 static char *charset_name = CN;
@@ -74,6 +79,7 @@ charset_defaults(void)
 	(void) memcpy((char *)ebc2cg, (char *)ebc2cg0, 256);
 	(void) memcpy((char *)cg2ebc, (char *)cg2ebc0, 256);
 	(void) memcpy((char *)ebc2asc, (char *)ebc2asc0, 256);
+	(void) memcpy((char *)asc2ebc, (char *)asc2ebc0, 256);
 #if defined(X3270_FT) /*[*/
 	(void) memcpy((char *)ft2asc, (char *)ft2asc0, 256);
 	(void) memcpy((char *)asc2ft, (char *)asc2ft0, 256);
@@ -84,6 +90,7 @@ charset_defaults(void)
 static unsigned char save_ebc2cg[256];
 static unsigned char save_cg2ebc[256];
 static unsigned char save_ebc2asc[256];
+static unsigned char save_asc2ebc[256];
 #if defined(X3270_FT) /*[*/
 static unsigned char save_ft2asc[256];
 static unsigned char save_asc2ft[256];
@@ -95,6 +102,7 @@ save_charset(void)
 	(void) memcpy((char *)save_ebc2cg, (char *)ebc2cg, 256);
 	(void) memcpy((char *)save_cg2ebc, (char *)cg2ebc, 256);
 	(void) memcpy((char *)save_ebc2asc, (char *)ebc2asc, 256);
+	(void) memcpy((char *)save_asc2ebc, (char *)asc2ebc, 256);
 #if defined(X3270_FT) /*[*/
 	(void) memcpy((char *)save_ft2asc, (char *)ft2asc, 256);
 	(void) memcpy((char *)save_asc2ft, (char *)asc2ft, 256);
@@ -107,6 +115,7 @@ restore_charset(void)
 	(void) memcpy((char *)ebc2cg, (char *)save_ebc2cg, 256);
 	(void) memcpy((char *)cg2ebc, (char *)save_cg2ebc, 256);
 	(void) memcpy((char *)ebc2asc, (char *)save_ebc2asc, 256);
+	(void) memcpy((char *)asc2ebc, (char *)save_asc2ebc, 256);
 #if defined(X3270_FT) /*[*/
 	(void) memcpy((char *)ft2asc, (char *)save_ft2asc, 256);
 	(void) memcpy((char *)asc2ft, (char *)save_asc2ft, 256);
@@ -129,14 +138,38 @@ charset_init(char *csname)
 	char *cs, *ftcs;
 	enum cs_result rc;
 	char *ccs, *cftcs;
+#if defined(X3270_DBCS) /*[*/
+	static Boolean locale_initted = False;
+#endif /*]*/
+
+#if defined(X3270_DBCS) /*[*/
+	/* Set up the locale. */
+	if (!locale_initted) {
+		if (setlocale(LC_CTYPE, "") == CN) {
+			popup_an_error("setlocale(LC_CTYPE) failed\n"
+				       "DBCS disabled");
+			no_dbcs = True;
+			dbcs = False;
+		}
+#if defined(X3270_DISPLAY) /*[*/
+		else if (XSupportsLocale() == False) {
+			popup_an_error("XSupportsLocale() failed\n"
+				       "DBCS disabled");
+			no_dbcs = True;
+			dbcs = False;
+		}
+#endif /*]*/
+		locale_initted = True;
+	}
+#endif /*]*/
 
 	/* Do nothing, successfully. */
 	if (csname == CN || !strcasecmp(csname, "us")) {
 		charset_defaults();
-		set_cgcsgid(CN);
+		set_cgcsgids(CN);
 		set_charset_name(CN);
 #if defined(X3270_DISPLAY) /*[*/
-		(void) screen_new_display_charset(default_display_charset,
+		(void) screen_new_display_charsets(default_display_charset,
 		    "us");
 #endif /*]*/
 		return CS_OKAY;
@@ -182,13 +215,19 @@ charset_init(char *csname)
 
 	if (rc != CS_OKAY)
 		restore_charset();
+#if defined(X3270_DBCS) /*[*/
+	else if (wide_init(csname) < 0) {
+		restore_charset();
+		return CS_NOTFOUND;
+	}
+#endif /*]*/
 
 	return rc;
 }
 
-/* Set the global CGCSGID. */
-static void
-set_cgcsgid(char *spec)
+/* Set a CGCSGID.  Return 0 for success, -1 for failure. */
+static int
+set_cgcsgid(char *spec, unsigned long *r)
 {
 	unsigned long cp;
 	char *ptr;
@@ -198,11 +237,61 @@ set_cgcsgid(char *spec)
 	    ptr != spec &&
 	    *ptr == '\0') {
 		if (!(cp & ~0xffffL))
-			cgcsgid = DEFAULT_CGEN | cp;
+			*r = DEFAULT_CGEN | cp;
 		else
-			cgcsgid = cp;
+			*r = cp;
+		return 0;
 	} else
-		cgcsgid = DEFAULT_CGEN | DEFAULT_CSET;
+		return -1;
+}
+
+/* Set the CGCSGIDs. */
+static void
+set_cgcsgids(char *spec)
+{
+	int n_ids = 0;
+	char *spec_copy;
+	char *buf;
+	char *token;
+
+	if (spec != CN) {
+		buf = spec_copy = NewString(spec);
+		while (n_ids >= 0 && (token = strtok(buf, "+")) != CN) {
+			unsigned long *idp = NULL;
+
+			buf = CN;
+			switch (n_ids) {
+			case 0:
+			    idp = &cgcsgid;
+			    break;
+#if defined(X3270_DBCS) /*[*/
+			case 1:
+			    idp = &cgcsgid_dbcs;
+			    break;
+#endif /*]*/
+			default:
+			    popup_an_error("Extra CGCSGID(s), ignoring");
+			    break;
+			}
+			if (idp == NULL)
+				break;
+			if (set_cgcsgid(token, idp) < 0) {
+				popup_an_error("Invalid CGCSGID '%s', ignoring",
+				    token);
+				n_ids = -1;
+				break;
+			}
+			n_ids++;
+		}
+		Free(spec_copy);
+		if (n_ids > 0)
+			return;
+	}
+
+	cgcsgid = DEFAULT_CGEN | DEFAULT_CSET;
+#if defined(X3270_DBCS) /*[*/
+	cgcsgid_dbcs = 0L;
+#endif /*]*/
 }
 
 /* Set the global charset name. */
@@ -228,6 +317,7 @@ resource_charset(char *csname, char *cs, char *ftcs)
 	enum cs_result rc;
 	int ne = 0;
 	char *rcs = CN;
+	int n_rcs = 0;
 
 	/* Interpret the spec. */
 	rc = remap_chars(csname, cs, (ftcs == NULL)? BOTH: CS_ONLY, &ne);
@@ -240,15 +330,52 @@ resource_charset(char *csname, char *cs, char *ftcs)
 	}
 
 	rcs = get_fresource("%s.%s", ResDisplayCharset, csname);
-#if defined(X3270_DISPLAY) /*[*/
-	if (!screen_new_display_charset(
-		    rcs? rcs: default_display_charset, csname)) {
-		return CS_PREREQ;
+
+	/* Isolate the pieces. */
+	if (rcs != CN) {
+		char *rcs_copy, *buf, *token;
+
+		buf = rcs_copy = NewString(rcs);
+		while ((token = strtok(buf, "+")) != CN) {
+			buf = CN;
+			switch (n_rcs) {
+			case 0:
+#if defined(X3270_DBCS) /*[*/
+			case 1:
+#endif /*]*/
+			    break;
+			default:
+			    popup_an_error("Extra %s value(s), ignoring",
+				ResDisplayCharset);
+			    break;
+			}
+			n_rcs++;
+		}
+	}
+
+#if defined(X3270_DBCS) /*[*/
+	/* Can't swap DBCS modes while connected. */
+	if (IN_3270 && (n_rcs == 2) != dbcs) {
+		popup_an_error("Can't change DBCS modes while connected");
+		return CS_ILLEGAL;
 	}
 #endif /*]*/
 
+#if defined(X3270_DISPLAY) /*[*/
+	if (!screen_new_display_charsets(
+		    rcs? rcs: default_display_charset,
+		    csname)) {
+		return CS_PREREQ;
+	}
+#else /*][*/
+	if (n_rcs > 1)
+		dbcs = True;
+	else
+		dbcs = False;
+#endif /*]*/
+
 	/* Set up the cgcsgid. */
-	set_cgcsgid(get_fresource("%s.%s", ResCodepage, csname));
+	set_cgcsgids(get_fresource("%s.%s", ResCodepage, csname));
 
 	/* Set up the character set name. */
 	set_charset_name(csname);
@@ -338,8 +465,11 @@ remap_one(unsigned char ebc, KeySym iso, remap_scope scope, Boolean one_way)
 				/* into a hole */
 				ebc2cg[ebc] = CG_boxsolid;
 			}
-			if (ebc > 0x40)
+			if (ebc > 0x40) {
 				ebc2asc[ebc] = iso;
+				if (!one_way)
+					asc2ebc[iso] = ebc;
+			}
 		}
 #if defined(X3270_FT) /*[*/
 		if (ebc > 0x40) {

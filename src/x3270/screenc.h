@@ -17,6 +17,7 @@
  */
 
 extern const char *efont_charset;
+extern const char *efont_charset_dbcs;
 extern Boolean efont_matches;
 extern Dimension main_width;
 
@@ -55,8 +56,6 @@ extern void Redraw_action(Widget w, XEvent *event, String *params,
     Cardinal *num_params);
 extern void ring_bell(void);
 extern void save_00translations(Widget w, XtTranslations *t00);
-#define screen_80()
-#define screen_132()
 extern void screen_change_model(int mn, int ovc, int ovr);
 extern void screen_disp(Boolean erasing);
 extern void screen_extended(Boolean extended);
@@ -65,8 +64,8 @@ extern GC screen_gc(int color);
 extern void screen_init(void);
 extern GC screen_invgc(int color);
 extern void screen_m3279(Boolean m3279);
-extern Boolean screen_new_display_charset(const char *display_charset,
-    const char *csname);
+extern Boolean screen_new_display_charsets(const char *display_charsets,
+    const char *csnames);
 extern void screen_newcharset(char *csname);
 extern void screen_newfont(char *fontname, Boolean do_popup, Boolean is_cs);
 extern void screen_newscheme(char *s);
@@ -87,3 +86,4 @@ extern void toggle_cursorBlink(struct toggle *t, enum toggle_type tt);
 extern void toggle_cursorPos(struct toggle *t, enum toggle_type tt);
 extern void toggle_monocase(struct toggle *t, enum toggle_type tt);
 extern void toggle_scrollBar(struct toggle *t, enum toggle_type tt);
+extern void toggle_visible_control(struct toggle *t, enum toggle_type tt);

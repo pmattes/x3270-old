@@ -23,6 +23,7 @@ extern unsigned int kybdlock;
 #define  KL_OERR_PROTECTED	1
 #define  KL_OERR_NUMERIC	2
 #define  KL_OERR_OVERFLOW	3
+#define  KL_OERR_DBCS		4
 #define	KL_NOT_CONNECTED	0x0010
 #define	KL_AWAITING_FIRST	0x0020
 #define	KL_OIA_TWAIT		0x0040

@@ -58,9 +58,10 @@ struct toggle {
 
 #if defined(X3270_DISPLAY) /*[*/
 #define CROSSHAIR	13
+#define VISIBLE_CONTROL	14
 #endif /*]*/
 
-#define N_TOGGLES	14
+#define N_TOGGLES	15
 
 #define toggled(ix)		(appres.toggle[ix].value)
 #define toggle_toggle(t) \
@@ -100,7 +101,6 @@ typedef struct {
 #if defined(C3270) /*[*/
 	Boolean all_bold_on;
 	Boolean	curses_keypad;
-	Boolean cbreak_mode;
 #endif /*]*/
 	Boolean	apl_mode;
 	Boolean scripted;
@@ -141,6 +141,10 @@ typedef struct {
 	char	*char_class;
 	int	modified_sel_color;
 	int	visual_select_color;
+#if defined(X3270_DBCS) /*[*/
+	char	*input_method;
+	char	*preedit_type;
+#endif /*]*/
 #endif /*]*/
 #if defined(C3270) /*[*/
 	char	*meta_escape;

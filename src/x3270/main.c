@@ -136,6 +136,10 @@ XrmOptionDescRec options[]= {
 	{ OptTraceFile,	DotTraceFile,	XrmoptionSepArg,	NULL },
 	{ OptTraceFileSize,DotTraceFileSize,XrmoptionSepArg,	NULL },
 #endif /*]*/
+#if defined(X3270_DBCS) /*[*/
+	{ OptInputMethod,DotInputMethod,XrmoptionSepArg,	NULL },
+	{ OptPreeditType,DotPreeditType,XrmoptionSepArg,	NULL },
+#endif /*]*/
 	{ "-xrm",	NULL,		XrmoptionResArg,	NULL }
 };
 int num_options = XtNumber(options);
@@ -177,7 +181,8 @@ struct toggle_name toggle_names[N_TOGGLES] = {
 #endif /*]*/
 	{ ResMarginedPaste,   MARGINED_PASTE },
 	{ ResRectangleSelect, RECTANGLE_SELECT },
-	{ ResCrosshair,	      CROSSHAIR }
+	{ ResCrosshair,	      CROSSHAIR },
+	{ ResVisibleControl,  VISIBLE_CONTROL },
 };
 
 
@@ -383,6 +388,9 @@ main(int argc, char *argv[])
 	    case CS_PREREQ:
 		popup_an_error("No fonts for host character set \"%s\"",
 		    appres.charset);
+		(void) charset_init(CN);
+		break;
+	    case CS_ILLEGAL:
 		(void) charset_init(CN);
 		break;
 	}

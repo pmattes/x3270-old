@@ -390,6 +390,13 @@ x3270.inputColor	Default orange
     displays, these fields are indistinguishable from other normal-intensity
     text.
 
+x3270.inputMethod	No Default		Switch -im
+    Specifies the name of the input method to use for multi-byte input.  The
+    default is specified by the XMODIFIERS environment variable, if set, or is
+    constructed by Xlib based on the current locale.
+
+    Supported only when x3270 is compiled with DBCS support.
+
 x3270.intr		Default ^C
     Used in ANSI mode, when communicating in line-at-a-time mode (when x3270
     gathers a line of input before forwarding it to the host).  Defines a
@@ -618,6 +625,15 @@ x3270.oversize					Switch -oversize
 x3270.port		Default telnet		Switch -port
     The name of the default TCP port for x3270 to connect to.  This can be
     either a symbolic name from /etc/services, or an integer.
+
+x3270.preeditType	Default OverTheSpot+1	Switch -pt
+    The preedit type for the multi-byte input method.  Valid values are
+    "OverTheSpot", "OffTheSpot", "Root" and "OnTheSpot".  The value for
+    "OverTheSpot" can include an optional suffix, a signed number indicating
+    the vertical distance in rows of the preedit window from the cursor
+    position, e.g.  "OverTheSpot+1" or "OverTheSpot-2".
+
+    Supported  only when x3270 is compiled with DBCS support.
 
 x3270.printerLu					Switch -printerlu
     If a value is set, x3270 will automatically start a pr3287 printer session
