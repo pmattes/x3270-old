@@ -98,6 +98,8 @@ typedef struct sms {
 	Boolean	is_hex;		/* flag for ST_STRING only */
 	Boolean output_wait_needed;
 	Boolean executing;	/* recursion avoidance */
+	Boolean accumulated;	/* accumulated time flag */
+	unsigned long msec;	/* total accumulated time */
 	FILE   *outfile;
 	int	infd;
 	int	pid;
@@ -303,6 +305,8 @@ new_sms(enum sms_type type)
 	s->wait_id = 0L;
 	s->output_wait_needed = False;
 	s->executing = False;
+	s->accumulated = False;
+	s->msec = 0L;
 
 	return s;
 }
@@ -736,6 +740,8 @@ execute_command(enum iaction cause, char *s, char **np)
 		}
 	}
 	if (any >= 0) {
+		sms->accumulated = False;
+		sms->msec = 0L;
 		ia_cause = cause;
 		(*actions[any].proc)((Widget)NULL, (XEvent *)NULL,
 			count? params: (String *)NULL, &count);
@@ -1576,9 +1582,17 @@ static void
 script_prompt(Boolean success)
 {
 	char *s;
+	char timing[64];
 
+	if (sms != SN && sms->accumulated) {
+		(void) sprintf(timing, "%ld.%03ld", sms->msec / 1000L,
+			sms->msec % 1000L);
+	} else {
+		(void) strcpy(timing, "-");
+	}
 	s = status_string();
-	(void) fprintf(sms->outfile, "%s\n%s\n", s, success ? "ok" : "error");
+	(void) fprintf(sms->outfile, "%s %s\n%s\n", s, timing,
+		       success ? "ok" : "error");
 	(void) fflush(sms->outfile);
 	Free(s);
 }
@@ -2432,4 +2446,18 @@ Abort_action(Widget w unused, XEvent *event unused, String *params,
 {
 	child_ignore_output();
 	abort_script();
+}
+
+/* Accumulate command execution time. */
+void
+sms_accumulate_time(struct timeval *t0, struct timeval *t1)
+{
+    if (sms != SN) {
+	sms->accumulated = True;
+	sms->msec += (t1->tv_sec - t0->tv_sec) * 1000 +
+		     (t1->tv_usec - t0->tv_usec + 500) / 1000;
+#if defined(DEBUG_ACCUMULATE) /*[*/
+	printf("%s: accumulated %lu msec\n", ST_NAME, sms->msec);
+#endif /*]*/
+    }
 }

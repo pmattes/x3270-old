@@ -2127,12 +2127,14 @@ host_os=`echo $ac_cv_host | sed 's/^\([^-]*\)-\([^-]*\)-\(.*\)$/\3/'`
 
 case "$host_os" in
 solaris2*)	XANSI=-D__EXTENSIONS__
+		if test "$GCC" = yes
+		then	NIXCCOPTIONS="CCOPTIONS ="
+		fi
 		;;
 darwin*)	XPRECOMP=-no-cpp-precomp
 		;;
-*)		XANSI=""
-		;;
 esac
+
 
 
 
@@ -4699,6 +4701,7 @@ s,@host_vendor@,$host_vendor,;t t
 s,@host_os@,$host_os,;t t
 s,@XANSI@,$XANSI,;t t
 s,@XPRECOMP@,$XPRECOMP,;t t
+s,@NIXCCOPTIONS@,$NIXCCOPTIONS,;t t
 s,@CPP@,$CPP,;t t
 s,@UAD_FLAGS@,$UAD_FLAGS,;t t
 s,@DEFINE_UAD@,$DEFINE_UAD,;t t

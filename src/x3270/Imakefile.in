@@ -52,6 +52,7 @@ autoconf_fontinstdir = @CIFONTDIR@
 EXTRA_LIBRARIES = @LIBS@
              CC = @CC@
         INSTALL = @INSTALL@
+@NIXCCOPTIONS@
 
 /* Add HP/UX #define. */
 #ifdef HPArchitecture

@@ -185,6 +185,8 @@ x3270.charsetList:			U.S. English (CP 37): us-intl\n\
 ! x3270.disconnectClear:		false
 ! x3270.hostsFile:			/usr/lib/X11/x3270/ibm_hosts
 ! x3270.highlightSelect:		true
+! x3270.idleCommand:
+! x3270.idleTimeout:			~7m
 ! x3270.invertKeypadShift:		false
 ! x3270.keymap:
 ! x3270.keypad:				right
@@ -249,8 +251,8 @@ x3270.traceCommand:			tail -f
 ! Printer session options
 #endif
 x3270.printer.command:			lpr
-x3270.printer.assocCommandLine:		pr3287 -assoc %L% -command "%C%" %H%
-x3270.printer.luCommandLine:		pr3287 -command "%C%" %L%@%H%
+x3270.printer.assocCommandLine:		pr3287 -assoc %L% -command "%C%" %R% %H%
+x3270.printer.luCommandLine:		pr3287 -command "%C%" %R% %L%@%H%
 #ifndef STANDALONE
 !
 ! Translation table for the '@server' pseudo-keymap, which is the keymap
@@ -260,7 +262,8 @@ x3270.serverKeymapList: \
 	Sun Microsystems, Inc.: sun_k5\n\
 	Hewlett-Packard Company: hp-k1\n\
 	International Business Machines: alt\n\
-	Silicon Graphics: alt
+	Silicon Graphics: alt\n\
+	The XFree86 Project, Inc: alt
 !
 ! Keymaps (keyboard and mouse mappings)
 !
@@ -283,6 +286,18 @@ x3270.keymap.base: \
 	Shift<Key>Down:			KybdSelect(Down,PRIMARY)\n\
 	Shift<Key>Left:			KybdSelect(Left,PRIMARY)\n\
 	Shift<Key>Right:		KybdSelect(Right,PRIMARY)\n\
+	:Shift<Key>F1:			PF(13)\n\
+	:Shift<Key>F2:			PF(14)\n\
+	:Shift<Key>F3:			PF(15)\n\
+	:Shift<Key>F4:			PF(16)\n\
+	:Shift<Key>F5:			PF(17)\n\
+	:Shift<Key>F6:			PF(18)\n\
+	:Shift<Key>F7:			PF(19)\n\
+	:Shift<Key>F8:			PF(20)\n\
+	:Shift<Key>F9:			PF(21)\n\
+	:Shift<Key>F10:			PF(22)\n\
+	:Shift<Key>F11:			PF(23)\n\
+	:Shift<Key>F12:			PF(24)\n\
 	:Meta<Key>F1:			PF(13)\n\
 	:Meta<Key>F2:			PF(14)\n\
 	:Meta<Key>F3:			PF(15)\n\
@@ -356,18 +371,6 @@ x3270.keymap.sun_k5: \
 	Shift<Key>0x1005ff11:	PF(24)\n\
 	:<Key>0x1005ff10:	PF(11)\n\
 	:<Key>0x1005ff11:	PF(12)\n\
-	Shift<Key>F1:		PF(13)\n\
-	Shift<Key>F2:		PF(14)\n\
-	Shift<Key>F3:		PF(15)\n\
-	Shift<Key>F4:		PF(16)\n\
-	Shift<Key>F5:		PF(17)\n\
-	Shift<Key>F6:		PF(18)\n\
-	Shift<Key>F7:		PF(19)\n\
-	Shift<Key>F8:		PF(20)\n\
-	Shift<Key>F9:		PF(21)\n\
-	Shift<Key>F10:		PF(22)\n\
-	Shift<Key>F11:		PF(23)\n\
-	Shift<Key>F12:		PF(24)\n\
 	~@Num_Lock<Key>F27:	Home()\n\
 	~@Num_Lock<Key>F33:	FieldEnd()\n\
 	:<Key>F18:		insert-selection(PRIMARY)\n\
@@ -380,18 +383,6 @@ x3270.keymap.sun_k4: \
 	Shift<Key>0x1005ff11:	PF(24)\n\
 	:<Key>0x1005ff10:	PF(11)\n\
 	:<Key>0x1005ff11:	PF(12)\n\
-	Shift<Key>F1:		PF(13)\n\
-	Shift<Key>F2:		PF(14)\n\
-	Shift<Key>F3:		PF(15)\n\
-	Shift<Key>F4:		PF(16)\n\
-	Shift<Key>F5:		PF(17)\n\
-	Shift<Key>F6:		PF(18)\n\
-	Shift<Key>F7:		PF(19)\n\
-	Shift<Key>F8:		PF(20)\n\
-	Shift<Key>F9:		PF(21)\n\
-	Shift<Key>F10:		PF(22)\n\
-	Shift<Key>F11:		PF(23)\n\
-	Shift<Key>F12:		PF(24)\n\
 	:<Key>KP_1:		Key(1)\n\
 	:<Key>KP_2:		Key(2)\n\
 	:<Key>KP_3:		Key(3)\n\
@@ -419,15 +410,6 @@ x3270.keymap.sun_k4: \
 	:<Key>F35:		Delete()\n
 ! Sun Type 3 keyboard.
 x3270.keymap.sun_k3: \
-	Shift<Key>F1:		PF(13)\n\
-	Shift<Key>F2:		PF(14)\n\
-	Shift<Key>F3:		PF(15)\n\
-	Shift<Key>F4:		PF(16)\n\
-	Shift<Key>F5:		PF(17)\n\
-	Shift<Key>F6:		PF(18)\n\
-	Shift<Key>F7:		PF(19)\n\
-	Shift<Key>F8:		PF(20)\n\
-	Shift<Key>F9:		PF(21)\n\
 	Shift<Key>F21:		PF(22)\n\
 	Shift<Key>F22:		PF(23)\n\
 	Shift<Key>F23:		PF(24)\n\
@@ -502,18 +484,6 @@ x3270.keymap.hp-pc: \
 	:<Key>KP_Subtract:	Compose()\n\
 	:<Key>KP_Enter:		Enter()\n\
 	:<Key>Return:		Newline()\n\
-	!Shift<Key>F1:		PF(13)\n\
-	!Shift<Key>F2:		PF(14)\n\
-	!Shift<Key>F3:		PF(15)\n\
-	!Shift<Key>F4:		PF(16)\n\
-	!Shift<Key>F5:		PF(17)\n\
-	!Shift<Key>F6:		PF(18)\n\
-	!Shift<Key>F7:		PF(19)\n\
-	!Shift<Key>F8:		PF(20)\n\
-	!Shift<Key>F9:		PF(21)\n\
-	!Shift<Key>F10:		PF(22)\n\
-	!Shift<Key>F11:		PF(23)\n\
-	!Shift<Key>F12:		PF(24)\n\
 	!<Key>F1:		PF(1)\n\
 	!<Key>F2:		PF(2)\n\
 	!<Key>F3:		PF(3)\n\
@@ -574,18 +544,6 @@ x3270.keymap.ibm-xterm: \
 	!Ctrl<Key>Home:		EraseInput()\n\
 	!Ctrl<Key>End:		EraseEOF()\n\
 	!Shift<Key>Tab:		BackTab()\n\
-	!Shift<Key>F1:		PF(13)\n\
-	!Shift<Key>F2:		PF(14)\n\
-	!Shift<Key>F3:		PF(15)\n\
-	!Shift<Key>F4:		PF(16)\n\
-	!Shift<Key>F5:		PF(17)\n\
-	!Shift<Key>F6:		PF(18)\n\
-	!Shift<Key>F7:		PF(19)\n\
-	!Shift<Key>F8:		PF(20)\n\
-	!Shift<Key>F9:		PF(21)\n\
-	!Shift<Key>F10:		PF(22)\n\
-	!Shift<Key>F11:		PF(23)\n\
-	!Shift<Key>F12:		PF(24)\n\
 	:<Key>KP_Subtract:	PA(1)\n\
 	:<Key>KP_Add:		PA(2)\n\
 	:<Key>KP_Enter:		Enter()\n\

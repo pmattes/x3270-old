@@ -14,7 +14,7 @@ all:: c3270 x3270if
 @PR@all::
 @PR@	-cd pr3287 && $(MAKE)
 
-SRCS = actions.c ansi.c apl.c c3270.c charset.c child.c ctlr.c fallbacks.c \
+SRCS = actions.c ansi.c apl.c c3270.c charset.c child.c ctlr.c \
 	ft.c ft_cut.c ft_dft.c glue.c help.c host.c keymap.c kybd.c macros.c \
 	print.c printer.c resources.c screen.c see.c sf.c tables.c telnet.c \
 	toggles.c trace_ds.c util.c xio.c XtGlue.c
@@ -80,7 +80,7 @@ install.man:
 @PR@	-cd pr3287 && $(MAKE) install.man
 
 clean:
-	$(RM) c3270 *.o
+	$(RM) c3270 *.o mkfb fallbacks.c
 @PR@	-cd pr3287 && $(MAKE) clean
 
 depend:

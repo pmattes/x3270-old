@@ -29,6 +29,7 @@
 #include "tablesc.h"
 #include "trace_dsc.h"
 #include "utilc.h"
+#include "xioc.h"
 
 #undef COLS
 extern int cCOLS;
@@ -74,8 +75,17 @@ enum ts { TS_AUTO, TS_ON, TS_OFF };
 enum ts me_mode = TS_AUTO;
 enum ts ab_mode = TS_AUTO;
 
+struct screen_spec {
+	int rows, cols;
+	char *mode_switch;
+} screen_spec;
+struct screen_spec altscreen_spec, defscreen_spec;
+
 static int status_row = 0;	/* Row to display the status line on */
 static int status_skip = 0;	/* Row to blank above the status line */
+
+static SCREEN *def_screen = NULL, *alt_screen = NULL;
+static Boolean is_alt = True;
 
 static void kybd_input(void);
 static void kybd_input2(int k, Boolean derived);
@@ -87,6 +97,7 @@ static int get_color_pair(int fg, int bg);
 static int color_from_fa(unsigned char);
 static void screen_init2(void);
 static Boolean ts_value(const char *s, enum ts *tsp);
+static void parse_screen_spec(const char *str, struct screen_spec *spec);
 
 /* Initialize the screen. */
 void
@@ -96,11 +107,54 @@ screen_init(void)
 	int want_ov_cols = ov_cols;
 	Boolean oversize = False;
 
+	/* Parse altscreen/defscreen. */
+	if ((appres.altscreen != CN) ^ (appres.defscreen != CN)) {
+		(void) fprintf(stderr,
+		    "Must specify both altscreen and defscreen\n");
+		exit(1);
+	}
+	if (appres.altscreen != CN) {
+		parse_screen_spec(appres.altscreen, &altscreen_spec);
+		parse_screen_spec(appres.defscreen, &defscreen_spec);
+		if (defscreen_spec.rows < 24 || defscreen_spec.cols < 80) {
+		    (void) fprintf(stderr, "Rows and/or cols too small on "
+			"default screen\n");
+		    exit(1);
+		}
+		(void) write(1, altscreen_spec.mode_switch,
+		    strlen(altscreen_spec.mode_switch));
+	}
+
 	/* Set up ncurses, and see if it's within bounds. */
-	if (initscr() == NULL) {
+	if (appres.defscreen != CN) {
+		char nbuf[64];
+
+		(void) sprintf(nbuf, "COLUMNS=%d", defscreen_spec.cols);
+		putenv(NewString(nbuf));
+		(void) sprintf(nbuf, "LINES=%d", defscreen_spec.rows);
+		putenv(NewString(nbuf));
+		def_screen = newterm(NULL, stdout, stdin);
+		if (def_screen == NULL) {
+			(void) fprintf(stderr,
+			    "Can't initialize %dx%d defscreen terminal.\n",
+			    defscreen_spec.rows, defscreen_spec.cols);
+			exit(1);
+		}
+	}
+	if (appres.altscreen) {
+		char nbuf[64];
+
+		(void) sprintf(nbuf, "COLUMNS=%d", altscreen_spec.cols);
+		putenv(NewString(nbuf));
+		(void) sprintf(nbuf, "LINES=%d", altscreen_spec.rows);
+		putenv(NewString(nbuf));
+	}
+	alt_screen = newterm(NULL, stdout, stdin);
+	if (alt_screen == NULL) {
 		(void) fprintf(stderr, "Can't initialize terminal.\n");
 		exit(1);
 	}
+	(void) set_term(alt_screen);
 
 	while (LINES < ROWS || COLS < cCOLS) {
 		char buf[2];
@@ -287,10 +341,55 @@ screen_disp(Boolean erasing unused)
 	int row, col;
 	int a;
 	unsigned char fa;
+	extern Boolean screen_alt;
+	struct screen_spec *cur_spec;
 
 	/* This may be called when it isn't time. */
 	if (escaped)
 		return;
+
+	/* See if they've switched screens on us. */
+	if (def_screen != NULL && screen_alt != is_alt) {
+		endwin();
+		if (screen_alt) {
+			(void) write(1, altscreen_spec.mode_switch,
+			    strlen(altscreen_spec.mode_switch));
+			trace_event("Switching to alt (%dx%d) screen.\n",
+			    altscreen_spec.rows, altscreen_spec.cols);
+			set_term(alt_screen);
+			cur_spec = &altscreen_spec;
+		} else {
+			(void) write(1, defscreen_spec.mode_switch,
+			    strlen(defscreen_spec.mode_switch));
+			trace_event("Switching to default (%dx%d) screen.\n",
+			    defscreen_spec.rows, defscreen_spec.cols);
+			set_term(def_screen);
+			cur_spec = &altscreen_spec;
+		}
+
+		/* Patch up the curses TTY modes. */
+		raw();
+		noecho();
+		nonl();
+		intrflush(stdscr,FALSE);
+		if (appres.curses_keypad)
+			keypad(stdscr, TRUE);
+		meta(stdscr, TRUE);
+		nodelay(stdscr, TRUE);
+
+		/* Figure out where the status line goes now, if it fits. */
+		if (cur_spec->rows < ROWS + 1) {
+			status_row = status_skip = 0;
+		} else if (cur_spec->rows == ROWS + 1) {
+			status_skip = 0;
+			status_row = ROWS;
+		} else {
+			status_skip = ROWS;
+			status_row = ROWS + 1;
+		}
+
+		is_alt = screen_alt;
+	}
 
 	fa = *get_field_attribute(0);
 	a = color_from_fa(fa);
@@ -401,7 +500,8 @@ static Boolean meta_escape = False;
 static void
 escape_timeout(void)
 {
-	trace_event("ESC timeout\n");
+	trace_event("Timeout waiting for key following Escape, processing "
+	    "separately\n");
 	eto = 0L;
 	meta_escape = False;
 	kybd_input2(0x1b, False);
@@ -412,16 +512,29 @@ static void
 kybd_input(void)
 {
 	int k;
+	Boolean first = True;
+	static Boolean failed_first = False;
 
 	for (;;) {
 		Boolean derived = False;
+		char dbuf[128];
 
 		if (isendwin())
 			return;
 		k = wgetch(stdscr);
-		if (k == ERR)
+		if (k == ERR) {
+			if (first) {
+				if (failed_first) {
+					trace_event("End of File, exiting.\n");
+					x3270_exit(1);
+				}
+				failed_first = True;
+			}
 			return;
-		trace_event("Key %s (0x%x)\n", decode_key(k, 0), k);
+		} else {
+			failed_first = False;
+		}
+		trace_event("Key %s (0x%x)\n", decode_key(k, 0, dbuf), k);
 
 		/* Handle Meta-Escapes. */
 		if (meta_escape) {
@@ -434,10 +547,13 @@ kybd_input(void)
 			derived = True;
 		} else if (me_mode == TS_ON && k == 0x1b) {
 			eto = AddTimeOut(100L, escape_timeout);
+			trace_event(" waiting to see if Escape is followed by"
+			    " another key\n");
 			meta_escape = True;
 			continue;
 		}
 		kybd_input2(k, derived);
+		first = False;
 	}
 }
 
@@ -446,9 +562,12 @@ kybd_input2(int k, Boolean derived)
 {
 	char buf[16];
 	char *action;
+	char dbuf1[128], dbuf2[128];
 
 	if (derived)
-		trace_event("Derived Key %s (0x%x)\n", decode_key(k, 0), k);
+		trace_event(" combining <Key>Escape and %s into %s (0x%x)\n",
+		    decode_key(k & 0x7f, 0, dbuf1),
+		    decode_key(k, KM_META, dbuf2), k);
 	action = lookup_key(k);
 	if (action != CN) {
 		if (strcmp(action, "[ignore]"))
@@ -563,6 +682,17 @@ screen_suspend(void)
 	if (!escaped) {
 		escaped = True;
 		endwin();
+		if (appres.altscreen) {
+			if (is_alt) {
+				set_term(def_screen);
+				endwin();
+				set_term(alt_screen);
+			} else {
+				set_term(alt_screen);
+				endwin();
+				set_term(def_screen);
+			}
+		}
 		if (need_to_scroll)
 			printf("\n");
 		else
@@ -728,6 +858,13 @@ status_printer(Boolean on)
 static void
 draw_oia(void)
 {
+	int rmargin;
+
+	if (appres.altscreen)
+		rmargin = cCOLS;
+	else
+		rmargin = maxCOLS;
+
 	/* Make sure the status line region is filled in properly. */
 	if (appres.m3279) {
 		int i;
@@ -735,12 +872,12 @@ draw_oia(void)
 		attrset(defattr);
 		if (status_skip) {
 			move(status_skip, 0);
-			for (i = 0; i < maxCOLS; i++) {
+			for (i = 0; i < rmargin; i++) {
 				printw(" ");
 			}
 		}
 		move(status_row, 0);
-		for (i = 0; i < maxCOLS; i++) {
+		for (i = 0; i < rmargin; i++) {
 			printw(" ");
 		}
 	}
@@ -764,7 +901,7 @@ draw_oia(void)
 
 	(void) attrset(defattr);
 	mvprintw(status_row, 8, "%-11s", status_msg);
-	mvprintw(status_row, maxCOLS-36,
+	mvprintw(status_row, rmargin-36,
 	    "%c%c %c  %c%c%c",
 	    oia_compose? 'C': ' ',
 	    oia_compose? oia_compose_char: ' ',
@@ -773,8 +910,8 @@ draw_oia(void)
 	    status_im? 'I': ' ',
 	    oia_printer? 'P': ' ');
 
-	mvprintw(status_row, maxCOLS-25, "%s", oia_lu);
-	mvprintw(status_row, maxCOLS-7,
+	mvprintw(status_row, rmargin-25, "%s", oia_lu);
+	mvprintw(status_row, rmargin-7,
 	    "%03d/%03d", cursor_addr/COLS + 1, cursor_addr%COLS + 1);
 }
 
@@ -799,4 +936,54 @@ screen_flip(void)
 {
 	flipped = !flipped;
 	screen_disp(False);
+}
+
+/* Alt/default screen spec parsing. */
+static void
+parse_screen_spec(const char *str, struct screen_spec *spec)
+{
+	char msbuf[50];
+	char *s, *t, c;
+	Boolean escaped = False;
+
+	if (sscanf(str, "%dx%d=%50s", &spec->rows, &spec->cols, msbuf) != 3) {
+		(void) fprintf(stderr, "Invalid screen screen spec '%s', must "
+		    "be '<rows>x<cols>=<init_string>'\n", str);
+		exit(1);
+	}
+	spec->mode_switch = Malloc(strlen(msbuf));
+	s = msbuf;
+	t = spec->mode_switch;
+	while ((c = *s++)) {
+		if (escaped) {
+			switch (c) {
+			case 'E':
+			    *t++ = 0x1b;
+			    break;
+			case '\n':
+			    *t++ = '\n';
+			    break;
+			case '\r':
+			    *t++ = '\r';
+			    break;
+			case '\b':
+			    *t++ = '\b';
+			    break;
+			case '\t':
+			    *t++ = '\t';
+			    break;
+			case '\\':
+			    *t++ = '\\';
+			    break;
+			default:
+			    *t++ = c;
+			    break;
+			}
+			escaped = False;
+		} else if (c == '\\')
+			escaped = True;
+		else
+			*t++ = c;
+	}
+	*t = '\0';
 }

@@ -2505,6 +2505,7 @@ get_gc(struct sstate *s, int color)
 	int pixel_index;
 	XGCValues xgcv;
 	GC r;
+	static Boolean in_gc_error = False;
 
 	if (color & GC_NONDEFAULT)
 		color &= ~GC_NONDEFAULT;
@@ -2522,10 +2523,14 @@ get_gc(struct sstate *s, int color)
 			static char nbuf[16];
 
 			(void) sprintf(nbuf, "%d", pixel_index);
-			popup_an_error("Cannot allocate colormap \"%s\" for 3279 color %s (%s), using \"%s\"",
-			    color_name[pixel_index], nbuf,
-			    see_color((unsigned char)(pixel_index + 0xf0)),
-			    fb_name(ibm_fb));
+			if (!in_gc_error) {
+				in_gc_error = True;
+				popup_an_error("Cannot allocate colormap \"%s\" for 3279 color %s (%s), using \"%s\"",
+				    color_name[pixel_index], nbuf,
+				    see_color((unsigned char)(pixel_index + 0xf0)),
+				    fb_name(ibm_fb));
+				in_gc_error = False;
+			}
 		}
 		cpx_done[pixel_index] = True;
 	}

@@ -18,6 +18,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
+#include <stdlib.h>
 
 #define BUFSZ	1024		/* input line buffer size */
 #define ARRSZ	8192		/* output array size */

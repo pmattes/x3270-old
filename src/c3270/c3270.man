@@ -1,5 +1,5 @@
 '\" t
-.TH c3270 1 "01 May 2002"
+.TH c3270 1 "24 July 2002"
 .SH "NAME"
 c3270 \-
 curses-based 
@@ -61,6 +61,11 @@ Forces all characters to be displayed in bold.
 This helps with PC consoles which display non-bold characters in unreadably
 dim colors.
 .TP
+\fB\-altscreen \fIrows\fP\fBx\fP\fIcols\fP\fB=\fP\fIinit_string\fP\fP
+Defines the dimensions and escape sequence for the alternate (132-column)
+screen mode.
+See \s-1SCREEN SIZE SWITCHING\s+1, below.
+.TP
 \fB\-charset\fP \fIname\fP
 Specifies an \s-1EBCDIC\s+1 host character set.
 See \s-1CHARACTER SETS\s+1 below.
@@ -69,6 +74,11 @@ See \s-1CHARACTER SETS\s+1 below.
 Sets the initial value of \fItoggle\fP to \fBfalse\fP.
 The list of toggle names is under \s-1TOGGLES\s+1
 below.
+.TP
+\fB\-defscreen \fIrows\fP\fBx\fP\fIcols\fP\fB=\fP\fIinit_string\fP\fP
+Defines the dimensions and escape sequence for the default (80-column)
+screen mode.
+See \s-1SCREEN SIZE SWITCHING\s+1, below.
 .TP
 \fB\-hostsfile\fP \fIfile\fP
 Uses \fIfile\fP as the hosts file, which allows aliases for host names and
@@ -2380,6 +2390,30 @@ It contacts the machine named \fBinternet-gateway\fP at the port defined in
 (which defaults to 3514).
 It then passes the requested hostname and port to the
 \fBin.telnet-gw\fP server.
+.SH "SCREEN SIZE SWITCHING"
+When running as a 3270 Model 5, \fBc3270\fP can take advantage of terminals
+that can switch between 80 and 132 column modes.
+.LP
+Because the curses library does not support mode switching, the escape
+sequences and resulting screen dimensions must be specified explicitly to
+\fBc3270\fP.
+These are specified with the \fB\-altscreen\fP and
+\fB\-defscreen\fP command-line options, or the
+\fBaltScreen\fP and \fBdefScreen\fP resources.
+\fB\-altscreen\fP or \fBaltScreen\fP defines the alternate
+(132-column) mode; \fB\-defscreen\fP or \fBdefScreen\fP defines the
+default (80-column) mode.
+.LP
+The syntax for the options and resources is
+\fIrows\fP\fBx\fP\fIcols\fP\fB=\fP\fIinit_string\fP,
+where \fIrows\fP and \fIcols\fP give the screen dimensions, and
+\fIinit_string\fP is the escape sequence to transmit to the terminal to
+enter that mode.
+Within \fIinit_string\fP, the usual escape sequences are supported
+(\\E for escape, \\r, \\b, etc.).
+For example, the init string for a 132-column xterm is:
+.IP
+\\E[?40h\\E[?3h
 .SH "RESOURCES"
 Certain \fBc3270\fP
 options can be configured via resources.
@@ -2426,6 +2460,23 @@ T}	T{
 .na
 .nh
 Display all characters bold
+T}
+T{
+.na
+.nh
+altScreen
+T}	T{
+.na
+.nh
+\ 
+T}	T{
+.na
+.nh
+\-altscreen
+T}	T{
+.na
+.nh
+132-col screen definition
 T}
 T{
 .na
@@ -2511,6 +2562,23 @@ T}	T{
 .na
 .nh
 Set curses keymap option
+T}
+T{
+.na
+.nh
+defScreen
+T}	T{
+.na
+.nh
+\ 
+T}	T{
+.na
+.nh
+\-defscreen
+T}	T{
+.na
+.nh
+80-col screen definition
 T}
 T{
 .na
@@ -3104,4 +3172,4 @@ notice.
 .RE
 5250 Emulation Code Copyright Minolta (Schweiz) AG, Beat Rubischon.
 .SH "VERSION"
-c3270 3.2.19
+c3270 3.2.20alpha1

@@ -21,7 +21,6 @@
 #endif /*]*/
 #include <errno.h>
 #include <signal.h>
-#include <time.h>
 #include <stdarg.h>
 #include <fcntl.h>
 #include "3270ds.h"
@@ -30,6 +29,7 @@
 #include "resources.h"
 #include "ctlr.h"
 
+#include "charsetc.h"
 #include "ctlrc.h"
 #include "hostc.h"
 #include "menubarc.h"
@@ -60,6 +60,8 @@ static struct pr3o {
 	char buf[PRINTER_BUF];	/* input buffer */
 } printer_stdout = { -1, 0L, 0L, 0 },
   printer_stderr = { -1, 0L, 0L, 0 };
+static char charset_file[9 + 16];	/* /tmp/cs$PID */
+static Boolean need_cs = False;
 
 static void	printer_output(void);
 static void	printer_error(void);
@@ -67,6 +69,7 @@ static void	printer_otimeout(void);
 static void	printer_etimeout(void);
 static void	printer_dump(struct pr3o *p, Boolean is_err, Boolean is_dead);
 static void	printer_host_connect(Boolean connected unused);
+static void	printer_exiting(Boolean b unused);
 
 /* Globals */
 
@@ -79,6 +82,7 @@ printer_init(void)
 	/* Register interest in host connects and mode changes. */
 	register_schange(ST_CONNECT, printer_host_connect);
 	register_schange(ST_3270_MODE, printer_host_connect);
+	register_schange(ST_EXITING, printer_exiting);
 }
 
 /*
@@ -98,6 +102,7 @@ printer_start(const char *lu)
 	char c;
 	int stdout_pipe[2];
 	int stderr_pipe[2];
+	char charset_cmd[18 + 16];	/* -charset @/tmp/cs$PID */
 
 #if defined(X3270_DISPLAY) /*[*/
 	/* Make sure the popups are initted. */
@@ -150,6 +155,11 @@ printer_start(const char *lu)
 		return;
 	}
 
+	/* Construct the charset option. */
+	(void) sprintf(charset_file, "/tmp/cs%u", getpid());
+	(void) sprintf(charset_cmd, "-charset @%s", charset_file);
+	need_cs = False;
+
 	/* Construct the command line. */
 
 	/* Figure out how long it will be. */
@@ -167,6 +177,12 @@ printer_start(const char *lu)
 	s = cmdline;
 	while ((s = strstr(s, "%C%")) != CN) {
 		cmd_len += strlen(cmd) - 3;
+		s += 3;
+	}
+	s = cmdline;
+	while ((s = strstr(s, "%R%")) != CN) {
+		need_cs = True;
+		cmd_len += strlen(charset_cmd) - 3;
 		s += 3;
 	}
 
@@ -189,6 +205,10 @@ printer_start(const char *lu)
 				(void) strcat(cmd_text, cmd);
 				s += 2;
 				continue;
+			} else if (!strncmp(s+1, "R%", 2)) {
+				(void) strcat(cmd_text, charset_cmd);
+				s += 2;
+				continue;
 			}
 		}
 		buf1[0] = c;
@@ -196,6 +216,30 @@ printer_start(const char *lu)
 		(void) strcat(cmd_text, buf1);
 	}
 	trace_event("Printer command line: %s\n", cmd_text);
+
+	/* Create the character set file. */
+	if (need_cs) {
+		FILE *f = fopen(charset_file, "w");
+		int i;
+
+		if (f == NULL) {
+		    popup_an_errno(errno, charset_file);
+		    Free(cmd_text);
+		    return;
+		}
+		(void) fprintf(f, "# EBCDIC-to-ASCII conversion file "
+		    "for pr3287\n");
+		(void) fprintf(f, "# Created by %s\n", build);
+		(void) fprintf(f, "# Chararter set is '%s'\n",
+		    get_charset_name());
+		for (i = 0x40; i <= 0xff; i++) {
+		    if (ebc2asc[i] != ebc2asc0[i]) {
+			(void) fprintf(f, " %u=%u", i, ebc2asc[i]);
+		    }
+		}
+		(void) fprintf(f, "\n");
+		(void) fclose(f);
+	}
 
 	/* Make pipes for printer's stdout and stderr. */
 	if (pipe(stdout_pipe) < 0) {
@@ -410,8 +454,19 @@ printer_stop(void)
 		printer_pid = -1;
 	}
 
+	/* Delete the character set file. */
+	if (need_cs)
+	    (void) unlink(charset_file);
+
 	/* Tell everyone else. */
 	st_changed(ST_PRINTER, False);
+}
+
+/* The emulator is exiting.  Make sure the printer session is cleaned up. */
+static void
+printer_exiting(Boolean b unused)
+{
+	printer_stop();
 }
 
 #if defined(X3270_DISPLAY) /*[*/

@@ -42,9 +42,6 @@ extern int cCOLS;
 #include <curses.h>
 #endif /*]*/
 
-#define KM_CTRL		0x0001
-#define KM_META		0x0002
-
 #define KM_3270_ONLY	0x0010	/* used in 3270 mode only */
 #define KM_NVT_ONLY	0x0020	/* used in NVT mode only */
 #define KM_INACTIVE	0x0040	/* wrong NVT/3270 mode, or overridden */
@@ -448,7 +445,7 @@ static unsigned long kto = 0L;
 static void
 key_timeout(void)
 {
-	trace_event("Keymap timeout\n");
+	trace_event("Timeout, using shortest keymap match\n");
 	kto = 0L;
 	current_match = timeout_match;
 	push_keymap_action(status_ret(timeout_match->action, NULL));
@@ -461,7 +458,8 @@ ambiguous(struct keymap *k, int nc)
 	struct keymap *j;
 
 	if ((j = longer_match(k, nc)) != NULL) {
-		trace_event(" ambiguous, setting timer\n");
+		trace_event(" ambiguous keymap match, shortest is %s:%d, "
+		    "setting timeout\n", j->file, j->line);
 		timeout_match = k;
 		kto = AddTimeOut(500L, key_timeout);
 	}
@@ -480,6 +478,7 @@ char *
 lookup_key(int code)
 {
 	struct keymap *j, *k;
+	int n_shortest = 0;
 
 	/* If there's a timeout pending, cancel it. */
 	if (kto) {
@@ -503,6 +502,7 @@ lookup_key(int code)
 				if (shortest == NULL ||
 				    k->ncodes < shortest->ncodes) {
 					shortest = k;
+					n_shortest++;
 				}
 			}
 		}
@@ -525,7 +525,9 @@ lookup_key(int code)
 				return status_ret(ignore, j);
 		} else {
 			/* Keep looking. */
-			trace_event(" partial match\n");
+			trace_event(" partial keymap match in %s:%d %s\n",
+			    current_match->file, current_match->line,
+			    (n_shortest > 1)? " and other(s)": "");
 			return status_ret(ignore, current_match);
 		}
 	}
@@ -554,7 +556,7 @@ lookup_key(int code)
 
 	/* Complain. */
 	beep();
-	trace_event(" invalid sequence\n");
+	trace_event(" keymap lookup failure after partial match\n");
 	return status_ret(ignore, NULL);
 }
 
@@ -809,10 +811,9 @@ keymap_3270_mode(Boolean ignored unused)
  * keymap definition.
  */
 const char *
-decode_key(int k, int hint)
+decode_key(int k, int hint, char *buf)
 {
 	const char *n, *n2;
-	static char buf[128];
 	char *s = buf;
 
 	/* Try ncurses first. */
@@ -871,11 +872,13 @@ keymap_dump(void)
 			int i;
 			char buf[1024];
 			char *s = buf;
+			char dbuf[128];
 
 			for (i = 0; i < k->ncodes; i++) {
 				s += sprintf(s, " %s",
 				    decode_key(k->codes[i],
-					(k->hints[i] & KM_HINTS) | KM_KEYMAP));
+					(k->hints[i] & KM_HINTS) | KM_KEYMAP,
+					    dbuf));
 			}
 			action_output("[%s:%d]%s: %s", k->file, k->line,
 			    buf, k->action);

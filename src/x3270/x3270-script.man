@@ -1,5 +1,5 @@
 '\" t
-.TH X3270-SCRIPT 1 "01 May 2002"
+.TH X3270-SCRIPT 1 "24 July 2002"
 .SH "NAME"
 Scripting Facilities for x3270, s3270 and c3270
 .SH "SYNOPSIS"
@@ -62,7 +62,7 @@ The first line is the current status of the emulator, documented below.
 If the command is successful, the second line is the string "ok"; otherwise it
 is the string "error".
 .SH "STATUS FORMAT"
-The status message consists of 11 blank-separated fields:
+The status message consists of 12 blank-separated fields:
 .TP
 1 Keyboard State
 If the keyboard is unlocked, the letter
@@ -127,6 +127,11 @@ window, in hexadecimal preceded by
 For
 \fBs3270\fP and \fBc3270\fP,
 this is zero.
+.TP
+12 Command Execution Time
+The time that it took for the host to respond to the previous commnd, in
+seconds with milliseconds after the decimal.
+If the previous command did not require a host response, this is a dash.
 .SH "DIFFERENCES"
 When an action is initiated by a script, the emulators
 behave in several different ways:
@@ -760,4 +765,4 @@ c3270(1)
 .br
 s3270(1)
 .SH "VERSION"
-Version 3.2.19
+Version 3.2.20alpha1

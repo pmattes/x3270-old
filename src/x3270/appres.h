@@ -137,6 +137,8 @@ typedef struct {
 #if defined(C3270) /*[*/
 	char	*meta_escape;
 	char	*all_bold;
+	char	*altscreen;
+	char	*defscreen;
 #endif /*]*/
 	char	*conf_dir;
 	char	*model;
@@ -159,6 +161,8 @@ typedef struct {
 	char	*ft_command;
 #endif /*]*/
 	char	*connectfile_name;
+	char	*idle_command;
+	char	*idle_timeout;
 
 	/* Toggles */
 	struct toggle toggle[N_TOGGLES];

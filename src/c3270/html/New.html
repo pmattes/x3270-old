@@ -11,6 +11,29 @@
 <h1>
 c3270 Version 3.2 -- New Features and Bug Fixes</h1>
 c3270 is a curses-based version of x3270 3.2.
+<h2>Changes in c3270 3.2.20, n. Mmm 2002</h2>
+<ul>
+ <li>Bug Fixes:
+  <ul>
+   <li>When error messages are displayed before connecting to a host, c3270
+    now pauses to allow them to be seen.</li>
+   <li>Cleaned up some minor build problems on Linux and with later versions of
+    the readline library.</li>
+   <li>Allow <b>make depend</b> to work properly.</li>
+  </ul>
+ </li>
+ <li>New Features:
+  <ul>
+   <li>Character set definitions are now sent to pr3287 sessions.</li>
+   <li>The scripting prompt now includes the previous command's execution
+    time.</li>
+   <li>Can now take advantage of terminals that switch between 80- and 132-
+    column mode.</li>
+   <li>Can now specify action(s) to perform when a session has been idle for
+    some period of time.</li>
+  </ul>
+ </li>
+</ul>
 <h2>Changes in c3270 3.2.19, 1. May 2002</h2>
 <ul>
  <li>Bug Fixes:

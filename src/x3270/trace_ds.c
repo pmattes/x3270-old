@@ -23,7 +23,6 @@
 #endif /*]*/
 #include <errno.h>
 #include <signal.h>
-#include <time.h>
 #include <stdarg.h>
 #include <fcntl.h>
 #include "3270ds.h"

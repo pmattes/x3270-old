@@ -18,7 +18,6 @@
 #include <X11/Xatom.h>
 #include <pwd.h>
 #include <errno.h>
-#include <time.h>
 #include "appres.h"
 #include "resources.h"
 

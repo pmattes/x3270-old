@@ -56,7 +56,7 @@ static void stop_pager(void);
 
 #if defined(HAVE_LIBREADLINE) /*[*/
 static CPPFunction attempted_completion;
-static char *completion_entry(char *, int);
+static char *completion_entry(const char *, int);
 #endif /*]*/
 
 /* Pager state. */
@@ -121,6 +121,8 @@ static char *base_3270_keymap =
 "Ctrl<Key>m: Enter\n"
 "<Key>HOME: Home\n";
 
+Boolean any_error_output = False;
+
 void
 usage(char *msg)
 {
@@ -168,7 +170,11 @@ main(int argc, char *argv[])
 	rl_readline_name = "c3270";
 	rl_initialize();
 	rl_attempted_completion_function = attempted_completion;
+#if defined(RL_READLINE_VERSION) /*[*/
+	rl_completion_entry_function = completion_entry;
+#else /*][*/
 	rl_completion_entry_function = (Function *)completion_entry;
+#endif /*]*/
 #endif /*]*/
 
 	screen_init();
@@ -214,6 +220,13 @@ main(int argc, char *argv[])
 			if (!PCONNECTED)
 				exit(1);
 		}
+		if (any_error_output) {
+			char s[10];
+
+			printf("Press <RETURN> ");
+			fflush(stdout);
+			(void) fgets(s, sizeof(s), stdin);
+		}
 	} else {
 		if (appres.secure) {
 			Error("Must specify hostname with secure option");
@@ -254,7 +267,8 @@ interact(void)
 	if (appres.secure) {
 		char s[10];
 
-		printf("Press <RETURN>\n");
+		printf("Press <RETURN> ");
+		fflush(stdout);
 		(void) fgets(s, sizeof(s), stdin);
 		return;
 	}
@@ -496,7 +510,7 @@ attempted_completion(char *text, int start, int end)
 
 /* Return the match list. */
 static char *
-completion_entry(char *text, int state)
+completion_entry(const char *text, int state)
 {
 	char *r;
 

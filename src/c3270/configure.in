@@ -34,8 +34,7 @@ AC_SUBST(XANSI)
 AC_SUBST(XPRECOMP)
 
 dnl Check for --without-readline
-AC_ARG_WITH(readline, [  --without-readline      Don't use the readline library],
-if test "$with_readline" = no; then readline=no_readline; else readline=readline; fi, readline=readline)
+AC_ARG_WITH(readline, [  --without-readline      Don't use the readline library])
 
 dnl Check for --without-pr3287
 AC_ARG_WITH(pr3287,[  --without-pr3287        don't build pr3287])
@@ -51,13 +50,10 @@ dnl Check for libraries.
 dnl Note that the order here is important.  The last libraries should appear
 dnl first, so that objects in them can be used by subsequent libraries.
 AC_CHECK_LIB(util, forkpty)
-dnl The readline rule is strange, to get around an apparent bug in some systems
-dnl where following -lreadline with -ltermcap or -l{,n}curses will cause a
-dnl binary that crashes.  So, it first checks for readline without termcap;
-dnl if that fails, it checks for readline with termcap, and if it succeeds,
-dnl checks for termcap explicitly.
-AC_CHECK_LIB($readline, rl_initialize, , [AC_CHECK_LIB($readline, readline, [AC_CHECK_LIB(termcap,tputs)AC_CHECK_LIB($readline, readline, , -ltermcap)], , -ltermcap)])
-AC_CHECK_LIB(ncurses, newterm, , [AC_CHECK_LIB(curses, newterm, , [AC_MSG_ERROR(Can't find libncurses or libcurses)])])
+AC_CHECK_LIB(ncurses, newterm, , [AC_CHECK_LIB(curses, newterm, , [AC_MSG_ERROR(Can't find libncurses or new-enough libcurses)])])
+if test "$with_readline" != no; then
+AC_CHECK_LIB(readline, rl_initialize)
+fi
 AC_CHECK_LIB(nsl, gethostbyname)
 AC_CHECK_LIB(socket, socket)
 

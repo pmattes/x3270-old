@@ -60,6 +60,11 @@ extern void push_keymap_action(char *);
 extern void push_macro(char *, Boolean);
 extern void Script_action(Widget w, XEvent *event, String *params,
     Cardinal *num_params);
+#if defined(X3270_SCRIPT) /*[*/
+extern void sms_accumulate_time(struct timeval *, struct timeval *);
+#else /*][*/
+#define sms_accumulate_time(a, b)
+#endif /*]*/
 extern Boolean sms_active(void);
 extern void sms_connect_wait(void);
 extern void sms_continue(void);

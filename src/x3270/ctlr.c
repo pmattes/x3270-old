@@ -1970,6 +1970,7 @@ ctlr_shrink(void)
  */
 static struct timeval t_start;
 static Boolean ticking = False;
+static Boolean mticking = False;
 static unsigned long tick_id;
 static struct timeval t_want;
 
@@ -1999,13 +2000,15 @@ keep_ticking(void)
 void
 ticking_start(Boolean anyway)
 {
+	(void) gettimeofday(&t_start, (struct timezone *) 0);
+	mticking = True;
+
 	if (!toggled(SHOW_TIMING) && !anyway)
 		return;
 	status_untiming();
 	if (ticking)
 		RemoveTimeOut(tick_id);
 	ticking = True;
-	(void) gettimeofday(&t_start, (struct timezone *) 0);
 	tick_id = AddTimeOut(1000, keep_ticking);
 	t_want = t_start;
 }
@@ -2015,10 +2018,17 @@ ticking_stop(void)
 {
 	struct timeval t1;
 
+	(void) gettimeofday(&t1, (struct timezone *) 0);
+	if (mticking) {
+		sms_accumulate_time(&t_start, &t1);
+		mticking = False;
+	} else {
+		return;
+	}
+
 	if (!ticking)
 		return;
 	RemoveTimeOut(tick_id);
-	(void) gettimeofday(&t1, (struct timezone *) 0);
 	ticking = False;
 	status_timing(&t_start, &t1);
 }

@@ -24,6 +24,7 @@
 <a HREF="#Composite-Characters">Composite Characters</a><br>
 <a HREF="#Printer-Support">Printer Support</a><br>
 <a HREF="#Passthru">Passthru</a><br>
+<a HREF="#Screen-Size-Switching">Screen Size Switching</a><br>
 <a HREF="#Resources">Resources</a><br>
 <a HREF="#Files">Files</a><br>
 <a HREF="#See-Also">See Also</a><br>
@@ -87,6 +88,10 @@ the following options:<dl>
 Forces all characters to be displayed in bold.
 This helps with PC consoles which display non-bold characters in unreadably
 dim colors.
+<dt><b>-altscreen <i>rows</i><b>x</b><i>cols</i><b>=</b><i>init_string</i></b></dt><dd>
+Defines the dimensions and escape sequence for the alternate (132-column)
+screen mode.
+See <a HREF="#Screen-Size-Switching"><font size=-1>SCREEN SIZE SWITCHING</font></a>, below.
 <dt><b>-charset</b> <i>name</i></dt><dd>
 Specifies an <font size=-1>EBCDIC</font> host character set.
 See <a HREF="#Character-Sets"><font size=-1>CHARACTER SETS</font></a> below.
@@ -94,6 +99,10 @@ See <a HREF="#Character-Sets"><font size=-1>CHARACTER SETS</font></a> below.
 Sets the initial value of <i>toggle</i> to <b>false</b>.
 The list of toggle names is under <a HREF="#Toggles"><font size=-1>TOGGLES</font></a>
 below.
+<dt><b>-defscreen <i>rows</i><b>x</b><i>cols</i><b>=</b><i>init_string</i></b></dt><dd>
+Defines the dimensions and escape sequence for the default (80-column)
+screen mode.
+See <a HREF="#Screen-Size-Switching"><font size=-1>SCREEN SIZE SWITCHING</font></a>, below.
 <dt><b>-hostsfile</b> <i>file</i></dt><dd>
 Uses <i>file</i> as the hosts file, which allows aliases for host names and
 scripts to be executed at login.
@@ -757,6 +766,30 @@ It contacts the machine named <b>internet-gateway</b> at the port defined in
 (which defaults to 3514).
 It then passes the requested hostname and port to the
 <b>in.telnet-gw</b> server.
+<a NAME="Screen-Size-Switching"></a><h2>Screen Size Switching</h2>
+When running as a 3270 Model 5, <b>c3270</b> can take advantage of terminals
+that can switch between 80 and 132 column modes.
+<p>
+Because the curses library does not support mode switching, the escape
+sequences and resulting screen dimensions must be specified explicitly to
+<b>c3270</b>.
+These are specified with the <b>-altscreen</b> and
+<b>-defscreen</b> command-line options, or the
+<b>altScreen</b> and <b>defScreen</b> resources.
+<b>-altscreen</b> or <b>altScreen</b> defines the alternate
+(132-column) mode; <b>-defscreen</b> or <b>defScreen</b> defines the
+default (80-column) mode.
+<p>
+The syntax for the options and resources is
+<i>rows</i><b>x</b><i>cols</i><b>=</b><i>init_string</i>,
+where <i>rows</i> and <i>cols</i> give the screen dimensions, and
+<i>init_string</i> is the escape sequence to transmit to the terminal to
+enter that mode.
+Within <i>init_string</i>, the usual escape sequences are supported
+(&#92;E for escape, &#92;r, &#92;b, etc.).
+For example, the init string for a 132-column xterm is:
+<p>
+&#92;E[?40h&#92;E[?3h
 <a NAME="Resources"></a><h2>Resources</h2>
 Certain <b>c3270</b>
 options can be configured via resources.
@@ -771,11 +804,13 @@ The resources available in <b>c3270</b> are:
 <tr><td >Resource</td>	<td >Default</td>	<td >Option</td>	<td >Purpose</td></tr>
 
 <tr><td >allBold</td>	<td >Auto</td>	<td >-allbold</td>	<td >Display all characters bold</td></tr>
+<tr><td >altScreen</td>	<td >&nbsp;</td>	<td >-altscreen</td>	<td >132-col screen definition</td></tr>
 <tr><td >blankFill</td>	<td >False</td>	<td >-set blankFill</td>	<td >Blank Fill mode</td></tr>
 <tr><td >charset</td>	<td >bracket</td>	<td >-charset</td>	<td ><font size=-1>EBCDIC</font> character set</td></tr>
 <tr><td >charset.<i>foo</i></td>	<td >&nbsp;</td>	<td >&nbsp;</td>	<td >Definition of character set <i>foo</i></td></tr>
 <tr><td >composeMap</td>	<td >latin1</td>	<td >&nbsp;</td>	<td >Name of composed-character map</td></tr>
 <tr><td >cursesKeymap</td>	<td >True</td>	<td >&nbsp;</td>	<td >Set curses keymap option</td></tr>
+<tr><td >defScreen</td>	<td >&nbsp;</td>	<td >-defscreen</td>	<td >80-col screen definition</td></tr>
 <tr><td >dsTrace</td>	<td >False</td>	<td >-trace</td>	<td >Data stream tracing</td></tr>
 <tr><td >eof</td>	<td >^D</td>	<td >&nbsp;</td>	<td ><font size=-1>NVT</font>-mode <font size=-1>EOF</font> character</td></tr>
 <tr><td >erase</td>	<td >^H</td>	<td >&nbsp;</td>	<td ><font size=-1>NVT</font>-mode erase character</td></tr>
@@ -804,7 +839,7 @@ The resources available in <b>c3270</b> are:
 <tr><td >secure</td>	<td >False</td>	<td >&nbsp;</td>	<td >Disable "dangerous" options</td></tr>
 <tr><td >termName</td>	<td ><a HREF="#rn2">(note 2)</a></td>	<td >-tn</td>	<td ><font size=-1>TELNET</font> terminal type string</td></tr>
 <tr><td >traceDir</td>	<td >/tmp</td>	<td >&nbsp;</td>	<td >Directory for trace files</td></tr>
-<tr><td >traceFile</td>	<td ><a HREF="#rn3">(note 3)</a></td>	<td >\-tracefile</td>	<td >File for trace output</td></tr>
+<tr><td >traceFile</td>	<td ><a HREF="#rn3">(note 3)</a></td>	<td >-tracefile</td>	<td >File for trace output</td></tr>
 <tr><td >typeahead</td>	<td >True</td>	<td >&nbsp;</td>	<td >Allow typeahead</td></tr>
 <tr><td >werase</td>	<td >^W</td>	<td >&nbsp;</td>	<td ><font size=-1>NVT</font>-mode word-erase character</td></tr>
 </table>
@@ -866,12 +901,12 @@ Derivative works based on this software must incorporate this copyright
 notice.</blockquote>
 5250 Emulation Code Copyright &copy; Minolta (Schweiz) AG, Beat Rubischon.
 <a NAME="Version"></a><h2>Version</h2>
-c3270 3.2.19
+c3270 3.2.20alpha1
 <hr>
 <address>
 This HTML document and the accompanying troff document were generated with
 a set of write-only <b>m4</b> macros and the powerful <b>vi</b> editor.
-<br>Last modified 01 May 2002.
+<br>Last modified 24 July 2002.
 </address>
 </body>
 </html>

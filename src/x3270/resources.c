@@ -183,6 +183,12 @@ XtResource resources[] = {
 #endif /*]*/
 	{ ResConnectFileName, ClsConnectFileName, XtRString, sizeof(String),
 	  offset(connectfile_name), XtRString, "~/.x3270connect" },
+#if defined(X3270_SCRIPT) /*[*/
+	{ ResIdleCommand, ClsIdleCommand, XtRString, sizeof(String),
+	  offset(idle_command), XtRString, 0 },
+	{ ResIdleTimeout, ClsIdleTimeout, XtRString, sizeof(String),
+	  offset(idle_timeout), XtRString, 0 },
+#endif /*]*/
 	{ ResMonoCase, ClsMonoCase, XtRBoolean, sizeof(Boolean),
 	  toggle_offset(MONOCASE), XtRString, ResFalse },
 	{ ResAltCursor, ClsAltCursor, XtRBoolean, sizeof(Boolean),
@@ -215,6 +221,8 @@ XtResource resources[] = {
 	  toggle_offset(MARGINED_PASTE), XtRString, ResFalse },
 	{ ResRectangleSelect, ClsRectangleSelect, XtRBoolean, sizeof(Boolean),
 	  toggle_offset(RECTANGLE_SELECT), XtRString, ResFalse },
+	{ ResCrosshair, ClsCrosshair, XtRBoolean, sizeof(Boolean),
+	  toggle_offset(CROSSHAIR), XtRString, ResFalse },
 
 #if defined(X3270_ANSI) /*[*/
 	{ ResIcrnl, ClsIcrnl, XtRBoolean, sizeof(Boolean),

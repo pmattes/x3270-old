@@ -18,6 +18,9 @@
 #if defined(X3270_TN3270E) && !defined(X3270_ANSI) /*[*/
 #define X3270_ANSI	1	/* RFC2355 requires NVT mode */
 #endif /*]*/
+#if defined(HAVE_VASPRINTF) /*[*/
+#define _GNU_SOURCE		/* vasprintf isn't POSIX */
+#endif /*]*/
 
 /*
  * OS-specific #defines.  Except for the blocking-connect workarounds, these
@@ -59,6 +62,7 @@
 #include <string.h>			/* String manipulations */
 #include <sys/types.h>			/* Basic system data types */
 #include <sys/time.h>			/* System time-related data types */
+#include <time.h>			/* C library time functions */
 #include "localdefs.h"			/* {s,tcl,c}3270-specific defines */
 
 /*

@@ -365,6 +365,17 @@ x3270.icrnl		Default true
     Used in ANSI mode; similar to the "stty" parameter of the same name.
     Controls whether input carriage returns are mapped to newlines.
 
+x3270.idleCommand
+x3270.idleTimeout	Default ~7m
+    When idleCommand is defined, it specifies a command to execute after a
+    period of keyboard inactivity (no AID keys pressed).  idleCommand can be
+    an arbitrary sequence of x3270 actions, but is usually a call to the PF()
+    action.  idleTimeout specifies the inactivity interval.  If it begins with
+    a tilde ("~"), the time will be randomly varied +/-10% from the value
+    specified.  If the values ends in 'h', it specifies hours; if it ends in
+    'm' is specifies minutes; if it ends in 's' or does not have an
+    alphanumeric suffix, it specifies seconds.
+
 x3270.inlcr		Default false
     Used in ANSI mode; similar to the "stty" parameter of the same name.
     Controls whether input newlines are mapped to carriage returns.
@@ -613,13 +624,15 @@ x3270.printerLu					Switch -printerlu
     name to associate with the printer session.
 
 x3270.printer.assocCommandLine
-			Default pr3287 -assoc %L% -command %C% %H%
+			Default pr3287 -assoc %L% -command %C% %R% %H%
     The shell command to use to start a printer session, associated with the
     current TN3270E session LU.  Within the string, the following substitutions
     are made:
 	%L% is replaced with the current session's LU
 	%C% is replaced with the value of the x3270.printer.command resource
 	%H% is replaced with the current host name
+	%R% is replaced with an option to pass the current character set
+	 definition (-charset @/tmp/cs<pid>)
 
 x3270.printer.command	Default lpr
     The name of the command supplied to the "-command" option of the pr3287
@@ -628,12 +641,14 @@ x3270.printer.command	Default lpr
     resources.
 
 x3270.printer.luCommandLine
-			Default pr3287 -command %C% %L%@%H%
+			Default pr3287 -command %C% %R% %L%@%H%
     The shell command to use to start a printer session, associated with a
     specific LU.  Within the string, the following substitutions are made:
 	%L% is replaced with the LU value entered into the dialog box
 	%C% is replaced with the value of the x3270.printer.command resource
 	%H% is replaced with the current host name
+	%R% is replaced with an option to pass the current character set
+	 definition (-charset @/tmp/cs<pid>)
 
 x3270.printTextCommand	Default lpr
     The shell command used by the PrintText action.  An ASCII image of the

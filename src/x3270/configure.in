@@ -19,14 +19,16 @@ dnl all of usual Unix functions are visible to strict ANSI compilers.
 AC_CANONICAL_HOST
 case "$host_os" in
 solaris2*)	XANSI=-D__EXTENSIONS__
+		if test "$GCC" = yes
+		then	NIXCCOPTIONS="CCOPTIONS ="
+		fi
 		;;
 darwin*)	XPRECOMP=-no-cpp-precomp
-		;;
-*)		XANSI=""
 		;;
 esac
 AC_SUBST(XANSI)
 AC_SUBST(XPRECOMP)
+AC_SUBST(NIXCCOPTIONS)
 
 dnl Check for X
 AC_PATH_X
