@@ -26,7 +26,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tcl3270.c,v 1.3 2000/06/02 02:31:12 pdm Exp $
+ * RCS: @(#) $Id: tcl3270.c,v 1.3 2000/06/02 02:31:12 pdm Exp pdm $
  */
 
 /*
@@ -40,6 +40,7 @@
 #include "globals.h"
 #include <sys/wait.h>
 #include <signal.h>
+#include <errno.h>
 #include "appres.h"
 #include "3270ds.h"
 #include "resources.h"
@@ -76,11 +77,21 @@ extern int matherr();
 int *tclDummyMathPtr = (int *) matherr;
 
 static Tcl_ObjCmdProc x3270_cmd;
+static enum {
+	NOT_WAITING,		/* Not waiting */
+	WAITING_CONNECT,	/* Waiting for initial connection negotiation */
+	WAITING_3270,		/* Waiting for 3270 mode */
+	WAITING_ANSI,		/* Waiting for NVT mode */
+	WAITING_OUTPUT,		/* Waiting for host output */
+	WAITING_DISCONNECT	/* Waiting for host disconnect */
+} waiting = NOT_WAITING;
+static int cmd_ret;
 
 /* Local prototypes. */
 static void ps_clear(void);
 static int tcl3270_main(int argc, char *argv[]);
 static void negotiate(void);
+static char *scatv(char *s);
 
 
 /*
@@ -135,6 +146,8 @@ Tcl_AppInit(Tcl_Interp *interp)
     int argc;
     char **argv;
     int i;
+    Tcl_Obj *argv_obj;
+    char argc_buf[32];
 
     if (Tcl_Init(interp) == TCL_ERROR) {
 	return TCL_ERROR;
@@ -159,6 +172,16 @@ Tcl_AppInit(Tcl_Interp *interp)
     /* Call main. */
     if (tcl3270_main(argc, argv) == TCL_ERROR)
 	return TCL_ERROR;
+
+    /* Replace tcl's argc and argv with whatever was left. */
+    argv_obj = Tcl_NewListObj(0, NULL);
+    for (i = 1; argv[i] != NULL; i++) {
+	Tcl_ListObjAppendElement(interp, argv_obj, Tcl_NewStringObj(argv[i],
+		strlen(argv[i])));
+    }
+    Tcl_SetVar2Ex(interp, "argv", NULL, argv_obj, 0);
+    (void) sprintf(argc_buf, "%d", i?i-1:0);
+    Tcl_SetVar(interp, "argc", argc_buf, 0);
 
     /*
      * Call the init procedures for included packages.  Each call should
@@ -199,10 +222,15 @@ Tcl_AppInit(Tcl_Interp *interp)
 void
 usage(char *msg)
 {
+	char *sn = "";
+
 	if (msg != CN)
 		Warning(msg);
-	xs_error("Usage: %s [scriptname] [options] [ps:][LUname@]hostname[:port]",
-		programname);
+	if (!strcmp(programname, "tcl3270"))
+		sn = " [scriptname]";
+	xs_error("Usage: %s%s [tcl3270-options] [host] [-- script-args]\n"
+"       <host> is [ps:][LUname@]hostname[:port]",
+			programname, sn);
 }
 
 /*
@@ -214,12 +242,31 @@ usage(char *msg)
 static void
 main_connect(Boolean ignored)
 {
-	if (CONNECTED)
+	if (CONNECTED) {
 		ctlr_erase(True);
-	else {
+		/* Check for various wait conditions. */
+		switch (waiting) {
+		case WAITING_3270:
+			if (IN_3270)
+				waiting = NOT_WAITING;
+			break;
+		case WAITING_ANSI:
+			if (IN_ANSI)
+				waiting = NOT_WAITING;
+			break;
+		default:
+			/* Nothing we can figure out here. */
+			break;
+		}
+	} else {
 		if (appres.disconnect_clear)
 			ctlr_erase(True);
 		ps_clear();
+		if (waiting != NOT_WAITING) {
+			if (waiting != WAITING_DISCONNECT)
+				cmd_ret = TCL_ERROR;
+			waiting = NOT_WAITING;
+		}
 	}
 }
 
@@ -255,8 +302,9 @@ tcl3270_main(int argc, char *argv[])
 	initialize_toggles();
 
 	/* Connect to the host, and wait for negotiation to complete. */
-	if (argc > 1) {
-		(void) host_connect(cl_hostname);
+	if (cl_hostname != CN) {
+		if (host_connect(cl_hostname) < 0)
+			exit(1);
 		if (CONNECTED || HALF_CONNECTED) {
 			sms_connect_wait();
 			negotiate();
@@ -271,8 +319,7 @@ tcl3270_main(int argc, char *argv[])
 
 static Boolean in_cmd = False;
 static Tcl_Interp *sms_interp;
-static int cmd_ret;
-static Boolean connect_waiting = False;
+static Boolean output_wait_needed = False;
 static char *pending_string = NULL;
 static char *pending_string_ptr = NULL;
 static Boolean pending_hex = False;
@@ -291,7 +338,7 @@ static void
 process_pending_string(void)
 {
 	if (pending_string_ptr == NULL || KBWAIT ||
-	    (connect_waiting && !CAN_PROCEED)) {
+	    (waiting == WAITING_CONNECT && !CAN_PROCEED)) {
 		return;
 	}
 
@@ -327,7 +374,7 @@ static int
 x3270_cmd(ClientData clientData, Tcl_Interp *interp, int objc,
 		Tcl_Obj *CONST objv[])
 {
-	int i;
+	int i, j;
 	char *action;
 	int count;
 	char **argv = NULL;
@@ -360,15 +407,26 @@ x3270_cmd(ClientData clientData, Tcl_Interp *interp, int objc,
 	/* Stage the arguments. */
 	count = objc - 1;
 	if (count) {
-		int j;
-
 		argv = (char **)Malloc(count*sizeof(char *));
 		for (j = 0; j < count; j++) {
 			argv[j] = Tcl_GetString(objv[j + 1]);
 		}
 	}
 
+	/* Trace what we're about to do. */
+	if (toggled(EVENT_TRACE)) {
+		trace_event("Running %s", action);
+		for (j = 0; j < count; j++) {
+			char *s = scatv(argv[j]);
+
+			trace_event(" %s", s);
+			Free(s);
+		}
+		trace_event("\n");
+	}
+
 	/* Set up more ugly global variables and run the action. */
+	ia_cause = IA_SCRIPT;
 	cmd_ret = TCL_OK;
 	(*actions[i].proc)((Widget)NULL, (XEvent *)NULL, argv, &count);
 
@@ -378,14 +436,46 @@ x3270_cmd(ClientData clientData, Tcl_Interp *interp, int objc,
 	 */
 	process_pending_string();
 	while (KBWAIT ||
-	        (connect_waiting && !CAN_PROCEED) ||
+               waiting != NOT_WAITING ||
 	       ft_state != FT_NONE) {
+
+		/* Process pending file I/O. */
 		(void) process_events(True);
+
+		/* Check for various wait conditions. */
+		switch (waiting) {
+		case WAITING_CONNECT:
+			if (CAN_PROCEED)
+				waiting = NOT_WAITING;
+			break;
+		default:
+			break;
+		}
+
+		/* Push more string text in. */
 		process_pending_string();
+	}
+	if (toggled(EVENT_TRACE)) {
+		char *s;
+#		define TRUNC_LEN 40
+		char s_trunc[TRUNC_LEN + 1];
+
+		s = Tcl_GetStringResult(interp);
+		trace_event("Completed %s (%s)", action,
+			(cmd_ret == TCL_OK) ? "ok" : "error");
+		if (s != CN && *s) {
+			strncpy(s_trunc, s, TRUNC_LEN);
+			s_trunc[TRUNC_LEN] = '\0';
+			trace_event(" -> \"");
+			fcatv(tracef, s_trunc);
+			trace_event("\"");
+			if (strlen(s) > TRUNC_LEN)
+				trace_event("...(%d chars)", strlen(s));
+		}
+		trace_event("\n");
 	}
 	in_cmd = False;
 	sms_interp = NULL;
-	connect_waiting = False;
 	return cmd_ret;
 }
 
@@ -393,8 +483,10 @@ x3270_cmd(ClientData clientData, Tcl_Interp *interp, int objc,
 void
 negotiate(void)
 {
-	while (KBWAIT || (connect_waiting && !CAN_PROCEED)) {
+	while (KBWAIT || (waiting == WAITING_CONNECT && !CAN_PROCEED)) {
 		(void) process_events(True);
+		if (!CONNECTED)
+			exit(1);
 	}
 }
 
@@ -431,7 +523,19 @@ ps_set(char *s, Boolean is_hex)
 void
 sms_connect_wait(void)
 {
-	connect_waiting = True;
+	waiting = WAITING_CONNECT;
+}
+
+/* Signal host output. */
+void
+sms_host_output(void)
+{
+	/* Release the script, if it is waiting now. */
+	if (waiting == WAITING_OUTPUT)
+		waiting = NOT_WAITING;
+
+	/* If there was no script waiting, ensure that it won't later. */
+	output_wait_needed = False;
 }
 
 /* More no-ops. */
@@ -455,6 +559,14 @@ dump_range(int first, int len, Boolean in_ascii)
 	register int i;
 	Tcl_Obj *o = NULL;
 	Tcl_Obj *row = NULL;
+
+	/*
+	 * The client has now 'looked' at the screen, so should they later
+	 * execute 'Wait(output)', they will actually need to wait for output
+	 * from the host.  output_wait_needed is cleared by sms_host_output,
+	 * which is called from the write logic in ctlr.c.
+	 */
+	output_wait_needed = True;
 
 	for (i = 0; i < len; i++) {
 		unsigned char c;
@@ -678,9 +790,114 @@ Status_action(Widget w unused, XEvent *event unused, String *params,
 	Free(connect_stat);
 }
 
+void
+Wait_action(Widget w unused, XEvent *event unused, String *params,
+    Cardinal *num_params)
+{
+	if (*num_params == 0) {
+		if (!CONNECTED) {
+			popup_an_error("Not connected");
+			return;
+		}
+		if (!CAN_PROCEED)
+			waiting = WAITING_CONNECT;
+		return;
+	}
+	if (*num_params != 1) {
+		popup_an_error("Too many parameters");
+		return;
+	}
+	if (!strcasecmp(params[0], "Output")) {
+		if (!CONNECTED) {
+			popup_an_error("Not connected");
+			return;
+		}
+		if (output_wait_needed)
+			waiting = WAITING_OUTPUT;
+	} else if (!strcasecmp(params[0], "3270")) {
+		if (!CONNECTED) {
+			popup_an_error("Not connected");
+			return;
+		}
+		if (!IN_3270)
+			waiting = WAITING_3270;
+	} else if (!strcasecmp(params[0], "ansi")) {
+		if (!CONNECTED) {
+			popup_an_error("Not connected");
+			return;
+		}
+		if (!IN_ANSI)
+			waiting = WAITING_ANSI;
+	} else if (!strcasecmp(params[0], "Disconnect")) {
+		if (CONNECTED)
+			waiting = WAITING_DISCONNECT;
+	} else {
+		popup_an_error("Unknown Wait type: %s", params[0]);
+	}
+}
+
 /* Generate a response to a script command. */
 void
 sms_info(char *msg)
 {
 	Tcl_SetResult(sms_interp, msg, TCL_VOLATILE);
+}
+
+/* Like fcatv, but goes to a buffer. */
+static char *
+scatv(char *s)
+{
+#define ALLOC_INC	1024
+	char *buf;
+	int buflen;
+	int bufused = 0;
+	char c;
+#define add_space(n) \
+		if (bufused + (n) >= buflen) { \
+			buflen += ALLOC_INC; \
+			buf = Realloc(buf, buflen); \
+		} \
+		bufused += (n);
+
+	buf = Malloc(ALLOC_INC);
+	buflen = ALLOC_INC;
+	*buf = '\0';
+
+	while ((c = *s++))  {
+		switch (c) {
+		case '\n':
+			add_space(2);
+			(void) strcat(buf, "\\n");
+			break;
+		case '\t':
+			add_space(2);
+			(void) strcat(buf, "\\t");
+			break;
+		case '\b':
+			add_space(2);
+			(void) strcat(buf, "\\b");
+			break;
+		case '\f':
+			add_space(2);
+			(void) strcat(buf, "\\f");
+			break;
+		case ' ':
+			add_space(2);
+			(void) strcat(buf, "\\ ");
+			break;
+		default:
+			if ((c & 0x7f) < ' ') {
+				add_space(4);
+				(void) sprintf(buf + bufused, "\\%03o",
+					c & 0xff);
+				break;
+			} else {
+				add_space(1);
+				*(buf + bufused - 1) = c;
+				*(buf + bufused) = '\0';
+			}
+		}
+	}
+	return buf;
+#undef add_space
 }

@@ -1,5 +1,5 @@
 '\" t
-.TH TCL3270 1 "1 June 2000"
+.TH TCL3270 1 "19 June 2000"
 .SH NAME
 tcl3270 \-
 .SM IBM
@@ -9,10 +9,8 @@ host access tool
 .RI [ script ]
 .RI [ options ]
 .RI [ host ]
-.br
-.B tcl3270
-\-\-
-.I host
+[\-\-
+.IR script-arg ...]
 .LP
 .B tcl3270
 opens a telnet connection to an
@@ -177,7 +175,7 @@ Sets the initial value of
 to
 .B true.
 The list of toggle names is under
-.SM MENUS
+.SM TOGGLES
 below.
 .TP
 .BI \-tn " name"
@@ -197,13 +195,15 @@ onto the hostname removes the
 .B \-E
 from the terminal name when connecting to such hosts.
 .TP
+.B \-trace
+Turns on data stream and event (script command) tracing.
+.TP
 .B \-\-
-A no-op option.
-Because of a "feature" in how libtcl parses command-line options, it is
-necessary to specify
-.I some
-option if you want to specify a hostname on the command line, but don't want
-to specify a script name.
+Terminates the list of
+.B tcl3270
+options.  Whatever follows will be available to the script in the
+.B $argv
+tcl variable.
 .SH "CHARACTER SETS"
 The
 .B \-charset
@@ -372,6 +372,11 @@ Tab	move cursor to next input field
 ToggleInsert	toggle insert mode
 Transfer \fIoption\fP=\fIvalue\fP...	file transfer
 Up	move cursor up
+Wait	wait for valid input field
+Wait 3270	wait for 3270 mode
+Wait ansi	wait for NVT mode
+Wait Disconnect	wait for host to disconnect
+Wait Output	wait for more host output
 .TE
 .SH "STRING COMMAND"
 The arguments to String are one or more double-quoted strings which are
