@@ -2,7 +2,7 @@
 <html>
 <head>
    <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
-   <meta name="GENERATOR" content="Mozilla/4.77 [en] (Windows NT 5.0; U) [Netscape]">
+   <meta name="GENERATOR" content="Mozilla/4.76 [en]C-CCK-MCD   (Windows NT 5.0; U) [Netscape]">
    <title>x3270 Build and Install Instructions</title>
 <link HREF="http://www.w3.org/StyleSheets/Core/Steely" TYPE="text/css" REL="stylesheet">
 </head>
@@ -10,6 +10,79 @@
 
 <h1>
 x3270 Build and Install Instructions</h1>
+
+<h2>
+Where Things Get Installed</h2>
+By default, parts of x3270 are installed under two different directories.
+<p>Files which are specific to X11 (the <i>x3270</i> binary, <i>x3270</i>
+manual pages, and fonts) are installed in the system X11 directory (typically
+<tt>/usr/X11R6</tt>
+or <tt>/usr/openwin</tt>). This directory is defined when your system is
+installed and cannot be easily changed. This is referred to as <b>xdir</b>
+in the table below.
+<p>Files which are shared with other non-X11 3270 applications (the <i>x3270if</i>&nbsp;
+and <i>pr3287</i> binaries and man pages, and the configuration files)
+are installed in the autoconf prefix directory, typically <tt>/usr/local</tt>.
+The autoconf prefix directory can be changed with options to the <i>x3270</i><tt>configure</tt>
+script. This is referred to as <b>prefix</b> in the table below.
+<br>&nbsp;
+<table BORDER COLS=2 WIDTH="100%" >
+<tr>
+<td><b>Files</b></td>
+
+<td><b>Installed In</b></td>
+</tr>
+
+<tr>
+<td>Binary for <i>x3270</i></td>
+
+<td><b>xdir</b><tt>/bin</tt></td>
+</tr>
+
+<tr>
+<td>Manual pages for <i>x3270</i></td>
+
+<td><b>xdir</b><tt>/man</tt></td>
+</tr>
+
+<tr>
+<td>Fonts</td>
+
+<td><b>xdir</b><tt>/fonts/misc</tt></td>
+</tr>
+
+<tr>
+<td>Binaries for <i>x3270if</i> and <i>pr3287</i></td>
+
+<td><b>prefix</b><tt>/bin</tt></td>
+</tr>
+
+<tr>
+<td>Manual pages for <i>x3720if</i> and <i>pr3287</i></td>
+
+<td><b>prefix</b><tt>/man</tt></td>
+</tr>
+
+<tr>
+<td>Configuration files (<tt>ibm_hosts</tt>, character set definitions)
+used by <i>x3270</i> and other programs</td>
+
+<td><b>prefix</b><tt>/etc</tt></td>
+</tr>
+</table>
+
+<p>If you want everything installed in your system X11 directory, use the
+following <tt>configure</tt> command:
+<blockquote>
+<pre><tt>configure --with-all-xinstall</tt></pre>
+</blockquote>
+By contrast, if you want everyting to be installed in the autoconf prefix
+directory, use the default <tt>configure</tt> command, but use a different
+<tt>make</tt>
+target:
+<blockquote>
+<pre><tt>make install.byprefix</tt></pre>
+</blockquote>
 
 <h2>
 Vanilla X11R6 or X11R5</h2>
@@ -72,29 +145,32 @@ instructions.
 <h2>
 Sun Solaris 2.x</h2>
 Follow the instructions for Vanilla X11R6, with the following changes.
-<p><b>Do not use</b> Sun's "BSD-compatibility" C compiler, <tt>/usr/ucb/cc</tt>.
+<h3>
+Using Sun's Unbundled C Compiler</h3>
+<b>Do not use</b> Sun's "BSD-compatibility" C compiler, <tt>/usr/ucb/cc</tt>.
 This is good advice in general, and in particular, <i>x3270</i> will not
-build under it. Unfortunately, if you have installed Sun's unbundled C
-compiler, and have
-<tt>/usr/ucb</tt> in your $PATH ahead of <tt>/usr/ccs/bin</tt>,
-then you will get <tt>/usr/ucb/cc</tt> by default. The fix is to install
-<tt>gcc</tt>
-(much preferred) or to have <tt>/usr/ccs/bin</tt> ahead of
-<tt>/usr/ucb</tt>
-in your $PATH.
-<p>If you are using <i>gcc</i>, then Sun's <i>xmkmf</i> configuration puts
-some compiler flags in the <tt>Makefile</tt> that are specific to Sun's
-unbundled C compiler, and you may get a number of harmless, but annoying
-error messages while compiling. To eliminate these, use the command:
-<pre>&nbsp;&nbsp;&nbsp; make CDEBUGFLAGS=-O "CCOPTIONS=-DSYSV -DSVR4"</pre>
-To run <i>x3270</i>, you must have your <tt>LD_LIBRARY_PATH</tt> environment
-variable set properly. First, it must include <tt>/usr/openwin/lib</tt>.
-<h2>
-Cygwin with XFree86</h2>
-There appears to be a bug in the Cygwin/XFree86 config that causes an unresolved
-symbol. The workaround is:
-<blockquote><tt>make XAWLIB="-lXaw -lXpm"</tt></blockquote>
+build under it. To build <i>x3270</i> with Sun's unbundled C compiler,
+you should have <tt>/opt/SUNWspro/SC<i>x.x</i>/bin</tt> (replacing <i>x.x</i>
+with the actual version of the compiler) in your $PATH, before
+<tt>/usr/ucb</tt>.
+<p>You might also want to take advantage of the Sun compiler's optimization
+features.&nbsp; This can be done with the command line:
+<blockquote>
+<pre>make CDEBUGFLAGS=-x02</pre>
+</blockquote>
 
+<h3>
+Using gcc</h3>
+Sun's <i>xmkmf</i> configuration puts some compiler flags in the <tt>Makefile</tt>
+that are specific to Sun's unbundled C compiler, and you will get a number
+of harmless, but annoying error messages when compiling with <i>gcc</i>.
+To eliminate these, use the command:
+<pre>&nbsp;&nbsp;&nbsp; make CDEBUGFLAGS=-O CCOPTIONS="-DSYSV -DSVR4"</pre>
+
+<h3>
+Running x3270</h3>
+To run <i>x3270</i>, your <tt>LD_LIBRARY_PATH</tt> environment variable
+must include <tt>/usr/openwin/lib</tt>.
 <h2>
 Mixed X Environments</h2>
 If you are running a mixture of X environments, such as running a Sun XNews
@@ -170,38 +246,46 @@ The <i>x3270</i> <tt>configure</tt> script accepts the following options:
 </tr>
 
 <tr>
+<td><tt>--with-all-xinstall</tt></td>
+
+<td>Install all files (even those that are common with other non-X11 3270
+programs) in the system's X11 directory.
+<br>This is compatible with earlier releases of <i>x3270</i>.
+<br>It is equivalent to <tt>--prefix='$(PROJECTROOT)'</tt>.</td>
+</tr>
+
+<tr>
 <td><tt>--prefix=<i>prefix</i></tt></td>
 
-<td>Install architecture-independent files under <i>prefix</i> (defaults
+<td>Install common architecture-independent files under <i>prefix</i> (defaults
 to <tt>/usr/local</tt>).
-<br>Note that except for configuration files, this option is overridden
-by the <tt>--with-xinstall</tt> option.</td>
+<br>When using <tt>make install</tt>, this affects only <i>pr3287</i> and
+the configuration files.
+<br>When using <tt>make install.byprefix</tt>, this affects all files.</td>
 </tr>
 
 <tr>
 <td><tt>--exec-prefix=<i>eprefix</i></tt></td>
 
-<td>Install architecture-dependent files (executables) under <i>eprefix</i>
+<td>Install common architecture-dependent files (executables) under <i>eprefix</i>
 (defaults to same as <i>prefix</i>).
-<br>Note that this option is overridden by the <tt>--with-xinstall</tt>
-option.</td>
+<br>See the note under <tt>--prefix</tt>, above.</td>
 </tr>
 
 <tr>
 <td><tt>--bindir=<i>dir</i></tt></td>
 
-<td>Install user executables (<i>x3270</i>, <i>x3270if</i>, <i>pr3287</i>)
-in <i>dir</i> (defaults to <i>eprefix</i><tt>/bin</tt>).
-<br>Note that except for <i>pr3287</i>, this option is overridden by the
-<tt>--with-xinstall</tt>
-option.</td>
+<td>Install common user executables in <i>dir</i> (defaults to <i>eprefix</i><tt>/bin</tt>).
+<br>See the note under <tt>--prefix</tt>, above.</td>
 </tr>
 
 <tr>
 <td><tt>--sysconfdir=<i>dir</i></tt></td>
 
 <td>Install configuration files (<tt>ibm_hosts</tt>, character sets) in
-<i>dir</i><tt>/x3270</tt> (defaults to <i>prefix</i><tt>/etc</tt>).</td>
+<i>dir</i><tt>/x3270</tt>
+(defaults to <i>prefix</i><tt>/etc</tt>).
+<br>See the note under <tt>--prefix</tt>, above.</td>
 </tr>
 
 <tr>
@@ -223,22 +307,16 @@ build <i>pr3287</i> separately or with different configuration options.</td>
 </tr>
 
 <tr>
-<td><tt>--with-xinstall</tt></td>
-
-<td>Install <i>x3270</i>, <i>x3270if</i>, fonts and man pages in the system's
-X11 directory, rather than the directory specified by <tt>--prefix</tt>.
-This was the default behavior for previous versions of <i>x3270</i>.</td>
-</tr>
-
-<tr>
 <td><tt>--with-fontdir=/<i>full-path</i></tt>
 <br><tt>--with-fontdir=<i>relative-path</i></tt></td>
 
-<td>Install fonts in an alternate directory.&nbsp; The default is the <tt>misc</tt>
-subdirectory of the system's X11 font directory.
+<td>Install fonts in an alternate directory.
 <br>If the parameter starts with "/", it specifies the full pathname of
 a directory.
-<br>If not, it specifies a subdirectory of the system's X11 font directory.</td>
+<br>If not, it specifies a subdirectory of the system's X11 font directory
+(if using <tt>make install</tt>) or of the <tt>fonts</tt> subdirectory
+of the architecture-dependent install directory (if using <tt>make install.byprefix</tt>).
+<br>The default is <tt>misc</tt>.</td>
 </tr>
 
 <tr>
@@ -309,24 +387,5 @@ where the user cannot reconfigure <i>x3270</i>.</td>
 <p>Leaving out all of the optional features will result in a binary that's
 about 40% smaller, and doesn't do a whole lot more than a single session
 of basic TN3270.
-<p>Note that despite what the help message says, the <tt>configure</tt>
-options&nbsp; <tt>--prefix</tt>, <tt>--exec-prefix</tt> and <tt>--bindir</tt>
-have no effect on where <i>x3270</i>'s files are installed, and just to
-confuse the matter, they <b>do</b> affect where <i>pr3287</i>'s files are
-installed.
-<p>By default, <i>x3270</i>'s files are installed under the system's X11
-directory, e.g., <tt>/usr/X11R6/</tt>. To install binaries (<i>x3270</i>,
-<i>x3270if</i>)
-in a different directory, set the BINDIR <i>make</i> variable, e.g.:
-<blockquote><tt>make install BINDIR=/usr/local/bin</tt></blockquote>
-To install man pages in a different directory, set the MANDIR <i>make</i>
-variable, e.g.:
-<blockquote><tt>make install.man MANDIR=/usr/local/man</tt></blockquote>
-To install fonts and the <i>ibm_hosts</i> file under a different directory,
-set the LIBDIR <i>make</i> variable, e.g.:
-<blockquote><tt>make install LIBDIR=/usr/local</tt></blockquote>
-Note that fonts will be installed in the <tt>fonts/misc/</tt> subdirectory
-of the specified directory, and the <i>ibm_hosts</i> file will be installed
-in the <tt>x3270/</tt> subdirectory of the specified directory.
 </body>
 </html>

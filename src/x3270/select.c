@@ -1037,6 +1037,7 @@ grab_sel(int start, int end, Boolean really, Time t)
 	int start_row, end_row;
 	unsigned char osc;
 	Boolean ge;
+	int nulls = 0;
 
 	unselect(0, ROWS*COLS);
 
@@ -1058,23 +1059,29 @@ grab_sel(int start, int end, Boolean really, Time t)
 		for (i = start; i <= end; i++) {
 			SET_SELECT(i);
 			if (really) {
-				if (i != start && !(i % COLS))
+				if (i != start && !(i % COLS)) {
+					nulls = 0;
 					store_sel('\n');
+				}
 				osc = onscreen_char(i, &ge);
 				if (osc) {
+					while (nulls) {
+						store_sel(' ');
+						nulls--;
+					}
 					if (ge)
 						store_sel('\033');
 					store_sel((char)osc);
-				}
+				} else
+					nulls++;
 			}
 		}
-		/* Check for newline extension */
+		/* Check for newline extension on the last line. */
 		if ((end % COLS) != (COLS - 1)) {
 			Boolean all_blank = True;
 
 			for (i = end; i < end + (COLS - (end % COLS)); i++) {
-				osc = onscreen_char(i, &ge);
-				if (osc && osc != ' ') {
+				if (onscreen_char(i, &ge)) {
 					all_blank = False;
 					break;
 				}
@@ -1083,7 +1090,8 @@ grab_sel(int start, int end, Boolean really, Time t)
 				for (i = end; i < end + (COLS - (end % COLS)); i++) {
 					SET_SELECT(i);
 				}
-				store_sel('\n');
+				if (really)
+					store_sel('\n');
 			}
 		}
 	} else {
@@ -1094,10 +1102,15 @@ grab_sel(int start, int end, Boolean really, Time t)
 				if (really) {
 					osc = onscreen_char(i, &ge);
 					if (osc) {
+						while (nulls) {
+							store_sel(' ');
+							nulls--;
+						}
 						if (ge)
 							store_sel('\033');
 						store_sel((char)osc);
-					}
+					} else
+						nulls++;
 				}
 			}
 			if (really && (end % COLS == COLS - 1))
@@ -1120,12 +1133,18 @@ grab_sel(int start, int end, Boolean really, Time t)
 					if (really) {
 						osc = onscreen_char(row*COLS + col, &ge);
 						if (osc) {
+							while (nulls) {
+								store_sel(' ');
+								nulls--;
+							}
 							if (ge)
 								store_sel('\033');
 							store_sel((char)osc);
-						}
+						} else
+							nulls = 0;
 					}
 				}
+				nulls = 0;
 				if (really)
 					store_sel('\n');
 			}

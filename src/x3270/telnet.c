@@ -1739,7 +1739,9 @@ do_werase(char c)
 		return;
 	}
 	while (lbptr > lbuf) {
-		char ch = *--lbptr;
+		char ch;
+
+		ch = *--lbptr;
 
 		if (ch == ' ' || ch == '\t') {
 			if (any) {

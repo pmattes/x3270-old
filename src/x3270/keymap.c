@@ -733,6 +733,10 @@ do_keymap_display(Widget w unused, XtPointer userdata unused,
 {
 	Widget form, label, done;
 
+	/* If it's already up, do nothing. */
+	if (km_isup)
+		return;
+
 	/* Create the popup. */
 	km_shell = XtVaCreatePopupShell(
 	    "kmPopup", transientShellWidgetClass, toplevel,
