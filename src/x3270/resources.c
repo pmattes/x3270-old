@@ -163,8 +163,14 @@ XtResource resources[] = {
 	  offset(locked_mcursor), XtRString, "X_cursor" },
 	{ ResMacros, ClsMacros, XtRString, sizeof(char *),
 	  offset(macros), XtRString, 0 },
+#if defined(X3270_TRACE) /*[*/
 	{ ResTraceDir, ClsTraceDir, XtRString, sizeof(char *),
 	  offset(trace_dir), XtRString, "/tmp" },
+	{ ResTraceFile, ClsTraceFile, XtRString, sizeof(char *),
+	  offset(trace_file), XtRString, 0 },
+	{ ResScreenTraceFile, ClsScreenTraceFile, XtRString, sizeof(char *),
+	  offset(screentrace_file), XtRString, 0 },
+#endif /*]*/
 	{ ResColorScheme, ClsColorScheme, XtRString, sizeof(String),
 	  offset(color_scheme), XtRString, "default" },
 #if defined(X3270_FT) /*[*/

@@ -176,6 +176,9 @@ XtActionsRec actions[] = {
 	{ "PauseScript",	PauseScript_action },
 #endif /*]*/
 	{ "PreviousWord",	PreviousWord_action },
+#if defined(X3270_SCRIPT) && defined(X3270_PRINTER) /*[*/
+	{ "Printer",		Printer_action },
+#endif /*]*/
 	{ "Quit",		Quit_action },
 #if defined(X3270_MENUS) /*[*/
 	{ "Reconnect",		Reconnect_action },

@@ -50,6 +50,8 @@ extern void PauseScript_action(Widget w, XEvent *event, String *params,
     Cardinal *num_params);
 extern void peer_script_init(void);
 extern void ps_set(char *s, Boolean is_hex);
+extern void Printer_action(Widget w, XEvent *event, String *params,
+    Cardinal *num_params);
 extern void Script_action(Widget w, XEvent *event, String *params,
     Cardinal *num_params);
 extern Boolean sms_active(void);

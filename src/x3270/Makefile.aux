@@ -16,7 +16,7 @@ all:
 
 SOURCES = Cme.c CmeBSB.c CmeLine.c CmplxMenu.c Husk.c about.c actions.c \
 	ansi.c apl.c charset.c ctlr.c ft.c ft_cut.c ft_dft.c host.c keymap.c \
-	keypad.c kybd.c macros.c main.c menubar.c popups.c print.c \
+	keypad.c kybd.c macros.c main.c menubar.c popups.c printer.c print.c \
 	resources.c save.c screen.c scroll.c select.c sf.c status.c tables.c \
 	telnet.c toggles.c trace_ds.c util.c xio.c x3270if.c qcpp.c
 HEADERS = 3270ds.h Cme.h CmeBSB.h CmeBSBP.h CmeLine.h CmeLineP.h CmeP.h \
@@ -24,9 +24,9 @@ HEADERS = 3270ds.h Cme.h CmeBSB.h CmeBSBP.h CmeLine.h CmeLineP.h CmeP.h \
 	aplc.h appres.h cg.h charsetc.h ctlr.h ctlrc.h ftc.h ft_cut_ds.h \
 	ft_cutc.h ft_dftc.h ft_dft_ds.h globals.h hostc.h keymapc.h keypadc.h \
 	kybdc.h localdefs.h macrosc.h mainc.h menubarc.h objects.h parts.h \
-	popupsc.h printc.h resources.h resourcesc.h savec.h screen.h \
-	screenc.h scrollc.h selectc.h sfc.h statusc.h tablesc.h telnet.h \
-	telnetc.h tn3270e.h togglesc.h trace_dsc.h utilc.h xioc.h
+	popupsc.h printerc.h printc.h resources.h resourcesc.h savec.h \
+	screen.h screenc.h scrollc.h selectc.h sfc.h statusc.h tablesc.h \
+	telnet.h telnetc.h tn3270e.h togglesc.h trace_dsc.h utilc.h xioc.h
 BITMAPS = keypad.bm dot.bm arrow.bm diamond.bm ky.bm no_diamond.bm null.bm \
 	wait.bm x3270.bm
 FONTS = 3270.bdf 3270b.bdf 3270-12.bdf 3270-12b.bdf 3270-20.bdf 3270-20b.bdf \
@@ -35,17 +35,19 @@ FONTS = 3270.bdf 3270b.bdf 3270-12.bdf 3270-12b.bdf 3270-20.bdf 3270-20b.bdf \
 	3270gt32b.bdf
 MISC = version.txt X3270.xad x3270.man x3270-script.man ibm_hosts.man \
         x3270if.man mkfb.c Imakefile mkversion.sh Makefile.aux \
-	dryrun ibm_hosts Examples/child_script.bash \
+	dryrun ibm_hosts x3270_glue.expect Examples/child_script.bash \
 	Examples/child_script.ksh Examples/child_script.sh Examples/ibm_hosts \
 	Examples/peer_script.bash Examples/peer_script.expect \
-	Examples/peer_script.ksh Examples/peer_script.sh Playback/playback.c \
-	Playback/playback.man Playback/Makefile README x3270.lsm
+	Examples/peer_script.ksh Examples/peer_script.sh \
+	Examples/cms_logon.bash Examples/cms_logon.sh \
+	Playback/playback.c Playback/playback.man Playback/Makefile \
+	README x3270.lsm
 HTML = html/README.html html/Attributes.html html/FAQ.html html/Lineage.html \
 	html/Resources.html html/Bugs.html html/Build.html \
-	html/Charset.html html/Intro.html html/Wishlist.html \
-	html/New.html html/x3270-man.html html/x3270-script.html \
-	html/ibm_hosts.html html/Y2K.html html/x3270.xbm html/x3270.jpg \
-	html/x3270if.html
+	html/Charset.html html/Intro.html html/Keymap.html \
+	html/Wishlist.html html/New.html html/x3270-man.html \
+	html/x3270-script.html html/ibm_hosts.html html/Y2K.html \
+	html/x3270.xbm html/x3270.jpg html/x3270if.html
 
 FILES = $(SOURCES) $(HEADERS) $(BITMAPS) $(FONTS) $(MISC) $(HTML) 
 

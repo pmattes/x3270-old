@@ -221,6 +221,11 @@ x3270.traceCommand:			tail -f
 ! File transfer command
 ! x3270.ftCommand:			ind$file
 !
+! Printer session options
+x3270.printer.command:			lpr
+x3270.printer.assocCommandLine:		pr3287 -assoc %L% -command %C% %H%
+x3270.printer.luCommandLine:		pr3287 -command %C% %L%@%H%
+!
 ! Translation table for the '@server' pseudo-keymap, which is the keymap
 ! you get by default (in addition to the 'base' keymap, below).  Maps server
 | vendor strings to keymap names.
@@ -825,6 +830,7 @@ x3270.printWindowPopup*confirmButton.label:	Print
 x3270.tracePopup.title:				x3270 Tracing
 x3270.tracePopup.dialog.label:			Enter Trace File Name
 x3270.tracePopup*confirmButton.label:		Trace
+x3270.tracePopup*confirm2Button.label:		No File
 x3270.screentracePopup.title:			x3270 Screen Image Tracing
 x3270.screentracePopup.dialog.label:		Enter File Name
 x3270.screentracePopup*confirmButton.label:	Continuously
@@ -854,6 +860,12 @@ x3270*cancelButton.label:			Cancel
 x3270*aboutOption.label:			About x3270...
 #ifdef X3270_FT
 x3270*ftOption.label:				File Transfer...
+#endif
+#ifdef X3270_PRINTER
+x3270*printerOption.label:			Printer Session
+x3270*assocButton.label:			Start, associate with current LU
+x3270*luButton.label:				Start, specific LU...
+x3270*printerOffButton.label:			Stop Printer
 #endif
 x3270*abortScriptOption.label:			Abort Scripts/Macros/Strings
 x3270*disconnectOption.label:			Disconnect
@@ -901,6 +913,11 @@ x3270.ftOverwritePopup*overwriteName.label:	Overwrite existing file %s?
 x3270.ftProgressPopup*waiting.label:		Waiting for host acknowledgment...
 x3270.ftProgressPopup*status.label:		%lu bytes transferred
 x3270.ftProgressPopup*aborting.label:		Aborting transfer...
+#endif
+#ifdef X3270_PRINTER
+x3270.printerLuPopup.title:			x3270 Printer Session
+x3270.printerLuPopup.dialog.label:		Enter LU Name
+x3270.printerLuPopup*confirmButton.label:	Start Session
 #endif
 #ifdef X3270_MENUS
 x3270*optionsMenuButton.label:			Options
@@ -1044,7 +1061,7 @@ x3270.message.kmFromServer:			\ (expanded from '@server')
 !=============================================================================
 !
 ! App-defaults file version
-x3270.adVersion:		3.2.11
+x3270.adVersion:		3.2.12
 !
 ! Fonts
 #ifdef X3270_APL
@@ -1120,6 +1137,7 @@ x3270*fontsMenu*background:			grey
 x3270*modelsMenu*background:			grey
 x3270*colorsMenu*background:			grey
 x3270*charsetMenu*background:			grey
+x3270*printerMenu*background:			grey
 #endif
 x3270*fileMenu.borderWidth:			2
 x3270*exitMenu.borderWidth:			2
@@ -1197,6 +1215,7 @@ x3270*dialog*foreground:			black
 ! Fixed popup sizes
 x3270.errorPopup.width:				400
 x3270.infoPopup.width:				400
+x3270.printerLuPopup.width:			300
 x3270.connectPopup.width:			300
 x3270.fontPopup.width:				300
 x3270.keymapPopup.width:			300
@@ -1247,9 +1266,9 @@ x3270.translations: #override \n\
 	<KeymapNotify>:			PA-KeymapNotify()\n\
 	<PropertyNotify>WM_STATE:	PA-StateChanged()\n\
 	<FocusIn>:			PA-Focus()\n\
-	<FocusOut>:			PA-Focus()
+	<FocusOut>:			PA-Focus()\n\
+	<ConfigureNotify>:		PA-ConfigureNotify()
 x3270.container.translations: #override \n\
-	<ConfigureNotify>:		PA-ConfigureNotify()\n\
 	<KeyPress>Shift_L:		PA-Shift()\n\
 	<KeyRelease>Shift_L:		PA-Shift()\n\
 	<KeyPress>Shift_R:		PA-Shift()\n\
@@ -1340,6 +1359,8 @@ x3270.aboutPopup.translations: \
 x3270.aboutPopup*translations:		#override \n\
 	<Key>Return:			PA-confirm()
 x3270.kmPopup.translations: \
+	<Message>WM_PROTOCOLS:		PA-WMProtocols()
+x3270.luPopup.translations: \
 	<Message>WM_PROTOCOLS:		PA-WMProtocols()
 #endif
 #ifdef X3270_FT

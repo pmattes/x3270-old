@@ -60,6 +60,7 @@
 #define N_OPTS		256
 
 /* Globals */
+char    	*hostname = CN;
 time_t          ns_time;
 int             ns_brcvd;
 int             ns_rrcvd;
@@ -80,7 +81,6 @@ extern struct timeval ds_ts;
 
 /* Statics */
 static int      sock = -1;	/* active socket */
-static char    *hostname = CN;
 static unsigned char myopts[N_OPTS], hisopts[N_OPTS];
 			/* telnet option flags */
 static unsigned char *ibuf = (unsigned char *) NULL;

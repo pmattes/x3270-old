@@ -1,5 +1,5 @@
 '\" t
-.TH X3270 1 "31. July 2000"
+.TH X3270 1 "8. September 2000"
 .SH NAME
 pr3287 \-
 .SM IBM
@@ -83,4 +83,4 @@ Derivative works based on this software must incorporate this copyright
 notice.
 .RE
 .SH VERSION
-pr3287 3.2.11
+pr3287 3.2.12

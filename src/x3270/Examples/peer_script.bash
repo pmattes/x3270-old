@@ -65,8 +65,9 @@ mknod $ip p
 mknod $op p
 
 # Start x3270
-x3270 -script -model 2 -color <$ip >$op &
+x3270 -script -model 2 <$ip >$op &
 xp=$!
+exec 5>$ip	# hold the pipe open
 xi -s 0 >/dev/null || exit 1
 
 # Connect to host

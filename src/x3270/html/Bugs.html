@@ -8,9 +8,26 @@
 <body>
 
 <h1>
-Known Bugs in x3270 3.2.11</h1>
+Known Bugs in x3270 3.2.12</h1>
 
 <ol>
+<li>
+<b>Can't Restart x3270</b></li>
+<br>
+It is possible for x3270 to get into a state where it cannot be restarted.
+<br>This can happen with window managers such as <i>twm</i>, whose
+<b>MaxWindowSize</b> variable is enforced at client start-up time, but not
+when a client changes its own window size.
+Thus, it is possible for an x3270 menu option such as <b>Options->Screen
+Size</b> to resize the x3270 main window so that it exceeds the
+<b>MaxWindowSize</b> (with no objection from <i>twm</i>).
+If the x3270 configuration is then saved, (either via the <b>File->Save
+Changes Options in File</b> menu option, or by an external command that uses
+the WM_SAVE_YOURSELF message to get x3270 to update its command line and
+then saves that command line in a start-up file), then the next time x3270 is
+invoked it will not be able to run.
+The best recommendation in this case is to not set <b>MaxWindowSize</b> in your <tt>.twmrc</tt> file.
+</li>
 <li>
 <b>Host Session Hangs</b></li>
 

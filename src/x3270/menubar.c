@@ -39,6 +39,7 @@
 #include "macrosc.h"
 #include "menubarc.h"
 #include "popupsc.h"
+#include "printerc.h"
 #include "printc.h"
 #include "savec.h"
 #include "screenc.h"
@@ -84,6 +85,10 @@ static void Bye(Widget w, XtPointer client_data, XtPointer call_data);
 static void menubar_in3270(Boolean in3270);
 static void menubar_linemode(Boolean in_linemode);
 static void menubar_connect(Boolean ignored);
+#if defined(X3270_PRINTER) /*[*/
+static void menubar_printer(Boolean printer_on);
+#endif /*]*/
+static void menubar_remodel(Boolean ignored unused);
 
 #include "dot.bm"
 #include "arrow.bm"
@@ -104,6 +109,12 @@ static Widget   exit_button;
 static Widget   exit_menu;
 static Widget   macros_button;
 static Widget	ft_button;
+#if defined(X3270_PRINTER) /*[*/
+static Widget	printer_button;
+static Widget	assoc_button;
+static Widget	lu_button;
+static Widget	printer_off_button;
+#endif /*]*/
 static Widget   connect_button;
 static Widget   keypad_button;
 static Widget   linemode_button;
@@ -199,6 +210,10 @@ menubar_init(Widget container, Dimension overall_width, Dimension current_width)
 		register_schange(ST_LINE_MODE, menubar_linemode);
 		register_schange(ST_HALF_CONNECT, menubar_connect);
 		register_schange(ST_CONNECT, menubar_connect);
+#if defined(X3270_PRINTER) /*[*/
+		register_schange(ST_PRINTER, menubar_printer);
+#endif /*]*/
+		register_schange(ST_REMODEL, menubar_remodel);
 
 		ever = True;
 	}
@@ -353,6 +368,19 @@ menubar_connect(Boolean ignored unused)
 	/* Set up the various option buttons. */
 	if (ft_button != (Widget)NULL)
 		XtVaSetValues(ft_button, XtNsensitive, IN_3270, NULL);
+#if defined(X3270_PRINTER) /*[*/
+	if (printer_button != (Widget)NULL)
+		XtVaSetValues(printer_button, XtNsensitive, IN_3270,
+		    NULL);
+	if (assoc_button != (Widget)NULL)
+		XtVaSetValues(assoc_button, XtNsensitive,
+		    !printer_running() && IN_3270 && IN_TN3270E,
+		    NULL);
+	if (lu_button != (Widget)NULL)
+		XtVaSetValues(lu_button, XtNsensitive,
+		    !printer_running() && IN_3270,
+		    NULL);
+#endif /*]*/
 	if (linemode_button != (Widget)NULL)
 		XtVaSetValues(linemode_button, XtNsensitive, IN_ANSI, NULL);
 	if (charmode_button != (Widget)NULL)
@@ -380,6 +408,21 @@ menubar_connect(Boolean ignored unused)
 		    NULL);
 }
 
+#if defined(X3270_PRINTER) /*[*/
+/* Called when the printer starts or stops. */
+static void
+menubar_printer(Boolean printer_on)
+{
+	XtVaSetValues(assoc_button, XtNsensitive,
+	    !printer_on && IN_3270 && IN_TN3270E,
+	    NULL);
+	XtVaSetValues(lu_button, XtNsensitive,
+	    !printer_on && IN_3270,
+	    NULL);
+	XtVaSetValues(printer_off_button, XtNsensitive, printer_on, NULL);
+}
+#endif /*]*/
+
 /* External entry point to display the Reconnect button. */
 void
 menubar_show_reconnect(void)
@@ -404,6 +447,19 @@ menubar_in3270(Boolean in3270)
 {
 	if (ft_button != (Widget)NULL)
 		XtVaSetValues(ft_button, XtNsensitive, IN_3270, NULL);
+#if defined(X3270_PRINTER) /*[*/
+	if (printer_button != (Widget)NULL)
+		XtVaSetValues(printer_button, XtNsensitive, IN_3270,
+		    NULL);
+	if (assoc_button != (Widget)NULL)
+		XtVaSetValues(assoc_button, XtNsensitive,
+		    !printer_running() && IN_3270 && IN_TN3270E,
+		    NULL);
+	if (lu_button != (Widget)NULL)
+		XtVaSetValues(lu_button, XtNsensitive,
+		    !printer_running() && IN_3270,
+		    NULL);
+#endif /*]*/
 	if (linemode_button != (Widget)NULL)
 		XtVaSetValues(linemode_button,
 		    XtNsensitive, !in3270,
@@ -517,6 +573,20 @@ do_save_options(Widget w unused, XtPointer client_data unused,
 	popup_popup(save_shell, XtGrabExclusive);
 }
 
+#if defined(X3270_PRINTER) /*[*/
+/* Callback for printer session options. */
+static void
+do_printer(Widget w unused, XtPointer client_data, XtPointer call_data unused)
+{
+	if (client_data == NULL)
+		printer_start(CN);
+	else if (!strcmp(client_data, "lu"))
+		printer_lu_dialog();
+	else
+		printer_stop();
+}
+#endif /*]*/
+
 static void
 file_menu_init(Boolean regen, Dimension x, Dimension y)
 {
@@ -558,6 +628,37 @@ file_menu_init(Boolean regen, Dimension x, Dimension y)
 	}
 #endif /*]*/
 
+#if defined(X3270_PRINTER) /*[*/
+	/* Printer start/stop */
+	w = XtVaCreatePopupShell(
+	    "printerMenu", complexMenuWidgetClass, menu_parent,
+	    NULL);
+	assoc_button = XtVaCreateManagedWidget(
+	    "assocButton", cmeBSBObjectClass, w,
+	    XtNsensitive, IN_3270 && IN_TN3270E,
+	    NULL);
+	XtAddCallback(assoc_button, XtNcallback, do_printer, NULL);
+	lu_button = XtVaCreateManagedWidget(
+	    "luButton", cmeBSBObjectClass, w,
+	    NULL);
+	XtAddCallback(lu_button, XtNcallback, do_printer, "lu");
+	printer_off_button = XtVaCreateManagedWidget(
+	    "printerOffButton", cmeBSBObjectClass, w,
+	    XtNsensitive, printer_running(),
+	    NULL);
+	XtAddCallback(printer_off_button, XtNcallback, do_printer, "off");
+
+	(void) XtCreateManagedWidget(
+	    "space", cmeLineObjectClass, file_menu,
+	    NULL, 0);
+	printer_button = XtVaCreateManagedWidget(
+	    "printerOption", cmeBSBObjectClass, file_menu,
+	    XtNsensitive, IN_3270,
+	    XtNrightBitmap, arrow,
+	    XtNmenuName, "printerMenu",
+	    NULL);
+#endif /*]*/
+
 #if defined(X3270_TRACE) /*[*/
 	/* Trace Data Stream
 	   Trace X Events
@@ -569,7 +670,8 @@ file_menu_init(Boolean regen, Dimension x, Dimension y)
 		toggle_init(file_menu, DS_TRACE, "dsTraceOption", CN);
 		toggle_init(file_menu, EVENT_TRACE, "eventTraceOption", CN);
 	}
-	toggle_init(file_menu, SCREEN_TRACE, "screenTraceOption", CN);
+	if (!appres.secure)
+		toggle_init(file_menu, SCREEN_TRACE, "screenTraceOption", CN);
 #endif /*]*/
 
 	/* Print Screen Text */
@@ -1303,6 +1405,20 @@ change_model_callback(Widget w, XtPointer client_data,
 	}
 	XtVaSetValues(w, XtNleftBitmap, diamond, NULL);
 	screen_change_model(m, 0, 0);
+}
+
+/* Called to when model changes outside our control */
+static void
+menubar_remodel(Boolean ignored unused)
+{
+	XtVaSetValues(model_2_button, XtNleftBitmap,
+	    (model_num == 2)? diamond: no_diamond, NULL);
+	XtVaSetValues(model_3_button, XtNleftBitmap,
+	    (model_num == 3)? diamond: no_diamond, NULL);
+	XtVaSetValues(model_4_button, XtNleftBitmap,
+	    (model_num == 4)? diamond: no_diamond, NULL);
+	XtVaSetValues(model_5_button, XtNleftBitmap,
+	    (model_num == 5)? diamond: no_diamond, NULL);
 }
 
 /* Called to change emulation modes */

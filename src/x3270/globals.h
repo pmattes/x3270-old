@@ -120,6 +120,7 @@ extern Boolean		*extended_3270font;
 extern Boolean		flipped;
 extern char		*full_current_host;
 extern char		full_model_name[];
+extern char		*hostname;
 extern Boolean		*latin1_font;
 extern char		luname[];
 #if defined(LOCAL_PROCESS) /*[*/
@@ -244,7 +245,8 @@ enum keytype { KT_STD, KT_GE };
 #define ST_3270_MODE	2
 #define ST_LINE_MODE	3
 #define ST_REMODEL	4
-#define N_ST		5
+#define ST_PRINTER	5
+#define N_ST		6
 
 /* Naming convention for private actions. */
 #define PA_PFX	"PA-"

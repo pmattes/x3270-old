@@ -8,8 +8,7 @@
 <body>
 
 <h1>
-<img SRC="x3270.jpg" align=CENTER>
-x3270 - IBM host access tool</h1>
+<img SRC="x3270.jpg"  align=CENTER> x3270 - IBM host access tool</h1>
 
 <h2>
 SYNOPSIS</h2>
@@ -41,8 +40,7 @@ as a shell.
 <p>The port to connect to defaults to <b>telnet</b>. This can be overridden
 with the <b><a href="#-port">-port</a></b> option, or by appending a <i>port</i>
 to the <i>hostname</i> with a colon <b>:</b>. (For compatability with previous
-versions of <i>x3270</i> and with
-<i>tn3270</i>, the <i>port</i> may also
+versions of <i>x3270</i> and with <i>tn3270</i>, the <i>port</i> may also
 be specified as a second, separate argument.)
 <h2>
 OPTIONS</h2>
@@ -128,11 +126,7 @@ Turns on the keypad as soon as <b>x3270</b> starts.</dd>
 The model of 3270 display to be emulated. The model name is in three parts,
 any of which may be omitted:</dd>
 
-<br>&nbsp;
-<p>&nbsp;
-<br>&nbsp;
-<br>&nbsp;
-<p>The first part is the <b>base model</b>, which is either <b>3278</b>
+<p><br>The first part is the <b>base model</b>, which is either <b>3278</b>
 or <b>3279</b>. <b>3278</b> specifies a monochrome 3270 display;
 <b>3279</b>
 specifies a color 3270 display. When 3278 emulation is specified for a
@@ -246,12 +240,8 @@ The default name is <b>IBM-</b><i>model_name</i>, for example,
 <b>IBM-3279-4-E</b>
 for a color X display, or <b>IBM-3278-4-E</b> for monochrome X display.</dd>
 
-<br>&nbsp;
-<p>&nbsp;
-<br>&nbsp;
-<br>&nbsp;
-<p>Some hosts are confused by the <b>-E</b> suffix on the terminal name,
-and will ignore the extra screen area on models 3, 4 and 5. Prepending
+<p><br>Some hosts are confused by the <b>-E</b> suffix on the terminal
+name, and will ignore the extra screen area on models 3, 4 and 5. Prepending
 an <b>:s</b> on the hostname removes the <b>-E</b> from the terminal name
 when connecting to such hosts.
 <p>The name can also be specified with the "x3270.termName" resource.
@@ -262,6 +252,17 @@ when connecting to such hosts.
 Turns on data stream tracing at startup. Unlike turning it on from a menu
 option, there is no pop-up to confirm the file name, which defaults to
 <b>/tmp/x3trc.</b><i>process_id</i>.</dd>
+
+<dt>
+<b>-tracefile</b> <i>file</i></dt>
+
+<dd>
+Specifies a file to save data stream and event traces into, overriding
+the default of <b>/tmp/x3trc.</b><i>process_id</i>. If the value <b>stdout</b>
+is given, then traces will be written to standard output. If the value
+<b>none</b>
+is given, then traces will be piped directly to the monitor window, and
+no file will be created.</dd>
 </dl>
 
 <h2>
@@ -273,9 +274,8 @@ is a close approximation of a real 3270 display and allows <b>x3270</b>
 to display a complete EBCDIC character set and special status-line symbols.
 A more compact font, <b>3270-12</b>, is also supported, as are the various
 sized fonts <b>3270gt8</b>, <b>3270gt12</b>, <b>3270gt16</b>, <b>3270-20</b>,
-<b>3270gt24</b>,
-and <b>3270gt32</b>. The font <b>3270h</b> is also included to allow display
-of Hebrew text.
+<b>3270gt24</b>, and <b>3270gt32</b>. The font <b>3270h</b> is also included
+to allow display of Hebrew text.
 <p>The font may be specified with the <b>-efont</b> option or the "x3270.emulatorFont"
 resource.
 <p><b>x3270</b> can also use any constant-spaced X font, but unless the
@@ -422,14 +422,16 @@ may be either on or off. The entries under the File menu are as follows:
 <dd>
 Initiates transferring a file between the IBM host and the local workstation,
 using the <b>IND$FILE</b> protocol. A pop-up menu allows specifying the
-file names and other attributes of the transfer.</dd>
+file names and other attributes of the transfer. The IND$FILE program must
+be installed on the IBM host, and the 3270 cursor must be located in a
+field that will accept a TSO or VM/CMS command.</dd>
 
-<br>&nbsp;
-<p>&nbsp;
-<br>&nbsp;
-<br>&nbsp;
-<p>The IND$FILE program must be installed on the IBM host, and the 3270
-cursor must be located in a field that will accept a TSO or VM/CMS command.
+<dt>
+<b>Printer Session</b></dt>
+
+<dd>
+Starts or stops a printer session.</dd>
+
 <dt>
 <b>Trace Data Stream</b></dt>
 
@@ -693,18 +695,13 @@ cannot accept keyboard input.</dd>
 
 <dd>
 The full screen image of all 3270 models can be displayed on the icon,
-and the icon can be resized. The icon can accept keyboard input.</dd>
-
-<br>&nbsp;
-<p>&nbsp;
-<br>&nbsp;
-<br>&nbsp;
-<p>However, <b>twm</b> does not put labels on application-supplied icon
-windows. You can have <b>x3270</b> add its own label to the icon by setting
-the "x3270.labelIcon" resource to
-<b>true</b>. The default font for icon
-labels is <b>8x13</b>; you may change it with the "x3270.iconLabelFont"
-resource.</dl>
+and the icon can be resized. The icon can accept keyboard input. However,
+<b>twm</b> does not put labels on application-supplied icon windows. You
+can have <b>x3270</b> add its own label to the icon by setting the "x3270.labelIcon"
+resource to
+<b>true</b>. The default font for icon labels is <b>8x13</b>;
+you may change it with the "x3270.iconLabelFont" resource.</dd>
+</dl>
 
 <h2>
 <a NAME="KEYMAPS"></a>KEYMAPS</h2>
@@ -791,7 +788,7 @@ file. The naming for a sun4 keyboard would be:
 <pre>&nbsp;&nbsp;&nbsp; x3270.keymap.default:
 &nbsp;&nbsp;&nbsp; x3270.keymap.sun_k4:
 &nbsp;&nbsp;&nbsp; x3270.keymap.sun_k4.user:</pre>
-The basic default translation table is:
+<a NAME="default-keymap"></a>The basic default translation table is:
 <pre>&nbsp;&nbsp;&nbsp; &lt;Key>Multi_key&nbsp;&nbsp;&nbsp;&nbsp; Compose()
 &nbsp;&nbsp;&nbsp; Shift&lt;Key>Return&nbsp;&nbsp; Newline()
 &nbsp;&nbsp;&nbsp; &lt;Key>Return&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Enter()
@@ -881,8 +878,8 @@ from a block cursor because the block cursor covers slightly less than
 an entire character position on the screen.)
 <p>The left mouse button, when pressed with the "Shift" key held down,
 moves the 3270 cursor to the where the mouse cursor is pointing.
-<p>This is the complete list of keymap-callable actions. Other actions
-are defined for use by scripts and are documented in
+<p><a NAME="actions"></a>This is the complete list of keymap-callable actions.
+Other actions are defined for use by scripts and are documented in
 <a href="x3270-script.html"><i>x3270-script</i>(1)</a>;
 still others actions are defined for internal use by <b>x3270</b> and are
 not documented here.
@@ -920,13 +917,14 @@ not documented here.
 &nbsp;&nbsp;&nbsp; Left2&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; move cursor left 2 positions
 &nbsp;&nbsp;&nbsp; Macro(<i>macro</i>)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; run a macro
 &nbsp;&nbsp;&nbsp; MoveCursor&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; move cursor to mouse position
-&nbsp;&nbsp;&nbsp; MoveCursorSelect&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <u></u>move cursor to mouse position, light pen select
+&nbsp;&nbsp;&nbsp; MoveCursorSelect&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; move cursor to mouse position, light pen select
 &nbsp;&nbsp;&nbsp; MonoCase&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; toggle uppercase-only mode
 &nbsp;&nbsp;&nbsp; Newline&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; move cursor to first field on next line (or send ASCII LF)
 &nbsp;&nbsp;&nbsp; NextWord&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; move cursor to next word
 &nbsp;&nbsp;&nbsp; PA(<i>n</i>)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Program Attention AID (<i>n</i> from 1 to 3)
 &nbsp;&nbsp;&nbsp; PF(<i>n</i>)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Program Function AID (<i>n</i> from 1 to 24)
 &nbsp;&nbsp;&nbsp; PreviousWord&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; move cursor to previous word
+&nbsp;&nbsp;&nbsp; Printer(Start[,<i>lu</i>]|Stop)&nbsp; start or stop printer session
 &nbsp;&nbsp;&nbsp; PrintText(<i>command</i>)&nbsp;&nbsp;&nbsp;&nbsp; print screen text on printer
 &nbsp;&nbsp;&nbsp; PrintWindow(<i>command</i>)&nbsp;&nbsp; print screen image (bitmap) on printer
 &nbsp;&nbsp;&nbsp; Quit&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; exit <b>x3270
@@ -1295,7 +1293,7 @@ notice.
 <p>5250 Emulation Code Copyright &copy; Minolta (Schweiz) AG, Beat Rubischon.
 <hr>
 <address>
-x3270 version 3.2.11, last modified 31. July 2000</address>
+x3270 version 3.2.12, last modified 6. September 2000</address>
 
 </body>
 </html>

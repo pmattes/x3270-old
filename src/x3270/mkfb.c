@@ -39,6 +39,7 @@ unsigned n_mono = 0;		/* number of mono definitions */
 #define MODE_ANSI	0x00000010
 #define MODE_KEYPAD	0x00000020
 #define MODE_APL	0x00000040
+#define MODE_PRINTER	0x00000080
 
 #define MODEMASK	0x0000007f
 
@@ -59,7 +60,8 @@ struct {
 	{ "X3270_MENUS", MODE_MENUS },
 	{ "X3270_ANSI", MODE_ANSI },
 	{ "X3270_KEYPAD", MODE_KEYPAD },
-	{ "X3270_APL", MODE_APL }
+	{ "X3270_APL", MODE_APL },
+	{ "X3270_PRINTER", MODE_PRINTER }
 };
 #define NPARTS	(sizeof(parts)/sizeof(parts[0]))
 
@@ -97,6 +99,12 @@ unsigned long is_defined =
 |
 #if defined(X3270_APL)
 	MODE_APL
+#else
+	0
+#endif
+|
+#if defined(X3270_PRINTER)
+	MODE_PRINTER
 #else
 	0
 #endif

@@ -1,17 +1,34 @@
-<HTML>
-<TITLE>s3270 Build and Install Instructions</TITLE>
-<H1>s3270 Build and Install Instructions</H1>
+<!doctype html public "-//w3c//dtd html 4.0 transitional//en">
+<html>
+<head>
+   <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+   <meta name="GENERATOR" content="Mozilla/4.74 [en] (Win98; U) [Netscape]">
+   <title>s3270 Build and Install Instructions</title>
+</head>
+<body>
 
-To build s3270, type:
-<PRE>
-    make
-</PRE>
-To install s3270 in the default install directory (/usr/local), type:
-<PRE>
-    make install
-</PRE>
-To install in a different directory, add an INSTALLDIR= clause to the
-make command, e.g.:
-<PRE>
-    make install INSTALLDIR=/tools
-</PRE>
+<h1>
+s3270 Build and Install Instructions</h1>
+To build <i>s3270</i>, type:
+<pre>&nbsp;&nbsp;&nbsp; make</pre>
+To install <i>s3270</i> in the default install directory (<tt>/usr/local</tt>),
+type:
+<pre>&nbsp;&nbsp;&nbsp; make install</pre>
+To install in a different directory, add an <tt>INSTALLDIR=</tt> clause
+to the <i>make</i> command, <i>e.g.</i>:
+<pre>&nbsp;&nbsp;&nbsp; make install INSTALLDIR=/tools</pre>
+
+<h2>
+Notes for Solaris 2.x and Sun's C Compiler</h2>
+Do not use Sun's BSD-compatibility compiler, <tt>/usr/ucb/cc</tt>. This
+is good advice in general, but in particular, <i>s3270</i> will not build
+with it. If you have installed Sun's unbundled C compiler and have <tt>/usr/ucb</tt>
+in your $PATH before <tt>/usr/ccs/bin</tt>, then you might be using <tt>/usr/ucb/cc</tt>
+by accident. The workaround is to explicitly specify the compiler path
+to <i>make</i>:
+<blockquote>
+<pre>make CC=/usr/ccs/bin/cc</pre>
+</blockquote>
+
+</body>
+</html>

@@ -1,5 +1,10 @@
 /*
  * Copyright 2000 by Paul Mattes.
+ *  Permission to use, copy, modify, and distribute this software and its
+ *  documentation for any purpose and without fee is hereby granted,
+ *  provided that the above copyright notice appear in all copies and that
+ *  both that copyright notice and this permission notice appear in
+ *  supporting documentation.
  */
 
 /*
@@ -44,10 +49,10 @@
 extern int negotiate(int s, const char *lu, const char *assoc);
 extern void process(int s, char *command);
 extern char *build;
+extern FILE *tracef;
 
 /* Globals. */
 char *programname = NULL;	/* program name */
-FILE *tracef = NULL;		/* trace file */
 
 /* User options. */
 static enum { NOT_DAEMON, WILL_DAEMON, AM_DAEMON } bdaemon = NOT_DAEMON;

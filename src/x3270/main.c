@@ -119,6 +119,7 @@ XrmOptionDescRec options[]= {
 	{ OptScrollBar,	DotScrollBar,	XrmoptionNoArg,		ResTrue },
 	{ OptSet,	".xxx",		XrmoptionSkipArg,	NULL },
 	{ OptTermName,	DotTermName,	XrmoptionSepArg,	NULL },
+	{ OptTraceFile,	DotTraceFile,	XrmoptionSepArg,	NULL }
 };
 int num_options = XtNumber(options);
 
@@ -327,6 +328,8 @@ main(int argc, char *argv[])
 	}
 	if (!appres.extended)
 		appres.oversize = CN;
+	if (appres.secure)
+		appres.disconnect_clear = True;
 
 	a_delete_me = XInternAtom(display, "WM_DELETE_WINDOW", False);
 	a_save_yourself = XInternAtom(display, "WM_SAVE_YOURSELF", False);

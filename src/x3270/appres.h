@@ -132,6 +132,10 @@ typedef struct {
 	char	*termname;
 	char	*macros;
 	char	*trace_dir;
+#if defined(X3270_TRACE) /*[*/
+	char	*trace_file;
+	char	*screentrace_file;
+#endif /*]*/
 	char	*oversize;
 #if defined(X3270_FT) /*[*/
 	char	*ft_command;

@@ -1,0 +1,448 @@
+/*
+ * Copyright 2000 by Paul Mattes.
+ *  Permission to use, copy, modify, and distribute this software and its
+ *  documentation for any purpose and without fee is hereby granted,
+ *  provided that the above copyright notice appear in all copies and that
+ *  both that copyright notice and this permission notice appear in
+ *  supporting documentation.
+ */
+
+/*
+ *	printer.c
+ *		Printer session support
+ */
+
+#include "globals.h"
+
+#if defined(X3270_DISPLAY) && defined(X3270_PRINTER) /*[*/
+#include <X11/StringDefs.h>
+#include <X11/Xaw/Dialog.h>
+#include <errno.h>
+#include <signal.h>
+#include <time.h>
+#include <stdarg.h>
+#include <fcntl.h>
+#include "3270ds.h"
+#include "appres.h"
+#include "objects.h"
+#include "resources.h"
+#include "ctlr.h"
+
+#include "ctlrc.h"
+#include "hostc.h"
+#include "menubarc.h"
+#include "popupsc.h"
+#include "printerc.h"
+#include "printc.h"
+#include "savec.h"
+#include "tablesc.h"
+#include "telnetc.h"
+#include "trace_dsc.h"
+#include "utilc.h"
+
+#define PRINTER_BUF	1024
+
+/* Statics */
+static int      printer_pid = -1;
+static Widget	lu_shell = (Widget)NULL;
+static struct pr3o {
+	int fd;			/* file descriptor */
+	unsigned long input_id;	/* input ID */
+	unsigned long timeout_id; /* timeout ID */
+	int count;		/* input count */
+	char buf[PRINTER_BUF];	/* input buffer */
+} printer_stdout = { -1, 0L, 0L, 0 },
+  printer_stderr = { -1, 0L, 0L, 0 };
+
+static void	printer_output(void);
+static void	printer_error(void);
+static void	printer_otimeout(void);
+static void	printer_etimeout(void);
+static void	printer_dump(struct pr3o *p, Boolean is_err);
+static void	printer_host_connect(Boolean connected unused);
+
+/* Globals */
+
+/*
+ * Printer Start-up function
+ * If 'lu' is non-NULL, then use the specific-LU form.
+ * If not, use the assoc form.
+ */
+void
+printer_start(const char *lu)
+{
+	const char *cmdlineName;
+	const char *cmdline;
+	const char *cmd;
+	int cmd_len = 0;
+	const char *s;
+	char *cmd_text;
+	char c;
+	int stdout_pipe[2];
+	int stderr_pipe[2];
+	static Boolean registered = False;
+
+	/* Register interest in host connects and mode changes. */
+	if (!registered) {
+		register_schange(ST_CONNECT, printer_host_connect);
+		register_schange(ST_3270_MODE, printer_host_connect);
+		registered = True;
+	}
+
+	/* Can't start two. */
+	if (printer_pid != -1) {
+		popup_an_error("printer is already running");
+		return;
+	}
+
+	/* Gotta be in 3270 mode. */
+	if (!IN_3270) {
+		popup_an_error("Not in 3270 mode");
+		return;
+	}
+
+	/* Select the command line to use. */
+	if (lu == CN) {
+		/* Associate with the current session. */
+
+		/* Gotta be in TN3270E mode. */
+		if (!IN_TN3270E) {
+			popup_an_error("Not in TN3270E mode");
+			return;
+		}
+
+		/* Gotta be connected to an LU. */
+		if (connected_lu == CN) {
+			popup_an_error("Not connected to a specific LU");
+			return;
+		}
+		lu = connected_lu;
+		cmdlineName = ResAssocCommand;
+	} else {
+		/* Specific LU passed in. */
+		cmdlineName = ResLuCommandLine;
+	}
+
+	/* Fetch the command line and command resources. */
+	cmdline = get_resource(cmdlineName);
+	if (cmdline == CN) {
+		popup_an_error("%s resource not defined", cmdlineName);
+		return;
+	}
+	cmd = get_resource(ResPrinterCommand);
+	if (cmd == CN) {
+		popup_an_error("printer.command resource not defined");
+		return;
+	}
+
+	/* Construct the command line. */
+
+	/* Figure out how long it will be. */
+	cmd_len = strlen(cmdline) + 1;
+	s = cmdline;
+	while ((s = strstr(s, "%L%")) != CN) {
+		cmd_len += strlen(lu) - 3;
+		s += 3;
+	}
+	s = cmdline;
+	while ((s = strstr(s, "%H%")) != CN) {
+		cmd_len += strlen(hostname) - 3;
+		s += 3;
+	}
+	s = cmdline;
+	while ((s = strstr(s, "%C%")) != CN) {
+		cmd_len += strlen(cmd) - 3;
+		s += 3;
+	}
+
+	/* Allocate a string buffer and substitute into it. */
+	cmd_text = Malloc(cmd_len);
+	cmd_text[0] = '\0';
+	for (s = cmdline; (c = *s) != '\0'; s++) {
+		char buf1[2];
+
+		if (c == '%') {
+			if (!strncmp(s+1, "L%", 2)) {
+				(void) strcat(cmd_text, lu);
+				s += 2;
+				continue;
+			} else if (!strncmp(s+1, "H%", 2)) {
+				(void) strcat(cmd_text, hostname);
+				s += 2;
+				continue;
+			} else if (!strncmp(s+1, "C%", 2)) {
+				(void) strcat(cmd_text, cmd);
+				s += 2;
+				continue;
+			}
+		}
+		buf1[0] = c;
+		buf1[1] = '\0';
+		(void) strcat(cmd_text, buf1);
+	}
+#if 0
+	fprintf(stderr, "command line: '%s'\n", cmd_text);
+#endif
+
+	/* Make pipes for printer's stdout and stderr. */
+	if (pipe(stdout_pipe) < 0) {
+		popup_an_errno(errno, "pipe() failed");
+		Free(cmd_text);
+		return;
+	}
+	(void) fcntl(stdout_pipe[0], F_SETFD, 1);
+	if (pipe(stderr_pipe) < 0) {
+		popup_an_errno(errno, "pipe() failed");
+		(void) close(stdout_pipe[0]);
+		(void) close(stdout_pipe[1]);
+		Free(cmd_text);
+		return;
+	}
+	(void) fcntl(stderr_pipe[0], F_SETFD, 1);
+
+	/* Fork and exec the printer session. */
+	switch (printer_pid = fork()) {
+	    case 0:	/* child process */
+		(void) dup2(stdout_pipe[1], 1);
+		(void) close(stdout_pipe[1]);
+		(void) dup2(stderr_pipe[1], 2);
+		(void) close(stderr_pipe[1]);
+		(void) execlp("/bin/sh", "sh", "-c", cmd_text, CN);
+		(void) perror("exec(printer)");
+		_exit(1);
+	    default:	/* parent process */
+		(void) close(stdout_pipe[1]);
+		printer_stdout.fd = stdout_pipe[0];
+		(void) close(stderr_pipe[1]);
+		printer_stderr.fd = stderr_pipe[0];
+		printer_stdout.input_id = AddInput(printer_stdout.fd,
+		    printer_output);
+		printer_stderr.input_id = AddInput(printer_stderr.fd,
+		    printer_error);
+		++children;
+		break;
+	    case -1:	/* error */
+		popup_an_errno(errno, "fork()");
+		(void) close(stdout_pipe[0]);
+		(void) close(stdout_pipe[1]);
+		(void) close(stderr_pipe[0]);
+		(void) close(stderr_pipe[1]);
+		break;
+	}
+
+	Free(cmd_text);
+
+	/* Tell everyone else. */
+	st_changed(ST_PRINTER, True);
+}
+
+/* There's data from the printer session. */
+static void
+printer_data(struct pr3o *p, Boolean is_err)
+{
+	int space;
+	int nr;
+	static char exitmsg[] = "Printer session exited";
+
+	/* Read whatever there is. */
+	space = PRINTER_BUF - p->count - 1;
+	nr = read(p->fd, p->buf + p->count, space);
+
+	/* Handle read errors and end-of-file. */
+	if (nr < 0) {
+		popup_an_errno(errno, "printer session pipe input");
+		printer_stop();
+		return;
+	}
+	if (nr == 0) {
+		if (printer_stderr.timeout_id != 0L) {
+			/*
+			 * Append an error message to whatever the printer
+			 * process said, and pop it up.
+			 */
+			p = &printer_stderr;
+			if (p->count && *(p->buf + p->count - 1) != '\n') {
+				*(p->buf + p->count) = '\n';
+				p->count++;
+				space--;
+			}
+			(void) strncpy(p->buf + p->count, exitmsg, space);
+			p->count += strlen(exitmsg);
+			if (p->count >= PRINTER_BUF)
+				p->count = PRINTER_BUF - 1;
+			printer_dump(&printer_stderr, True);
+		} else {
+			/* Popup up an error. */
+			popup_an_error(exitmsg);
+		}
+		printer_stop();
+		return;
+	}
+
+	/* Add it to the buffer, and add a NULL. */
+	p->count += nr;
+	p->buf[p->count] = '\0';
+
+	/*
+	 * If there's no more room in the buffer, dump it now.  Otherwise,
+	 * give it a second to generate more output.
+	 */
+	if (p->count >= PRINTER_BUF - 1) {
+		printer_dump(p, is_err);
+	} else if (p->timeout_id == 0L) {
+		p->timeout_id = AddTimeOut(1000,
+		    is_err? printer_etimeout: printer_otimeout);
+	}
+}
+
+/* The printer process has some output for us. */
+static void
+printer_output(void)
+{
+	printer_data(&printer_stdout, False);
+}
+
+/* The printer process has some error output for us. */
+static void
+printer_error(void)
+{
+	printer_data(&printer_stderr, True);
+}
+
+/* Timeout from printer output or error output. */
+static void
+printer_timeout(struct pr3o *p, Boolean is_err)
+{
+	/* Forget the timeout ID. */
+	p->timeout_id = 0L;
+
+	/* Dump the output. */
+	printer_dump(p, is_err);
+}
+
+/* Timeout from printer output. */
+static void
+printer_otimeout(void)
+{
+	printer_timeout(&printer_stdout, False);
+}
+
+/* Timeout from printer error output. */
+static void
+printer_etimeout(void)
+{
+	printer_timeout(&printer_stderr, True);
+}
+
+/* Dump pending printer process output. */
+static void
+printer_dump(struct pr3o *p, Boolean is_err)
+{
+	/*
+	 * If the printer session goes wild, there is nothing we can do,
+	 * unless the info/error dialogs can be modified to optionally have
+	 * an 'abort' button to kill the printer process.
+	 *
+	 * In the TBD pile, for now.
+	 */
+	if (p->count) {
+		/* Strip any trailing newline. */
+		if (p->buf[p->count - 1] == '\n')
+			p->buf[p->count - 1] = '\0';
+
+		/* Dump it and clear the buffer. */
+		if (is_err)
+			popup_an_error("Printer session error:\n %s", p->buf);
+		else
+			popup_an_info("Printer session:\n %s", p->buf);
+		p->count = 0;
+	}
+}
+
+/* Close the printer session. */
+void
+printer_stop(void)
+{
+	/* Remove inputs. */
+	if (printer_stdout.input_id) {
+		RemoveInput(printer_stdout.input_id);
+		printer_stdout.input_id = 0L;
+	}
+	if (printer_stderr.input_id) {
+		RemoveInput(printer_stderr.input_id);
+		printer_stderr.input_id = 0L;
+	}
+
+	/* Cancel timeouts. */
+	if (printer_stdout.timeout_id) {
+		RemoveTimeOut(printer_stdout.timeout_id);
+		printer_stdout.timeout_id = 0L;
+	}
+	if (printer_stderr.timeout_id) {
+		RemoveTimeOut(printer_stderr.timeout_id);
+		printer_stderr.timeout_id = 0L;
+	}
+
+	/* Clear buffers. */
+	printer_stdout.count = 0;
+	printer_stderr.count = 0;
+
+	/* Kill the process. */
+	if (printer_pid != -1) {
+		(void) kill(printer_pid, SIGTERM);
+		printer_pid = -1;
+	}
+
+	/* Tell everyone else. */
+	st_changed(ST_PRINTER, False);
+}
+
+/* Callback for "OK" button on printer specific-LU popup */
+static void
+lu_callback(Widget w, XtPointer client_data, XtPointer call_data unused)
+{
+	char *lu;
+
+	if (w) {
+		lu = XawDialogGetValueString((Widget)client_data);
+		if (lu == CN || *lu == '\0') {
+			popup_an_error("Must supply an LU");
+			return;
+		} else
+			XtPopdown(lu_shell);
+	} else
+		lu = (char *)client_data;
+	printer_start(lu);
+}
+
+/* Host connect/disconnect/3270-mode event. */
+static void
+printer_host_connect(Boolean connected unused)
+{
+	/*
+	 * If we're no longer in 3270 mode, then we can no longer have a
+	 * printer session.  This may cause some fireworks if there is a
+	 * print job pending when we do this, so some sort of awful timeout
+	 * may be needed.
+	 */
+	if (!IN_3270)
+		printer_stop();
+}
+
+/* Pop up the LU dialog box. */
+void
+printer_lu_dialog(void)
+{
+	if (lu_shell == NULL)
+		lu_shell = create_form_popup("printerLu",
+		    lu_callback, (XtCallbackProc)NULL, FORM_NO_WHITE);
+	popup_popup(lu_shell, XtGrabExclusive);
+}
+
+Boolean
+printer_running(void)
+{
+	return printer_pid != -1;
+}
+
+#endif /*]*/

@@ -1,5 +1,5 @@
 '\" t
-.TH X3270IF 1 "1 March 1999"
+.TH X3270IF 1 "2 September 2000"
 .SH NAME
 x3270if \-
 command interface to x3270 and s3270
@@ -22,27 +22,38 @@ command interface to x3270 and s3270
 ]
 .B \-s
 .I field
+.br
+.B x3270if \-i
 .SH DESCRIPTION
 .B x3270if
-provides an interface between
+provides an interface between scripts and
 .IR x3270 (1)
 or
-.IR s3270 (1)
-and child processes run with the
-.B Script()
-action.
+.IR s3270 (1).
 .LP
 .B x3270if
-performs one of two functions: passing an action and optional parameters to
+performs one of three functions.
+In
+.B "action mode"
+(the default) it passes a single action and optional parameters to
 .I x3270
-for execution, or reporting the value of one of
+or
+.I s3270
+for execution;
+the result of the command is written to standard output.
+In
+.BR "status mode" ,
+it reports to standard output the value of one of
 .IR x3270 's
 or
 .IR s3270 's
 status fields.
-.LP
-The result of the command execution, or the value of the requested status
-field, is written to standard output.
+In
+.BR "iterative mode" ,
+it forms a continuous conduit between a script and
+.I x3270
+or
+.IR s3270 .
 .SH OPTIONS
 .TP
 .B \-v
@@ -55,21 +66,52 @@ and
 .BR x3270if .
 .TP
 .BI \-s " field"
-Causes
-.B 3270if
-to return the value of an
+Puts
+.B x3270if
+in status mode: it outputs the value of an
 .I x3270
 or
 .I s3270
-status field, rather than passing an action to be executed.
+status field.
 .I Field
-is an integer in the range 0 through 11, indicating the desired status
-field.
-The indices and meanings of each field are documented on the
+is an integer in the range 0 through 11.
+The value 0 is a no-op and is used only to return exit status indicating the
+state of
+.I x3270
+or
+.IR s3270 .
+The indices 1-11 and meanings of each field are documented on the
 .IR x3270-script (1)
 manual page.
+.TP
+.B \-i
+Puts
+.B x3270if
+in iterative mode.
+Data from
+.BR x3270if 's
+standard input is copied to
+.I x3270
+or
+.IR s3270 's
+script input; data from
+.I x3270
+or
+.IR s3270 's
+script output is copied to
+.BR x3270if 's
+standard output.
+.B x3270if
+runs until it detects end-of-file on its standard input or on the
+output from
+.I x3270
+or
+.IR s3270 .
+(This mode exists primarily to give
+.IR expect (1)
+a process to run, on systems which do not support bidirectional pipes.)
 .SH EXIT STATUS
-If the requested
+In action mode, if the requested
 .I action
 succeeds,
 .B x3270if
@@ -77,10 +119,13 @@ exits with status 0.
 If the action fails,
 .B x3270if
 exits with status 1.
+In iterative mode,
+.B x3270if
+exits with status 0 when it encounters end-of-file.
 If there is an operational error within
 .B x3270if
 itself, such as a command-line syntax error, missing environment
-variable, or closed pipe,
+variable, or an unexpectedly closed pipe,
 .B x3270if
 exits with status 2.
 .SH ENVIRONMENT
@@ -108,7 +153,7 @@ output from the child process.
 .SH "SEE ALSO"
 .IR x3270 (1), " s3270" (1), " x3270-script" (1)
 .SH COPYRIGHT
-Copyright 1995 by Paul Mattes.
+Copyright 1999, 2000 by Paul Mattes.
 .RS
 Permission to use, copy, modify, and distribute this software and its
 documentation for any purpose and without fee is hereby granted,

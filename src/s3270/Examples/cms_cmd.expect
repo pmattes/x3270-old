@@ -1,7 +1,7 @@
 #!/usr/local/bin/expect
 
 # Read in the glue functions.
-source s3270_glue.expect
+source x3270_glue.expect
 
 # Pluck the username, password and command from the command line.
 if {$argc != 4} {
@@ -12,16 +12,6 @@ set hostname [lindex $argv 0]
 set username [lindex $argv 1]
 set password [lindex $argv 2]
 set command [lindex $argv 3]
-
-# Return the number of rows and columns in the logical screen.
-# The host can change these from the default for the model number to 24x80 at
-# any time, so these are best evaluated dynamically.
-proc rows {} {
-	return [lindex [Status] 6]
-}
-proc cols {} {
-	return [lindex [Status] 7]
-}
 
 # Procedure to wait for a READ prompt from CMS or CP.
 proc waitread {} {
@@ -107,13 +97,10 @@ proc cms_cmd {text} {
 # Start of main procedure.
 
 # Set 'verbose' to 1 to get debug output from the glue functions.
-set verbose 0
+#set verbose 0
 
 # Start s3270
-set stty_init -echo
-spawn -noecho s3270 -model 4
-log_user 0
-set timeout -1
+Start
 
 # Connect to the host and wait for an input field.
 Connect $hostname
@@ -130,7 +117,7 @@ if {[Ascii 1 11 7] == "Already"} {
 }
 
 # If we're in CP mode, which means we disconnected last time, boot CMS.
-if {[Ascii [expr [rows]-1] [expr [cols]-20] 2] == "CP"} {
+if {[Ascii [expr [Rows]-1] [expr [Cols]-20] 2] == "CP"} {
 	Clear
 	String "i cms\n"
 	waitread

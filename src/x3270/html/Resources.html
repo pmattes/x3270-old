@@ -184,7 +184,7 @@ x3270.debugTracing	Default true
     data stream and X events.  If set to false, these options are not
     displayed.
 
-x3270.disconnectClose	Default false
+x3270.disconnectClear	Default false
     If set to true, x3270 will clear the screen when a host disconnects.
 
 x3270.doConfirms	Default true
@@ -196,11 +196,13 @@ x3270.dsTrace		Default false		 Switch -trace
 			Option Trace Data Stream        -set dsTrace
 							-clear Trace
     When true, x3270 writes a hexadecimal representation of all network
-    traffic, and its interpretation, into the file /tmp/x3trc.&#60;pid>.  It
-    also pops up a window to watch the file as it is created, with the
-    pathname of the file as the window title.  The command run in the window
-    is defined by the traceCommand resource.  The directory prefix is
-    defined by the traceDir resource.
+    traffic, and its interpretation, into a file, which defaults to
+    /tmp/x3trc.&#60;pid>.  It also pops up a window to watch the file as it
+    is created, with the pathname of the file as the window title.  The
+    command run in the window is defined by the traceCommand resource.  The
+    directory prefix is defined by the traceDir resource.  If the traceFile
+    resource is defined, it explicitly defines the file name and traceDir
+    is ignored.
 
 x3270.emulatorFont	Default 3270 (*)	Switch -efont
 			Options 3270 Font (14 point): 3270
@@ -240,10 +242,12 @@ x3270.erase		Default ^?
 x3270.eventTrace	Default false		 Switch -set eventTrace
 			Option Trace X Events           -clear eventTrace
     When true, x3270 traces information about the X events that it processes
-    into the file /tmp/x3trc.&#60;pid>.  It also pops up a window to watch the
-    file as it is created, with the pathname of the file as the window title.
-    The command run in the window is defined by the traceCommand resource.
-    The directory prefix is defined by the traceDir resource.
+    into a file, which defaults to /tmp/x3trc.&#60;pid>.  It also pops up a
+    window to watch the file as it is created, with the pathname of the file
+    as the window title.  The command run in the window is defined by the
+    traceCommand resource.  The directory prefix is defined by the traceDir
+    resource.   If the traceFile resource is defined, it explicitly defines
+    the file name and traceDir is ignored.
 
 x3270.extended		Default false		Switch -extended
     *** DEPRECATED RESOURCE -- REPLACED BY NEW x3270.model SYNTAX ***
@@ -537,6 +541,29 @@ x3270.port		Default telnet		Switch -port
     The name of the default TCP port for x3270 to connect to.  This can be
     either a symbolic name from /etc/services, or an integer.
 
+x3270.printer.assocCommandLine
+			Default pr3287 -assoc %L% -command %C% %H%
+    The shell command to use to start a printer session, associated with the
+    current TN3270E session LU.  Within the string, the following substitutions
+    are made:
+	%L% is replaced with the current session's LU
+	%C% is replaced with the value of the x3270.printer.command resource
+	%H% is replaced with the current host name
+
+x3270.printer.command	Default lpr
+    The name of the command supplied to the "-command" option of the pr3287
+    program to print each job.  This is the text which is substituted for
+    "%C" in the x3270.printer.assocCommandLine and x3270.printer.luCommandLine
+    resources.
+
+x3270.printer.luCommandLine
+			Default pr3287 -command %C% %L%@%H%
+    The shell command to use to start a printer session, associated with a
+    specific LU.  Within the string, the following substitutions are made:
+	%L% is replaced with the LU value entered into the dialog box
+	%C% is replaced with the value of the x3270.printer.command resource
+	%H% is replaced with the current host name
+
 x3270.printTextCommand	Default lpr
     The shell command used by the PrintText action.  An ASCII image of the
     3270 display becomes the standard input to this command.  If the first
@@ -584,8 +611,14 @@ x3270.schemeList	Default Default 3279: default
 x3270.screenTrace	Default false		Switch -set screenTrace
 			Option Save Screen(s) in File  -clear screenTrace
     When true, x3270 will save an ASCII version of the screen image in
-    the file /tmp/x3scr.&#60;pid>, every time it is redrawn.  The directory
-    prefix is defined by the traceDir resource.
+    a file, which defaults to /tmp/x3scr.&#60;pid>, every time it is redrawn.
+    The directory prefix is defined by the traceDir resource.   If the
+    screenTraceFile resource is defined, it explicitly defines the file name
+    and traceDir is ignored.
+
+x3270.screenTraceFile	No default
+    If defined, gives the name of the file that screen traces will be
+    written to.
 
 x3270.scripted		Default false		Switch -scripted
     When true, x3270 will read commands from standard input.  The rules for
@@ -599,9 +632,10 @@ x3270.scrollBar		Default false		Switches -sb, +sb
 
 x3270.secure		Default false
     When true, x3270 will prevent users from executing arbitrary commands
-    from within the program.  In particular, the "Execute Action" menu
+    from within the program.  In particular, the "Execute an Action" menu
     option is disabled, as are the pop-ups which allow editing the commands
-    for "Print Screen Text" and "Print Window Bitmap".  See the x3270.noOther
+    for "Print Screen Text" and "Print Window Bitmap", and the
+    x3270.disconnectClear resource is set to True.  See the x3270.noOther
     resource for additional security options.
 
 x3270.selectBackground	Default dim gray
@@ -622,11 +656,19 @@ x3270.termName		Default IBM-327x-n	Switch -tn
 x3270.traceCommand	Default tail -f
     The command that is run in the trace monitor window, with its standard
     input redirected from the trace file.  If given the value 'none', no
-    monitor window will be created.
+    monitor window will be created (though the trace will still be saved to
+    the file).
 
 x3270.traceDir		Default /tmp
     Defines the directory that data stream traces and screen images are saved
     in.
+
+x3270.traceFile		No default		Switch -tracefile
+    If defined, gives the name of the file that data stream and event traces
+    will be written to.  If given the value 'stdout', then the traces will
+    be written to standard output.  If given the value 'none', then the
+    traces will be piped directory to the monitor window, and no file will
+    be created.
 
 x3270.typeahead		Default true
     When true, x3270 will store keystrokes in a buffer when the keyboard is

@@ -544,6 +544,8 @@ tracefile_callback(Widget w, XtPointer client_data, XtPointer call_data unused)
 	char *tracecmd;
 	char *full_cmd;
 	time_t clk;
+	Boolean piped = False;
+	int pipefd[2];
 
 #if defined(X3270_DISPLAY) /*[*/
 	if (w)
@@ -558,9 +560,25 @@ tracefile_callback(Widget w, XtPointer client_data, XtPointer call_data unused)
 		Free(tfn);
 		return;
 	}
-	if (!strcmp(tfn, "stdout"))
+	if (!strcmp(tfn, "stdout")) {
 		tracef = stdout;
-	else {
+	} else if (!strcmp(tfn, "none") || !tfn[0]) {
+
+		if (pipe(pipefd) < 0) {
+			popup_an_errno(errno, "pipe() failed");
+			Free(tfn);
+			return;
+		}
+		tracef = fdopen(pipefd[1], "w");
+		if (tracef == (FILE *)NULL) {
+			popup_an_errno(errno, "fdopen() failed");
+			Free(tfn);
+			return;
+		}
+		(void) SETLINEBUF(tracef);
+		(void) fcntl(pipefd[1], F_SETFD, 1);
+		piped = True;
+	} else {
 		tracef = fopen(tfn, "a");
 		if (tracef == (FILE *)NULL) {
 			popup_an_errno(errno, tfn);
@@ -570,6 +588,38 @@ tracefile_callback(Widget w, XtPointer client_data, XtPointer call_data unused)
 		(void) SETLINEBUF(tracef);
 		(void) fcntl(fileno(tracef), F_SETFD, 1);
 	}
+
+	/* Start the monitor window */
+	tracecmd = get_resource(ResTraceCommand);
+	if (tracecmd == CN || !strcmp(tracecmd, "none") || tracef == stdout)
+		goto done;
+	switch (tracewindow_pid = fork()) {
+	    case 0:	/* child process */
+		if (piped) {
+			char cmd[64];
+
+			(void) sprintf(cmd, "cat /dev/fd/%d", pipefd[0]);
+			(void) execlp("xterm", "xterm", "-title", "trace",
+			    "-sb", "-e", "/bin/sh", "-c", cmd, CN);
+		} else {
+			full_cmd = xs_buffer("%s <'%s'", tracecmd, tfn);
+			(void) execlp("xterm", "xterm", "-title", tfn,
+			    "-sb", "-e", "/bin/sh", "-c", full_cmd, CN);
+		}
+		(void) perror("exec(xterm)");
+		_exit(1);
+	    default:	/* parent */
+		if (piped)
+			(void) close(pipefd[0]);
+		++children;
+		break;
+	    case -1:	/* error */
+		popup_an_errno(errno, "fork()");
+		break;
+	}
+
+    done:
+	Free(tfn);
 
 	/* Display current status */
 	clk = time((time_t *)0);
@@ -594,27 +644,6 @@ tracefile_callback(Widget w, XtPointer client_data, XtPointer call_data unused)
 		(void) fprintf(tracef, " Connected to %s, port %u\n",
 		    current_host, current_port);
 
-	/* Start the monitor window */
-	tracecmd = get_resource(ResTraceCommand);
-	if (tracecmd == CN || !strcmp(tracecmd, "none") || tracef == stdout)
-		goto done;
-	switch (tracewindow_pid = fork()) {
-	    case 0:	/* child process */
-		full_cmd = xs_buffer("%s <'%s'", tracecmd, tfn);
-		(void) execlp("xterm", "xterm", "-title", tfn,
-		    "-sb", "-e", "/bin/sh", "-c", full_cmd, CN);
-		(void) perror("exec(xterm)");
-		_exit(1);
-	    default:	/* parent */
-		++children;
-		break;
-	    case -1:	/* error */
-		popup_an_errno(errno, "fork()");
-		break;
-	}
-
-    done:
-	Free(tfn);
 
 	/* We're really tracing, turn the flag on. */
 	appres.toggle[trace_reason].value = True;
@@ -683,17 +712,40 @@ tracefile_callback(Widget w, XtPointer client_data, XtPointer call_data unused)
 	(void) fprintf(tracef, " Data stream:\n");
 }
 
+#if defined(X3270_DISPLAY) /*[*/
+/* Callback for "No File" button on trace popup */
+static void
+no_tracefile_callback(Widget w, XtPointer client_data,
+	XtPointer call_data unused)
+{
+	tracefile_callback((Widget)NULL, "", PN);
+	XtPopdown(trace_shell);
+}
+#endif /*]*/
+
 /* Open the trace file. */
 static void
 tracefile_on(int reason, enum toggle_type tt)
 {
-	char tracefile[256];
+	char tracefile_buf[256];
+	char *tracefile;
 
 	if (tracef)
 		return;
 
-	(void) sprintf(tracefile, "%s/x3trc.%d", appres.trace_dir, getpid());
 	trace_reason = reason;
+	if (appres.secure) {
+		tracefile_callback((Widget)NULL, "none", PN);
+		return;
+	}
+	if (appres.trace_file)
+		tracefile = appres.trace_file;
+	else {
+		(void) sprintf(tracefile_buf, "%s/x3trc.%d", appres.trace_dir,
+			getpid());
+		tracefile = tracefile_buf;
+	}
+
 	if (tt == TT_INITIAL) {
 		tracefile_callback((Widget)NULL, tracefile, PN);
 		return;
@@ -701,7 +753,7 @@ tracefile_on(int reason, enum toggle_type tt)
 #if defined(X3270_DISPLAY) /*[*/
 	if (trace_shell == NULL) {
 		trace_shell = create_form_popup("trace",
-		    tracefile_callback, (XtCallbackProc)NULL, FORM_NO_WHITE);
+		    tracefile_callback, no_tracefile_callback, FORM_NO_WHITE);
 		XtVaSetValues(XtNameToWidget(trace_shell, ObjDialog),
 		    XtNvalue, tracefile,
 		    NULL);
@@ -787,7 +839,7 @@ trace_screen(void)
 {
 	trace_skipping = False;
 
-	if (!toggled(SCREEN_TRACE) | !screentracef)
+	if (!toggled(SCREEN_TRACE) || !screentracef)
 		return;
 	do_screentrace();
 }
@@ -796,7 +848,7 @@ trace_screen(void)
 void
 trace_char(char c)
 {
-	if (!toggled(SCREEN_TRACE) | !screentracef)
+	if (!toggled(SCREEN_TRACE) || !screentracef)
 		return;
 	(void) fputc(c, screentracef);
 }
@@ -890,11 +942,17 @@ onescreen_callback(Widget w, XtPointer client_data, XtPointer call_data unused)
 void
 toggle_screenTrace(struct toggle *t unused, enum toggle_type tt)
 {
-	char tracefile[256];
+	char tracefile_buf[256];
+	char *tracefile;
 
 	if (toggled(SCREEN_TRACE)) {
-		(void) sprintf(tracefile, "%s/x3scr.%d", appres.trace_dir,
-			getpid());
+		if (appres.screentrace_file)
+			tracefile = appres.screentrace_file;
+		else {
+			(void) sprintf(tracefile_buf, "%s/x3scr.%d",
+				appres.trace_dir, getpid());
+			tracefile = tracefile_buf;
+		}
 		if (tt == TT_INITIAL) {
 			(void) screentrace_cb(NewString(tracefile));
 			return;

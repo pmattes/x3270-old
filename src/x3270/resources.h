@@ -19,6 +19,7 @@
 #define ResAltCursor		"altCursor"
 #define ResAplFont		"aplFont"
 #define ResAplMode		"aplMode"
+#define ResAssocCommand		"printer.assocCommandLine"
 #define ResAttnLock		"attnLock"
 #define ResBaselevelTranslations	"baselevelTranslations"
 #define ResBellVolume		"bellVolume"
@@ -65,6 +66,7 @@
 #define ResLineWrap		"lineWrap"
 #define ResLnext		"lnext"
 #define ResLockedCursor		"lockedCursor"
+#define ResLuCommandLine	"printer.luCommandLine"
 #define ResM3279		"m3279"
 #define ResMacros		"macros"
 #define ResMarginedPaste	"marginedPaste"
@@ -81,6 +83,7 @@
 #define ResOnce			"once"
 #define ResOversize		"oversize"
 #define ResPort			"port"
+#define ResPrinterCommand	"printer.command"
 #define ResQuit			"quit"
 #define ResReconnect		"reconnect"
 #define ResRectangleSelect	"rectangleSelect"
@@ -88,6 +91,7 @@
 #define ResSaveLines		"saveLines"
 #define ResSchemeList		"schemeList"
 #define ResScreenTrace		"screenTrace"
+#define ResScreenTraceFile	"screenTraceFile"
 #define ResScripted		"scripted"
 #define ResScrollBar		"scrollBar"
 #define ResSecure		"secure"
@@ -95,6 +99,7 @@
 #define ResShowTiming		"showTiming"
 #define ResTermName		"termName"
 #define ResTraceDir		"traceDir"
+#define ResTraceFile		"traceFile"
 #define ResTypeahead		"typeahead"
 #define ResUseCursorColor	"useCursorColor"
 #define ResVisualBell		"visualBell"
@@ -104,27 +109,28 @@
 #define ResWerase		"werase"
 
 /* Dotted resource names. */
-#define DotActiveIcon		".activeIcon"
-#define DotAplMode		".aplMode"
-#define DotCharClass		".charClass"
-#define DotCharset		".charset"
-#define DotColorScheme		".colorScheme"
-#define DotDsTrace		".dsTrace"
-#define DotEmulatorFont		".emulatorFont"
-#define DotExtended		".extended"
-#define DotKeymap		".keymap"
-#define DotKeypadOn		".keypadOn"
-#define DotM3279		".m3279"
-#define DotModel		".model"
-#define DotMono			".mono"
-#define DotOnce			".once"
-#define DotOversize		".oversize"
-#define DotPort			".port"
-#define DotReconnect		".reconnect"
-#define DotSaveLines		".saveLines"
-#define DotScripted		".scripted"
-#define DotScrollBar		".scrollBar"
-#define DotTermName		".termName"
+#define DotActiveIcon		"." ResActiveIcon
+#define DotAplMode		"." ResAplMode
+#define DotCharClass		"." ResCharClass
+#define DotCharset		"." ResCharset
+#define DotColorScheme		"." ResColorScheme
+#define DotDsTrace		"." ResDsTrace
+#define DotEmulatorFont		"." ResEmulatorFont
+#define DotExtended		"." ResExtended
+#define DotKeymap		"." ResKeymap
+#define DotKeypadOn		"." ResKeypadOn
+#define DotM3279		"." ResM3279
+#define DotModel		"." ResModel
+#define DotMono			"." ResMono
+#define DotOnce			"." ResOnce
+#define DotOversize		"." ResOversize
+#define DotPort			"." ResPort
+#define DotReconnect		"." ResReconnect
+#define DotSaveLines		"." ResSaveLines
+#define DotScripted		"." ResScripted
+#define DotScrollBar		"." ResScrollBar
+#define DotTermName		"." ResTermName
+#define DotTraceFile		"." ResTraceFile
 
 /* Resource classes. */
 #define ClsActiveIcon		"ActiveIcon"
@@ -199,6 +205,7 @@
 #define ClsRprnt		"Rprnt"
 #define ClsSaveLines		"SaveLines"
 #define ClsScreenTrace		"ScreenTrace"
+#define ClsScreenTraceFile	"ScreenTraceFile"
 #define ClsScripted		"Scripted"
 #define ClsScrollBar		"ScrollBar"
 #define ClsSecure		"Secure"
@@ -206,6 +213,7 @@
 #define ClsShowTiming		"ShowTiming"
 #define ClsTermName		"TermName"
 #define ClsTraceDir		"TraceDir"
+#define ClsTraceFile		"TraceFile"
 #define ClsTypeahead		"Typeahead"
 #define ClsUseCursorColor	"UseCursorColor"
 #define ClsVisualBell		"VisualBell"
@@ -243,6 +251,7 @@
 #define OptScrollBar		"-sb"
 #define OptSet			"-set"
 #define OptTermName		"-tn"
+#define OptTraceFile		"-tracefile"
 
 /* Miscellaneous values. */
 #define ResTrue			"true"

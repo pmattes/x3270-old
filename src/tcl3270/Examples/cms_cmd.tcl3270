@@ -10,16 +10,6 @@ set username [lindex $argv 1]
 set password [lindex $argv 2]
 set command [lindex $argv 3]
 
-# Return the number of rows and columns in the logical screen.
-# The host can change these from the default for the model number to 24x80 at
-# any time, so these are best evaluated dynamically.
-proc rows {} {
-	return [lindex [Status] 6]
-}
-proc cols {} {
-	return [lindex [Status] 7]
-}
-
 # Procedure to wait for a READ prompt from CMS or CP.
 proc waitread {} {
 	Snap
@@ -121,7 +111,7 @@ if {[Ascii 1 11 7] == "Already"} {
 }
 
 # If we're in CP mode, which means we disconnected last time, boot CMS.
-if {[Ascii [expr [rows]-1] [expr [cols]-20] 2] == "CP"} {
+if {[Ascii [expr [Rows]-1] [expr [Cols]-20] 2] == "CP"} {
 	Clear
 	String "i cms\n"
 	waitread

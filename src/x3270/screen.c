@@ -144,7 +144,6 @@ static char    *color_name[16] = {
 };
 static Boolean	configure_ticking = False;
 static XtIntervalId configure_id;
-static Boolean	configure_first = True;
 
 static Pixmap   inv_icon;
 static Pixmap   wait_icon;
@@ -156,6 +155,7 @@ static struct font_list *font_last = (struct font_list *) NULL;
 
 /* Globals for undoing reconfigurations. */
 static enum {
+    REDO_INITIAL,
     REDO_NONE, REDO_FONT,
 #if defined(X3270_MENUS) /*[*/
     REDO_MODEL,
@@ -164,7 +164,7 @@ static enum {
     REDO_KEYPAD,
 #endif /*]*/
     REDO_SCROLLBAR
-} screen_redo = REDO_NONE;
+} screen_redo = REDO_INITIAL;
 static char *redo_old_font = CN;
 #if defined(X3270_MENUS) /*[*/
 static int redo_old_model;
@@ -542,14 +542,7 @@ screen_reinit(unsigned cmask)
 	/* Reinitialize the status line. */
 	status_reinit(cmask);
 
-#if 0
-	if (cmask & MODEL_CHANGE) {
-		cursor_changed = True;
-	} else {
-		screen_connect(False);
-	}
-#endif
-	/* now unconditional */ cursor_changed = True;
+	cursor_changed = True;
 
 	line_changed = True;
 
@@ -598,6 +591,9 @@ set_toplevel_sizes(void)
 		XtRemoveTimeOut(configure_id);
 	configure_id = XtAppAddTimeOut(appcontext, 500, configure_stable, 0);
 	configure_ticking = True;
+#if defined(DEBUG_IRE) /*[*/
+	printf("set configure_ticking\n");
+#endif /*]*/
 
 	keypad_move();
 }
@@ -2739,6 +2735,7 @@ void
 screen_newfont(char *fontname, Boolean do_popup)
 {
 	const char *emsg;
+	char *old_font;
 
 	/* Can't change fonts in APL mode. */
 	if (appres.apl_mode)
@@ -2747,15 +2744,21 @@ screen_newfont(char *fontname, Boolean do_popup)
 	if (efontname && !strcmp(fontname, efontname))
 		return;
 
+	/* Save the old font before trying the new one. */
+	old_font = XtNewString(efontname);
+
+	/* Try the new one. */
 	if ((emsg = load_fixed_font(fontname))) {
 		if (do_popup)
 			popup_an_error("Font \"%s\"\n%s", fontname, emsg);
+		XtFree(old_font);
 		return;
 	}
 
+	/* Store the old name away, in case we have to go back to it. */
 	if (redo_old_font != CN)
 		XtFree(redo_old_font);
-	redo_old_font = XtNewString(efontname);
+	redo_old_font = old_font;
 	screen_redo = REDO_FONT;
 
 	screen_reinit(FONT_CHANGE);
@@ -3371,6 +3374,9 @@ static void
 configure_stable(XtPointer closure unused, XtIntervalId *id unused)
 {
 	configure_ticking = False;
+#if defined(DEBUG_IRE) /*[*/
+	printf("timeout; cleared configure_ticking\n");
+#endif /*]*/
 }
 
 void
@@ -3387,9 +3393,14 @@ PA_ConfigureNotify_action(Widget w unused, XEvent *event, String *params unused,
 	struct rsfont *smallest = (struct rsfont *) NULL;
 	struct rsfont *largest = (struct rsfont *) NULL;
 	struct rsfont *best = (struct rsfont *) NULL;
+	const char *revert = CN;
+	char want_size[64];
 
 #if defined(INTERNAL_ACTION_DEBUG) /*[*/
 	action_debug(PA_ConfigureNotify_action, event, params, num_params);
+#endif /*]*/
+#if defined(DEBUG_IRE) /*[*/
+	printf("Got a configure notify\n");
 #endif /*]*/
 
 	/*
@@ -3410,26 +3421,40 @@ PA_ConfigureNotify_action(Widget w unused, XEvent *event, String *params unused,
 		needs_moving = True;
 	}
 
-	/* If the window dimensions are "correct", there is nothing to do. */
+	/*
+	 * If the window dimensions are "correct", there is nothing to do.
+	 *
+	 * However, do not cancel the configure_ticking timeout -- a window
+	 * manager like twm with a MaxWindowSize defined might change its mind
+	 * and immediately suggest a smaller window with another
+	 * ConfigureNotify.
+	 */
 	if (re->width == main_width && re->height == main_height) {
-		configure_first = False;
+#if defined(DEBUG_IRE) /*[*/
+		printf(" width and height match; nothing to do [cleared first]\n");
+#endif /*]*/
 		goto done;
 	}
+#if defined(DEBUG_IRE) /*[*/
+	printf("size mismatch: want %dx%d, got %dx%d\n",
+	    main_width, main_height, re->width, re->height);
+#endif /*]*/
+	(void) sprintf(want_size, "%ux%u", main_width, main_height);
 
 	/*
 	 * There are three possible reasons for being here:
 	 * (1) The user has (through the window manager) resized our
 	 *  window.
 	 * (2) We resized our window when our configuration changed (font,
-	 *  model, integral keypad or scrollbar); mwm thinks it is too big
-	 *  and scaled it back.
-	 * (3) Mwm thinks our initial screen size is too big, and scaled it
-	 *  back.
+	 *  model, integral keypad or scrollbar); the window manager thinks it
+	 *  is too big and scaled it back.
+	 * (3) The window manager thinks our initial screen size is too big,
+	 *   and scaled it back.
 	 *
 	 * 'configure_ticking' and the associated timeout attempt to detect
 	 * (2) and (3).  Whenever we set the toplevel dimensions, we set
 	 * the timer; if a changed configure comes in while the timer is
-	 * ticking, we assume it is an angry mwm.  If this is the very first
+	 * ticking, we assume it is an angry wm.  If this is the very first
 	 * time we've sized the window, we must crash; otherwise, we can
 	 * simply back off to the previous configuration.
 	 *
@@ -3438,47 +3463,64 @@ PA_ConfigureNotify_action(Widget w unused, XEvent *event, String *params unused,
 	 * Otherwise, we restore the original toplevel dimensions.
 	 */
 
-	/* If this was our first resize, crash. */
-	if (configure_first)
-		xs_error("This x3270 configuration does not fit on the X display.");
-
 	if (configure_ticking) {
+#if defined(DEBUG_IRE) /*[*/
+		printf(" angry wm: configure ticking\n");
+#endif /*]*/
 		/*
 		 * We must presume this is the window manager disapproving of
 		 * our last resize attempt.
 		 */
 		XtRemoveTimeOut(configure_id);
 		configure_ticking = False;
-		popup_an_error("This configuration does not fit on the X display");
+#if defined(DEBUG_IRE) /*[*/
+		printf("cleared configure_ticking\n");
+#endif /*]*/
 
 		/* Restore the old configuration... */
 		switch (screen_redo) {
 		    case REDO_FONT:
+			revert = "font";
 			screen_newfont(redo_old_font, False);
 			break;
 #if defined(X3270_MENUS) /*[*/
 		    case REDO_MODEL:
+			revert = "model nubmer";
 			screen_change_model(redo_old_model,
 			    redo_old_ov_cols, redo_old_ov_rows);
 			break;
 #endif /*]*/
 #if defined(X3270_KEYPAD) /*[*/
 		    case REDO_KEYPAD:
+			revert = "keypad configuration";
 			screen_showikeypad(appres.keypad_on = False);
 			break;
 #endif /*]*/
 		    case REDO_SCROLLBAR:
+			revert = "scrollbar configuration";
 			if (toggled(SCROLL_BAR)) {
 				toggle_toggle(&appres.toggle[SCROLL_BAR]);
 				toggle_scrollBar(&appres.toggle[SCROLL_BAR],
 				    TT_TOGGLE);
 			}
 			break;
+		    case REDO_INITIAL:
+			xs_error("Main window (%s) does not fit on the X display.",
+			    want_size);
+			break;
 		    case REDO_NONE:
 		    default:
-			xs_error("Internal reconfiguration error.");
-			break;
+			/* Frightfully confused.  Die. */
+			exiting = True;
+			popup_an_error("Unexpected ConfigureNotify\n"
+			    "Internal error -- exiting");
+			return;
 		}
+
+		/* Tell the user what we're doing. */
+		popup_an_error("Main window (%s) does not fit on the X display\n"
+			       "Reverting to previous %s", want_size, revert);
+
 		screen_redo = REDO_NONE;
 
 		goto done;
@@ -3488,7 +3530,12 @@ PA_ConfigureNotify_action(Widget w unused, XEvent *event, String *params unused,
 	 * User-generated resize attempt.
 	 */
 	if (rsfonts == (struct rsfont *)NULL || !appres.allow_resize) {
+#if defined(DEBUG_IRE) /*[*/
+		printf(" illegal resize\n");
+#endif /*]*/
 		/* Illegal or impossible. */
+		if (rsfonts == (struct rsfont *)NULL)
+			popup_an_error("No fonts available for resize");
 		set_toplevel_sizes();
 		goto done;
 	}
@@ -3539,6 +3586,9 @@ PA_ConfigureNotify_action(Widget w unused, XEvent *event, String *params unused,
 	current_area = main_width * main_height;
 	requested_area = re->width * re->height;
 	if (current_area == requested_area) {
+#if defined(DEBUG_IRE) /*[*/
+		printf(" area unchanged\n");
+#endif /*]*/
 		set_toplevel_sizes();
 		goto done;
 	}
@@ -3579,10 +3629,20 @@ PA_ConfigureNotify_action(Widget w unused, XEvent *event, String *params unused,
 
 	/* Change fonts. */
 	if (efontname && !strcmp(best->name, efontname)) {
+#if defined(DEBUG_IRE) /*[*/
+		printf(" keeping font\n");
+#endif /*]*/
+		if (requested_area > current_area)
+			popup_an_error("No larger font available");
+		else if (requested_area < current_area)
+			popup_an_error("No smaller font available");
 		trace_event(" keeping font '%s' (%dx%d)\n",
 		    best->name, best->total_width, best->total_height);
 		set_toplevel_sizes();
 	} else {
+#if defined(DEBUG_IRE) /*[*/
+		printf(" switching font\n");
+#endif /*]*/
 		trace_event(" switching to font '%s' (%dx%d)\n",
 		    best->name, best->total_width, best->total_height);
 		screen_newfont(best->name, False);

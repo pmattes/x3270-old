@@ -1,5 +1,5 @@
 /*
- * Modifications Copyright 1993, 1994, 1995, 1999 by Paul Mattes.
+ * Modifications Copyright 1993, 1994, 1995, 1999, 2000 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -62,6 +62,27 @@
 #define FCORDER_FM	0x1e	/*		   field mark */
 #define FCORDER_SUB	0x3f	/*		   substitute */
 #define FCORDER_EO	0xff	/*		   eight ones */
+
+/* SCS control code, some overlap orders */
+#define SCS_BS      	0x16	/* Back Space  */
+#define SCS_BEL		0x2f	/* Bell Function */
+#define SCS_CR      	0x0d	/* Carriage Return */
+#define SCS_ENP		0x14	/* Enable Presentation */
+#define SCS_FF		0x0c	/* Forms Feed */
+#define SCS_GE		0x08	/* Graphic Escape */
+#define SCS_HT		0x05	/* Horizontal Tab */
+#define SCS_INP		0x24	/* Inhibit Presentation */
+#define SCS_IRS		0x1e	/* Interchange-Record Separator */
+#define SCS_LF		0x25	/* Line Feed */
+#define SCS_NL		0x15	/* New Line */
+#define SCS_SA		0x28	/* Set Attribute */
+#define SCS_SET		0x2b	/* Set: */
+#define  SCS_SHF	0xc1	/*  Horizontal format */
+#define  SCS_SLD	0xc6	/*  Line Density */
+#define  SCS_SVF	0xc2	/*  Vertical Format */
+#define SCS_TRN		0x35	/* Transparent */
+#define SCS_VCS		0x04	/* Vertical Channel Select */
+#define SCS_VT		0x0b	/* Vertical Tab */
 
 /* Structured fields */
 #define SF_READ_PART	0x01	/* read partition */

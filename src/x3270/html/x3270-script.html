@@ -57,10 +57,10 @@ command is successful, the second line is the string "ok"; otherwise it
 is the string "error".
 <h2>
 STATUS FORMAT</h2>
-The status message consists of 12 blank-separated fields:
+The status message consists of 11 blank-separated fields:
 <dl>
 <dt>
-Keyboard State</dt>
+1 Keyboard State</dt>
 
 <dd>
 If the keyboard is unlocked, the letter <b>U</b>. If the keyboard is locked
@@ -69,28 +69,28 @@ letter <b>L</b>. If the keyboard is locked because of an operator error
 (field overflow, protected field, etc.), the letter <b>E</b>.</dd>
 
 <dt>
-Screen Formatting</dt>
+2 Screen Formatting</dt>
 
 <dd>
 If the screen is formatted, the letter <b>F</b>. If unformatted or in ANSI
 mode, the letter <b>U</b>.</dd>
 
 <dt>
-Field Protection</dt>
+3 Field Protection</dt>
 
 <dd>
 If the field containing the cursor is protected, the letter <b>P</b>. If
 unprotected or unformatted, the letter <b>U</b>.</dd>
 
 <dt>
-Connection State</dt>
+4 Connection State</dt>
 
 <dd>
 If connected to a host, the string <b>C(</b><i>hostname).</i> Otherwise,
 the letter <b>N</b>.</dd>
 
 <dt>
-Emulator Mode</dt>
+5 Emulator Mode</dt>
 
 <dd>
 If connected in 3270 mode, the letter <b>I</b>. If connected in ANSI line
@@ -98,10 +98,10 @@ mode, the letter <b>L</b>. If connected in ANSI character mode, the letter
 <b>C</b>. If not connected, the letter <b>N</b>.</dd>
 
 <dt>
-Model Number (2-5)</dt>
+6 Model Number (2-5)</dt>
 
 <dt>
-Number of Rows</dt>
+7 Number of Rows</dt>
 
 <dd>
 The current number of rows defined on the screen. The host can request
@@ -109,26 +109,26 @@ that <b>x3270</b> or <b>s3270</b> use a 24x80 screen, so this number may
 be smaller than the maximum number of rows possible with the current model.</dd>
 
 <dt>
-Number of Columns</dt>
+8 Number of Columns</dt>
 
 <dd>
 The current number of columns defined on the screen, subject to the same
 difference for rows, above.</dd>
 
 <dt>
-Cursor Row</dt>
+9 Cursor Row</dt>
 
 <dd>
 The current cursor row (zero-origin).</dd>
 
 <dt>
-Cursor Column</dt>
+10 Cursor Column</dt>
 
 <dd>
 The current cursor column (zero-origin).</dd>
 
 <dt>
-Window ID</dt>
+11 Window ID</dt>
 
 <dd>
 The X window identifier for the main
@@ -519,7 +519,7 @@ SEE ALSO</h2>
 <br><a href="s3270-man.html"><i>s3270</i>(1)</a>
 <hr>
 <address>
-Last modified 22. June 2000</address>
+Last modified 26. August 2000</address>
 
 </body>
 </html>

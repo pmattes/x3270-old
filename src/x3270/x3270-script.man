@@ -1,4 +1,4 @@
-.TH X3270-SCRIPT 1 "22 June 2000"
+.TH X3270-SCRIPT 1 "26 August 2000"
 .SH NAME
 Scripting Facilities for x3270 and s3270
 .SH SYNOPSIS
@@ -118,9 +118,9 @@ documented below.
 If the command is successful, the second line is the string "ok"; otherwise it
 is the string "error".
 .SH "STATUS FORMAT"
-The status message consists of 12 blank-separated fields:
+The status message consists of 11 blank-separated fields:
 .TP
-Keyboard State
+1 Keyboard State
 If the keyboard is unlocked, the letter
 .BR U .
 If the keyboard is locked waiting for a response from the host, or if not
@@ -130,7 +130,7 @@ If the keyboard is locked because of an operator error (field overflow,
 protected field, etc.), the letter
 .BR E .
 .TP
-Screen Formatting
+2 Screen Formatting
 If the screen is formatted, the letter
 .BR F .
 If unformatted or in
@@ -139,19 +139,19 @@ mode,
 the letter
 .BR U .
 .TP
-Field Protection
+3 Field Protection
 If the field containing the cursor is protected, the letter
 .BR P .
 If unprotected or unformatted, the letter
 .BR U .
 .TP
-Connection State
+4 Connection State
 If connected to a host, the string
 .BI C( hostname ).
 Otherwise, the letter
 .B N .
 .TP
-Emulator Mode
+5 Emulator Mode
 If connected in 3270 mode, the letter
 .BR I .
 If connected in ANSI line mode, the letter
@@ -161,9 +161,9 @@ If connected in ANSI character mode, the letter
 If not connected, the letter
 .BR N .
 .TP
-Model Number (2-5)
+6 Model Number (2-5)
 .TP
-Number of Rows
+7 Number of Rows
 The current number of rows defined on the screen.
 The host can request that
 .B x3270
@@ -172,17 +172,17 @@ or
 use a 24x80 screen, so this number may be smaller than the maximum number of
 rows possible with the current model.
 .TP
-Number of Columns
+8 Number of Columns
 The current number of columns defined on the screen, subject to the same
 difference for rows, above.
 .TP
-Cursor Row
+9 Cursor Row
 The current cursor row (zero-origin).
 .TP
-Cursor Column
+10 Cursor Column
 The current cursor column (zero-origin).
 .TP
-Window ID
+11 Window ID
 The X window identifier for the main
 .B x3270
 window, in hexadecimal preceded by

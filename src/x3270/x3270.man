@@ -1,5 +1,5 @@
 '\" t
-.TH X3270 1 "31 July 2000"
+.TH X3270 1 "6 September 2000"
 .SH NAME
 x3270 \-
 .SM IBM
@@ -306,6 +306,18 @@ Turns on data stream tracing at startup.
 Unlike turning it on from a menu option, there is no pop-up to confirm the
 file name, which defaults to
 .BI /tmp/x3trc. process_id.
+.TP
+.BI \-tracefile " file"
+Specifies a file to save data stream and event traces into, overriding the
+default of
+.BI /tmp/x3trc. process_id.
+If the value
+.B stdout
+is given, then traces will be written to standard output.
+If the value
+.B none
+is given, then traces will be piped directly to the monitor window, and no
+file will be created.
 .SH FONTS
 By default,
 .B x3270
@@ -579,6 +591,9 @@ transfer.
 .br
 The IND$FILE program must be installed on the IBM host, and the 3270 cursor
 must be located in a field that will accept a TSO or VM/CMS command.
+.TP
+.B Printer Session
+Starts or stops a printer session.
 .TP
 .B Trace Data Stream
 If set, network traffic (both a hexadecimal representation and its
@@ -1096,6 +1111,7 @@ NextWord	move cursor to next word
 PA(\fIn\fP)	Program Attention AID (\fIn\fP from 1 to 3)
 PF(\fIn\fP)	Program Function AID (\fIn\fP from 1 to 24)
 PreviousWord	move cursor to previous word
+Printer(Start[,\fIlu\fP]|Stop)	Start or stop printer session
 PrintText(\fIcommand\fP)	print screen text on printer
 PrintWindow(\fIcommand\fP)	print screen image (bitmap) on printer
 Quit	exit \fBx3270\fP
@@ -1570,4 +1586,4 @@ notice.
 .RE
 5250 Emulation Code copyright Minolta (Schweiz) AG, Beat Rubischon.
 .SH VERSION
-x3270 3.2.11
+x3270 3.2.12

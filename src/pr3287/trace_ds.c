@@ -13,17 +13,14 @@
  *
  */
 
-#include <stdio.h>
-#include "localdefs.h"
+#include "globals.h"
 
 #include <errno.h>
 #include <signal.h>
 #include <time.h>
 #include <stdarg.h>
 #include <fcntl.h>
-#include <string.h>
 #include "3270ds.h"
-/*#include "ctlr.h"*/
 
 #include "ctlrc.h"
 #include "tablesc.h"
@@ -31,6 +28,9 @@
 
 /* Statics */
 static int      dscnt = 0;
+
+/* Globals */
+FILE           *tracef = (FILE *) 0;
 
 const char *
 unknown(unsigned char value)
@@ -425,6 +425,8 @@ see_qcode(unsigned char id)
 		return "ReplyModes";
 	    case QR_ALPHA_PART:
 		return "AlphanumericPartitions";
+	    case QR_DDM:
+		return "DistributedDataManagement";
 	    default:
 		(void) sprintf(buf, "unknown[0x%x]", id);
 		return buf;
@@ -433,7 +435,7 @@ see_qcode(unsigned char id)
 
 /* Data Stream trace print, handles line wraps */
 
-static char *tdsbuf = NULL;
+static char *tdsbuf = CN;
 #define TDS_LEN	75
 
 static void
@@ -475,7 +477,7 @@ trace_ds(const char *fmt, ...)
 	va_start(args, fmt);
 
 	/* allocate buffer */
-	if (tdsbuf == NULL)
+	if (tdsbuf == CN)
 		tdsbuf = Malloc(4096);
 
 	/* print out remainder of message */

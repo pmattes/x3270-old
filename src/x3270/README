@@ -18,6 +18,8 @@ Resources
      Voluminous documentation of all the X resources used by x3270
 Charset
      An explanation of x3270's use of fonts and character sets
+Keymap
+     How to create a custom x3270 keymap
 New
      What's new in this release
 Bugs

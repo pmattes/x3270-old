@@ -2,7 +2,7 @@
 <html>
 <head>
    <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
-   <meta name="GENERATOR" content="Mozilla/4.5 [en] (WinNT; U) [Netscape]">
+   <meta name="GENERATOR" content="Mozilla/4.74 [en] (Win98; U) [Netscape]">
    <title>x3270 Build and Install Instructions</title>
 </head>
 <body>
@@ -11,15 +11,15 @@
 x3270 Build and Install Instructions</h1>
 
 <h2>
-Vanilla X11R5 or X11R6</h2>
+Vanilla X11R6 or X11R5</h2>
 <i>x3270</i> is set up to build and install without modifications under
-any complete X11R5 or X11R6 implementation.
-<p>A "complete" R5 or R6 implementation means that <i>xmkmf</i> and <i>imake</i>
+any complete X11R6 or X11R5 implementation.
+<p>A "complete" R6 or R5 implementation means that <i>xmkmf</i> and <i>imake</i>
 are configured and installed on your system, and that the <tt>Xaw</tt>
 and <tt>Xmu</tt> libraries and header files are installed. Some vendors
 (HP and IBM in particular) consider these optional software and do not
 always install them.
-<p>If you are running vanilla X11R5 or X11R6, then the build procedure
+<p>If you are running vanilla X11R6 or X11R5, then the build procedure
 is to ensure that your X11 <tt>bin</tt> directory is in your <tt>$PATH</tt>,
 then:
 <pre>&nbsp;&nbsp;&nbsp; xmkmf&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; # create a Makefile
@@ -50,8 +50,9 @@ IBM RS/6000, AIX 3.2, X11R5</h2>
 AIX X11R5 does not include does not include <i>xmkmf</i> or <i>imake</i>,
 but it includes the source code for them. If these have not been built
 and installed on your system (<i>e.g.</i>, if there is no such file as
-<tt>/usr/bin/X11/imake</tt>), you must first build and install them by
-following the instructions in <tt>/usr/lpp/X11/Xamples/README</tt>.
+<tt>/usr/bin/X11/imake</tt>),
+you must first build and install them by following the instructions in
+<tt>/usr/lpp/X11/Xamples/README</tt>.
 <p>Once these have been installed, you can use the standard X11R5 build
 procedure above.
 <h2>
@@ -68,20 +69,26 @@ and <i>xmkmf</i>. Then you can follow the vanilla R5 build and install
 instructions.
 <h2>
 Sun Solaris 2.x</h2>
-Follow the instructions for Vanilla X11R5, with the following two changes.
-<p>Sun's <i>xmkmf</i> configuration puts some compiler flags in the <tt>Makefile</tt>
-that are specific to Sun's unbundled C compiler. If you are using a different
-C compiler such as <i>gcc</i>, you may get a number of harmless, but annoying
+Follow the instructions for Vanilla X11R6, with the following changes.
+<p><b>Do not use</b> Sun's "BSD-compatibility" C compiler, <tt>/usr/ucb/cc</tt>.
+This
+is good advice in general, and in particular, <i>x3270</i> will not build
+under it. Unfortunately, if you have installed Sun's unbundled C compiler,
+and have
+<tt>/usr/ucb</tt> in your $PATH ahead of <tt>/usr/ccs/bin</tt>,
+then you will get <tt>/usr/ucb/cc</tt> by default. The fix for this is
+the command:
+<pre>&nbsp;&nbsp;&nbsp; make CC=/usr/ccs/bin/cc</pre>
+If you are using <i>gcc</i>, then Sun's <i>xmkmf</i> configuration puts
+some compiler flags in the <tt>Makefile</tt> that are specific to Sun's
+unbundled C compiler, and you may get a number of harmless, but annoying
 error messages while compiling. To eliminate these, use the command:
-<pre>&nbsp;&nbsp;&nbsp; make "CDEBUGFLAGS=-O" "CCOPTIONS=-DSYSV -DSVR4"</pre>
+<pre>&nbsp;&nbsp;&nbsp; make CDEBUGFLAGS=-O "CCOPTIONS=-DSYSV -DSVR4"</pre>
 <i>xmkmf</i> also gets the path of the <i>install</i> program wrong. To
 install <i>x3270</i>, you must use the command:
 <pre>&nbsp;&nbsp;&nbsp; make INSTALL=/usr/ucb/install install</pre>
 To run <i>x3270</i>, you must have your <tt>LD_LIBRARY_PATH</tt> environment
 variable set properly. First, it must include <tt>/usr/openwin/lib</tt>.
-Also, if you are using Sun's BSD-compatibility C compiler, <tt>/usr/ucb/cc</tt>
-(this is <b>not</b> recommended), you must also use include <tt>/usr/ucblib</tt>.
-See the <i>dryrun</i> script for details on how to do this.
 <h2>
 Systems Based on System V, Release 4</h2>
 Before running <i>xmkmf</i>, you must uncomment a line in the <tt>Imakefile</tt>
@@ -91,7 +98,7 @@ to include the network libraries:
 <h2>
 Mixed X Environments</h2>
 If you are running a mixture of X environments, such as running a Sun XNews
-server but using X11R5 libraries and header files, the supplied <tt>Imakefile</tt>
+server but using X11R6 libraries and header files, the supplied <tt>Imakefile</tt>
 may not work properly, because it assumes that your server and libraries
 are of the same type. This is not an impossible situation, just a difficult
 one. It generally means that you will have to build and install the fonts
@@ -145,7 +152,8 @@ app-defaults file compounds the above problems.
 <p>Starting with version 3.1.0.0, <i>x3270</i> no longer uses a separate
 app-defaults file. Instead, the file is compiled into <i>x3270</i> itself.
 If however, you prefer to have a separate app-defaults file, you can compile
-<i>x3270</i> to use it.
+<i>x3270</i>
+to use it.
 <p>First, you must decide whether you want app-defaults for a color display
 or a monochrome display. The default is color; if you want monochrome app-defaults
 you must edit <tt>Imakefile</tt> and un-comment the line under the comment

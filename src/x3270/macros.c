@@ -1,5 +1,5 @@
 /*
- * Copyright 1993, 1994, 1995, 1996, 1999 by Paul Mattes.
+ * Copyright 1993, 1994, 1995, 1996, 1999, 2000 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -38,6 +38,9 @@
 #include "macrosc.h"
 #include "menubarc.h"
 #include "popupsc.h"
+#if defined(X3270_PRINTER) /*[*/
+#include "printerc.h"
+#endif /*]*/
 #include "screenc.h"
 #include "statusc.h"
 #include "tablesc.h"
@@ -1345,7 +1348,7 @@ EbcdicField_action(Widget w unused, XEvent *event unused,
 }
 
 /*
- * The sms prompt is preceeded by a status line with 12 fields:
+ * The sms prompt is preceeded by a status line with 11 fields:
  *
  *  1 keyboard status
  *     U unlocked
@@ -1366,12 +1369,12 @@ EbcdicField_action(Widget w unused, XEvent *event unused,
  *     L connected in ANSI line mode
  *     P 3270 negotiation pending
  *     I connected in 3270 mode
- *  7 model number
- *  8 max rows
- *  9 max cols
- * 10 cursor row
- * 11 cursor col
- * 12 main window id
+ *  6 model number
+ *  7 rows
+ *  8 cols
+ *  9 cursor row
+ * 10 cursor col
+ * 11 main window id
  */
 static char *
 status_string(void)
@@ -2118,6 +2121,28 @@ Macro_action(Widget w unused, XEvent *event unused, String *params,
 	popup_an_error("no such macro: '%s'", params[0]);
 }
 
+#if defined(X3270_PRINTER) /*[*/
+/* "Printer" action, starts or stops a printer session. */
+void
+Printer_action(Widget w unused, XEvent *event unused, String *params,
+    Cardinal *num_params)
+{
+	if (check_usage(Printer_action, *num_params, 1, 2) < 0)
+		return;
+	if (!strcasecmp(params[0], "Start")) {
+		printer_start((*num_params > 1)? params[1] : CN);
+	} else if (!strcasecmp(params[0], "Stop")) {
+		if (*num_params != 1) {
+			popup_an_error("%s: extra argument(s)",
+			    action_name(Printer_action));
+			return;
+		}
+		printer_stop();
+	} else {
+		popup_an_error("Unknown keyword: %s", params[0]);
+	}
+}
+#endif /*]*/
 
 #if defined(X3270_MENUS) /*[*/
 /* Abort all running scripts. */

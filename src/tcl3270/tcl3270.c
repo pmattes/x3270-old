@@ -26,7 +26,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tcl3270.c,v 1.7 2000/07/09 04:50:37 pdm Exp $
+ * RCS: @(#) $Id: tcl3270.c,v 1.8 2000/08/03 00:38:26 pdm Exp $
  */
 
 /*
@@ -77,6 +77,7 @@ extern int matherr();
 int *tclDummyMathPtr = (int *) matherr;
 
 static Tcl_ObjCmdProc x3270_cmd;
+static Tcl_ObjCmdProc Rows_cmd, Cols_cmd;
 static enum {
 	NOT_WAITING,		/* Not waiting */
 	AWAITING_CONNECT,	/* Connect (negotiation completion) */
@@ -257,6 +258,10 @@ Tcl_AppInit(Tcl_Interp *interp)
 	    return TCL_ERROR;
 	}
     }
+    if (Tcl_CreateObjCommand(interp, "Rows", Rows_cmd, NULL, NULL) == NULL)
+	return TCL_ERROR;
+    if (Tcl_CreateObjCommand(interp, "Cols", Cols_cmd, NULL, NULL) == NULL)
+	return TCL_ERROR;
 
     /*
      * Specify a user-specific startup file to invoke if the application
@@ -1029,6 +1034,36 @@ Wait_action(Widget w unused, XEvent *event unused, String *params,
 	} else {
 		popup_an_error("Unknown Wait type: %s", params[0]);
 	}
+}
+
+static int
+Rows_cmd(ClientData clientData, Tcl_Interp *interp, int objc,
+		Tcl_Obj *CONST objv[])
+{
+	char buf[32];
+
+	if (objc > 1) {
+		Tcl_SetResult(interp, "Too many arguments", TCL_STATIC);
+		return TCL_ERROR;
+	}
+	(void) sprintf(buf, "%d", ROWS);
+	Tcl_SetResult(interp, buf, TCL_VOLATILE);
+	return TCL_OK;
+}
+
+static int
+Cols_cmd(ClientData clientData, Tcl_Interp *interp, int objc,
+		Tcl_Obj *CONST objv[])
+{
+	char buf[32];
+
+	if (objc > 1) {
+		Tcl_SetResult(interp, "Too many arguments", TCL_STATIC);
+		return TCL_ERROR;
+	}
+	(void) sprintf(buf, "%d", COLS);
+	Tcl_SetResult(interp, buf, TCL_VOLATILE);
+	return TCL_OK;
 }
 
 /* Generate a response to a script command. */

@@ -1,5 +1,5 @@
 /*
- * Copyright 1993, 1994, 1995, 1999 by Paul Mattes.
+ * Copyright 1993, 1994, 1995, 1999, 2000 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -725,6 +725,13 @@ osc_start(void)
 	osc_valid = False;
 }
 
+/*
+ * Return a 'selection' version of a given character on the screen.
+ * Returns a printable ASCII character, or 0 if the character is a NULL and
+ * shouldn't be included in the selection.
+ * Also returns in 'ge' whether or not an ESC (0x1b) should be included
+ * in front of the character.
+ */
 static unsigned char
 onscreen_char(int baddr, Boolean *ge)
 {
@@ -752,33 +759,43 @@ onscreen_char(int baddr, Boolean *ge)
 		osc_valid = True;
 	}
 
+	/* Assume it isn't a graphic escape. */
 	*ge = False;
+
+	/* If it isn't visible, then make it a blank. */
 	if (FA_IS_ZERO(fa))
 		return ' ';
-	else {
-		switch (ea_buf[baddr].cs) {
-		    case 0:
+
+	switch (ea_buf[baddr].cs) {
+	    case 0:
+	    default:
+		switch (screen_buf[baddr]) {
+		    case CG_null:
+			return 0;
+		    case CG_fm:
+			*ge = True;
+			return ';';
+		    case CG_dup:
+			*ge = True;
+			return '*';
 		    default:
-			switch (screen_buf[baddr]) {
-			    case CG_fm:
-				*ge = True;
-				return ';';
-			    case CG_dup:
-				*ge = True;
-				return '*';
-			    default:
-				return cg2asc[screen_buf[baddr]];
-			}
-		    case CS_GE:
-			if (screen_buf[baddr] == CG_Yacute)
-				return '[';
-			else if (screen_buf[baddr] == CG_diaeresis)
-				return ']';
+			return cg2asc[screen_buf[baddr]];
+		}
+	    case CS_GE:
+		switch (screen_buf[baddr]) {
+		    case CG_null:
+			return 0;
+		    case CG_Yacute:
+			return '[';
+		    case CG_diaeresis:
+			return ']';
+		    default:
 			*ge = True;
 			return cg2asc[screen_buf[baddr]];
-		    case 2:
-			return screen_buf[baddr] + 0x5f;
 		}
+	    case 2:
+		/* vt100 line-drawing character */
+		return screen_buf[baddr] + 0x5f;
 	}
 }
 
@@ -876,23 +893,28 @@ grab_sel(int start, int end, Boolean really, Time t)
 				if (i != start && !(i % COLS))
 					store_sel('\n');
 				osc = onscreen_char(i, &ge);
-				if (ge)
-					store_sel('\033');
-				store_sel((char)osc);
+				if (osc) {
+					if (ge)
+						store_sel('\033');
+					store_sel((char)osc);
+				}
 			}
 		}
 		/* Check for newline extension */
 		if ((end % COLS) != (COLS - 1)) {
 			Boolean all_blank = True;
 
-			for (i = end; i < end + (COLS - (end % COLS)); i++)
-				if (onscreen_char(i, &ge) != ' ') {
+			for (i = end; i < end + (COLS - (end % COLS)); i++) {
+				osc = onscreen_char(i, &ge);
+				if (osc && osc != ' ') {
 					all_blank = False;
 					break;
 				}
+			}
 			if (all_blank) {
-				for (i = end; i < end + (COLS - (end % COLS)); i++)
+				for (i = end; i < end + (COLS - (end % COLS)); i++) {
 					SET_SELECT(i);
+				}
 				store_sel('\n');
 			}
 		}
@@ -903,9 +925,11 @@ grab_sel(int start, int end, Boolean really, Time t)
 				SET_SELECT(i);
 				if (really) {
 					osc = onscreen_char(i, &ge);
-					if (ge)
-						store_sel('\033');
-					store_sel((char)osc);
+					if (osc) {
+						if (ge)
+							store_sel('\033');
+						store_sel((char)osc);
+					}
 				}
 			}
 			if (really && (end % COLS == COLS - 1))
@@ -927,9 +951,11 @@ grab_sel(int start, int end, Boolean really, Time t)
 					SET_SELECT(row*COLS + col);
 					if (really) {
 						osc = onscreen_char(row*COLS + col, &ge);
-						if (ge)
-							store_sel('\033');
-						store_sel((char)osc);
+						if (osc) {
+							if (ge)
+								store_sel('\033');
+							store_sel((char)osc);
+						}
 					}
 				}
 				if (really)
@@ -938,28 +964,10 @@ grab_sel(int start, int end, Boolean really, Time t)
 		}
 	}
 
-	/* Trim trailing blanks on each line */
-	if (really) {
-		int k, l;
-		char c;
-		int nb = 0;
-		int iy = 0;
-
+	/* Terminate the result. */
+	if (really)
 		store_sel('\0');
-		for (k = 0; (c = select_buf[k]); k++) {
-			if (c == ' ')
-				nb++;
-			else {
-				if (c != '\n') {
-					for (l = 0; l < nb; l++)
-						select_buf[iy++] = ' ';
-				}
-				select_buf[iy++] = c;
-				nb = 0;
-			}
-		}
-		select_buf[iy] = '\0';
-	}
+
 	any_selected = True;
 	ctlr_changed(0, ROWS*COLS);
 	if (really)

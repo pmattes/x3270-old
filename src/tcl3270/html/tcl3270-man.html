@@ -315,10 +315,10 @@
 
 </PRE>
 <H2>STATUS COMMAND</H2><PRE>
-       The result of the Status command consists of 11 blank-sep-
+       The result of the Status command consists of 10 blank-sep-
        arated fields:
 
-       Keyboard State
+       1 Keyboard State
               If the keyboard is unlocked, the letter <B>U</B>.  If  the
               keyboard  is locked waiting for a response from the
               host, or if not connected to a host, the letter  <B>L</B>.
@@ -326,43 +326,43 @@
               error (field overflow, protected field, etc.),  the
               letter <B>E</B>.
 
-       Screen Formatting
+       2 Screen Formatting
               If  the  screen  is  formatted,  the  letter <B>F</B>.  If
               unformatted or in ANSI mode, the letter <B>U</B>.
 
-       Field Protection
+       3 Field Protection
               If the field containing the  cursor  is  protected,
               the  letter  <B>P</B>.  If unprotected or unformatted, the
               letter <B>U</B>.
 
-       Connection State
+       4 Connection State
               If connected to a  host,  the  string  <B>C(</B><I>hostname</I><B>).</B>
               Otherwise, the letter <B>N</B> <B>.</B>
 
-       Emulator Mode
+       5 Emulator Mode
               If  connected  in 3270 mode, the letter <B>I</B>.  If con-
               nected in ANSI line mode, the letter  <B>L</B>.   If  con-
               nected  in  ANSI  character mode, the letter <B>C</B>.  If
               not connected, the letter <B>N</B>.
 
-       Model Number (2-5)
+       6 Model Number (2-5)
 
-       Number of Rows
+       7 Number of Rows
               The current number of rows defined on  the  screen.
               The  host  can  request  that  <B>tcl3270</B>  use a 24x80
               screen, so this number may be smaller than the max-
               imum  number  of  rows  possible  with  the current
               model.
 
-       Number of Columns
+       8 Number of Columns
               The  current  number  of  columns  defined  on  the
               screen,  subject  to  the same difference for rows,
               above.
 
-       Cursor Row
+       9 Cursor Row
               The current cursor row (zero-origin).
 
-       Cursor Column
+       10 Cursor Column
               The current cursor column (zero-origin).
 
 
@@ -674,7 +674,7 @@
 
 </PRE>
 <H2>VERSION</H2><PRE>
-       tcl3270 3.2.11
+       tcl3270 3.2.12
 
 
 

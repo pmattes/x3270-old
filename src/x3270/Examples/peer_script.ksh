@@ -56,7 +56,7 @@ function die
 }
 
 # Start x3270 as a co-process
-x3270 -script -model 2 -color 2>&1 |&
+x3270 -script -model 2 2>&1 |&
 xp=$!
 xi -s 0 >/dev/null || exit 1
 

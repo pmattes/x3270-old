@@ -333,7 +333,6 @@ create_form_popup(const char *name, XtCallbackProc callback,
 	    NULL);
 
 	/* Add "Confirm" and "Cancel" buttons to the dialog */
-
 	w = XtVaCreateManagedWidget(
 	    ObjConfirmButton, commandWidgetClass, dialog,
 	    NULL);
@@ -376,7 +375,7 @@ create_form_popup(const char *name, XtCallbackProc callback,
 
 static Widget error_shell = NULL;
 static Widget error_form;
-Boolean error_popup_visible;
+Boolean error_popup_visible = False;
 
 /* Called when OK is pressed on the error popup */
 static void
@@ -412,23 +411,20 @@ error_popup_init(void)
 	XtAddCallback(error_shell, XtNpopdownCallback, error_popdown, PN);
 
 	/* Create a dialog in the popup */
-
 	error_form = XtVaCreateManagedWidget(
 	    ObjDialog, dialogWidgetClass, error_shell,
 	    NULL);
 	XtVaSetValues(XtNameToWidget(error_form, XtNlabel),
-	    XtNlabel, "first line\nsecond line",
+	    XtNlabel, "first line\nsecond line\nthird line\nfourth line",
 	    NULL);
 
 	/* Add "OK" button to the dialog */
-
 	w = XtVaCreateManagedWidget(
 	    ObjConfirmButton, commandWidgetClass, error_form,
 	    NULL);
 	XtAddCallback(w, XtNcallback, saw_error, 0);
 
-	/* Force it into existence so it sizes itself with 2-line text */
-
+	/* Force it into existence so it sizes itself with 4-line text */
 	XtRealizeWidget(error_shell);
 }
 
@@ -483,7 +479,7 @@ popup_an_errno(int errn, const char *fmt, ...)
 
 static Widget info_shell = NULL;
 static Widget info_form;
-Boolean info_popup_visible;
+Boolean info_popup_visible = False;
 
 /* Called when OK is pressed on the info popup */
 static void
@@ -517,23 +513,20 @@ info_popup_init(void)
 	XtAddCallback(info_shell, XtNpopdownCallback, info_popdown, PN);
 
 	/* Create a dialog in the popup */
-
 	info_form = XtVaCreateManagedWidget(
 	    ObjDialog, dialogWidgetClass, info_shell,
 	    NULL);
 	XtVaSetValues(XtNameToWidget(info_form, XtNlabel),
-	    XtNlabel, "first line\nsecond line",
+	    XtNlabel, "first line\nsecond line\nthird line\nfourth line",
 	    NULL);
 
 	/* Add "OK" button to the dialog */
-
 	w = XtVaCreateManagedWidget(
 	    ObjConfirmButton, commandWidgetClass, info_form,
 	    NULL);
 	XtAddCallback(w, XtNcallback, saw_info, 0);
 
-	/* Force it into existence so it sizes itself with 2-line text */
-
+	/* Force it into existence so it sizes itself with 4-line text */
 	XtRealizeWidget(info_shell);
 }
 
