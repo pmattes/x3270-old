@@ -42,11 +42,11 @@ Boolean		auto_reconnect_disabled = False;
 
 char           *current_host = CN;
 char           *full_current_host = CN;
+char	       *reconnect_host = CN;
 unsigned short  current_port;
 
 struct host *hosts = (struct host *)NULL;
 static struct host *last_host = (struct host *)NULL;
-static Boolean hostfile_initted = False;
 static Boolean auto_reconnect_inprogress = False;
 static int net_sock = -1;
 
@@ -79,6 +79,12 @@ hostfile_init(void)
 {
 	FILE *hf;
 	char buf[1024];
+	static Boolean hostfile_initted = False;
+
+	if (hostfile_initted)
+		return;
+	else
+		hostfile_initted = True;
 
 	if (appres.hostsfile == CN)
 		appres.hostsfile = xs_buffer("%s/ibm_hosts", LIBX3270DIR);
@@ -106,9 +112,9 @@ hostfile_init(void)
 			    ResHostsFile);
 			continue;
 		}
-		h = (struct host *)XtMalloc(sizeof(*h));
-		h->name = XtNewString(name);
-		h->hostname = XtNewString(hostname);
+		h = (struct host *)Malloc(sizeof(*h));
+		h->name = NewString(name);
+		h->hostname = NewString(hostname);
 
 		/*
 		 * Quick syntax extension to allow the hosts file to
@@ -122,7 +128,7 @@ hostfile_init(void)
 		else
 			h->entry_type = ALIAS;
 		if (*s)
-			h->loginstring = XtNewString(s);
+			h->loginstring = NewString(s);
 		else
 			h->loginstring = CN;
 		h->next = (struct host *)0;
@@ -144,10 +150,7 @@ hostfile_lookup(const char *name, char **hostname, char **loginstring)
 {
 	struct host *h;
 
-	if (!hostfile_initted) {
-		hostfile_init();
-		hostfile_initted = True;
-	}
+	hostfile_init();
 	for (h = hosts; h; h = h->next)
 		if (! strcmp(name, h->name)) {
 			*hostname = h->hostname;
@@ -232,12 +235,12 @@ split_host(char *s, Boolean *ansi, Boolean *std_ds, Boolean *passthru,
 		char *r;
 		char *sep;
 
-		r = XtNewString(s);
+		r = NewString(s);
 		sep = strrchr(r, ':');
 		if (sep == NULL)
 			sep = strrchr(r, ' ');
 		else if (strrchr(r, ' ') != NULL) {
-			XtFree(r);
+			Free(r);
 			return CN;
 		}
 		if (sep != CN) {
@@ -257,7 +260,8 @@ split_host(char *s, Boolean *ansi, Boolean *std_ds, Boolean *passthru,
  * Network connect/disconnect operations, combined with X input operations.
  *
  * Returns 0 for success, -1 for error.
- * Sets 'current_host' and 'full_current_host' as side-effects.
+ * Sets 'reconnect_host', 'current_host' and 'full_current_host' as
+ * side-effects.
  */
 int
 host_connect(const char *n)
@@ -289,6 +293,11 @@ host_connect(const char *n)
 	while (*s == ' ')
 		*s-- = '\0';
 
+	/* Remember this hostname, as the last hostname we connected to. */
+	if (reconnect_host != CN)
+		Free(reconnect_host);
+	reconnect_host = NewString(nb);
+
 #if defined(LOCAL_PROCESS) /*[*/
 	if ((localprocess_cmd = parse_localprocess(nb)) != CN) {
 		chost = localprocess_cmd;
@@ -308,7 +317,7 @@ host_connect(const char *n)
 			 * Qualifiers, LU names, and ports are all overridden
 			 * by the hosts file.
 			 */
-			XtFree(s);
+			Free(s);
 			if (!(s = split_host(target_name, &ansi_host,
 			    &std_ds_host, &passthru_host, luname, &port)))
 				return -1;
@@ -329,17 +338,17 @@ host_connect(const char *n)
 	 */
 	if (n != full_current_host) {
 		if (full_current_host != CN)
-			XtFree(full_current_host);
-		full_current_host = XtNewString(n);
+			Free(full_current_host);
+		full_current_host = NewString(n);
 	}
 	if (current_host != CN)
-		XtFree(current_host);
+		Free(current_host);
 	if (localprocess_cmd != CN) {
 		if (full_current_host[strlen(OptLocalProcess)] != '\0')
-		current_host = XtNewString(full_current_host +
+		current_host = NewString(full_current_host +
 		    strlen(OptLocalProcess) + 1);
 		else
-			current_host = XtNewString("default shell");
+			current_host = NewString("default shell");
 	} else {
 		current_host = s;
 	}
@@ -388,7 +397,7 @@ host_connect(const char *n)
  */
 /*ARGSUSED*/
 static void
-try_reconnect(XtPointer data unused, XtIntervalId *id unused)
+try_reconnect(void)
 {
 	auto_reconnect_inprogress = False;
 	host_reconnect();
@@ -403,7 +412,7 @@ host_reconnect(void)
 	if (auto_reconnect_inprogress || current_host == CN ||
 	    CONNECTED || HALF_CONNECTED)
 		return;
-	if (host_connect(full_current_host) >= 0)
+	if (host_connect(reconnect_host) >= 0)
 		auto_reconnect_inprogress = False;
 }
 #endif /*]*/
@@ -433,8 +442,7 @@ host_disconnect(Boolean disable)
 		    !auto_reconnect_disabled) {
 			/* Schedule an automatic reconnection. */
 			auto_reconnect_inprogress = True;
-			(void) XtAppAddTimeOut(appcontext, RECONNECT_MS,
-			    try_reconnect, PN);
+			(void) AddTimeOut(RECONNECT_MS, try_reconnect);
 		}
 #endif /*]*/
 
@@ -489,7 +497,7 @@ register_schange(int tx, void (*func)(Boolean))
 {
 	struct st_callback *st;
 
-	st = (struct st_callback *)XtMalloc(sizeof(*st));
+	st = (struct st_callback *)Malloc(sizeof(*st));
 	st->func = func;
 	st->next = (struct st_callback *)NULL;
 	if (st_last[tx] != (struct st_callback *)NULL)

@@ -145,24 +145,24 @@ ctlr_reinit(unsigned cmask)
 	if (cmask & MODEL_CHANGE) {
 		/* Allocate buffers */
 		if (screen_buf)
-			XtFree((char *)screen_buf);
-		screen_buf = (unsigned char *)XtCalloc(sizeof(unsigned char),
+			Free((char *)screen_buf);
+		screen_buf = (unsigned char *)Calloc(sizeof(unsigned char),
 		    maxROWS * maxCOLS);
 		if (ea_buf)
-			XtFree((char *)ea_buf);
-		ea_buf = (struct ea *)XtCalloc(sizeof(struct ea),
+			Free((char *)ea_buf);
+		ea_buf = (struct ea *)Calloc(sizeof(struct ea),
 		    maxROWS * maxCOLS);
 		if (ascreen_buf)
-			XtFree((char *)ascreen_buf);
-		ascreen_buf = (unsigned char *)XtCalloc(sizeof(unsigned char),
+			Free((char *)ascreen_buf);
+		ascreen_buf = (unsigned char *)Calloc(sizeof(unsigned char),
 		    maxROWS * maxCOLS);
 		if (aea_buf)
-			XtFree((char *)aea_buf);
-		aea_buf = (struct ea *)XtCalloc(sizeof(struct ea),
+			Free((char *)aea_buf);
+		aea_buf = (struct ea *)Calloc(sizeof(struct ea),
 		    maxROWS * maxCOLS);
 		if (zero_buf)
-			XtFree((char *)zero_buf);
-		zero_buf = (unsigned char *)XtCalloc(sizeof(unsigned char),
+			Free((char *)zero_buf);
+		zero_buf = (unsigned char *)Calloc(sizeof(unsigned char),
 		    maxROWS * maxCOLS);
 		cursor_addr = 0;
 		buffer_addr = 0;
@@ -191,7 +191,7 @@ set_rows_cols(int mn, int ovc, int ovr)
 	case 4:
 #if defined(RESTRICT_3279) /*[*/
 		if (appres.m3279) {
-			XtWarning("No 3279 Model 4, defaulting to Model 3");
+			Warning("No 3279 Model 4, defaulting to Model 3");
 			set_rows_cols("3", ovc, ovr);
 			return;
 		}
@@ -203,7 +203,7 @@ set_rows_cols(int mn, int ovc, int ovr)
 	case 5:
 #if defined(RESTRICT_3279) /*[*/
 		if (appres.m3279) {
-			XtWarning("No 3279 Model 5, defaulting to Model 3");
+			Warning("No 3279 Model 5, defaulting to Model 3");
 			set_rows_cols(3, ovc, ovr);
 			return;
 		}
@@ -610,13 +610,17 @@ ctlr_read_modified(unsigned char aid_byte, Boolean all)
 		/* fall through... */
 
 	    default:				/* ordinary AID */
-		space3270out(3);
-		*obptr++ = aid_byte;
-		trace_ds(see_aid(aid_byte));
-		if (short_read)
-		    goto rm_done;
-		ENCODE_BADDR(obptr, cursor_addr);
-		trace_ds(rcba(cursor_addr));
+		if (!IN_SSCP) {
+			space3270out(3);
+			*obptr++ = aid_byte;
+			trace_ds(see_aid(aid_byte));
+			if (short_read)
+			    goto rm_done;
+			ENCODE_BADDR(obptr, cursor_addr);
+			trace_ds(rcba(cursor_addr));
+		} else {
+			space3270out(1);	/* just in case */
+		}
 		break;
 	}
 
@@ -1492,6 +1496,7 @@ ctlr_write_sscp_lu(unsigned char buf[], int buflen)
 {
 	int i;
 	unsigned char *cp = buf;
+	int s_row;
 
 	for (i = 0; i < buflen; cp++, i++) {
 		switch (*cp) {
@@ -1500,7 +1505,8 @@ ctlr_write_sscp_lu(unsigned char buf[], int buflen)
 			 * Insert NULLs to the end of the line and advance to
 			 * the beginning of the next line.
 			 */
-			while (buffer_addr % COLS) {
+			s_row = buffer_addr / COLS;
+			while ((buffer_addr / COLS) == s_row) {
 				ctlr_add(buffer_addr, ebc2cg[0], default_cs);
 				ctlr_add_fg(buffer_addr, default_fg);
 				ctlr_add_gr(buffer_addr, default_gr);
@@ -1525,6 +1531,10 @@ ctlr_write_sscp_lu(unsigned char buf[], int buflen)
 	}
 	cursor_move(buffer_addr);
 	sscp_start = buffer_addr;
+
+	/* Unlock the keyboard. */
+	aid = AID_NO;
+	do_reset(False);
 }
 
 /*
@@ -1901,7 +1911,7 @@ ctlr_shrink(void)
  */
 static struct timeval t_start;
 static Boolean ticking = False;
-static XtIntervalId tick_id;
+static unsigned long tick_id;
 static struct timeval t_want;
 
 /* Return the difference in milliseconds between two timevals. */
@@ -1914,7 +1924,7 @@ delta_msec(struct timeval *t1, struct timeval *t0)
 
 /*ARGSUSED*/
 static void
-keep_ticking(XtPointer closure unused, XtIntervalId *id unused)
+keep_ticking(void)
 {
 	struct timeval t1;
 	long msec;
@@ -1924,7 +1934,7 @@ keep_ticking(XtPointer closure unused, XtIntervalId *id unused)
 		t_want.tv_sec++;
 		msec = delta_msec(&t_want, &t1);
 	} while (msec <= 0);
-	tick_id = XtAppAddTimeOut(appcontext, msec, keep_ticking, 0);
+	tick_id = AddTimeOut(msec, keep_ticking);
 	status_timing(&t_start, &t1);
 }
 
@@ -1935,10 +1945,10 @@ ticking_start(Boolean anyway)
 		return;
 	status_untiming();
 	if (ticking)
-		XtRemoveTimeOut(tick_id);
+		RemoveTimeOut(tick_id);
 	ticking = True;
 	(void) gettimeofday(&t_start, (struct timezone *) 0);
-	tick_id = XtAppAddTimeOut(appcontext, 1000, keep_ticking, 0);
+	tick_id = AddTimeOut(1000, keep_ticking);
 	t_want = t_start;
 }
 
@@ -1949,7 +1959,7 @@ ticking_stop(void)
 
 	if (!ticking)
 		return;
-	XtRemoveTimeOut(tick_id);
+	RemoveTimeOut(tick_id);
 	(void) gettimeofday(&t1, (struct timezone *) 0);
 	ticking = False;
 	status_timing(&t_start, &t1);

@@ -84,7 +84,7 @@ typedef struct sms {
 	FILE   *outfile;
 	int	infd;
 	int	pid;
-	XtIntervalId expect_id;
+	unsigned long expect_id;
 } sms_t;
 #define SN	((sms_t *)NULL)
 static sms_t *sms = SN;
@@ -93,7 +93,7 @@ static int sms_depth = 0;
 #if defined(X3270_MENUS) /*[*/
 static struct macro_def *macro_last = (struct macro_def *) NULL;
 #endif /*]*/
-static XtInputId stdin_id = (XtInputId)NULL;
+static unsigned long stdin_id = 0L;
 static unsigned char *ansi_save_buf;
 static int      ansi_save_cnt = 0;
 static int      ansi_save_ix = 0;
@@ -105,7 +105,7 @@ static const char *st_name[] = { "String", "Macro", "ChildScript",
 #define ST_NAME		ST_sNAME(sms)
 
 static void script_prompt(Boolean success);
-static void script_input(XtPointer fd);
+static void script_input(void);
 static void sms_pop(Boolean can_exit);
 
 /* Macro that defines that the keyboard is locked due to user input. */
@@ -162,13 +162,13 @@ macros_init(void)
 	/* Free the previous macro definitions. */
 	while (macro_defs) {
 		m = macro_defs->next;
-		XtFree((XtPointer)macro_defs);
+		Free(macro_defs);
 		macro_defs = m;
 	}
 	macro_defs = (struct macro_def *)NULL;
 	macro_last = (struct macro_def *)NULL;
 	if (last_s) {
-		XtFree((XtPointer)last_s);
+		Free(last_s);
 		last_s = CN;
 	}
 
@@ -177,25 +177,25 @@ macros_init(void)
 		char *rname;
 		char *space;
 
-		rname = XtNewString(current_host);
+		rname = NewString(current_host);
 		if ((space = strchr(rname, ' ')))
 			*space = '\0';
 		s = xs_buffer("%s.%s", ResMacros, rname);
-		XtFree(rname);
+		Free(rname);
 		rname = s;
 		s = get_resource(rname);
-		XtFree(rname);
+		Free(rname);
 	}
 	if (s == CN) {
 		if (appres.macros == CN)
 			return;
-		s = XtNewString(appres.macros);
+		s = NewString(appres.macros);
 	} else
-		s = XtNewString(s);
+		s = NewString(s);
 	last_s = s;
 
 	while ((ns = split_dresource(&s, &name, &action)) == 1) {
-		m = (struct macro_def *)XtMalloc(sizeof(*m));
+		m = (struct macro_def *)Malloc(sizeof(*m));
 		m->name = name;
 		m->action = action;
 		if (macro_last)
@@ -210,7 +210,7 @@ macros_init(void)
 		char buf[256];
 
 		(void) sprintf(buf, "Error in macro %d", ix);
-		XtWarning(buf);
+		Warning(buf);
 	}
 }
 #endif /*]*/
@@ -221,16 +221,13 @@ macros_init(void)
 static void
 script_enable(void)
 {
-	if (sms->infd >= 0 && stdin_id == (XtInputId)NULL) {
+	if (sms->infd >= 0 && stdin_id == 0) {
 #if defined(X3270_TRACE) /*[*/
 		if (toggled(DS_TRACE))
 			(void) fprintf(tracef, "Enabling input for %s[%d]\n",
 			    ST_NAME, sms_depth);
 #endif /*]*/
-		stdin_id = XtAppAddInput(appcontext, sms->infd,
-		    (XtPointer)XtInputReadMask,
-		    (XtInputCallbackProc)script_input,
-		    (XtPointer)sms->infd);
+		stdin_id = AddInput(sms->infd, script_input);
 	}
 }
 
@@ -240,14 +237,14 @@ script_enable(void)
 static void
 script_disable(void)
 {
-	if (stdin_id != (XtInputId)NULL) {
+	if (stdin_id != 0) {
 #if defined(X3270_TRACE) /*[*/
 		if (toggled(DS_TRACE))
 			(void) fprintf(tracef, "Disabling input for %s[%d]\n",
 			    ST_NAME, sms_depth);
 #endif /*]*/
-		XtRemoveInput(stdin_id);
-		stdin_id = (XtInputId)NULL;
+		RemoveInput(stdin_id);
+		stdin_id = 0L;
 	}
 }
 
@@ -257,7 +254,7 @@ new_sms(enum sms_type type)
 {
 	sms_t *s;
 
-	s = (sms_t *)XtCalloc(1, sizeof(sms_t));
+	s = (sms_t *)Calloc(1, sizeof(sms_t));
 
 	s->state = SS_IDLE;
 	s->type = type;
@@ -268,7 +265,7 @@ new_sms(enum sms_type type)
 	s->outfile = (FILE *)NULL;
 	s->infd = -1;
 	s->pid = -1;
-	s->expect_id = (XtIntervalId)NULL;
+	s->expect_id = 0L;
 
 	return s;
 }
@@ -301,7 +298,7 @@ sms_push(enum sms_type type)
 	}
 
 	if (ansi_save_buf == (unsigned char *)NULL)
-		ansi_save_buf = (unsigned char *)XtMalloc(ANSI_SAVE_SIZE);
+		ansi_save_buf = (unsigned char *)Malloc(ANSI_SAVE_SIZE);
 	return True;
 }
 
@@ -338,7 +335,7 @@ sms_enqueue(enum sms_type type)
 	sms_depth++;
 
 	if (ansi_save_buf == (unsigned char *)NULL)
-		ansi_save_buf = (unsigned char *)XtMalloc(ANSI_SAVE_SIZE);
+		ansi_save_buf = (unsigned char *)Malloc(ANSI_SAVE_SIZE);
 
 	return s;
 }
@@ -369,13 +366,13 @@ sms_pop(Boolean can_exit)
 	}
 
 	/* Cancel any pending Expect() timeout. */
-	if (sms->expect_id != (XtIntervalId)NULL)
-		XtRemoveTimeOut(sms->expect_id);
+	if (sms->expect_id != 0L)
+		RemoveTimeOut(sms->expect_id);
 
 	/* Release the memory. */
 	s = sms;
 	sms = s->next;
-	XtFree((char *)s);
+	Free((char *)s);
 	sms_depth--;
 
 	if (sms == SN) {
@@ -631,7 +628,7 @@ execute_command(enum iaction cause, char *s, char **np)
 		Cardinal j;
 
 		for (j = 0; j < count; j++)
-			XtFree(params[j]);
+			Free(params[j]);
 	}
 
 	if (i >= actioncount) {
@@ -990,7 +987,7 @@ sms_error(char *msg)
 
 /* Process available input from a script. */
 static void
-script_input(XtPointer fd)
+script_input(void)
 {
 	char buf[128];
 	int nr;
@@ -1004,7 +1001,7 @@ script_input(XtPointer fd)
 #endif /*]*/
 
 	/* Read in what you can. */
-	nr = read((int)fd, buf, sizeof(buf));
+	nr = read(sms->infd, buf, sizeof(buf));
 	if (nr < 0) {
 		popup_an_errno(errno, "%s[%d] read", ST_NAME, sms_depth);
 		return;
@@ -1312,7 +1309,7 @@ script_prompt(Boolean success)
 		connect_stat = xs_buffer("C(%s)", current_host);
 		free_connect = True;
 	} else
-		connect_stat = XtNewString("N");
+		connect_stat = NewString("N");
 
 	if (CONNECTED) {
 		if (IN_ANSI) {
@@ -1337,10 +1334,14 @@ script_prompt(Boolean success)
 	    model_num,
 	    ROWS, COLS,
 	    cursor_addr / COLS, cursor_addr % COLS,
+#if defined(X3270_DISPLAY) /*[*/
 	    XtWindow(toplevel),
+#else /*][*/
+	    0,
+#endif /*]*/
 	    success ? "ok" : "error");
 
-	XtFree(connect_stat);
+	Free(connect_stat);
 
 	(void) fflush(sms->outfile);
 }
@@ -1425,7 +1426,7 @@ sms_active(void)
 static void
 expand_expect(char *s)
 {
-	char *t = XtMalloc(strlen(s) + 1);
+	char *t = Malloc(strlen(s) + 1);
 	char c;
 	enum { XS_BASE, XS_BS, XS_O, XS_X } state = XS_BASE;
 	int n = 0;
@@ -1529,7 +1530,7 @@ expect_matches(void)
 	t = memstr((char *)buf, expect_text, ansi_save_cnt, expect_len);
 	if (t != CN) {
 		ansi_save_cnt -= ((unsigned char *)t - buf) + expect_len;
-		XtFree(expect_text);
+		Free(expect_text);
 		expect_text = CN;
 		return True;
 	} else
@@ -1551,8 +1552,8 @@ sms_store(unsigned char c)
 
 	/* If a script or macro is waiting to match a string, check now. */
 	if (sms->state == SS_EXPECTING && expect_matches()) {
-		XtRemoveTimeOut(sms->expect_id);
-		sms->expect_id = (XtIntervalId)NULL;
+		RemoveTimeOut(sms->expect_id);
+		sms->expect_id = 0L;
 		sms->state = SS_INCOMPLETE;
 		sms_continue();
 	}
@@ -1673,15 +1674,15 @@ Execute_action(Widget w unused, XEvent *event unused, String *params,
 
 /* Timeout for Expect action. */
 static void
-expect_timed_out(XtPointer closure unused, XtIntervalId *id unused)
+expect_timed_out(void)
 {
 	if (sms == SN || sms->state != SS_EXPECTING)
 		return;
 
-	XtFree(expect_text);
+	Free(expect_text);
 	expect_text = CN;
 	popup_an_error("%s(): Timed out", action_name(Expect_action));
-	sms->expect_id = (XtIntervalId)NULL;
+	sms->expect_id = 0L;
 	sms->state = SS_INCOMPLETE;
 	sms->success = False;
 	if (sms->is_login)
@@ -1721,8 +1722,7 @@ Expect_action(Widget w unused, XEvent *event unused, String *params,
 	/* See if the text is there already; if not, wait for it. */
 	expand_expect(params[0]);
 	if (!expect_matches()) {
-		sms->expect_id = XtAppAddTimeOut(appcontext, tmo * 1000,
-		    expect_timed_out, 0);
+		sms->expect_id = AddTimeOut(tmo * 1000, expect_timed_out);
 		sms->state = SS_EXPECTING;
 	}
 	/* else allow sms to proceed */
@@ -1835,7 +1835,7 @@ Script_action(Widget w unused, XEvent *event unused, String *params,
 		(void) putenv(env_buf[1]);
 
 		/* Set up arguments. */
-		argv = (char **)XtMalloc((*num_params + 1) * sizeof(char *));
+		argv = (char **)Malloc((*num_params + 1) * sizeof(char *));
 		for (i = 0; i < *num_params; i++)
 			argv[i] = params[i];
 		argv[i] = CN;

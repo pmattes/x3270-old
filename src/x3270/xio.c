@@ -24,11 +24,12 @@
 #include "hostc.h"
 #include "telnetc.h"
 #include "togglesc.h"
+#include "utilc.h"
 #include "xioc.h"
 
 /* Statics. */
-static XtInputId ns_read_id;
-static XtInputId ns_exception_id;
+static unsigned long ns_read_id;
+static unsigned long ns_exception_id;
 static Boolean reading = False;
 static Boolean excepting = False;
 
@@ -38,11 +39,9 @@ static Boolean excepting = False;
 void
 x_add_input(int net_sock)
 {
-	ns_exception_id = XtAppAddInput(appcontext, net_sock,
-	    (XtPointer)XtInputExceptMask, net_exception, PN);
+	ns_exception_id = AddExcept(net_sock, net_exception);
 	excepting = True;
-	ns_read_id = XtAppAddInput(appcontext, net_sock,
-	    (XtPointer) XtInputReadMask, net_input, PN);
+	ns_read_id = AddInput(net_sock, net_input);
 	reading = True;
 }
 
@@ -53,7 +52,7 @@ void
 x_except_off(void)
 {
 	if (excepting) {
-		XtRemoveInput(ns_exception_id);
+		RemoveInput(ns_exception_id);
 		excepting = False;
 	}
 }
@@ -69,13 +68,11 @@ x_except_on(int net_sock)
 	if (excepting)
 		return;
 	if (reading)
-		XtRemoveInput(ns_read_id);
-	ns_exception_id = XtAppAddInput(appcontext, net_sock,
-	    (XtPointer) XtInputExceptMask, net_exception, PN);
+		RemoveInput(ns_read_id);
+	ns_exception_id = AddExcept(net_sock, net_exception);
 	excepting = True;
 	if (reading)
-		ns_read_id = XtAppAddInput(appcontext, net_sock,
-		    (XtPointer) XtInputReadMask, net_input, PN);
+		ns_read_id = AddInput(net_sock, net_input);
 }
 
 /*
@@ -85,11 +82,11 @@ void
 x_remove_input(void)
 {
 	if (reading) {
-		XtRemoveInput(ns_read_id);
+		RemoveInput(ns_read_id);
 		reading = False;
 	}
 	if (excepting) {
-		XtRemoveInput(ns_exception_id);
+		RemoveInput(ns_exception_id);
 		excepting = False;
 	}
 }

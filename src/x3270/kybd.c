@@ -68,13 +68,13 @@ static unsigned char pa_xlate[] = {
 };
 #define PF_SZ	(sizeof(pf_xlate)/sizeof(pf_xlate[0]))
 #define PA_SZ	(sizeof(pa_xlate)/sizeof(pa_xlate[0]))
-static XtIntervalId unlock_id;
+static unsigned long unlock_id;
 #define UNLOCK_MS	350
 static Boolean key_Character(int cgcode, Boolean with_ge, Boolean pasting);
 static Boolean flush_ta(void);
 static void key_AID(unsigned char aid_code);
 static void kybdlock_set(unsigned int bits, const char *cause);
-static KeySym StringToKeysym(char *s, enum keytype *keytypep);
+static KeySym MyStringToKeysym(char *s, enum keytype *keytypep);
 
 static int nxk = 0;
 static struct xks {
@@ -151,14 +151,14 @@ enq_ta(void (*fn)(), char *parm1, char *parm2)
 		return;
 	}
 
-	ta = (struct ta *) XtMalloc(sizeof(*ta));
+	ta = (struct ta *) Malloc(sizeof(*ta));
 	ta->next = (struct ta *) NULL;
 	ta->fn = fn;
 	ta->parm1 = ta->parm2 = CN;
 	if (parm1) {
-		ta->parm1 = XtNewString(parm1);
+		ta->parm1 = NewString(parm1);
 		if (parm2)
-			ta->parm2 = XtNewString(parm2);
+			ta->parm2 = NewString(parm2);
 	}
 	if (ta_head)
 		ta_tail->next = ta;
@@ -189,10 +189,10 @@ run_ta(void)
 
 	action_internal(ta->fn, IA_TYPEAHEAD, ta->parm1, ta->parm2);
 	if (ta->parm1 != CN)
-		XtFree((XtPointer)ta->parm1);
+		Free(ta->parm1);
 	if (ta->parm2 != CN)
-		XtFree((XtPointer)ta->parm2);
-	XtFree((XtPointer)ta);
+		Free(ta->parm2);
+	Free(ta);
 
 	return True;
 }
@@ -209,11 +209,11 @@ flush_ta(void)
 
 	for (ta = ta_head; ta != (struct ta *) NULL; ta = next) {
 		if (ta->parm1)
-			XtFree(ta->parm1);
+			Free(ta->parm1);
 		if (ta->parm2)
-			XtFree(ta->parm2);
+			Free(ta->parm2);
 		next = ta->next;
-		XtFree((XtPointer)ta);
+		Free(ta);
 		any = True;
 	}
 	ta_head = ta_tail = (struct ta *) NULL;
@@ -281,7 +281,7 @@ static void
 kybd_connect(Boolean connected)
 {
 	if (kybdlock & KL_DEFERRED_UNLOCK)
-		XtRemoveTimeOut(unlock_id);
+		RemoveTimeOut(unlock_id);
 	kybdlock_clr(-1, "kybd_connect");
 
 	if (connected) {
@@ -300,7 +300,7 @@ static void
 kybd_in3270(Boolean in3270 unused)
 {
 	if (kybdlock & KL_DEFERRED_UNLOCK)
-		XtRemoveTimeOut(unlock_id);
+		RemoveTimeOut(unlock_id);
 	kybdlock_clr(-1, "kybd_connect");
 }
 
@@ -382,7 +382,20 @@ key_AID(unsigned char aid_code)
 		return;
 	}
 #endif /*]*/
-	if (!IN_SSCP) {
+	if (IN_SSCP) {
+		if (kybdlock & KL_OIA_MINUS)
+			return;
+		if (aid_code != AID_ENTER && aid_code != AID_CLEAR) {
+			status_minus();
+			kybdlock_set(KL_OIA_MINUS, "key_AID");
+			return;
+		}
+	}
+	if (IN_SSCP && aid_code == AID_ENTER) {
+		/* Act as if the host had written our input. */
+		buffer_addr = cursor_addr;
+	}
+	if (!IN_SSCP || aid_code != AID_CLEAR) {
 		status_twait();
 		mcursor_waiting();
 		insert_mode(False);
@@ -410,7 +423,9 @@ PF_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 		popup_an_error("%s: invalid argument", action_name(PF_action));
 		return;
 	}
-	if (kybdlock)
+	if (kybdlock & KL_OIA_MINUS)
+		return;
+	else if (kybdlock)
 		enq_ta(PF_action, params[0], CN);
 	else
 		key_AID(pf_xlate[k-1]);
@@ -431,7 +446,9 @@ PA_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 		    action_name(PA_action), k);
 		return;
 	}
-	if (kybdlock)
+	if (kybdlock & KL_OIA_MINUS)
+		return;
+	else if (kybdlock)
 		enq_ta(PA_action, params[0], CN);
 	else
 		key_AID(pa_xlate[k-1]);
@@ -838,7 +855,7 @@ BackTab_action(Widget w unused, XEvent *event, String *params,
 
 /*ARGSUSED*/
 static void
-defer_unlock(XtPointer closure unused, XtIntervalId *id unused)
+defer_unlock(void)
 {
 	kybdlock_clr(KL_DEFERRED_UNLOCK, "defer_unlock");
 	status_reset();
@@ -886,7 +903,7 @@ do_reset(Boolean explicit)
 	 * keyboard now, or want to defer further into the future.
 	 */
 	if (kybdlock & KL_DEFERRED_UNLOCK)
-		XtRemoveTimeOut(unlock_id);
+		RemoveTimeOut(unlock_id);
 
 	/*
 	 * If explicit (from the keyboard), unlock the keyboard now.
@@ -898,8 +915,7 @@ do_reset(Boolean explicit)
   (KL_DEFERRED_UNLOCK | KL_OIA_TWAIT | KL_OIA_LOCKED | KL_AWAITING_FIRST)) {
 		kybdlock_clr(~KL_DEFERRED_UNLOCK, "do_reset");
 		kybdlock_set(KL_DEFERRED_UNLOCK, "do_reset");
-		unlock_id = XtAppAddTimeOut(appcontext, UNLOCK_MS,
-		    defer_unlock, 0);
+		unlock_id = AddTimeOut(UNLOCK_MS, defer_unlock);
 	}
 
 	/* Clean up other modes. */
@@ -1515,7 +1531,9 @@ void
 Enter_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
 	action_debug(Enter_action, event, params, num_params);
-	if (kybdlock)
+	if (kybdlock & KL_OIA_MINUS)
+		return;
+	else if (kybdlock)
 		enq_ta(Enter_action, CN, CN);
 	else
 		key_AID(AID_ENTER);
@@ -1532,7 +1550,9 @@ SysReq_action(Widget w unused, XEvent *event, String *params, Cardinal *num_para
 	if (IN_E) {
 		net_abort();
 	} else {
-		if (kybdlock)
+		if (kybdlock & KL_OIA_MINUS)
+			return;
+		else if (kybdlock)
 			enq_ta(SysReq_action, CN, CN);
 		else
 			key_AID(AID_SYSREQ);
@@ -1548,6 +1568,8 @@ void
 Clear_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
 	action_debug(Clear_action, event, params, num_params);
+	if (kybdlock & KL_OIA_MINUS)
+		return;
 	if (kybdlock && CONNECTED) {
 		enq_ta(Clear_action, CN, CN);
 		return;
@@ -2038,7 +2060,7 @@ Key_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 	for (i = 0; i < *num_params; i++) {
 		char *s = params[i];
 
-		k = StringToKeysym(s, &keytype);
+		k = MyStringToKeysym(s, &keytype);
 		if (k == NoSymbol) {
 			popup_an_error("%s: Nonexistent or invalid KeySym: %s",
 			    action_name(Key_action), s);
@@ -2073,7 +2095,7 @@ String_action(Widget w unused, XEvent *event, String *params, Cardinal *num_para
 		return;
 
 	/* Allocate a block of memory and copy them in. */
-	s = XtMalloc(len + 1);
+	s = Malloc(len + 1);
 	*s = '\0';
 	for (i = 0; i < *num_params; i++)
 		(void) strcat(s, params[i]);
@@ -2107,7 +2129,7 @@ HexString_action(Widget w unused, XEvent *event, String *params, Cardinal *num_p
 		return;
 
 	/* Allocate a block of memory and copy them in. */
-	s = XtMalloc(len + 1);
+	s = Malloc(len + 1);
 	*s = '\0';
 	for (i = 0; i < *num_params; i++) {
 		t = params[i];
@@ -2599,7 +2621,7 @@ hex_input(char *s)
 #if defined(X3270_ANSI) /*[*/
 	/* Allocate a temporary buffer. */
 	if (!IN_3270 && nbytes)
-		tbuf = xbuf = (unsigned char *)XtMalloc(nbytes);
+		tbuf = xbuf = (unsigned char *)Malloc(nbytes);
 #endif /*]*/
 
 	/* Pump it in. */
@@ -2625,7 +2647,7 @@ hex_input(char *s)
 #if defined(X3270_ANSI) /*[*/
 	if (!IN_3270 && nbytes) {
 		net_hexansi_out(xbuf, nbytes);
-		XtFree((XtPointer)xbuf);
+		Free(xbuf);
 	}
 #endif /*]*/
 }
@@ -2699,7 +2721,7 @@ kybd_prime(void)
  * characters.
  */
 static KeySym
-StringToKeysym(char *s, enum keytype *keytypep)
+MyStringToKeysym(char *s, enum keytype *keytypep)
 {
 	KeySym k;
 
@@ -2715,7 +2737,7 @@ StringToKeysym(char *s, enum keytype *keytypep)
 	} else
 #endif /*]*/
 	{
-		k = XStringToKeysym(s);
+		k = StringToKeysym(s);
 		*keytypep = KT_STD;
 	}
 	if (k == NoSymbol && strlen(s) == 1)
@@ -2747,8 +2769,7 @@ add_xk(KeySym key, KeySym assoc)
 			xk[i].assoc = assoc;
 			return;
 		}
-	xk = (struct xks *)XtRealloc((XtPointer)xk,
-	    (nxk + 1) * sizeof(struct xks));
+	xk = (struct xks *)Realloc(xk, (nxk + 1) * sizeof(struct xks));
 	xk[nxk].key = key;
 	xk[nxk].assoc = assoc;
 	nxk++;
@@ -2759,7 +2780,7 @@ void
 clear_xks(void)
 {
 	if (nxk) {
-		XtFree((XtPointer)xk);
+		Free(xk);
 		xk = (struct xks *)NULL;
 		nxk = 0;
 	}
@@ -2900,8 +2921,8 @@ build_composites(void)
 		    appres.compose_map);
 		return False;
 	}
-	XtFree(cname);
-	c = XtNewString(c0);	/* will be modified by strtok */
+	Free(cname);
+	c = NewString(c0);	/* will be modified by strtok */
 	while ((ln = strtok(c, "\n"))) {
 		Boolean okay = True;
 
@@ -2913,7 +2934,7 @@ build_composites(void)
 			continue;
 		}
 		for (i = 0; i < 3; i++) {
-			k[i] = StringToKeysym(ksname[i], &a[i]);
+			k[i] = MyStringToKeysym(ksname[i], &a[i]);
 			if (k[i] == NoSymbol) {
 				xs_warning("%s: Invalid KeySym: \"%s\"",
 				    action_name(Compose_action), ksname[i]);
@@ -2923,7 +2944,7 @@ build_composites(void)
 		}
 		if (!okay)
 			continue;
-		composites = (struct composite *) XtRealloc((char *)composites,
+		composites = (struct composite *) Realloc((char *)composites,
 		    (n_composites + 1) * sizeof(struct composite));
 		cp = composites + n_composites;
 		cp->k1.keysym = k[0];
@@ -2934,7 +2955,7 @@ build_composites(void)
 		cp->translation.keytype = a[2];
 		n_composites++;
 	}
-	XtFree(c0);
+	Free(c0);
 	return True;
 }
 
@@ -3019,7 +3040,9 @@ Default_action(Widget w unused, XEvent *event, String *params, Cardinal *num_par
 		action_internal(Right_action, IA_DEFAULT, CN, CN);
 		break;
 	    case XK_Insert:
+#if defined(XK_KP_Insert) /*[*/
 	    case XK_KP_Insert:
+#endif /*]*/
 		action_internal(Insert_action, IA_DEFAULT, CN, CN);
 		break;
 	    case XK_Delete:

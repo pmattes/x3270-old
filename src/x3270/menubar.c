@@ -739,14 +739,14 @@ connect_menu_init(Boolean regen, Position x, Position y)
 
 	/* Start off with an opportunity to reconnect */
 
-	if (current_host != CN) {
+	if (reconnect_host != CN) {
 		char *buf;
 
 		if (need_line)
 			(void) XtVaCreateManagedWidget("space",
 			    cmeLineObjectClass, connect_menu, NULL);
 		buf = xs_buffer("%s %s", get_message("reconnect"),
-		    current_host);
+		    reconnect_host);
 		w = XtVaCreateManagedWidget(
 		    buf, cmeBSBObjectClass, connect_menu, 
 		    NULL);
@@ -863,7 +863,7 @@ reconnect_menu_init(Boolean regen, Position x, Position y)
 		    menubar_buttons ? XtNlabel : NULL, NULL,
 		    NULL);
 		buf = xs_buffer("%s %s", get_message("reconnect"),
-		    current_host);
+		    reconnect_host);
 		w = XtVaCreateManagedWidget(
 		    buf, cmeBSBObjectClass, connect_menu, 
 		    NULL);

@@ -459,17 +459,17 @@ relabel(Boolean ignored unused)
 	if (user_title != CN && user_icon_name != CN)
 		return;
 	title = XtMalloc(10 + ((PCONNECTED || appres.reconnect) ?
-						strlen(current_host) : 0));
+						strlen(reconnect_host) : 0));
 	if (PCONNECTED || appres.reconnect) {
 		(void) sprintf(title, "x3270-%d%s %s", model_num,
-		    (IN_ANSI ? "A" : ""), current_host);
+		    (IN_ANSI ? "A" : ""), reconnect_host);
 		if (user_title == CN)
 			XtVaSetValues(toplevel, XtNtitle, title, NULL);
 		if (user_icon_name == CN)
 			XtVaSetValues(toplevel,
-			    XtNiconName, current_host,
+			    XtNiconName, reconnect_host,
 			    NULL);
-		set_aicon_label(current_host);
+		set_aicon_label(reconnect_host);
 	} else {
 		(void) sprintf(title, "x3270-%d", model_num);
 		(void) sprintf(icon_label, "x3270-%d", model_num);

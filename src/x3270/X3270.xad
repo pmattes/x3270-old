@@ -226,7 +226,7 @@
 *.serverKeymapList: \
 	Sun Microsystems, Inc.: sun_k5\n\
 	Hewlett-Packard Company: hp-k1\n\
-	International Business Machines: rs6000
+	International Business Machines: alt
 !
 ! Keymaps (keyboard and mouse mappings)
 !
@@ -1006,6 +1006,7 @@ x3270.charset.belgian: \
 *.message.statusOverflow:			Overflow
 *.message.statusInhibit:			Inhibit
 *.message.statusScrolled:			Scrolled
+*.message.statusMinus:				No Function
 #endif
 #ifdef X3270_FT
 *.message.ftComplete:			Transfer complete, %i bytes transferred\n\

@@ -505,7 +505,7 @@ trace_ds(const char *fmt, ...)
 
 	/* allocate buffer */
 	if (tdsbuf == CN)
-		tdsbuf = XtMalloc(4096);
+		tdsbuf = Malloc(4096);
 
 	/* print out remainder of message */
 	(void) vsprintf(tdsbuf, fmt, args);
@@ -554,13 +554,13 @@ tracefile_callback(Widget w, XtPointer client_data, XtPointer call_data unused)
 	if (strchr(tfn, '\'') ||
 	    ((int)strlen(tfn) > 0 && tfn[strlen(tfn)-1] == '\\')) {
 		popup_an_error("Illegal file name: %s\n", tfn);
-		XtFree(tfn);
+		Free(tfn);
 		return;
 	}
 	tracef = fopen(tfn, "a");
 	if (tracef == (FILE *)NULL) {
 		popup_an_errno(errno, tfn);
-		XtFree(tfn);
+		Free(tfn);
 		return;
 	}
 	(void) SETLINEBUF(tracef);
@@ -609,7 +609,7 @@ tracefile_callback(Widget w, XtPointer client_data, XtPointer call_data unused)
 	}
 
     done:
-	XtFree(tfn);
+	Free(tfn);
 
 	/* We're really tracing, turn the flag on. */
 	appres.toggle[trace_reason].value = True;
@@ -820,10 +820,10 @@ screentrace_cb(char *tfn)
 	screentracef = fopen(tfn, "a");
 	if (screentracef == (FILE *)NULL) {
 		popup_an_errno(errno, tfn);
-		XtFree(tfn);
+		Free(tfn);
 		return False;
 	}
-	XtFree(tfn);
+	Free(tfn);
 	(void) SETLINEBUF(screentracef);
 	(void) fcntl(fileno(screentracef), F_SETFD, 1);
 
@@ -888,7 +888,7 @@ toggle_screenTrace(struct toggle *t unused, enum toggle_type tt)
 		(void) sprintf(tracefile, "%s/x3scr.%d", appres.trace_dir,
 			getpid());
 		if (tt == TT_INITIAL) {
-			(void) screentrace_cb(XtNewString(tracefile));
+			(void) screentrace_cb(NewString(tracefile));
 			return;
 		}
 #if defined(X3270_DISPLAY) /*[*/

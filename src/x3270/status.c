@@ -142,6 +142,7 @@ static void do_protected(void);
 static void do_numeric(void);
 static void do_overflow(void);
 static void do_scrolled(void);
+static void do_minus(void);
 
 static Boolean  oia_undera = True;
 static Boolean  oia_boxsolid = False;
@@ -161,7 +162,8 @@ static enum msg {
 	PROTECTED,		/* X Protected */
 	NUMERIC,		/* X Numeric */
 	OVERFLOW,		/* X Overflow */
-	SCROLLED		/* X Scrolled */
+	SCROLLED,		/* X Scrolled */
+	MINUS			/* X -f */
 }               oia_msg = DISCONNECTED, saved_msg;
 static Boolean  msg_is_saved = False;
 static int      n_scrolled = 0;
@@ -177,6 +179,7 @@ static void     (*msg_proc[])(void) = {
 	do_numeric,
 	do_overflow,
 	do_scrolled,
+	do_minus
 };
 static int      msg_color[] = {
 	FA_INT_HIGH_SEL,
@@ -190,6 +193,7 @@ static int      msg_color[] = {
 	FA_INT_NORM_SEL,
 	FA_INT_NORM_SEL,
 	FA_INT_NORM_SEL,
+	FA_INT_NORM_SEL
 };
 static int      msg_color3279[] = {
 	COLOR_WHITE,
@@ -203,6 +207,7 @@ static int      msg_color3279[] = {
 	COLOR_RED,
 	COLOR_RED,
 	COLOR_WHITE,
+	COLOR_RED
 };
 static Boolean  oia_insert = False;
 static Boolean  oia_reverse = False;
@@ -232,6 +237,7 @@ static unsigned char *a_protected;
 static unsigned char *a_numeric;
 static unsigned char *a_overflow;
 static unsigned char *a_scrolled;
+static unsigned char *a_minus;
 
 static unsigned char *make_amsg(const char *key);
 static unsigned char *make_emsg(unsigned char prefix[], const char *key,
@@ -272,6 +278,7 @@ status_init(void)
 	a_numeric = make_amsg("statusNumeric");
 	a_overflow = make_amsg("statusOverflow");
 	a_scrolled = make_amsg("statusScrolled");
+	a_minus = make_amsg("statusMinus");
 
 	register_schange(ST_HALF_CONNECT, status_half_connect);
 	register_schange(ST_CONNECT, status_connect);
@@ -483,6 +490,13 @@ status_scrolled(int n)
 			paint_msg(saved_msg);
 		}
 	}
+}
+
+/* Lock the keyboard (X -f) */
+void
+status_minus(void)
+{
+	do_msg(MINUS);
 }
 
 /* Unlock the keyboard */
@@ -916,6 +930,19 @@ do_scrolled(void)
 			scrolled[11 + i] = asc2cg[(int)nnn[i]];
 		status_msg_set(scrolled, sizeof(scrolled));
 	}
+}
+
+static void
+do_minus(void)
+{
+	static unsigned char minus[] = {
+		CG_lock, CG_space, CG_minus, CG_f
+	};
+
+	if (*standard_font)
+		status_msg_set(a_minus, strlen((char *)a_minus));
+	else
+		status_msg_set(minus, sizeof(minus));
 }
 
 /* Insert, reverse, kmap, script, shift, compose */

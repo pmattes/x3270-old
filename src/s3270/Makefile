@@ -9,12 +9,12 @@
 
 all: s3270 x3270if
 
-SRCS = actions.c ansi.c apl.c charset.c ctlr.c host.c kybd.c \
-       macros.c print.c sf.c smain.c tables.c telnet.c toggles.c \
-       trace_ds.c util.c xio.c XrmGlue.c XtGlue.c
-VOBJS = actions.o ansi.o apl.o charset.o ctlr.o host.o kybd.o \
-      macros.o print.o sf.o smain.o tables.o telnet.o toggles.o \
-      trace_ds.o util.o xio.o XrmGlue.o XtGlue.o
+SRCS = actions.c ansi.c apl.c charset.c ctlr.c glue.c host.c kybd.c \
+       macros.c print.c resources.c sf.c smain.c tables.c telnet.c toggles.c \
+       trace_ds.c util.c xio.c XtGlue.c
+VOBJS = actions.o ansi.o apl.o charset.o ctlr.o glue.o host.o kybd.o \
+      macros.o print.o resources.o sf.o smain.o tables.o telnet.o toggles.o \
+      trace_ds.o util.o xio.o XtGlue.o
 OBJS1 = $(VOBJS) version.o
 
 FONTINSTDIR = $(FONTDIR)/misc

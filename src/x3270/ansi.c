@@ -527,8 +527,8 @@ ansi_reset(int ig1 unused, int ig2 unused)
 	scroll_top = 1;
 	scroll_bottom = ROWS;
 	if (tabs == (unsigned char *)NULL)
-		XtFree((char *)tabs);
-	tabs = (unsigned char *)XtMalloc((COLS+7)/8);
+		Free((char *)tabs);
+	tabs = (unsigned char *)Malloc((COLS+7)/8);
 	for (i = 0; i < (COLS+7)/8; i++)
 		tabs[i] = 0x01;
 	held_wrap = False;

@@ -245,7 +245,7 @@ net_connect(const char *host, char *portname, Boolean ls, Boolean *pending)
 #	define close_fail	{ (void) close(sock); sock = -1; return -1; }
 
 	if (netrbuf == (unsigned char *)NULL)
-		netrbuf = (unsigned char *)XtMalloc(BUFSZ);
+		netrbuf = (unsigned char *)Malloc(BUFSZ);
 
 #if defined(X3270_ANSI) /*[*/
 	if (!t_valid) {
@@ -264,8 +264,8 @@ net_connect(const char *host, char *portname, Boolean ls, Boolean *pending)
 	*pending = False;
 
 	if (hostname)
-		XtFree(hostname);
-	hostname = XtNewString(host);
+		Free(hostname);
+	hostname = NewString(host);
 
 	/* get the passthru host and port number */
 	if (passthru_host) {
@@ -483,7 +483,7 @@ setup_lus(void)
 	 * Allocate enough memory to construct an argv[] array for
 	 * the LUs.
 	 */
-	lus = (char **)XtRealloc((XtPointer)lus,
+	lus = (char **)Realloc(lus,
 	    (n_lus+1) * sizeof(char *) + strlen(luname) + 1);
 
 	/* Copy each LU into the array. */
@@ -538,10 +538,10 @@ net_connected(void)
 	if (passthru_host) {
 		char *buf;
 
-		buf = XtMalloc(strlen(hostname) + 32);
+		buf = Malloc(strlen(hostname) + 32);
 		(void) sprintf(buf, "%s %d\r\n", hostname, current_port);
 		(void) write(sock, buf, strlen(buf));
-		XtFree(buf);
+		Free(buf);
 	}
 }
 
@@ -571,7 +571,7 @@ net_disconnect(void)
  *	and calls process_ds to process the 3270 data stream.
  */
 void
-net_input(XtPointer closure unused, int *source unused, XtInputId *id unused)
+net_input(void)
 {
 	register unsigned char	*cp;
 	int	nr;
@@ -796,7 +796,7 @@ telnet_fsm(unsigned char c)
 				if (process_eor())
 					return -1;
 			} else
-				XtWarning("EOR received when not in 3270 mode, "
+				Warning("EOR received when not in 3270 mode, "
 				    "ignored.");
 			trace_str("RCVD EOR\n");
 			ibptr = ibuf;
@@ -817,7 +817,7 @@ telnet_fsm(unsigned char c)
 		    case SB:
 			telnet_state = TNS_SB;
 			if (sbbuf == (unsigned char *)NULL)
-				sbbuf = (unsigned char *)XtMalloc(1024);
+				sbbuf = (unsigned char *)Malloc(1024);
 			sbptr = sbbuf;
 			break;
 		    case DM:
@@ -953,7 +953,7 @@ telnet_fsm(unsigned char c)
 				}
 
 				tb_len = 4 + tt_len + 2;
-				tt_out = XtMalloc(tb_len + 1);
+				tt_out = Malloc(tb_len + 1);
 				(void) sprintf(tt_out, "%c%c%c%c%s%s%s%c%c",
 				    IAC, SB, TELOPT_TTYPE, TELQUAL_IS,
 				    termtype,
@@ -967,7 +967,7 @@ telnet_fsm(unsigned char c)
 				    telquals[TELQUAL_IS],
 				    tt_len, tt_out + 4,
 				    cmd(SE));
-				XtFree(tt_out);
+				Free(tt_out);
 
 				/* Advance to the next LU name. */
 				next_lu();
@@ -996,7 +996,7 @@ tn3270e_request(void)
 		tt_len += strlen(try_lu) + 1;
 
 	tb_len = 5 + tt_len + 2;
-	tt_out = XtMalloc(tb_len + 1);
+	tt_out = Malloc(tb_len + 1);
 	t = tt_out;
 	t += sprintf(tt_out, "%c%c%c%c%c%s",
 	    IAC, SB, TELOPT_TN3270E, TN3270E_OP_DEVICE_TYPE,
@@ -1020,7 +1020,7 @@ tn3270e_request(void)
 	    (try_lu != CN) ? try_lu : "",
 	    cmd(SE));
 
-	XtFree(tt_out);
+	Free(tt_out);
 
 	/* Prep for the next LU. */
 	connected_lu = try_lu;
@@ -1379,8 +1379,7 @@ process_eor(void)
  *	Called when there is an exceptional condition on the socket.
  */
 void
-net_exception(XtPointer closure unused, int *source unused,
-    XtInputId *id unused)
+net_exception(void)
 {
 	trace_str("RCVD urgent data indication\n");
 	if (!syncing) {
@@ -1487,7 +1486,7 @@ net_hexansi_out(unsigned char *buf, int len)
 #endif /*]*/
 
 	/* Expand it. */
-	tbuf = xbuf = (unsigned char *)XtMalloc(2*len);
+	tbuf = xbuf = (unsigned char *)Malloc(2*len);
 	while (len) {
 		unsigned char c = *buf++;
 
@@ -1501,7 +1500,7 @@ net_hexansi_out(unsigned char *buf, int len)
 
 	/* Send it to the host. */
 	net_rawout(xbuf, tbuf - xbuf);
-	XtFree((XtPointer)xbuf);
+	Free((XtPointer)xbuf);
 }
 
 /*
@@ -1592,7 +1591,7 @@ static void
 cooked_init(void)
 {
 	if (lbuf == (unsigned char *)NULL)
-		lbuf = (unsigned char *)XtMalloc(BUFSZ);
+		lbuf = (unsigned char *)Malloc(BUFSZ);
 	lbptr = lbuf;
 	lnext = 0;
 	backslashed = 0;
@@ -1843,7 +1842,7 @@ check_in3270(void)
 
 		/* Allocate the initial 3270 input buffer. */
 		if (new_cstate >= CONNECTED_INITIAL && !ibuf_size) {
-			ibuf = (unsigned char *)XtMalloc(BUFSIZ);
+			ibuf = (unsigned char *)Malloc(BUFSIZ);
 			ibuf_size = BUFSIZ;
 			ibptr = ibuf;
 		}
@@ -1874,7 +1873,7 @@ store3270in(unsigned char c)
 {
 	if (ibptr - ibuf >= ibuf_size) {
 		ibuf_size += BUFSIZ;
-		ibuf = (unsigned char *)XtRealloc((char *)ibuf, ibuf_size);
+		ibuf = (unsigned char *)Realloc((char *)ibuf, ibuf_size);
 		ibptr = ibuf + ibuf_size - BUFSIZ;
 	}
 	*ibptr++ = c;
@@ -1901,7 +1900,7 @@ space3270out(int n)
 
 	if (more) {
 		obuf_size += more;
-		obuf_base = (unsigned char *)XtRealloc((char *)obuf_base,
+		obuf_base = (unsigned char *)Realloc((char *)obuf_base,
 			obuf_size);
 		obuf = obuf_base + EH_SIZE;
 		obptr = obuf + nc;

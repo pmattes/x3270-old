@@ -53,7 +53,9 @@ EXTRA_DEFINES = -D_HPUX_SOURCE
 /* For Dynix/ptx, umcomment the following: */
 /* EXTRA_LIBRARIES = -lsocket -linet -lnsl */
 
+#if defined(LinuxArchitecture) || defined(FreeBSDArchitecture)
 EXTRA_LIBRARIES = -lutil
+#endif
 
 AllTarget($(FONTS) x3270 x3270if)
 

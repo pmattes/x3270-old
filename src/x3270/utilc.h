@@ -22,3 +22,10 @@ extern int split_lresource(char **st, char **value);
 extern char *xs_buffer(const char *fmt, ...);
 extern void xs_error(const char *fmt, ...);
 extern void xs_warning(const char *fmt, ...);
+
+extern unsigned long AddInput(int, void (*)(void));
+extern unsigned long AddExcept(int, void (*)(void));
+extern void RemoveInput(unsigned long);
+extern unsigned long AddTimeOut(unsigned long msec, void (*fn)(void));
+extern void RemoveTimeOut(unsigned long cookie);
+extern KeySym StringToKeysym(char *s);

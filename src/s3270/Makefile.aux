@@ -14,15 +14,15 @@ all:
 
 # Development tools.
 
-SOURCES = XrmGlue.c XtGlue.c actions.c ansi.c apl.c charset.c ctlr.c host.c \
-	kybd.c macros.c print.c sf.c smain.c tables.c telnet.c toggles.c \
-	trace_ds.c util.c xio.c
+SOURCES = XtGlue.c actions.c ansi.c apl.c charset.c ctlr.c glue.c host.c \
+	kybd.c macros.c print.c resources.c sf.c smain.c tables.c telnet.c \
+	toggles.c trace_ds.c util.c xio.c
 HEADERS = 3270ds.h actionsc.h ansic.h aplc.h appres.h cg.h charsetc.h ctlr.h \
-	ctlrc.h ftc.h globals.h hostc.h keymapc.h keypadc.h kybdc.h macrosc.h \
-	menubarc.h objects.h parts.h popupsc.h printc.h resources.h savec.h \
-	screen.h screenc.h scrollc.h selectc.h sfc.h statusc.h tablesc.h \
-	telnet.h telnetc.h tn3270e.h togglesc.h trace_dsc.h utilc.h xioc.h \
-	X11/Intrinsic.h X11/keysym.h
+	ctlrc.h ftc.h globals.h hostc.h keymapc.h keypadc.h kybdc.h \
+	localdefs.h macrosc.h menubarc.h objects.h parts.h popupsc.h printc.h \
+	resources.h savec.h screen.h screenc.h scrollc.h selectc.h sfc.h \
+	statusc.h tablesc.h telnet.h telnetc.h tn3270e.h togglesc.h \
+	trace_dsc.h utilc.h xioc.h X11/keysym.h
 MISC = version.txt s3270.man x3270if.man x3270-script.man mkversion.sh \
 	Makefile Makefile.aux README s3270.lsm x3270if.c
 HTML = html/Bugs.html html/Build.html html/FAQ.html html/Intro.html \

@@ -87,7 +87,9 @@ XtActionsRec actions[] = {
 	{ "set-select",		set_select_action },
 	{ "start-extend",	start_extend_action },
 #endif /*]*/
+#if defined(X3270_SCRIPT) /*[*/
 	{ "AnsiText",		AnsiText_action },
+#endif /*]*/
 	{ "Ascii",		Ascii_action },
 	{ "AsciiField",		AsciiField_action },
 	{ "Attn",		Attn_action },
@@ -95,9 +97,13 @@ XtActionsRec actions[] = {
 	{ "BackTab",		BackTab_action },
 	{ "CircumNot",		CircumNot_action },
 	{ "Clear",		Clear_action },
+#if defined(X3270_SCRIPT) /*[*/
 	{ "CloseScript",	CloseScript_action },
+#endif /*]*/
 	{ "Connect",		Connect_action },
+#if defined(X3270_SCRIPT) /*[*/
 	{ "ContinueScript",	ContinueScript_action },
+#endif /*]*/
 	{ "CursorSelect",	CursorSelect_action },
 	{ "Delete", 		Delete_action },
 	{ "DeleteField",	DeleteField_action },
@@ -111,8 +117,10 @@ XtActionsRec actions[] = {
 	{ "Erase",		Erase_action },
 	{ "EraseEOF",		EraseEOF_action },
 	{ "EraseInput",		EraseInput_action },
+#if defined(X3270_SCRIPT) /*[*/
 	{ "Execute",		Execute_action },
 	{ "Expect",		Expect_action },
+#endif /*]*/
 	{ "FieldEnd",		FieldEnd_action },
 	{ "FieldMark",		FieldMark_action },
 	{ "FieldExit",		FieldExit_action },
@@ -123,14 +131,18 @@ XtActionsRec actions[] = {
 	{ "Key",		Key_action },
 	{ "Left",		Left_action },
 	{ "Left2", 		Left2_action },
+#if defined(X3270_SCRIPT) /*[*/
 	{ "Macro", 		Macro_action },
+#endif /*]*/
 	{ "MonoCase",		MonoCase_action },
 	{ "MoveCursor",		MoveCursor_action },
 	{ "Newline",		Newline_action },
 	{ "NextWord",		NextWord_action },
 	{ "PA",			PA_action },
 	{ "PF",			PF_action },
+#if defined(X3270_SCRIPT) /*[*/
 	{ "PauseScript",	PauseScript_action },
+#endif /*]*/
 	{ "PreviousWord",	PreviousWord_action },
 	{ "Quit",		Quit_action },
 #if defined(X3270_MENUS) /*[*/
@@ -139,14 +151,21 @@ XtActionsRec actions[] = {
 	{ "Reset",		Reset_action },
 	{ "Right",		Right_action },
 	{ "Right2",		Right2_action },
+#if defined(X3270_SCRIPT) /*[*/
 	{ "Script",		Script_action },
+#endif /*]*/
+#if defined(TCL3270) /*[*/
+	{ "Status",		Status_action },
+#endif /*]*/
 	{ "String",		String_action },
 	{ "SysReq",		SysReq_action },
 	{ "Tab",		Tab_action },
 	{ "ToggleInsert",	ToggleInsert_action },
 	{ "ToggleReverse",	ToggleReverse_action },
 	{ "Up",			Up_action },
+#if defined(X3270_SCRIPT) /*[*/
 	{ "Wait",		Wait_action },
+#endif /*]*/
 	{ "ignore",		ignore_action }
 };
 
@@ -359,10 +378,10 @@ action_internal(XtActionProc action, enum iaction cause, const char *parm1,
 
 	/* Duplicate the parms, because XtActionProc doesn't grok 'const'. */
 	if (parm1 != CN) {
-		parms[0] = XtNewString(parm1);
+		parms[0] = NewString(parm1);
 		count++;
 		if (parm2 != CN) {
-			parms[1] = XtNewString(parm2);
+			parms[1] = NewString(parm2);
 			count++;
 		}
 	}
@@ -375,10 +394,10 @@ action_internal(XtActionProc action, enum iaction cause, const char *parm1,
 	/* Free the parm copies. */
 	switch (count) {
 	    case 2:
-		XtFree((XtPointer)parms[1]);
+		Free(parms[1]);
 		/* fall through... */
 	    case 1:
-		XtFree((XtPointer)parms[0]);
+		Free(parms[0]);
 		break;
 	    default:
 		break;

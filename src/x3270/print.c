@@ -277,7 +277,7 @@ PrintWindow_action(Widget w unused, XEvent *event, String *params,
 	}
 	if (secure) {
 		print_window_done(system(xfb));
-		XtFree(fb);
+		Free(fb);
 		return;
 	}
 	if (print_window_shell == NULL)

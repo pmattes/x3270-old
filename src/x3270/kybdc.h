@@ -25,6 +25,7 @@ extern unsigned int kybdlock;
 #define	KL_DEFERRED_UNLOCK	0x0100
 #define KL_ENTER_INHIBIT	0x0200
 #define KL_SCROLLED		0x0400
+#define KL_OIA_MINUS		0x0800
 
 /* actions */
 extern void AltCursor_action(Widget w, XEvent *event, String *params,

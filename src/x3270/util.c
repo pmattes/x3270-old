@@ -34,14 +34,14 @@ xs_vsprintf(const char *fmt, va_list args)
 	char nbuf[3];
 
 	size = strlen(fmt) + 1;
-	r = XtMalloc(size);
+	r = Malloc(size);
 	r[0] = '\0';
 	while ((c = *fmt++)) {
 		if (c == '%') {
 			if (*fmt == 's') {
 				s = va_arg(args, char *);
 				size += strlen(s);
-				r = XtRealloc(r, size);
+				r = Realloc(r, size);
 				(void) strcat(r, s);
 			} else {
 				nbuf[0] = '%';
@@ -87,8 +87,8 @@ xs_warning(const char *fmt, ...)
 	va_start(args, fmt);
 	r = xs_vsprintf(fmt, args);
 	va_end(args);
-	XtWarning(r);
-	XtFree(r);
+	Warning(r);
+	Free(r);
 }
 
 void
@@ -100,8 +100,8 @@ xs_error(const char *fmt, ...)
 	va_start(args, fmt);
 	r = xs_vsprintf(fmt, args);
 	va_end(args);
-	XtError(r);
-	XtFree(r);
+	Error(r);
+	Free(r);
 }
 
 /* Prettyprinter for strings with unprintable data. */
@@ -283,26 +283,6 @@ split_lresource(char **st, char **value)
 	return 1;
 }
 
-/*
- * A way to work around problems with Xt resources.  It seems to be impossible
- * to get arbitrarily named resources.  Someday this should be hacked to
- * add classes too.
- */
-char *
-get_resource(const char *name)
-{
-	XrmValue value;
-	char *type;
-	char *str;
-	char *r = CN;
-
-	str = xs_buffer("%s.%s", XtName(toplevel), name);
-	if ((XrmGetResource(rdb, str, 0, &type, &value) == True) && *value.addr)
-		r = value.addr;
-	XtFree(str);
-	return r;
-}
-
 const char *
 get_message(const char *key)
 {
@@ -333,10 +313,10 @@ var_subst(const char *s)
 	const char *vn_start = CN;
 
 	if (strchr(s, '$') == CN)
-		return XtNewString(s);
+		return NewString(s);
 
 	o_len = strlen(s) + 1;
-	ob = XtMalloc(o_len);
+	ob = Malloc(o_len);
 	o = ob;
 #	define LBR	'{'
 #	define RBR	'}'
@@ -401,7 +381,7 @@ var_subst(const char *s)
 					state = VS_BASE;
 					continue;	/* rescan */
 				}
-				vn = XtMalloc(vn_len + 1);
+				vn = Malloc(vn_len + 1);
 				(void) strncpy(vn, vn_start, vn_len);
 				vn[vn_len] = '\0';
 				if ((vv = ex_getenv(vn))) {
@@ -412,12 +392,12 @@ var_subst(const char *s)
 					    - vn_len		/* name */
 					    - (state == VS_VNB)	/* } */
 					    + strlen(vv);
-					ob = XtRealloc(ob, o_len);
+					ob = Realloc(ob, o_len);
 					o = strchr(ob, '\0');
 					(void) strcpy(o, vv);
 					o += strlen(vv);
 				}
-				XtFree(vn);
+				Free(vn);
 				if (state == VS_VNB) {
 					state = VS_BASE;
 					break;
@@ -454,14 +434,14 @@ tilde_subst(const char *s)
 
 	/* Does it start with a "~"? */
 	if (*s != '~')
-		return XtNewString(s);
+		return NewString(s);
 
 	/* Terminate with "/". */
 	slash = strchr(s, '/');
 	if (slash) {
 		int len = slash - s;
 
-		mname = XtMalloc(len + 1);
+		mname = Malloc(len + 1);
 		(void) strncpy(mname, s, len);
 		mname[len] = '\0';
 		name = mname;
@@ -479,13 +459,13 @@ tilde_subst(const char *s)
 
 	/* Free any temporary copy. */
 	if (mname != CN)
-		XtFree(mname);
+		Free(mname);
 
 	/* Substitute and return. */
 	if (p == (struct passwd *)NULL)
-		r = XtNewString(s);
+		r = NewString(s);
 	else {
-		r = XtMalloc(strlen(p->pw_dir) + strlen(rest) + 1);
+		r = Malloc(strlen(p->pw_dir) + strlen(rest) + 1);
 		(void) strcpy(r, p->pw_dir);
 		(void) strcat(r, rest);
 	}
@@ -496,7 +476,7 @@ char *
 do_subst(const char *s, Boolean do_vars, Boolean do_tilde)
 {
 	if (!do_vars && !do_tilde)
-		return XtNewString(s);
+		return NewString(s);
 
 	if (do_vars) {
 		char *t;
@@ -506,7 +486,7 @@ do_subst(const char *s, Boolean do_vars, Boolean do_tilde)
 			char *u;
 
 			u = tilde_subst(t);
-			XtFree(t);
+			Free(t);
 			return u;
 		}
 		return t;
@@ -544,3 +524,90 @@ ctl_see(int c)
 	*p = '\0';
 	return buf;
 }
+
+#if defined(X3270_DISPLAY) /*[*/
+
+/* Glue between x3270 and the X libraries. */
+
+/*
+ * A way to work around problems with Xt resources.  It seems to be impossible
+ * to get arbitrarily named resources.  Someday this should be hacked to
+ * add classes too.
+ */
+char *
+get_resource(const char *name)
+{
+	XrmValue value;
+	char *type;
+	char *str;
+	char *r = CN;
+
+	str = xs_buffer("%s.%s", XtName(toplevel), name);
+	if ((XrmGetResource(rdb, str, 0, &type, &value) == True) && *value.addr)
+		r = value.addr;
+	XtFree(str);
+	return r;
+}
+
+/*
+ * Input callbacks.
+ */
+typedef void voidfn(void);
+static void
+io_fn(XtPointer closure, int *source unused, XtInputId *id unused)
+{
+	voidfn *fn = (voidfn *)closure;
+
+	(*fn)();
+}
+
+unsigned long
+AddInput(int sock, voidfn *fn)
+{
+	return XtAppAddInput(appcontext, sock, (XtPointer) XtInputReadMask,
+		io_fn, (XtPointer)fn);
+}
+
+unsigned long
+AddExcept(int sock, voidfn *fn)
+{
+	return XtAppAddInput(appcontext, sock, (XtPointer) XtInputExceptMask,
+		io_fn, (XtPointer)fn);
+}
+
+void
+RemoveInput(unsigned long cookie)
+{
+	XtRemoveInput((XtInputId)cookie);
+}
+
+/*
+ * Timer callbacks.
+ */
+static void
+to_fn(XtPointer closure, XtIntervalId *id)
+{
+	voidfn *fn = (voidfn *)closure;
+
+	(*fn)();
+}
+
+unsigned long
+AddTimeOut(unsigned long msec, voidfn *fn)
+{
+	return (unsigned long) XtAppAddTimeOut(appcontext, msec, to_fn,
+		 (XtPointer)fn);
+}
+
+void
+RemoveTimeOut(unsigned long cookie)
+{
+	XtRemoveTimeOut((XtIntervalId)cookie);
+}
+
+KeySym
+StringToKeysym(char *s)
+{
+	return XStringToKeysym(s);
+}
+#endif /*]*/

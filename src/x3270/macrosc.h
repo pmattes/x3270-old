@@ -59,5 +59,9 @@ extern void sms_error(char *msg);
 extern void sms_init(void);
 extern Boolean sms_redirect(void);
 extern void sms_store(unsigned char c);
+#if defined(TCL3270) /*[*/
+extern void Status_action(Widget w, XEvent *event, String *params,
+    Cardinal *num_params);
+#endif /*]*/
 extern void Wait_action(Widget w, XEvent *event, String *params,
     Cardinal *num_params);

@@ -22,3 +22,4 @@
 #define status_ctlr_done()
 #define status_untiming()
 #define status_kybdlock()
+#define status_minus()

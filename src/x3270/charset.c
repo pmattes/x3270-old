@@ -51,11 +51,11 @@ charset_init(char *csname)
 	/* Find the character set definition. */
 	resname = xs_buffer("%s.%s", ResCharset, csname);
 	cs = get_resource(resname);
-	XtFree(resname);
+	Free(resname);
 	if (cs == CN)
 		return False;
 	if (appres.charset == CN || strcmp(csname, appres.charset)) {
-		appres.charset = XtNewString(csname);
+		appres.charset = NewString(csname);
 		charset_changed = True;
 	}
 
@@ -63,7 +63,7 @@ charset_init(char *csname)
 	(void) memcpy((char *)ebc2cg, (char *)ebc2cg0, 256);
 	(void) memcpy((char *)cg2ebc, (char *)cg2ebc0, 256);
 	clear_xks();
-	remap_chars(XtNewString(cs));
+	remap_chars(NewString(cs));
 	return True;
 }
 
@@ -76,7 +76,7 @@ parse_keysym(char *s, Boolean extended)
 {
 	KeySym	k;
 
-	k = XStringToKeysym(s);
+	k = StringToKeysym(s);
 	if (k == NoSymbol) {
 		if (strlen(s) == 1)
 			k = *s & 0xff;
@@ -113,7 +113,7 @@ remap_chars(char *spec)
 	int	ns;
 
 	/* Pick apart a copy of the spec. */
-	s = spec = XtNewString(spec);
+	s = spec = NewString(spec);
 
 	while ((ns = split_dresource(&s, &ebcs, &isos))) {
 		ne++;
@@ -140,5 +140,5 @@ remap_chars(char *spec)
 		}
 
 	}
-	XtFree(spec);
+	Free(spec);
 }

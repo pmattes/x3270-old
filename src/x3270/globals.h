@@ -81,7 +81,7 @@
 #if !defined(NO_SYS_TIME_H) /*[*/
 #include <sys/time.h>			/* System time-related data types */
 #endif /*]*/
-#include <X11/Intrinsic.h>
+#include "localdefs.h"
 
 #if defined(X3270_LOCAL_PROCESS) /*[*/
 #if defined(__FreeBSD__) /*[*/
@@ -103,8 +103,8 @@ extern int		ROWS;
 #if defined(X3270_DISPLAY) /*[*/
 extern Atom		a_3270, a_registry, a_iso8859, a_ISO8859, a_encoding,
 				a_1;
-#endif /*]*/
 extern XtAppContext	appcontext;
+#endif /*]*/
 extern const char	*build;
 extern int		children;
 extern char		*connected_lu;
@@ -132,6 +132,7 @@ extern int		model_num;
 extern int		ov_cols, ov_rows;
 extern Boolean		passthru_host;
 extern char		*programname;
+extern char		*reconnect_host;
 extern Boolean		auto_reconnect_disabled;
 extern int		screen_depth;
 extern Boolean		scroll_initted;
@@ -140,7 +141,6 @@ extern Boolean		*standard_font;
 extern Boolean		std_ds_host;
 extern char		*termtype;
 extern Widget		toplevel;
-extern XrmDatabase	rdb;
 
 #if defined(X3270_DISPLAY) /*[*/
 extern Atom		a_delete_me;
@@ -150,6 +150,7 @@ extern Pixel		colorbg_pixel;
 extern Display		*display;
 extern Pixmap		gray;
 extern Pixel		keypadbg_pixel;
+extern XrmDatabase	rdb;
 extern Window		root_window;
 #endif /*]*/
 

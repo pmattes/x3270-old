@@ -19,6 +19,7 @@
 #define X3270_KEYPAD	1	/* pop-up keypad */
 #define X3270_LOCAL_PROCESS 1	/* -e <cmd> support on Linux and BSD */
 #define X3270_MENUS	1	/* menu bar */
+#define X3270_SCRIPT	1	/* scripting */
 #define X3270_TRACE	1	/* data stream and X event tracing */
 
 /* Without menus, there is no file transfer. */

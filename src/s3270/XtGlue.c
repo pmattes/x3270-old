@@ -1,5 +1,5 @@
 /*
- * Copyright 1999 by Paul Mattes.
+ * Copyright 1999, 2000 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -22,60 +22,64 @@
 #include <sys/select.h>
 #endif /*]*/
 
+#define InputReadMask         0x1
+#define InputExceptMask       0x2
+#define InputWriteMask        0x4
+
 void
-XtError(const String s)
+Error(const char *s)
 {
 	fprintf(stderr, "Error: %s\n", s);
 	exit(1);
 }
 
 void
-XtWarning(const String s)
+Warning(const char *s)
 {
 	fprintf(stderr, "Warning: %s\n", s);
 }
 
-XtPointer
-XtMalloc(unsigned len)
+void *
+Malloc(size_t len)
 {
 	char *r;
 
 	r = malloc(len);
 	if (r == (char *)NULL)
-		XtError("Out of memory");
-	return (XtPointer)r;
+		Error("Out of memory");
+	return r;
 }
 
-XtPointer
-XtCalloc(unsigned nelem, unsigned elsize)
+void *
+Calloc(size_t nelem, size_t elsize)
 {
 	char *r;
 
 	r = malloc(nelem * elsize);
 	if (r == (char *)NULL)
-		XtError("Out of memory");
-	return (XtPointer)memset(r, '\0', nelem * elsize);
+		Error("Out of memory");
+	return memset(r, '\0', nelem * elsize);
 }
 
-XtPointer
-XtRealloc(XtPointer p, unsigned len)
+void *
+Realloc(void *p, size_t len)
 {
 	p = realloc(p, len);
-	if (p == (XtPointer)NULL)
-		XtError("Out of memory");
+	if (p == NULL)
+		Error("Out of memory");
 	return p;
 }
 
 void
-XtFree(XtPointer p)
+Free(void *p)
 {
-	free((char *)p);
+	free(p);
 }
 
-String
-XtNewString(const char *s)
+char *
+NewString(const char *s)
 {
-	return (String) strcpy(XtMalloc(strlen(s) + 1), s);
+	return strcpy(Malloc(strlen(s) + 1), s);
 }
 
 static struct {
@@ -281,7 +285,7 @@ static struct {
 };
 
 KeySym
-XStringToKeysym(const String s)
+StringToKeysym(char *s)
 {
 	int i;
 
@@ -298,23 +302,20 @@ XStringToKeysym(const String s)
 typedef struct timeout {
 	struct timeout *next;
 	long interval;
-	XtTimerCallbackProc proc;
-	XtPointer closure;
+	void (*proc)(void);
 } timeout_t;
 timeout_t *timeouts = (timeout_t *)NULL;
 
-XtIntervalId
-XtAppAddTimeOut(XtAppContext app_context, unsigned long interval,
-    XtTimerCallbackProc proc, XtPointer closure)
+unsigned long
+AddTimeOut(unsigned long interval, void (*proc)(void))
 {
 	timeout_t *t_new;
 	timeout_t *t;
 	timeout_t *prev = (timeout_t *)NULL;
 	unsigned long accum = 0L;
 
-	t_new = (timeout_t *)XtMalloc(sizeof(timeout_t));
+	t_new = (timeout_t *)Malloc(sizeof(timeout_t));
 	t_new->proc = proc;
-	t_new->closure = closure;
 
 	/* Find where to insert this item. */
 	for (t = timeouts; t != (timeout_t *)NULL; t = t->next) {
@@ -340,11 +341,11 @@ XtAppAddTimeOut(XtAppContext app_context, unsigned long interval,
 		prev->next = t_new;
 	}
 
-	return (XtIntervalId)t_new;
+	return (unsigned long)t_new;
 }
 
 void
-XtRemoveTimeOut(XtIntervalId timer)
+RemoveTimeOut(unsigned long timer)
 {
 	timeout_t *t;
 	timeout_t *prev = (timeout_t *)NULL;
@@ -357,43 +358,55 @@ XtRemoveTimeOut(XtIntervalId timer)
 				prev->next = t->next;
 			else
 				timeouts = t->next;
-			XtFree((XtPointer)t);
+			Free(t);
 			return;
 		}
 		prev = t;
 	}
 }
 
-/* Input events. */
-typedef struct input {
-	struct input *next;
-	int source;
-	XtPointer condition;
-	XtInputCallbackProc proc;
-	XtPointer closure;
-} input_t;
+/* Input events. */ 
+typedef struct input {  
+        struct input *next;
+        int source; 
+        int condition;
+        void (*proc)(void);
+} input_t;          
 input_t *inputs = (input_t *)NULL;
 Boolean inputs_changed = False;
 
-XtInputId
-XtAppAddInput(XtAppContext app_context, int source, XtPointer condition,
-    XtInputCallbackProc proc, XtPointer closure)
+unsigned long
+AddInput(int source, void (*fn)(void))
 {
 	input_t *ip;
 
-	ip = (input_t *)XtMalloc(sizeof(input_t));
+	ip = (input_t *)Malloc(sizeof(input_t));
 	ip->source = source;
-	ip->condition = condition;
-	ip->proc = proc;
-	ip->closure = closure;
+	ip->condition = InputReadMask;
+	ip->proc = fn;
 	ip->next = inputs;
 	inputs = ip;
 	inputs_changed = True;
-	return (XtInputId)ip;
+	return (unsigned long)ip;
+}
+
+unsigned long
+AddExcept(int source, void (*fn)(void))
+{
+	input_t *ip;
+
+	ip = (input_t *)Malloc(sizeof(input_t));
+	ip->source = source;
+	ip->condition = InputExceptMask;
+	ip->proc = fn;
+	ip->next = inputs;
+	inputs = ip;
+	inputs_changed = True;
+	return (unsigned long)ip;
 }
 
 void
-XtRemoveInput(XtInputId id)
+RemoveInput(unsigned long id)
 {
 	input_t *ip;
 	input_t *prev = (input_t *)NULL;
@@ -409,61 +422,82 @@ XtRemoveInput(XtInputId id)
 		prev->next = ip->next;
 	else
 		inputs = ip->next;
-	XtFree((XtPointer)ip);
+	Free(ip);
 	inputs_changed = True;
 }
 
 /* Event dispatcher. */
-void
-XtAppProcessEvent(XtAppContext app_context, XtInputMask mask)
+Boolean
+process_events(Boolean block)
 {
 	input_t *ip;
 	fd_set rfds, wfds, xfds;
 	int ns;
 	struct timeval t0, t1, twait, *tp;
+	Boolean any_events;
+	Boolean processed_any = False;
 
+	processed_any = False;
     retry:
+	any_events = False;
 	FD_ZERO(&rfds);
 	FD_ZERO(&wfds);
 	FD_ZERO(&xfds);
 	for (ip = inputs; ip != (input_t *)NULL; ip = ip->next) {
-		if ((unsigned long)ip->condition & XtInputReadMask)
+		if ((unsigned long)ip->condition & InputReadMask) {
 			FD_SET(ip->source, &rfds);
-		if ((unsigned long)ip->condition & XtInputWriteMask)
+			any_events = True;
+		}
+		if ((unsigned long)ip->condition & InputWriteMask) {
 			FD_SET(ip->source, &wfds);
-		if ((unsigned long)ip->condition & XtInputExceptMask)
+			any_events = True;
+		}
+		if ((unsigned long)ip->condition & InputExceptMask) {
 			FD_SET(ip->source, &xfds);
+			any_events = True;
+		}
 	}
 	if (timeouts != (struct timeout *)NULL) {
 		(void) gettimeofday(&t0, (void *)NULL);
 		twait.tv_sec = timeouts->interval / 1000L;
 		twait.tv_usec = (timeouts->interval % 1000L) * 1000L;
 		tp = &twait;
+		any_events = True;
 	} else {
-		tp = (struct timeval *)NULL;
+		if (block)
+			tp = (struct timeval *)NULL;
+		else {
+			twait.tv_sec = twait.tv_usec = 0L;
+			tp = &twait;
+		}
 	}
+	if (!any_events)
+		return processed_any;
 	ns = select(FD_SETSIZE, &rfds, &wfds, &xfds, tp);
 	if (ns < 0) {
-		XtWarning("XtAppProcessEvent: select() failed");
-		return;
+		Warning("process_events: select() failed");
+		return processed_any;
 	}
 	inputs_changed = False;
 	for (ip = inputs; ip != (input_t *)NULL; ip = ip->next) {
-		if (((unsigned long)ip->condition & XtInputReadMask) &&
+		if (((unsigned long)ip->condition & InputReadMask) &&
 		    FD_ISSET(ip->source, &rfds)) {
-			(*ip->proc)(ip->closure, &ip->source, (XtInputId *)ip);
+			(*ip->proc)();
+			processed_any = True;
 			if (inputs_changed)
 				goto retry;
 		}
-		if (((unsigned long)ip->condition & XtInputWriteMask) &&
+		if (((unsigned long)ip->condition & InputWriteMask) &&
 		    FD_ISSET(ip->source, &wfds)) {
-			(*ip->proc)(ip->closure, &ip->source, (XtInputId *)ip);
+			(*ip->proc)();
+			processed_any = True;
 			if (inputs_changed)
 				goto retry;
 		}
-		if (((unsigned long)ip->condition & XtInputExceptMask) &&
+		if (((unsigned long)ip->condition & InputExceptMask) &&
 		    FD_ISSET(ip->source, &xfds)) {
-			(*ip->proc)(ip->closure, &ip->source, (XtInputId *)ip);
+			(*ip->proc)();
+			processed_any = True;
 			if (inputs_changed)
 				goto retry;
 		}
@@ -480,8 +514,10 @@ XtAppProcessEvent(XtAppContext app_context, XtInputMask mask)
 		       msec >= t->interval) {
 			msec -= t->interval;
 			timeouts = t->next;
-			(*t->proc)(t->closure, (XtIntervalId *)t);
-			XtFree((XtPointer)t);
+			(*t->proc)();
+			processed_any = True;
+			Free(t);
 		}
 	}
+	return processed_any;
 }

@@ -7,7 +7,7 @@
  *  supporting documentation.
  */
 
-#include <X11/Intrinsic.h>
+#include <stdio.h>
 #include <string.h>
 
 /* s3270 substitute Xt resource database. */
@@ -111,20 +111,15 @@ static struct {
 	{ (char *)NULL, (char *)NULL }
 };
 
-Bool
-XrmGetResource(XrmDatabase database, const char *str_name,
-    const char *str_class, char **str_type_return, XrmValue *value_return)
+char *
+get_resource(const char *name)
 {
 	int i;
-	const char *name;
 
-	name = str_name + strlen("x3270.");
-
-	for (i = 0; rdb[i].name != (char *)NULL; i++)
+	for (i = 0; rdb[i].name != (char *)NULL; i++) {
 		if (!strcmp(rdb[i].name, name)) {
-			value_return->size = strlen(rdb[i].value) + 1;
-			value_return->addr = (XtPointer)rdb[i].value;
-			return True;
+			return rdb[i].value;
 		}
-	return False;
+	}
+	return NULL;
 }
