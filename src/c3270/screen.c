@@ -1,5 +1,5 @@
 /*
- * Copyright 2000, 2001, 2002 by Paul Mattes.
+ * Copyright 2000, 2001, 2002, 2004 by Paul Mattes.
  *   Permission to use, copy, modify, and distribute this software and its
  *   documentation for any purpose and without fee is hereby granted,
  *   provided that the above copyright notice appear in all copies and that
@@ -52,7 +52,7 @@ extern int cCOLS;
 #include <curses.h>
 #endif /*]*/
 
-static int cp[8][8];
+static int cp[8][8][2];
 static int cmap[16] = {
 	COLOR_BLACK,	/* neutral black */
 	COLOR_BLUE,	/* blue */
@@ -195,7 +195,7 @@ screen_init(void)
 	}
 #endif /*]*/
 
-	while (LINES < ROWS || COLS < cCOLS) {
+	while (LINES < maxROWS || COLS < maxCOLS) {
 		char buf[2];
 
 		/*
@@ -230,8 +230,8 @@ screen_init(void)
 	if (oversize) {
 		if (want_ov_rows > LINES - 2)
 			want_ov_rows = LINES - 2;
-		if (want_ov_rows < ROWS)
-			want_ov_rows = ROWS;
+		if (want_ov_rows < maxROWS)
+			want_ov_rows = maxROWS;
 		if (want_ov_cols > COLS)
 			want_ov_cols = COLS;
 		set_rows_cols(model_num, want_ov_cols, want_ov_rows);
@@ -257,8 +257,29 @@ screen_init(void)
 	/* Play with curses color. */
 	if (appres.m3279) {
 		start_color();
-		if (has_colors() && COLORS >= 8)
+		if (has_colors() && COLORS >= 8) {
 			defattr = get_color_pair(COLOR_BLUE, COLOR_BLACK);
+#if defined(C3270_80_132) && defined(NCURSES_VERSION)  /*[*/
+			if (def_screen != NULL) {
+				SCREEN *s = cur_screen;
+
+				/*
+				 * Initialize the colors for the other
+				 * screen.
+				 */
+				if (s == def_screen)
+					set_term(alt_screen);
+				else
+					set_term(def_screen);
+				start_color();
+				curses_alt = !curses_alt;
+				(void) get_color_pair(COLOR_BLUE, COLOR_BLACK);
+				curses_alt = !curses_alt;
+				set_term(s);
+
+			}
+#endif /*]*/
+		}
 		else {
 			appres.m3279 = False;
 			/* Get the terminal name right. */
@@ -397,16 +418,23 @@ ts_value(const char *s, enum ts *tsp)
 static int
 get_color_pair(int fg, int bg)
 {
-	static int next_pair = 1;
+	static int next_pair[2] = { 1, 1 };
 	int pair;
+#if defined(C3270_80_132) && defined(NCURSES_VERSION) /*[*/
+		/* ncurses allocates colors for each screen. */
+	int pair_index = !!curses_alt;
+#else /*][*/
+		/* curses allocates colors globally. */
+	const int pair_index = 0;
+#endif /*]*/
 
-	if ((pair = cp[fg][bg]))
+	if ((pair = cp[fg][bg][pair_index]))
 		return COLOR_PAIR(pair);
-	if (next_pair >= COLOR_PAIRS)
+	if (next_pair[pair_index] >= COLOR_PAIRS)
 		return 0;
-	if (init_pair(next_pair, fg, bg) != OK)
+	if (init_pair(next_pair[pair_index], fg, bg) != OK)
 		return 0;
-	pair = cp[fg][bg] = next_pair++;
+	pair = cp[fg][bg][pair_index] = next_pair[pair_index]++;
 	return COLOR_PAIR(pair);
 }
 
@@ -418,12 +446,15 @@ color_from_fa(unsigned char fa)
 	    COLOR_RED,		/* intensified */
 	    COLOR_BLUE,		/* protected */
 	    COLOR_WHITE		/* protected, intensified */
+#	define DEFCOLOR_MAP(f) \
+		((((f) & FA_PROTECT) >> 4) | (((f) & FA_INT_HIGH_SEL) >> 3))
+
 	};
 
 	if (appres.m3279) {
 		int fg;
 
-		fg = field_colors[(fa >> 1) & 0x03];
+		fg = field_colors[DEFCOLOR_MAP(fa)];
 		return get_color_pair(fg, COLOR_BLACK) |
 		    (((ab_mode == TS_ON) || FA_IS_HIGH(fa))? A_BOLD: A_NORMAL);
 	} else
@@ -506,7 +537,9 @@ screen_disp(Boolean erasing unused)
 							    & 0x0f];
 						else
 							bg = COLOR_BLACK;
-						a = get_color_pair(fg, bg);
+						a = get_color_pair(fg, bg) |
+							((ab_mode == TS_ON)?
+							  A_BOLD: A_NORMAL);
 					} else {
 						a = color_from_fa(fa);
 					}
@@ -530,7 +563,9 @@ screen_disp(Boolean erasing unused)
 				if (ea_buf[baddr].gr ||
 				    ea_buf[baddr].fg ||
 				    ea_buf[baddr].bg) {
-					int b = FA_IS_HIGH(fa)? A_BOLD: A_NORMAL;
+					int b = ((ab_mode == TS_ON) ||
+						 FA_IS_HIGH(fa))? A_BOLD:
+						                  A_NORMAL;
 
 					if (ea_buf[baddr].gr & GR_BLINK)
 						b |= A_BLINK;
@@ -1331,7 +1366,7 @@ apl_to_acs(unsigned char c)
 		return ACS_PLUS;
 #endif /*]*/
 #if defined(ACS_HLINE) /*[*/
-	case 0xd2: /* CG 0xaa */
+	case 0xa2: /* CG 0x92 */
 		return ACS_HLINE;
 #endif /*]*/
 #if defined(ACS_LTEE) /*[*/

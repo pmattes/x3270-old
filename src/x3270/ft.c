@@ -1,5 +1,5 @@
 /*
- * Modifications Copyright 1996, 1999, 2000, 2001, 2002 by Paul Mattes.
+ * Modifications Copyright 1996, 1999, 2000, 2001, 2002, 2004 by Paul Mattes.
  * Copyright October 1995 by Dick Altenbern.
  * Based in part on code Copyright 1993, 1994, 1995 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
@@ -95,6 +95,7 @@ static Widget vm_toggle, tso_toggle;
 static Widget ascii_toggle, binary_toggle;
 static Widget cr_widget;
 static Widget remap_widget;
+static Widget buffersize_widget;
 #endif /*]*/
 
 static char *ft_host_filename;		/* Host file to transfer to/from */
@@ -227,7 +228,9 @@ ft_popup_init(void)
 	Dimension d1;
 	Dimension maxw = 0;
 	Widget recfm_label, units_label;
+	Widget buffersize_label;
 	Widget start_button;
+	char buflen_buf[128];
 
 	/* Register for state changes. */
 	register_schange(ST_CONNECT, ft_connected);
@@ -732,10 +735,43 @@ ft_popup_init(void)
 	    &vm_flag, False,
 	    &units_default, False);
 
+	/* Set up the DFT buffer size. */
+	buffersize_label = XtVaCreateManagedWidget(
+	    "buffersize", labelWidgetClass, ft_dialog,
+	    XtNfromVert, blksize_label,
+	    XtNvertDistance, FAR_VGAP,
+	    XtNhorizDistance, MARGIN,
+	    XtNborderWidth, 0,
+	    NULL);
+	buffersize_widget = XtVaCreateManagedWidget(
+	    "value", asciiTextWidgetClass, ft_dialog,
+	    XtNfromVert, blksize_label,
+	    XtNvertDistance, FAR_VGAP,
+	    XtNfromHoriz, buffersize_label,
+	    XtNhorizDistance, 0,
+	    XtNwidth, 100,
+	    XtNeditType, XawtextEdit,
+	    XtNdisplayCaret, False,
+	    NULL);
+	dialog_match_dimension(buffersize_label, buffersize_widget, XtNheight);
+	w = XawTextGetSource(buffersize_widget);
+	if (w == NULL)
+		XtWarning("Cannot find text source in dialog");
+	else
+		XtAddCallback(w, XtNcallback, dialog_text_callback,
+		    (XtPointer)&t_numeric);
+	dialog_register_sensitivity(buffersize_widget,
+	    BN, False,
+	    BN, False,
+	    BN, False);
+	set_dft_buffersize();
+	(void) sprintf(buflen_buf, "%d", dft_buffersize);
+	XtVaSetValues(buffersize_widget, XtNstring, buflen_buf, NULL);
+
 	/* Set up the buttons at the bottom. */
 	start_button = XtVaCreateManagedWidget(
 	    ObjConfirmButton, commandWidgetClass, ft_dialog,
-	    XtNfromVert, blksize_label,
+	    XtNfromVert, buffersize_label,
 	    XtNvertDistance, FAR_VGAP,
 	    XtNhorizDistance, MARGIN,
 	    NULL);
@@ -744,7 +780,7 @@ ft_popup_init(void)
 
 	cancel_button = XtVaCreateManagedWidget(
 	    ObjCancelButton, commandWidgetClass, ft_dialog,
-	    XtNfromVert, blksize_label,
+	    XtNfromVert, buffersize_label,
 	    XtNvertDistance, FAR_VGAP,
 	    XtNfromHoriz, start_button,
 	    XtNhorizDistance, BUTTON_GAP,
@@ -902,11 +938,22 @@ ft_start(void)
 	char opts[80];
 	char *op = opts + 1;
 	char *cmd;
-	String lrecl, blksize, primspace, secspace;
+	String buffersize, lrecl, blksize, primspace, secspace;
+	char updated_buffersize[128];
 	unsigned flen;
 	char *ft_command;
 
 	ft_is_action = False;
+
+	/* Get the DFT buffer size. */
+	XtVaGetValues(buffersize_widget, XtNstring, &buffersize, NULL);
+	if (*buffersize)
+		dft_buffersize = atoi(buffersize);
+	else
+		dft_buffersize = 0;
+	set_dft_buffersize();
+	(void) sprintf(updated_buffersize, "%d", dft_buffersize);
+	XtVaSetValues(buffersize_widget, XtNstring, updated_buffersize, NULL);
 
 	/* Get the host file from its widget */
 	XtVaGetValues(host_file, XtNstring, &ft_host_filename, NULL);
@@ -1519,22 +1566,26 @@ static struct {
 				      "avblock" } },
 	{ "PrimarySpace" },
 	{ "SecondarySpace" },
+	{ "BufferSize" },
 	{ CN }
 };
-#define PARM_DIRECTION		0
-#define PARM_HOST_FILE		1
-#define PARM_LOCAL_FILE		2
-#define PARM_HOST		3
-#define PARM_MODE		4
-#define PARM_CR			5
-#define PARM_EXIST		6
-#define PARM_RECFM		7
-#define PARM_LRECL		8
-#define PARM_BLKSIZE		9
-#define PARM_ALLOCATION		10
-#define PARM_PRIMARY_SPACE	11
-#define PARM_SECONDARY_SPACE	12
-#define N_PARMS			(PARM_SECONDARY_SPACE + 1)
+enum ft_parm_name {
+	PARM_DIRECTION,
+	PARM_HOST_FILE,
+	PARM_LOCAL_FILE,
+	PARM_HOST,
+	PARM_MODE,
+	PARM_CR,
+	PARM_EXIST,
+	PARM_RECFM,
+	PARM_LRECL,
+	PARM_BLKSIZE,
+	PARM_ALLOCATION,
+	PARM_PRIMARY_SPACE,
+	PARM_SECONDARY_SPACE,
+	PARM_BUFFER_SIZE,
+	N_PARMS
+};
 
 void  
 Transfer_action(Widget w unused, XEvent *event, String *params,
@@ -1606,6 +1657,7 @@ Transfer_action(Widget w unused, XEvent *event, String *params,
 				    case PARM_BLKSIZE:
 				    case PARM_PRIMARY_SPACE:
 				    case PARM_SECONDARY_SPACE:
+				    case PARM_BUFFER_SIZE:
 					l = strtol(eq + 1, &ptr, 10);
 					if (ptr == eq + 1 || *ptr) {
 						popup_an_error("Invalid option "
@@ -1640,6 +1692,11 @@ Transfer_action(Widget w unused, XEvent *event, String *params,
 	 * Start the transfer.  Much of this is duplicated from ft_start()
 	 * and should be made common.
 	 */
+	if (tp[PARM_BUFFER_SIZE].value != CN)
+		dft_buffersize = atoi(tp[PARM_BUFFER_SIZE].value);
+	else
+		dft_buffersize = 0;
+	set_dft_buffersize();
 
 	receive_flag = !strcasecmp(tp[PARM_DIRECTION].value, "receive");
 	append_flag = !strcasecmp(tp[PARM_EXIST].value, "append");

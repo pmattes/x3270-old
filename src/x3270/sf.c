@@ -889,12 +889,14 @@ do_qr_charsets(void)
 static void
 do_qr_ddm(void)
 {
+	set_dft_buffersize();
+
 	trace_ds("> QueryReply(DistributedDataManagement)\n");
 	space3270out(8);
-	SET16(obptr,0);		/* set reserved field to 0 */
-	SET16(obptr,DFT_INBUF);	/* set inbound length limit */
-	SET16(obptr,DFT_OUTBUF);/* set outbound length limit */
-	SET16(obptr,0x0101);	/* NSS=01, DDMSS=01 */
+	SET16(obptr,0);			/* set reserved field to 0 */
+	SET16(obptr, dft_buffersize);	/* set inbound length limit INLIM */
+	SET16(obptr, dft_buffersize);	/* set outbound length limit OUTLIM */
+	SET16(obptr, 0x0101);		/* NSS=01, DDMSS=01 */
 }
 #endif /*]*/
 

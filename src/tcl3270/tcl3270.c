@@ -1,5 +1,6 @@
 /*
- * Modifications Copyright 1993, 1994, 1995, 1996, 2000, 2001 by Paul Mattes.
+ * Modifications Copyright 1993, 1994, 1995, 1996, 2000, 2001, 2004 by Paul
+ *  Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *   Permission to use, copy, modify, and distribute this software and its
  *   documentation for any purpose and without fee is hereby granted,
@@ -30,7 +31,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tcl3270.c,v 1.28.1.8 2003/08/19 22:20:19 pdm Exp $
+ * RCS: @(#) $Id: tcl3270.c,v 1.28.1.12 2004/12/31 22:50:25 pdm Exp $
  */
 
 /*
@@ -91,12 +92,13 @@ static enum {
 	AWAITING_CONNECT,	/* Connect (negotiation completion) */
 	AWAITING_RESET,		/* Keyboard locked */
 	AWAITING_FT,		/* File transfer in progress */
-	AWAITING_INPUT,		/* Wait InputField */
+	AWAITING_IFIELD,	/* Wait InputField */
 	AWAITING_3270,		/* Wait 3270Mode */
-	AWAITING_ANSI,		/* Wait NVTMode */
+	AWAITING_NVT,		/* Wait NVTMode */
 	AWAITING_OUTPUT,	/* Wait Output */
 	AWAITING_SOUTPUT,	/* Snap Wait */
-	AWAITING_DISCONNECT	/* Wait Disconnect */
+	AWAITING_DISCONNECT,	/* Wait Disconnect */
+	AWAITING_UNLOCK		/* Wait Unlock */
 } waiting = NOT_WAITING;
 static const char *wait_name[] = {
 	"not waiting",
@@ -108,7 +110,8 @@ static const char *wait_name[] = {
 	"need NVT mode",
 	"need host output",
 	"need snap host output",
-	"need host disconnect"
+	"need host disconnect",
+	"need keyboard unlock"
 };
 static const char *unwait_name[] = {
 	"wasn't waiting",
@@ -120,7 +123,8 @@ static const char *unwait_name[] = {
 	"in NVT mode",
 	"host generated output",
 	"host generated snap output",
-	"host disconnected"
+	"host disconnected",
+	"keyboard unlocked"
 };
 static unsigned long wait_id = 0L;
 static int cmd_ret;
@@ -146,11 +150,12 @@ Boolean macro_output = False;
 
 /* Is the keyboard is locked due to user input? */
 #define KBWAIT	(kybdlock & (KL_OIA_LOCKED|KL_OIA_TWAIT|KL_DEFERRED_UNLOCK))
+#define CKBWAIT (appres.toggle[AID_WAIT].value && KBWAIT)
 
 /* Is it safe to continue a script waiting for an input field? */
 #define INPUT_OKAY ( \
     IN_SSCP || \
-    (IN_3270 && formatted && cursor_addr && !KBWAIT) || \
+    (IN_3270 && formatted && cursor_addr && !CKBWAIT) || \
     (IN_ANSI && !(kybdlock & KL_AWAITING_FIRST)) \
 )
 
@@ -347,7 +352,7 @@ main_connect(Boolean ignored)
 			if (IN_3270)
 				UNBLOCK();
 			break;
-		case AWAITING_ANSI:
+		case AWAITING_NVT:
 			if (IN_ANSI)
 				UNBLOCK();
 			break;
@@ -449,7 +454,7 @@ process_pending_string(void)
 		} else
 			ps_clear();
 	}
-	if (KBWAIT) {
+	if (CKBWAIT) {
 		trace_event("Blocked %s (keyboard locked)\n", action);
 		waiting = AWAITING_RESET;
 	}
@@ -537,7 +542,7 @@ x3270_cmd(ClientData clientData, Tcl_Interp *interp, int objc,
 		waiting = AWAITING_FT;
 	else
 #endif /*]*/
-	if (KBWAIT)
+	if (CKBWAIT)
 		waiting = AWAITING_RESET;
 
 	if (waiting != NOT_WAITING)
@@ -558,12 +563,12 @@ x3270_cmd(ClientData clientData, Tcl_Interp *interp, int objc,
 		 * Check for the completion of output-related wait conditions.
 		 */
 		switch (waiting) {
-		case AWAITING_INPUT:
+		case AWAITING_IFIELD:
 			if (INPUT_OKAY)
 				UNBLOCK();
 			break;
 		case AWAITING_RESET:
-			if (!KBWAIT)
+			if (!CKBWAIT)
 				UNBLOCK();
 			break;
 #if defined(X3270_FT) /*[*/
@@ -572,6 +577,9 @@ x3270_cmd(ClientData clientData, Tcl_Interp *interp, int objc,
 				UNBLOCK();
 			break;
 #endif /*]*/
+		case AWAITING_UNLOCK:
+			if (!KBWAIT)
+				UNBLOCK();
 		default:
 			break;
 		}
@@ -614,7 +622,7 @@ negotiate(void)
 	int old_mode;
 
 	old_mode = Tcl_SetServiceMode(TCL_SERVICE_ALL);
-	while (KBWAIT || (waiting == AWAITING_CONNECT && !CONNECT_DONE)) {
+	while (CKBWAIT || (waiting == AWAITING_CONNECT && !CONNECT_DONE)) {
 		(void) process_events(True);
 		if (!PCONNECTED)
 			exit(1);
@@ -750,7 +758,27 @@ dump_range(int first, int len, Boolean in_ascii, struct ea *buf,
 			} else
 #endif /*]*/
 			{
-				c = ebc2asc[buf[first + i].cc];
+				switch (buf[first + i].cs & CS_MASK) {
+				case CS_BASE:
+				default:
+					if (buf[first + i].cs & CS_GE) {
+						c = ge2asc[buf[first + i].cc];
+						if (c < ' ')
+							c = ' ';
+					} else if (buf[first + i].cc == EBC_null)
+						c = 0;
+					else 
+						c = ebc2asc[buf[first + i].cc];
+					break;
+				case CS_APL:
+					c = ge2asc[buf[first + i].cc];
+					if (c < ' ')
+						c = ' ';
+					break;
+				case CS_LINEDRAW:
+					c = ' ';
+					break;
+				}
 			}
 			if (!c)
 				c = ' ';
@@ -1162,15 +1190,19 @@ do_read_buffer(String *params, Cardinal num_params, struct ea *buf)
 				switch (buf[baddr].cs & CS_MASK) {
 				case CS_BASE:
 				default:
-					if (buf[baddr].cs & CS_GE)
+					if (buf[baddr].cs & CS_GE) {
 						c = ge2asc[buf[baddr].cc];
-					else if (buf[baddr].cc == EBC_null)
+						if (c < ' ')
+							c = ' ';
+					} else if (buf[baddr].cc == EBC_null)
 						c = 0;
 					else 
 						c = ebc2asc[buf[baddr].cc];
 					break;
 				case CS_APL:
-					c = cg2asc[buf[baddr].cc];
+					c = ge2asc[buf[baddr].cc];
+					if (c < ' ')
+						c = ' ';
 					break;
 				case CS_LINEDRAW:
 					c = ' ';
@@ -1280,17 +1312,17 @@ Snap_action(Widget w unused, XEvent *event unused, String *params,
 
 	/* Handle 'Snap Wait' separately. */
 	if (!strcasecmp(params[0], action_name(Wait_action))) {
-		unsigned long tmo;
+		long tmo = -1;
 		char *ptr;
 		int maxp = 0;
 
 		if (*num_params > 1 &&
-		    (tmo = strtoul(params[1], &ptr, 10)) > 0 &&
+		    (tmo = strtol(params[1], &ptr, 10)) >= 0 &&
 		    ptr != params[0] &&
 		    *ptr == '\0') {
 			maxp = 3;
 		} else {
-			tmo = 0L;
+			tmo = -1;
 			maxp = 2;
 		}
 		if (*num_params > maxp) {
@@ -1332,8 +1364,9 @@ Snap_action(Widget w unused, XEvent *event unused, String *params,
 		waiting = AWAITING_SOUTPUT;
 
 		/* Set up a timeout, if they want one. */
-		if (tmo)
-			wait_id = AddTimeOut(tmo * 1000, wait_timed_out);
+		if (tmo >= 0)
+			wait_id = AddTimeOut(tmo? (tmo * 1000): 1,
+					wait_timed_out);
 		return;
 	}
 
@@ -1414,13 +1447,13 @@ void
 Wait_action(Widget w unused, XEvent *event unused, String *params,
     Cardinal *num_params)
 {
-	unsigned long tmo = 0;
+	long tmo = -1;
 	char *ptr;
 	Cardinal np;
 	String *pr;
 
 	if (*num_params > 0 &&
-	    (tmo = strtoul(params[0], &ptr, 10)) > 0 &&
+	    (tmo = strtol(params[0], &ptr, 10)) >= 0 &&
 	     ptr != params[0] &&
 	     *ptr == '\0') {
 		np = *num_params - 1;
@@ -1436,7 +1469,7 @@ Wait_action(Widget w unused, XEvent *event unused, String *params,
 			return;
 		}
 		if (!INPUT_OKAY)
-			waiting = AWAITING_INPUT;
+			waiting = AWAITING_IFIELD;
 		return;
 	}
 	if (np != 1) {
@@ -1450,7 +1483,7 @@ Wait_action(Widget w unused, XEvent *event unused, String *params,
 			return;
 		}
 		if (!INPUT_OKAY)
-			waiting = AWAITING_INPUT;
+			waiting = AWAITING_IFIELD;
 	} else if (!strcasecmp(pr[0], "Output")) {
 		if (!CONNECTED) {
 			popup_an_error("Not connected");
@@ -1473,17 +1506,20 @@ Wait_action(Widget w unused, XEvent *event unused, String *params,
 			return;
 		}
 		if (!IN_ANSI)
-			waiting = AWAITING_ANSI;
+			waiting = AWAITING_NVT;
 	} else if (!strcasecmp(pr[0], "Disconnect")) {
 		if (CONNECTED)
 			waiting = AWAITING_DISCONNECT;
+	} else if (!strcasecmp(pr[0], "Unlock")) {
+		if (CONNECTED && KBWAIT)
+			waiting = AWAITING_UNLOCK;
 	} else {
 		popup_an_error("Unknown Wait type: %s", pr[0]);
 		return;
 	}
 
-	if (waiting != NOT_WAITING && tmo)
-		wait_id = AddTimeOut(tmo * 1000L, wait_timed_out);
+	if (waiting != NOT_WAITING && tmo >= 0)
+		wait_id = AddTimeOut(tmo? (tmo * 1000L): 1, wait_timed_out);
 }
 
 static int

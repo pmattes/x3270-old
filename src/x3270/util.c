@@ -1,5 +1,5 @@
 /*
- * Copyright 1993, 1994, 1995, 1999, 2000, 2001, 2002 by Paul Mattes.
+ * Copyright 1993, 1994, 1995, 1999, 2000, 2001, 2002, 2004 by Paul Mattes.
  * Parts Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -678,6 +678,68 @@ split_hier(char *label, char **base, char ***parents)
 		(*base) = label;
 	}
 	return True;
+}
+
+/*
+ * Incremental, reallocing version of snprintf.
+ */
+#define RPF_BLKSIZE	4096
+
+/* Initialize an RPF structure. */
+void
+rpf_init(rpf_t *r)
+{
+	r->buf = NULL;
+	r->alloc_len = 0;
+	r->cur_len = 0;
+}
+
+/* Reset an initialized RPF structure (re-use with length 0). */
+void
+rpf_reset(rpf_t *r)
+{
+	r->cur_len = 0;
+}
+
+/* Append a string to a dynamically-allocated buffer. */
+void
+rpf(rpf_t *r, char *fmt, ...)
+{
+	va_list a;
+	Boolean need_realloc = False;
+	int ns;
+
+	/* Figure out how much space would be needed. */
+	va_start(a, fmt);
+	ns = vsnprintf(NULL, 0, fmt, a);
+	if (ns < 0) {
+		Error("broken snprintf");
+	}
+	ns++;
+
+	/* Make sure we have that. */
+	while (r->alloc_len - r->cur_len < ns) {
+		r->alloc_len += RPF_BLKSIZE;
+		need_realloc = True;
+	}
+	if (need_realloc) {
+		r->buf = Realloc(r->buf, r->alloc_len);
+	}
+
+	/* Scribble onto the end of that. */
+	(void) vsnprintf(r->buf + r->cur_len, ns, fmt, a);
+	r->cur_len += ns - 1;
+	va_end(a);
+}
+
+/* Free resources associated with an RPF. */
+void
+rpf_free(rpf_t *r)
+{
+	Free(r->buf);
+	r->buf = NULL;
+	r->alloc_len = 0;
+	r->cur_len = 0;
 }
 
 #if defined(X3270_DISPLAY) /*[*/

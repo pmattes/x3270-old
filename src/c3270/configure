@@ -2130,7 +2130,7 @@ solaris2*)	XANSI=-D__EXTENSIONS__
 		;;
 darwin*)	XPRECOMP=-no-cpp-precomp
 		;;
-linux*)		XANSI="-D_POSIX_SOURCE -D_BSD_SOURCE"
+linux*)		XANSI="-D_POSIX_SOURCE -D_BSD_SOURCE -D_XOPEN_SOURCE"
 		;;
 aix*)		BROKEN_NEWTERM=1
 		;;
@@ -4866,10 +4866,12 @@ _ACEOF
 	DBCS_C="wide.c"
 	DBCS_O="wide.o"
 	CNV=""
+	DBCS=-DX3270_DBCS=1
 	;;
 *)	CNV="#"
 	;;
 esac
+
 
 
 
@@ -5545,6 +5547,7 @@ s,@DBCS_C@,$DBCS_C,;t t
 s,@DBCS_O@,$DBCS_O,;t t
 s,@CNV@,$CNV,;t t
 s,@ICU_DATA_PREFIX@,$ICU_DATA_PREFIX,;t t
+s,@DBCS@,$DBCS,;t t
 s,@SSL@,$SSL,;t t
 CEOF
 

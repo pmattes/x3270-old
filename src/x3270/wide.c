@@ -1,5 +1,5 @@
 /*
- * Copyright 2002 by Paul Mattes.
+ * Copyright 2002, 2004 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -492,12 +492,11 @@ dbcs_map16(UChar u, unsigned char *cp)
 	int len;
 
 	if (same_converter) {
-		char tmp_cp[3];
+		char tmp_cp[5];
 
-		len = ucnv_fromUChars(dbcs_converter, tmp_cp, 3, &u, 1, &err);
-		if ((err != U_ZERO_ERROR &&
-		     err != U_STRING_NOT_TERMINATED_WARNING) ||
-		    len != 3 ||
+		len = ucnv_fromUChars(dbcs_converter, tmp_cp, 5, &u, 1, &err);
+		if (err != U_ZERO_ERROR ||
+		    len < 3 ||
 		    tmp_cp[0] != EBC_so)
 			return 0;
 		cp[0] = tmp_cp[1];

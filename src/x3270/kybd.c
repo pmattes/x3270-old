@@ -1,6 +1,6 @@
 /*
  * Modifications Copyright 1993, 1994, 1995, 1996, 1999,
- *  2000, 2001, 2002 by Paul Mattes.
+ *  2000, 2001, 2002, 2004 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -317,6 +317,10 @@ kybd_in3270(Boolean in3270 unused)
 	if (kybdlock & KL_DEFERRED_UNLOCK)
 		RemoveTimeOut(unlock_id);
 	kybdlock_clr(-1, "kybd_connect");
+
+	/* There might be a macro pending. */
+	if (CONNECTED)
+		ps_process();
 }
 
 /*
@@ -1306,7 +1310,7 @@ do_reset(Boolean explicit)
 #if defined(X3270_FT) /*[*/
 	    || ft_state != FT_NONE
 #endif /*]*/
-	   ) {
+	    || !appres.unlock_delay) {
 		kybdlock_clr(-1, "do_reset");
 	} else if (kybdlock &
   (KL_DEFERRED_UNLOCK | KL_OIA_TWAIT | KL_OIA_LOCKED | KL_AWAITING_FIRST)) {
@@ -3557,53 +3561,6 @@ clear_xks(void)
 		Free(xk);
 		xk = (struct xks *)NULL;
 		nxk = 0;
-	}
-}
-
-/*
- * FieldExit for the 5250-like emulation.
- * Erases from the current cursor position to the end of the field, and moves
- * the cursor to the beginning of the next field.
- *
- * Derived from work (C) Minolta (Schweiz) AG, Beat Rubischon <bru@minolta.ch>
- */
-void
-FieldExit_action(Widget w unused, XEvent *event, String *params,
-    Cardinal *num_params)
-{
-	register int    baddr;
-	register unsigned char  fa;
-
-	action_debug(FieldExit_action, event, params, num_params);
-	reset_idle_timer();
-#if defined(X3270_ANSI) /*[*/
-	if (IN_ANSI) {
-		net_sendc('\n');
-		return;
-	}
-#endif /*]*/
-	if (kybdlock) {
-		enq_ta(FieldExit_action, CN, CN);
-		return;
-	}
-	baddr = cursor_addr;
-	fa = get_field_attribute(baddr);
-	if (FA_IS_PROTECTED(fa) || ea_buf[baddr].fa) {
-		operator_error(KL_OERR_PROTECTED);
-		return;
-	}
-	if (formatted) {        /* erase to next field attribute */
-		do {
-			ctlr_add(baddr, EBC_null, 0);
-			INC_BA(baddr);
-		} while (!ea_buf[baddr].fa);
-		mdt_set(cursor_addr);
-		cursor_move(next_unprotected(cursor_addr));
-	} else {        /* erase to end of screen */
-		do {
-			ctlr_add(baddr, EBC_null, 0);
-			INC_BA(baddr);
-		} while (baddr != 0);
 	}
 }
 

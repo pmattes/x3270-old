@@ -14,7 +14,6 @@
 <mb_cur_min>                  2
 <uconv_class>                 "DBCS"
 <subchar>                     \xFE\xFE
-<subchar1>                    \x3F
 <icu:charsetFamily>           "ASCII"
 <icu:alias>                   "ibm-837_VPUA"
 

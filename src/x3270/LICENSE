@@ -1,5 +1,5 @@
 Modifications and Original Code Copyright 1993, 1994, 1995, 1996, 1997, 1999,
- 2000, 2001, 2002 by Paul Mattes.
+ 2000, 2001, 2002, 2004 by Paul Mattes.
 Original X11 Port Copyright 1990 by Jeff Sparkes.
   Permission to use, copy, modify, and distribute this software and its
   documentation for any purpose and without fee is hereby granted,
@@ -86,6 +86,3 @@ widget, and carry an additional notice:
   WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
   OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN 
   CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
-
-The 5250 emulation code carries one more copyright:
- 5250 Emulation Code Copyright Minolta (Schweiz) AG, Beat Rubischon.

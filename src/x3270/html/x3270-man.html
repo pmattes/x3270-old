@@ -27,7 +27,6 @@
 <a HREF="#Composite-Characters">Composite Characters</a><br>
 <a HREF="#APL-Support">APL Support</a><br>
 <a HREF="#XIM-Support">XIM Support</a><br>
-<a HREF="#5250-AS400-Support">5250 (AS/400) Support</a><br>
 <a HREF="#Screen-Printing">Screen Printing</a><br>
 <a HREF="#Bugs">Bugs</a><br>
 <a HREF="#Passthru">Passthru</a><br>
@@ -525,6 +524,16 @@ A pop-up allows the file name to be changed; the default directory name can be
 changed with the "x3270.traceDir" resource.
 The pop-up also has buttons to choose between saving just the current image,
 or continuously saving it as it is redrawn.
+<dt><b>Print Screen Text</b></dt><dd>
+Pipes an <font size=-1>ASCII</font> representation of the screen contents to a command for
+printing.
+The default command is <b>lpr</b>.
+<dt><b>Save Screen Text in File</b></dt><dd>
+Appends a text representation of the screen contents to a file.
+The data can be saved in plain <font size=-1>ASCII</font> or <font size=-1>HTML</font>.
+<dt><b>Print Window Bitmap</b></dt><dd>
+Uses the <b>xwd</b> and <b>xpr</b> commands to print a copy of the graphical
+screen contents.
 <dt><b>Save Changed Options in File</b></dt><dd>
 Saves into a file the values of all options that have been changed since
 <b>x3270</b> was started.
@@ -946,7 +955,6 @@ possibly waiting for a response.
 <tr><td >EraseInput</td>	<td >erase all input fields</td></tr>
 <tr><td >Execute(<i>cmd</i>)</td>	<td >execute a command in a shell</td></tr>
 <tr><td >FieldEnd</td>	<td >move cursor to end of field</td></tr>
-<tr><td >FieldExit</td>	<td >clear to end of field and skip to next (5250 emulation)</td></tr>
 <tr><td >FieldMark</td>	<td >mark field</td></tr>
 <tr><td >HandleMenu(<i>name</i>)</td>	<td >pop up a menu</td></tr>
 <tr><td >HexString(<i>hex_digits</i>)</td>	<td >insert control-character string</td></tr>
@@ -1283,18 +1291,6 @@ The input method is selected by the XMODIFIERS environment variable or the
 <p>
 The preedit type is specified by the <b>-pt</b> command-line option,
 with a default of <b>OverTheSpot+1</b>.
-<a NAME="5250-AS400-Support"></a><h2>5250 (AS/400) Support</h2>
-<b>x3270</b> provides limited support for 5250 (AS/400) emulation.
-This is not native 5250 terminal emulation, but rather for use with hosts
-which allow a 3270 terminal to emulate a 5250.
-A <b>5250</b>
-keymap is defined, which maps the keyboard function keys to the 5250 emulators
-PA/PF key sequences, as well as redefining the Return key to use the special
-<b>FieldExit</b> action.
-The command line for 5250 support is:
-<br>
-<blockquote>x3270 -model 2 -keymap 5250</blockquote>
-<br>
 <a NAME="Screen-Printing"></a><h2>Screen Printing</h2>
 Screen printing is handled through options on the <b>File</b> menu or by the
 <b>PrintText</b> and <b>PrintWindow</b> actions.
@@ -1382,7 +1378,7 @@ RFC 1646, TN3270 Extensions for LUname and Printer Selection
 RFC 2355, TN3270 Enhancements
 <a NAME="Copyrights"></a><h2>Copyrights</h2>
 <p>
-Modifications Copyright &copy; 1993, 1994, 1995, 1996, 1997, 1999, 2000, 2001, 2002 by Paul Mattes.
+Modifications Copyright &copy; 1993, 1994, 1995, 1996, 1997, 1999, 2000, 2001, 2002, 2004 by Paul Mattes.
 <br>
 Original X11 Port Copyright &copy; 1990 by Jeff Sparkes.
 <blockquote>Permission to use, copy, modify, and distribute this software and its
@@ -1394,18 +1390,17 @@ Copyright &copy; 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.
 <blockquote>All Rights Reserved.  GTRC hereby grants public use of this software.
 Derivative works based on this software must incorporate this copyright
 notice.</blockquote>
-5250 Emulation Code Copyright &copy; Minolta (Schweiz) AG, Beat Rubischon.
 <br>
 x3270 is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
 <a NAME="Version"></a><h2>Version</h2>
-x3270 3.3.3alpha4
+x3270 3.3.3beta1
 <hr>
 <address>
 This HTML document and the accompanying troff document were generated with
 a set of write-only <b>m4</b> macros and the powerful <b>vi</b> editor.
-<br>Last modified 02 August 2004.
+<br>Last modified 31 December 2004.
 </address>
 </body>
 </html>

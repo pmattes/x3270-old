@@ -327,7 +327,6 @@ possibly waiting for a response.
 <tr><td >EraseEOF</td>	<td >erase to end of current field</td></tr>
 <tr><td >EraseInput</td>	<td >erase all input fields</td></tr>
 <tr><td >FieldEnd</td>	<td >move cursor to end of field</td></tr>
-<tr><td >FieldExit</td>	<td >clear to end of field and skip to next (5250 emulation)</td></tr>
 <tr><td >FieldMark</td>	<td >mark field</td></tr>
 <tr><td >HexString <i>hex_digits</i></td>	<td >insert control-character string</td></tr>
 <tr><td >Home</td>	<td >move cursor to first input field</td></tr>
@@ -403,6 +402,7 @@ The options are:
 <tr><td >Allocation</td>	<td >No</td>	<td >&nbsp;</td>	<td >tracks, cylinders, avblock</td></tr>
 <tr><td >PrimarySpace</td>	<td >No</td>	<td >&nbsp;</td>	<td >&nbsp;</td></tr>
 <tr><td >SecondarySpace</td>	<td >No</td>	<td >&nbsp;</td>	<td >&nbsp;</td></tr>
+<tr><td >BufferSize</td>	<td >No</td>	<td >4096</td>	<td >&nbsp;</td></tr>
 </table>
 <p>
 The option details are as follows.
@@ -457,6 +457,11 @@ The units are given by the <b>Allocation</b> option.
 <dt><b>SecondarySpace</b></dt><dd>
 Secondary allocation for a file created on a <font size=-1>TSO</font> host.
 The units are given by the <b>Allocation</b> option.
+<dt><b>BufferSize</b></dt><dd>
+Buffer size for DFT-mode transfers.
+Can range from 256 to 32768.
+Larger values give better performance, but some hosts may not be able to
+support them.
 </dl>
 <a NAME="Nested-Scripts"></a><h2>Nested Scripts</h2>
 <dl><dt><b>The String Command</b></dt><dd>
@@ -577,7 +582,7 @@ RFC 1646, TN3270 Extensions for LUname and Printer Selection
 RFC 2355, TN3270 Enhancements
 <a NAME="Copyrights"></a><h2>Copyrights</h2>
 <p>
-Modifications Copyright &copy; 1993, 1994, 1995, 1996, 1997, 1999, 2000, 2001, 2002 by Paul Mattes.
+Modifications Copyright &copy; 1993, 1994, 1995, 1996, 1997, 1999, 2000, 2001, 2002, 2004 by Paul Mattes.
 <br>
 Original X11 Port Copyright &copy; 1990 by Jeff Sparkes.
 <blockquote>Permission to use, copy, modify, and distribute this software and its
@@ -589,18 +594,17 @@ Copyright &copy; 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.
 <blockquote>All Rights Reserved.  GTRC hereby grants public use of this software.
 Derivative works based on this software must incorporate this copyright
 notice.</blockquote>
-5250 Emulation Code Copyright &copy; Minolta (Schweiz) AG, Beat Rubischon.
 <br>
 tcl3270 is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
 <a NAME="Version"></a><h2>Version</h2>
-tcl3270 3.3.2
+tcl3270 3.3.3beta1
 <hr>
 <address>
 This HTML document and the accompanying troff document were generated with
 a set of write-only <b>m4</b> macros and the powerful <b>vi</b> editor.
-<br>Last modified 29 November 2003.
+<br>Last modified 31 December 2004.
 </address>
 </body>
 </html>

@@ -1,6 +1,6 @@
 /*
  * Modifications Copyright 1993, 1994, 1995, 1996, 1999,
- *  2000, 2001, 2002 by Paul Mattes.
+ *  2000, 2001, 2002, 2004 by Paul Mattes.
  * Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -118,6 +118,9 @@ extern char		*current_host;
 extern unsigned short	current_port;
 #if defined(X3270_DBCS) /*[*/
 extern Boolean		dbcs;
+#endif /*]*/
+#if defined(X3270_FT) /*[*/
+extern int		dft_buffersize;
 #endif /*]*/
 extern char		*efontname;
 extern Boolean		ever_3270;
@@ -303,10 +306,9 @@ enum keytype { KT_STD, KT_GE };
 #define gettimeofday(tp,tz)	gettimeofday(tp)
 #endif
 
-/* DFT file transfer buffer sizes. */
-#if defined(X3270_FT) /*[*/
-#define DFT_INBUF	(2*1024)
-#define DFT_OUTBUF	(2*1024)
+/* Default DFT file transfer buffer size. */
+#if defined(X3270_FT) && !defined(DFT_BUF) /*[*/
+#define DFT_BUF		(4 * 1024)
 #endif /*]*/
 
 /* DBCS Preedit Types */

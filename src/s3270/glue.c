@@ -1,6 +1,6 @@
 /*
  * Modifications Copyright 1993, 1994, 1995, 1996,
- *   2000, 2001, 200 by Paul Mattes.
+ *   2000, 2001, 2002, 2004 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *   Permission to use, copy, modify, and distribute this software and its
  *   documentation for any purpose and without fee is hereby granted,
@@ -110,7 +110,12 @@ struct toggle_name toggle_names[N_TOGGLES] = {
 	{ ResMarginedPaste,   MARGINED_PASTE },
 	{ ResRectangleSelect, RECTANGLE_SELECT },
 	{ ResCrosshair,       -1 },
-	{ ResVisibleControl,  -1 }
+	{ ResVisibleControl,  -1 },
+#if defined(X3270_SCRIPT) || defined(TCL3270) /*[*/
+	{ ResAidWait,         AID_WAIT },
+#else /*][*/
+	{ ResAidWait,         -1 },
+#endif /*]*/
 };
 
 
@@ -404,6 +409,12 @@ parse_options(int *argcp, const char **argv)
 	appres.eof = "^D";
 #endif /*]*/
 
+	appres.unlock_delay = False;
+
+#if defined(X3270_FT) /*[*/
+	appres.dft_buffer_size = DFT_BUF;
+#endif /*]*/
+
 #if defined(C3270) /*[*/
 	/* Merge in the profile. */
 	merge_profile();
@@ -593,7 +604,7 @@ parse_model_number(char *m)
 static struct {
 	const char *name;
 	void *address;
-	enum resource_type { XRM_STRING, XRM_BOOLEAN } type;
+	enum resource_type { XRM_STRING, XRM_BOOLEAN, XRM_INT } type;
 } resources[] = {
 #if defined(C3270) /*[*/
 	{ ResAllBold,	offset(all_bold),	XRM_STRING },
@@ -616,6 +627,7 @@ static struct {
 	{ ResExtended,	offset(extended),	XRM_BOOLEAN },
 #if defined(X3270_FT) /*[*/
 	{ ResFtCommand,	offset(ft_command),	XRM_STRING },
+	{ ResDftBufferSize,offset(dft_buffer_size),XRM_INT },
 #endif /*]*/
 	{ ResHostsFile,	offset(hostsfile),	XRM_STRING },
 #if defined(X3270_ANSI) /*[*/
@@ -663,6 +675,7 @@ static struct {
 	{ ResTraceFileSize,offset(trace_file_size),XRM_STRING },
 #endif /*]*/
 	{ ResTypeahead,	offset(typeahead),	XRM_BOOLEAN },
+	{ ResUnlockDelay,offset(unlock_delay),	XRM_BOOLEAN },
 #if defined(X3270_ANSI) /*[*/
 	{ ResWerase,	offset(werase),		XRM_STRING },
 #endif /*]*/
@@ -850,6 +863,18 @@ parse_xrm(const char *arg, const char *where)
 			(void) strcpy(t, s);
 		}
 		break;
+	case XRM_INT: {
+		long n;
+		char *ptr;
+
+		n = strtol(s, &ptr, 0);
+		if (*ptr != '\0') {
+			xs_warning("%s: Invalid Integer value: %s", where, s);
+		} else {
+			*(int *)address = (int)n;
+		}
+		break;
+		}
 	}
 
 #if defined(C3270) /*[*/

@@ -1,5 +1,5 @@
 /*
- * Copyright 1995, 1999, 2000, 2001 by Paul Mattes.
+ * Copyright 1995, 1999, 2000, 2001, 2004 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -71,8 +71,6 @@ extern void EraseInput_action(Widget w, XEvent *event, String *params,
 extern void Erase_action(Widget w, XEvent *event, String *params,
     Cardinal *num_params);
 extern void FieldEnd_action(Widget w, XEvent *event, String *params,
-    Cardinal *num_params);
-extern void FieldExit_action(Widget w, XEvent *event, String *params,
     Cardinal *num_params);
 extern void FieldMark_action(Widget w, XEvent *event, String *params,
     Cardinal *num_params);

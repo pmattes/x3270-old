@@ -1,5 +1,5 @@
 /*
- * Modifications Copyright 1996, 1999, 2000, 2001, 2002 by Paul Mattes.
+ * Modifications Copyright 1996, 1999, 2000, 2001, 2002, 2004 by Paul Mattes.
  * Copyright Octover 1995 by Dick Altenbern.
  * Based in part on code Copyright 1993, 1994, 1995 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
@@ -38,10 +38,14 @@
 
 #include <errno.h>
 
+extern unsigned char aid;
+
 /* Macros. */
-#define OPEN_DATA	"FT:    "	/* Open request for data */
-#define OPEN_MSG	"FT:MSG "	/* Open request for message */
+#define OPEN_MSG	"FT:MSG"	/* Open request for message */
 #define END_TRANSFER	"TRANS03"	/* Message for xfer complete */
+
+#define DFT_MIN_BUF	256
+#define DFT_MAX_BUF	32768
 
 /* Typedefs. */
 struct data_buffer {
@@ -54,51 +58,24 @@ struct data_buffer {
 	char data[256];			/* The actual data */
 };
 
-struct open_buffer {			/* Buffer passed in open request */
-	char sf_request_type[2];	/* 0x0012 for open request */
-	char fixed_parms[6];		/* Doc says 010601010403 */
-	char func_required[10];		/* Doc says 0a0a0000000011010100 */
-	char data_not_compr[5];		/* Doc says 50055203f0 */
-	char hdr_length[2];		/* 0x0309 */
-	char name[7];			/* ft: or ft:msg */
-};
-struct error_response {			/* Buffer to build for an error resp. */
-	char sf_length[2];		/* 0009 */
-	char sf_d0;			/* 0xd0 */
-	char sf_tt;			/* tt = 00,47,45,46 */
-	char sf_08;			/* 0x08 */
-	char sf_err_hdr[2];		/* 0x6904 */
-	char sf_err_code[2];		/* The error code */
-};
-#define UPLOAD_LENGTH (DFT_INBUF - 2)
-struct upload_buffer_hdr {
-	char sf_length[2];		/* SF length */
-	char sf_d0;			/* 0xd0 */
-	char sf_request_type[2];	/* 0x4605 */
-	char sf_recnum_hdr[2];		/* 0x6306 */
-	char sf_recnum[4];		/* record number in host byte order */
-	char sf_compr_indic[2];		/* 0xc080 */
-	char sf_begin_data;		/* 0x61 */
-	char sf_data_length[2];		/* Data length */
-};
-struct upload_buffer {
-	struct upload_buffer_hdr header;	/* The header */
-	/* The actual data */
-	char sf_data[UPLOAD_LENGTH - sizeof(struct upload_buffer_hdr)];
-};
+/* Globals. */
+int dft_buffersize = 0;			/* Buffer size (LIMIN, LIMOUT) */
 
 /* Statics. */
 static Boolean message_flag = False;	/* Open Request for msg received */
 static int eof;
 static unsigned long recnum;
 static char *abort_string = CN;
+static unsigned char *dft_savebuf = NULL;
+static int dft_savebuf_len = 0;
+static int dft_savebuf_max = 0;
 
 static void dft_abort(const char *s, unsigned short code);
 static void dft_close_request(void);
 static void dft_data_insert(struct data_buffer *data_bufr);
 static void dft_get_request(void);
 static void dft_insert_request(void);
-static void dft_open_request(struct open_buffer *open_buf);
+static void dft_open_request(unsigned short len, unsigned char *cp);
 static void dft_set_cur_req(void);
 static int filter_len(char *s, register int len);
 
@@ -107,7 +84,7 @@ void
 ft_dft_data(unsigned char *data, int length unused)
 {
 	struct data_buffer *data_bufr = (struct data_buffer *)data;
-	unsigned short data_type;
+	unsigned short data_length, data_type;
 	unsigned char *cp;
 
 	if (ft_state == FT_NONE) {
@@ -115,16 +92,18 @@ ft_dft_data(unsigned char *data, int length unused)
 		return;
 	}
 
-	/* Position to character after the d0. */
-	cp = (unsigned char *)(data_bufr->sf_request_type);
+	/* Get the length. */
+	cp = (unsigned char *)(data_bufr->sf_length);
+	GET16(data_length, cp);
 
-	/* Get the function type */
+	/* Get the function type. */
+	cp = (unsigned char *)(data_bufr->sf_request_type);
 	GET16(data_type, cp);
 
 	/* Handle the requests */
 	switch (data_type) {
 	    case TR_OPEN_REQ:
-		dft_open_request((struct open_buffer *)cp);
+		dft_open_request(data_length, cp);
 		break;
 	    case TR_INSERT_REQ:	/* Insert Request */
 		dft_insert_request();
@@ -149,11 +128,39 @@ ft_dft_data(unsigned char *data, int length unused)
 
 /* Process an Open request. */
 static void
-dft_open_request(struct open_buffer *open_buf)
+dft_open_request(unsigned short len, unsigned char *cp)
 {
-	trace_ds(" Open %*.*s\n", 7, 7, open_buf->name);
+	char *name = "?";
+	char namebuf[8];
+	char *s;
+	unsigned short recsz = 0;
 
-	if (memcmp(open_buf->name, OPEN_MSG, 7) == 0 )
+	if (len == 0x23) {
+		name = (char *)cp + 25;
+	} else if (len == 0x29) {
+		unsigned char *recszp;
+
+		recszp = cp + 27;
+		GET16(recsz, recszp);
+		name = (char *)cp + 31;
+	} else {
+		dft_abort(get_message("ftDftUknownOpen"), TR_OPEN_REQ);
+		return;
+	}
+
+	(void) memcpy(namebuf, name, 7);
+	namebuf[7] = '\0';
+	s = &namebuf[6];
+	while (s >= namebuf && *s == ' ') {
+		*s-- = '\0';
+	}
+	if (recsz) {
+		trace_ds(" Open('%s',recsz=%u)\n", namebuf, recsz);
+	} else {
+		trace_ds(" Open('%s')\n", namebuf);
+	}
+
+	if (!strcmp(namebuf, OPEN_MSG))
 		message_flag = True;
 	else {
 		message_flag = False;
@@ -162,6 +169,7 @@ dft_open_request(struct open_buffer *open_buf)
 	eof = False;
 	recnum = 1;
 
+	/* Acknowledge the Open. */
 	trace_ds("> WriteStructuredField FileTransferData OpenAck\n");
 	obptr = obuf;
 	space3270out(6);
@@ -188,8 +196,6 @@ dft_data_insert(struct data_buffer *data_bufr)
 	int my_length;
 	unsigned char *cp;
 
-	trace_ds(" Data\n");
-
 	if (!message_flag && ft_state == FT_ABORT_WAIT) {
 		dft_abort(get_message("ftUserCancel"), TR_DATA_INSERT);
 		return;
@@ -202,6 +208,8 @@ dft_data_insert(struct data_buffer *data_bufr)
 
 	/* Adjust for 5 extra count */
 	my_length -= 5;
+
+	trace_ds(" Data(rec=%lu) %d bytes\n", recnum, my_length);
 
 	/*
 	 * First, check to see if we have message data or file data.
@@ -293,8 +301,7 @@ dft_data_insert(struct data_buffer *data_bufr)
 	}
 
 	/* Send an acknowledgement frame back. */
-	trace_ds("> WriteStructuredField FileTransferData DataAck(%lu)\n",
-	    recnum);
+	trace_ds("> WriteStructuredField FileTransferData DataAck(rec=%lu)\n", recnum);
 	obptr = obuf;
 	space3270out(12);
 	*obptr++ = AID_SF;
@@ -321,9 +328,8 @@ dft_get_request(void)
 {
 	int numbytes;
 	size_t numread;
+	size_t total_read = 0;
 	unsigned char *bufptr;
-	struct upload_buffer *upbufp;
-	unsigned short data_len;
 
 	trace_ds(" Get\n");
 
@@ -332,118 +338,116 @@ dft_get_request(void)
 		return;
 	}
 
-	/*
-	 * This is a request to send an upload buffer.
-	 * First check to see if we are finished (eof = True).
-	 */
-	if (eof) {
-		/* We are done, send back the eof error. */
-		trace_ds("> WriteStructuredField FileTransferData EOF\n");
-		space3270out(sizeof(struct error_response) + 1);
-		obptr = obuf;
-		*obptr++ = AID_SF;
-		SET16(obptr, sizeof(struct error_response));
-		*obptr++ = SF_TRANSFER_DATA;
-		*obptr++ = HIGH8(TR_GET_REQ);
-		*obptr++ = TR_ERROR_REPLY;
-		SET16(obptr, TR_ERROR_HDR);
-		SET16(obptr, TR_ERR_EOF);
-	} else {
-		trace_ds("> WriteStructuredField FileTransferData Data(%lu)\n",
-		    recnum);
-		space3270out(sizeof(struct upload_buffer) + 1);
-		obptr = obuf;
-		*obptr++ = AID_SF;
-		/* Set buffer pointer */
-		upbufp = (struct upload_buffer *) obptr;
-		/* Skip length for now */
-		obptr += 2;
-		*obptr++ = SF_TRANSFER_DATA;
+	/* Read a buffer's worth. */
+	set_dft_buffersize();
+	space3270out(dft_buffersize);
+	numbytes = dft_buffersize - 27; /* always read 5 bytes less than we're allowed */
+	bufptr = obuf + 17;
+	while (!eof && numbytes) {
+		if (ascii_flag && cr_flag) {
+			int c;
+
+			/* Read one byte and do CR/LF translation. */
+			c = fgetc(ft_local_file);
+			if (c == EOF) {
+				break;
+			}
+			if (!ft_last_cr && c == '\n') {
+				*bufptr++ = '\r';
+				numbytes--;
+				total_read++;
+			}
+			if (numbytes) {
+				ft_last_cr = (c == '\r');
+				*bufptr++ = remap_flag? asc2ft[c]: c;
+				numbytes--;
+				total_read++;
+			} else {
+				ungetc(c, ft_local_file);
+			}
+		} else {
+			/* Binary read. */
+			numread = fread(bufptr, 1, numbytes, ft_local_file);
+			if (numread <= 0) {
+				break;
+			}
+			if (ascii_flag && remap_flag) {
+				unsigned char *s = bufptr;
+				int i = numread;
+
+				while (i) {
+					*s = asc2ft[*s];
+					s++;
+					i--;
+				}
+			}
+			bufptr += numread;
+			numbytes -= numread;
+			total_read += numread;
+		}
+		if (feof(ft_local_file) || ferror(ft_local_file)) {
+			break;
+		}
+	}
+
+	/* Check for read error. */
+	if (ferror(ft_local_file)) {
+		char *buf;
+
+		buf = xs_buffer("read(%s): %s", ft_local_filename,
+				strerror(errno));
+		dft_abort(buf, TR_GET_REQ);
+		Free(buf);
+		return;
+	}
+
+	/* Set up SF header for Data or EOF. */
+	obptr = obuf;
+	*obptr++ = AID_SF;
+	obptr += 2;	/* skip SF length for now */
+	*obptr++ = SF_TRANSFER_DATA;
+
+	if (total_read) {
+		trace_ds("> WriteStructuredField FileTransferData Data(rec=%lu) %d bytes\n",
+		    recnum, total_read);
 		SET16(obptr, TR_GET_REPLY);
 		SET16(obptr, TR_RECNUM_HDR);
 		SET32(obptr, recnum);
 		recnum++;
 		SET16(obptr, TR_NOT_COMPRESSED);
 		*obptr++ = TR_BEGIN_DATA;
+		SET16(obptr, total_read + 5);
+		obptr += total_read;
 
-		/* Size of the data buffer */
-		numbytes = sizeof(upbufp->sf_data);
-		SET16(obptr, numbytes+5);
-		bufptr = (unsigned char *)upbufp->sf_data;
-		obptr = (unsigned char *)upbufp->header.sf_data_length;
-		while (numbytes) {
-			/* Continue until we run out of buffer */
-			if (ascii_flag && cr_flag) {
-				int c;
+		ft_length += total_read;
 
-				c = fgetc(ft_local_file);
-				if (c != EOF) {
-					if (!ft_last_cr && c == '\n') {
-						*bufptr++ = '\r';
-						numbytes--;
-					}
-					if (numbytes) {
-						ft_last_cr = (c == '\r');
-						*bufptr++ = remap_flag?
-							     asc2ft[c]: c;
-						numbytes--;
-					} else {
-						ungetc(c, ft_local_file);
-					}
-				}
-			} else {
-			    	/* Not crlf, do binary read. */
-				numread = fread(bufptr, 1, numbytes,
-				    ft_local_file);
-				if (ascii_flag && remap_flag) {
-					unsigned char *s = bufptr;
-					int i = numread;
-
-					while (i) {
-						*s = asc2ft[*s];
-						s++;
-						i--;
-					}
-				}
-				bufptr += numread;
-				numbytes -= numread;
-			}
-			if (feof(ft_local_file)) {
-				/* End of file. */
-
-				/* Set that we are out of data. */
-				eof = True;
-				break;
-			} else if (ferror(ft_local_file)) {
-				char *buf;
-
-				buf = xs_buffer("read(%s): %s",
-					ft_local_filename,
-					strerror(errno));
-				dft_abort(buf, TR_GET_REQ);
-			}
+		if (feof(ft_local_file)) {
+			eof = True;
 		}
+	} else {
+		trace_ds("> WriteStructuredField FileTransferData EOF\n");
+		*obptr++ = HIGH8(TR_GET_REQ);
+		*obptr++ = TR_ERROR_REPLY;
+		SET16(obptr, TR_ERROR_HDR);
+		SET16(obptr, TR_ERR_EOF);
 
-		/* Set data length. */
-		data_len = bufptr-obptr+4;
-		SET16(obptr, data_len);
-
-		/* Accumulate length written. */
-		ft_length += bufptr-obptr;
-
-		/* Send last byte to net_output. */
-		obptr = bufptr;
+		eof = True;
 	}
 
-	/* We built a buffer, let's write it back to the mainframe. */
+	/* Set the SF length. */
+	bufptr = obuf + 1;
+	SET16(bufptr, obptr - (obuf + 1));
 
-	/* Position to beg. of buffer. */
-	bufptr = obuf;
-	bufptr++;
+	/* Save the data. */
+	dft_savebuf_len = obptr - obuf;
+	if (dft_savebuf_len > dft_savebuf_max) {
+		dft_savebuf_max = dft_savebuf_len;
+		Replace(dft_savebuf, (unsigned char *)Malloc(dft_savebuf_max));
+	}
+	(void) memcpy(dft_savebuf, obuf, dft_savebuf_len);
+	aid = AID_SF;
 
-	/* Set the sf length. */
-	SET16(bufptr, (obptr-1)-obuf);
-
+	/* Write the data. */
 	net_output();
 	ft_update_length();
 }
@@ -502,5 +506,35 @@ filter_len(char *s, register int len)
 	}
 	return t - s;
 }
+
+/* Processes a Read Modified command when there is upload data pending. */
+void
+dft_read_modified(void)
+{
+	if (dft_savebuf_len) {
+		trace_ds("> WriteStructuredField FileTransferData\n");
+		obptr = obuf;
+		space3270out(dft_savebuf_len);
+		memcpy(obptr, dft_savebuf, dft_savebuf_len);
+		obptr += dft_savebuf_len;
+		net_output();
+	}
+}
+
+/* Update the buffersize for generating a Query Reply. */
+void
+set_dft_buffersize(void)
+{
+	if (dft_buffersize == 0) {
+		dft_buffersize = appres.dft_buffer_size;
+		if (dft_buffersize == 0)
+			dft_buffersize = DFT_BUF;
+	}
+	if (dft_buffersize > DFT_MAX_BUF)
+		dft_buffersize = DFT_MAX_BUF;
+	if (dft_buffersize < DFT_MIN_BUF)
+		dft_buffersize = DFT_MIN_BUF;
+}
+
 
 #endif /*]*/

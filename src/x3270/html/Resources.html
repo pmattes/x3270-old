@@ -233,6 +233,11 @@ x3270.debugTracing	Default true
     data stream and X events.  If set to false, these options are not
     displayed.
 
+x3270.dftBufferSize	Default 4096
+    Specifies the default buffer size for DFT IND$FILE file transfers.  This
+    value can be overridden in the File Transfer dialog and by a parameter to
+    the Transfer action.
+
 x3270.disconnectClear	Default false
     If set to true, x3270 will clear the screen when a host disconnects.
 
@@ -825,6 +830,11 @@ x3270.traceMonitor	Default true
 x3270.typeahead		Default true
     When true, x3270 will store keystrokes in a buffer when the keyboard is
     locked.  When false, these keystrokes will be dropped.
+
+x3270.unlockDelay	Default false
+    When true, x3270 will delay actually unlocking the keyboard for 50ms
+    after the host permits it.  This was a hack in earlier versions of x3270
+    to allow easier scripting of hosts that permaturely unlock the keyboard.
 
 x3270.useCursorColor	Default false
     If set to false, the cursor is drawn using the same color as the text

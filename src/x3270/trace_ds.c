@@ -1,5 +1,5 @@
 /*
- * Copyright 1993, 1994, 1995, 1999, 2000, 2001, 2002 by Paul Mattes.
+ * Copyright 1993, 1994, 1995, 1999, 2000, 2001, 2002, 2004 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -810,7 +810,7 @@ do_screentrace(void)
 {
 	register int i;
 
-	if (fprint_screen(screentracef, False)) {
+	if (fprint_screen(screentracef, False, False)) {
 		for (i = 0; i < COLS; i++)
 			(void) fputc('=', screentracef);
 		(void) fputc('\n', screentracef);

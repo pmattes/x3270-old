@@ -1,5 +1,5 @@
 /*
- * Copyright 1995, 1999, 2000, 2002 by Paul Mattes.
+ * Copyright 1995, 1999, 2000, 2002, 2004 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -44,3 +44,14 @@ extern KeySym StringToKeysym(char *s);
 extern char *KeysymToString(KeySym k);
 extern int read_resource_file(const char *filename, Boolean fatal);
 extern Boolean split_hier(char *label, char **base, char ***parents);
+
+typedef struct {
+	char *buf;
+	int alloc_len;
+	int cur_len;
+} rpf_t;
+
+extern void rpf_init(rpf_t *r);
+extern void rpf_reset(rpf_t *r);
+extern void rpf(rpf_t *r, char *fmt, ...);
+extern void rpf_free(rpf_t *r);

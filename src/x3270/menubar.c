@@ -1,5 +1,5 @@
 /*
- * Copyright 1993, 1994, 1995, 1996, 1999, 2000, 2001, 2002 by Paul Mattes.
+ * Copyright 1993, 1994, 1995, 1996, 1999, 2000, 2001, 2002, 2004 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -73,6 +73,7 @@ static struct scheme {
 } *schemes, *last_scheme;
 static int scheme_count;
 static Widget  *scheme_widgets;
+static Widget file_menu;
 static Widget options_menu;
 static Widget fonts_option;
 static Pixel fm_background = 0;
@@ -192,8 +193,7 @@ static Boolean	toggle_init(Widget, int, const char *, const char *, Boolean *);
 #define BORDER		1
 #define SPACING		3
 
-#define MO_OFFSET	1
-#define CN_OFFSET	2
+#define BUTTON_X(n)	(LEFT_MARGIN + (n)*(KEY_WIDTH+2*BORDER+SPACING))
 
 #define MENU_BORDER	2
 
@@ -398,21 +398,20 @@ menubar_init(Widget container, Dimension overall_width, Dimension current_width)
 	/* "Options..." menu */
 
 	options_menu_init(mb_old != menubar_buttons,
-	    LEFT_MARGIN + MO_OFFSET*(KEY_WIDTH+2*BORDER+SPACING),
+	    BUTTON_X(file_menu != NULL),
 	    TOP_MARGIN);
-#define CM_BUTTON_X	(LEFT_MARGIN + CN_OFFSET*(KEY_WIDTH+2*BORDER+SPACING))
 
 	/* "Connect..." menu */
 
 	if (!appres.reconnect)
 		connect_menu_init(mb_old != menubar_buttons,
-		    CM_BUTTON_X,
+		    BUTTON_X((file_menu != NULL) + (options_menu != NULL)),
 		    TOP_MARGIN);
 
 	/* "Macros..." menu */
 
 	macros_menu_init(mb_old != menubar_buttons,
-	    CM_BUTTON_X,
+	    BUTTON_X((file_menu != NULL) + (options_menu != NULL)),
 	    TOP_MARGIN);
 
 #if defined(HAVE_LIBSSL) /*[*/
@@ -490,8 +489,8 @@ menubar_connect(Boolean ignored unused)
 			XtUnmapWidget(connect_button);
 		else {
 			connect_menu_init(True,
-			    LEFT_MARGIN +
-				CN_OFFSET*(KEY_WIDTH+2*BORDER+SPACING),
+			    BUTTON_X((file_menu != NULL) +
+				     (options_menu != NULL)),
 			    TOP_MARGIN);
 			if (menubar_buttons)
 				XtMapWidget(connect_button);
@@ -500,7 +499,7 @@ menubar_connect(Boolean ignored unused)
 
 	/* Set up the macros menu. */
 	macros_menu_init(True,
-	    LEFT_MARGIN + CN_OFFSET*(KEY_WIDTH+2*BORDER+SPACING),
+	    BUTTON_X((file_menu != NULL) + (options_menu != NULL)),
 	    TOP_MARGIN);
 
 	/* Set up the various option buttons. */
@@ -850,10 +849,10 @@ add_menu_itemv(char *name, Widget menu, XtCallbackProc callback, XtPointer arg,
 static void
 file_menu_init(Boolean regen, Dimension x, Dimension y)
 {
-	static Widget file_menu = (Widget)NULL;
 	Widget about_option;
 	Widget w;
 	Boolean spaced = False;
+	Boolean any = False;
 
 	if (regen && (file_menu != (Widget)NULL)) {
 		XtDestroyWidget(file_menu);
@@ -872,23 +871,24 @@ file_menu_init(Boolean regen, Dimension x, Dimension y)
 
 	/* About x3270... */
 	if (!item_suppressed(file_menu, "aboutOption")) {
-		Boolean any = False;
+		Boolean any_about = False;
 
 		w = XtVaCreatePopupShell(
 		    "aboutMenu", complexMenuWidgetClass, file_menu,
 		    NULL);
-		any |= add_menu_itemv("aboutCopyright", w, show_about_copyright,
-			    NULL, NULL, NULL) != (Widget)NULL;
-		any |= add_menu_itemv("aboutConfig", w, show_about_config,
-			    NULL, NULL, NULL) != (Widget)NULL;
-		any |= add_menu_itemv("aboutStatus", w, show_about_status,
-			    NULL, NULL, NULL) != (Widget)NULL;
-		if (any) {
+		any_about |= add_menu_itemv("aboutCopyright", w,
+			show_about_copyright, NULL, NULL, NULL) != (Widget)NULL;
+		any_about |= add_menu_itemv("aboutConfig", w,
+			show_about_config, NULL, NULL, NULL) != (Widget)NULL;
+		any_about |= add_menu_itemv("aboutStatus", w,
+			show_about_status, NULL, NULL, NULL) != (Widget)NULL;
+		if (any_about) {
 			about_option = XtVaCreateManagedWidget(
 			    "aboutOption", cmeBSBObjectClass, file_menu,
 			    XtNrightBitmap, arrow,
 			    XtNmenuName, "aboutMenu",
 			    NULL);
+			any = True;
 		} else {
 			XtDestroyWidget(w);
 		}
@@ -902,6 +902,7 @@ file_menu_init(Boolean regen, Dimension x, Dimension y)
 				popup_ft, NULL, &spaced,
 				XtNsensitive, IN_3270,
 				NULL);
+		any |= (ft_button != NULL);
 	}
 #endif /*]*/
 
@@ -935,6 +936,7 @@ file_menu_init(Boolean regen, Dimension x, Dimension y)
 			    XtNrightBitmap, arrow,
 			    XtNmenuName, "printerMenu",
 			    NULL);
+			any = True;
 		} else
 			XtDestroyWidget(w);
 	}
@@ -946,40 +948,50 @@ file_menu_init(Boolean regen, Dimension x, Dimension y)
 	   Save Screen(s) in File */
 	spaced = False;
 	if (appres.debug_tracing) {
-		toggle_init(file_menu, DS_TRACE, "dsTraceOption", CN,
+		any |= toggle_init(file_menu, DS_TRACE, "dsTraceOption", CN,
 				&spaced);
-		toggle_init(file_menu, EVENT_TRACE, "eventTraceOption", CN,
-				&spaced);
+		any |= toggle_init(file_menu, EVENT_TRACE, "eventTraceOption",
+				CN, &spaced);
 	}
 	if (!appres.secure)
-		toggle_init(file_menu, SCREEN_TRACE, "screenTraceOption", CN,
-				&spaced);
+		any |= toggle_init(file_menu, SCREEN_TRACE,
+				"screenTraceOption", CN, &spaced);
 #endif /*]*/
 
-	/* Print Screen Text */
+	/* Print Screen Text, Save Screen Text */
 	spaced = False;
-	(void) add_menu_itemv("printTextOption", file_menu,
+	w = add_menu_itemv("printTextOption", file_menu,
 			      print_text_option, NULL, &spaced,
 			      NULL);
+	any |= (w != NULL);
+	if (!appres.secure) {
+		w = add_menu_itemv("saveTextOption", file_menu,
+				      save_text_option, NULL, &spaced,
+				      NULL);
+		any |= (w != NULL);
+	}
 
 	/* Print Window Bitmap */
-	(void) add_menu_itemv("printWindowOption", file_menu,
+	w =  add_menu_itemv("printWindowOption", file_menu,
 			      print_window_option, NULL, &spaced,
 			      NULL);
+	any |= (w != NULL);
 
 	if (!appres.secure) {
 
 		/* Save Options */
 		spaced = False;
-		(void) add_menu_itemv("saveOption", file_menu,
+		w = add_menu_itemv("saveOption", file_menu,
 				      do_save_options, NULL, &spaced,
 				      NULL);
+		any |= (w != NULL);
 
 		/* Execute an action */
 		spaced = False;
-		(void) add_menu_itemv("executeActionOption", file_menu,
+		w = add_menu_itemv("executeActionOption", file_menu,
 				      execute_action_option, NULL, &spaced,
 				      NULL);
+		any |= (w != NULL);
 	}
 
 #if defined(X3270_SCRIPT) /*[*/
@@ -989,6 +1001,7 @@ file_menu_init(Boolean regen, Dimension x, Dimension y)
 			script_abort_callback, NULL, &spaced,
 			XtNsensitive, sms_active(),
 			NULL);
+	any |= (script_abort_button != NULL);
 #endif /*]*/
 
 	/* Disconnect */
@@ -997,6 +1010,7 @@ file_menu_init(Boolean regen, Dimension x, Dimension y)
 			disconnect, NULL, &spaced,
 			XtNsensitive, PCONNECTED,
 			NULL);
+	any |= (disconnect_button != NULL);
 
 	/* Exit x3270 */
 	if (exit_menu != (Widget)NULL)
@@ -1012,19 +1026,26 @@ file_menu_init(Boolean regen, Dimension x, Dimension y)
 	exit_button = add_menu_itemv("exitOption", file_menu,
 			Bye, NULL, &spaced,
 			NULL);
-	if (exit_button != NULL)
+	if (exit_button != NULL) {
 		n_bye = 1;
+		any = True;
+	}
 
 	/* File... */
-	if (menubar_buttons) {
-		w = XtVaCreateManagedWidget(
-		    "fileMenuButton", menuButtonWidgetClass, menu_parent,
-		    XtNx, x,
-		    XtNy, y,
-		    XtNwidth, KEY_WIDTH,
-		    XtNheight, KEY_HEIGHT,
-		    XtNmenuName, "fileMenu",
-		    NULL);
+	if (any) {
+		if (menubar_buttons) {
+			w = XtVaCreateManagedWidget(
+			    "fileMenuButton", menuButtonWidgetClass, menu_parent,
+			    XtNx, x,
+			    XtNy, y,
+			    XtNwidth, KEY_WIDTH,
+			    XtNheight, KEY_HEIGHT,
+			    XtNmenuName, "fileMenu",
+			    NULL);
+		}
+	} else {
+		XtDestroyWidget(file_menu);
+		file_menu = NULL;
 	}
 }
 
@@ -1827,6 +1848,8 @@ options_menu_init(Boolean regen, Position x, Position y)
 	Widget dummy_font_menu, dummy_font_element;
 	struct menu_hier *root = NULL;
 	Boolean spaced = False;
+	Boolean any = False;
+	Widget w;
 
 	if (regen && (options_menu != (Widget)NULL)) {
 		XtDestroyWidget(options_menu);
@@ -1966,6 +1989,7 @@ options_menu_init(Boolean regen, Position x, Position y)
 			    XtNrightBitmap, arrow,
 			    XtNmenuName, "togglesMenu",
 			    NULL);
+			any = True;
 		} else
 			XtDestroyWidget(t);
 	}
@@ -2006,7 +2030,7 @@ options_menu_init(Boolean regen, Position x, Position y)
 		    XtNrightBitmap, arrow,
 		    NULL);
 		create_font_menu(regen, True);
-
+		any = True;
 	}
 
 	/* Create the "models" pullright */
@@ -2063,6 +2087,7 @@ options_menu_init(Boolean regen, Position x, Position y)
 			    XtNmenuName, "modelsMenu",
 			    XtNsensitive, !PCONNECTED,
 			    NULL);
+			any = True;
 		} else
 			XtDestroyWidget(t);
 	}
@@ -2098,6 +2123,7 @@ options_menu_init(Boolean regen, Position x, Position y)
 		    XtNmenuName, "colorsMenu",
 		    XtNsensitive, appres.m3279,
 		    NULL);
+		any = True;
 	}
 
 	/* Create the "character set" pullright */
@@ -2134,23 +2160,26 @@ options_menu_init(Boolean regen, Position x, Position y)
 		    XtNrightBitmap, arrow,
 		    XtNmenuName, "charsetMenu",
 		    NULL);
+		any = True;
 	}
 
 	/* Create the "keymap" option */
 	if (!appres.no_other) {
 		spaced = False;
-		(void) add_menu_itemv("keymapOption", options_menu,
+		w = add_menu_itemv("keymapOption", options_menu,
 				      do_keymap, NULL,
 				      &spaced,
 				      NULL);
+		any |= (w != NULL);
 	}
 
 	/* Create the "display keymap" option */
 	spaced = False;
-	(void) add_menu_itemv("keymapDisplayOption", options_menu,
+	w = add_menu_itemv("keymapDisplayOption", options_menu,
 			      do_keymap_display, NULL,
 			      &spaced,
 			      NULL);
+	any |= (w != NULL);
 
 #if defined(X3270_SCRIPT) /*[*/
 	/* Create the "Idle Command" option */
@@ -2161,19 +2190,25 @@ options_menu_init(Boolean regen, Position x, Position y)
 				&spaced,
 				XtNsensitive, IN_3270,
 				NULL);
+		any |= (idle_button != NULL);
 	}
 #endif /*]*/
 
-	if (menubar_buttons) {
-		options_menu_button = XtVaCreateManagedWidget(
-		    "optionsMenuButton", menuButtonWidgetClass, menu_parent,
-		    XtNx, x,
-		    XtNy, y,
-		    XtNwidth, KEY_WIDTH,
-		    XtNheight, KEY_HEIGHT,
-		    XtNmenuName, "optionsMenu",
-		    NULL);
-		keypad_option_button = NULL;
+	if (any) {
+		if (menubar_buttons) {
+			options_menu_button = XtVaCreateManagedWidget(
+			    "optionsMenuButton", menuButtonWidgetClass, menu_parent,
+			    XtNx, x,
+			    XtNy, y,
+			    XtNwidth, KEY_WIDTH,
+			    XtNheight, KEY_HEIGHT,
+			    XtNmenuName, "optionsMenu",
+			    NULL);
+			keypad_option_button = NULL;
+		}
+	} else {
+		XtDestroyWidget(options_menu);
+		options_menu = NULL;
 	}
 }
 
@@ -2183,9 +2218,10 @@ options_menu_init(Boolean regen, Position x, Position y)
 void
 menubar_retoggle(struct toggle *t)
 {
-	XtVaSetValues(t->w[0],
-	    XtNleftBitmap, t->value ? (t->w[1] ? diamond : dot) : None,
-	    NULL);
+	if (t->w[0] != NULL)
+		XtVaSetValues(t->w[0],
+		    XtNleftBitmap, t->value ? (t->w[1] ? diamond : dot) : None,
+		    NULL);
 	if (t->w[1] != NULL)
 		XtVaSetValues(t->w[1],
 		    XtNleftBitmap, t->value ? no_diamond : diamond,
@@ -2206,9 +2242,11 @@ HandleMenu_action(Widget w unused, XEvent *event, String *params,
 	else
 		p = params[1];
 	if (!XtNameToWidget(menu_parent, p)) {
+#if 0
 		if (strcmp(p, MACROS_MENU))
 			popup_an_error("%s: cannot find menu %s",
 			    action_name(HandleMenu_action), p);
+#endif
 		return;
 	}
 	XtCallActionProc(menu_parent, "XawPositionComplexMenu", event, &p, 1);

@@ -1,4 +1,4 @@
-# Copyright 1999, 2000, 2001, 2002 by Paul Mattes.
+# Copyright 1999, 2000, 2001, 2002, 2004 by Paul Mattes.
 #  Permission to use, copy, modify, and distribute this software and its
 #  documentation for any purpose and without fee is hereby granted,
 #  provided that the above copyright notice appear in all copies and that
@@ -27,9 +27,9 @@ VOBJS = actions.o ansi.o apl.o charset.o ctlr.o fallbacks.o ft.o ft_cut.o \
 OBJS1 = $(VOBJS) version.o
 @CNV@IDP = @ICU_DATA_PREFIX@
 @CNV@ICU_UCM = ibm-837_P100-2000.ucm ibm-300_P110-1997.ucm \
-@CNV@	ibm-1027_P100-1995.ucm  
+@CNV@	ibm-1027_P100-1995.ucm ibm-1385_P100-1997.ucm
 @CNV@ICU_CNV = $(IDP)_ibm-837_P100-2000.cnv $(IDP)_ibm-300_P110-1997.cnv \
-@CNV@	$(IDP)_ibm-1027_P100-1995.cnv
+@CNV@	$(IDP)_ibm-1027_P100-1995.cnv $(IDP)_ibm-1385_P100-1997.cnv
 
 LIBDIR = @libdir@
 prefix = @prefix@
@@ -69,6 +69,8 @@ x3270if: x3270if.c
 @CNV@	makeconv -d . -p $(IDP) ibm-300_P110-1997.ucm
 @CNV@$(IDP)_ibm-1027_P100-1995.cnv: ibm-1027_P100-1995.ucm
 @CNV@	makeconv -d . -p $(IDP) ibm-1027_P100-1995.ucm
+@CNV@$(IDP)_ibm-1385_P100-1997.cnv: ibm-1385_P100-1997.ucm
+@CNV@	makeconv -d . -p $(IDP) ibm-1385_P100-1997.ucm
 
 install:: s3270 x3270if
 	[ -d $(DESTDIR)$(BINDIR) ] || \

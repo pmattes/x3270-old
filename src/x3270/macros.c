@@ -1,5 +1,6 @@
 /*
- * Copyright 1993, 1994, 1995, 1996, 1999, 2000, 2001, 2002 by Paul Mattes.
+ * Copyright 1993, 1994, 1995, 1996, 1999, 2000, 2001, 2002, 2004 by Paul
+ *   Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -84,12 +85,13 @@ typedef struct sms {
 		SS_FT_WAIT,	/* command awaiting file transfer to complete */
 #endif /*]*/
 		SS_PAUSED,	/* stopped in PauseScript action */
-		SS_WAIT_ANSI,	/* awaiting completion of Wait(ansi) */
-		SS_WAIT_3270,	/* awaiting completion of Wait(3270) */
+		SS_WAIT_NVT,	/* awaiting completion of Wait(NVTMode) */
+		SS_WAIT_3270,	/* awaiting completion of Wait(3270Mode) */
 		SS_WAIT_OUTPUT,	/* awaiting completion of Wait(Output) */
 		SS_SWAIT_OUTPUT,/* awaiting completion of Snap(Wait) */
 		SS_WAIT_DISC,	/* awaiting completion of Wait(Disconnect) */
-		SS_WAIT,	/* awaiting completion of Wait() */
+		SS_WAIT_IFIELD,	/* awaiting completion of Wait(InputField) */
+		SS_WAIT_UNLOCK,	/* awaiting completion of Wait(Unlock) */
 		SS_EXPECTING,	/* awaiting completion of Expect() */
 		SS_CLOSING	/* awaiting completion of Close() */
 	} state;
@@ -132,12 +134,13 @@ static const char *sms_state_name[] = {
 	"FT_WAIT",
 #endif /*]*/
 	"PAUSED",
-	"WAIT_ANSI",
+	"WAIT_NVT",
 	"WAIT_3270",
 	"WAIT_OUTPUT",
 	"SWAIT_OUTPUT",
 	"WAIT_DISC",
-	"WAIT",
+	"WAIT_IFIELD",
+	"WAIT_UNLOCK",
 	"EXPECTING",
 	"CLOSING"
 };
@@ -166,11 +169,12 @@ static void wait_timed_out(void);
 
 /* Macro that defines that the keyboard is locked due to user input. */
 #define KBWAIT	(kybdlock & (KL_OIA_LOCKED|KL_OIA_TWAIT|KL_DEFERRED_UNLOCK))
+#define CKBWAIT	(appres.toggle[AID_WAIT].value && KBWAIT)
 
 /* Macro that defines when it's safe to continue a Wait()ing sms. */
 #define CAN_PROCEED ( \
     IN_SSCP || \
-    (IN_3270 && (no_login_host || (formatted && cursor_addr)) && !KBWAIT) || \
+    (IN_3270 && (no_login_host || (formatted && cursor_addr)) && !CKBWAIT) || \
     (IN_ANSI && !(kybdlock & KL_AWAITING_FIRST)) \
 )
 
@@ -447,7 +451,7 @@ sms_pop(Boolean can_exit)
 		/* Turn off the menu option. */
 		menubar_as_set(False);
 		status_script(False);
-	} else if (KBWAIT && (int)sms->state < (int)SS_KBWAIT) {
+	} else if (CKBWAIT && (int)sms->state < (int)SS_KBWAIT) {
 		/* The child implicitly blocked the parent. */
 		sms->state = SS_KBWAIT;
 		trace_dsn("%s[%d] implicitly paused %s\n",
@@ -788,7 +792,7 @@ execute_command(enum iaction cause, char *s, char **np)
 	if (ft_state != FT_NONE)
 		sms->state = SS_FT_WAIT;
 #endif /*]*/
-	if (KBWAIT)
+	if (CKBWAIT)
 		return EM_PAUSE;
 	else
 		return EM_CONTINUE;
@@ -816,7 +820,7 @@ run_string(void)
 		    sms_depth, sms->dptr);
 
 	if (sms->is_hex) {
-		if (KBWAIT) {
+		if (CKBWAIT) {
 			sms->state = SS_KBWAIT;
 			trace_dsn("%s[%d] paused %s\n",
 				    ST_NAME, sms_depth,
@@ -828,7 +832,7 @@ run_string(void)
 	} else {
 		if ((len_left = emulate_input(sms->dptr, len, False))) {
 			sms->dptr += len - len_left;
-			if (KBWAIT) {
+			if (CKBWAIT) {
 				sms->state = SS_KBWAIT;
 				trace_dsn("%s[%d] paused %s\n",
 					    ST_NAME, sms_depth,
@@ -930,7 +934,7 @@ push_xmacro(enum sms_type type, char *s, Boolean is_login)
 	if (sms->msc_len > 1023)
 		sms->msc_len = 1023;
 	if (is_login) {
-		sms->state = SS_WAIT;
+		sms->state = SS_WAIT_IFIELD;
 		sms->is_login = True;
 	} else
 		sms->state = SS_INCOMPLETE;
@@ -977,7 +981,7 @@ push_string(char *s, Boolean is_login, Boolean is_hex)
 	if (sms->msc_len > 1023)
 		sms->msc_len = 1023;
 	if (is_login) {
-		sms->state = SS_WAIT;
+		sms->state = SS_WAIT_IFIELD;
 		sms->is_login = True;
 	} else
 		sms->state = SS_INCOMPLETE;
@@ -1240,15 +1244,15 @@ sms_continue(void)
 			break;		/* let it proceed */
 
 		    case SS_KBWAIT:
-			if (KBWAIT) {
+			if (CKBWAIT) {
 				continuing = False;
 				return;
 			}
 			break;
 
-		    case SS_WAIT_ANSI:
+		    case SS_WAIT_NVT:
 			if (IN_ANSI) {
-			    sms->state = SS_WAIT;
+			    sms->state = SS_WAIT_IFIELD;
 			    continue;
 			}
 			continuing = False;
@@ -1256,13 +1260,20 @@ sms_continue(void)
 
 		    case SS_WAIT_3270:
 			if (IN_3270 | IN_SSCP) {
-			    sms->state = SS_WAIT;
+			    sms->state = SS_WAIT_IFIELD;
 			    continue;
 			}
 			continuing = False;
 			return;
 
-		    case SS_WAIT:
+		    case SS_WAIT_UNLOCK:
+			if (KBWAIT) {
+				continuing = False;
+				return;
+			}
+			break;
+
+		    case SS_WAIT_IFIELD:
 			if (!CAN_PROCEED) {
 				continuing = False;
 				return;
@@ -1420,6 +1431,8 @@ dump_range(int first, int len, Boolean in_ascii, struct ea *buf,
 				case CS_APL:
 				case CS_BASE | CS_GE:
 					c = ge2asc[buf[first + i].cc];
+					if (c < ' ')
+						c = ' ';
 					break;
 				case CS_LINEDRAW:
 					if (buf[first + i].cc <= 0x1f)
@@ -1590,10 +1603,9 @@ do_read_buffer(String *params, Cardinal num_params, struct ea *buf)
 	unsigned char	current_fg = 0x00;
 	unsigned char	current_gr = 0x00;
 	unsigned char	current_cs = 0x00;
-	char field_buf[1024];
-	char *s = field_buf;
 	unsigned char c;
 	Boolean in_ebcdic = False;
+	rpf_t r;
 
 	if (num_params > 0) {
 		if (num_params > 1) {
@@ -1614,64 +1626,66 @@ do_read_buffer(String *params, Cardinal num_params, struct ea *buf)
 					                                        
 	}
 
+	rpf_init(&r);
 	baddr = 0;
 	do {
 		if (!(baddr % COLS)) {
 			if (baddr)
-				action_output(field_buf + 1);
-			s = field_buf;
+				action_output(r.buf + 1);
+			rpf_reset(&r);
 		}
 		if (buf[baddr].fa) {
 
-			s += sprintf(s, " SF(%02x=%02x", XA_3270,
-					buf[baddr].fa);
+			rpf(&r, " SF(%02x=%02x", XA_3270, buf[baddr].fa);
 			if (buf[baddr].fg)
-				s += sprintf(s, ",%02x=%02x", XA_FOREGROUND,
+				rpf(&r, ",%02x=%02x", XA_FOREGROUND,
 						buf[baddr].fg);
 			if (buf[baddr].gr)
-				s += sprintf(s, ",%02x=%02x", XA_HIGHLIGHTING,
+				rpf(&r, ",%02x=%02x", XA_HIGHLIGHTING,
 						buf[baddr].gr | 0xf0);
 			if (buf[baddr].cs & CS_MASK)
-				s += sprintf(s, ",%02x=%02x", XA_CHARSET,
-					     calc_cs(buf[baddr].cs));
-			s += sprintf(s, ")");
+				rpf(&r, ",%02x=%02x", XA_CHARSET,
+						calc_cs(buf[baddr].cs));
+			rpf(&r, ")");
 		} else {
 			if (buf[baddr].fg != current_fg) {
-				s += sprintf(s, " SA(%02x=%02x)", XA_FOREGROUND,
-							buf[baddr].fg);
+				rpf(&r, " SA(%02x=%02x)", XA_FOREGROUND,
+						buf[baddr].fg);
 				current_fg = buf[baddr].fg;
 			}
 			if (buf[baddr].gr != current_gr) {
-				s += sprintf(s, " SA(%02x=%02x)",
-						XA_HIGHLIGHTING,
+				rpf(&r, " SA(%02x=%02x)", XA_HIGHLIGHTING,
 						buf[baddr].gr | 0xf0);
 				current_gr = buf[baddr].gr;
 			}
 			if ((buf[baddr].cs & ~CS_GE) !=
 					(current_cs & ~CS_GE)) {
-				s += sprintf(s, " SA(%02x=%02x)", XA_CHARSET,
+				rpf(&r, " SA(%02x=%02x)", XA_CHARSET,
 						calc_cs(buf[baddr].cs));
 				current_cs = buf[baddr].cs;
 			}
 			if (in_ebcdic) {
 				if (buf[baddr].cs & CS_GE)
-					s += sprintf(s, " GE(%02x)",
-							buf[baddr].cc);
+					rpf(&r, " GE(%02x)", buf[baddr].cc);
 				else
-					s += sprintf(s, " %02x", buf[baddr].cc);
+					rpf(&r, " %02x", buf[baddr].cc);
 			} else {
 				switch (buf[baddr].cs & CS_MASK) {
 				case CS_BASE:
 				default:
-					if (buf[baddr].cs & CS_GE)
+					if (buf[baddr].cs & CS_GE) {
 						c = ge2asc[buf[baddr].cc];
-					else if (buf[baddr].cc == EBC_null)
+						if (c < ' ')
+							c = ' ';
+					} else if (buf[baddr].cc == EBC_null)
 						c = 0;
 					else 
 						c = ebc2asc[buf[baddr].cc];
 					break;
 				case CS_APL:
-					c = cg2asc[buf[baddr].cc];
+					c = ge2asc[buf[baddr].cc];
+					if (c < ' ')
+						c = ' ';
 					break;
 				case CS_LINEDRAW:
 					c = ' ';
@@ -1682,12 +1696,13 @@ do_read_buffer(String *params, Cardinal num_params, struct ea *buf)
 					break;
 #endif /*]*/
 				}
-				s += sprintf(s, " %02x", c);
+				rpf(&r, " %02x", c);
 			}
 		}
 		INC_BA(baddr);
 	} while (baddr != 0);
-	action_output(field_buf + 1);
+	action_output(r.buf + 1);
+	rpf_free(&r);
 }
 
 /*
@@ -1900,17 +1915,17 @@ Snap_action(Widget w unused, XEvent *event unused, String *params,
 
 	/* Handle 'Snap Wait' separately. */
 	if (!strcasecmp(params[0], action_name(Wait_action))) {
-		unsigned long tmo;
+		long tmo = -1;
 		char *ptr;
 		int maxp = 0;
 
 		if (*num_params > 1 &&
-		    (tmo = strtoul(params[1], &ptr, 10)) > 0 &&
+		    (tmo = strtol(params[1], &ptr, 10)) >= 0 &&
 		    ptr != params[0] &&
 		    *ptr == '\0') {
 			maxp = 3;
 		} else {
-			tmo = 0L;
+			tmo = -1;
 			maxp = 2;
 		}
 		if (*num_params > maxp) {
@@ -1952,8 +1967,9 @@ Snap_action(Widget w unused, XEvent *event unused, String *params,
 		sms->state = SS_SWAIT_OUTPUT;
 
 		/* Set up a timeout, if they want one. */
-		if (tmo)
-			sms->wait_id = AddTimeOut(tmo * 1000, wait_timed_out);
+		if (tmo >= 0)
+			sms->wait_id = AddTimeOut(tmo? (tmo * 1000): 1,
+					wait_timed_out);
 		return;
 	}
 
@@ -2033,15 +2049,15 @@ void
 Wait_action(Widget w unused, XEvent *event unused, String *params,
     Cardinal *num_params)
 {
-	enum sms_state next_state = SS_WAIT;
-	unsigned long tmo = 0;
+	enum sms_state next_state = SS_WAIT_IFIELD;
+	long tmo = -1;
 	char *ptr;
 	Cardinal np;
 	String *pr;
 
 	/* Pick off the timeout parameter first. */
 	if (*num_params > 0 &&
-	    (tmo = strtoul(params[0], &ptr, 10)) > 0 &&
+	    (tmo = strtol(params[0], &ptr, 10)) >= 0 &&
 	    ptr != params[0] &&
 	    *ptr == '\0') {
 		np = *num_params - 1;
@@ -2051,8 +2067,11 @@ Wait_action(Widget w unused, XEvent *event unused, String *params,
 		pr = params;
 	}
 
-	if (check_usage(Wait_action, np, 0, 1) < 0)
+	if (np > 1) {
+		popup_an_error("Too many arguments to %s or invalid timeout "
+				"value", action_name(Wait_action));
 		return;
+	}
 	if (sms == SN || sms->state != SS_RUNNING) {
 		popup_an_error("%s can only be called from scripts or macros",
 		    action_name(Wait_action));
@@ -2062,7 +2081,7 @@ Wait_action(Widget w unused, XEvent *event unused, String *params,
 		if (!strcasecmp(pr[0], "NVTMode") ||
 		    !strcasecmp(pr[0], "ansi")) {
 			if (!IN_ANSI)
-				next_state = SS_WAIT_ANSI;
+				next_state = SS_WAIT_NVT;
 		} else if (!strcasecmp(pr[0], "3270Mode") ||
 			   !strcasecmp(pr[0], "3270")) {
 			if (!IN_3270)
@@ -2077,9 +2096,14 @@ Wait_action(Widget w unused, XEvent *event unused, String *params,
 				next_state = SS_WAIT_DISC;
 			else
 				return;
+		} else if (!strcasecmp(pr[0], "Unlock")) {
+			if (KBWAIT)
+				next_state = SS_WAIT_UNLOCK;
+			else
+				return;
 		} else if (strcasecmp(pr[0], "InputField")) {
 			popup_an_error("%s argument must be InputField, "
-			    "NVTmode, 3270Mode, Output or Disconnect",
+			    "NVTmode, 3270Mode, Output, Disconnect or Unlock",
 			action_name(Wait_action));
 			return;
 		}
@@ -2090,15 +2114,15 @@ Wait_action(Widget w unused, XEvent *event unused, String *params,
 	}
 
 	/* Is it already okay? */
-	if (next_state == SS_WAIT && CAN_PROCEED)
+	if (next_state == SS_WAIT_IFIELD && CAN_PROCEED)
 		return;
 
 	/* No, wait for it to happen. */
 	sms->state = next_state;
 
 	/* Set up a timeout, if they want one. */
-	if (tmo)
-		sms->wait_id = AddTimeOut(tmo * 1000, wait_timed_out);
+	if (tmo >= 0)
+		sms->wait_id = AddTimeOut(tmo? (tmo * 1000): 1, wait_timed_out);
 }
 
 /*
@@ -2110,7 +2134,7 @@ sms_connect_wait(void)
 {
 	if (sms != SN &&
 	    (int)sms->state >= (int)SS_RUNNING &&
-	    sms->state != SS_WAIT) {
+	    sms->state != SS_WAIT_IFIELD) {
 		if (HALF_CONNECTED ||
 		    (CONNECTED && (kybdlock & KL_AWAITING_FIRST)))
 			sms->state = SS_CONNECT_WAIT;

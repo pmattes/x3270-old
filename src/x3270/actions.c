@@ -1,5 +1,5 @@
 /*
- * Modifications Copyright 1993, 1994, 1995, 1999, 2000, 2001, 2002 by
+ * Modifications Copyright 1993, 1994, 1995, 1999, 2000, 2001, 2002, 2004 by
  *  Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
@@ -179,7 +179,6 @@ XtActionsRec all_actions[] = {
 #endif /*]*/
 	{ "FieldEnd",		FieldEnd_action },
 	{ "FieldMark",		FieldMark_action },
-	{ "FieldExit",		FieldExit_action },
 	{ "HexString",		HexString_action},
 #if defined(C3270) /*[*/
 	{ "Help",		Help_action},
@@ -219,7 +218,7 @@ XtActionsRec all_actions[] = {
 	{ "Query",		Query_action },
 #endif /*]*/
 	{ "Quit",		Quit_action },
-#if defined(X3270_SCRIPT) /*[*/
+#if defined(X3270_SCRIPT) || defined(TCL3270) /*[*/
 	{ "ReadBuffer",		ReadBuffer_action },
 #endif /*]*/
 #if defined(X3270_MENUS) /*[*/
@@ -269,6 +268,11 @@ XtActionsRec all_actions[] = {
 
 int actioncount = XtNumber(all_actions);
 XtActionsRec *actions = NULL;
+
+/* Actions that are aliases for other actions. */
+static char *aliased_actions[] = {
+	"Close", "HardPrint", "Open", NULL
+};
 
 enum iaction ia_cause;
 const char *ia_name[] = {
@@ -349,8 +353,20 @@ action_name(XtActionProc action)
 		return "(suppressed)";
 
 	for (i = 0; i < actioncount; i++)
-		if (actions[i].proc == action)
-			return actions[i].string;
+		if (actions[i].proc == action) {
+			int j;
+			Boolean aliased = False;
+
+			for (j = 0; aliased_actions[j] != CN; j++) {
+				if (!strcmp(aliased_actions[j],
+							actions[i].string)) {
+					aliased = True;
+					break;
+				}
+			}
+			if (!aliased)
+				return actions[i].string;
+		}
 	return "(unknown)";
 }
 

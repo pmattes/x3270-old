@@ -1,6 +1,6 @@
 /*
  * Modifications Copyright 1993, 1994, 1995, 1996, 1999,
- *   2000, 2001, 2002 by Paul Mattes.
+ *   2000, 2001, 2002, 2004 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -92,6 +92,8 @@ XtResource resources[] = {
 	  offset(scripted), XtRString, ResFalse },
 	{ ResModifiedSel, ClsModifiedSel, XtRBoolean, sizeof(Boolean),
 	  offset(modified_sel), XtRString, ResFalse },
+	{ ResUnlockDelay, ClsUnlockDelay, XtRBoolean, sizeof(Boolean),
+	  offset(unlock_delay), XtRString, ResFalse },
 	{ ResUseCursorColor, ClsUseCursorColor, XtRBoolean, sizeof(Boolean),
 	  offset(use_cursor_color), XtRString, ResFalse },
 	{ ResReconnect, ClsReconnect, XtRBoolean, sizeof(Boolean),
@@ -191,6 +193,8 @@ XtResource resources[] = {
 #if defined(X3270_FT) /*[*/
 	{ ResFtCommand, ClsFtCommand, XtRString, sizeof(String),
 	  offset(ft_command), XtRString, 0 },
+	{ ResDftBufferSize, ClsDftBufferSize, XtRInt, sizeof(int),
+	  offset(dft_buffer_size), XtRString, "4096" },
 #endif /*]*/
 	{ ResConnectFileName, ClsConnectFileName, XtRString, sizeof(String),
 	  offset(connectfile_name), XtRString, "~/.x3270connect" },
@@ -238,6 +242,8 @@ XtResource resources[] = {
 	  toggle_offset(CROSSHAIR), XtRString, ResFalse },
 	{ ResVisibleControl, ClsVisibleControl, XtRBoolean, sizeof(Boolean),
 	  toggle_offset(VISIBLE_CONTROL), XtRString, ResFalse },
+	{ ResAidWait, ClsAidWait, XtRBoolean, sizeof(Boolean),
+	  toggle_offset(AID_WAIT), XtRString, ResTrue },
 
 #if defined(X3270_ANSI) /*[*/
 	{ ResIcrnl, ClsIcrnl, XtRBoolean, sizeof(Boolean),

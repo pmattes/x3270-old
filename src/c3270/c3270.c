@@ -1,6 +1,6 @@
 /*
  * Modifications and original code Copyright 1993, 1994, 1995, 1996,
- *  2000, 2001, 2002 by Paul Mattes.
+ *  2000, 2001, 2002, 2004 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *   Permission to use, copy, modify, and distribute this software and its
  *   documentation for any purpose and without fee is hereby granted,
@@ -169,6 +169,20 @@ main_exiting(Boolean ignored)
 		screen_suspend();
 } 
 
+/* Make sure error messages are seen. */
+static void
+pause_for_errors(void)
+{
+	char s[10];
+
+	if (any_error_output) {
+		printf("Press <RETURN> ");
+		fflush(stdout);
+		(void) fgets(s, sizeof(s), stdin);
+		any_error_output = False;
+	}
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -198,7 +212,13 @@ main(int argc, char *argv[])
 #endif /*]*/
 #endif /*]*/
 
+	/*
+	 * If any error messages have been displayed, make sure the
+	 * user sees them -- before screen_init() clears the screen.
+	 */
+	pause_for_errors();
 	screen_init();
+
 	kybd_init();
 	idle_init();
 	keymap_init();
@@ -242,13 +262,7 @@ main(int argc, char *argv[])
 			if (!PCONNECTED)
 				exit(1);
 		}
-		if (any_error_output) {
-			char s[10];
-
-			printf("Press <RETURN> ");
-			fflush(stdout);
-			(void) fgets(s, sizeof(s), stdin);
-		}
+		pause_for_errors();
 	} else {
 		if (appres.secure) {
 			Error("Must specify hostname with secure option");

@@ -1,5 +1,5 @@
 /*
- * Modifications Copyright 1996, 1999 by Paul Mattes.
+ * Modifications Copyright 1996, 1999, 2004 by Paul Mattes.
  * Copyright October 1995 by Dick Altenbern.
  * Based in part on code Copyright 1993, 1994, 1995 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
@@ -15,3 +15,5 @@
  */
 
 extern void ft_dft_data(unsigned char *data, int length);
+extern void dft_read_modified(void);
+extern void set_dft_buffersize(void);

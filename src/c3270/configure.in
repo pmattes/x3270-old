@@ -33,7 +33,7 @@ solaris2*)	XANSI=-D__EXTENSIONS__
 		;;
 darwin*)	XPRECOMP=-no-cpp-precomp
 		;;
-linux*)		XANSI="-D_POSIX_SOURCE -D_BSD_SOURCE"
+linux*)		XANSI="-D_POSIX_SOURCE -D_BSD_SOURCE -D_XOPEN_SOURCE"
 		;;
 aix*)		BROKEN_NEWTERM=1
 		;;
@@ -303,6 +303,7 @@ yes)	AC_DEFINE(X3270_DBCS,1)
 	DBCS_C="wide.c"
 	DBCS_O="wide.o"
 	CNV=""
+	DBCS=-DX3270_DBCS=1
 	;;
 *)	CNV="#"
 	;;
@@ -311,6 +312,7 @@ AC_SUBST(DBCS_C)
 AC_SUBST(DBCS_O)
 AC_SUBST(CNV)
 AC_SUBST(ICU_DATA_PREFIX)
+AC_SUBST(DBCS)
 AC_ARG_ENABLE(ft,[  --disable-ft            leave out file transfer support])
 case "$enable_ft" in
 ""|yes)	AC_DEFINE(X3270_FT,1)

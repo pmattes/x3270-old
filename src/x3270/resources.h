@@ -1,5 +1,5 @@
 /*
- * Copyright 1995, 1996, 1999, 2000, 2001, 2002 by Paul Mattes.
+ * Copyright 1995, 1996, 1999, 2000, 2001, 2002, 2004 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -20,6 +20,7 @@
 /* Resources. */
 #define ResActiveIcon		"activeIcon"
 #define ResAdVersion		"adVersion"
+#define ResAidWait		"aidWait"
 #define ResAllBold		"allBold"
 #define ResAllowResize		"allowResize"
 #define ResAltCursor		"altCursor"
@@ -52,6 +53,7 @@
 #define ResDebugFont		"debugFont"
 #define ResDebugTracing		"debugTracing"
 #define ResDefScreen		"defScreen"
+#define ResDftBufferSize	"dftBufferSize"
 #define ResDisconnectClear	"disconnectClear"
 #define ResDisplayCharset	"displayCharset"
 #define ResDoConfirms		"doConfirms"
@@ -133,6 +135,7 @@
 #define ResTraceFileSize	"traceFileSize"
 #define ResTraceMonitor		"traceMonitor"
 #define ResTypeahead		"typeahead"
+#define ResUnlockDelay		"unlockDelay"
 #define ResUseCursorColor	"useCursorColor"
 #define ResVisibleControl	"visibleControl"
 #define ResVisualBell		"visualBell"
@@ -175,6 +178,7 @@
 /* Resource classes. */
 #define ClsActiveIcon		"ActiveIcon"
 #define ClsAdVersion		"AdVersion"
+#define ClsAidWait		"AidWait"
 #define ClsAllBold		"AllBold"
 #define ClsAllowResize		"AllowResize"
 #define ClsAltCursor		"AltCursor"
@@ -200,6 +204,7 @@
 #define ClsCursorPos		"CursorPos"
 #define ClsDebugFont		"DebugFont"
 #define ClsDebugTracing		"DebugTracing"
+#define ClsDftBufferSize	"DftBufferSize"
 #define ClsDisconnectClear	"DisconnectClear"
 #define ClsDoConfirms		"DoConfirms"
 #define ClsDsTrace		"DsTrace"
@@ -274,6 +279,7 @@
 #define ClsTraceFileSize	"TraceFileSize"
 #define ClsTraceMonitor		"TraceMonitor"
 #define ClsTypeahead		"Typeahead"
+#define ClsUnlockDelay		"UnlockDelay"
 #define ClsUseCursorColor	"UseCursorColor"
 #define ClsVisibleControl	"VisibleControl"
 #define ClsVisualBell		"VisualBell"

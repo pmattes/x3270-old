@@ -1,4 +1,4 @@
-# Copyright 2000 by Paul Mattes.
+# Copyright 2000, 2004 by Paul Mattes.
 #  Permission to use, copy, modify, and distribute this software and its
 #  documentation for any purpose and without fee is hereby granted,
 #  provided that the above copyright notice appear in all copies and that
@@ -115,14 +115,14 @@ namespace eval x3270 {
 			if {$iter==1} {set ret [list $ret]}
 			set r [string range $r [expr [string length $elt]+7] \
 				end]
-			if {[llength $ret] > 0} {
+			if {$iter > 0} {
 				set ret [linsert $ret end $elt]
 			} {
 				set ret $elt
 			}
 			set iter [expr $iter + 1]
 		}
-		if {$verbose} {puts "ret llen [llength $ret]"}
+		if {$verbose} {puts "ret $iter"}
 		return $ret
 	}
 

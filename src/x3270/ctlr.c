@@ -1,6 +1,6 @@
 /*
  * Modifications Copyright 1993, 1994, 1995, 1996, 1999,
- *  2000, 2001, 2002 by Paul Mattes.
+ *  2000, 2001, 2002, 2004 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -38,6 +38,7 @@
 #include "ctlrc.h"
 #include "ftc.h"
 #include "ft_cutc.h"
+#include "ft_dftc.h"
 #include "hostc.h"
 #include "kybdc.h"
 #include "macrosc.h"
@@ -615,6 +616,13 @@ ctlr_read_modified(unsigned char aid_byte, Boolean all)
 	if (IN_SSCP && aid_byte != AID_ENTER)
 		return;
 
+#if defined(X3270_FT) /*[*/
+	if (aid_byte == AID_SF) {
+		dft_read_modified();
+		return;
+	}
+#endif /*]*/
+
 	trace_ds("> ");
 	obptr = obuf;
 
@@ -776,6 +784,13 @@ ctlr_read_buffer(unsigned char aid_byte)
 	unsigned char	current_fg = 0x00;
 	unsigned char	current_gr = 0x00;
 	unsigned char	current_cs = 0x00;
+
+#if defined(X3270_FT) /*[*/
+	if (aid_byte == AID_SF) {
+		dft_read_modified();
+		return;
+	}
+#endif /*]*/
 
 	trace_ds("> ");
 	obptr = obuf;
@@ -1220,6 +1235,10 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 				while ((buffer_addr != baddr) &&
 				       (!ea_buf[buffer_addr].fa)) {
 					ctlr_add(buffer_addr, EBC_null, 0);
+					ctlr_add_cs(buffer_addr, 0);
+					ctlr_add_fg(buffer_addr, 0);
+					ctlr_add_gr(buffer_addr, 0);
+					ctlr_add_ic(buffer_addr, 0);
 					INC_BA(buffer_addr);
 				}
 				if (baddr == 0)

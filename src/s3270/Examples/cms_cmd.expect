@@ -1,5 +1,5 @@
-#!/usr/local/bin/expect
-# Copyright 2000, 2001 by Paul Mattes.
+#!/usr/bin/expect
+# Copyright 2000, 2001, 2004 by Paul Mattes.
 #  Permission to use, copy, modify, and distribute this software and its
 #  documentation for any purpose and without fee is hereby granted,
 #  provided that the above copyright notice appear in all copies and that
@@ -110,6 +110,7 @@ set verbose 0
 
 # Start s3270
 Start
+# Setverbose 1
 
 # Connect to the host and wait for an input field.
 Connect $hostname

@@ -1,5 +1,5 @@
 '\" t
-.TH X3270-SCRIPT 1 "02 August 2004"
+.TH X3270-SCRIPT 1 "31 December 2004"
 .SH "NAME"
 Scripting Facilities for x3270, s3270 and c3270
 .SH "SYNOPSIS"
@@ -98,6 +98,8 @@ If connected in \s-1NVT\s+1 line mode, the letter
 \fBL\fP.
 If connected in \s-1NVT\s+1 character mode, the letter
 \fBC\fP.
+If connected in unnegotiated mode (no BIND active from the host), the letter
+\fBP\fP.
 If not connected, the letter
 \fBN\fP.
 .TP
@@ -152,25 +154,33 @@ action to complete.
 The \fBQuit\fP action always causes the emulator to exit.
 (When called from the keyboard, it will exit only if not connected to a host.)
 .PP
-The
-\fBClear\fP,
+Normally, the AID actions (\fBClear\fP,
 \fBEnter\fP,
 \fBPF\fP,
 and
-\fBPA\fP
-actions will not complete until the host
-unlocks the keyboard.
+\fBPA\fP)
+will not complete until the host unlocks the keyboard.
 If the parameter to a
 \fBString\fP
 action includes a code for one these actions,
-it will also wait for the keyboard to unlock before completing.
-Similarly, the
+it will also wait for the keyboard to unlock before proceeding.
+.PP
+The \fBAidWait\fP toggle controls with behavior.
+When this toggle is set (the default), actions block as described above.
+When the toggle is clear, AID actions complete immediately.
+The \fBWait(Output)\fP action can then be used to delay a script until the
+host changes something on the screen, and the
+\fBWait(Unlock)\fP action can be used to delay a script until the host
+unlocks the keyboard, regardless of the state of the \fBAidWait\fP toggle.
+.PP
+Note that the
 \fBScript\fP
 action does not complete until end-of-file is
 detected on the pipe or the
 \fBCloseScript\fP
 action is called by the child
 process.
+This behavior is not affected by the state of the \fBAidWait\fP toggle.
 .SH "SCRIPT-SPECIFIC ACTIONS"
 The following actions have been defined or modified for use with scripts.
 (Note that unlike the display on the status line,
@@ -311,6 +321,18 @@ action, above, is executed.
 This allows a script to wait for user input and continue.
 Outputs the single parameter to
 \fBContinueScript\fP.
+.TP
+\fBPrintText\fP([\fBcommand\fP,]\fIfilter\fP))
+Pipes an ASCII representation of the current screen image through the named
+\fIfilter\fP, e.g., \fBlpr\fP.
+.TP
+\fBPrintText\fP([\fBhtml\fP,],\fBfile\fP,\fIfilename\fP))
+Saves the current screen contents in a file.
+With the \fBhtml\fP option, saves it as HTML, otherwise saves it as plain
+ASCII.
+.TP
+\fBPrintText\fP(\fBhtml,string\fP)
+Returns the current screen contents as HTML.
 .TP
 \fBReadBuffer\fP(\fBAscii\fP)
 Dumps the contents of the screen buffer, one line at a time.
@@ -657,7 +679,7 @@ action to scan the screen for some pattern that indicates that the host has
 fully processed the last command.
 .IP
 The optional \fItimeout\fP parameter specifies a number of seconds to wait
-before failing the \fBSnap\fP action.  The default is to wait forever.
+before failing the \fBSnap\fP action.  The default is to wait indefinitely.
 .TP
 \fBTransfer\fP(\fIkeyword\fP=\fIvalue\fP,...)
 Invokes IND$FILE file transfer.
@@ -670,7 +692,7 @@ Pauses the script or macro until the host negotiates 3270 mode, then waits for
 a formatted screen as above.
 .IP
 The optional \fItimeout\fP parameter specifies a number of seconds to wait
-before failing the \fBWait\fP action.  The default is to wait forever.
+before failing the \fBWait\fP action.  The default is to wait indefinitely.
 .IP
 For backwards compatibility,
 \fBWait(3270)\fP
@@ -687,7 +709,7 @@ set to
 state.
 .IP
 The optional \fItimeout\fP parameter specifies a number of seconds to wait
-before failing the \fBWait\fP action.  The default is to wait forever.
+before failing the \fBWait\fP action.  The default is to wait indefinitely.
 .TP
 \fBWait\fP([\fItimeout\fP,] \fBInputField\fP)
 A useful utility for use at the beginning of scripts and after the
@@ -697,7 +719,7 @@ the cursor on a modifiable field.
 In \s-1NVT\s+1 mode, waits until the host sends at least one byte of data.
 .IP
 The optional \fItimeout\fP parameter specifies a number of seconds to wait
-before failing the \fBWait\fP action.  The default is to wait forever.
+before failing the \fBWait\fP action.  The default is to wait indefinitely.
 .IP
 For backwards compatibility,
 \fBWait\fP
@@ -712,7 +734,7 @@ mode, then waits for
 a byte from the host as above.
 .IP
 The optional \fItimeout\fP parameter specifies a number of seconds to wait
-before failing the \fBWait\fP action.  The default is to wait forever.
+before failing the \fBWait\fP action.  The default is to wait indefinitely.
 .IP
 For backwards compatibility,
 \fBWait\fP(\fBansi\fP)
@@ -721,13 +743,16 @@ is equivalent to
 .TP
 \fBWait\fP([\fItimeout\fP,] \fBOutput\fP)
 Pauses the script until the host sends further output.
-Used when the host unlocks the keyboard (allowing the script to proceed after
-an
+Often needed when the host unlocks the keyboard (allowing the script to
+proceed after a
+\fBClear\fP,
 \fBEnter\fP,
 \fBPF\fP
 or
 \fBPA\fP
 action), but has not finished updating the screen.
+Also used in non-blocking AID mode (see \s-1DIFFERENCES\s+1
+for details).
 This action is usually invoked in a loop that uses the
 \fBAscii\fP
 or
@@ -736,15 +761,24 @@ action to scan the screen for some pattern that indicates that the host has
 fully processed the last command.
 .IP
 The optional \fItimeout\fP parameter specifies a number of seconds to wait
-before failing the \fBWait\fP action.  The default is to wait forever.
+before failing the \fBWait\fP action.  The default is to wait indefinitely.
+.TP
+\fBWait\fP([\fItimeout\fP,] \fBUnlock\fP)
+Pauses the script until the host unlocks the keyboard.
+This is useful when operating in non-blocking AID mode
+(\fBtoggle AidWait clear\fP), to wait for a host command to complete.
+See \s-1DIFFERENCES\s+1 for details).
+.IP
+The optional \fItimeout\fP parameter specifies a number of seconds to wait
+before failing the \fBWait\fP action.  The default is to wait indefinitely.
 .SH "FILE TRANSFER"
-The \fBXX_LA()Transfer\fP action implements \fBIND$FILE\fP file transfer.
+The \fBTransfer\fP action implements \fBIND$FILE\fP file transfer.
 This action requires that the \fBIND$FILE\fP
 program be installed on the \s-1IBM\s+1 host, and that the 3270 cursor
 be located in a field that will accept a \s-1TSO\s+1 or \s-1VM/CMS\s+1 command.
 .LP
 Because of the complexity and number of options for file transfer, the
-parameters to the \fBXX_LA()Transfer\fP action take the unique form
+parameters to the \fBTransfer\fP action take the unique form
 of \fIoption\fP=\fIvalue\fP, and can appear in any order.
 The options are:
 .LP
@@ -989,6 +1023,23 @@ T}	T{
 .nh
 \ 
 T}
+T{
+.na
+.nh
+BufferSize
+T}	T{
+.na
+.nh
+No
+T}	T{
+.na
+.nh
+4096
+T}	T{
+.na
+.nh
+\ 
+T}
 .TE
 .LP
 The option details are as follows.
@@ -1025,7 +1076,7 @@ to the host.
 \fBExist\fP
 Controls what happens when the destination file already exists.
 \fBkeep\fP (the default) preserves the file, causing the
-\fBXX_LA()Transfer\fP action to fail.
+\fBTransfer\fP action to fail.
 \fBreplace\fP overwrites the destination file with the source file.
 \fBappend\fP appends the source file to the destination file.
 .TP
@@ -1056,6 +1107,12 @@ The units are given by the \fBAllocation\fP option.
 \fBSecondarySpace\fP
 Secondary allocation for a file created on a \s-1TSO\s+1 host.
 The units are given by the \fBAllocation\fP option.
+.TP
+\fBBufferSize\fP
+Buffer size for DFT-mode transfers.
+Can range from 256 to 32768.
+Larger values give better performance, but some hosts may not be able to
+support them.
 .SH "SEE ALSO"
 expect(1)
 .br
@@ -1067,4 +1124,4 @@ c3270(1)
 .br
 s3270(1)
 .SH "VERSION"
-Version 3.3.3alpha4
+Version 3.3.3beta1
