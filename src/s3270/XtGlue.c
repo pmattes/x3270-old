@@ -422,6 +422,7 @@ XtAppProcessEvent(XtAppContext app_context, XtInputMask mask)
 	int ns;
 	struct timeval t0, t1, twait, *tp;
 
+    retry:
 	FD_ZERO(&rfds);
 	FD_ZERO(&wfds);
 	FD_ZERO(&xfds);
@@ -446,7 +447,6 @@ XtAppProcessEvent(XtAppContext app_context, XtInputMask mask)
 		XtWarning("XtAppProcessEvent: select() failed");
 		return;
 	}
-    retry:
 	inputs_changed = False;
 	for (ip = inputs; ip != (input_t *)NULL; ip = ip->next) {
 		if (((unsigned long)ip->condition & XtInputReadMask) &&

@@ -113,6 +113,7 @@ static void sms_pop(Boolean can_exit);
 
 /* Macro that defines when it's safe to continue a Wait()ing sms. */
 #define CAN_PROCEED ( \
+    IN_SSCP || \
     (IN_3270 && formatted && cursor_addr && !KBWAIT) || \
     (IN_ANSI && !(kybdlock & KL_AWAITING_FIRST)) \
 )
@@ -134,7 +135,7 @@ sms_connect(Boolean connected)
 static void
 sms_in3270(Boolean in3270)
 {
-	if (in3270)
+	if (in3270 || IN_SSCP)
 		sms_continue();
 }
 
@@ -1055,7 +1056,7 @@ sms_continue(void)
 			return;
 
 		    case SS_WAIT_3270:
-			if (IN_3270) {
+			if (IN_3270 | IN_SSCP) {
 			    sms->state = SS_WAIT;
 			    continue;
 			}

@@ -3,19 +3,49 @@
 <head>
    <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
    <meta name="Author" content="Paul Mattes">
-   <meta name="GENERATOR" content="Mozilla/4.7 [en] (Win98; U) [Netscape]">
+   <meta name="GENERATOR" content="Mozilla/4.5 [en] (WinNT; U) [Netscape]">
    <title>x3270 3.2 New Features</title>
 </head>
 <body>
+
+<h1>
 <b>New Features in x3270 3.2</b>
-<p>x3270 3.2 is a reorganization of x3270 3.1, with some additional enhancements.&nbsp;
+<hr WIDTH="100%"></h1>
+x3270 3.2 is a reorganization of x3270 3.1, with some additional enhancements.&nbsp;
 It is intended to be the future development platform for x3270, with x3270
 3.1 continued only with bug fixes.
-<p><b>Internal Changes</b>
-<br>The primary focus of the reorganzation is modularity. For example,
-through the new <tt><font size=+1>parts.h</font></tt> header file, it is
-now possible to build subsets of x3270, excluding one or more of the following
-features:
+<h2>
+<b>Changes in x3270 3.2.5, 15. May 2000</b></h2>
+Fixed a problem with scripts hanging in TN3270E SSCP-LU mode.
+<h2>
+<b>Changes in x3270 3.2.4, 8. May 2000</b></h2>
+Functionally identical to x3270 3.2A3.
+<h2>
+<b>Changes in x3270 3.2A3, 2. May 2000</b></h2>
+Added support for the Greek character set and a Greek font, <b>3270gr</b>.
+<br>Fixed problems with font and color scheme checkboxes not being updated
+in the menu bar.
+<br>Fixed compiler warnings from not using <tt>time_t</tt>'s properly.
+<br>Fixed a problem with the status line improperly reporting disconnections
+during certain TN3270E mode switches.
+<br>Added TN3270E state to the data stream trace data.
+<h2>
+<b>Changes in x3270 3.2A2, 27. April 2000</b></h2>
+Due to problems with servers that do not support basic TN3270E, added support
+for TN3270E options RESPONSES, SYSREQ and BIND-IMAGE.
+<br>Removed disconnect logic when an invalid TN3270E message is received.
+<br>Fixed a problem with ignoring the <tt>ibm_hosts</tt> file.
+<h2>
+<b>Changes in x3270 3.2A1, 9. December 1999</b></h2>
+Added basic TN3270E support.
+<h2>
+<b>Changes in x3270 3.2A0, 15. March 1999</b></h2>
+
+<h3>
+<b>Internal Changes</b></h3>
+The primary focus of the reorganzation is modularity. For example, through
+the new <tt><font size=+1>parts.h</font></tt> header file, it is now possible
+to build subsets of x3270, excluding one or more of the following features:
 <ul>
 <li>
 Tracing</li>
@@ -49,20 +79,9 @@ changes, instead of explicit calls from one module to another.
 <p>The code is now written in ANSI C, using function prototypes and <tt>const</tt>
 where appropriate.
 <p>Support for X11R4 and K&amp;R C compilers has been dropped.
-<p><b>External Changes</b>
-<br>TN3270E is now supported.&nbsp; x3270 supports the following TN3270E
-functions:
-<ul>
-<li>
-RESPONSES</li>
-
-<li>
-SYSREQ</li>
-
-<li>
-BIND-IMAGE</li>
-</ul>
-TN3270 printers are not supported.
+<h3>
+<b>External Changes</b></h3>
+Basic TN3270E is now supported. TN3270E printers are not supported.
 <p>On systems that support the <i>forkpty</i>() library call (such as BSD-derived
 systems and Linux), x3270 supports local processes.&nbsp; A local process
 is a Unix process such as a shell which is connected to x3270 with a pty.&nbsp;
@@ -84,7 +103,5 @@ keymaps are automatically used when x3270 recognizes the vendor string
 for the associated X server.
 <p>Several x3270 bugs, which were in the "impossible to fix" category (because
 of basic code organization problems) have finally been fixed.
-<p>The Greek character set is now supported via the <b>greek</b> character
-set and a new <b>3270gr</b> font.
 </body>
 </html>
