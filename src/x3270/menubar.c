@@ -1457,13 +1457,14 @@ create_font_menu(Boolean regen, Boolean even_if_unknown)
 	XtVaSetValues(fonts_option, XtNmenuName, k->menu_name, NULL);
 	fm_index = k->index;
 	font_widgets = k->fw;
-    }
+}
 
 /* Called when the character set changes. */
 static void
 menubar_charset(Boolean ignored unused)
 {
-	create_font_menu(False, False);
+	if (!appres.suppress_font_menu)
+		create_font_menu(False, False);
 }
 
 /* Called to change emulation modes */
@@ -1526,13 +1527,15 @@ options_menu_init(Boolean regen, Position x, Position y)
 		}
 	}
 	if (options_menu != (Widget)NULL) {
-		/* Set the current font. */
-		for (f = font_list, ix = 0; f; f = f->next, ix++) {
-			if (ix >= MAX_MENU_OPTIONS)
-				break;
-			XtVaSetValues(font_widgets[ix], XtNleftBitmap,
-				is_efont(f->font)? diamond: no_diamond,
-				NULL);
+		if (font_widgets != NULL) {
+			/* Set the current font. */
+			for (f = font_list, ix = 0; f; f = f->next, ix++) {
+				if (ix >= MAX_MENU_OPTIONS)
+					break;
+				XtVaSetValues(font_widgets[ix], XtNleftBitmap,
+					is_efont(f->font)? diamond: no_diamond,
+					NULL);
+			}
 		}
 		/* Set the current color scheme. */
 		s = schemes;
@@ -1636,39 +1639,41 @@ options_menu_init(Boolean regen, Position x, Position y)
 	    "space", cmeLineObjectClass, options_menu,
 	    NULL);
 
-	/* Create the "fonts" pullright */
+	if (!appres.suppress_font_menu) {
+		/* Create the "fonts" pullright */
 
-	/*
-	 * Create a dummy menu with the well-known name, so we can get the
-	 * values of background, borderWidth, borderColor and leftMargin
-	 * from its resources.
-	 */
-	dummy_font_menu = XtVaCreatePopupShell(
-	    "fontsMenu", complexMenuWidgetClass, menu_parent,
-	    NULL);
-	dummy_font_element =  XtVaCreateManagedWidget(
-	    "entry", cmeBSBObjectClass, dummy_font_menu,
-	    XtNleftBitmap, no_diamond,
-	    NULL);
-	XtRealizeWidget(dummy_font_menu);
-	XtVaGetValues(dummy_font_menu,
-	    XtNborderWidth, &fm_borderWidth,
-	    XtNborderColor, &fm_borderColor,
-	    XtNbackground, &fm_background,
-	    NULL);
-	XtVaGetValues(dummy_font_element,
-	    XtNleftMargin, &fm_leftMargin,
-	    NULL);
+		/*
+		 * Create a dummy menu with the well-known name, so we can get
+		 * the values of background, borderWidth, borderColor and
+		 * leftMargin from its resources.
+		 */
+		dummy_font_menu = XtVaCreatePopupShell(
+		    "fontsMenu", complexMenuWidgetClass, menu_parent,
+		    NULL);
+		dummy_font_element =  XtVaCreateManagedWidget(
+		    "entry", cmeBSBObjectClass, dummy_font_menu,
+		    XtNleftBitmap, no_diamond,
+		    NULL);
+		XtRealizeWidget(dummy_font_menu);
+		XtVaGetValues(dummy_font_menu,
+		    XtNborderWidth, &fm_borderWidth,
+		    XtNborderColor, &fm_borderColor,
+		    XtNbackground, &fm_background,
+		    NULL);
+		XtVaGetValues(dummy_font_element,
+		    XtNleftMargin, &fm_leftMargin,
+		    NULL);
 
-	fonts_option = XtVaCreateManagedWidget(
-	    "fontsOption", cmeBSBObjectClass, options_menu,
-	    XtNrightBitmap, arrow,
-	    NULL);
-	create_font_menu(regen, True);
+		fonts_option = XtVaCreateManagedWidget(
+		    "fontsOption", cmeBSBObjectClass, options_menu,
+		    XtNrightBitmap, arrow,
+		    NULL);
+		create_font_menu(regen, True);
 
-	(void) XtVaCreateManagedWidget(
-	    "space", cmeLineObjectClass, options_menu,
-	    NULL);
+		(void) XtVaCreateManagedWidget(
+		    "space", cmeLineObjectClass, options_menu,
+		    NULL);
+	}
 
 	/* Create the "models" pullright */
 	t = XtVaCreatePopupShell(

@@ -348,7 +348,9 @@ PURPOSE.  See the file LICENSE for more details.", 4);
 		} else
 #endif /*]*/
 		{
-			MAKE_VALUE(current_host);
+			if (!appres.suppress_host) {
+				MAKE_VALUE(current_host);
+			}
 		}
 #if defined(LOCAL_PROCESS) /*[*/
 		if (!local_process) {

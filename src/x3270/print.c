@@ -40,6 +40,9 @@
 #include "popupsc.h"
 #include "printc.h"
 #include "utilc.h"
+#if defined(X3270_DBCS) /*[*/
+#include "widec.h"
+#endif /*]*/
 
 /* Statics */
 
@@ -67,6 +70,11 @@ fprint_screen(FILE *f, Boolean even_if_empty)
 	unsigned char fa = get_field_attribute(0);
 
 	for (i = 0; i < ROWS*COLS; i++) {
+#if defined(X3270_DBCS) /*[*/
+		unsigned char wc[2];
+		Boolean is_dbcs = False;
+#endif /*]*/
+
 		if (i && !(i % COLS)) {
 			nr++;
 			ns = 0;
@@ -77,8 +85,28 @@ fprint_screen(FILE *f, Boolean even_if_empty)
 		}
 		if (FA_IS_ZERO(fa))
 			c = ' ';
+#if defined(X3270_DBCS) /*[*/
+		else {
+			switch (ctlr_dbcs_state(i)) {
+			case DBCS_NONE:
+			case DBCS_SB:
+				c = ebc2asc[ea_buf[i].cc];
+				break;
+			case DBCS_LEFT:
+				dbcs_to_wchar(ea_buf[i].cc, ea_buf[i + 1].cc,
+				    wc);
+				is_dbcs = True;
+				c = 'x';
+				break;
+			default:
+				c = ' ';
+				break;
+			}
+		}
+#else /*][*/
 		else
 			c = ebc2asc[ea_buf[i].cc];
+#endif /*]*/
 		if (c == ' ')
 			ns++;
 		else {
@@ -91,7 +119,15 @@ fprint_screen(FILE *f, Boolean even_if_empty)
 				(void) fputc(' ', f);
 				ns--;
 			}
-			(void) fputc(c, f);
+#if defined(X3270_DBCS) /*[*/
+			if (is_dbcs) {
+				(void) fputc(wc[0], f);
+				(void) fputc(wc[1], f);
+				i++;
+			}
+#endif /*]*/
+			else
+				(void) fputc(c, f);
 		}
 	}
 	nr++;

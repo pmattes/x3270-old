@@ -21,3 +21,5 @@ extern void wchar_to_dbcs(unsigned char c1, unsigned char c2,
     unsigned char ebc[]);
 extern void dbcs_to_wchar(unsigned char ebc1, unsigned char ebc2,
     unsigned char c[]);
+extern void dbcs_to_unicode16(unsigned char ebc1, unsigned char ebc2,
+    unsigned char c[]);

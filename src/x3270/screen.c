@@ -4999,7 +4999,7 @@ im_callback(Display *display, XPointer client_data, XPointer call_data)
 
 	/* Open connection to IM server. */
 	if ((im = XOpenIM(display, NULL, NULL, NULL)) == NULL) {
-		popup_an_error("XOpenIM failed\nDBCS disabled");
+		popup_an_error("XOpenIM failed\nXIM-based input disabled");
 		goto error_return;
 	}
 
@@ -5011,7 +5011,7 @@ im_callback(Display *display, XPointer client_data, XPointer call_data)
 	if (XGetIMValues(im, XNQueryInputStyle, &xim_styles, NULL) != NULL ||
 			xim_styles == NULL) {
 		popup_an_error("Input method doesn't support any styles\n"
-			       "DBCS disabled");
+			       "XIM-based input disabled");
 		goto error_return;
 	}
 	for (i = 0; i < xim_styles->count_styles; i++) {
@@ -5041,7 +5041,7 @@ im_callback(Display *display, XPointer client_data, XPointer call_data)
 	}
 	if (im_styles[j].description == NULL) {
 		popup_an_error("Input style '%s' not supported\n"
-			       "DBCS disabled", im_style);
+			       "XIM-based input disabled", im_style);
 		goto error_return;
 	}
 
@@ -5057,7 +5057,7 @@ im_callback(Display *display, XPointer client_data, XPointer call_data)
 				&charset_count, &def_string);
 		if (charset_count || fontset == NULL) {
 			popup_an_error("Cannot create fontset '%s' for input "
-			    "context\nDBCS disabled", fsname);
+			    "context\nXIM-based input disabled", fsname);
 			goto error_return;
 		}
 
@@ -5082,7 +5082,8 @@ im_callback(Display *display, XPointer client_data, XPointer call_data)
 			preedit_attr,
 			NULL);
 	if (ic == NULL) {
-		popup_an_error("Cannot create input context\nDBCS disabled");
+		popup_an_error("Cannot create input context\n"
+		               "XIM-based input disabled");
 		goto error_return;
 	}
 	return;
@@ -5092,8 +5093,6 @@ im_callback(Display *display, XPointer client_data, XPointer call_data)
 		XCloseIM(im);
 		im = NULL;
 	}
-	dbcs = False;
-	no_dbcs = True;
 }
 
 static void

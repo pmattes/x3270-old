@@ -94,6 +94,8 @@ typedef struct {
 	Boolean do_confirms;
 	Boolean reconnect;
 	Boolean visual_select;
+	Boolean suppress_host;
+	Boolean suppress_font_menu;
 # if defined(X3270_KEYPAD) /*[*/
 	Boolean	keypad_on;
 # endif /*]*/

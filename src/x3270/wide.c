@@ -20,9 +20,11 @@
 #include "globals.h"
 #include <errno.h>
 
+#include "appres.h"
 #include "resources.h"
 
 #include "popupsc.h"
+#include "trace_dsc.h"
 #include "utilc.h"
 
 #include "widec.h"
@@ -179,29 +181,35 @@ xlate1(unsigned char from0, unsigned char from1, unsigned char to_buf[],
 	from_buf[1] = from1;
 	len = ucnv_toUChars(from_cnv, Ubuf, 2, from_buf, 2, &err);
 	if (err != U_ZERO_ERROR) {
-		popup_an_error("%s toUnicode failed %d", from_name, (int)err);
+		trace_ds("[%s toUnicode of DBCS X'%02x%02x' failed, ICU "
+		    "error %d]\n", from_name, from0, from1, (int)err);
 		return;
 	}
 #if defined(WIDE_DEBUG) /*[*/
 	printf("Got Unicode %x\n", Ubuf[0]);
 #endif /*]*/
 
-	/* Convert string from Unicode to Destination. */
-	len = ucnv_fromUChars(to_cnv, tmp_to_buf, 3, Ubuf, len, &err);
-	if (err != U_ZERO_ERROR) {
-		popup_an_error("fromUnicode to %s failed %d", to_name,
-		    (int)err);
-		return;
-	}
-	to_buf[0] = tmp_to_buf[0];
-	to_buf[1] = tmp_to_buf[1];
+	if (to_cnv != NULL) {
+		/* Convert string from Unicode to Destination. */
+		len = ucnv_fromUChars(to_cnv, tmp_to_buf, 3, Ubuf, len, &err);
+		if (err != U_ZERO_ERROR) {
+			popup_an_error("[fromUnicode of U+%04x to %s failed, ICU "
+			    "error %d]\n", to_name, Ubuf[0], (int)err);
+			return;
+		}
+		to_buf[0] = tmp_to_buf[0];
+		to_buf[1] = tmp_to_buf[1];
 #if defined(WIDE_DEBUG) /*[*/
-	printf("Got %u %s characters:", len, to_name);
-	for (i = 0; i < len; i++) {
-		printf(" %02x", to_buf[i]);
-	}
-	printf("\n");
+		printf("Got %u %s characters:", len, to_name);
+		for (i = 0; i < len; i++) {
+			printf(" %02x", to_buf[i]);
+		}
+		printf("\n");
 #endif /*]*/
+	} else {
+		to_buf[0] = (Ubuf[0] >> 8) & 0xff;
+		to_buf[1] = Ubuf[0] & 0xff;
+	}
 }
 #endif /*]*/
 
@@ -224,6 +232,18 @@ dbcs_to_wchar(unsigned char ebc1, unsigned char ebc2, unsigned char c[])
 {
 #if defined(HAVE_LIBICUI18N) /*[*/
 	xlate1(ebc1, ebc2, c, dbcs_converter, "DBCS", euc_converter, "EUC");
+#else /*][*/
+	c[0] = 0xf0;
+	c[1] = 0xf1;
+#endif /*]*/
+}
+
+/* Translate a DBCS EBCDIC character to a 2-byte Unicode character. */
+void
+dbcs_to_unicode16(unsigned char ebc1, unsigned char ebc2, unsigned char c[])
+{
+#if defined(HAVE_LIBICUI18N) /*[*/
+	xlate1(ebc1, ebc2, c, dbcs_converter, "DBCS", NULL, NULL);
 #else /*][*/
 	c[0] = 0xf0;
 	c[1] = 0xf1;

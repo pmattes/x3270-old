@@ -212,6 +212,8 @@ x3270.charsetList:			U.S. English (CP 37): us-intl\n\
 ! x3270.preeditType:			OverTheSpot+1
 ! x3270.saveLines:			64
 ! x3270.scripted:			false
+! x3270.suppressHost:			false
+! x3270.suppressFontMenu:		false
 ! x3270.termName:
 ! x3270.traceDir:			/tmp
 ! x3270.cursorColor:			red
