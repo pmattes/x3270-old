@@ -1170,13 +1170,22 @@ script_input(void)
 void
 sms_continue(void)
 {
+	static Boolean continuing = False;
+
+	if (continuing)
+		return;
+	continuing = True;
+
 	while (True) {
-		if (sms == SN)
+		if (sms == SN) {
+			continuing = False;
 			return;
+		}
 
 		switch (sms->state) {
 
 		    case SS_IDLE:
+			continuing = False;
 			return;		/* nothing to do */
 
 		    case SS_INCOMPLETE:
@@ -1184,8 +1193,10 @@ sms_continue(void)
 			break;		/* let it proceed */
 
 		    case SS_KBWAIT:
-			if (KBWAIT)
+			if (KBWAIT) {
+				continuing = False;
 				return;
+			}
 			break;
 
 		    case SS_WAIT_ANSI:
@@ -1193,6 +1204,7 @@ sms_continue(void)
 			    sms->state = SS_WAIT;
 			    continue;
 			}
+			continuing = False;
 			return;
 
 		    case SS_WAIT_3270:
@@ -1200,16 +1212,21 @@ sms_continue(void)
 			    sms->state = SS_WAIT;
 			    continue;
 			}
+			continuing = False;
 			return;
 
 		    case SS_WAIT:
-			if (!CAN_PROCEED)
+			if (!CAN_PROCEED) {
+				continuing = False;
 				return;
+			}
 			/* fall through... */
 		    case SS_CONNECT_WAIT:
 			if (HALF_CONNECTED ||
-			    (CONNECTED && (kybdlock & KL_AWAITING_FIRST)))
+			    (CONNECTED && (kybdlock & KL_AWAITING_FIRST))) {
+				continuing = False;
 				return;
+			}
 			if (!CONNECTED) {
 				/* connection failed */
 				if (sms->need_prompt) {
@@ -1224,27 +1241,35 @@ sms_continue(void)
 		    case SS_FT_WAIT:
 			if (ft_state == FT_NONE)
 				break;
-			else
+			else {
+				continuing = False;
 				return;
+			}
 #endif /*]*/
 
 		    case SS_WAIT_OUTPUT:
 		    case SS_SWAIT_OUTPUT:
+			continuing = False;
 			return;
 
 		    case SS_WAIT_DISC:
 			if (!CONNECTED)
 				break;
-			else
+			else {
+				continuing = False;
 				return;
+			}
 
 		    case SS_PAUSED:
+			continuing = False;
 			return;
 
 		    case SS_EXPECTING:
+			continuing = False;
 			return;
 
 		    case SS_CLOSING:
+			continuing = False;
 			return;	/* can't happen, I hope */
 
 		}
@@ -1274,6 +1299,8 @@ sms_continue(void)
 			break;
 		}
 	}
+
+	continuing = False;
 }
 
 /*

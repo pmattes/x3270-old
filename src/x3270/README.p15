@@ -1,5 +1,5 @@
-Bugs Fixed in x3270, c3270, s3270 and tcl3270 3.2.18p11
-22. February 2002
+Bugs Fixed in x3270, c3270, s3270 and tcl3270 3.2.18p15
+12. March 2002
 
 Broken 6 Key (x3270 only)
 -------------------------
@@ -77,3 +77,24 @@ prompt when there was an error on the socket.
 
 The fix also implements the secure option for c3270 (-xrm 'c3270.secure: true'),
 which disables the c3270> prompt altogether. 
+
+Infinite Loop in SysReq (x3270/c3270/s3270)
+---------------------------------------------------
+In TN3270E mode, the SysReq action causes an infinite loop. 
+
+Incorrect Display of Exended Attributes (c3270 only)
+----------------------------------------------------
+In 3278 (monochrome) mode, extended field attributes (underline, reverse video,
+highlight) were not displayed correctly. 
+
+Crash on Keyboard Events (x3270/c3270/s3270/tcl3270)
+----------------------------------------------------
+The emulator will sometimes crash when event tracing is on, and a key is
+pressed which has the high-order bit set, but the low-order 7 bits are less
+than 32. 
+
+Curses Misbehavior (c3270 only)
+-------------------------------
+With some versions of the curses library, once a host session has been
+established, c3270 will exit as soon as it displays the c3270> prompt, and
+sometimes even cause the login session to exit. 

@@ -397,8 +397,6 @@ kybd_input(void)
 	int k;
 
 	for (;;) {
-		if (isendwin())
-			return;
 		k = wgetch(stdscr);
 		if (k == ERR)
 			return;

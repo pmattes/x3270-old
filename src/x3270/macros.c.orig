@@ -1074,7 +1074,15 @@ void
 sms_error(const char *msg)
 {
 	/* Print the error message. */
-	(void) fprintf(stderr, "%s\n", msg);
+	switch (sms->type) {
+	case ST_PEER:
+	case ST_CHILD:
+		(void) fprintf(sms->outfile, "data: %s\n", msg);
+		break;
+	default:
+		(void) fprintf(stderr, "%s\n", msg);
+		break;
+	}
 
 	/* Fail the command. */
 	sms->success = False;
