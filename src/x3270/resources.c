@@ -124,6 +124,8 @@ XtResource resources[] = {
 	  offset(highlight_bold), XtRString, ResFalse },
 	{ ResColor8, ClsColor8, XtRBoolean, sizeof(Boolean),
 	  offset(color8), XtRString, ResFalse },
+	{ ResBsdTm, ClsBsdTm, XtRBoolean, sizeof(Boolean),
+	  offset(bsd_tm), XtRString, ResFalse },
 	{ ResBellVolume, ClsBellVolume, XtRInt, sizeof(int),
 	  offset(bell_volume), XtRString, "0" },
 	{ ResOversize, ClsOversize, XtRString, sizeof(char *),
@@ -272,6 +274,12 @@ XtResource resources[] = {
 	  offset(input_method), XtRString, 0 },
 	{ ResPreeditType, ClsPreeditType, XtRString, sizeof(char *),
 	  offset(preedit_type), XtRString, PT_OVER_THE_SPOT "+1" },
+	{ ResLocalEncoding, ClsLocalEncoding, XtRString, sizeof(char *),
+	  offset(local_encoding), XtRString, 0 },
+#endif /*]*/
+#if defined(HAVE_LIBSSL) /*[*/
+	{ ResCertFile, ClsCertFile, XtRString, sizeof(char *),
+	  offset(cert_file), XtRString, 0 },
 #endif /*]*/
 
 #if defined(USE_APP_DEFAULTS) /*[*/

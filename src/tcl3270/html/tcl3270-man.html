@@ -94,6 +94,14 @@ See <a HREF="#Character-Sets"><font size=-1>CHARACTER SETS</font></a> below.
 Sets the initial value of <i>toggle</i> to <b>false</b>.
 The list of toggle names is under <a HREF="#Toggles"><font size=-1>TOGGLES</font></a>
 below.
+<dt><b>-im</b> <i>method</i></dt><dd>
+Specifies the name of the input method to use for multi-byte input.
+(Supported only when tcl3270 is compiled with DBCS support.)
+<dt><b>-km</b> <i>name</i></dt><dd>
+Specifies the local encoding method for multi-byte text.
+<i>name</i> is an encoding name recognized by the ICU library.
+(Supported only when tcl3270 is compiled with DBCS support, and necessary
+only when tcl3270 cannot figure it out from the locale.)
 <dt><b>-model</b> <i>name</i></dt><dd>
 The model of 3270 display to be emulated.
 The model name is in two parts, either of which may be omitted:
@@ -202,10 +210,11 @@ Available sets include:
 <tr><td ><center>iso-hebrew</center></td>	<td ><center>424</center></td>	<td ><center>iso8859-8</center></td></tr>
 <tr><td ><center>iso-turkish</center></td>	<td ><center>1026</center></td>	<td ><center>iso8859-9</center></td></tr>
 <tr><td ><center>italian</center></td>	<td ><center>280</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
+<tr><td ><center>japanese</center></td>	<td ><center>1027+300</center></td>	<td ><center>jisx0201.1976-0 + jisx0208.1983-0</center></td></tr>
 <tr><td ><center>norwegian</center></td>	<td ><center>277</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
 <tr><td ><center>russian</center></td>	<td ><center>880</center></td>	<td ><center>koi8-r</center></td></tr>
 <tr><td ><center>simplified-chinese</center></td>	<td ><center>836+837</center></td>	<td ><center>3270cg-1a iso8859-1 + gb2312.1980-0</center></td></tr>
-<tr><td ><center>solvenian</center></td>	<td ><center>870</center></td>	<td ><center>iso8859-2</center></td></tr>
+<tr><td ><center>slovenian</center></td>	<td ><center>870</center></td>	<td ><center>iso8859-2</center></td></tr>
 <tr><td ><center>thai</center></td>	<td ><center>838</center></td>	<td ><center>iso8859-11 tis620.2529-0</center></td></tr>
 <tr><td ><center>uk</center></td>	<td ><center>285</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
 <tr><td ><center>us-intl</center></td>	<td ><center>37</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
@@ -586,12 +595,12 @@ tcl3270 is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
 <a NAME="Version"></a><h2>Version</h2>
-tcl3270 3.3.1-alpha10
+tcl3270 3.3.2
 <hr>
 <address>
 This HTML document and the accompanying troff document were generated with
 a set of write-only <b>m4</b> macros and the powerful <b>vi</b> editor.
-<br>Last modified 29 August 2003.
+<br>Last modified 29 November 2003.
 </address>
 </body>
 </html>

@@ -19,6 +19,8 @@
 
 #include "globals.h"
 #include <errno.h>
+#include <locale.h>
+#include <langinfo.h>
 
 #include "3270ds.h"
 #include "appres.h"
@@ -133,7 +135,11 @@ wide_init(const char *csname)
 	/* Decode local converter name. */
 	local_name = get_fresource("%s.%s", ResLocalEncoding, csname);
 	if (local_name == CN)
-		local_name = get_resource(ResLocalEncoding);
+		local_name = appres.local_encoding;
+	if (local_name == CN) {
+		(void) setlocale(LC_CTYPE, "");
+		local_name = nl_langinfo(CODESET);
+	}
 	if (local_name != CN) {
 		err = U_ZERO_ERROR;
 		local_converter = ucnv_open(local_name, &err);
@@ -487,6 +493,22 @@ dbcs_map16(UChar u, unsigned char *cp)
 	UErrorCode err = U_ZERO_ERROR;
 	int len;
 
-	len = ucnv_fromUChars(dbcs_converter, (char *)cp, 2, &u, 1, &err);
-	return (err == U_ZERO_ERROR || err == U_STRING_NOT_TERMINATED_WARNING);
+	if (same_converter) {
+		char tmp_cp[3];
+
+		len = ucnv_fromUChars(dbcs_converter, tmp_cp, 3, &u, 1, &err);
+		if ((err != U_ZERO_ERROR &&
+		     err != U_STRING_NOT_TERMINATED_WARNING) ||
+		    len != 3 ||
+		    tmp_cp[0] != EBC_so)
+			return 0;
+		cp[0] = tmp_cp[1];
+		cp[1] = tmp_cp[2];
+		return 1;
+	} else {
+		len = ucnv_fromUChars(dbcs_converter, (char *)cp, 2, &u, 1,
+				&err);
+		return (err == U_ZERO_ERROR ||
+			err == U_STRING_NOT_TERMINATED_WARNING);
+	}
 }

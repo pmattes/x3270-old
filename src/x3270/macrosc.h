@@ -69,6 +69,8 @@ extern void push_command(char *);
 extern void push_idle(char *);
 extern void push_keymap_action(char *);
 extern void push_macro(char *, Boolean);
+extern void Query_action(Widget w, XEvent *event, String *params,
+    Cardinal *num_params);
 extern void ReadBuffer_action(Widget w, XEvent *event, String *params,
     Cardinal *num_params);
 extern void Script_action(Widget w, XEvent *event, String *params,

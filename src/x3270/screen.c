@@ -1334,7 +1334,7 @@ do_redraw(Widget w, XEvent *event, String *params unused,
 			startcol--;
 		if (startcol >= maxCOLS)
 			goto no_draw;
-		ncols = ssX_TO_COL(width+ss->char_width) + 2;
+		ncols = (width / ss->char_width) + 2;
 		if (startcol + ncols > maxCOLS)
 			ncols = maxCOLS - startcol;
 		while ((ROWCOL_TO_BA(startrow, startcol) % maxCOLS) + ncols > maxCOLS)

@@ -79,6 +79,7 @@ main(int argc, char *argv[])
 		xs_warning("Cannot find charset \"%s\"", appres.charset);
 		(void) charset_init(NULL);
 	}
+	action_init();
 	ctlr_init(-1);
 	ctlr_reinit(-1);
 	kybd_init();

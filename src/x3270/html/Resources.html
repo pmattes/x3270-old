@@ -6,7 +6,7 @@
 <body>
 <H1>x3270 Resources</H1>
 
-Here is a complete list of the customizable X resources used by x3270, their
+Here is a complete list of the customizable X11 resources used by x3270, their
 meanings, default values, command-line switches and menu options that change
 them.
 <P>
@@ -60,6 +60,14 @@ x3270.blankFill		Default false		Option Blank Fill
     automatically convert leading nulls to blanks so that input data is not
     squeezed to the left.  This eliminates some of the quirkier behavior of
     real 3270 terminals.
+
+x3270.bsdTm		Default false
+    Defines x3270's response to the TELNET DO TIMING MARK option.  When set
+    to false (the default), x3270 will respond to DO TIMING MARK with WONT
+    TIMING MARK, which is consistent with most modern TELNET clients.  When
+    set to true, x3270 will respond with WILL TIMING MARK, which is consistent
+    with the old BSD 'telnet' program and with previous versions of x3270.
+    In either case, x3270 will not respond to a DONT TIMING MARK option.
 
 x3270.charset		Default bracket		Switch -charset
     This defines the host EBCDIC character set, that is, what glyph (image) is

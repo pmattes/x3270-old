@@ -315,3 +315,9 @@
 #define EBC_0		0xf0    
 #define EBC_9		0xf9    
 #define EBC_eo		0xff
+
+/* BIND definitions. */
+#define BIND_RU			0x31
+#define BIND_OFF_PLU_NAME_LEN	26
+#define BIND_OFF_PLU_NAME	27
+#define BIND_PLU_NAME_MAX	8

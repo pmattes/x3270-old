@@ -17,7 +17,8 @@
 <body>
 <h1>New Features in c3270 3.3
 <hr width="100%"></h1>
-c3270 3.3 is the future development line for c3270. It is functionally equivalent
+c3270 3.3 is the current development line for c3270.
+It is functionally equivalent
 to c3270 3.2.20, with the addition of SSL (Secure Sockets Layer) support and
 DBCS (Double Byte Character Set) support for East Asian languages -- Chinese,
 Japanese and Korean.
@@ -26,16 +27,31 @@ c3270. For those familiar with the source code, the change was to store EBCDIC
 codes internally, and to dispense with the confusing CG-code representation
 of the 3270 display. This required changing all of the logic that manipulates
 field attributes, as well as the logic that translates the host output, keyboard
-input, and X11 display output.</p>
-<p>A few eggs were broken in that process:</p>
+input, and display output.</p>
+<h2>Changes in c3270 3.3.2, 1. December 2003</h2>
 <ul>
- <li>'Flipped' mode (for right-to-left languages) is disabled.</li>
- <li>pr3287 does not support DBCS.</li>
- <li>File Transfer does not handle DBCS characters properly.</li>
+  <li>Bug Fixes:
+   <ul>
+    <li>Made <b>configure</b> more robust when it can't find one or the other
+     of <b>libncurses</b> or <b>ncurses.h</b>.</li>
+    <li>Got automatic pr3287 start-up (<b>-printlu</b>) working again.</li>
+    <li>Corrected a problem in <b>x3270_glue.expect</b>, which caused
+     Tcl syntax errors if a string began with a dash. <i>Thanks to David
+     Taylor for the fix.</i></li>
+   </ul>
+  </li>
+  <li>New Features:
+   <ul>
+    <li>Error messages are now written to the trace file.</li>
+    <li>The response to the TELNET TIMING MARK option has been changed to
+     make it compatible with the majority of TELNET clients.
+     The response to DO TIMING MARK is now WONT TIMING MARK.
+     To restore the previous behavior (responding with WILL TIMING MARK,
+     originally derived from the BSD TELNET client), set the resource
+     <b>x3270.bsdTm</b> to <b>true</b>.
+   </ul>
+  </li>
 </ul>
-And other bugs may yet lurk.
-<p>However, once c3270 3.3 is stable enough and the broken features have been
-corrected, it will replace c3270 3.2.</p>
 <h2>Changes in c3270 3.3.1alpha10, 7. September 2003</h2>
 <ul>
   <li>Bug Fixes:

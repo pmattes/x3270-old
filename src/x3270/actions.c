@@ -215,6 +215,9 @@ XtActionsRec all_actions[] = {
 #if defined(X3270_SCRIPT) && defined(X3270_PRINTER) /*[*/
 	{ "Printer",		Printer_action },
 #endif /*]*/
+#if defined(X3270_SCRIPT) /*[*/
+	{ "Query",		Query_action },
+#endif /*]*/
 	{ "Quit",		Quit_action },
 #if defined(X3270_SCRIPT) /*[*/
 	{ "ReadBuffer",		ReadBuffer_action },

@@ -1,5 +1,5 @@
 '\" t
-.TH c3270 1 "01 September 2003"
+.TH c3270 1 "29 November 2003"
 .SH "NAME"
 c3270 \-
 curses-based 
@@ -104,10 +104,20 @@ Uses \fIfile\fP as the hosts file, which allows aliases for host names and
 scripts to be executed at login.
 See \fIibm_hosts\fP(1) for details.
 .TP
+\fB\-im\fP \fImethod\fP
+Specifies the name of the input method to use for multi-byte input.
+(Supported only when c3270 is compiled with DBCS support.)
+.TP
 \fB\-keymap\fP \fIname\fP
 Specifies a keyboard map to be found in the resource
 \fBc3270.keymap.\fP\fIname\fP or the file \fIname\fP.
 See \s-1KEYMAPS\s+1 below for details.
+.TP
+\fB\-km\fP \fIname\fP
+Specifies the local encoding method for multi-byte text.
+\fIname\fP is an encoding name recognized by the ICU library.
+(Supported only when c3270 is compiled with DBCS support, and necessary
+only when c3270 cannot figure it out from the locale.)
 .TP
 \fB\-model\fP \fIname\fP
 The model of 3270 display to be emulated.
@@ -449,6 +459,19 @@ T}
 T{
 .na
 .nh
+japanese
+T}	T{
+.na
+.nh
+1027+300
+T}	T{
+.na
+.nh
+jisx0201.1976-0 + jisx0208.1983-0
+T}
+T{
+.na
+.nh
 norwegian
 T}	T{
 .na
@@ -488,7 +511,7 @@ T}
 T{
 .na
 .nh
-solvenian
+slovenian
 T}	T{
 .na
 .nh
@@ -3217,4 +3240,4 @@ c3270 is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
 .SH "VERSION"
-c3270 3.3.1-alpha10
+c3270 3.3.2

@@ -1,5 +1,5 @@
 '\" t
-.TH x3270 1 "27 August 2003"
+.TH x3270 1 "29 November 2003"
 .SH "NAME"
 x3270 \-
 \s-1IBM\s+1 host access tool
@@ -112,6 +112,12 @@ See \s-1KEYMAPS\s+1 below.
 .TP
 \fB\-keypad\fP
 Turns on the keypad as soon as \fBx3270\fP starts.
+.TP
+\fB\-km\fP \fIname\fP
+Specifies the local encoding method for multi-byte text.
+\fIname\fP is an encoding name recognized by the ICU library.
+(Supported only when x3270 is compiled with DBCS support, and necessary
+only when x3270 cannot figure it out from the locale.)
 .TP
 \fB\-model\fP \fIname\fP
 The model of 3270 display to be emulated.
@@ -569,6 +575,19 @@ T}
 T{
 .na
 .nh
+japanese
+T}	T{
+.na
+.nh
+1027+300
+T}	T{
+.na
+.nh
+jisx0201.1976-0 + jisx0208.1983-0
+T}
+T{
+.na
+.nh
 norwegian
 T}	T{
 .na
@@ -608,7 +627,7 @@ T}
 T{
 .na
 .nh
-solvenian
+slovenian
 T}	T{
 .na
 .nh
@@ -5720,4 +5739,4 @@ x3270 is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
 .SH "VERSION"
-x3270 3.3.1-alpha10
+x3270 3.3.2

@@ -3988,6 +3988,16 @@ Default_action(Widget w unused, XEvent *event, String *params, Cardinal *num_par
 			if (ks >= XK_F1 && ks <= XK_F24) {
 				(void) sprintf(buf, "%ld", ks - XK_F1 + 1);
 				action_internal(PF_action, IA_DEFAULT, buf, CN);
+#if defined(XK_CYRILLIC) /*[*/
+			} else if (ks == XK_Cyrillic_io ||
+				   ks == XK_Cyrillic_IO ||
+				   (ks >= XK_Cyrillic_yu &&
+				    ks <= XK_Cyrillic_HARDSIGN)) {
+				/* Map XK to KOI8-R. */
+				(void) sprintf(buf, "%ld", ks & 0xff);
+				action_internal(Key_action, IA_DEFAULT, buf,
+						CN);
+#endif /*]*/
 			} else
 				trace_event(" %s: dropped (unknown keysym)\n",
 				    action_name(Default_action));

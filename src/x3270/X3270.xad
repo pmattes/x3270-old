@@ -1194,8 +1194,11 @@ x3270*connectMenuButton*background:		grey
 x3270*macrosMenuButton*background:		grey
 x3270*helpButton*background:			grey
 x3270*keypadButton*background:			grey
-x3270*sslIcon*background:			grey
-x3270*sslIcon*borderColor:			grey
+x3270*lockedIcon*background:			grey
+x3270*lockedIcon*foreground:			yellow4
+x3270*lockedIcon*borderColor:			grey
+x3270*unlockedIcon*background:			grey
+x3270*unlockedIcon*borderColor:			grey
 x3270*fileMenuButton*borderColor:		grey
 x3270*optionsMenuButton*borderColor:		grey
 x3270*connectMenuButton*borderColor:		grey

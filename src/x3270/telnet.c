@@ -42,6 +42,7 @@
 #include <openssl/err.h>
 #endif /*]*/
 #include "tn3270e.h"
+#include "3270ds.h"
 
 #include "appres.h"
 
@@ -52,6 +53,7 @@
 #include "macrosc.h"
 #include "popupsc.h"
 #include "statusc.h"
+#include "tablesc.h"
 #include "telnetc.h"
 #include "trace_dsc.h"
 #include "utilc.h"
@@ -137,6 +139,7 @@ static char     vlnext;
 static int	tn3270e_negotiated = 0;
 static enum { E_NONE, E_3270, E_NVT, E_SSCP } tn3270e_submode = E_NONE;
 static int	tn3270e_bound = 0;
+static char	plu_name[BIND_PLU_NAME_MAX+1];
 static char	**lus = (char **)NULL;
 static char	**curr_lu = (char **)NULL;
 static char	*try_lu = CN;
@@ -566,9 +569,12 @@ net_connected(void)
 	/* Set up SSL. */
 	if (ssl_host && !secure_connection) {
 		SSL_set_fd(ssl_con, sock);
-		if (!SSL_connect(ssl_con)) {
-			popup_an_errno(errno, "SSL_connect failed");
-			net_disconnect();
+		if (SSL_connect(ssl_con) != 1) {
+			/*
+			 * No need to trace the error, it was already
+			 * displayed.
+			 */
+			host_disconnect(True);
 			return;
 		}
 		secure_connection = True;
@@ -650,8 +656,10 @@ output_possible(void)
 	if (HALF_CONNECTED) {
 		connection_complete();
 	}
-	RemoveInput(output_id);
-	output_id = 0L;
+	if (output_id) {
+		RemoveInput(output_id);
+		output_id = 0L;
+	}
 }
 
 /*
@@ -702,6 +710,9 @@ net_input(void)
 	register unsigned char	*cp;
 	int	nr;
 
+	if (sock < 0)
+		return;
+
 #if defined(X3270_ANSI) /*[*/
 	ansi_data = 0;
 #endif /*]*/
@@ -717,11 +728,14 @@ net_input(void)
 #if defined(HAVE_LIBSSL) /*[*/
 		if (ssl_con != NULL) {
 			unsigned long e;
-			char err_buf[1024];
+			char err_buf[120];
 
 			e = ERR_get_error();
-			(void) ERR_error_string(e, err_buf);
-			trace_dsn("RCVD socket error %ld (%s)\n", e, err_buf);
+			if (e != 0)
+				(void) ERR_error_string(e, err_buf);
+			else
+				strcpy(err_buf, "unknown error");
+			trace_dsn("RCVD SSL_read error %ld (%s)\n", e, err_buf);
 			popup_an_error("SSL_read:\n%s", err_buf);
 			host_disconnect(True);
 			return;
@@ -1071,43 +1085,46 @@ telnet_fsm(unsigned char c)
 #if defined(HAVE_LIBSSL) /*[*/
 		    case TELOPT_STARTTLS:
 #endif /*]*/
-			if (c != TELOPT_TN3270E || !non_tn3270e_host) {
-				if (!myopts[c]) {
-					if (c != TELOPT_TM)
-						myopts[c] = 1;
-					will_opt[2] = c;
-					net_rawout(will_opt, sizeof(will_opt));
-					trace_dsn("SENT %s %s\n", cmd(WILL),
-						opt(c));
-					check_in3270();
-					check_linemode(False);
-				}
-				if (c == TELOPT_NAWS)
-					send_naws();
-#if defined(HAVE_LIBSSL) /*[*/
-				if (c == TELOPT_STARTTLS) {
-					static unsigned char follows_msg[] = {
-						IAC, SB, TELOPT_STARTTLS,
-						TLS_FOLLOWS, IAC, SE
-					};
+			if (c == TELOPT_TN3270E && non_tn3270e_host)
+				goto wont;
+			if (c == TELOPT_TM && !appres.bsd_tm)
+				goto wont;
 
-					/*
-					 * Send IAC SB STARTTLS FOLLOWS IAC SE
-					 * to announce that what follows is TLS.
-					 */
-					net_rawout(follows_msg,
-							sizeof(follows_msg));
-					trace_dsn("SENT %s %s FOLLOWS %s\n",
-							cmd(SB),
-							opt(TELOPT_STARTTLS),
-							cmd(SE));
-					need_tls_follows = True;
-				}
-#endif /*]*/
-				break;
+			if (!myopts[c]) {
+				if (c != TELOPT_TM)
+					myopts[c] = 1;
+				will_opt[2] = c;
+				net_rawout(will_opt, sizeof(will_opt));
+				trace_dsn("SENT %s %s\n", cmd(WILL),
+					opt(c));
+				check_in3270();
+				check_linemode(False);
 			}
-			/*FALLTHRU*/
+			if (c == TELOPT_NAWS)
+				send_naws();
+#if defined(HAVE_LIBSSL) /*[*/
+			if (c == TELOPT_STARTTLS) {
+				static unsigned char follows_msg[] = {
+					IAC, SB, TELOPT_STARTTLS,
+					TLS_FOLLOWS, IAC, SE
+				};
+
+				/*
+				 * Send IAC SB STARTTLS FOLLOWS IAC SE
+				 * to announce that what follows is TLS.
+				 */
+				net_rawout(follows_msg,
+						sizeof(follows_msg));
+				trace_dsn("SENT %s %s FOLLOWS %s\n",
+						cmd(SB),
+						opt(TELOPT_STARTTLS),
+						cmd(SE));
+				need_tls_follows = True;
+			}
+#endif /*]*/
+			break;
 		    default:
+		    wont:
 			wont_opt[2] = c;
 			net_rawout(wont_opt, sizeof(wont_opt));
 			trace_dsn("SENT %s %s\n", cmd(WONT), opt(c));
@@ -1537,6 +1554,33 @@ tn3270e_fdecode(const unsigned char *buf, int len)
 }
 #endif /*]*/
 
+#if defined(X3270_TN3270E) /*[*/
+static void
+process_bind(unsigned char *buf, int buflen)
+{
+	int namelen, i;
+
+	(void) memset(plu_name, '\0', sizeof(plu_name));
+
+	/* Make sure it's a BIND. */
+	if (buflen < 1 || buf[0] != BIND_RU) {
+		return;
+	}
+	buf++;
+	buflen--;
+
+	/* Extract the PLU name. */
+	if (buflen < BIND_OFF_PLU_NAME + BIND_PLU_NAME_MAX)
+		return;
+	namelen = buf[BIND_OFF_PLU_NAME_LEN];
+	if (namelen > BIND_PLU_NAME_MAX)
+		namelen = BIND_PLU_NAME_MAX;
+	for (i = 0; i < namelen; i++) {
+		plu_name[i] = ebc2asc0[buf[BIND_OFF_PLU_NAME + i]];
+	}
+}
+#endif /*]*/
+
 static int
 process_eor(void)
 {
@@ -1576,6 +1620,8 @@ process_eor(void)
 		case TN3270E_DT_BIND_IMAGE:
 			if (!(e_funcs & E_OPT(TN3270E_FUNC_BIND_IMAGE)))
 				return 0;
+			process_bind(ibuf + EH_SIZE, (ibptr - ibuf) - EH_SIZE);
+			trace_dsn("< BIND PLU-name '%s'\n", plu_name);
 			tn3270e_bound = 1;
 			check_in3270();
 			return 0;
@@ -1690,11 +1736,11 @@ net_rawout(unsigned const char *buf, int len)
 #if defined(HAVE_LIBSSL) /*[*/
 			if (ssl_con != NULL) {
 				unsigned long e;
-				char err_buf[1024];
+				char err_buf[120];
 
 				e = ERR_get_error();
 				(void) ERR_error_string(e, err_buf);
-				trace_dsn("RCVD socket error %ld (%s)\n", e,
+				trace_dsn("RCVD SSL_write error %ld (%s)\n", e,
 				    err_buf);
 				popup_an_error("SSL_write:\n%s", err_buf);
 				host_disconnect(False);
@@ -2906,12 +2952,25 @@ ssl_init(void)
 		popup_an_error("SSL_new failed");
 		ssl_host = False;
 	}
-	/* XXX: Get verify flags from a per-host resource. */
 	SSL_set_verify(ssl_con, 0/*xxx*/, NULL);
 
 	SSL_CTX_set_info_callback(ssl_ctx, client_info_callback);
 
-	/* XXX: Get cert_file and key_file from a per-host resource. */
+	/* XXX: May need to get key file and password. */
+	if (appres.cert_file) {
+		if (!(SSL_CTX_use_certificate_chain_file(ssl_ctx,
+						appres.cert_file))) {
+			unsigned long e;
+			char err_buf[120];
+
+			e = ERR_get_error();
+			(void) ERR_error_string(e, err_buf);
+
+			popup_an_error("SSL_CTX_use_certificate_chain_file("
+					"\"%s\") failed:\n%s",
+					appres.cert_file, err_buf);
+		}
+	}
 
 	SSL_CTX_set_default_verify_paths(ssl_ctx);
 }
@@ -2925,11 +2984,23 @@ client_info_callback(SSL *s, int where, int ret)
 		    SSL_state_string(s), SSL_state_string_long(s));
 	} else if (where == SSL_CB_CONNECT_EXIT) {
 		if (ret == 0) {
-			trace_dsn("SSL_connect: failed in %s %s\n",
-			    SSL_state_string(s), SSL_state_string_long(s));
+			trace_dsn("SSL_connect: failed in %s\n",
+			    SSL_state_string_long(s));
 		} else if (ret < 0) {
-			trace_dsn("SSL_connect: error in %s %s\n",
-			    SSL_state_string(s), SSL_state_string_long(s));
+			unsigned long e;
+			char err_buf[121];
+
+			err_buf[0] = '\n';
+			e = ERR_get_error();
+			if (e != 0)
+				(void) ERR_error_string(e, err_buf + 1);
+			else if (errno != 0)
+				strcpy(err_buf + 1, strerror(errno));
+			else
+				err_buf[0] = '\0';
+			popup_an_error("SSL_connect: error in %s%s",
+			    SSL_state_string_long(s),
+			    err_buf);
 		}
 	}
 }
@@ -2963,8 +3034,8 @@ continue_tls(unsigned char *sbbuf, int len)
 
 	/* Set up the TLS/SSL connection. */
 	SSL_set_fd(ssl_con, sock);
-	if (!SSL_connect(ssl_con)) {
-		popup_an_errno(errno, "SSL_connect failed");
+	if (SSL_connect(ssl_con) != 1) {
+		/* Error already displayed. */
 		net_disconnect();
 		return;
 	}
@@ -2976,6 +3047,103 @@ continue_tls(unsigned char *sbbuf, int len)
 
 	/* Tell the world that we are (still) connected, now in secure mode. */
 	host_connected();
+}
+
+#endif /*]*/
+
+#if defined(X3270_SCRIPT) || defined(TCL3270) /*[*/
+
+/* Return the current BIND application name, if any. */
+const char *
+net_query_bind_plu_name(void)
+{
+#if defined(X3270_TN3270E) /*[*/
+	/*
+	 * Return the PLU name, if we're in TN3270E 3270 mode and have
+	 * negotiated the BIND-IMAGE option.
+	 */
+	if ((cstate == CONNECTED_TN3270E) &&
+	    (e_funcs & E_OPT(TN3270E_FUNC_BIND_IMAGE)))
+		return plu_name;
+	else
+		return "";
+#else /*][*/
+	/* No TN3270E, no BIND negotiation. */
+	return "";
+#endif /*]*/
+}
+
+/* Return the current connection state. */
+const char *
+net_query_connection_state(void)
+{
+	if (CONNECTED) {
+#if defined(X3270_TN3270E) /*[*/
+		if (IN_E) {
+			switch (tn3270e_submode) {
+			default:
+			case E_NONE:
+				if (tn3270e_bound)
+					return "tn3270e bound";
+				else
+					return "tn3270e unbound";
+			case E_3270:
+				return "tn3270e lu-lu";
+			case E_NVT:
+				return "tn3270e nvt";
+			case E_SSCP:
+				return "tn3270 sscp-lu";
+			}
+		} else
+#endif /*]*/
+		{
+			if (IN_3270)
+				return "tn3270 3270";
+			else
+				return "tn3270 nvt";
+		}
+	} else if (HALF_CONNECTED)
+		return "connecting";
+	else
+		return "";
+}
+
+/* Return the LU name. */
+const char *
+net_query_lu_name(void)
+{
+	if (CONNECTED && connected_lu != CN)
+		return connected_lu;
+	else
+		return "";
+}
+
+/* Return the hostname and port. */
+const char *
+net_query_host(void)
+{
+	static char *s = CN;
+
+	if (CONNECTED) {
+		Free(s);
+
+#if defined(LOCAL_PROCESS) /*[*/
+		if (local_process) {
+			s = xs_buffer("process %s", hostname);
+		} else
+#endif /*]*/
+		{
+			s = xs_buffer("host %s %u %s",
+					hostname, current_port,
+#if defined(HAVE_LIBSSL) /*[*/
+					secure_connection? "encrypted":
+#endif /*]*/
+							   "unencrypted"
+					    );
+		}
+		return s;
+	} else
+		return "";
 }
 
 #endif /*]*/

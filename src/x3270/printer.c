@@ -499,7 +499,7 @@ static void
 printer_host_connect(Boolean connected unused)
 {
 	if (IN_3270) {
-		char *printer_lu = get_fresource(ResPrinterLu);
+		char *printer_lu = appres.printer_lu;
 
 		if (printer_lu != CN && !printer_running()) {
 			if (!strcmp(printer_lu, ".")) {

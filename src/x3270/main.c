@@ -102,6 +102,9 @@ static char    *user_icon_name = CN;
 XrmOptionDescRec options[]= {
 	{ OptActiveIcon,DotActiveIcon,	XrmoptionNoArg,		ResTrue },
 	{ OptAplMode,	DotAplMode,	XrmoptionNoArg,		ResTrue },
+#if defined(HAVE_LIBSSL) /*[*/
+	{ OptCertFile,	DotCertFile,	XrmoptionSepArg,	NULL },
+#endif /*]*/
 	{ OptCharClass,	DotCharClass,	XrmoptionSepArg,	NULL },
 	{ OptCharset,	DotCharset,	XrmoptionSepArg,	NULL },
 	{ OptClear,	".xxx",		XrmoptionSkipArg,	NULL },

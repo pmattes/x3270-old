@@ -3886,6 +3886,12 @@ fi
 done
 
 
+if test $ac_cv_lib_ncurses_newterm != $ac_cv_header_ncurses_h
+then	{ { echo "$as_me:$LINENO: error: Found libncurses but not ncurses.h or vice-versa" >&5
+echo "$as_me: error: Found libncurses but not ncurses.h or vice-versa" >&2;}
+   { (exit 1); exit 1; }; }
+fi
+
 
 # Check whether --with-ssl or --without-ssl was given.
 if test "${with_ssl+set}" = set; then

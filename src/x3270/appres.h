@@ -115,6 +115,7 @@ typedef struct {
 	Boolean disconnect_clear;
 	Boolean highlight_bold;
 	Boolean color8;
+	Boolean bsd_tm;
 
 	/* Named resources */
 #if defined(X3270_KEYPAD) /*[*/
@@ -149,6 +150,9 @@ typedef struct {
 	char	*preedit_type;
 #endif /*]*/
 #endif /*]*/
+#if defined(X3270_DBCS) /*[*/
+	char	*local_encoding;
+#endif /*]*/
 #if defined(C3270) /*[*/
 	char	*meta_escape;
 	char	*all_bold;
@@ -179,6 +183,10 @@ typedef struct {
 	char	*idle_command;
 	Boolean idle_command_enabled;
 	char	*idle_timeout;
+
+#if defined(HAVE_LIBSSL) /*[*/
+	char	*cert_file;
+#endif /*]*/
 
 	/* Toggles */
 	struct toggle toggle[N_TOGGLES];

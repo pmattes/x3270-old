@@ -30,7 +30,9 @@
 #define ResBellVolume		"bellVolume"
 #define ResBlankFill		"blankFill"
 #define ResBoldColor		"boldColor"
+#define ResBsdTm		"bsdTm"
 #define ResCbreak		"cbreak"
+#define ResCertFile		"certFile"
 #define ResCharClass		"charClass"
 #define ResCharset		"charset"
 #define ResCharsetList		"charsetList"
@@ -142,6 +144,7 @@
 /* Dotted resource names. */
 #define DotActiveIcon		"." ResActiveIcon
 #define DotAplMode		"." ResAplMode
+#define DotCertFile		"." ResCertFile
 #define DotCbreak		"." ResCbreak
 #define DotCharClass		"." ResCharClass
 #define DotCharset		"." ResCharset
@@ -180,7 +183,9 @@
 #define ClsBellVolume		"BellVolume"
 #define ClsBlankFill		"BlankFill"
 #define ClsBoldColor		"BoldColor"
+#define ClsBsdTm		"BsdTm"
 #define ClsCbreak		"Cbreak"
+#define ClsCertFile		"CertFile"
 #define ClsCharClass		"CharClass"
 #define ClsCharset		"Charset"
 #define ClsColor8		"Color8"
@@ -226,6 +231,7 @@
 #define ClsLabelIcon		"LabelIcon"
 #define ClsLineWrap		"LineWrap"
 #define ClsLnext		"Lnext"
+#define ClsLocalEncoding	"LocalEncoding"
 #define ClsLockedCursor		"LockedCursor"
 #define ClsM3279		"M3279"
 #define ClsMacros		"Macros"
@@ -282,6 +288,7 @@
 #define OptAltScreen		"-altscreen"
 #define OptAplMode		"-apl"
 #define OptCbreak		"-cbreak"
+#define OptCertFile		"-certificate"
 #define OptCharClass		"-cc"
 #define OptCharset		"-charset"
 #define OptClear		"-clear"

@@ -123,7 +123,8 @@ static void menubar_charset(Boolean ignored unused);
 #include "ky.bm"
 #endif /*]*/
 #if defined(HAVE_LIBSSL) /*[*/
-#include "ssl.bm"
+#include "locked.bm"
+#include "unlocked.bm"
 #endif /*]*/
 #include "null.bm"
 
@@ -147,7 +148,8 @@ static Widget	printer_off_button;
 #endif /*]*/
 static Widget   connect_button;
 #if defined(HAVE_LIBSSL) /*[*/
-static Widget   ssl_icon;
+static Widget   locked_icon;
+static Widget   unlocked_icon;
 #endif /*]*/
 #if defined(X3270_KEYPAD) /*[*/
 static Widget   keypad_button;
@@ -421,7 +423,7 @@ menubar_init(Widget container, Dimension overall_width, Dimension current_width)
 #if defined(X3270_KEYPAD) /*[*/
 			    (ky_width+8) -
 #endif /*]*/
-			    4*BORDER - 2*MENU_BORDER - (ssl_width+8)),
+			    4*BORDER - 2*MENU_BORDER - (locked_width+8)),
 	    TOP_MARGIN);
 #endif /*]*/
 
@@ -544,11 +546,19 @@ menubar_connect(Boolean ignored unused)
 		    NULL);
 
 #if defined(HAVE_LIBSSL) /*[*/
-	if (ssl_icon != NULL) {
-		if (CONNECTED && secure_connection)
-			XtMapWidget(ssl_icon);
-		else
-			XtUnmapWidget(ssl_icon);
+	if (locked_icon != NULL) {
+		if (CONNECTED) {
+			if (secure_connection) {
+				XtMapWidget(locked_icon);
+				XtUnmapWidget(unlocked_icon);
+			} else {
+				XtMapWidget(unlocked_icon);
+				XtUnmapWidget(locked_icon);
+			}
+		} else {
+			XtUnmapWidget(locked_icon);
+			XtUnmapWidget(unlocked_icon);
+		}
 	}
 #endif /*]*/
 }
@@ -1312,22 +1322,34 @@ ssl_icon_init(Position x, Position y)
 {
 	if (!menubar_buttons)
 		return;
-	if (ssl_icon == (Widget)NULL) {
+	if (locked_icon == (Widget)NULL) {
 		Pixmap pixmap;
 
 		pixmap = XCreateBitmapFromData(display, root_window,
-		    (char *) ssl_bits, ssl_width, ssl_height);
-		ssl_icon = XtVaCreateManagedWidget(
-		    "sslIcon", labelWidgetClass, menu_parent,
+		    (char *) locked_bits, locked_width, locked_height);
+		locked_icon = XtVaCreateManagedWidget(
+		    "lockedIcon", labelWidgetClass, menu_parent,
 		    XtNbitmap, pixmap,
 		    XtNx, x,
 		    XtNy, y,
-		    XtNwidth, ssl_width+8,
+		    XtNwidth, locked_width+8,
 		    XtNheight, KEY_HEIGHT,
 		    XtNmappedWhenManaged, CONNECTED && secure_connection,
 		    NULL);
+		pixmap = XCreateBitmapFromData(display, root_window,
+		    (char *) unlocked_bits, unlocked_width, unlocked_height);
+		unlocked_icon = XtVaCreateManagedWidget(
+		    "unlockedIcon", labelWidgetClass, menu_parent,
+		    XtNbitmap, pixmap,
+		    XtNx, x,
+		    XtNy, y,
+		    XtNwidth, unlocked_width+8,
+		    XtNheight, KEY_HEIGHT,
+		    XtNmappedWhenManaged, CONNECTED && !secure_connection,
+		    NULL);
 	} else {
-		XtVaSetValues(ssl_icon, XtNx, x, NULL);
+		XtVaSetValues(locked_icon, XtNx, x, NULL);
+		XtVaSetValues(unlocked_icon, XtNx, x, NULL);
 	}
 }
 #endif /*]*/
@@ -1341,7 +1363,7 @@ menubar_resize(Dimension width)
 #if defined(X3270_KEYPAD) /*[*/
 			    (ky_width+8) -
 #endif /*]*/
-			    4*BORDER - 2*MENU_BORDER - (ssl_width+8)),
+			    4*BORDER - 2*MENU_BORDER - (locked_width+8)),
 	    TOP_MARGIN);
 #endif /*]*/
 #if defined(X3270_KEYPAD) /*[*/

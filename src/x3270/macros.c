@@ -53,6 +53,7 @@
 #include "seec.h"
 #include "statusc.h"
 #include "tablesc.h"
+#include "telnetc.h"
 #include "trace_dsc.h"
 #include "utilc.h"
 #include "xioc.h"
@@ -2690,4 +2691,50 @@ sms_accumulate_time(struct timeval *t0, struct timeval *t1)
 #endif /*]*/
     }
 }
+#endif /*]*/
+
+#if defined(X3270_SCRIPT) /*[*/
+void
+Query_action(Widget w unused, XEvent *event unused, String *params,
+    Cardinal *num_params)
+{
+	static struct {
+		char *name;
+		const char *(*fn)(void);
+	} queries[] = {
+		{ "BindPluName", net_query_bind_plu_name },
+		{ "ConnectionState", net_query_connection_state },
+		{ "Host", net_query_host },
+		{ "LuName", net_query_lu_name },
+		{ CN, NULL }
+	};
+	int i;
+
+	switch (*num_params) {
+	case 0:
+		for (i = 0; queries[i].name != CN; i++) {
+			action_output("%s: %s", queries[i].name,
+					(*queries[i].fn)());
+		}
+		break;
+	case 1:
+		for (i = 0; queries[i].name != CN; i++) {
+			if (!strcasecmp(params[0], queries[i].name)) {
+				const char *s;
+
+				s = (*queries[i].fn)();
+				action_output("%s\n", *s? s: " ");
+				return;
+			}
+		}
+		popup_an_error("%s: Unknown parameter",
+				action_name(Query_action));
+		break;
+	default:
+		popup_an_error("%s: Requires 0 or 1 arguments",
+				action_name(Query_action));
+		break;
+	}
+}
+
 #endif /*]*/

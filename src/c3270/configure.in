@@ -87,6 +87,11 @@ AC_CHECK_HEADERS(util.h)
 AC_CHECK_HEADERS(getopt.h)
 AC_CHECK_HEADERS(ncurses.h, , [AC_CHECK_HEADERS(curses.h, , [AC_MSG_ERROR(Can't find ncurses.h or curses.h)])])
 
+dnl Check for libncurses/ncurses.h inconsistency
+if test $ac_cv_lib_ncurses_newterm != $ac_cv_header_ncurses_h
+then	AC_MSG_ERROR(Found libncurses but not ncurses.h or vice-versa)
+fi
+
 dnl Check for SSL header file.
 AC_ARG_WITH(ssl,[  --with-ssl=DIR          specify OpenSSL install directory])
 if test "$enable_ssl" != no

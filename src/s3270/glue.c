@@ -305,6 +305,9 @@ parse_options(int *argcp, const char **argv)
 #if defined(C3270) /*[*/
     { OptCbreak,   OPT_BOOLEAN, True,  ResCbreak,    offset(cbreak_mode) },
 #endif /*]*/
+#if defined(HAVE_LIBSSL) /*[*/
+    { OptCertFile, OPT_STRING,  False, ResCertFile,  offset(cert_file) },
+#endif /*]*/
     { OptCharset,  OPT_STRING,  False, ResCharset,   offset(charset) },
     { OptClear,    OPT_SKIP2,   False, NULL,         NULL },
 #if defined(C3270) /*[*/
@@ -316,6 +319,9 @@ parse_options(int *argcp, const char **argv)
     { OptHostsFile,OPT_STRING,  False, ResHostsFile, offset(hostsfile) },
 #if defined(C3270) /*[*/
     { OptKeymap,   OPT_STRING,  False, ResKeymap,    offset(key_map) },
+#endif /*]*/
+#if defined(X3270_DBCS) /*[*/
+    { OptLocalEncoding,OPT_STRING,False,ResLocalEncoding,offset(local_encoding) },
 #endif /*]*/
     { OptModel,    OPT_STRING,  False, ResKeymap,    offset(model) },
     { OptMono,     OPT_BOOLEAN, True,  ResMono,      offset(mono) },
@@ -592,6 +598,10 @@ static struct {
 #if defined(C3270) /*[*/
 	{ ResAllBold,	offset(all_bold),	XRM_STRING },
 	{ ResAltScreen,	offset(altscreen),	XRM_STRING },
+#endif /*]*/
+	{ ResBsdTm,	offset(bsd_tm),		XRM_BOOLEAN },
+#if defined(HAVE_LIBSSL) /*[*/
+	{ ResCertFile,	offset(cert_file),	XRM_STRING },
 #endif /*]*/
 	{ ResCharset,	offset(charset),	XRM_STRING },
 	{ ResColor8,	offset(color8),		XRM_BOOLEAN },

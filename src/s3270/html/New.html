@@ -17,7 +17,8 @@
 <body>
 <h1>New Features in s3270 3.3
 <hr width="100%"></h1>
-s3270 3.3 is the future development line for s3270. It is functionally equivalent
+s3270 3.3 is the current development line for s3270.
+It is functionally equivalent
 to s3270 3.2.20, with the addition of SSL (Secure Sockets Layer) support
 and DBCS (Double Byte Character Set) support for East Asian languages --
 Chinese, Japanese and Korean.
@@ -25,16 +26,30 @@ Chinese, Japanese and Korean.
 s3270. For those familiar with the source code, the change was to store EBCDIC
 codes internally, and to dispense with the confusing CG-code representation
 of the 3270 display. This required changing all of the logic that manipulates
-field attributes, as well as the logic that translates the host output, keyboard
-input, and X11 display output.</p>
-<p>A few eggs were broken in that process:</p>
+field attributes, as well as the logic that translates the host output and
+macro input.
+<h2>Changes in s3270 3.3.2, 1. December 2003</h2>
 <ul>
- <li>pr3287 does not support DBCS.</li>
- <li>File Transfer does not handle DBCS characters properly.</li>
+  <li>Bug Fixes:
+    <ul>
+     <li>Correct a crash which made alpha10 pretty much useless.</li>
+     <li>Added a '-km' option to allow DBCS to work properly.</li>
+    </ul>
+  </li>
+  <li>Enhancements:
+    <ul>
+      <li>Added a <b>Query()</b> action to report on the BIND PLU name and
+       connection state.</li>
+      <li>Error messages are now written to the trace file.</li>
+      <li>The response to the TELNET TIMING MARK option has been changed to
+       make it compatible with the majority of TELNET clients.
+       The response to DO TIMING MARK is now WONT TIMING MARK.
+       To restore the previous behavior (responding with WILL TIMING MARK,
+       originally derived from the BSD TELNET client), set the resource
+       <b>x3270.bsdTm</b> to <b>true</b>.
+    </ul>
+  </li>
 </ul>
-And other bugs may yet lurk.
-<p>However, once s3270 3.3 is stable enough and the broken features have
-been corrected, it will replace s3270 3.2.</p>
 <h2>Changes in s3270 3.3.1alpha10, 6. September 2003</h2>
 <ul>
   <li>Bug Fixes:

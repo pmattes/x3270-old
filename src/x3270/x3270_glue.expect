@@ -148,7 +148,7 @@ namespace eval x3270 {
 		set i 0
 		while {$i < [string len $text]} {
 			set c [string range $text $i $i]
-			switch $c {
+			switch -- $c {
 				"\n" { set a "$a\\n" }
 				"\r" { set a "$a\\r" }
 				" " { set a "$a\\ " }

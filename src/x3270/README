@@ -1,6 +1,6 @@
-x3270 3.2 General Release
+x3270 3.3 General Release
 
-x3270 is an IBM 3278/3279 terminal emulator for the X window system.
+x3270 is an IBM 3278/3279 terminal emulator for X11.
 
 Documentation is in the html directory.  The files are:
 
@@ -28,8 +28,6 @@ Bugs
      What's broken in this release
 Wishlist
      What isn't in this release
-Y2K
-     Year 2000 Compliance Statement
 
 There is also a hypertext version of the x3270 man page, and of the man
 pages for x3270if, x3270-script and ibm_hosts.
