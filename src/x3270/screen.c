@@ -4594,8 +4594,13 @@ init_rsfonts(char *charset_name)
 	 * If we've found at least one appropriate font from the list,
 	 * we're done.
 	 */
-	if (rsfonts != NULL || dbcs)
+	if (rsfonts != NULL
+#if defined(X3270_DBCS) /*[*/
+	                    || dbcs
+#endif /*]*/
+                                   ) {
 		return;
+	}
 
 	/* Add 'fixed' to the menu, so there's at least one alternative. */
 	add_font_to_menu("fixed", "!fixed");
