@@ -8,6 +8,7 @@
 # Auxiliary makefile for x3270
 
 TARDIR=x3270-3.2
+RM=rm -f
 
 all:
 	@echo "Must pick a specific make target."
@@ -41,15 +42,23 @@ MISC = version.txt X3270.xad x3270.man x3270-script.man ibm_hosts.man \
 	Examples/peer_script.ksh Examples/peer_script.sh \
 	Examples/cms_logon.bash Examples/cms_logon.sh \
 	Playback/playback.c Playback/playback.man Playback/Makefile \
-	README x3270.lsm
+	README x3270.lsm x3270.lsm.tmpl x3270.man.tmpl gen_lsm gen_man
 HTML = html/README.html html/Attributes.html html/FAQ.html html/Lineage.html \
-	html/Resources.html html/Bugs.html html/Build.html \
+	html/Resources.html html/Brackets.html html/Bugs.html html/Build.html \
 	html/Charset.html html/Intro.html html/Keymap.html \
 	html/Wishlist.html html/New.html html/x3270-man.html \
 	html/x3270-script.html html/ibm_hosts.html html/Y2K.html \
-	html/x3270.xbm html/x3270.jpg html/x3270if.html
+	html/x3270.xbm html/x3270.jpg html/x3270if.html \
+	html/del.jpg html/delta.jpg html/x3270-man.html.tmpl
+PR3287 = pr3287/README pr3287/ctlr.c pr3287/telnet.c pr3287/sfc.h pr3287/sf.c \
+	pr3287/ctlrc.h pr3287/tablesc.h pr3287/3270ds.h pr3287/tn3270e.h \
+	pr3287/pr3287.c pr3287/Makefile.aux pr3287/tables.c \
+	pr3287/version.txt pr3287/trace_ds.c pr3287/globals.h \
+	pr3287/localdefs.h pr3287/telnetc.h pr3287/trace_dsc.h \
+	pr3287/Makefile pr3287/mkversion.sh pr3287/pr3287.man \
+	pr3287/pr3287.lsm
 
-FILES = $(SOURCES) $(HEADERS) $(BITMAPS) $(FONTS) $(MISC) $(HTML) 
+FILES = $(SOURCES) $(HEADERS) $(BITMAPS) $(FONTS) $(MISC) $(HTML) $(PR3287)
 
 tarlist: Makefile.aux
 	$(RM) tarlist
@@ -67,6 +76,18 @@ x3270.tar: $(FILES) tarlist
 
 x3270.tgz: x3270.tar
 	gzip <x3270.tar >$@
+
+# x3270.lsm depends circularly on x3270.tgz.  Rather than confusing 'make',
+# we will simply state that it has no dependencies, and use a pseudo-target to
+# generate it.
+lsm:
+	./gen_lsm x3270
+
+x3270.man: x3270.man.tmpl version.txt gen_man
+	./gen_man x3270.man
+
+html/x3270-man.html: html/x3270-man.html.tmpl version.txt gen_man
+	./gen_man html/x3270-man.html
 
 ID: $(SOURCES) $(HEADERS)
 	mkid $(SOURCES) $(HEADERS)

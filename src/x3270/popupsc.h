@@ -22,9 +22,13 @@ extern enum placement *RightP;
 /* form input editing enumeration */
 enum form_type { FORM_NO_WHITE, FORM_NO_CC, FORM_AS_IS };
 
+/* abort callback */
+typedef void abort_callback_t(void);
+
 extern Widget create_form_popup(const char *name, XtCallbackProc callback,
     XtCallbackProc callback2, enum form_type form_type);
 extern void error_popup_init(void);
+extern Boolean error_popup_visible(void);
 extern void Info_action(Widget w, XEvent *event, String *params,
     Cardinal *num_params);
 extern void info_popup_init(void);
@@ -35,5 +39,8 @@ extern void popup_an_errno(int errn, const char *fmt, ...);
 extern void popup_an_error(const char *fmt, ...);
 extern void popup_an_info(const char *fmt, ...);
 extern void popup_popup(Widget shell, XtGrabKind grab);
+extern void popup_printer_output(Boolean is_err, abort_callback_t *a,
+    const char *fmt, ...);
+extern void printer_popup_init(void);
 extern void toplevel_geometry(Position *x, Position *y, Dimension *width,
     Dimension *height);

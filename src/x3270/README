@@ -20,6 +20,8 @@ Charset
      An explanation of x3270's use of fonts and character sets
 Keymap
      How to create a custom x3270 keymap
+Brackets
+     How to get [ and ] to display correctly
 New
      What's new in this release
 Bugs
@@ -41,9 +43,7 @@ available from the x3270 Web Page,
 http://www.geocities.com/SiliconValley/Peaks/7814.
 
 Updates are also available on ftp.x.org and several X11R6 mirror sites,
-usually in the /contrib/applications/x3270 directory. Fixes are often
-distributed as patch files (you will need gnu patch to apply them) under the
-name fix.nn, e.g., the next fix to version 3.2 will be x3270-3.2.fix08.
+usually in the /contrib/applications/x3270 directory.
 
 Feel free to send comments, criticism, suggestions, complaints, etc., to
 Paul Mattes, Paul.Mattes@usa.net. Requests will be addressed as time and

@@ -1,5 +1,5 @@
 '\" t
-.TH X3270 1 "6 September 2000"
+.TH X3270 1 "2 October 2000"
 .SH NAME
 x3270 \-
 .SM IBM
@@ -1553,7 +1553,7 @@ server.
 .nf
 /usr/lib/X11/x3270/ibm_hosts
 .SH "SEE ALSO"
-telnet(1), tn3270(1), ibm_hosts(5), x3270-script(1)
+telnet(1), tn3270(1), ibm_hosts(5), x3270-script(1), pr3287(1)
 .br
 X Toolkit Intrinsics
 .br
@@ -1586,4 +1586,4 @@ notice.
 .RE
 5250 Emulation Code copyright Minolta (Schweiz) AG, Beat Rubischon.
 .SH VERSION
-x3270 3.2.12
+x3270 3.2.13g

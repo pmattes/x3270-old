@@ -1,5 +1,5 @@
 '\" t
-.TH S3270 1 "8. September 2000"
+.TH S3270 1 "2 October 2000"
 .SH NAME
 s3270 \-
 .SM IBM
@@ -589,4 +589,4 @@ notice.
 .RE
 5250 Emulation Code copyright Minolta (Schweiz) AG, Beat Rubischon.
 .SH VERSION
-s3270 3.2.12
+s3270 3.2.13g

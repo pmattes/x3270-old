@@ -4,6 +4,7 @@
    <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
    <meta name="Author" content="Paul Mattes">
    <meta name="GENERATOR" content="Mozilla/4.74 [en] (Win98; U) [Netscape]">
+   <meta name="KeyWords" content="x3270,keymap">
    <title>Creating a Custom x3270 Keymap</title>
 </head>
 <body>
@@ -50,10 +51,11 @@ named <tt>mine</tt>.&nbsp; The second entry (<tt>x3270.keymap.mine</tt>)
 is the definition of the <tt>mine</tt> keymap itself.
 <p>Now, run <b>x3270</b>, and do not specify a <b>-keymap</b> option.&nbsp;
 The <b>Page Up</b> key will now emulate the 3270 <b>PF7</b> key, and the
-<b>Page Down</b> key will emulate the 3270 <b>PF8</b> key.&nbsp; (If you
-do not have a <b>Page Up</b> or <b>Page Down</b> key, or if these keys
-do not generate the X11 <tt>Prior</tt> and <tt>Next</tt> keysyms, this
-will not work, but for most PC-based systems, it will.)
+<b>Page
+Down</b> key will emulate the 3270 <b>PF8</b> key.&nbsp; (If you do not
+have a <b>Page Up</b> or <b>Page Down</b> key, or if these keys do not
+generate the X11 <tt>Prior</tt> and <tt>Next</tt> keysyms, this will not
+work, but for most PC-based systems, it will.)
 <h2>
 Rules for Keymap Definitions</h2>
 You may now edit the keymap to create your own custom definition. The full
@@ -106,8 +108,10 @@ the BackSpace key with the Shift key pressed).</li>
 How to Find the Keysyms</h2>
 To find out which keysym is being generated for any given key on your keyboard,
 start <b>x3270</b>, but do not connect to a host.&nbsp; Then select the
-<b>File->Trace Keyboard and Mouse Events</b> menu option, and press the
-<b>No File</b> button on the pop-up.
+<b>File->Trace
+Keyboard and Mouse Events</b> menu option, and press the
+<b>No File</b>
+button on the pop-up.
 <p>An <i>xterm</i> window will appear.&nbsp; In that window, several lines
 of text will appear for each key you press.&nbsp; Each entry will begin
 with the text for the left-hand side of a keymap entry that will match
@@ -121,11 +125,11 @@ manual page</a>.
 How to Debug Your Keymap</h2>
 There are two <b>x3270</b> options to aid with keymap debugging.&nbsp;
 The <b>File->Trace Keyboard and Mouse Events</b> menu option pops up an
-<i>xterm</i> window which traces each keyboard and mouse event that <b>x3270</b>
-processes.&nbsp; The information traced includes the keymap (and line within
-the keymap) that matched the event, the <b>x3270</b> action that was run
-in response, and if for some reason the action did not work, why it did
-not work.
+<i>xterm</i>
+window which traces each keyboard and mouse event that <b>x3270</b> processes.&nbsp;
+The information traced includes the keymap (and line within the keymap)
+that matched the event, the <b>x3270</b> action that was run in response,
+and if for some reason the action did not work, why it did not work.
 <p>The <b>Options->Display Current Keymap</b> menu option pops up a window
 which displays the current keymap. This pop-up tells you exactly which
 keymap entries are active, and can be sorted by keymap name, event, or

@@ -64,6 +64,7 @@ ComplexProgramTarget_2(x3270if,,)
 
 InstallManPage(x3270-script,$(MANDIR))
 InstallManPage(ibm_hosts,$(MANDIR))
+InstallManPage(pr3287,$(MANDIR))
 
 FontTarget(3270)
 FontTarget(3270b)
@@ -104,6 +105,14 @@ mkfb: mkfb.c parts.h
 /* InstallAppDefaults(X3270) */
 /* all:: X3270.ad */
 
+/* Rule for building pr3287. */
+all::
+	-cd pr3287 && $(MAKE) $(MFLAGS) CC=$(CC) CDEBUGFLAGS="$(CDEBUGFLAGS)" EXTRA_LIBRARIES="$(EXTRA_LIBRARIES)"
+
+/* Clever pr3287 manpage hack. */
+pr3287.man: pr3287/pr3287.man
+	ln -s pr3287/pr3287.man pr3287.man
+
 /*
  * Rule for building the separate app-defaults file.  By default it builds
  * color app-defaults; to change to monochrome app-defaults, uncomment
@@ -131,5 +140,13 @@ install:: $(HOSTSFILE)
 	@[ -r $(DESTDIR)$(LIBX3270DIR)/$(HOSTSFILE) ] || \
 	$(INSTALL) -c $(INSTDATFLAGS) $(HOSTSFILE) $(DESTDIR)$(LIBX3270DIR)/$(HOSTSFILE)
 
+/* Rule for installing pr3287. */
+install::
+	-cd pr3287 && \
+	  $(MAKE) $(MAKEFLAGS) INSTALL=$(INSTALL) \
+	  INSTALLFLAGS="$(INSTALLFLAGS) $(INSTBINFLAGS)" \
+	  INSTALLDIR=$(DESTDIR)$(BINDIR) install
+
 clean:: 
 	$(RM) $(FONTS) mkfb fallbacks.c
+	cd pr3287 && $(MAKE) $(MAKEFLAGS) clean

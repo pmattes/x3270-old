@@ -58,7 +58,7 @@ static void	printer_output(void);
 static void	printer_error(void);
 static void	printer_otimeout(void);
 static void	printer_etimeout(void);
-static void	printer_dump(struct pr3o *p, Boolean is_err);
+static void	printer_dump(struct pr3o *p, Boolean is_err, Boolean is_dead);
 static void	printer_host_connect(Boolean connected unused);
 
 /* Globals */
@@ -81,6 +81,9 @@ printer_start(const char *lu)
 	int stdout_pipe[2];
 	int stderr_pipe[2];
 	static Boolean registered = False;
+
+	/* Make sure the popups are initted. */
+	printer_popup_init();
 
 	/* Register interest in host connects and mode changes. */
 	if (!registered) {
@@ -207,6 +210,10 @@ printer_start(const char *lu)
 		(void) close(stdout_pipe[1]);
 		(void) dup2(stderr_pipe[1], 2);
 		(void) close(stderr_pipe[1]);
+		if (setsid() < 0) {
+			perror("setsid");
+			_exit(1);
+		}
 		(void) execlp("/bin/sh", "sh", "-c", cmd_text, CN);
 		(void) perror("exec(printer)");
 		_exit(1);
@@ -257,8 +264,8 @@ printer_data(struct pr3o *p, Boolean is_err)
 	if (nr == 0) {
 		if (printer_stderr.timeout_id != 0L) {
 			/*
-			 * Append an error message to whatever the printer
-			 * process said, and pop it up.
+			 * Append a termination error message to whatever the
+			 * printer process said, and pop it up.
 			 */
 			p = &printer_stderr;
 			if (p->count && *(p->buf + p->count - 1) != '\n') {
@@ -270,9 +277,8 @@ printer_data(struct pr3o *p, Boolean is_err)
 			p->count += strlen(exitmsg);
 			if (p->count >= PRINTER_BUF)
 				p->count = PRINTER_BUF - 1;
-			printer_dump(&printer_stderr, True);
+			printer_dump(&printer_stderr, True, True);
 		} else {
-			/* Popup up an error. */
 			popup_an_error(exitmsg);
 		}
 		printer_stop();
@@ -288,7 +294,7 @@ printer_data(struct pr3o *p, Boolean is_err)
 	 * give it a second to generate more output.
 	 */
 	if (p->count >= PRINTER_BUF - 1) {
-		printer_dump(p, is_err);
+		printer_dump(p, is_err, False);
 	} else if (p->timeout_id == 0L) {
 		p->timeout_id = AddTimeOut(1000,
 		    is_err? printer_etimeout: printer_otimeout);
@@ -317,7 +323,7 @@ printer_timeout(struct pr3o *p, Boolean is_err)
 	p->timeout_id = 0L;
 
 	/* Dump the output. */
-	printer_dump(p, is_err);
+	printer_dump(p, is_err, False);
 }
 
 /* Timeout from printer output. */
@@ -336,25 +342,16 @@ printer_etimeout(void)
 
 /* Dump pending printer process output. */
 static void
-printer_dump(struct pr3o *p, Boolean is_err)
+printer_dump(struct pr3o *p, Boolean is_err, Boolean is_dead)
 {
-	/*
-	 * If the printer session goes wild, there is nothing we can do,
-	 * unless the info/error dialogs can be modified to optionally have
-	 * an 'abort' button to kill the printer process.
-	 *
-	 * In the TBD pile, for now.
-	 */
 	if (p->count) {
 		/* Strip any trailing newline. */
 		if (p->buf[p->count - 1] == '\n')
 			p->buf[p->count - 1] = '\0';
 
 		/* Dump it and clear the buffer. */
-		if (is_err)
-			popup_an_error("Printer session error:\n %s", p->buf);
-		else
-			popup_an_info("Printer session:\n %s", p->buf);
+		popup_printer_output(is_err, is_dead? NULL: printer_stop,
+		    "%s", p->buf);
 		p->count = 0;
 	}
 }
@@ -389,7 +386,7 @@ printer_stop(void)
 
 	/* Kill the process. */
 	if (printer_pid != -1) {
-		(void) kill(printer_pid, SIGTERM);
+		(void) killpg(printer_pid, SIGTERM);
 		printer_pid = -1;
 	}
 

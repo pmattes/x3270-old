@@ -61,6 +61,7 @@ charset_init(char *csname)
 
 	/* Set up the translation tables. */
 	(void) memcpy((char *)ebc2cg, (char *)ebc2cg0, 256);
+	(void) memcpy((char *)ebc2cg_ge, (char *)ebc2cg0, 256);
 	(void) memcpy((char *)cg2ebc, (char *)cg2ebc0, 256);
 	clear_xks();
 	remap_chars(NewString(cs));
@@ -93,21 +94,27 @@ parse_keysym(char *s, Boolean extended)
  * Parse an EBCDIC character set map, a series of pairs of numeric EBCDIC codes
  * and keysyms.
  *
- * If the keysym is in the range 1..255, it is a remapping of the EBCDIC code
- * for a standard Latin-1 graphic, and the CG-to-EBCDIC map will be modified
- * to match.
+ * If the EBCDIC code is in the range 0..255:
  *
- * Otherwise (keysym > 255), it is a definition for the EBCDIC code to use for
- * a multibyte keysym.  This is intended for 8-bit fonts that with special
- * characters that replace certain standard Latin-1 graphics.  The keysym
- * will be entered into the extended keysym translation table.
+ *   If the keysym is in the range 1..255, it is a remapping of the EBCDIC code
+ *   for a standard Latin-1 graphic, and the CG-to-EBCDIC map will be modified
+ *   to match.
+ *
+ *   Otherwise (keysym > 255), it is a definition for the EBCDIC code to use for
+ *   a multibyte keysym.  This is intended for 8-bit fonts that with special
+ *   characters that replace certain standard Latin-1 graphics.  The keysym
+ *   will be entered into the extended keysym translation table.
+ *
+ * If the EBCDIC code is in the range 256..511, it is a one-way (EBCDIC-to-CG)
+ * remapping of a the GE space for the lower 8 bits of EBCDIC code.
  */
 static void
 remap_chars(char *spec)
 {
 	char	*s;
 	char	*ebcs, *isos;
-	unsigned char	ebc, cg;
+	unsigned	ebc;
+	unsigned char	cg;
 	KeySym	iso;
 	int	ne = 0;
 	int	ns;
@@ -129,11 +136,16 @@ remap_chars(char *spec)
 		}
 		if (iso <= 0xff) {
 			cg = asc2cg[iso];
-			if (cg2asc[cg] == iso) {	/* well-defined */
-				ebc2cg[ebc] = cg;
-				cg2ebc[cg] = ebc;
-			} else {			/* into a hole */
-				ebc2cg[ebc] = CG_boxsolid;
+			if (ebc & ~0xff) {
+				/* GE range */
+				ebc2cg_ge[ebc & 0xff] = cg;
+			} else {
+				if (cg2asc[cg] == iso) { /* well-defined */
+					ebc2cg[ebc] = cg;
+					cg2ebc[cg] = ebc;
+				} else {		 /* into a hole */
+					ebc2cg[ebc] = CG_boxsolid;
+				}
 			}
 		} else {
 			add_xk(iso, (KeySym)cg2asc[ebc2cg[ebc]]);

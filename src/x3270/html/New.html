@@ -11,9 +11,26 @@
 <h1>
 <b>New Features in x3270 3.2</b>
 <hr WIDTH="100%"></h1>
-x3270 3.2 is a reorganization of x3270 3.1, with some significant enhancements.&nbsp;
+x3270 3.2 is a reorganization of x3270 3.1, with some significant enhancements.
 It is intended to be the future development platform for x3270, with x3270
 3.1 continued only with bug fixes.
+<h2>
+<b>Changes in x3270 3.2.13g, 2. October 2000</b></h2>
+Fixed a crash when <b>-reconnect</b> is used and <b>x3270.menuBar</b> is
+<b>False</b>.
+<br>Added a 'gebracket' character set, for hosts that insist that the '[' and
+']' characters are GE X'BA' and GE X'BB', respectively.
+<br>Added documentation on how to get square brackets to display properly.
+<h2>
+<b>Changes in x3270 3.2.13, 24. September 2000</b></h2>
+Integrated <b>pr3287</b> into the x3270 release.
+<br>Rewrote the screen resizing logic.  It now functions correctly on window
+managers like <i>icewm</i> and under KDE, and would rather leave the screen the
+wrong size than exit.
+<br>Changed the <b>greenScreen</b> color scheme to be really green.
+<br>Fixed the display of red text when the <b>highlightBold</b> option is set.
+<br>Fixed the block cursor display when the <b>-mono</b> option is used on a
+color display.
 <h2>
 <b>Changes in x3270 3.2.12, 7. September 2000</b></h2>
 Fixed a problem with exiting whenever the window was resized.
@@ -208,8 +225,9 @@ where appropriate.
 <b>External Changes</b></h3>
 Basic TN3270E is now supported. TN3270E printers are not supported.
 <p>On systems that support the <i>forkpty</i>() library call (such as BSD-derived
-systems and Linux), x3270 supports local processes.&nbsp; A local process
-is a Unix process such as a shell which is connected to x3270 with a pty.&nbsp;
+systems and Linux), x3270 supports local processes.
+A local process
+is a Unix process such as a shell which is connected to x3270 with a pty.
 In this way, x3270 will function as a local terminal emulator like <i>xterm</i>.
 <p>All operating modes can now be changed at runtime via menus, including
 extended data stream mode, and 3277/3278/3279 emulation.
@@ -219,7 +237,8 @@ with keymaps. It also reports the keymap that was used to map each action,
 making keymap debug much easier.
 <p>A menu option allows the current keymap to be displayed.
 <p>A new <tt><font size=+1>base</font></tt> keymap is defined, containing
-the default keyboard mappings.&nbsp; This keymap can be modified at will,
+the default keyboard mappings.
+This keymap can be modified at will,
 without interfering with the basic operation of x3270, or the processing
 of X events not related to the keyboard or mouse (as was the case with
 the previous default translations resource).

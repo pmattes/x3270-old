@@ -155,16 +155,17 @@ static struct font_list *font_last = (struct font_list *) NULL;
 
 /* Globals for undoing reconfigurations. */
 static enum {
-    REDO_INITIAL,
-    REDO_NONE, REDO_FONT,
+    REDO_NONE,
+    REDO_FONT,
 #if defined(X3270_MENUS) /*[*/
     REDO_MODEL,
 #endif /*]*/
 #if defined(X3270_KEYPAD) /*[*/
     REDO_KEYPAD,
 #endif /*]*/
-    REDO_SCROLLBAR
-} screen_redo = REDO_INITIAL;
+    REDO_SCROLLBAR,
+    REDO_RESIZE
+} screen_redo = REDO_NONE;
 static char *redo_old_font = CN;
 #if defined(X3270_MENUS) /*[*/
 static int redo_old_model;
@@ -591,9 +592,6 @@ set_toplevel_sizes(void)
 		XtRemoveTimeOut(configure_id);
 	configure_id = XtAppAddTimeOut(appcontext, 500, configure_stable, 0);
 	configure_ticking = True;
-#if defined(DEBUG_IRE) /*[*/
-	printf("set configure_ticking\n");
-#endif /*]*/
 
 	keypad_move();
 }
@@ -1510,7 +1508,7 @@ render_text(union sp *buffer, int baddr, int len, Boolean block_cursor,
 		    (char *)rt_buf8, len);
 	if (ss->overstrike &&
 	    ((attrs->bits.gr & GR_INTENSIFY) ||
-	     ((appres.mono || appres.highlight_bold) &&
+	     ((appres.mono || (!appres.m3279 && appres.highlight_bold)) &&
 	      ((color & BASE_MASK) == FA_INT_HIGH_SEL)))) {
 		if (ss->extended_3270font)
 			XDrawString16(display, ss->window, dgc, x+1, y,
@@ -2215,7 +2213,10 @@ make_gcs(struct sstate *s)
 
 	/* Create monochrome block cursor GC. */
 	if (appres.mono && s->mcgc == (GC)None) {
-		xgcv.function = GXxor;
+		if (screen_depth > 1)
+			xgcv.function = GXinvert;
+		else
+			xgcv.function = GXxor;
 		xgcv.foreground = 1L;
 		s->mcgc = XtGetGC(toplevel,
 		    GCForeground|GCFunction,
@@ -2655,7 +2656,9 @@ void
 PA_StateChanged_action(Widget w unused, XEvent *event, String *params,
     Cardinal *num_params)
 {
+#if defined(INTERNAL_ACTION_DEBUG) /*[*/
 	action_debug(PA_StateChanged_action, event, params, num_params);
+#endif /*]*/
 	query_window_state();
 }
 
@@ -3049,7 +3052,9 @@ PA_WMProtocols_action(Widget w, XEvent *event, String *params,
 {
 	XClientMessageEvent *cme = (XClientMessageEvent *)event;
 
+#if defined(INTERNAL_ACTION_DEBUG) /*[*/
 	action_debug(PA_WMProtocols_action, event, params, num_params);
+#endif /*]*/
 	if ((Atom)cme->data.l[0] == a_delete_me) {
 		if (w == toplevel)
 			x3270_exit(0);
@@ -3360,184 +3365,52 @@ init_rsfonts(void)
 }
 
 /*
- * Handle Configure events.
+ * Handle ConfigureNotify events.
  */
+static struct {
+	Boolean ticking;
+	Dimension width, height;
+	Position x, y;
+	XtIntervalId id;
+} cn = {
+	False, 0, 0, 0, 0, 0
+};
+static Position main_x = 0, main_y = 0;
 
 /*
- * Timeout routine called 0.5 sec after PA_ConfigureNotify_action changes to a
- * new font.  This function clears configure_ticking; if
- * PA_ConfigureNotify_action is called again before this, it interprets it as
- * the window manager objecting to the new window size and posts an error
- * message.
+ * Timeout routine called 0.5 sec after x3270 sets new screen dimensions.
+ * We assume that if this happens, the window manager is happy with our new
+ * size.
  */
 static void
 configure_stable(XtPointer closure unused, XtIntervalId *id unused)
 {
+	trace_event("Reconfigure timer expired\n");
 	configure_ticking = False;
-#if defined(DEBUG_IRE) /*[*/
-	printf("timeout; cleared configure_ticking\n");
-#endif /*]*/
+	if (!cn.ticking)
+		screen_redo = REDO_NONE;
 }
 
-void
-PA_ConfigureNotify_action(Widget w unused, XEvent *event, String *params unused,
-    Cardinal *num_params unused)
+/* Perform a resize operation. */
+static void
+do_resize(void)
 {
-	XConfigureEvent *re = (XConfigureEvent *) event;
-	Boolean needs_moving = False;
-	Position xx, yy;
-	static Position main_x = 0, main_y = 0;
-	int current_area;
-	int requested_area;
 	struct rsfont *r;
-	struct rsfont *smallest = (struct rsfont *) NULL;
-	struct rsfont *largest = (struct rsfont *) NULL;
 	struct rsfont *best = (struct rsfont *) NULL;
-	const char *revert = CN;
-	char want_size[64];
 
-#if defined(INTERNAL_ACTION_DEBUG) /*[*/
-	action_debug(PA_ConfigureNotify_action, event, params, num_params);
-#endif /*]*/
-#if defined(DEBUG_IRE) /*[*/
-	printf("Got a configure notify\n");
-#endif /*]*/
+	/* What we're doing now is irreversible. */
+	screen_redo = REDO_RESIZE;
 
-	/*
-	 * Get the new window coordinates.  If the configure event reports it
-	 * as (0,0), ask for it explicitly.
-	 */
-	if (re->x || re->y) {
-		xx = re->x;
-		yy = re->y;
-	} else {
-		XtVaGetValues(toplevel, XtNx, &xx, XtNy, &yy, NULL);
-	}
-
-	/* Save the new coordinates in globals for next time. */
-	if (xx != main_x || yy != main_y) {
-		main_x = re->x;
-		main_y = re->y;
-		needs_moving = True;
-	}
-
-	/*
-	 * If the window dimensions are "correct", there is nothing to do.
-	 *
-	 * However, do not cancel the configure_ticking timeout -- a window
-	 * manager like twm with a MaxWindowSize defined might change its mind
-	 * and immediately suggest a smaller window with another
-	 * ConfigureNotify.
-	 */
-	if (re->width == main_width && re->height == main_height) {
-#if defined(DEBUG_IRE) /*[*/
-		printf(" width and height match; nothing to do [cleared first]\n");
-#endif /*]*/
-		goto done;
-	}
-#if defined(DEBUG_IRE) /*[*/
-	printf("size mismatch: want %dx%d, got %dx%d\n",
-	    main_width, main_height, re->width, re->height);
-#endif /*]*/
-	(void) sprintf(want_size, "%ux%u", main_width, main_height);
-
-	/*
-	 * There are three possible reasons for being here:
-	 * (1) The user has (through the window manager) resized our
-	 *  window.
-	 * (2) We resized our window when our configuration changed (font,
-	 *  model, integral keypad or scrollbar); the window manager thinks it
-	 *  is too big and scaled it back.
-	 * (3) The window manager thinks our initial screen size is too big,
-	 *   and scaled it back.
-	 *
-	 * 'configure_ticking' and the associated timeout attempt to detect
-	 * (2) and (3).  Whenever we set the toplevel dimensions, we set
-	 * the timer; if a changed configure comes in while the timer is
-	 * ticking, we assume it is an angry wm.  If this is the very first
-	 * time we've sized the window, we must crash; otherwise, we can
-	 * simply back off to the previous configuration.
-	 *
-	 * If 'configure_ticking' is clear, we assume the cause is (1).
-	 * If resize fonts are available, we pick the best one and try it.
-	 * Otherwise, we restore the original toplevel dimensions.
-	 */
-
-	if (configure_ticking) {
-#if defined(DEBUG_IRE) /*[*/
-		printf(" angry wm: configure ticking\n");
-#endif /*]*/
-		/*
-		 * We must presume this is the window manager disapproving of
-		 * our last resize attempt.
-		 */
-		XtRemoveTimeOut(configure_id);
-		configure_ticking = False;
-#if defined(DEBUG_IRE) /*[*/
-		printf("cleared configure_ticking\n");
-#endif /*]*/
-
-		/* Restore the old configuration... */
-		switch (screen_redo) {
-		    case REDO_FONT:
-			revert = "font";
-			screen_newfont(redo_old_font, False);
-			break;
-#if defined(X3270_MENUS) /*[*/
-		    case REDO_MODEL:
-			revert = "model nubmer";
-			screen_change_model(redo_old_model,
-			    redo_old_ov_cols, redo_old_ov_rows);
-			break;
-#endif /*]*/
-#if defined(X3270_KEYPAD) /*[*/
-		    case REDO_KEYPAD:
-			revert = "keypad configuration";
-			screen_showikeypad(appres.keypad_on = False);
-			break;
-#endif /*]*/
-		    case REDO_SCROLLBAR:
-			revert = "scrollbar configuration";
-			if (toggled(SCROLL_BAR)) {
-				toggle_toggle(&appres.toggle[SCROLL_BAR]);
-				toggle_scrollBar(&appres.toggle[SCROLL_BAR],
-				    TT_TOGGLE);
-			}
-			break;
-		    case REDO_INITIAL:
-			xs_error("Main window (%s) does not fit on the X display.",
-			    want_size);
-			break;
-		    case REDO_NONE:
-		    default:
-			/* Frightfully confused.  Die. */
-			exiting = True;
-			popup_an_error("Unexpected ConfigureNotify\n"
-			    "Internal error -- exiting");
-			return;
-		}
-
-		/* Tell the user what we're doing. */
-		popup_an_error("Main window (%s) does not fit on the X display\n"
-			       "Reverting to previous %s", want_size, revert);
-
-		screen_redo = REDO_NONE;
-
-		goto done;
-	}
-
-	/*
-	 * User-generated resize attempt.
-	 */
 	if (rsfonts == (struct rsfont *)NULL || !appres.allow_resize) {
-#if defined(DEBUG_IRE) /*[*/
-		printf(" illegal resize\n");
-#endif /*]*/
 		/* Illegal or impossible. */
 		if (rsfonts == (struct rsfont *)NULL)
-			popup_an_error("No fonts available for resize");
+			trace_event("  no fonts available for resize\n"
+			    "    reasserting previous size\n");
+		else
+			trace_event("  resize prohibited by resource\n"
+			    "    reasserting previous size\n");
 		set_toplevel_sizes();
-		goto done;
+		return;
 	}
 
 	/*
@@ -3573,84 +3446,247 @@ PA_ConfigureNotify_action(Widget w unused, XEvent *event, String *params unused,
 	/*
 	 * Find the the best match for requested dimensions.
 	 *
-	 * If they tried to grow the screen, find the smallest font, larger
-	 * than the current size, that is closest to the requested size.
+	 * In past, the "best" was the closest area that was larger or
+	 * smaller than the current area, whichever was requested.
 	 *
-	 * If they tried to shrink the screen, find the largest font, smaller
-	 * than the current size, that is closest to the requested size.
+	 * Now, if they try to shrink the screen, "they" might be the
+	 * window manager enforcing a size restriction, so the "best"
+	 * match is the largest window that fits within the requested
+	 * dimensions.
 	 *
-	 * If they are asking for the same area (even with different
-	 * proportions), do nothing.
+	 * If they try to grow the screen, then the "best" is the
+	 * smallest font that lies between the current and requested
+	 * length in the requested dimension(s).
+	 *
+	 * An ambiguous request (one dimension larger and the other smaller)
+	 * is taken to be a "larger" request.
 	 */
 
-	current_area = main_width * main_height;
-	requested_area = re->width * re->height;
-	if (current_area == requested_area) {
-#if defined(DEBUG_IRE) /*[*/
-		printf(" area unchanged\n");
-#endif /*]*/
-		set_toplevel_sizes();
-		goto done;
-	}
-	smallest = (struct rsfont *) NULL;
-	largest = (struct rsfont *) NULL;
-	best = (struct rsfont *) NULL;
-
-#define aabs(x)	\
-	    (((x) < 0) ? -(x) : (x))
-#define closer_area(this, prev, want) \
-	    (aabs(this->area - want) < aabs(prev->area - want))
-
-	for (r = rsfonts; r != (struct rsfont *) NULL; r = r->next) {
-		if (!smallest || r->area < smallest->area)
-			smallest = r;
-		if (!largest || r->area > largest->area)
-			largest = r;
-		if (requested_area > current_area) {
-			if (r->area <= current_area)
-				continue;
-			if (!best || closer_area(r, best, requested_area))
-				best = r;
-		} else {
-			if (r->area >= current_area)
-				continue;
-			if (!best || closer_area(r, best, requested_area))
-				best = r;
+	if ((cn.width <= main_width && cn.height <= main_height) ||
+	    (cn.width > main_width && cn.height > main_height)) {
+		/*
+		 * Shrink or two-dimensional grow: Find the largest font which
+		 * fits within the new boundaries.
+		 *
+		 * Note that a shrink in one dimension, with the other
+		 * dimension matching, is considered a two-dimensional
+		 * shrink.
+		 */
+		for (r = rsfonts; r != (struct rsfont *) NULL; r = r->next) {
+			if (r->total_width <= cn.width &&
+			    r->total_height <= cn.height) {
+				if (best == NULL || r->area > best->area)
+					best = r;
+			}
 		}
-	}
-
-	if (best == (struct rsfont *) NULL) {	/* no good fit */
-		if (requested_area > current_area) {
-			best = largest;
+		/*
+		 * If no font is small enough, see if there is a font smaller
+		 * than the current font along the requested dimension(s),
+		 * which is better than doing nothing.
+		 */
+		if (best == NULL) {
+			for (r = rsfonts;
+			     r != (struct rsfont *) NULL;
+			     r = r->next) {
+				if (cn.width < main_width &&
+				    r->total_width > main_width)
+					continue;
+				if (cn.height < main_height &&
+				    r->total_height > main_height)
+					continue;
+				if (best == NULL ||
+				    r->area < best->area) {
+					best = r;
+				}
+			}
+		}
+	} else {
+		/*
+		 * One-dimensional grow: Find the largest font which fits
+		 * within the lengthened boundary, and don't constrain the
+		 * other dimension.
+		 *
+		 * Note than an ambiguous change (grow in one dimensional and
+		 * shrink in the other) is considered a one-dimensional grow.
+		 *
+		 * In either case, the "other" dimension is considered
+		 * unconstrained.
+		 */
+		if (cn.width > main_width) {
+			/* Wider. */
+			for (r = rsfonts;
+			     r != (struct rsfont *) NULL;
+			     r = r->next) {
+				if (r->total_width <= cn.width &&
+				    (best == NULL ||
+				     r->total_width > best->total_width)) {
+					best = r;
+				}
+			}
 		} else {
-			best = smallest;
+			/* Taller. */
+			for (r = rsfonts;
+			     r != (struct rsfont *) NULL;
+			     r = r->next) {
+				if (r->total_height <= cn.height &&
+				    (best == NULL ||
+				     r->total_height > best->total_height)) {
+					best = r;
+				}
+			}
 		}
 	}
 
 	/* Change fonts. */
-	if (efontname && !strcmp(best->name, efontname)) {
-#if defined(DEBUG_IRE) /*[*/
-		printf(" keeping font\n");
-#endif /*]*/
-		if (requested_area > current_area)
-			popup_an_error("No larger font available");
-		else if (requested_area < current_area)
-			popup_an_error("No smaller font available");
-		trace_event(" keeping font '%s' (%dx%d)\n",
-		    best->name, best->total_width, best->total_height);
+	if (!best || (efontname && !strcmp(best->name, efontname))) {
+		if (cn.width > main_width || cn.height > main_height)
+			trace_event("  no larger font available\n"
+			    "    reasserting previous size\n");
+		else
+			trace_event("  no smaller font available\n"
+			    "    reasserting previous size\n");
 		set_toplevel_sizes();
 	} else {
-#if defined(DEBUG_IRE) /*[*/
-		printf(" switching font\n");
-#endif /*]*/
-		trace_event(" switching to font '%s' (%dx%d)\n",
+		trace_event("    switching to font '%s', new size %dx%d\n",
 		    best->name, best->total_width, best->total_height);
 		screen_newfont(best->name, False);
+
+		/* screen_newfont() sets screen_redo to REDO_FONT. */
+		screen_redo = REDO_RESIZE;
 	}
+}
+
+/*
+ * Timeout routine called 0.5 sec after x3270 receives the last ConfigureNotify
+ * message.  This is for window managers that use 'continuous' move or resize
+ * actions.
+ */
+
+static void
+stream_end(XtPointer closure unused, XtIntervalId *id unused)
+{
+	Boolean needs_moving = False;
+	const char *revert = CN;
+	char want_size[64];
+
+	trace_event("Stream timer expired %hux%hu+%hd+%hd\n",
+		cn.width, cn.height, cn.x, cn.y);
+
+	/* Not ticking any more. */
+	cn.ticking = False;
+
+	/* Save the new coordinates in globals for next time. */
+	if (cn.x != main_x || cn.y != main_y) {
+		main_x = cn.x;
+		main_y = cn.y;
+		needs_moving = True;
+	}
+
+	/*
+	 * If the dimensions are correct, do nothing, forget about any
+	 * reconfig we may need to revert, and get out.
+	 */
+	if (cn.width == main_width && cn.height == main_height) {
+		trace_event("  width and height match\n    doing nothing\n");
+		screen_redo = REDO_NONE;
+		goto done;
+	}
+
+	/* They're not correct. */
+	(void) sprintf(want_size, "%ux%u", main_width, main_height);
+	trace_event("  size mismatch, want %s\n", want_size);
+
+	/* If there's a reconfiguration pending, try to undo it. */
+	switch (screen_redo) {
+	    case REDO_FONT:
+		revert = "font";
+		screen_newfont(redo_old_font, False);
+		break;
+#if defined(X3270_MENUS) /*[*/
+	    case REDO_MODEL:
+		revert = "model number";
+		screen_change_model(redo_old_model,
+		    redo_old_ov_cols, redo_old_ov_rows);
+		break;
+#endif /*]*/
+#if defined(X3270_KEYPAD) /*[*/
+	    case REDO_KEYPAD:
+		revert = "keypad configuration";
+		screen_showikeypad(appres.keypad_on = False);
+		break;
+#endif /*]*/
+	    case REDO_SCROLLBAR:
+		revert = "scrollbar configuration";
+		if (toggled(SCROLL_BAR)) {
+			toggle_toggle(&appres.toggle[SCROLL_BAR]);
+			toggle_scrollBar(&appres.toggle[SCROLL_BAR],
+			    TT_TOGGLE);
+		}
+		break;
+	    case REDO_RESIZE:
+		/* Changed fonts in response to a previous user resize. */
+		trace_event("  size reassertion failed, window truncated\n"
+		    "    doing nothing\n");
+		screen_redo = REDO_NONE;
+		goto done;
+	    case REDO_NONE:
+	        /* Initial configuration, or user-generated resize. */
+		do_resize();
+		goto done;
+	    default:
+		break;
+	}
+
+	/* Tell the user what we're doing. */
+	if (revert != CN) {
+		trace_event("    reverting to previous %s\n", revert);
+		popup_an_error("Main window does not fit on the "
+		    "X display\n"
+		    "Reverting to previous %s", revert);
+	}
+
+	screen_redo = REDO_NONE;
 
     done:
 	if (needs_moving && !iconic)
 		keypad_move();
+}
+
+void
+PA_ConfigureNotify_action(Widget w unused, XEvent *event, String *params unused,
+    Cardinal *num_params unused)
+{
+	XConfigureEvent *re = (XConfigureEvent *) event;
+	Position xx, yy;
+
+#if defined(INTERNAL_ACTION_DEBUG) /*[*/
+	action_debug(PA_ConfigureNotify_action, event, params, num_params);
+#endif /*]*/
+
+	/*
+	 * Get the new window coordinates.  If the configure event reports it
+	 * as (0,0), ask for it explicitly.
+	 */
+	if (re->x || re->y) {
+		xx = re->x;
+		yy = re->y;
+	} else {
+		XtVaGetValues(toplevel, XtNx, &xx, XtNy, &yy, NULL);
+	}
+	trace_event("ConfigureNotify %hux%hu+%hd+%hd\n",
+	    re->width, re->height, xx, yy);
+	
+	/* Save the latest values. */
+	cn.x = xx;
+	cn.y = yy;
+	cn.width = re->width;
+	cn.height = re->height;
+
+	/* Set the stream timer for 0.5 sec from now. */
+	if (cn.ticking)
+		XtRemoveTimeOut(cn.id);
+	cn.id = XtAppAddTimeOut(appcontext, 500, stream_end, 0);
+	cn.ticking = True;
 }
 
 /*

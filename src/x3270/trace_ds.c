@@ -521,7 +521,7 @@ trace_event(const char *fmt, ...)
 {
 	va_list args;
 
-	if (!toggled(EVENT_TRACE))
+	if (!toggled(EVENT_TRACE) || tracef == (FILE *)NULL)
 		return;
 
 	va_start(args, fmt);

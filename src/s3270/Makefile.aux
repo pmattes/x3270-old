@@ -8,6 +8,7 @@
 # Auxiliary makefile for s3270
 
 TARDIR=s3270-3.2
+RM=rm -f
 
 all:
 	@echo "Must pick a specific make target."
@@ -25,11 +26,12 @@ HEADERS = 3270ds.h actionsc.h ansic.h aplc.h appres.h cg.h charsetc.h ctlr.h \
 	telnetc.h tn3270e.h togglesc.h trace_dsc.h utilc.h xioc.h X11/keysym.h
 MISC = version.txt s3270.man x3270if.man x3270-script.man mkversion.sh \
 	Makefile Makefile.aux README s3270.lsm x3270if.c \
-	Examples/cms_cmd.expect x3270_glue.expect
+	Examples/cms_cmd.expect x3270_glue.expect s3270.lsm.tmpl \
+	s3270.man.tmpl gen_lsm gen_man
 HTML = html/Bugs.html html/Build.html html/FAQ.html html/Intro.html \
 	html/Lineage.html html/New.html html/README.html html/Wishlist.html \
 	html/s3270-man.html html/x3270-script.html html/x3270.xbm \
-	html/x3270if.html
+	html/x3270if.html html/s3270-man.html.tmpl
 FILES = $(SOURCES) $(HEADERS) $(MISC) $(HTML)
 
 tarlist: Makefile.aux
@@ -48,3 +50,12 @@ s3270.tar: $(FILES) tarlist
 
 s3270.tgz: s3270.tar
 	gzip <s3270.tar >$@
+
+lsm:
+	./gen_lsm s3270
+
+s3270.man: s3270.man.tmpl version.txt gen_man
+	./gen_man s3270.man
+
+html/s3270-man.html: html/s3270-man.html.tmpl version.txt gen_man
+	./gen_man html/s3270-man.html

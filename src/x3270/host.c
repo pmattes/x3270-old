@@ -436,7 +436,7 @@ host_disconnect(Boolean disable)
 		net_sock = -1;
 #if defined(X3270_DISPLAY) /*[*/
 		if (appres.once) {
-			if (error_popup_visible) {
+			if (error_popup_visible()) {
 				/*
 				 * If there is an error pop-up, exit when it
 				 * pops down.

@@ -61,6 +61,7 @@
               The  first  part is the <B>base</B> <B>model</B>, which is either
               <B>3278</B> or <B>3279</B>.  <B>3278</B>  specifies  a  monochrome  3270
               display; <B>3279</B> specifies a color 3270 display.
+
               The  second  part is the <B>model</B> <B>number</B>, which speci-
               fies the number of rows and columns.   Model  4  is
               the default.
@@ -114,6 +115,7 @@
 
               Some  hosts  are  confused  by the <B>-E</B> suffix on the
               terminal name, and will  ignore  the  extra  screen
+              area  on  models 3, 4 and 5.  Prepending an <B>s:</B> onto
               the hostname removes the <B>-E</B> from the terminal  name
               when connecting to such hosts.
 
@@ -171,6 +173,7 @@
            Translate NL to CR                          false
            Erase previous character                     ^?
            Erase entire line                            ^U
+
            Erase previous word                          ^W
            Redisplay line                               ^R
            Ignore special meaning of next character     ^V
@@ -228,6 +231,7 @@
        Down                       move cursor down
        Dup                        duplicate field
        Ebcdic                     return entire screen contents in EBCDIC
+
        Ebcdic <I>len</I>                 return screen contents at cursor, in EBCDIC
        Ebcdic <I>row</I> <I>col</I> <I>len</I>         return screen contents in EBCDIC
        Ebcdic <I>row</I> <I>col</I> <I>rows</I> <I>cols</I>   return screen region in EBCDIC
@@ -281,6 +285,7 @@
        ----------------------------
        Wait        Wait InputField
        Wait ansi   Wait NVTMode
+
        Wait 3270   Wait 3270Mode
 
 
@@ -394,6 +399,7 @@
               dinates  (<I>row</I>, <I>col</I>), length <I>len</I> bytes, is returned.
 
               If four arguments are given (<I>row</I>, <I>col</I>, <I>rows</I>, <I>cols</I>),
+              then  a rectangular region is returned, starting at
               zero-origin coordinates  (<I>row</I>,  <I>col</I>),  width  <I>rows</I>,
               length <I>cols</I>.
 
@@ -449,6 +455,7 @@
 
        <B>Direction</B>
               <B>send</B> (the default) to send  a  file  to  the  host,
+              <B>receive</B> to receive a file from the host.
 
        <B>HostFile</B>
               The name of the file on the host.
@@ -503,6 +510,7 @@
        <B>PrimarySpace</B>
               Primary  allocation  for  a  file  created on a TSO
               host.   The  units  are  given  by  the  <B>Allocation</B>
+              option.
 
        <B>SecondarySpace</B>
               Secondary  allocation  for  a file created on a TSO
@@ -559,6 +567,7 @@
               equal               7E*   apl_equal
               equal underbar      E1    apl_equalunderbar
               F underbar          46    apl_Funderbar
+
               G underbar          47    apl_Gunderbar
               greater             6E*   apl_greater
               H underbar          48    apl_Hunderbar
@@ -612,6 +621,7 @@
               tilde               80    apl_tilde
               times               B6    apl_times
               U underbar          64    apl_Uunderbar
+
               underbar            6D*   apl_underbar
               up arrow            8A    apl_uparrow
               up caret            71    apl_upcaret
@@ -672,9 +682,11 @@
        Rubischon.
 
 
+
 </PRE>
 <H2>VERSION</H2><PRE>
-       tcl3270 3.2.12
+       tcl3270 3.2.13g
+
 
 
 

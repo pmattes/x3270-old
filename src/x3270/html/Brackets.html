@@ -1,0 +1,348 @@
+<!doctype html public "-//w3c//dtd html 4.0 transitional//en">
+<html>
+<head>
+   <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+   <meta name="GENERATOR" content="Mozilla/4.73 [en]C-CCK-MCD   (WinNT; U) [Netscape]">
+   <title>Those Pesky Square Bracket Characters</title>
+</head>
+<body>
+
+<h1>
+Those Pesky Square Bracket Characters</h1>
+Most IBM 3270 emulators have some degree of difficulty with the square-bracket
+characters, <b>[</b> and <b>]</b>. The problem is that there is not a consistent
+definition of what EBCDIC codes represent them.
+<h2>
+The Possibilities</h2>
+Depending on the host OS, mode, and intermediate facilities, the square
+bracket characters may be displayed as:
+<ul>
+<li>
+X'BA' and X'BB' (defined in the IBM <i>Chararcter Set Reference</i> as
+standard EBCDIC characters)</li>
+
+<li>
+X'AD' and X'BD' (as some old hosts appear to do by convention)</li>
+
+<li>
+GE X'AD' and GE X'BD' (defined in the IBM <i>Character Set Reference</i>
+as APL2 characters)</li>
+
+<li>
+GE X'BA' and GE X'BB' (just plain wrong, but some hosts insist that X'BA'
+and X'BB' must be displayed with a GE)</li>
+</ul>
+Note that OS modes can also change how these characters are displayed.
+For example, the CMS command <b>terminal apl on</b> causes the Graphic
+Escape (GE) to be used when displaying EBCDIC codes X'BA', X'BB', X'AD'
+and X'BD', while <b>terminal apl off</b> causes them to be displayed without
+it.
+<h2>
+x3270 Facilities</h2>
+x3270 has two facilities to deal with this situation: character sets and
+keymaps. By selecting the correct character set and keymap, you can set
+up x3270 to generate and display the proper codes for the square-bracket
+characters.
+<p>The default character set is called <b>bracket</b>. The <b>bracket</b>
+character set implements the 'old hosts' convention listed above. When
+<b>bracket</b>
+is used:
+<ul>
+<li>
+The <b>[</b> key generates the EBCDIC code X'AD'.</li>
+
+<li>
+The <b>]</b> key generates the EBCDIC code X'BD'.</li>
+
+<li>
+The EBCDIC code X'AD' is displayed as a <b>[</b>.</li>
+
+<li>
+The EBCDIC code X'BD' is displayed as a <b>]</b>.</li>
+</ul>
+Another common character set is called <b>us</b>. This character set implements
+the IBM "U.S. English" character set:
+<ul>
+<li>
+The <b>[</b> key generates the EBCDIC code X'BA'.</li>
+
+<li>
+The <b>]</b> key generates the EBCDIC code X'BB'.</li>
+
+<li>
+The EBCDIC code X'BA' is displayed as a <b>[</b>.</li>
+
+<li>
+The EBCDIC code X'BB' is displayed as a <b>]</b>.</li>
+</ul>
+An additional character set is called <b>gebracket</b>. This character
+set is for hosts that use IBM "U.S. English" character set, but put a GE
+in front of the EBCDIC codes X'BA' and X'BB' when displaying them:
+<ul>
+<li>
+The <b>[</b> key generates the EBCDIC code X'BA'.</li>
+
+<li>
+The <b>]</b> key generates the EBCDIC code X'BB'.</li>
+
+<li>
+The EBCDIC code GE X'BA' is displayed as a <b>[</b>.</li>
+
+<li>
+The EBCDIC code GE X'BB' is displayed as a <b>]</b>.</li>
+</ul>
+Finally, there is the <b>apl</b> character set and the <b>apl</b> keymap,
+which are usually used together by specifying the <b>-apl</b> command-line
+option.&nbsp; With the <b>-apl</b> option:
+<ul>
+<li>
+The <b>[</b> key generates the EBCDIC code GE X'AD'.</li>
+
+<li>
+The <b>]</b> key generates the EBCDIC code GE X'BD'.</li>
+
+<li>
+The EBCDIC code GE X'AD' is displayed as a <b>[</b>.</li>
+
+<li>
+The EBCDIC code GE X'BD' is displayed as a <b>]</b>.</li>
+</ul>
+Here is a table which summarizes the combinations of characters generated
+and displayed in the various modes.
+<br>&nbsp;
+<center><table BORDER COLS=11 WIDTH="100%" >
+<tr>
+<td><i>&nbsp;</i></td>
+
+<td COLSPAN="2">
+<center><i>keyboard generates</i></center>
+</td>
+
+<td COLSPAN="8">
+<center><i>graphic displayed for EBCDIC codes</i></center>
+</td>
+</tr>
+
+<tr>
+<td><i>x3270 Mode</i></td>
+
+<td>
+<center><i>[ key</i></center>
+</td>
+
+<td>
+<center><i>] key</i></center>
+</td>
+
+<td>
+<center>X'BA'</center>
+</td>
+
+<td>
+<center>X'BB'</center>
+</td>
+
+<td>
+<center>GE X'BA'</center>
+</td>
+
+<td>
+<center>GE X'BB'</center>
+</td>
+
+<td>
+<center>X'AD'</center>
+</td>
+
+<td>
+<center>X'BD'</center>
+</td>
+
+<td>
+<center>GE X'AD'</center>
+</td>
+
+<td>
+<center>GE X'BD'</center>
+</td>
+</tr>
+
+<tr>
+<td>charset <b>bracket</b> (default)</td>
+
+<td ALIGN=CENTER>X'AD'</td>
+
+<td>
+<center>X'BD'</center>
+</td>
+
+<td>
+<center>&Yacute;</center>
+</td>
+
+<td>
+<center>&uml;</center>
+</td>
+
+<td>
+<center><img SRC="del.jpg" height=23 width=24></center>
+</td>
+
+<td>
+<center><img SRC="delta.jpg" height=21 width=20></center>
+</td>
+
+<td>
+<center>[</center>
+</td>
+
+<td>
+<center>]</center>
+</td>
+
+<td>
+<center>[</center>
+</td>
+
+<td>
+<center>]</center>
+</td>
+</tr>
+
+<tr>
+<td>charset <b>us</b></td>
+
+<td>
+<center>X'BA'</center>
+</td>
+
+<td>
+<center>X'BB'</center>
+</td>
+
+<td>
+<center>[</center>
+</td>
+
+<td>
+<center>]</center>
+</td>
+
+<td>
+<center><img SRC="del.jpg" height=23 width=24></center>
+</td>
+
+<td>
+<center><img SRC="delta.jpg" height=21 width=20></center>
+</td>
+
+<td>
+<center>&Yacute;</center>
+</td>
+
+<td>
+<center>&uml;</center>
+</td>
+
+<td>
+<center>[</center>
+</td>
+
+<td>
+<center>]</center>
+</td>
+</tr>
+
+<tr>
+<td>charset <b>gebracket</b></td>
+
+<td>
+<center>X'BA'</center>
+</td>
+
+<td>
+<center>X'BB'</center>
+</td>
+
+<td>
+<center>[</center>
+</td>
+
+<td>
+<center>]</center>
+</td>
+
+<td>
+<center>[</center>
+</td>
+
+<td>
+<center>]</center>
+</td>
+
+<td>
+<center>&Yacute;</center>
+</td>
+
+<td>
+<center>&uml;</center>
+</td>
+
+<td>
+<center>[</center>
+</td>
+
+<td>
+<center>]</center>
+</td>
+</tr>
+
+<tr>
+<td><b>-apl</b></td>
+
+<td>
+<center>GE X'AD'</center>
+</td>
+
+<td>
+<center>GE X'BD'</center>
+</td>
+
+<td>
+<center>[</center>
+</td>
+
+<td>
+<center>]</center>
+</td>
+
+<td>
+<center><img SRC="del.jpg" height=23 width=24></center>
+</td>
+
+<td>
+<center><img SRC="delta.jpg" height=21 width=20></center>
+</td>
+
+<td>
+<center>&Yacute;</center>
+</td>
+
+<td>
+<center>&uml;</center>
+</td>
+
+<td>
+<center>[</center>
+</td>
+
+<td>
+<center>]</center>
+</td>
+</tr>
+</table></center>
+
+<p>So, if your display shows one of the graphics above instead of the desired
+square-bracket characters, you might want to try one of the other modes.
+</body>
+</html>

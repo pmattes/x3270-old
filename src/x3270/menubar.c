@@ -956,7 +956,6 @@ reconnect_menu_init(Boolean regen, Position x, Position y)
 		    NULL);
 		XtAddCallback(connect_button, XtNcallback, do_reconnect, NULL);
 	} else {
-		char *buf;
 		Widget w;
 
 		/* Create a menu to pop up with the mouse. */
@@ -964,12 +963,11 @@ reconnect_menu_init(Boolean regen, Position x, Position y)
 		    "hostMenu", complexMenuWidgetClass, menu_parent,
 		    menubar_buttons ? XtNlabel : NULL, NULL,
 		    NULL);
-		buf = xs_buffer("%s %s", get_message("reconnect"),
-		    reconnect_host);
+		(void) XtVaCreateManagedWidget("space", cmeLineObjectClass,
+		    connect_menu, NULL);
 		w = XtVaCreateManagedWidget(
-		    buf, cmeBSBObjectClass, connect_menu, 
+		    "reconnectButton", cmeBSBObjectClass, connect_menu, 
 		    NULL);
-		XtFree(buf);
 		XtAddCallback(w, XtNcallback, do_reconnect, PN);
 	}
 }

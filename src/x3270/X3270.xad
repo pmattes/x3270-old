@@ -93,7 +93,7 @@ x3270.colorScheme.greenScreen: \
 	green green green green \
 	green green green green \
 	green green green green \
-	green green green white \
+	green green green green \
 	white black dimGray \
 	4 15 4 15
 #ifdef X3270_MENUS
@@ -103,15 +103,18 @@ x3270.schemeList:			Default 3279: default\n\
 					Reverse: reverse\n\
 					Green Screen: greenScreen
 !   Character sets listed on the Options menu
-x3270.charsetList:			U.S. International: us-intl\n\
+x3270.charsetList:			U.S. English: us-intl\n\
 					Bracket: bracket\n\
+					GE-mapped Bracket: gebracket\n\
 					German: german\n\
 					Finnish: finnish\n\
 					United Kingdom: uk\n\
 					Norwegian: norwegian\n\
 					French: french\n\
 					Hebrew: hebrew\n\
-					Greek: greek\n
+					Greek: greek\n\
+					Belgian: belgian\n\
+					Icelandic: icelandic\n
 #endif
 !
 !   Pseudo-colors for 3278 mode
@@ -787,13 +790,6 @@ x3270.keymap.fr6k:	\
 ! Icelandic keymap, courtesy of Rikhardur Egilsson
 x3270.keymap.icelandic: \
 	:<Key>dead_acute:	Compose() Key(apostrophe)\n
-! Belgian, with the help of Peter Govaerts
-x3270.charset.belgian: \
-	0x4a: [			\n	0x4f: !			\n\
-	0x5a: ]			\n	0x5f: ^			\n\
-	0xb0: cent		\n	0xba: notsign		\n\
-	0xbb: bar		\n
-x3270.codepage.belgian: 500
 !
 !=============================================================================
 ! Section 2: Labels and Messages
@@ -803,8 +799,10 @@ x3270.codepage.belgian: 500
 !=============================================================================
 !
 x3270.errorPopup.title:				x3270 Error
+x3270.printerErrorPopup.title:			x3270 Printer Error
 #ifdef X3270_MENUS
 x3270.infoPopup.title:				x3270 Information
+x3270.printerInfoPopup.title:			x3270 Printer Information
 x3270.connectPopup.title:			x3270 Connect
 x3270.connectPopup.dialog.label:		Enter Hostname
 x3270.fontPopup.title:				x3270 Font
@@ -855,6 +853,8 @@ x3270.ftOverwritePopup.title:			x3270 File Transfer
 #endif
 x3270.kmPopup.title:				x3270 Keymap
 x3270*confirmButton.label:			OK
+x3270.printerErrorPopup*cancelButton.label:	Abort Printer
+x3270.printerInfoPopup*cancelButton.label:	Abort Printer
 x3270*cancelButton.label:			Cancel
 #ifdef X3270_MENUS
 x3270*aboutOption.label:			About x3270...
@@ -1214,7 +1214,9 @@ x3270*dialog*foreground:			black
 !
 ! Fixed popup sizes
 x3270.errorPopup.width:				400
+x3270.printerErrorPopup.width:			400
 x3270.infoPopup.width:				400
+x3270.printerInfoPopup.width:			400
 x3270.printerLuPopup.width:			300
 x3270.connectPopup.width:			300
 x3270.fontPopup.width:				300
@@ -1231,6 +1233,7 @@ x3270.saveOptionsPopup.width:			300
 #ifdef COLOR
 x3270.aboutPopup*icon.foreground:		darkslateblue
 x3270.errorPopup*label.foreground:		firebrick
+x3270.printerErrorPopup*label.foreground:	firebrick
 #ifdef X3270_FT
 x3270.ftProgressPopup*filename.borderWidth:	2
 x3270.ftProgressPopup*filename.borderColor:	grey40
@@ -1329,11 +1332,19 @@ x3270.keypadPopup.container.translations: #override \n\
 #endif
 x3270.errorPopup.translations: \
 	<Message>WM_PROTOCOLS:		PA-WMProtocols()
+x3270.printerErrorPopup.translations: \
+	<Message>WM_PROTOCOLS:		PA-WMProtocols()
 x3270.errorPopup*translations:		#override \n\
+	<Key>Return:			PA-confirm()
+x3270.printerErrorPopup*translations:	#override \n\
 	<Key>Return:			PA-confirm()
 x3270.infoPopup.translations: \
 	<Message>WM_PROTOCOLS:		PA-WMProtocols()
+x3270.printerInfoPopup.translations: \
+	<Message>WM_PROTOCOLS:		PA-WMProtocols()
 x3270.infoPopup*translations:		#override \n\
+	<Key>Return:			PA-confirm()
+x3270.printerInfoPopup*translations:	#override \n\
 	<Key>Return:			PA-confirm()
 #ifdef X3270_MENUS
 x3270.connectPopup.translations: \
@@ -1625,9 +1636,11 @@ x3270.codepage.us:		37
 x3270.charset.apl:		\n
 x3270.codepage.apl:		37
 !
-! EBCDIC map for hosts that put [ and ] in non-standard positions.  This is
-! the default x3270 character set, because these hosts are so common in the
-! U.S.
+! EBCDIC map for hosts that put '[' and ']' in non-standard positions (X'AD'
+! and X'BD').  This is the default x3270 character set, because these hosts
+! are so common in the U.S.
+! Note that those hosts tend to display '[' and ']' as GE X'AD' and GE X'BD',
+! which are the APL bracket characters.
 x3270.charset.bracket: \
 	0xad: [			\n	0xba: Yacute		\n\
 	0xbd: ]			\n	0xbb: diaeresis		\n
@@ -1639,6 +1652,14 @@ x3270.charset.oldibm: \
 	0xad: [			\n	0xba: Yacute		\n\
 	0xbd: ]			\n	0xbb: diaeresis		\n
 x3270.codepage.oldibm:		37
+!
+! EBCDIC character set map for hosts that use the standard U.S. English
+! character set, with X'BA' for '[' and X'BB' for ']', but insist on displaying
+! them as GE X'BA' and GE X'BB', which are the APL 'del' and 'delta'
+! characters.
+x3270.charset.gebracket: \
+	0x1ba: Yacute		\n	0x1bb: diaeresis	\n
+x3270.codepage.gebracket:	37
 !
 ! Each entry below is derived from IBM GA27-3831-03, Fourth Edition.
 ! Austrian/German (table 03)
@@ -1739,6 +1760,13 @@ x3270.charset.icelandic: \
 	0x7d: apostrophe	\n	0x8c: `			\n\
 	0x6a: |			\n
 x3270.codepage.icelandic:	871
+! Belgian, with the help of Peter Govaerts
+x3270.charset.belgian: \
+	0x4a: [			\n	0x4f: !			\n\
+	0x5a: ]			\n	0x5f: ^			\n\
+	0xb0: cent		\n	0xba: notsign		\n\
+	0xbb: bar		\n
+x3270.codepage.belgian: 500
 ! Greek, requires the 3270gr font
 ! Courtesty of Mantzios Achilleus
 x3270.charset.greek: \

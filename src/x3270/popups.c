@@ -1,5 +1,5 @@
 /*
- * Copyright 1993, 1994, 1995, 1999 by Paul Mattes.
+ * Copyright 1993, 1994, 1995, 1999, 2000 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -370,62 +370,145 @@ create_form_popup(const char *name, XtCallbackProc callback,
 
 
 /*
- * Error popup
+ * Read-only popups.
  */
+struct rop {
+	const char *name;			/* resource name */
+	XtGrabKind grab;			/* grab kind */
+	Boolean is_error;			/* is it? */
+	const char *itext;			/* initial text */
+	Widget shell;				/* pop-up shell */
+	Widget form;				/* dialog form */
+	Widget cancel_button;			/* cancel button */
+	abort_callback_t *cancel_callback;	/* callback for cancel button */
+	Boolean visible;			/* visibility flag */
+};
 
-static Widget error_shell = NULL;
-static Widget error_form;
-Boolean error_popup_visible = False;
+static struct rop error_popup = {
+	"errorPopup", XtGrabExclusive, True,
+	"first line\nsecond line",
+	NULL, NULL, NULL, NULL,
+	False
+};
+static struct rop info_popup = {
+	"infoPopup", XtGrabNonexclusive, False,
+	"first line\nsecond line",
+	NULL, NULL, NULL, NULL,
+	False
+};
 
-/* Called when OK is pressed on the error popup */
+static struct rop printer_error_popup = {
+	"printerErrorPopup", XtGrabExclusive, True,
+	"first line\nsecond line\nthird line\nfourth line",
+	NULL, NULL, NULL, NULL, False
+};
+static struct rop printer_info_popup = {
+	"printerInfoPopup", XtGrabNonexclusive, False,
+	"first line\nsecond line\nthird line\nfourth line",
+	NULL,
+	NULL, NULL, NULL, False
+};
+
+/* Called when OK is pressed in a read-only popup */
 static void
-saw_error(Widget w unused, XtPointer client_data unused,
-    XtPointer call_data unused)
+rop_ok(Widget w unused, XtPointer client_data, XtPointer call_data unused)
 {
-	XtPopdown(error_shell);
+	struct rop *rop = (struct rop *)client_data;
+
+	XtPopdown(rop->shell);
 }
 
-/* Called when the error popup is closed */
+/* Called when Cancel is pressed in a read-only popup */
 static void
-error_popdown(Widget w unused, XtPointer client_data unused,
-    XtPointer call_data unused)
+rop_cancel(Widget w unused, XtPointer client_data, XtPointer call_data unused)
 {
-	error_popup_visible = False;
-	if (exiting)
+	struct rop *rop = (struct rop *)client_data;
+
+	XtPopdown(rop->shell);
+	if (rop->cancel_callback != NULL)
+		(*rop->cancel_callback)();
+}
+
+/* Called when a read-only popup is closed */
+static void
+rop_popdown(Widget w unused, XtPointer client_data, XtPointer call_data unused)
+{
+	struct rop *rop = (struct rop *)client_data;
+
+	rop->visible = False;
+	if (exiting && rop->is_error)
 		x3270_exit(1);
 }
 
+/* Initialize a read-only pop-up. */
 void
-error_popup_init(void)
+rop_init(struct rop *rop)
 {
 	Widget w;
 
-	if (error_shell != NULL)
+	if (rop->shell != NULL)
 		return;
 
-	error_shell = XtVaCreatePopupShell(
-	    "errorPopup", transientShellWidgetClass, toplevel,
+	rop->shell = XtVaCreatePopupShell(
+	    rop->name, transientShellWidgetClass, toplevel,
 	    NULL);
-	XtAddCallback(error_shell, XtNpopupCallback, place_popup,
+	XtAddCallback(rop->shell, XtNpopupCallback, place_popup,
 	    (XtPointer) CenterP);
-	XtAddCallback(error_shell, XtNpopdownCallback, error_popdown, PN);
+	XtAddCallback(rop->shell, XtNpopdownCallback, rop_popdown, rop);
 
 	/* Create a dialog in the popup */
-	error_form = XtVaCreateManagedWidget(
-	    ObjDialog, dialogWidgetClass, error_shell,
+	rop->form = XtVaCreateManagedWidget(
+	    ObjDialog, dialogWidgetClass, rop->shell,
 	    NULL);
-	XtVaSetValues(XtNameToWidget(error_form, XtNlabel),
-	    XtNlabel, "first line\nsecond line\nthird line\nfourth line",
+	XtVaSetValues(XtNameToWidget(rop->form, XtNlabel),
+	    XtNlabel, rop->itext,
 	    NULL);
 
 	/* Add "OK" button to the dialog */
 	w = XtVaCreateManagedWidget(
-	    ObjConfirmButton, commandWidgetClass, error_form,
+	    ObjConfirmButton, commandWidgetClass, rop->form,
 	    NULL);
-	XtAddCallback(w, XtNcallback, saw_error, 0);
+	XtAddCallback(w, XtNcallback, rop_ok, rop);
+
+	/* Add an unmapped "Cancel" button to the dialog */
+	rop->cancel_button = XtVaCreateManagedWidget(
+	    ObjCancelButton, commandWidgetClass, rop->form,
+	    XtNright, w,
+	    XtNmappedWhenManaged, False,
+	    NULL);
+	XtAddCallback(rop->cancel_button, XtNcallback, rop_cancel, rop);
 
 	/* Force it into existence so it sizes itself with 4-line text */
-	XtRealizeWidget(error_shell);
+	XtRealizeWidget(rop->shell);
+}
+
+/* Pop up a dialog.  Common logic for all forms. */
+static void
+popup_rop(struct rop *rop, abort_callback_t *a, const char *fmt, va_list args)
+{
+	(void) vsprintf(vmsgbuf, fmt, args);
+	if (!rop->shell) {
+		(void) fprintf(stderr, "%s: %s\n", programname, vmsgbuf);
+		exit(1);
+	}
+
+	if (rop->is_error && sms_redirect()) {
+		sms_error(vmsgbuf);
+		return;
+	}
+
+	XtVaSetValues(rop->form, XtNlabel, vmsgbuf, NULL);
+	if (a != NULL)
+		XtMapWidget(rop->cancel_button);
+	else
+		XtUnmapWidget(rop->cancel_button);
+	rop->cancel_callback = a;
+	if (!rop->visible) {
+		if (rop->is_error)
+			ring_bell();
+		rop->visible = True;
+		popup_popup(rop->shell, rop->grab);
+	}
 }
 
 /* Pop up an error dialog. */
@@ -435,23 +518,8 @@ popup_an_error(const char *fmt, ...)
 	va_list args;
 
 	va_start(args, fmt);
-	(void) vsprintf(vmsgbuf, fmt, args);
-	if (!error_shell) {
-		(void) fprintf(stderr, "%s: %s\n", programname, vmsgbuf);
-		exit(1);
-	}
-
-	if (sms_redirect()) {
-		sms_error(vmsgbuf);
-		return;
-	}
-
-	XtVaSetValues(error_form, XtNlabel, vmsgbuf, NULL);
-	if (!error_popup_visible) {
-		ring_bell();
-		error_popup_visible = True;
-		popup_popup(error_shell, XtGrabExclusive);
-	}
+	popup_rop(&error_popup, NULL, fmt, args);
+	va_end(args);
 }
 
 /* Pop up an error dialog, based on an error number. */
@@ -463,6 +531,7 @@ popup_an_errno(int errn, const char *fmt, ...)
 
 	va_start(args, fmt);
 	(void) vsprintf(vmsgbuf, fmt, args);
+	va_end(args);
 	s = XtNewString(vmsgbuf);
 
 	if (errn > 0)
@@ -472,64 +541,6 @@ popup_an_errno(int errn, const char *fmt, ...)
 	XtFree(s);
 }
 
-
-/*
- * Info popup
- */
-
-static Widget info_shell = NULL;
-static Widget info_form;
-Boolean info_popup_visible = False;
-
-/* Called when OK is pressed on the info popup */
-static void
-saw_info(Widget w unused, XtPointer client_data unused,
-    XtPointer call_data unused)
-{
-	XtPopdown(info_shell);
-}
-
-/* Called when the info popup is closed */
-static void
-info_popdown(Widget w unused, XtPointer client_data unused,
-    XtPointer call_data unused)
-{
-	info_popup_visible = False;
-}
-
-void
-info_popup_init(void)
-{
-	Widget w;
-
-	if (info_shell != NULL)
-		return;
-
-	info_shell = XtVaCreatePopupShell(
-	    "infoPopup", transientShellWidgetClass, toplevel,
-	    NULL);
-	XtAddCallback(info_shell, XtNpopupCallback, place_popup,
-	    (XtPointer) CenterP);
-	XtAddCallback(info_shell, XtNpopdownCallback, info_popdown, PN);
-
-	/* Create a dialog in the popup */
-	info_form = XtVaCreateManagedWidget(
-	    ObjDialog, dialogWidgetClass, info_shell,
-	    NULL);
-	XtVaSetValues(XtNameToWidget(info_form, XtNlabel),
-	    XtNlabel, "first line\nsecond line\nthird line\nfourth line",
-	    NULL);
-
-	/* Add "OK" button to the dialog */
-	w = XtVaCreateManagedWidget(
-	    ObjConfirmButton, commandWidgetClass, info_form,
-	    NULL);
-	XtAddCallback(w, XtNcallback, saw_info, 0);
-
-	/* Force it into existence so it sizes itself with 4-line text */
-	XtRealizeWidget(info_shell);
-}
-
 /* Pop up an info dialog. */
 void
 popup_an_info(const char *fmt, ...)
@@ -537,19 +548,60 @@ popup_an_info(const char *fmt, ...)
 	va_list args;
 
 	va_start(args, fmt);
-	(void) vsprintf(vmsgbuf, fmt, args);
-	if (!info_shell) {
-		(void) printf("%s: %s\n", programname, vmsgbuf);
-		return;
-	}
-
-	XtVaSetValues(info_form, XtNlabel, vmsgbuf, NULL);
-	if (!info_popup_visible) {
-		info_popup_visible = True;
-		popup_popup(info_shell, XtGrabNonexclusive);
-	}
+	popup_rop(&info_popup, NULL, fmt, args);
+	va_end(args);
 }
 
+/* Initialization. */
+
+void
+error_popup_init(void)
+{
+	rop_init(&error_popup);
+}
+
+void
+info_popup_init(void)
+{
+	rop_init(&info_popup);
+}
+
+void
+printer_popup_init(void)
+{
+	if (printer_error_popup.shell != NULL)
+		return;
+	rop_init(&printer_error_popup);
+	rop_init(&printer_info_popup);
+}
+
+/* Query. */
+Boolean
+error_popup_visible(void)
+{
+	return error_popup.visible;
+}
+
+/*
+ * Printer pop-up.
+ * Allows both error and info popups, and a cancel button.
+ *   is_err	If True, this is an error pop-up.  If false, this is an info
+ *		pop-up.
+ *   a		If non-NULL, the Cancel button is enabled, and this is the
+ *		callback function for it.  If NULL, there will be no Cancel
+ *		button.
+ *   fmt...	printf()-like format and arguments.
+ */
+void
+popup_printer_output(Boolean is_err, abort_callback_t *a, const char *fmt, ...)
+{
+	va_list args;
+
+	va_start(args, fmt);
+	popup_rop(is_err? &printer_error_popup: &printer_info_popup, a, fmt,
+	    args);
+	va_end(args);
+}
 
 /*
  * Script actions

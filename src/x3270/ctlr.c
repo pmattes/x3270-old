@@ -1232,10 +1232,11 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 			}
 			do {
 				if (ra_ge)
-					ctlr_add(buffer_addr, ebc2cg0[*cp],
+					ctlr_add(buffer_addr, ebc2cg_ge[*cp],
 					    CS_GE);
 				else if (default_cs)
-					ctlr_add(buffer_addr, ebc2cg0[*cp], 1);
+					ctlr_add(buffer_addr, ebc2cg_ge[*cp],
+					    1);
 				else
 					ctlr_add(buffer_addr, ebc2cg[*cp], 0);
 				ctlr_add_fg(buffer_addr, default_fg);
@@ -1280,7 +1281,7 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 			trace_ds(see_ebc(*cp));
 			if (*cp)
 				trace_ds("'");
-			ctlr_add(buffer_addr, ebc2cg0[*cp], CS_GE);
+			ctlr_add(buffer_addr, ebc2cg_ge[*cp], CS_GE);
 			ctlr_add_fg(buffer_addr, default_fg);
 			ctlr_add_gr(buffer_addr, default_gr);
 			INC_BA(buffer_addr);

@@ -8,6 +8,7 @@
 # Auxiliary makefile for tcl3270
 
 TARDIR=tcl3270-3.2
+RM=rm -f
 
 all:
 	@echo "Must pick a specific make target."
@@ -24,10 +25,16 @@ HEADERS = 3270ds.h actionsc.h ansic.h aplc.h appres.h cg.h charsetc.h ctlr.h \
 	screenc.h scrollc.h selectc.h sfc.h statusc.h tablesc.h telnet.h \
 	telnetc.h tn3270e.h togglesc.h trace_dsc.h utilc.h xioc.h X11/keysym.h
 MISC = version.txt tcl3270.man mkversion.sh \
-	Makefile Makefile.aux README tcl3270.lsm Examples/cms_cmd.tcl3270 
+	Makefile Makefile.aux README tcl3270.lsm Examples/cms_cmd.tcl3270  \
+	tcl3270.lsm.tmpl tcl3270.man.tmpl gen_lsm gen_man
 HTML = html/Build.html html/FAQ.html html/Intro.html html/Lineage.html \
 	html/New.html html/README.html html/tcl3270-man.html
 FILES = $(SOURCES) $(HEADERS) $(MISC) $(HTML)
+
+html/tcl3270-man.html: tcl3270.man
+	[ ! -w $@ ] && co -l $@
+	tbl tcl3270.man | nroff -man | \
+	 man2html -topm 6 -botm 6 >$@
 
 tarlist: Makefile.aux
 	$(RM) tarlist
@@ -45,3 +52,9 @@ tcl3270.tar: $(FILES) tarlist
 
 tcl3270.tgz: tcl3270.tar
 	gzip <tcl3270.tar >$@
+
+lsm:
+	./gen_lsm tcl3270
+
+tcl3270.man: tcl3270.man.tmpl version.txt gen_man
+	./gen_man tcl3270.man

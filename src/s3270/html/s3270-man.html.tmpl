@@ -1,0 +1,461 @@
+<!doctype html public "-//w3c//dtd html 4.0 transitional//en">
+<html>
+<head>
+   <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+   <meta name="GENERATOR" content="Mozilla/4.5 [en] (WinNT; U) [Netscape]">
+   <title>s3270 - scripted IBM host access tool</title>
+</head>
+<body>
+
+<h1>
+<img SRC="x3270.xbm"  align=CENTER>
+s3270 - scripted IBM host access tool</h1>
+
+<h2>
+SYNOPSIS</h2>
+<b>s3270</b> [<i>options</i>] [<i>host</i>]
+<h2>
+DESCRIPTION</h2>
+<b>s3270</b> opens a telnet connection to an IBM host, then allows a script
+to run the host login session. It is derived from <i>x3270</i>, an X-windows
+IBM 3270 terminal emulator. It supports both the "standard" 3270 TELNET
+protocol and the TN3270E protocol, except for printers, and supports IND$FILE
+file transfer.
+<p>The full syntax for <i>host</i> is:
+<blockquote>[<i>prefix</i><b>:</b>]...[<i>LUname</i><b>@</b>]<i>hostname</i>[<b>:</b><i>port</i>]</blockquote>
+Prepending a <b>p:</b> onto <i>hostname</i> causes the connection to go
+through the <i>telnet-passthru</i> service rather than directly to the
+host. See <a href="#PASSTHRU">PASSTHRU</a> below.
+<p>Prepending an <b>s:</b> onto <i>hostname</i> removes the "extended data
+stream" option reported to the host. See <b><a href="#-tn">-tn</a></b>
+for further information.
+<p>A specific LU name to use may be specified by prepending it to the
+<i>hostname</i>
+with an <b>@</b>.
+<p>The port to connect to defaults to <b>telnet</b>. This can be overridden
+with the <b><a href="#-port">-port</a></b> option, or by appending a <i>port</i>
+to the <i>hostname</i> with a colon <b>:</b>. (For compatability with previous
+versions of <i>x3270</i> and with <i>tn3270</i>, the <i>port</i> may also
+be specified as a second, separate argument.)
+<h2>
+OPTIONS</h2>
+<b>s3270</b> understands the following options:
+<dl>
+<dt>
+<b>-apl</b></dt>
+
+<dd>
+Sets up APL mode. Also see <a href="#APL SUPPORT">APL SUPPORT</a>.</dd>
+
+<dt>
+<b>-charset</b> <i>name</i></dt>
+
+<dd>
+Specifies an EBCDIC national character set. See <a href="#CHARACTER SETS">CHARACTER
+SETS</a>.</dd>
+
+<dt>
+<b>-clear</b> <i>toggle</i></dt>
+
+<dd>
+Sets the initial value of <i>toggle</i> to <b>false</b>. The list of <a href="#toggle names">toggle
+names</a> is under
+<a href="#TOGGLES">TOGGLES</a> below.</dd>
+
+<dt>
+<b>-model</b> <i>name</i></dt>
+
+<dd>
+The model of 3270 display to be emulated. The model name is in three parts,
+any of which may be omitted:</dd>
+
+<br>&nbsp;
+<p>&nbsp;
+<p>The first part is the <b>base model</b>, which is either <b>3278</b>
+or <b>3279</b>. <b>3278</b> specifies a monochrome 3270 display;
+<b>3279</b>
+specifies a color 3270 display.
+<p>The second part is the <b>model number</b>, which specifies the number
+of rows and columns. Model 4 is the default.
+<pre>&nbsp;&nbsp;&nbsp; Model Number&nbsp; Columns&nbsp;&nbsp; Rows
+&nbsp;&nbsp;&nbsp; ----------------------------
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 2&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 80&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 24
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 3&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 80&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 30
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 4&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 80&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 43
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 5&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 132&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 27</pre>
+<b>Note</b>: Technically, there is no such 3270 display as a 3279-4 or
+3279-5, but most hosts seem to work with them anyway.
+<p>The third part specifies the Extended 3270 Data Stream, and is given
+as <b>-E</b>. It signals the host that the 3270 display is capable of displaying
+extended field attributes, and supports structured fields and query replies.
+A 3279 always uses the Extended Data Stream (whether or not <b>-E</b> is
+specified); for a 3278 it is optional.
+<p>The default model is <b>3279-4-E</b>.
+<dt>
+<b>-oversize</b> <i>cols</i><b>x</b><i>rows</i></dt>
+
+<dd>
+Makes the screen larger than the default for the chosen model number. This
+option has effect only in combination with extended data stream support
+(the <b>-E</b> suffix on the model), and only if the host supports the
+Query Reply structured field. The number of columns multiplied by the number
+of rows must not exceed 16383 (3fff hex), the limit of 14-bit 3270 buffer
+addressing.</dd>
+
+<dt>
+<a NAME="-port"></a><b>-port</b> <i>n</i></dt>
+
+<dd>
+Specifies a different TCP port to connect to.
+<i>n</i> can be a name from
+<b>/etc/services</b>
+like <b>telnet</b>, or a number. This option changes the default port number
+used for all connections. (The positional parameter affects only the initial
+connection.)</dd>
+
+<dt>
+<b>-set</b> <i>toggle</i></dt>
+
+<dd>
+Sets the initial value of <i>toggle</i> to <b>true.</b> The list of <a href="#toggle names">toggle
+names</a> is under
+<a href="#TOGGLES">TOGGLES</a> below.</dd>
+
+<dt>
+<a NAME="-tn"></a><b>-tn</b> <i>name</i></dt>
+
+<dd>
+Specifies the terminal name to be transmitted over the telnet connection.
+The default name is <b>IBM-</b><i>model_name</i>, for example,
+<b>IBM-3279-4-E</b>.</dd>
+
+<br>&nbsp;
+<p>&nbsp;
+<p>Some hosts are confused by the <b>-E</b> suffix on the terminal name,
+and will ignore the extra screen area on models 3, 4 and 5. Prepending
+an <b>:s</b> on the hostname removes the <b>-E</b> from the terminal name
+when connecting to such hosts.</dl>
+
+<h2>
+<a NAME="CHARACTER SETS"></a>CHARACTER SETS</h2>
+The <b>-charset</b> option controls the EBCDIC national character set used
+by <b>s3270.</b> Available sets include:
+<pre>&nbsp;&nbsp;&nbsp; Charset Name&nbsp;&nbsp;&nbsp; Q121 Code
+&nbsp;&nbsp;&nbsp; -------------------------
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; bracket&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; -
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; us-intl&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 01
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; german&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 03
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; finnish&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 09
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; uk&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 22
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; norwegian&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 23
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; french&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 30
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; hebrew&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; -
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; icelandic&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; -
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; belgian&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; -</pre>
+The default character set is <b>bracket</b>, which useful for common IBM
+hosts which use EBCDIC codes 0xAD and 0xBD for the `[' and `]' characters,
+respectively.
+<h2>
+ANSI MODE</h2>
+Some hosts use an ASCII front-end to do initial login negotiation, then
+later switch to 3270 mode.
+<b>s3270</b> will emulate an ANSI X.64 terminal
+until the host places it in 3270 mode (telnet BINARY and SEND EOR modes).
+This allows <b>s3270</b> to be used to script standard TELNET sessions
+as well.
+<p>If the host later negotiates to stop functioning in 3270 mode, <b>s3270</b>
+will return to ANSI emulation.
+<p>When emulating an ANSI terminal, <b>s3270</b> supports both character-at-a-time
+mode and line mode operation. When in line mode, the special characters
+and operational characteristics are defined as follows:
+<pre>&nbsp;&nbsp;&nbsp; Mode/Character&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Setting
+&nbsp;&nbsp;&nbsp; ---------------------------------
+&nbsp;&nbsp;&nbsp; Translate CR to NL&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; true
+&nbsp;&nbsp;&nbsp; Translate NL to CR&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; false
+&nbsp;&nbsp;&nbsp; Erase previous character&nbsp; ^?
+&nbsp;&nbsp;&nbsp; Erase entire line&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ^U
+
+&nbsp;&nbsp;&nbsp; Erase previous word&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ^W
+&nbsp;&nbsp;&nbsp; Redisplay line&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ^R
+&nbsp;&nbsp;&nbsp; Ignore special meaning of
+&nbsp;&nbsp;&nbsp;&nbsp; next character&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ^V
+&nbsp;&nbsp;&nbsp; Interrupt&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ^C
+&nbsp;&nbsp;&nbsp; Quit&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ^\
+&nbsp;&nbsp;&nbsp; End of file&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ^D</pre>
+
+<h2>
+<a NAME="TOGGLES"></a>TOGGLES</h2>
+<b>s3270</b> has a number of configurable modes which may be selected by
+the <b>-set</b> and <b>-clear</b> options.
+<dl>
+<dt>
+<b>monoCase</b></dt>
+
+<dd>
+If set, <b>s3270</b> operates in uppercase-only mode.</dd>
+
+<dt>
+<b>blankFill</b></dt>
+
+<dd>
+If set, <b>s3270</b> behaves in some un-3270-like ways. First, when a character
+is typed into a field, all nulls in the field to the left of that character
+are changed to blanks. This eliminates a common 3270 data-entry surprise.
+Second, in insert mode, trailing blanks in a field are treated like nulls,
+eliminating the annoying "lock-up" that often occurs when inserting into
+an field with (apparent) space at the end.</dd>
+
+<dt>
+<b>lineWrap</b></dt>
+
+<dd>
+If set, the ANSI terminal emulator automatically assumes a NEWLINE character
+when it reaches the end of a line.</dd>
+</dl>
+<h2>
+<a NAME="ACTIONS"></a>ACTIONS</h2>
+<b>s3270</b> supports the following basic actions:
+<pre>&nbsp;&nbsp;&nbsp; Attn&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; attention key
+&nbsp;&nbsp;&nbsp; BackSpace&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; move cursor left (or send ASCII BS)
+&nbsp;&nbsp;&nbsp; BackTab&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; tab to start of previous input field
+&nbsp;&nbsp;&nbsp; CircumNot&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; input <b>^</b> in ANSI mode, or <b>&not;</b> in 3270 mode
+&nbsp;&nbsp;&nbsp; Clear&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; clear screen
+&nbsp;&nbsp;&nbsp; CursorSelect&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Cursor Select AID
+&nbsp;&nbsp;&nbsp; Cut&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; erase selected text
+&nbsp;&nbsp;&nbsp; Delete&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; delete character under cursor (or send ASCII DEL)
+&nbsp;&nbsp;&nbsp; DeleteField&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; delete the entire field
+&nbsp;&nbsp;&nbsp; DeleteWord&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; delete the current or previous word
+&nbsp;&nbsp;&nbsp; Down&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; move cursor down
+&nbsp;&nbsp;&nbsp; Dup&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; duplicate field
+&nbsp;&nbsp;&nbsp; Enter&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Enter AID (or send ASCII CR)
+&nbsp;&nbsp;&nbsp; Erase&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; erase previous character (or send ASCII BS)
+&nbsp;&nbsp;&nbsp; EraseEOF&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; erase to end of current field
+&nbsp;&nbsp;&nbsp; EraseInput&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; erase all input fields
+&nbsp;&nbsp;&nbsp; Execute(<i>cmd</i>)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; execute a command in a shell
+&nbsp;&nbsp;&nbsp; FieldEnd&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; move cursor to end of field
+&nbsp;&nbsp;&nbsp; FieldExit&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; clear to end of field and skip to next (5250 emulation)
+&nbsp;&nbsp;&nbsp; FieldMark&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; mark field
+&nbsp;&nbsp;&nbsp; HexString(<i>hex_digits</i>)&nbsp; insert control-character string
+&nbsp;&nbsp;&nbsp; Home&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; move cursor to first input field
+&nbsp;&nbsp;&nbsp; Insert&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; set insert mode
+&nbsp;&nbsp;&nbsp; Key(<i>keysym</i>)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; insert key <i>keysym
+</i>&nbsp;&nbsp;&nbsp; Left&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; move cursor left
+&nbsp;&nbsp;&nbsp; Left2&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; move cursor left 2 positions
+&nbsp;&nbsp;&nbsp; MonoCase&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; toggle uppercase-only mode
+&nbsp;&nbsp;&nbsp; Newline&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; move cursor to first field on next line (or send ASCII LF)
+&nbsp;&nbsp;&nbsp; NextWord&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; move cursor to next word
+&nbsp;&nbsp;&nbsp; PA(<i>n</i>)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Program Attention AID (<i>n</i> from 1 to 3)
+&nbsp;&nbsp;&nbsp; PF(<i>n</i>)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Program Function AID (<i>n</i> from 1 to 24)
+&nbsp;&nbsp;&nbsp; PreviousWord&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; move cursor to previous word
+&nbsp;&nbsp;&nbsp; Quit&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; exit <b>s3270
+</b>&nbsp;&nbsp;&nbsp; Reset&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; reset locked keyboard
+&nbsp;&nbsp;&nbsp; Right&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; move cursor right
+&nbsp;&nbsp;&nbsp; Right2&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; move cursor right 2 positions
+&nbsp;&nbsp;&nbsp; Script(<i>command</i>[,<i>arg</i>...])&nbsp; run a script
+&nbsp;&nbsp;&nbsp; String(<i>string</i>)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; insert string (simple macro facility)
+&nbsp;&nbsp;&nbsp; SysReq&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; System Request AID
+&nbsp;&nbsp;&nbsp; Tab&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; move cursor to next input field
+&nbsp;&nbsp;&nbsp; ToggleInsert&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; toggle insert mode
+&nbsp;&nbsp;&nbsp; Transfer(<i>option</i>=<i>value</i>,...)&nbsp; file transfer
+&nbsp;&nbsp;&nbsp; Up&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; move cursor up</pre>
+
+<h2>
+SCRIPTS</h2>
+There are several types of nested scripting functions available.
+<dl>
+<dt>
+<b>The String() Action</b></dt>
+
+<dd>
+The simplest method for macros is provided via the String action. The arguments
+to String() are one or more double-quoted strings which are inserted directly
+as if typed. The C backslash conventions are honored as follows. (Entries
+marked * mean that after sending the AID code to the host,
+<b>s3270</b>
+will wait for the host to unlock the keyboard before further processing
+the string.)</dd>
+
+<pre>&nbsp;&nbsp;&nbsp; \b&nbsp;&nbsp;&nbsp;&nbsp; Left
+&nbsp;&nbsp;&nbsp; \f&nbsp;&nbsp;&nbsp;&nbsp; Clear
+&nbsp;&nbsp;&nbsp; \n&nbsp;&nbsp;&nbsp;&nbsp; Enter
+&nbsp;&nbsp;&nbsp; \pa<i>n</i>&nbsp;&nbsp; PA key <i>n
+</i>&nbsp;&nbsp;&nbsp; \pf<i>nn</i>&nbsp; PF key <i>nn
+</i>&nbsp;&nbsp;&nbsp; \r&nbsp;&nbsp;&nbsp;&nbsp; Newline
+&nbsp;&nbsp;&nbsp; \t&nbsp;&nbsp;&nbsp;&nbsp; Tab</pre>
+<b>Note:</b> The strings are in ASCII and converted to EBCDIC, so beware
+of inserting control codes.
+<p>There is also an alternate form of the String action, HexString, which
+is used to enter non-printing data. The argument to HexString is a string
+of hexadecimal digits, two per character. A leading <b>0x</b> or <b>0X</b>
+is optional. In 3270 mode, the hexadecimal data represent EBCDIC characters,
+which are entered into the current field. In ANSI mode, the hexadecimal
+data represent ASCII characters, which are sent directly to the host.
+<dt>
+<b>The Script() Action</b></dt>
+
+<dd>
+This facility causes <b>s3270</b> to start a child process which can execute
+<b>s3270</b>
+actions. The child process' standard input and output are piped back to
+<b>s3270</b>.
+The <b>Script()</b> action is fully documented in <a href="x3270-script.html"><i>x3270-script</i>(1)</a>.</dd>
+</dl>
+
+<h2>
+<a NAME="APL SUPPORT"></a>APL SUPPORT</h2>
+<b>s3270</b> supports the full APL2 character set and the entry of APL
+characters with the Key() action.
+<p>The complete list of special APL keysyms is as follows. Entries marked
+with an asterisk (*) represent simple aliases for standard EBCDIC characters.
+<pre>&nbsp;APL Symbol&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Hex&nbsp; s3270 Keysym
+&nbsp;------------------ ---- --------------------&nbsp;
+&nbsp;A underbar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 41&nbsp;&nbsp; apl_Aunderbar
+&nbsp;alpha&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; B0&nbsp;&nbsp; apl_alpha
+&nbsp;B underbar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 42&nbsp;&nbsp; apl_Bunderbar
+&nbsp;bar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 60*&nbsp; apl_bar
+&nbsp;C underbar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 43&nbsp;&nbsp; apl_Cunderbar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;circle&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 9D&nbsp;&nbsp; apl_circle&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;circle bar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ED&nbsp;&nbsp; apl_circlebar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;circle slope&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; CF&nbsp;&nbsp; apl_circleslope&nbsp;&nbsp;&nbsp;
+&nbsp;circle star&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; FD&nbsp;&nbsp; apl_circlestar&nbsp;&nbsp;&nbsp;
+&nbsp;circle stile&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; CD&nbsp;&nbsp; apl_circlestile&nbsp;
+&nbsp;colon&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 7A*&nbsp; apl_colon&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;comma&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 6B*&nbsp; apl_comma&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;D underbar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 44&nbsp;&nbsp; apl_Dunderbar
+&nbsp;del&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; BA&nbsp;&nbsp; apl_del&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;del stile&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; DC&nbsp;&nbsp; apl_delstile&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;del tilde&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; FB&nbsp;&nbsp; apl_deltilde&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;delta&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; BB&nbsp;&nbsp; apl_delta&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;delta stile&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; DD&nbsp;&nbsp; apl_deltastile&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;delta underbar&nbsp;&nbsp;&nbsp;&nbsp; FC&nbsp;&nbsp; apl_deltaunderbar&nbsp;
+&nbsp;diamond&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 70&nbsp;&nbsp; apl_diamond&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;dieresis&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 72&nbsp;&nbsp; apl_dieresis&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;dieresis dot&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; EC&nbsp;&nbsp; apl_dieresisdot
+&nbsp;divide&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; B8&nbsp;&nbsp; apl_divide&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;dot&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 4B*&nbsp; apl_dot&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;down arrow&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 8B&nbsp;&nbsp; apl_downarrow&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;down caret&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 78&nbsp;&nbsp; apl_downcaret&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;down caret tilde&nbsp;&nbsp; CB&nbsp;&nbsp; apl_downcarettilde
+&nbsp;down shoe&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; AB&nbsp;&nbsp; apl_downshoe&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;down stile&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 8E&nbsp;&nbsp; apl_downstile&nbsp;&nbsp;&nbsp;
+&nbsp;down tack&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; AC&nbsp;&nbsp; apl_downtack&nbsp;&nbsp;&nbsp;
+&nbsp;down tack jot&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; FE&nbsp;&nbsp; apl_downtackjot&nbsp;&nbsp;&nbsp;
+&nbsp;down tack up tack&nbsp; DA&nbsp;&nbsp; apl_downtackuptack
+&nbsp;E underbar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 45&nbsp;&nbsp; apl_Eunderbar&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;epsilon&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; B1&nbsp;&nbsp; apl_epsilon&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;epsilon underbar&nbsp;&nbsp; 75&nbsp;&nbsp; apl_epsilonunderbar
+&nbsp;equal&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 7E*&nbsp; apl_equal&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;equal underbar&nbsp;&nbsp;&nbsp;&nbsp; E1&nbsp;&nbsp; apl_equalunderbar
+&nbsp;F underbar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 46&nbsp;&nbsp; apl_Funderbar&nbsp;&nbsp;&nbsp;
+&nbsp;G underbar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 47&nbsp;&nbsp; apl_Gunderbar&nbsp;&nbsp;
+&nbsp;greater&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 6E*&nbsp; apl_greater&nbsp;&nbsp;&nbsp;
+&nbsp;H underbar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 48&nbsp;&nbsp; apl_Hunderbar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;I underbar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 49&nbsp;&nbsp; apl_Iunderbar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;iota&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; B2&nbsp;&nbsp; apl_iota&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;iota underbar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 74&nbsp;&nbsp; apl_iotaunderbar&nbsp;
+&nbsp;J underbar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 51&nbsp;&nbsp; apl_Junderbar&nbsp;&nbsp;&nbsp;
+&nbsp;jot&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; AF&nbsp;&nbsp; apl_jot&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;K underbar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 52&nbsp;&nbsp; apl_Kunderbar&nbsp;
+&nbsp;L underbar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 53&nbsp;&nbsp; apl_Lunderbar
+&nbsp;left arrow&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 9F&nbsp;&nbsp; apl_leftarrow&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;left bracket&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; AD&nbsp;&nbsp; apl_leftbracket&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;left paren&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 4D*&nbsp; apl_leftparen&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;left shoe&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 9B&nbsp;&nbsp; apl_leftshoe&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;less&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 4C*&nbsp; apl_less&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;M underbar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 54&nbsp;&nbsp; apl_Munderbar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;N underbar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 55&nbsp;&nbsp; apl_Nunderbar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;not equal&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; BE&nbsp;&nbsp; apl_notequal&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;not greater&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 8C&nbsp;&nbsp; apl_notgreater&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;not less&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; AE&nbsp;&nbsp; apl_notless&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;O underbar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 56&nbsp;&nbsp; apl_Ounderbar&nbsp;&nbsp;&nbsp;
+&nbsp;omega&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; B4&nbsp;&nbsp; apl_omega&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;overbar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; A0&nbsp;&nbsp; apl_overbar&nbsp;&nbsp;&nbsp;
+&nbsp;P underbar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 57&nbsp;&nbsp; apl_Punderbar
+&nbsp;plus&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 4E*&nbsp; apl_plus&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;Q underbar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 58&nbsp;&nbsp; apl_Qunderbar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;quad&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 90&nbsp;&nbsp; apl_quad&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;quad divide&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; EE&nbsp;&nbsp; apl_quaddivide&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;quad jot&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 73&nbsp;&nbsp; apl_quadjot&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;quad quote&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; DE&nbsp;&nbsp; apl_quadquote&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;quad slope&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; CE&nbsp;&nbsp; apl_quadslope&nbsp;&nbsp;&nbsp;
+&nbsp;query&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 6F*&nbsp; apl_query&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;quote&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 7D*&nbsp; apl_quote&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;quote dot&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; DB&nbsp;&nbsp; apl_quotedot&nbsp;
+&nbsp;R underbar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 59&nbsp;&nbsp; apl_Runderbar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;rho&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; B3&nbsp;&nbsp; apl_rho&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;right arrow&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 8F&nbsp;&nbsp; apl_rightarrow&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;right bracket&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; BD&nbsp;&nbsp; apl_rightbracket&nbsp;&nbsp;
+&nbsp;right paren&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 5D*&nbsp; apl_rightparen&nbsp;&nbsp;&nbsp;
+&nbsp;right shoe&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 9A&nbsp;&nbsp; apl_rightshoe&nbsp;&nbsp;&nbsp;
+&nbsp;S underbar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 62&nbsp;&nbsp; apl_Sunderbar&nbsp;&nbsp;
+&nbsp;semicolon&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 5E*&nbsp; apl_semicolon&nbsp;
+&nbsp;slash&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 61*&nbsp; apl_slash&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;slash bar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; EA&nbsp;&nbsp; apl_slashbar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;slope&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; B7&nbsp;&nbsp; apl_slope&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;slope bar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; EB&nbsp;&nbsp; apl_slopebar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;squad&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; CC&nbsp;&nbsp; apl_squad&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;star&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 5C*&nbsp; apl_star&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;stile&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; BF&nbsp;&nbsp; apl_stile&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;T underbar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 63&nbsp;&nbsp; apl_Tunderbar&nbsp;
+&nbsp;tilde&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 80&nbsp;&nbsp; apl_tilde&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;times&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; B6&nbsp;&nbsp; apl_times&nbsp;&nbsp;&nbsp;
+&nbsp;U underbar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 64&nbsp;&nbsp; apl_Uunderbar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;underbar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 6D*&nbsp; apl_underbar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;up arrow&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 8A&nbsp;&nbsp; apl_uparrow&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;up caret&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 71&nbsp;&nbsp; apl_upcaret&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;up caret tilde&nbsp;&nbsp;&nbsp;&nbsp; CA&nbsp;&nbsp; apl_upcarettilde
+&nbsp;up shoe&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; AA&nbsp;&nbsp; apl_upshoe&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;up shoe jot&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; DF&nbsp;&nbsp; apl_upshoejot&nbsp;
+&nbsp;up stile&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 8D&nbsp;&nbsp; apl_upstile&nbsp;&nbsp;
+&nbsp;up tack&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; BC&nbsp;&nbsp; apl_uptack&nbsp;&nbsp;
+&nbsp;up tack jot&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; EF&nbsp;&nbsp; apl_uptackjot&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;V underbar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 65&nbsp;&nbsp; apl_Vunderbar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;W underbar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 66&nbsp;&nbsp; apl_Wunderbar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;X underbar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 67&nbsp;&nbsp; apl_Xunderbar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;Y underbar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 68&nbsp;&nbsp; apl_Yunderbar&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;Z underbar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 69&nbsp;&nbsp; apl_Zunderbar</pre>
+
+<h2>
+<a NAME="PASSTHRU"></a>PASSTHRU</h2>
+<b>s3270</b> supports the Sun <i>telnet-passthru</i> service provided by
+the
+<i>in.telnet-gw</i> server. This allows outbound telnet connections
+through a firewall machine. When a <b>p:</b> is prepended to a hostname,
+<b>s3270</b>
+acts much like the
+<i>itelnet</i>(1) command. It contacts the machine named
+<b>internet-gateway</b> at the port defined in
+<b>/etc/services</b> as
+<b>telnet-passthru</b> (which defaults to 3514). It then passes the requested
+hostname and port to the <b>in.telnet-gw</b> server.
+<h2>
+SEE ALSO</h2>
+<i>telnet</i>(1)
+<br><i>x3270</i>(1)
+<br><a href="x3270-script.html"><i>x3270-script</i>(1)</a>
+<br><i>Data Stream Programmer's Reference, IBM GA23-0059</i>
+<br><i>Character Set Reference, IBM GA27-3831</i>
+<br><i>RFC 1576, TN3270 Current Practices</i>
+<br><i>RFC 1646, TN3270 Extensions for LUname and Printer Selection</i>
+<br><i>RFC 2355, TN3270 Enhancements</i>
+<h2>
+COPYRIGHTS</h2>
+Modifications Copyright &copy; 1993, 1994, 1995, 1996, 1997, 1999, 2000
+by Paul Mattes.
+<br>Original X11 Port Copyright &copy; 1990 by Jeff Sparkes.
+<br>Permission to use, copy, modify, and distribute this software and its
+documentation for any purpose and without fee is hereby granted, provided
+that the above copyright notice appear in all copies and that both that
+copyright notice and this permission notice appear in supporting documentation.
+<p>Copyright &copy; 1989 by Georgia Tech Research Corporation, Atlanta,
+GA 30332.
+<br>All Rights Reserved. GTRC hereby grants public use of this software.
+Derivative works based on this software must incorporate this copyright
+notice.
+<p>5250 Emulation Code Copyright &copy; Minolta (Schweiz) AG, Beat Rubischon.
+<hr>
+<address>
+s3270 version $VERSION, last modified $DATE</address>
+
+</body>
+</html>

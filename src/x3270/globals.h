@@ -113,7 +113,6 @@ extern char		*current_host;
 extern unsigned short	current_port;
 extern Boolean		*debugging_font;
 extern char		*efontname;
-extern Boolean		error_popup_visible;
 extern Boolean		ever_3270;
 extern Boolean		exiting;
 extern Boolean		*extended_3270font;
