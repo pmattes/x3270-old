@@ -28,7 +28,30 @@ of the 3270 display.
 This required changing all of the logic that manipulates
 field attributes, as well as the logic that translates the host output, keyboard
 input, and X11 display output.</p>
-<h2>Changes in x3270 3.3.3, 31. December 2004</h2>
+<h2>Changes in x3270 3.3.3b2, 1. February 2005</h2>
+<ul>
+  <li>Bug Fixes:
+    <ul>
+       <li>Reduced the Resident Set Size (RSS) of x3270 from about 40 MBytes to
+        less than 4 MBytes.  This was a bug in how compiled-in app-defaults
+        files were generated. </li>
+      <li>Got separate app-defaults files (<b>configure --enable-app-defaults</b>)
+       to work again.</li>
+      <li>Fixed a crash when a login macro is used in NVT mode or when the
+       host un-negotiates TN3270E mode.</li>
+      <li>Fixed the titles of the Copyright and Configuration pop-ups.</li>
+      <li>Temporarily disabled the RPQNAMES Query Reply.  It was causing IBM
+       QMF to crash.  It can be re-enabled by adding <b>#define X3270_RPQNAMES
+       1</b> to <b>conf.h</b>.  Hopefully a proper fix can be found shortly.
+       </li>
+    </ul>
+  </li>
+  <li>New Features:
+    <ul>
+    </ul>
+  </li>
+</ul>
+<h2>Changes in x3270 3.3.3b1, 31. December 2004</h2>
 <ul>
   <li>Bug Fixes:
     <ul>
@@ -85,7 +108,7 @@ input, and X11 display output.</p>
       default.  Button 1 now moves the cursor, without the Shift key.</li>
       <li>Added support for DBCS in pr3287, but only when started from an
        x3270 session.</li>
-     <li>Added Don Russel's RPQNAMES support.</li>
+     <li>Added Don Russell's RPQNAMES support.</li>
      <li>Removed Minolta-copyrighted code, because of licensing problems.</li>
      <li>Added an <b>aidWait</b> toggle to allow AID actions (<b>Clear</b>,
       <b>Enter</b>, <b>PA</b> and <b>PF</b>) to complete immediately without

@@ -1,6 +1,6 @@
 /*
  * Modifications Copyright 1993, 1994, 1995, 1996, 1999, 2000,
- *   2001, 2002, 2004 by Paul Mattes.
+ *   2001, 2002, 2004, 2005 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -61,9 +61,6 @@
 /* Externals */
 #if defined(USE_APP_DEFAULTS) /*[*/
 extern const char *app_defaults_version;
-#else /*][*/
-extern String	color_fallbacks[];
-extern String	mono_fallbacks[];
 #endif /*]*/
 
 /* Globals */
@@ -149,14 +146,24 @@ XrmOptionDescRec options[]= {
 int num_options = XtNumber(options);
 
 /* Fallback resources. */
-#if defined(USE_APP_DEFAULTS) /*[*/
 static String fallbacks[] = {
+	/* This should be overridden by real app-defaults. */
 	"*adVersion:	fallback",
+
+	/*
+	 * This must be defined in the real app-defaults or here, or it won't
+	 * be applied to the top-level object.
+	 */
+	"x3270.translations: #override \\n\
+<Message>WM_PROTOCOLS:          PA-WMProtocols()\\n\
+<KeymapNotify>:                 PA-KeymapNotify()\\n\
+<PropertyNotify>WM_STATE:       PA-StateChanged()\\n\
+<FocusIn>:                      PA-Focus()\\n\
+<FocusOut>:                     PA-Focus()\\n\
+<ConfigureNotify>:              PA-ConfigureNotify()",
+
 	NULL
 };
-#else /*][*/
-static String *fallbacks = color_fallbacks;
-#endif /*]*/
 
 struct toggle_name toggle_names[N_TOGGLES] = {
 	{ ResMonoCase,        MONOCASE },
@@ -226,6 +233,7 @@ main(int argc, char *argv[])
 	int	ovc, ovr;
 	char	junk;
 	int	model_number;
+	Boolean	mono = False;
 
 	/* Figure out who we are */
 	programname = strrchr(argv[0], '/');
@@ -245,7 +253,7 @@ main(int argc, char *argv[])
 	dname = CN;
 	for (i = 1; i < argc; i++) {
 		if (!strcmp(argv[i], "-mono"))
-			fallbacks = mono_fallbacks;
+			mono = True;
 		else if (!strcmp(argv[i], "-display") && argc > i)
 			dname = argv[i+1];
 	}
@@ -253,7 +261,7 @@ main(int argc, char *argv[])
 	if (display == (Display *)NULL)
 		XtError("Can't open display");
 	if (DefaultDepthOfScreen(XDefaultScreenOfDisplay(display)) == 1)
-		fallbacks = mono_fallbacks;
+		mono = True;
 	XCloseDisplay(display);
 #endif /*]*/
 
@@ -275,7 +283,7 @@ main(int argc, char *argv[])
 	rdb = XtDatabase(display);
 
 	/* Merge in the profile. */
-	merge_profile(&rdb);
+	merge_profile(&rdb, mono);
 
 	old_emh = XtAppSetWarningMsgHandler(appcontext,
 	    (XtErrorMsgHandler)trap_colormaps);

@@ -1,5 +1,5 @@
 /*
- * Copyright 1993, 1994, 1995, 1999, 2000, 2001, 2002 by Paul Mattes.
+ * Copyright 1993, 1994, 1995, 1999, 2000, 2001, 2002, 2005 by Paul Mattes.
  * RPQNAMES modifications copyright 2004 by Don Russell.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -166,7 +166,7 @@ popup_about_copyright(void)
 	/* Create the popup */
 
 	about_shell = XtVaCreatePopupShell(
-	    "aboutConfigPopup", transientShellWidgetClass, toplevel,
+	    "aboutCopyrightPopup", transientShellWidgetClass, toplevel,
 	    NULL);
 	XtAddCallback(about_shell, XtNpopupCallback, place_popup,
 	    (XtPointer) CenterP);
@@ -198,7 +198,7 @@ popup_about_copyright(void)
 	left_anchor = NULL;
 
 	MAKE_SMALL("Modifications and original code Copyright \251 1993, 1994, 1995, 1996, 1997, 1999,\n\
-  2000, 2001, 2002 by Paul Mattes.\n\
+  2000, 2001, 2002, 2005 by Paul Mattes.\n\
 Original X11 Port Copyright \251 1990 by Jeff Sparkes.\n\
 File transfer code Copyright \251 1995 by Dick Altenbern.\n\
 Includes IAC IP patch by Carey Evans, 1998.\n\
@@ -244,7 +244,7 @@ popup_about_config(void)
 	/* Create the popup */
 
 	about_shell = XtVaCreatePopupShell(
-	    "aboutCopyrightPopup", transientShellWidgetClass, toplevel,
+	    "aboutConfigPopup", transientShellWidgetClass, toplevel,
 	    NULL);
 	XtAddCallback(about_shell, XtNpopupCallback, place_popup,
 	    (XtPointer) CenterP);

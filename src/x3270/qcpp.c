@@ -1,5 +1,5 @@
 /*
- * Copyright 1997, 1999, 2000, 2001 by Paul Mattes.
+ * Copyright 1997, 1999, 2000, 2001, 2005 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -14,8 +14,8 @@
 /*
  * Quick C preprocessor substitute, for converting X3270.ad to X3270.ad.
  *
- * Understands #if[n]def COLOR, and does the right thing.  All other #ifdefs
- * are assumed to be true.
+ * Understands a limited subset of #ifdef/#ifndef/#else/#endif syntax, and
+ * understands -Dsym or -Usym, but not -Dsym=xxx.
  */
 
 #include <stdio.h>
@@ -25,17 +25,39 @@
 
 #define MAX_NEST	50
 
-extern char *optarg;
-extern int optind;
-
 char *me;
 int color = 0;
 
-void
+typedef struct sym {
+	struct sym *next;
+	char *name;
+	int sl;
+} sym_t;
+
+sym_t *syms = NULL;
+
+static int
+is_sym(char *name)
+{
+	sym_t *s;
+	int sl;
+
+	sl = strlen(name);
+	if (sl > 0 && name[sl - 1] == '\n')
+		sl--;
+
+	for (s = syms; s != NULL; s = s->next) {
+		if (s->sl == sl && !strncmp(name, s->name, sl))
+			return 1;
+	}
+	return 0;
+}
+
+static void
 usage(void)
 {
-	fprintf(stderr, "usage: %s [-DCOLOR] [-UCOLOR] [infile [outfile]]\n",
-	    me);
+	fprintf(stderr, "usage: %s [-v] [-Dname]... [-Uname]... "
+			"[infile [outfile]]\n", me);
 	exit(1);
 }
 
@@ -49,27 +71,49 @@ main(int argc, char *argv[])
 	int ln = 0;
 	int pass[MAX_NEST];
 	int elsed[MAX_NEST];
+	sym_t *s, *prev;
+	int verbose = 0;
 
 	if ((me = strrchr(argv[0], '/')) != (char *)NULL)
 		me++;
 	else
 		me = argv[0];
 
-	while ((c = getopt(argc, argv, "D:U:")) != -1) {
+	while ((c = getopt(argc, argv, "D:U:v")) != -1) {
 		switch (c) {
 		    case 'D':
-			if (strcmp(optarg, "COLOR")) {
-				fprintf(stderr, "only -DCOLOR is supported\n");
-				exit(1);
+		        if (!is_sym(optarg)) {
+				s = malloc(sizeof(sym_t) + strlen(optarg) + 1);
+				if (s == NULL) {
+					fprintf(stderr, "out of memory\n");
+					exit(1);
+				}
+				s->name = (char *)(s + 1);
+				(void) strcpy(s->name, optarg);
+				s->sl = strlen(s->name);
+				s->next = syms;
+				syms = s;
+				if (verbose)
+					printf("defined %s\n", optarg);
 			}
-			color = 1;
 			break;
 		    case 'U':
-			if (strcmp(optarg, "COLOR")) {
-				fprintf(stderr, "only -UCOLOR is supported\n");
-				exit(1);
+			prev = NULL;
+
+			for (s = syms; s != NULL; s = s->next) {
+				if (!strcmp(s->name, optarg)) {
+					if (prev != NULL)
+						prev->next = s->next;
+					else
+						syms = s->next;
+					free(s);
+					break;
+				}
+				prev = s;
 			}
-			color = 0;
+			break;
+		    case 'v':
+			verbose = 1;
 			break;
 		    default:
 			usage();
@@ -111,20 +155,18 @@ main(int argc, char *argv[])
 				fprintf(t, "%s", buf);
 			continue;
 		}
-		if (!strcmp(buf, "#ifdef COLOR\n")) {
-			pass[nest+1] = pass[nest] && color;
-			nest++;
-			elsed[nest] = 0;
-		} else if (!strncmp(buf, "#ifdef ", 7)) {
-			pass[nest+1] = pass[nest];
-			nest++;
-			elsed[nest] = 0;
-		} else if (!strcmp(buf, "#ifndef COLOR\n")) {
-			pass[nest+1] = pass[nest] && !color;
+		if (!strncmp(buf, "#ifdef ", 7)) {
+			if (verbose)
+				printf("%d: #ifdef %s -> %d\n", ln, buf + 7,
+						is_sym(buf + 7));
+			pass[nest+1] = pass[nest] && is_sym(buf + 7);
 			nest++;
 			elsed[nest] = 0;
 		} else if (!strncmp(buf, "#ifndef ", 8)) {
-			pass[nest+1] = 0;
+			if (verbose)
+				printf("%d: #ifndef %s -> %d\n", ln, buf + 8,
+						!is_sym(buf + 8));
+			pass[nest+1] = pass[nest] && !is_sym(buf + 8);
 			nest++;
 			elsed[nest] = 0;
 		} else if (!strcmp(buf, "#else\n")) {

@@ -1,4 +1,4 @@
-dnl Copyright 2000, 2001, 2002, 2004 by Paul Mattes.
+dnl Copyright 2000, 2001, 2002, 2004, 2005 by Paul Mattes.
 dnl  Permission to use, copy, modify, and distribute this software and its
 dnl  documentation for any purpose and without fee is hereby granted,
 dnl  provided that the above copyright notice appear in all copies and that
@@ -52,9 +52,10 @@ dnl Check for --enable-app-defaults
 AC_ARG_ENABLE(app-defaults,
     [  --enable-app-defaults   use a separate app-defaults file],
     [DEFINE_UAD="#define USE_APP_DEFAULTS 1"; if test "$enable_app_defaults" = "yes"; then UAD_FLAGS="-DCOLOR"; else UAD_FLAGS="$enable_app_defaults"; fi],
-    [DEFINE_UAD=""; UAD_FLAGS="-DCOLOR"])
+    [DEFINE_UAD=""; UAD_FLAGS="-DCOLOR"; FALLBACKS_O=fallbacks.o])
 AC_SUBST(UAD_FLAGS)
 AC_SUBST(DEFINE_UAD)
+AC_SUBST(FALLBACKS_O)
 
 dnl Check for --without-pr3287
 AC_ARG_WITH(pr3287,[  --without-pr3287        don't build pr3287])

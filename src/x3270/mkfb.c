@@ -1,5 +1,5 @@
 /*
- * Copyright 1995, 1996, 1999, 2000, 2001, 2002, 2003 by Paul Mattes.
+ * Copyright 1995, 1996, 1999, 2000, 2001, 2002, 2003, 2005 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -14,7 +14,7 @@
 
 /*
  * mkfb.c
- *	Utility to create fallback definitions from a simple #ifdef'd .ad
+ *	Utility to create RDB string definitions from a simple #ifdef'd .ad
  *	file
  */
 
@@ -29,13 +29,9 @@
 #define ARRSZ	8192		/* output array size */
 #define SSSZ	10		/* maximum nested ifdef */
 
-unsigned a_color[ARRSZ];	/* array of color indices */
-unsigned l_color[ARRSZ];
-unsigned n_color = 0;		/* number of color definitions */
-
-unsigned a_mono[ARRSZ];		/* array of mono indices */
-unsigned l_mono[ARRSZ];
-unsigned n_mono = 0;		/* number of mono definitions */
+unsigned aix[ARRSZ];		/* fallback array indices */
+unsigned xlno[ARRSZ];		/* fallback array line numbers */
+unsigned n_fallbacks = 0;	/* number of fallback entries */
 
 /* ifdef state stack */
 #define MODE_COLOR	0x00000001
@@ -137,7 +133,7 @@ unsigned long is_undefined;
 
 char *me;
 
-void emit(FILE *t, char c);
+void emit(FILE *t, int ix, char c);
 
 void
 usage(void)
@@ -155,7 +151,7 @@ main(int argc, char *argv[])
 	int i;
 	int continued = 0;
 	const char *filename = "standard input";
-	FILE *u, *t, *o;
+	FILE *u, *t, *tc = NULL, *tm = NULL, *o;
 	int cmode = 0;
 	unsigned long ifdefs;
 	unsigned long ifndefs;
@@ -334,19 +330,38 @@ main(int argc, char *argv[])
 		perror("tmpfile");
 		exit(1);
 	}
+	if (!cmode) {
+		tc = tmpfile();
+		if (tc == NULL) {
+			perror("tmpfile");
+			exit(1);
+		}
+		tm = tmpfile();
+		if (tm == NULL) {
+			perror("tmpfile");
+			exit(1);
+		}
+	}
 
 	/* Emit the initial boilerplate. */
 	fprintf(t, "/* This file was created automatically from %s by mkfb. */\n\n",
 	    filename);
-	fprintf(t, "#if !defined(USE_APP_DEFAULTS) /*[*/\n\n");
-	fprintf(t, "#include \"globals.h\"\n\n");
-	fprintf(t, "static unsigned char fsd[] = {\n");
+	if (cmode) {
+		fprintf(t, "#include \"globals.h\"\n");
+		fprintf(t, "static unsigned char fsd[] = {\n");
+	} else {
+		fprintf(t, "unsigned char common_fallbacks[] = {\n");
+		fprintf(tc, "unsigned char color_fallbacks[] = {\n");
+		fprintf(tm, "unsigned char mono_fallbacks[] = {\n");
+	}
 
 	/* Scan the file, emitting the fsd array and creating the indices. */
 	while (fscanf(u, "%lx %lx %d\n", &ifdefs, &ifndefs, &lno) == 3) {
 		char *s = buf;
 		char c;
 		int white;
+		FILE *t_this = t;
+		int ix = 0;
 
 		if (fgets(buf, BUFSZ, u) == NULL)
 			break;
@@ -358,29 +373,29 @@ main(int argc, char *argv[])
 #endif
 
 		/* Add array offsets. */
-		if (!(ifdefs & MODE_COLOR) && !(ifndefs & MODE_COLOR)) {
-			if (n_color >= ARRSZ || n_mono >= ARRSZ) {
+		if (cmode) {
+			/* Ignore color.  Accumulate offsets into an array. */
+			if (n_fallbacks >= ARRSZ) {
 				fprintf(stderr, "%s, line %d: Buffer overflow\n", filename, lno);
 				exit(1);
 			}
-			a_color[n_color] = cc;
-			l_color[n_color++] = lno;
-			a_mono[n_mono] = cc;
-			l_mono[n_mono++] = lno;
-		} else if (ifdefs & MODE_COLOR) {
-			if (n_color >= ARRSZ) {
-				fprintf(stderr, "%s, line %d: Buffer overflow\n", filename, lno);
-				exit(1);
-			}
-			a_color[n_color] = cc;
-			l_color[n_color++] = lno;
+			aix[n_fallbacks] = cc;
+			xlno[n_fallbacks++] = lno;
 		} else {
-			if (n_mono >= ARRSZ) {
-				fprintf(stderr, "%s, line %d: Buffer overflow\n", filename, lno);
-				exit(1);
+			/* Use color to decide which file to write into. */
+			if (!(ifdefs & MODE_COLOR) && !(ifndefs & MODE_COLOR)) {
+				/* Both. */
+				t_this = t;
+				ix = 0;
+			} else if (ifdefs & MODE_COLOR) {
+				/* Just color. */
+				t_this = tc;
+				ix = 1;
+			} else {
+				/* Just mono. */
+				t_this = tm;
+				ix = 2;
 			}
-			a_mono[n_mono] = cc;
-			l_mono[n_mono++] = lno;
 		}
 
 		continued = 0;
@@ -389,7 +404,7 @@ main(int argc, char *argv[])
 			if (c == ' ' || c == '\t')
 				white++;
 			else if (white) {
-				emit(t, ' ');
+				emit(t_this, ix, ' ');
 				cc++;
 				white = 0;
 			}
@@ -399,11 +414,11 @@ main(int argc, char *argv[])
 				break;
 			    case '#':
 				if (!cmode) {
-					emit(t, '\\');
-					emit(t, '#');
+					emit(t_this, ix, '\\');
+					emit(t_this, ix, '#');
 					cc += 2;
 				} else {
-					emit(t, c);
+					emit(t_this, ix, c);
 					cc++;
 				}
 				break;
@@ -425,58 +440,36 @@ main(int argc, char *argv[])
 				}
 				/* else fall through */
 			    default:
-				emit(t, c);
+				emit(t_this, ix, c);
 				cc++;
 				break;
 			}
 		}
 		if (white) {
-			emit(t, ' ');
+			emit(t_this, ix, ' ');
 			cc++;
 			white = 0;
 		}
 		if (!continued) {
-			emit(t, 0);
+			if (cmode)
+				emit(t_this, ix, 0);
+			else
+				emit(t_this, ix, '\n');
 			cc++;
 		}
 	}
 	fclose(u);
-	fprintf(t, "};\n\n");
-
-	/* Emit the fallback arrays themselves. */
-	fprintf(t, "String color_fallbacks[%u] = {\n", n_color + 1);
-	for (i = 0; i < n_color; i++) {
-		fprintf(t, "\t(String)&fsd[%u], /* line %u */\n", a_color[i],
-		    l_color[i]);
-	}
-	fprintf(t, "\t(String)NULL\n};\n\n");
-	if (!cmode) {
-		fprintf(t, "String mono_fallbacks[%u] = {\n", n_mono + 1);
-		for (i = 0; i < n_mono; i++) {
-			fprintf(t, "\t(String)&fsd[%u], /* line %u */\n",
-			    a_mono[i], l_mono[i]);
-		}
-		fprintf(t, "\t(String)NULL\n};\n\n");
+	if (cmode)
+		fprintf(t, "};\n\n");
+	else {
+		emit(t, 0, 0);
+		fprintf(t, "};\n\n");
+		emit(tc, 0, 0);
+		fprintf(tc, "};\n\n");
+		emit(tm, 0, 0);
+		fprintf(tm, "};\n\n");
 	}
 
-	/* Emit some test code. */
-	fprintf(t, "%s", "#if defined(DEBUG) /*[*/\n\
-int\n\
-main(int argc, char *argv[])\n\
-{\n\
-	int i;\n\
-\n\
-	for (i = 0; color_fallbacks[i]; i++)\n\
-		printf(\"color %d: %s\\n\", i, color_fallbacks[i]);\n");
-	if (!cmode)
-		fprintf(t, "%s", "\
-	for (i = 0; mono_fallbacks[i]; i++)\n\
-		printf(\"mono %d: %s\\n\", i, mono_fallbacks[i]);\n");
-	fprintf(t, "\
-	return 0;\n\
-}\n");
-	fprintf(t, "#endif /*]*/\n\n");
-	fprintf(t, "#endif /*]*/\n");
 
 	/* Open the output file. */
 	if (argc == 3) {
@@ -490,25 +483,67 @@ main(int argc, char *argv[])\n\
 
 	/* Copy tmp to output. */
 	rewind(t);
+	if (!cmode) {
+		rewind(tc);
+		rewind(tm);
+	}
 	while (fgets(buf, sizeof(buf), t) != NULL) {
 		fprintf(o, "%s", buf);
 	}
+	if (!cmode) {
+		while (fgets(buf, sizeof(buf), tc) != NULL) {
+			fprintf(o, "%s", buf);
+		}
+		while (fgets(buf, sizeof(buf), tm) != NULL) {
+			fprintf(o, "%s", buf);
+		}
+	}
+
+	if (cmode) {
+		/* Emit the fallback array. */
+		fprintf(o, "String fallbacks[%u] = {\n", n_fallbacks + 1);
+		for (i = 0; i < n_fallbacks; i++) {
+			fprintf(o, "\t(String)&fsd[%u], /* line %u */\n",
+					aix[i],
+			    xlno[i]);
+		}
+		fprintf(o, "\t(String)NULL\n};\n\n");
+
+		/* Emit some test code. */
+		fprintf(o, "%s", "#if defined(DEBUG) /*[*/\n\
+#include <stdio.h>\n\
+int\n\
+main(int argc, char *argv[])\n\
+{\n\
+	int i;\n\
+\n\
+	for (i = 0; fallbacks[i] != NULL; i++)\n\
+		printf(\"%d: %s\\n\", i, fallbacks[i]);\n\
+	return 0;\n\
+}\n");
+		fprintf(o, "#endif /*]*/\n\n");
+	}
+
 	if (o != stdout)
 		fclose(o);
 	fclose(t);
+	if (!cmode) {
+		fclose(tc);
+		fclose(tm);
+	}
 
 	return 0;
 }
 
-int n_out = 0;
+static int n_out[3] = { 0, 0, 0 };
 
 void
-emit(FILE *t, char c)
+emit(FILE *t, int ix, char c)
 {
-	if (n_out >= 19) {
+	if (n_out[ix] >= 19) {
 		fprintf(t, "\n");
-		n_out = 0;
+		n_out[ix] = 0;
 	}
 	fprintf(t, "%3d,", (unsigned char)c);
-	n_out++;
+	n_out[ix]++;
 }

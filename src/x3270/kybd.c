@@ -1,6 +1,6 @@
 /*
  * Modifications Copyright 1993, 1994, 1995, 1996, 1999,
- *  2000, 2001, 2002, 2004 by Paul Mattes.
+ *  2000, 2001, 2002, 2004, 2005 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -316,7 +316,7 @@ kybd_in3270(Boolean in3270 unused)
 {
 	if (kybdlock & KL_DEFERRED_UNLOCK)
 		RemoveTimeOut(unlock_id);
-	kybdlock_clr(-1, "kybd_connect");
+	kybdlock_clr(~KL_AWAITING_FIRST, "kybd_in3270");
 
 	/* There might be a macro pending. */
 	if (CONNECTED)

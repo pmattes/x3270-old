@@ -2587,8 +2587,9 @@ if test "${enable_app_defaults+set}" = set; then
   enableval="$enable_app_defaults"
   DEFINE_UAD="#define USE_APP_DEFAULTS 1"; if test "$enable_app_defaults" = "yes"; then UAD_FLAGS="-DCOLOR"; else UAD_FLAGS="$enable_app_defaults"; fi
 else
-  DEFINE_UAD=""; UAD_FLAGS="-DCOLOR"
+  DEFINE_UAD=""; UAD_FLAGS="-DCOLOR"; FALLBACKS_O=fallbacks.o
 fi;
+
 
 
 
@@ -5364,6 +5365,7 @@ s,@NIXCCOPTIONS@,$NIXCCOPTIONS,;t t
 s,@CPP@,$CPP,;t t
 s,@UAD_FLAGS@,$UAD_FLAGS,;t t
 s,@DEFINE_UAD@,$DEFINE_UAD,;t t
+s,@FALLBACKS_O@,$FALLBACKS_O,;t t
 s,@DEFINE_PR3287@,$DEFINE_PR3287,;t t
 s,@IFONTDIR@,$IFONTDIR,;t t
 s,@CIFONTDIR@,$CIFONTDIR,;t t

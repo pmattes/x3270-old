@@ -1,5 +1,5 @@
 /*
- * Copyright 1994, 1995, 1996, 1999, 2000, 2001 by Paul Mattes.
+ * Copyright 1994, 1995, 1996, 1999, 2000, 2001, 2004, 2005 by Paul Mattes.
  * RPQNAMES modifications Copyright 2004 by Don Russell.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -58,7 +58,9 @@ static enum pds sf_outbound_ds(unsigned char buf[], int buflen);
 static void query_reply_start(void);
 static void do_query_reply(unsigned char code);
 static void query_reply_end(void);
+#if defined(X3270_RPQNAMES) /*[*/
 static int get_utc_offset(void);
+#endif /*]*/
 
 typedef void qr_single_fn_t(void);
 typedef Boolean qr_multi_fn_t(unsigned *subindex, Boolean *more);
@@ -66,7 +68,9 @@ typedef Boolean qr_multi_fn_t(unsigned *subindex, Boolean *more);
 static qr_single_fn_t do_qr_summary, do_qr_usable_area, do_qr_alpha_part,
 	do_qr_charsets, do_qr_color, do_qr_highlighting, do_qr_reply_modes,
 	do_qr_imp_part, do_qr_null;
+#if defined(X3270_RPQNAMES) /*[*/
 static qr_multi_fn_t do_qr_rpqnames;
+#endif /*]*/
 #if defined(X3270_DBCS) /*[*/
 static qr_single_fn_t do_qr_dbcs_asia;
 #endif /*]*/
@@ -92,7 +96,9 @@ static struct reply {
 #if defined(X3270_FT) /*[*/
     { QR_DDM,          do_qr_ddm,          NULL },		/* 0x95 */
 #endif /*]*/
+#if defined(X3270_RPQNAMES) /*[*/
     { QR_RPQNAMES,     NULL,               do_qr_rpqnames },	/* 0xa1 */
+#endif /*]*/
     { QR_IMP_PART,     do_qr_imp_part,     NULL },		/* 0xa6 */
 
     /* QR_NULL must be last in the table */
@@ -900,6 +906,7 @@ do_qr_ddm(void)
 }
 #endif /*]*/
 
+#if defined(X3270_RPQNAMES) /*[*/
 /*
  * RPQNAMES query reply.
  * Based on code from Don Russell, January 2004.
@@ -1006,6 +1013,7 @@ do_qr_rpqnames(unsigned *subindex, Boolean *more)
 	*more = True;
 	return True;
 }
+#endif /*]*/
 
 static void
 do_qr_imp_part(void)
@@ -1030,6 +1038,7 @@ query_reply_end(void)
 	kybd_inhibit(True);
 }
 
+#if defined(X3270_RPQNAMES) /*[*/
 /* Utility function used by the RPQNAMES query reply. */
 static int
 get_utc_offset(void)
@@ -1066,3 +1075,4 @@ get_utc_offset(void)
 	delta = difftime(mktime(&here_tm), mktime(utc_tm));
 	return (int)(delta/60L);
 }
+#endif /*]*/

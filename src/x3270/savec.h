@@ -1,5 +1,5 @@
 /*
- * Copyright 1995, 1999, 2001 by Paul Mattes.
+ * Copyright 1995, 1999, 2001, 2005 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -20,7 +20,7 @@ extern char *command_string;
 extern char *profile_name;
 
 extern void charset_list_changed(char *charset);
-extern void merge_profile(XrmDatabase *d);
+extern void merge_profile(XrmDatabase *d, Boolean mono);
 extern void save_args(int argc, char *argv[]);
 extern void save_init(int argc, char *hostname, char *port);
 extern int save_options(char *n);

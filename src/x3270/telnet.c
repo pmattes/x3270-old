@@ -1,6 +1,6 @@
 /*
  * Modifications Copyright 1993, 1994, 1995, 1999,
- *  2000, 2001, 2002 by Paul Mattes.
+ *  2000, 2001, 2002, 2005 by Paul Mattes.
  * RPQNAMES modifications Copyright 2004 by Don Russell.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
@@ -906,11 +906,11 @@ telnet_fsm(unsigned char c)
 			break;
 		}
 		if (IN_NEITHER) {	/* now can assume ANSI mode */
-			host_in3270(CONNECTED_ANSI);
 #if defined(X3270_ANSI)/*[*/
 			if (linemode)
 				cooked_init();
 #endif /*]*/
+			host_in3270(CONNECTED_ANSI);
 			kybdlock_clr(KL_AWAITING_FIRST, "telnet_fsm");
 			status_reset();
 			ps_process();
@@ -2168,10 +2168,6 @@ check_in3270(void)
 		int was_in_e = IN_E;
 #endif /*]*/
 
-		trace_dsn("Now operating in %s mode.\n",
-			state_name[new_cstate]);
-		host_in3270(new_cstate);
-
 #if defined(X3270_TN3270E) /*[*/
 		/*
 		 * If we've now switched between non-TN3270E mode and
@@ -2206,6 +2202,9 @@ check_in3270(void)
 			tn3270e_bound = 0;
 		}
 #endif /*]*/
+		trace_dsn("Now operating in %s mode.\n",
+			state_name[new_cstate]);
+		host_in3270(new_cstate);
 	}
 }
 

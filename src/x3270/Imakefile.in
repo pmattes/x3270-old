@@ -1,5 +1,5 @@
 /*
- * Copyright 1995, 1999, 2000, 2001, 2002, 2004 by Paul Mattes.
+ * Copyright 1995, 1999, 2000, 2001, 2002, 2004, 2005 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -26,7 +26,7 @@ LOCAL_LIBRARIES = $(XAWLIB) $(XMULIB) $(XTOOLLIB) $(XLIB)
 		  @DBCS_C@
           VOBJS = Cme.o CmeBSB.o CmeLine.o CmplxMenu.o Husk.o about.o \
 		  actions.o ansi.o apl.o charset.o child.o ctlr.o dialog.o \
-		  fallbacks.o ft.o ft_cut.o ft_dft.o host.o idle.o keymap.o \
+		  @FALLBACKS_O@ ft.o ft_cut.o ft_dft.o host.o idle.o keymap.o \
 		  keypad.o kybd.o macros.o main.o menubar.o popups.o \
 		  printer.o print.o resources.o save.o screen.o scroll.o \
 		  see.o select.o sf.o status.o tables.o telnet.o toggles.o \
@@ -169,11 +169,11 @@ ProgramTargetName(x3270if): x3270if.c conf.h
 AD_DEFINE = -DUSE_APP_DEFAULTS
 InstallAppDefaults(X3270)
 all:: X3270.ad
-X3270.ad: X3270.xad qcpp
+X3270.ad: X3270.xad qcpp conf.h qcpp-defs.sh
 	$(RM) $@
-	./qcpp @UAD_FLAGS@ X3270.xad $@
+	./qcpp @UAD_FLAGS@ `./qcpp-defs.sh` X3270.xad $@
 qcpp: qcpp.c
-	$(CC) $(CDEBUGFLAGS) -o $@ qcpp.c
+	$(CC) $(CFLAGS) -o $@ qcpp.c
 #endif
 
 /* Combined EXTRA_DEFINES definition. */

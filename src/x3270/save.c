@@ -1,5 +1,5 @@
 /*
- * Copyright 1994, 1995, 1999, 2000, 2001, 2002 by Paul Mattes.
+ * Copyright 1994, 1995, 1999, 2000, 2001, 2002, 2005 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -711,12 +711,31 @@ save_args(int argc, char *argv[])
 
 /* Merge in the options settings from a profile. */
 void
-merge_profile(XrmDatabase *d)
+merge_profile(XrmDatabase *d, Boolean mono)
 {
 	const char *fname;
 	char *env_resources;
 	XrmDatabase dd;
 	Boolean need_cl_merge = False;
+#if !defined(USE_APP_DEFAULTS) /*[*/
+	extern unsigned char common_fallbacks[], mono_fallbacks[],
+		color_fallbacks[];
+#endif /*]*/
+
+#if !defined(USE_APP_DEFAULTS) /*[*/
+	/* Start with the fallbacks. */
+	dd = XrmGetStringDatabase((char *)common_fallbacks);
+	if (dd == NULL) {
+		XtError("Can't parse common fallbacks");
+	}
+	XrmMergeDatabases(dd, d);
+	dd = XrmGetStringDatabase(mono? (char *)mono_fallbacks:
+			                (char *)color_fallbacks);
+	if (dd == NULL) {
+		XtError("Can't parse mono/color fallbacks");
+	}
+	XrmMergeDatabases(dd, d);
+#endif /*]*/
 
 	if (getenv(NO_PROFILE_ENV) != CN) {
 		profile_name = do_subst(DEFAULT_PROFILE, True, True);

@@ -1,4 +1,4 @@
-! Copyright 1995, 1999, 2000, 2001, 2004 by Paul Mattes.
+! Copyright 1995, 1999, 2000, 2001, 2004, 2005 by Paul Mattes.
 !  Permission to use, copy, modify, and distribute this software and its
 !  documentation for any purpose and without fee is hereby granted,
 !  provided that the above copyright notice appear in all copies and that
@@ -1134,7 +1134,7 @@ x3270.message.kmFromServer:			\ (expanded from '@server')
 !=============================================================================
 !
 ! App-defaults file version
-x3270.adVersion:		3.3.1
+x3270.adVersion:		3.3.3
 !
 ! Fonts
 #ifdef X3270_APL

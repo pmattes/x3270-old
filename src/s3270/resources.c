@@ -1,5 +1,5 @@
 /*
- * Copyright 1999, 2000, 2001 by Paul Mattes.
+ * Copyright 1999, 2000, 2001, 2005 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -16,7 +16,7 @@
 #include <string.h>
 #include "localdefs.h"
 
-extern String color_fallbacks[];
+extern String fallbacks[];
 
 /* s3270 substitute Xt resource database. */
 
@@ -107,10 +107,10 @@ get_resource(const char *name)
 		}
 	}
 
-	for (i = 0; color_fallbacks[i] != NULL; i++) {
-		if (!strncmp(color_fallbacks[i], name, strlen(name)) &&
-		    *(color_fallbacks[i] + strlen(name)) == ':') {
-			return color_fallbacks[i] + strlen(name) + 2;
+	for (i = 0; fallbacks[i] != NULL; i++) {
+		if (!strncmp(fallbacks[i], name, strlen(name)) &&
+		    *(fallbacks[i] + strlen(name)) == ':') {
+			return fallbacks[i] + strlen(name) + 2;
 		}
 	}
 #if defined(C3270) /*[*/
