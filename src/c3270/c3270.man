@@ -1,5 +1,5 @@
 '\" t
-.TH c3270 1 "15 June 2001"
+.TH c3270 1 "25 June 2001"
 .SH "NAME"
 c3270 \-
 curses-based 
@@ -479,6 +479,7 @@ Ctrl<Key>a <Key>c	Clear
 Ctrl<Key>a <Key>r	Reset
 Ctrl<Key>a <Key>l	Redraw
 Ctrl<Key>a <Key>m	Compose
+Ctrl<Key>a <Key>^	Key(notsign)
 <Key>UP	Up
 <Key>DOWN	Down
 <Key>LEFT	Left
@@ -496,29 +497,16 @@ The base 3270-mode keymap adds:
 l l.
 Key	Action
 _
-Meta<Key>c	Clear
-Meta<Key>r	Reset
-Meta<Key>l	Redraw
-Meta<Key>m	Compose
+Ctrl<Key>c	Clear
+Ctrl<Key>r	Reset
+Ctrl<Key>l	Redraw
 <Key>Tab	Tab
-Meta<Key>^	Key(notsign)
 <Key>DC	Delete
 <Key>BACKSPACE	BackSpace
 <Key>BackSpace	BackSpace
 <Key>Return	Enter
 <Key>Linefeed	Newline
-Meta<Key>1	PA(1)
-Meta<Key>2	PA(2)
-Meta<Key>3	PA(3)
 .TE
-.LP
-For keyboards which do not have a \fBMeta\fP key, there is an additional
-keymap defined, called \fBnometa\fP.
-(On some systems, this is added by default.)
-The \fBnometa\fP keymap uses the \fBEscape\fP key as a substitute for
-the \fBMeta\fP key.
-So, for example, the 3270 \fBPA1\fP action would be invoked by pressing the
-\fBEscape\fP key, then the \fB1\fP key.
 .SH "FILE TRANSFER"
 The \fBTransfer\fP action implements \fBIND$FILE\fP file transfer.
 This action requires that the \fBIND$FILE\fP
@@ -856,4 +844,4 @@ notice.
 .RE
 5250 Emulation Code Copyright Minolta (Schweiz) AG, Beat Rubischon.
 .SH "VERSION"
-c3270 3.2.17b
+c3270 3.2.17

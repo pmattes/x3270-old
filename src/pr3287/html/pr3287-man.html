@@ -54,6 +54,36 @@ Causes the session to be associated with the specified
 In LU3 formatted mode, print blank lines even if they are all NULLs or control
 characters.
 (This is a violation of the 3270 printer protocol, but some hosts require it.)
+<dt><b>-charset</b> <i>name</i></dt><dd>
+Specifies an alternate <font size=-1>EBCDIC</font>-to-<font size=-1>ASCII</font> mapping.
+The default maps the EBCDIC U.S. English character set to <font size=-1>ISO</font> 8859-1.
+Other built-in character sets are <b>bracket</b>, which corresponds to
+many older <font size=-1>IBM</font> hosts' mapping of the <b>[</b> and <b>]</b> characters,
+and the non-U.S. character sets <b>german</b>, <b>finnish</b>, <b>uk</b>,
+<b>norwegian</b>, <b>french</b>, <b>icelandic</b> and <b>belgian</b>.
+These correspond to the <b>x3270</b> character sets of the same names.
+<p>
+If <i>name</i> begins with an <b>@</b>, then the balance is intepreted as
+the name of a file containing character mappings.
+The file contains whitespace-separated tokens.
+Each token is a number specifying an EBCDIC code, an <b>=</b> character,
+and a number specifying the 8-bit ASCII character used to print that code.
+Blank lines and lines beginning with <b>#</b> are ignored.
+<p>
+If <i>name</i> begins with an <b>=</b>, then the balance is intepreted as
+a string containing mapping tokens, as in a file.
+<p>
+For example, a file defining the <b>uk</b> character set would look like
+this:
+<p>
+<blockquote><br>
+# UK character set
+<br>
+0x4a=0x24 0x5b=0xa3 0xa1=0xaf
+<br>
+0xb0=0xa2 0xb1=0x5b 0xba=0x5e
+<br>
+0xbc=0x7e</blockquote>
 <dt><b>-command</b> <i>command</i></dt><dd>
 Specifies the command to run for each print job.
 The default is
@@ -61,7 +91,12 @@ The default is
 <dt><b>-daemon</b></dt><dd>
 Causes
 <i>pr3287</i>
-to become a daemon process, once the connection to the host is established.
+to become a daemon (background) process.
+<dt><b>-reconnect</b></dt><dd>
+Causes <i>pr3287</i> to reconnect to the host, whenever the connection is
+broken.
+There is a 5-second delay between reconnect attempts, to reduce network
+thrashing for down or misconfigured hosts.
 <dt><b>-trace</b></dt><dd>
 Turns on data stream tracing.
 Trace information is saved in the file
@@ -81,7 +116,7 @@ RFC 1646, TN3270 Extensions for LUname and Printer Selection
 RFC 2355, TN3270 Enhancements
 <a NAME="Copyrights"></a><h2>Copyrights</h2>
 <p>
-Modifications Copyright &copy; 1993, 1994, 1995, 1996, 1997, 1999, 2000 by Paul Mattes.
+Modifications Copyright &copy; 1993, 1994, 1995, 1996, 1997, 1999, 2000, 2001 ,by Paul Mattes.
 <br>
 Original X11 Port Copyright &copy; 1990 by Jeff Sparkes.
 <blockquote>Permission to use, copy, modify, and distribute this software and its
@@ -97,7 +132,7 @@ notice.</blockquote>
 <address>
 This HTML document and the accompanying troff document were generated with
 a set of write-only <b>m4</b> macros and the powerful <b>vi</b> editor.
-<br>Last modified 11 April 2001.
+<br>Last modified 25 June 2001.
 </address>
 </body>
 </html>

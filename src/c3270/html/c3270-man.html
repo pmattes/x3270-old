@@ -463,6 +463,7 @@ The base keymap is:
 <tr><td >Ctrl&lt;Key>a &lt;Key>r</td>	<td >Reset</td></tr>
 <tr><td >Ctrl&lt;Key>a &lt;Key>l</td>	<td >Redraw</td></tr>
 <tr><td >Ctrl&lt;Key>a &lt;Key>m</td>	<td >Compose</td></tr>
+<tr><td >Ctrl&lt;Key>a &lt;Key>^</td>	<td >Key(notsign)</td></tr>
 <tr><td >&lt;Key>UP</td>	<td >Up</td></tr>
 <tr><td >&lt;Key>DOWN</td>	<td >Down</td></tr>
 <tr><td >&lt;Key>LEFT</td>	<td >Left</td></tr>
@@ -479,29 +480,16 @@ The base 3270-mode keymap adds:
 <table BORDER cols=2 width="75%">
 <tr><td >Key</td>	<td >Action</td></tr>
 
-<tr><td >Meta&lt;Key>c</td>	<td >Clear</td></tr>
-<tr><td >Meta&lt;Key>r</td>	<td >Reset</td></tr>
-<tr><td >Meta&lt;Key>l</td>	<td >Redraw</td></tr>
-<tr><td >Meta&lt;Key>m</td>	<td >Compose</td></tr>
+<tr><td >Ctrl&lt;Key>c</td>	<td >Clear</td></tr>
+<tr><td >Ctrl&lt;Key>r</td>	<td >Reset</td></tr>
+<tr><td >Ctrl&lt;Key>l</td>	<td >Redraw</td></tr>
 <tr><td >&lt;Key>Tab</td>	<td >Tab</td></tr>
-<tr><td >Meta&lt;Key>^</td>	<td >Key(notsign)</td></tr>
 <tr><td >&lt;Key>DC</td>	<td >Delete</td></tr>
 <tr><td >&lt;Key>BACKSPACE</td>	<td >BackSpace</td></tr>
 <tr><td >&lt;Key>BackSpace</td>	<td >BackSpace</td></tr>
 <tr><td >&lt;Key>Return</td>	<td >Enter</td></tr>
 <tr><td >&lt;Key>Linefeed</td>	<td >Newline</td></tr>
-<tr><td >Meta&lt;Key>1</td>	<td >PA(1)</td></tr>
-<tr><td >Meta&lt;Key>2</td>	<td >PA(2)</td></tr>
-<tr><td >Meta&lt;Key>3</td>	<td >PA(3)</td></tr>
 </table>
-<p>
-For keyboards which do not have a <b>Meta</b> key, there is an additional
-keymap defined, called <b>nometa</b>.
-(On some systems, this is added by default.)
-The <b>nometa</b> keymap uses the <b>Escape</b> key as a substitute for
-the <b>Meta</b> key.
-So, for example, the 3270 <b>PA1</b> action would be invoked by pressing the
-<b>Escape</b> key, then the <b>1</b> key.
 <a NAME="File-Transfer"></a><h2>File Transfer</h2>
 The <b>Transfer</b> action implements <b>IND$FILE</b> file transfer.
 This action requires that the <b>IND$FILE</b>
@@ -810,12 +798,12 @@ Derivative works based on this software must incorporate this copyright
 notice.</blockquote>
 5250 Emulation Code Copyright &copy; Minolta (Schweiz) AG, Beat Rubischon.
 <a NAME="Version"></a><h2>Version</h2>
-c3270 3.2.17b
+c3270 3.2.17
 <hr>
 <address>
 This HTML document and the accompanying troff document were generated with
 a set of write-only <b>m4</b> macros and the powerful <b>vi</b> editor.
-<br>Last modified 15 June 2001.
+<br>Last modified 25 June 2001.
 </address>
 </body>
 </html>

@@ -70,6 +70,7 @@ static char *base_keymap =
 "Ctrl<Key>a <Key>r: Reset\n"
 "Ctrl<Key>a <Key>l: Redraw\n"
 "Ctrl<Key>a <Key>m: Compose\n"
+"Ctrl<Key>a <Key>^: Key(Notsign)\n"
 "<Key>DC: Delete\n"
 "<Key>UP: Up\n"
 "<Key>DOWN: Down\n"
@@ -106,31 +107,16 @@ static char *base_keymap =
 
 /* Base keymap, 3270 mode. */
 static char *base_3270_keymap =
-"Meta<Key>c: Clear\n"
-"Meta<Key>r: Reset\n"
-"Meta<Key>l: Redraw\n"
-"Meta<Key>m: Compose\n"
+"Ctrl<Key>c: Clear\n"
+"Ctrl<Key>r: Reset\n"
+"Ctrl<Key>l: Redraw\n"
 "Ctrl<Key>i: Tab\n"
 "<Key>DC: Delete\n"
 "Ctrl<Key>h: BackSpace\n"
 "<Key>BACKSPACE: BackSpace\n"
 "Ctrl<Key>j: Newline\n"
 "Ctrl<Key>m: Enter\n"
-"<Key>HOME: Home\n"
-"Meta<Key>^: Key(notsign)\n"
-"Meta<Key>1: PA(1)\n"
-"Meta<Key>2: PA(2)\n"
-"Meta<Key>3: PA(3)\n";
-
-static char *nometa_3270_keymap =
-"<Key>Escape <Key>c: Clear\n"
-"<Key>Escape <Key>r: Reset\n"
-"<Key>Escape <Key>l: Redraw\n"
-"<Key>Escape <Key>m: Compose\n"
-"<Key>Escape <Key>^: Key(notsign)\n"
-"<Key>Escape <Key>1: PA(1)\n"
-"<Key>Escape <Key>2: PA(2)\n"
-"<Key>Escape <Key>3: PA(3)\n";
+"<Key>HOME: Home\n";
 
 void
 usage(char *msg)
@@ -166,10 +152,6 @@ main(int argc, char *argv[])
 
 	add_resource("keymap.base", NewString(base_keymap));
 	add_resource("keymap.base.3270", NewString(base_3270_keymap));
-	add_resource("keymap.nometa.3270", NewString(nometa_3270_keymap));
-#if defined(__CYGWIN__) /*[*/
-	appres.key_map = NewString("nometa");
-#endif /*]*/
 
 	argc = parse_command_line(argc, argv, &cl_hostname);
 
@@ -555,7 +537,10 @@ hms(time_t ts)
 static void
 status_dump(void)
 {
-	const char *emode, *ftype, *eopts, *ts;
+	const char *emode, *ftype, *ts;
+#if defined(X3270_TN3270E) /*[*/
+	const char *eopts;
+#endif /*]*/
 	extern int linemode; /* XXX */
 	extern time_t ns_time;
 	extern int ns_bsent, ns_rsent, ns_brcvd, ns_rrcvd;

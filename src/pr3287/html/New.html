@@ -12,13 +12,15 @@
 <h1>
 New Features in pr3287 3.2
 <hr WIDTH="100%"></h1>
-<h2>Changes in pr3287 3.2.17, xx. April 2001</h2>
+<h2>Changes in pr3287 3.2.17, 25. June 2001</h2>
 <ul>
  <li>Implemented the TN3270 (non-TN3270E) printer ACK/NAK protocol.</li>
  <li>Fixed the interpretation of CR and EM orders in unformatted mode.</li>
  <li>Fixed a problem that disabled syslog() support in <b>-daemon</b> mode.</li>
  <li>Added a <b>-blanklines</b> switch, to print blank lines in LU3 formatted
   mode even when they are all NULLs and orders.</li>
+ <li>Added a <b>-reconnect</b> switch, to retry the host connection after
+  it is broken.</li>
 </ul>
 </body>
 </html>

@@ -1,2 +1,2 @@
-version="3.2.17c"
+version="3.2.17"
 adversion="3.2.17"

@@ -262,13 +262,14 @@ negotiate(int s, char *lu, char *assoc)
 	return 0;
 }
 
-void
+int
 process(int s)
 {
 	while (cstate != NOT_CONNECTED) {
 		if (net_input(s) < 0)
-			return;
+			return -1;
 	}
+	return 0;
 }
 
 /* Set up the LU list. */

@@ -43,7 +43,8 @@ static enum cs_result resource_charset(char *csname, char *cs, char *ftcs);
 typedef enum { CS_ONLY, FT_ONLY, BOTH } remap_scope;
 static enum cs_result remap_chars(char *csname, char *spec, remap_scope scope,
     int *ne);
-static void remap_one(unsigned char ebc, KeySym iso, remap_scope scope);
+static void remap_one(unsigned char ebc, KeySym iso, remap_scope scope,
+    Boolean one_way);
 #if defined(DEBUG_CHARSET) /*[*/
 static enum cs_result check_charset(void);
 static char *char_if_ascii7(unsigned long l);
@@ -260,7 +261,7 @@ parse_keysym(char *s, Boolean extended)
 
 /* Process a single character definition. */
 static void
-remap_one(unsigned char ebc, KeySym iso, remap_scope scope)
+remap_one(unsigned char ebc, KeySym iso, remap_scope scope, Boolean one_way)
 {
 	unsigned char cg;
 
@@ -268,9 +269,11 @@ remap_one(unsigned char ebc, KeySym iso, remap_scope scope)
 	if (ebc <= 0x40)
 		return;
 
-	/* If they want to map to a space, map it to a NULL instead. */
+	/* If they want to map to a NULL or a blank, make it a one-way blank. */
+	if (iso == 0x0)
+		iso = 0x20;
 	if (iso == 0x20)
-		iso = 0;
+		one_way = True;
 
 	if (iso <= 0xff) {
 #if defined(X3270_FT) /*[*/
@@ -280,9 +283,11 @@ remap_one(unsigned char ebc, KeySym iso, remap_scope scope)
 		if (scope == BOTH || scope == CS_ONLY) {
 			cg = asc2cg[iso];
 
-			if (iso != 0 && cg != 0) {
+#if 0
+			if (!one_way && iso != 0 && cg != 0) {
 				unsigned ebc2;
 
+				/* Remove duplicates. */
 				for (ebc2 = 0; ebc2 < 256; ebc2++) {
 					if (ebc2 != ebc && ebc2cg[ebc2] == cg) {
 #if defined(DEBUG_CHARSET) /*[*/
@@ -295,11 +300,13 @@ remap_one(unsigned char ebc, KeySym iso, remap_scope scope)
 					}
 				}
 			}
+#endif
 
 			if (cg2asc[cg] == iso || iso == 0) {
 				/* well-defined */
 				ebc2cg[ebc] = cg;
-				cg2ebc[cg] = ebc;
+				if (!one_way)
+					cg2ebc[cg] = ebc;
 			} else {
 				/* into a hole */
 				ebc2cg[ebc] = CG_boxsolid;
@@ -368,6 +375,7 @@ remap_chars(char *csname, char *spec, remap_scope scope, int *ne)
 	int ns;
 	enum cs_result rc = CS_OKAY;
 	Boolean is_table = False;
+	Boolean one_way = False;
 
 	/* Pick apart a copy of the spec. */
 	s = spec = NewString(spec);
@@ -386,6 +394,11 @@ remap_chars(char *csname, char *spec, remap_scope scope, int *ne)
 
 		while (ebc < 256 &&
 		       (tok = strtok(s, " \t\n")) != CN) {
+			if (tok[0] == '*') {
+				one_way = True;
+				tok++;
+			} else
+				one_way = False;
 			iso = strtoul(tok, &ptr, 0);
 			if (ptr == tok || *ptr != '\0' || iso > 256L) {
 				if (strlen(tok) == 1)
@@ -398,7 +411,7 @@ remap_chars(char *csname, char *spec, remap_scope scope, int *ne)
 					break;
 				}
 			}
-			remap_one(ebc, iso, scope);
+			remap_one(ebc, iso, scope, one_way);
 
 			ebc++;
 			s = CN;
@@ -408,6 +421,11 @@ remap_chars(char *csname, char *spec, remap_scope scope, int *ne)
 			char *ptr;
 
 			(*ne)++;
+			if (ebcs[0] == '*') {
+				one_way = True;
+				ebcs++;
+			} else
+				one_way = False;
 			if (ns < 0 ||
 			    ((ebc = strtoul(ebcs, &ptr, 0)),
 			     ptr == ebcs || *ptr != '\0') ||
@@ -417,7 +435,7 @@ remap_chars(char *csname, char *spec, remap_scope scope, int *ne)
 				rc = CS_BAD;
 				break;
 			}
-			remap_one(ebc, iso, scope);
+			remap_one(ebc, iso, scope, one_way);
 		}
 	}
 	Free(spec);

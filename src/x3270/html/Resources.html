@@ -65,9 +65,9 @@ x3270.charset		Default bracket		Switch -charset
     This defines the EBCDIC character set, that is, what glyph (image) is
     displayed for each EBCDIC code.
 
-    For each character set x, an additional resource by the name of charset.x
-    must be defined.  Optionally, resources by the name of codepage.x and
-    displayCharset.x may be defined.
+    For each character set <i>x</i>, an additional resource by the name of
+    charset.<i>x</i> must be defined.  Optionally, resources by the name of
+    codepage.<i>x</i>, displayCharset.<i>x</i> and requiredFont.<i>x</i> may also be defined.
 
 x3270.charset.us-intl
 x3270.charset.us
@@ -80,12 +80,26 @@ x3270.charset.uk
 x3270.charset.norwegian
 x3270.charset.french
 x3270.charset.hebrew
-    Individual character set definitions.  These resources consist of a series
+    Individual character set definitions.  These resources consist take one of
+    two forms: a set of exceptions (differences from the U.S. English character
+    set), or a full EBCDIC-to-display-code translation table.
+
+    If the first token in the resouce is "#table", then it is interpreted as
+    a full table.  It must consist of 256 whitespace-separated values, each
+    giving the display code for the corresponding EBCDIC code.
+
+    If the first token is not "#table", then it is interpreted as a series
     of newline-separated strings that define how an EBCDIC national character
     set differs from IBM's standard U.S. English set (codepage 37).  Each
     string is a number, a colon, and a symbol.  The number is the EBCDIC code
     in decimal, and the symbol is a single character, the ISO Latin-1 name of
     the graphic it represents, or a hexadecimal number in the form 0xnn.
+
+    In either style of definition, the display code can be preceded by an
+    asterisk "*" to indicate a one-way translation.  One-way translations
+    are used when multiple EBCDIC codes are displayed with the same display
+    code.  The entry without the asterisk is used to define how that one
+    display code is translated back to EBCDIC.
 
 x3270.charsetList	Default U.S. International: us-intl
 				Bracket: bracket
@@ -97,14 +111,14 @@ x3270.charsetList	Default U.S. International: us-intl
 				Hebrew: hebrew
     Defines the "Character Set" pull-right menu.
 
-x3270.codepage.x		Default 37
-    Code page definitions for various character sets.  If x3270.charset is x,
-    then x3270.codepage.x defines the IBM code page reported to the host in
+x3270.codepage.<i>charset</i>	Default 37
+    Code page definitions for various character sets.  If x3270.charset is <i>x</i>,
+    then x3270.codepage.<i>x</i> defines the IBM code page reported to the host in
     a Query Reply.  The default code page is 37.  The base character set and
     the code page are combined into a CGCSGID reported to the host.  If the
-    value of x3270.codepage.x is a 16-bit number (65535 or less), then the
+    value of x3270.codepage.<i>x</i> is a 16-bit number (less than 65536), then the
     code page is combined with the default base character set of 697 to form
-    the CGCSGID.  If the value of x3270.codepage.x is greater than 16 bits,
+    the CGCSGID.  If the value of x3270.codepage.<i>x</i> is greater than 16 bits,
     then it specifies the entire CGCSGID reported to the host.
 
 x3270.colorBackground	Default black
@@ -121,8 +135,8 @@ x3270.colorScheme	Default default
 				Green Screen: greenScreen
     Defines the colors used to paint the emulator window in 3279 (full-color)
     mode.  This resource is used only when the "x3270.model" specifies a 3279
-    display.  For each color scheme x, an additional resources by the name of
-    colorScheme.x must be defined.
+    display.  For each color scheme <i>x</i>, an additional resources by the name of
+    colorScheme.<i>x</i> must be defined.
 
 x3270.colorScheme.default
 x3270.colorScheme.reverse
@@ -160,8 +174,8 @@ x3270.composeMap	Default latin1
 
 x3270.composeMap.latin1
 x3270.composeMap.apl
-    For each compose map x, an additional resource by the name of composeMap.x
-    must be defined.  Each line in the resource is of the form
+    For each compose map <i>x</i>, an additional resource by the name of
+    composeMap.<i>x</i> must be defined.  Each line in the resource is of the form
     "keysym1 + keysym2 = keysym3", meaning "when the Compose key is pressed,
     followed by keysym1 and keysym2 (in either order), interpret it as
     keysym3."  The definitions are case-sensitive.
@@ -202,11 +216,11 @@ x3270.debugTracing	Default true
 x3270.disconnectClear	Default false
     If set to true, x3270 will clear the screen when a host disconnects.
 
-x3270.displayCharset.x	Default iso8859-1
+x3270.displayCharset.<i>charset</i>	Default iso8859-1
     Defines the character set that the x3270.emulatorFont must implement, in
     order for x3270 to display all characters that the host can generate.
-    If x3270.charset is x, then x3270.displayCharset defines the display
-    character set.  If the x3270.emulator font does not implement the specified
+    If x3270.charset is <i>x</i>, then x3270.displayCharset.<i>x</i> defines the display
+    character set.  If the x3270.emulatorFont does not implement the specified
     display character set, then x3270 will display only ASCII-7 characters.
 
 x3270.doConfirms	Default true
@@ -355,16 +369,16 @@ x3270.keymap		No Default		Switch -keymap
     the environment variables KEYMAP and KEYBD are checked (in that order) for
     the keymap name.
 
-    For each keymap x, an additional resource by the name x3270.keymap.x must
-    be defined, which gives the actual key mappings.  These are in X
+    For each keymap <i>x</i>, an additional resource by the name x3270.keymap.<i>x</i>
+    must be defined, which gives the actual key mappings.  These are in X
     translation table format.
 
     The name may be followed by any number of comma-separated modifier names,
     e.g., if the keymap name "sun-k4,ow", means keymap "sun-k4" and modifier
     "ow".
 
-    For each keymap modifier x, an additional resource by the name
-    x3270.keymap.x must be defined, which gives the actual key mappings.
+    For each keymap modifier <i>x</i>, an additional resource by the name
+    x3270.keymap.<i>x</i> must be defined, which gives the actual key mappings.
     These are also in X translation table format.
 
 x3270.keymap.sun-k5
@@ -609,6 +623,13 @@ x3270.rectangleSelect	Default false		Switch -set rectangleSelect
     When set to true, x3270 will always select rectangular areas of the
     screen.  When false, x3270 will select rectangular areas in 3270 mode, but
     in ANSI mode it will select continuous areas of the screen like xterm.
+
+x3270.requiredFont.<i>charset</i>
+    If this resource is defined for a given <i>charset</i>, then if that character
+    set is selected, the emulator font named by this resource must be used at
+    the same time.  E.g., if the resource x3270.requiredFont.hebrew is defined
+    with the value "3270h", then the character set "hebrew" cannot be used
+    unless the emulator font "3270h" is also in use.
 
 x3270.resizeFontList	Default: 3270 3279-12 3270gt8
 				 3270gt16 3270gt24 3270gt32

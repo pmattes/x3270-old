@@ -25,7 +25,7 @@ LDFLAGS = @LDFLAGS@
 LIBS = @LIBS@
 INSTALL = @INSTALL@
 
-OBJECTS = pr3287.o ctlr.o trace_ds.o tables.o telnet.o sf.o
+OBJECTS = pr3287.o ctlr.o trace_ds.o tables.o telnet.o sf.o charset.o
 
 version.o: version.txt mkversion.sh
 	@chmod +x mkversion.sh version.txt
@@ -35,10 +35,10 @@ pr3287: $(OBJECTS) version.o
 	$(CC) -o $@ $(OBJECTS) version.o $(LDFLAGS) $(LIBS)
 
 install: pr3287
-	$(INSTALL) pr3287 $(BINDIR)/pr3287
+	$(INSTALL) pr3287 $(DESTDIR)$(BINDIR)/pr3287
 
 install.man:
-	$(INSTALL) pr3287.man $(MANDIR)/man1/pr3287.1
+	$(INSTALL) pr3287.man $(DESTDIR)$(MANDIR)/man1/pr3287.1
 
 clean:
 	$(RM) pr3287 *.o
