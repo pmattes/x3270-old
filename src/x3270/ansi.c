@@ -416,16 +416,16 @@ static int	cs_to_change;
 
 static Boolean  held_wrap = False;
 
-static void     ansi_scroll();
+static void	ansi_scroll(void);
 
 static enum state
-ansi_data_mode(int ig1, int ig2)
+ansi_data_mode(int ig1 unused, int ig2 unused)
 {
 	return DATA;
 }
 
 static enum state
-dec_save_cursor(int ig1, int ig2)
+dec_save_cursor(int ig1 unused, int ig2 unused)
 {
 	int i;
 
@@ -440,7 +440,7 @@ dec_save_cursor(int ig1, int ig2)
 }
 
 static enum state
-dec_restore_cursor(int ig1, int ig2)
+dec_restore_cursor(int ig1 unused, int ig2 unused)
 {
 	int i;
 
@@ -456,7 +456,7 @@ dec_restore_cursor(int ig1, int ig2)
 }
 
 static enum state
-ansi_newline(int ig1, int ig2)
+ansi_newline(int ig1 unused, int ig2 unused)
 {
 	int nc;
 
@@ -471,7 +471,7 @@ ansi_newline(int ig1, int ig2)
 }
 
 static enum state
-ansi_cursor_up(int nn, int ig2)
+ansi_cursor_up(int nn, int ig2 unused)
 {
 	int rr;
 
@@ -487,7 +487,7 @@ ansi_cursor_up(int nn, int ig2)
 }
 
 static enum state
-ansi_esc2(int ig1, int ig2)
+ansi_esc2(int ig1 unused, int ig2 unused)
 {
 	register int	i;
 
@@ -498,7 +498,7 @@ ansi_esc2(int ig1, int ig2)
 }
 
 static enum state
-ansi_reset(int ig1, int ig2)
+ansi_reset(int ig1 unused, int ig2 unused)
 {
 	int i;
 	static Boolean first = True;
@@ -543,7 +543,7 @@ ansi_reset(int ig1, int ig2)
 }
 
 static enum state
-ansi_insert_chars(int nn, int ig2)
+ansi_insert_chars(int nn, int ig2 unused)
 {
 	int cc = cursor_addr % COLS;	/* current col */
 	int mc = COLS - cc;		/* max chars that can be inserted */
@@ -565,7 +565,7 @@ ansi_insert_chars(int nn, int ig2)
 }
 
 static enum state
-ansi_cursor_down(int nn, int ig2)
+ansi_cursor_down(int nn, int ig2 unused)
 {
 	int rr;
 
@@ -581,7 +581,7 @@ ansi_cursor_down(int nn, int ig2)
 }
 
 static enum state
-ansi_cursor_right(int nn, int ig2)
+ansi_cursor_right(int nn, int ig2 unused)
 {
 	int cc;
 
@@ -598,7 +598,7 @@ ansi_cursor_right(int nn, int ig2)
 }
 
 static enum state
-ansi_cursor_left(int nn, int ig2)
+ansi_cursor_left(int nn, int ig2 unused)
 {
 	int cc;
 
@@ -630,7 +630,7 @@ ansi_cursor_motion(int n1, int n2)
 }
 
 static enum state
-ansi_erase_in_display(int nn, int ig2)
+ansi_erase_in_display(int nn, int ig2 unused)
 {
 	switch (nn) {
 	    case 0:	/* below */
@@ -649,7 +649,7 @@ ansi_erase_in_display(int nn, int ig2)
 }
 
 static enum state
-ansi_erase_in_line(int nn, int ig2)
+ansi_erase_in_line(int nn, int ig2 unused)
 {
 	int nc = cursor_addr % COLS;
 
@@ -668,7 +668,7 @@ ansi_erase_in_line(int nn, int ig2)
 }
 
 static enum state
-ansi_insert_lines(int nn, int ig2)
+ansi_insert_lines(int nn, int ig2 unused)
 {
 	int rr = cursor_addr / COLS;	/* current row */
 	int mr = scroll_bottom - rr;	/* rows left at and below this one */
@@ -694,7 +694,7 @@ ansi_insert_lines(int nn, int ig2)
 }
 
 static enum state
-ansi_delete_lines(int nn, int ig2)
+ansi_delete_lines(int nn, int ig2 unused)
 {
 	int rr = cursor_addr / COLS;	/* current row */
 	int mr = scroll_bottom - rr;	/* max rows that can be deleted */
@@ -720,7 +720,7 @@ ansi_delete_lines(int nn, int ig2)
 }
 
 static enum state
-ansi_delete_chars(int nn, int ig2)
+ansi_delete_chars(int nn, int ig2 unused)
 {
 	int cc = cursor_addr % COLS;	/* current col */
 	int mc = COLS - cc;		/* max chars that can be deleted */
@@ -742,7 +742,7 @@ ansi_delete_chars(int nn, int ig2)
 }
 
 static enum state
-ansi_sgr(int ig1, int ig2)
+ansi_sgr(int ig1 unused, int ig2 unused)
 {
 	int i;
 
@@ -825,21 +825,21 @@ ansi_sgr(int ig1, int ig2)
 }
 
 static enum state
-ansi_bell(int ig1, int ig2)
+ansi_bell(int ig1 unused, int ig2 unused)
 {
 	ring_bell();
 	return DATA;
 }
 
 static enum state
-ansi_newpage(int ig1, int ig2)
+ansi_newpage(int ig1 unused, int ig2 unused)
 {
 	ctlr_clear(False);
 	return DATA;
 }
 
 static enum state
-ansi_backspace(int ig1, int ig2)
+ansi_backspace(int ig1 unused, int ig2 unused)
 {
 	if (held_wrap) {
 		held_wrap = False;
@@ -856,7 +856,7 @@ ansi_backspace(int ig1, int ig2)
 }
 
 static enum state
-ansi_cr(int ig1, int ig2)
+ansi_cr(int ig1 unused, int ig2 unused)
 {
 	if (cursor_addr % COLS)
 		cursor_move(cursor_addr - (cursor_addr % COLS));
@@ -867,7 +867,7 @@ ansi_cr(int ig1, int ig2)
 }
 
 static enum state
-ansi_lf(int ig1, int ig2)
+ansi_lf(int ig1 unused, int ig2 unused)
 {
 	int nc = cursor_addr + COLS;
 
@@ -888,7 +888,7 @@ ansi_lf(int ig1, int ig2)
 }
 
 static enum state
-ansi_htab(int ig1, int ig2)
+ansi_htab(int ig1 unused, int ig2 unused)
 {
 	int col = cursor_addr % COLS;
 	int i;
@@ -904,13 +904,13 @@ ansi_htab(int ig1, int ig2)
 }
 
 static enum state
-ansi_escape(int ig1, int ig2)
+ansi_escape(int ig1 unused, int ig2 unused)
 {
 	return ESC;
 }
 
 static enum state
-ansi_nop(int ig1, int ig2)
+ansi_nop(int ig1 unused, int ig2 unused)
 {
 	return DATA;
 }
@@ -930,7 +930,7 @@ ansi_nop(int ig1, int ig2)
 }
 
 static enum state
-ansi_printing(int ig1, int ig2)
+ansi_printing(int ig1 unused, int ig2 unused)
 {
 	int nc;
 
@@ -990,7 +990,7 @@ ansi_printing(int ig1, int ig2)
 }
 
 static enum state
-ansi_semicolon(int ig1, int ig2)
+ansi_semicolon(int ig1 unused, int ig2 unused)
 {
 	if (nx >= NN)
 		return DATA;
@@ -999,14 +999,14 @@ ansi_semicolon(int ig1, int ig2)
 }
 
 static enum state
-ansi_digit(int ig1, int ig2)
+ansi_digit(int ig1 unused, int ig2 unused)
 {
 	n[nx] = (n[nx] * 10) + (ansi_ch - '0');
 	return state;
 }
 
 static enum state
-ansi_reverse_index(int ig1, int ig2)
+ansi_reverse_index(int ig1 unused, int ig2 unused)
 {
 	int rr = cursor_addr / COLS;	/* current row */
 	int np = (scroll_top - 1) - rr;	/* number of rows in the scrolling
@@ -1042,7 +1042,7 @@ ansi_reverse_index(int ig1, int ig2)
 }
 
 static enum state
-ansi_send_attributes(int nn, int ig2)
+ansi_send_attributes(int nn, int ig2 unused)
 {
 	if (!nn)
 		net_sends("\033[?1;2c");
@@ -1050,13 +1050,13 @@ ansi_send_attributes(int nn, int ig2)
 }
 
 static enum state
-dec_return_terminal_id(int ig1, int ig2)
+dec_return_terminal_id(int ig1 unused, int ig2 unused)
 {
 	return ansi_send_attributes(0, 0);
 }
 
 static enum state
-ansi_set_mode(int nn, int ig2)
+ansi_set_mode(int nn, int ig2 unused)
 {
 	switch (nn) {
 	    case 4:
@@ -1070,7 +1070,7 @@ ansi_set_mode(int nn, int ig2)
 }
 
 static enum state
-ansi_reset_mode(int nn, int ig2)
+ansi_reset_mode(int nn, int ig2 unused)
 {
 	switch (nn) {
 	    case 4:
@@ -1084,7 +1084,7 @@ ansi_reset_mode(int nn, int ig2)
 }
 
 static enum state
-ansi_status_report(int nn, int ig2)
+ansi_status_report(int nn, int ig2 unused)
 {
 	static char cpr[11];
 
@@ -1102,69 +1102,69 @@ ansi_status_report(int nn, int ig2)
 }
 
 static enum state
-ansi_cs_designate(int ig1, int ig2)
+ansi_cs_designate(int ig1 unused, int ig2 unused)
 {
 	cs_to_change = strchr(gnnames, ansi_ch) - gnnames;
 	return CSDES;
 }
 
 static enum state
-ansi_cs_designate2(int ig1, int ig2)
+ansi_cs_designate2(int ig1 unused, int ig2 unused)
 {
 	csd[cs_to_change] = strchr(csnames, ansi_ch) - csnames;
 	return DATA;
 }
 
 static enum state
-ansi_select_g0(int ig1, int ig2)
+ansi_select_g0(int ig1 unused, int ig2 unused)
 {
 	cset = CS_G0;
 	return DATA;
 }
 
 static enum state
-ansi_select_g1(int ig1, int ig2)
+ansi_select_g1(int ig1 unused, int ig2 unused)
 {
 	cset = CS_G1;
 	return DATA;
 }
 
 static enum state
-ansi_select_g2(int ig1, int ig2)
+ansi_select_g2(int ig1 unused, int ig2 unused)
 {
 	cset = CS_G2;
 	return DATA;
 }
 
 static enum state
-ansi_select_g3(int ig1, int ig2)
+ansi_select_g3(int ig1 unused, int ig2 unused)
 {
 	cset = CS_G3;
 	return DATA;
 }
 
 static enum state
-ansi_one_g2(int ig1, int ig2)
+ansi_one_g2(int ig1 unused, int ig2 unused)
 {
 	once_cset = CS_G2;
 	return DATA;
 }
 
 static enum state
-ansi_one_g3(int ig1, int ig2)
+ansi_one_g3(int ig1 unused, int ig2 unused)
 {
 	once_cset = CS_G3;
 	return DATA;
 }
 
 static enum state
-ansi_esc3(int ig1, int ig2)
+ansi_esc3(int ig1 unused, int ig2 unused)
 {
 	return DECP;
 }
 
 static enum state
-dec_set(int ig1, int ig2)
+dec_set(int ig1 unused, int ig2 unused)
 {
 	int i;
 
@@ -1190,7 +1190,7 @@ dec_set(int ig1, int ig2)
 }
 
 static enum state
-dec_reset(int ig1, int ig2)
+dec_reset(int ig1 unused, int ig2 unused)
 {
 	int i;
 
@@ -1213,7 +1213,7 @@ dec_reset(int ig1, int ig2)
 }
 
 static enum state
-dec_save(int ig1, int ig2)
+dec_save(int ig1 unused, int ig2 unused)
 {
 	int i;
 
@@ -1236,7 +1236,7 @@ dec_save(int ig1, int ig2)
 }
 
 static enum state
-dec_restore(int ig1, int ig2)
+dec_restore(int ig1 unused, int ig2 unused)
 {
 	int i;
 
@@ -1277,7 +1277,7 @@ dec_scrolling_region(int top, int bottom)
 }
 
 static enum state
-xterm_text_mode(int ig1, int ig2)
+xterm_text_mode(int ig1 unused, int ig2 unused)
 {
 	nx = 0;
 	n[0] = 0;
@@ -1285,14 +1285,14 @@ xterm_text_mode(int ig1, int ig2)
 }
 
 static enum state
-xterm_text_semicolon(int ig1, int ig2)
+xterm_text_semicolon(int ig1 unused, int ig2 unused)
 {
 	tx = 0;
 	return TEXT2;
 }
 
 static enum state
-xterm_text(int ig1, int ig2)
+xterm_text(int ig1 unused, int ig2 unused)
 {
 	if (tx < NT)
 		text[tx++] = ansi_ch;
@@ -1300,7 +1300,7 @@ xterm_text(int ig1, int ig2)
 }
 
 static enum state
-xterm_text_do(int ig1, int ig2)
+xterm_text_do(int ig1 unused, int ig2 unused)
 {
 #if defined(X3270_DISPLAY) /*[*/
 	text[tx] = '\0';
@@ -1325,7 +1325,7 @@ xterm_text_do(int ig1, int ig2)
 }
 
 static enum state
-ansi_htab_set(int ig1, int ig2)
+ansi_htab_set(int ig1 unused, int ig2 unused)
 {
 	register int col = cursor_addr % COLS;
 
@@ -1334,7 +1334,7 @@ ansi_htab_set(int ig1, int ig2)
 }
 
 static enum state
-ansi_htab_clear(int nn, int ig2)
+ansi_htab_clear(int nn, int ig2 unused)
 {
 	register int col, i;
 
@@ -1489,7 +1489,7 @@ ansi_send_pa(int nn)
 }
 
 void
-toggle_lineWrap(struct toggle *t, enum toggle_type type)
+toggle_lineWrap(struct toggle *t unused, enum toggle_type type unused)
 {
 	if (toggled(LINE_WRAP))
 		wraparound_mode = 1;

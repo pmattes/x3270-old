@@ -73,13 +73,13 @@ XtFree(XtPointer p)
 }
 
 String
-XtNewString(const String s)
+XtNewString(const char *s)
 {
 	return (String) strcpy(XtMalloc(strlen(s) + 1), s);
 }
 
 static struct {
-	char *name;
+	const char *name;
 	KeySym keysym;
 } latin1[] = {
 	{ "space", XK_space },

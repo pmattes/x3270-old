@@ -12,13 +12,14 @@
  *		#defines for the optional parts of x3270.
  */
 
-#define X3270_FT	1	/* IND$FILE file transfer */
-#define X3270_TRACE	1	/* data stream and X event tracing */
-#define X3270_MENUS	1	/* menu bar */
 #define X3270_ANSI	1	/* ANSI mode */
-#define X3270_KEYPAD	1	/* pop-up keypad */
 #define X3270_APL	1	/* APL keysym support */
 #define X3270_DISPLAY	1	/* X-windows display */
+#define X3270_FT	1	/* IND$FILE file transfer */
+#define X3270_KEYPAD	1	/* pop-up keypad */
+#define X3270_LOCAL_PROCESS 1	/* -e <cmd> support on Linux and BSD */
+#define X3270_MENUS	1	/* menu bar */
+#define X3270_TRACE	1	/* data stream and X event tracing */
 
 /* Without menus, there is no file transfer. */
 #if !defined(X3270_MENUS) /*[*/

@@ -605,4 +605,4 @@ notice.
 .RE
 5250 Emulation Code copyright Minolta (Schweiz) AG, Beat Rubischon.
 .SH VERSION
-s3270 3.2A0
+s3270 3.2A1

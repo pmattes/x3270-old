@@ -33,9 +33,9 @@
  * Generic toggle stuff
  */
 void
-do_toggle(int index)
+do_toggle(int ix)
 {
-	struct toggle *t = &appres.toggle[index];
+	struct toggle *t = &appres.toggle[ix];
 
 	/*
 	 * Change the value, call the internal update routine, and reset the

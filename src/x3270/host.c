@@ -35,6 +35,7 @@ Boolean		std_ds_host = False;
 Boolean		passthru_host = False;
 #define		LUNAME_SIZE	16
 char		luname[LUNAME_SIZE+1];
+char		*connected_lu = CN;
 Boolean		ever_3270 = False;
 Boolean		auto_reconnect_disabled = False;
 
@@ -137,8 +138,8 @@ hostfile_init(void)
  * Look up a host in the list.  Turns aliases into real hostnames, and
  * finds loginstrings.
  */
-int
-hostfile_lookup(char *name, char **hostname, char **loginstring)
+static int
+hostfile_lookup(const char *name, char **hostname, char **loginstring)
 {
 	struct host *h;
 
@@ -155,40 +156,70 @@ hostfile_lookup(char *name, char **hostname, char **loginstring)
 	return 0;
 }
 
-/* Strip qualifiers from a hostname. */
-static char *
-strip_qual(char *s, Boolean *ansi, Boolean *std_ds, Boolean *passthru,
-	char *luname)
+#if defined(LOCAL_PROCESS) /*[*/
+/* Recognize and translate "-e" options. */
+static const char *
+parse_localprocess(const char *s)
 {
+	int sl = strlen(OptLocalProcess);
+
+	if (!strncmp(s, OptLocalProcess, sl)) {
+		if (s[sl] == ' ')
+			return(s + sl + 1);
+		else if (s[sl] == '\0') {
+			char *r;
+
+			r = getenv("SHELL");
+			if (r != CN)
+				return r;
+			else
+				return "/bin/sh";
+		}
+	}
+	return CN;
+}
+#endif /*]*/
+
+/*
+ * Strip qualifiers from a hostname.
+ * Returns the hostname part in a newly-malloc'd string.
+ */
+static char *
+split_host(char *s, Boolean *ansi, Boolean *std_ds, Boolean *passthru,
+	char *xluname, char **port)
+{
+	*ansi = False;
+	*std_ds = False;
+	*passthru = False;
+	*xluname = '\0';
+	*port = CN;
+
 	for (;;) {
 		char *at;
 
 		if (!strncmp(s, "a:", 2) || !strncmp(s, "A:", 2)) {
-			if (ansi != (Boolean *) NULL)
-				*ansi = True;
+			*ansi = True;
 			s += 2;
 			continue;
 		}
 		if (!strncmp(s, "s:", 2) || !strncmp(s, "S:", 2)) {
-			if (std_ds != (Boolean *) NULL)
-				*std_ds = True;
+			*std_ds = True;
 			s += 2;
 			continue;
 		}
 		if (!strncmp(s, "p:", 2) || !strncmp(s, "P:", 2)) {
-			if (passthru != (Boolean *) NULL)
-				*passthru = True;
+			*passthru = True;
 			s += 2;
 			continue;
 		}
 		if ((at = strchr(s, '@')) != NULL) {
-			if (at != s && luname != CN) {
+			if (at != s) {
 				int nc = at - s;
 		
 				if (nc > LUNAME_SIZE)
 					nc = LUNAME_SIZE;
-				(void) strncpy(luname, s, nc);
-				luname[nc] = '\0';
+				(void) strncpy(xluname, s, nc);
+				xluname[nc] = '\0';
 			}
 			s = at + 1;
 			continue;
@@ -196,9 +227,27 @@ strip_qual(char *s, Boolean *ansi, Boolean *std_ds, Boolean *passthru,
 
 		break;
 	}
-	if (*s)
-		return s;
-	else
+	if (*s) {
+		char *r;
+		char *sep;
+
+		r = XtNewString(s);
+		sep = strrchr(r, ':');
+		if (sep == NULL)
+			sep = strrchr(r, ' ');
+		else if (strrchr(r, ' ') != NULL) {
+			XtFree(r);
+			return CN;
+		}
+		if (sep != CN) {
+			*sep++ = '\0';
+			while (*sep == ' ')
+				sep++;
+		}
+		if (port != (char **) NULL)
+			*port = sep;
+		return r;
+	} else
 		return CN;
 }
 
@@ -210,15 +259,17 @@ strip_qual(char *s, Boolean *ansi, Boolean *std_ds, Boolean *passthru,
  * Sets 'current_host' and 'full_current_host' as side-effects.
  */
 int
-host_connect(char *n)
+host_connect(const char *n)
 {
 	char nb[2048];		/* name buffer */
 	char *s;		/* temporary */
+	const char *chost;	/* to whom we will connect */
 	char *target_name;
 	char *ps = CN;
-	char *colon, *space, *port = CN;
+	char *port = CN;
 	Boolean pending;
 	static Boolean ansi_host;
+	const char *localprocess_cmd = NULL;
 
 	if (CONNECTED || auto_reconnect_inprogress)
 		return 0;
@@ -237,63 +288,64 @@ host_connect(char *n)
 	while (*s == ' ')
 		*s-- = '\0';
 
-	/* Strip off and remember leading qualifiers. */
-	ansi_host = False;
-	std_ds_host = False;
-	passthru_host = False;
-	luname[0] = '\0';
-	if (!(s = strip_qual(nb, &ansi_host, &std_ds_host,
-	    &passthru_host, luname)))
-		return -1;
-
-	/* Look up the name in the hosts file. */
-	if (hostfile_lookup(s, &target_name, &ps)) {
-
-		/* Rescan for qualifiers. */
-		(void) strcpy(nb, target_name);
-		if (!(s = strip_qual(nb, &ansi_host, &std_ds_host,
-		    &passthru_host, luname)))
-			return -1;
-	}
-
-	/* Split off any port number. */
-	colon = strrchr(s, ':');
-	space = strrchr(s, ' ');
-	if (colon != CN && space != CN) {
-		/* Do nothing, fail below. */
-	} else if (colon != CN) {
-		if (colon == strchr(s, ':')) {
-			*colon++ = '\0';
-			while (*colon == ' ')
-				colon++;
-			port = colon;
-		}
-	} else if (space != CN) {
-		if (space == strchr(s, ' ')) {
-			*space++ = '\0';
-			while (*space == ' ')
-				space++;
-			port = space;
-		}
-	} else
+#if defined(LOCAL_PROCESS) /*[*/
+	if ((localprocess_cmd = parse_localprocess(nb)) != CN) {
+		chost = localprocess_cmd;
 		port = appres.port;
-	if (port == CN) {
-		popup_an_error("Invalid hostname/port specification");
-		return -1;
+	} else
+#endif /*]*/
+	{
+		/* Strip off and remember leading qualifiers. */
+		if ((s = split_host(nb, &ansi_host, &std_ds_host,
+		    &passthru_host, luname, &port)) == CN)
+			return -1;
+
+		/* Look up the name in the hosts file. */
+		if (hostfile_lookup(s, &target_name, &ps)) {
+			/*
+			 * Rescan for qualifiers.
+			 * Qualifiers, LU names, and ports are all overridden
+			 * by the hosts file.
+			 */
+			XtFree(s);
+			if (!(s = split_host(target_name, &ansi_host,
+			    &std_ds_host, &passthru_host, luname, &port)))
+				return -1;
+		}
+		chost = s;
+
+		/* Default the port. */
+		if (port == CN)
+			port = appres.port;
 	}
 
-	/* Store the name in globals, even if we fail. */
+	/*
+	 * Store the original name in globals, even if we fail the connect
+	 * later:
+	 *  current_host is the hostname part, stripped of qualifiers, luname
+	 *   and port number
+	 *  full_current_host is the entire string, for use in reconnecting
+	 */
 	if (n != full_current_host) {
 		if (full_current_host != CN)
 			XtFree(full_current_host);
 		full_current_host = XtNewString(n);
 	}
-	current_host = strip_qual(full_current_host, (Boolean *) NULL,
-	    (Boolean *) NULL, (Boolean *) NULL, (char *) NULL);
+	if (current_host != CN)
+		XtFree(current_host);
+	if (localprocess_cmd != CN) {
+		if (full_current_host[strlen(OptLocalProcess)] != '\0')
+		current_host = XtNewString(full_current_host +
+		    strlen(OptLocalProcess) + 1);
+		else
+			current_host = XtNewString("default shell");
+	} else {
+		current_host = s;
+	}
 
 	/* Attempt contact. */
 	ever_3270 = False;
-	net_sock = net_connect(s, port, &pending);
+	net_sock = net_connect(chost, port, localprocess_cmd != CN, &pending);
 	if (net_sock < 0) {
 #if defined(X3270_DISPLAY) /*[*/
 		if (appres.once) {
@@ -328,8 +380,6 @@ host_connect(char *n)
 
 	return 0;
 }
-#undef A_COLON
-#undef P_COLON
 
 #if defined(X3270_DISPLAY) /*[*/
 /*
@@ -337,7 +387,7 @@ host_connect(char *n)
  */
 /*ARGSUSED*/
 static void
-try_reconnect(XtPointer data, XtIntervalId *id)
+try_reconnect(XtPointer data unused, XtIntervalId *id unused)
 {
 	auto_reconnect_inprogress = False;
 	host_reconnect();
@@ -405,13 +455,13 @@ host_disconnect(Boolean disable)
 
 /* The host has entered 3270 or ANSI mode, or switched between them. */
 void
-host_in3270(Boolean now3270)
+host_in3270(Boolean now3270, Boolean e)
 {
 	if (now3270) {		/* ANSI -> 3270 */
-		cstate = CONNECTED_3270;
+		cstate = e ? CONNECTED_TN3270E : CONNECTED_3270;
 		ever_3270 = True;
 	} else {		/* 3270 -> ANSI */
-		cstate = CONNECTED_ANSI;
+		cstate = e ? CONNECTED_NVT : CONNECTED_ANSI;
 		ever_3270 = False;
 	}
 	st_changed(ST_3270_MODE, now3270);
@@ -515,7 +565,8 @@ Reconnect_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 #endif /*]*/
 
 void
-Disconnect_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+Disconnect_action(Widget w unused, XEvent *event, String *params,
+	Cardinal *num_params)
 {
 	action_debug(Disconnect_action, event, params, num_params);
 	if (check_usage(Disconnect_action, *num_params, 0, 0) < 0)

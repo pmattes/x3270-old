@@ -153,7 +153,7 @@ XtActionsRec actions[] = {
 int actioncount = XtNumber(actions);
 
 enum iaction ia_cause;
-char *ia_name[] = {
+const char *ia_name[] = {
 	"String", "Paste", "Screen redraw", "Keypad", "Default", "Key",
 	"Macro", "Script", "Peek", "Typeahead", "File transfer"
 };
@@ -161,7 +161,7 @@ char *ia_name[] = {
 /*
  * Return a name for an action.
  */
-char *
+const char *
 action_name(XtActionProc action)
 {
 	register int i;
@@ -177,9 +177,9 @@ static char *
 key_state(unsigned int state)
 {
 	static char rs[64];
-	char *comma = "";
+	const char *comma = "";
 	static struct {
-		char *name;
+		const char *name;
 		unsigned int mask;
 	} keymask[] = {
 		{ "Shift", ShiftMask },
@@ -246,7 +246,7 @@ void
 action_debug(void (*action)(), XEvent *event, String *params,
     Cardinal *num_params)
 {
-	int i;
+	Cardinal i;
 #if defined(X3270_DISPLAY) /*[*/
 	XKeyEvent *kevent;
 	KeySym ks;
@@ -255,7 +255,7 @@ action_debug(void (*action)(), XEvent *event, String *params,
 	XConfigureEvent *cevent;
 	XClientMessageEvent *cmevent;
 	XExposeEvent *exevent;
-	char *press = "Press";
+	const char *press = "Press";
 	char dummystr[KSBUF+1];
 	char *atom_name;
 #endif /*]*/
@@ -351,24 +351,36 @@ action_debug(void (*action)(), XEvent *event, String *params,
  * Wrapper for calling an action internally.
  */
 void
-action_internal(XtActionProc action, enum iaction cause, char *parm1,
-    char *parm2)
+action_internal(XtActionProc action, enum iaction cause, const char *parm1,
+    const char *parm2)
 {
 	Cardinal count = 0;
 	String parms[2];
 
-	parms[0] = parm1;
-	parms[1] = parm2;
+	/* Duplicate the parms, because XtActionProc doesn't grok 'const'. */
 	if (parm1 != CN) {
-		if (parm2 != CN)
-			count = 2;
-		else
-			count = 1;
-	} else
-		count = 0;
+		parms[0] = XtNewString(parm1);
+		count++;
+		if (parm2 != CN) {
+			parms[1] = XtNewString(parm2);
+			count++;
+		}
+	}
 
 	ia_cause = cause;
 	(*action)((Widget) NULL, (XEvent *) NULL,
 	    count ? parms : (String *) NULL,
 	    &count);
+
+	/* Free the parm copies. */
+	switch (count) {
+	    case 2:
+		XtFree((XtPointer)parms[1]);
+		/* fall through... */
+	    case 1:
+		XtFree((XtPointer)parms[0]);
+		break;
+	    default:
+		break;
+	}
 }

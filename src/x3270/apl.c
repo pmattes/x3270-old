@@ -45,7 +45,7 @@
  */
 
 static struct {
-	char *name;
+	const char *name;
 	KeySym keysym;
 	int is_ge;
 } axl[] = {

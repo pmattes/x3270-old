@@ -24,7 +24,7 @@ extern enum iaction ia_cause;
 extern int              actioncount;
 extern XtActionsRec     actions[];
 
-extern char	       *ia_name[];
+extern const char       *ia_name[];
 
 #if defined(X3270_TRACE) /*[*/
 extern void action_debug(XtActionProc action, XEvent *event, String *params,
@@ -33,7 +33,7 @@ extern void action_debug(XtActionProc action, XEvent *event, String *params,
 #define action_debug 0 &&
 #endif /*]*/
 extern void action_internal(XtActionProc action, enum iaction cause,
-    char *parm1, char *parm2);
-extern char *action_name(XtActionProc action);
+    const char *parm1, const char *parm2);
+extern const char *action_name(XtActionProc action);
 extern int check_usage(XtActionProc action, Cardinal nargs, Cardinal nargs_min,
     Cardinal nargs_max);

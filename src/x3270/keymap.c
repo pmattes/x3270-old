@@ -44,11 +44,11 @@ static struct trans_list *tkm_last;
 struct trans_list *temp_keymaps;	/* temporary keymap list */
 char *keymap_trace = CN;
 
-static void setup_keymaps(char *km, Boolean do_popup);
-static void add_keymap(char *name, Boolean do_popup);
-static void add_trans(char *name, char *translations, char *pathname,
-    Boolean from_server);
-static char *get_file_keymap(char *name, char **pathp);
+static void setup_keymaps(const char *km, Boolean do_popup);
+static void add_keymap(const char *name, Boolean do_popup);
+static void add_trans(const char *name, char *translations, char *pathname,
+    Boolean is_from_server);
+static char *get_file_keymap(const char *name, char **pathp);
 
 #if XtSpecificationRelease >= 5 /*[*/
 
@@ -89,7 +89,7 @@ static void km_regen(void);
 
 /* Keymap initialization. */
 void
-keymap_init(char *km)
+keymap_init(const char *km)
 {
 	static Boolean initted = False;
 
@@ -111,7 +111,7 @@ keymap_init(char *km)
  * Set up a user keymap.
  */
 static void
-setup_keymaps(char *km, Boolean do_popup)
+setup_keymaps(const char *km, Boolean do_popup)
 {
 	Boolean saw_apl_keymod = False;
 	struct trans_list *t;
@@ -171,9 +171,11 @@ setup_keymaps(char *km, Boolean do_popup)
  * Get a keymap from a file.
  */
 static char *
-get_file_keymap(char *name, char **pathp)
+get_file_keymap(const char *name, char **pathp)
 {
+#if 0
 	char *home;
+#endif
 	char *path;
 	XrmDatabase dd = (XrmDatabase)NULL;
 	char *resname;
@@ -226,13 +228,13 @@ get_file_keymap(char *name, char **pathp)
  * system and user versions of a keymap.
  */
 static void
-add_keymap(char *name, Boolean do_popup)
+add_keymap(const char *name, Boolean do_popup)
 {
 	char *translations;
 	char *buf;
 	int any = 0;
 	char *path;
-	Boolean from_server = False;
+	Boolean is_from_server = False;
 
 	if (appres.key_map == (char *)NULL)
 		appres.key_map = XtNewString(name);
@@ -271,7 +273,7 @@ add_keymap(char *name, Boolean do_popup)
 		for (sk = sk_list; sk != (struct sk *)NULL; sk = sk->next) {
 			if (!strcmp(sk->vendor, ServerVendor(display))) {
 				name = sk->keymap;
-				from_server = True;
+				is_from_server = True;
 				break;
 			}
 		}
@@ -281,20 +283,20 @@ add_keymap(char *name, Boolean do_popup)
 
 	/* Try for a file first, then resources. */
 	if ((translations = get_file_keymap(name, &path)) != CN) {
-		add_trans(name, translations, path, from_server);
+		add_trans(name, translations, path, is_from_server);
 		XtFree(translations);
 		any++;
 	} else {
 		buf = xs_buffer("%s.%s", ResKeymap, name);
 		if ((translations = get_resource(buf)) != CN) {
-			add_trans(name, translations, CN, from_server);
+			add_trans(name, translations, CN, is_from_server);
 			any++;
 		}
 		XtFree(buf);
 		buf = xs_buffer("%s.%s.%s", ResKeymap, name, ResUser);
 		if ((translations = get_resource(buf)) != CN) {
 			add_trans(buf + strlen(ResKeymap) + 1, translations,
-			    CN, from_server);
+			    CN, is_from_server);
 			any++;
 		}
 		XtFree(buf);
@@ -313,15 +315,16 @@ add_keymap(char *name, Boolean do_popup)
  * Add a single keymap name and translation to the translation list.
  */
 static void
-add_trans(char *name, char *translations, char *pathname, Boolean from_server)
+add_trans(const char *name, char *translations, char *path_name,
+    Boolean is_from_server)
 {
 	struct trans_list *t;
 
 	t = (struct trans_list *)XtMalloc(sizeof(*t));
 	t->name = XtNewString(name);
-	t->pathname = pathname;
+	t->pathname = path_name;
 	t->is_temp = False;
-	t->from_server = from_server;
+	t->from_server = is_from_server;
 	(void) lookup_tt(name, translations);
 	t->next = NULL;
 	*last_trans = t;
@@ -372,7 +375,7 @@ unquoted_newline(char *s)
 
 /* Expand a translation table with keymap tracing calls. */
 static char *
-expand_table(char *name, char *table)
+expand_table(const char *name, char *table)
 {
 	char *cm, *t0, *t, *s;
 	int nlines = 1;
@@ -465,7 +468,7 @@ expand_table(char *name, char *table)
  */
 /*ARGSUSED*/
 void
-PA_KeymapTrace_action(Widget w, XEvent *event, String *params,
+PA_KeymapTrace_action(Widget w unused, XEvent *event unused, String *params,
     Cardinal *num_params)
 {
 	if (!toggled(EVENT_TRACE) || *num_params != 2)
@@ -483,8 +486,8 @@ PA_KeymapTrace_action(Widget w, XEvent *event, String *params,
  */
 /*ARGSUSED*/
 void
-PA_End_action(Widget w, XEvent *event, String *params,
-    Cardinal *num_params)
+PA_End_action(Widget w unused, XEvent *event unused, String *params unused,
+    Cardinal *num_params unused)
 {
 	if (keymap_trace != CN)
 		XtFree((XtPointer)keymap_trace);
@@ -495,7 +498,7 @@ PA_End_action(Widget w, XEvent *event, String *params,
  * Translation table cache.
  */
 XtTranslations
-lookup_tt(char *name, char *table)
+lookup_tt(const char *name, char *table)
 {
 	struct tt_cache {
 		char *name;
@@ -638,7 +641,8 @@ temporary_keymap(char *k)
 
 /* Create and pop up the current keymap pop-up. */
 void
-do_keymap_display(Widget w, XtPointer userdata, XtPointer calldata)
+do_keymap_display(Widget w unused, XtPointer userdata unused,
+    XtPointer calldata unused)
 {
 	Widget form, label, done;
 
@@ -750,14 +754,15 @@ km_regen(void)
 
 /* Popup callback. */
 static void
-km_up(Widget w, XtPointer client_data, XtPointer call_data)
+km_up(Widget w unused, XtPointer client_data unused, XtPointer call_data unused)
 {
 	km_isup = True;
 }
 
 /* Popdown callback.  Destroy the widget. */
 static void
-km_down(Widget w, XtPointer client_data, XtPointer call_data)
+km_down(Widget w unused, XtPointer client_data unused,
+    XtPointer call_data unused)
 {
 	km_isup = False;
 	(void) unlink(km_file);
@@ -766,14 +771,16 @@ km_down(Widget w, XtPointer client_data, XtPointer call_data)
 
 /* Done button callback.  Pop down the widget. */
 static void
-km_done(Widget w, XtPointer client_data, XtPointer call_data)
+km_done(Widget w unused, XtPointer client_data unused,
+    XtPointer call_data unused)
 {
 	XtPopdown(km_shell);
 }
 
 /* "Sort-by-event" button callback. */
 static void
-do_sort_event(Widget w, XtPointer client_data, XtPointer call_data)
+do_sort_event(Widget w unused, XtPointer client_data unused,
+    XtPointer call_data unused)
 {
 	if (sort != SORT_EVENT) {
 		sort = SORT_EVENT;
@@ -786,7 +793,8 @@ do_sort_event(Widget w, XtPointer client_data, XtPointer call_data)
 
 /* "Sort-by-keymap" button callback. */
 static void
-do_sort_keymap(Widget w, XtPointer client_data, XtPointer call_data)
+do_sort_keymap(Widget w unused, XtPointer client_data unused,
+    XtPointer call_data unused)
 {
 	if (sort != SORT_KEYMAP) {
 		sort = SORT_KEYMAP;
@@ -799,7 +807,8 @@ do_sort_keymap(Widget w, XtPointer client_data, XtPointer call_data)
 
 /* "Sort-by-action" button callback. */
 static void
-do_sort_action(Widget w, XtPointer client_data, XtPointer call_data)
+do_sort_action(Widget w unused, XtPointer client_data unused,
+    XtPointer call_data unused)
 {
 	if (sort != SORT_ACTION) {
 		sort = SORT_ACTION;
@@ -1034,7 +1043,6 @@ action_cmp(char *s1, char *s2)
 static int
 km_index(char *n)
 {
-	extern struct trans_list *temp_keymaps;
 	struct trans_list *t;
 	int ix = 0;
 
@@ -1055,7 +1063,6 @@ km_index(char *n)
 static Boolean
 is_temp(char *k)
 {
-	extern struct trans_list *temp_keymaps;
 	struct trans_list *t;
 
 	for (t = trans_list; t != (struct trans_list *)NULL; t = t->next) {
@@ -1073,7 +1080,6 @@ is_temp(char *k)
 static char *
 pathname(char *k)
 {
-	extern struct trans_list *temp_keymaps;
 	struct trans_list *t;
 
 	for (t = trans_list; t != (struct trans_list *)NULL; t = t->next) {
@@ -1091,7 +1097,6 @@ pathname(char *k)
 static Boolean
 from_server(char *k)
 {
-	extern struct trans_list *temp_keymaps;
 	struct trans_list *t;
 
 	for (t = trans_list; t != (struct trans_list *)NULL; t = t->next) {

@@ -19,8 +19,11 @@ extern enum placement *BottomP;
 extern enum placement *LeftP;
 extern enum placement *RightP;
 
-extern Widget create_form_popup(char *name, XtCallbackProc callback,
-    XtCallbackProc callback2, Boolean no_spaces);
+/* form input editing enumeration */
+enum form_type { FORM_NO_WHITE, FORM_NO_CC, FORM_AS_IS };
+
+extern Widget create_form_popup(const char *name, XtCallbackProc callback,
+    XtCallbackProc callback2, enum form_type form_type);
 extern void error_popup_init(void);
 extern void Info_action(Widget w, XEvent *event, String *params,
     Cardinal *num_params);
@@ -28,9 +31,9 @@ extern void info_popup_init(void);
 extern void PA_confirm_action(Widget w, XEvent *event, String *params,
     Cardinal *num_params);
 extern void place_popup(Widget w, XtPointer client_data, XtPointer call_data);
-extern void popup_an_errno(int errn, char *fmt, ...);
-extern void popup_an_error(char *fmt, ...);
-extern void popup_an_info(char *fmt, ...);
+extern void popup_an_errno(int errn, const char *fmt, ...);
+extern void popup_an_error(const char *fmt, ...);
+extern void popup_an_info(const char *fmt, ...);
 extern void popup_popup(Widget shell, XtGrabKind grab);
-extern void toplevel_geometry(Dimension *x, Dimension *y, Dimension *width,
+extern void toplevel_geometry(Position *x, Position *y, Dimension *width,
     Dimension *height);

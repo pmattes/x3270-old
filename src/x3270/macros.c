@@ -99,7 +99,8 @@ static int      ansi_save_cnt = 0;
 static int      ansi_save_ix = 0;
 static char    *expect_text = CN;
 int		expect_len = 0;
-static char *st_name[] = { "String", "Macro", "ChildScript", "PeerScript" };
+static const char *st_name[] = { "String", "Macro", "ChildScript",
+				 "PeerScript" };
 #define ST_sNAME(s)	st_name[(int)(s)->type]
 #define ST_NAME		ST_sNAME(sms)
 
@@ -460,7 +461,7 @@ execute_command(enum iaction cause, char *s, char **np)
 	String params[64];
 	int i;
 	int failreason = 0;
-	static char *fail_text[] = {
+	static const char *fail_text[] = {
 		/*1*/ "Action name must begin with an alphanumeric character",
 		/*2*/ "Syntax error, \"(\" expected",
 		/*3*/ "Syntax error, \")\" expected",
@@ -602,7 +603,7 @@ execute_command(enum iaction cause, char *s, char **np)
 
 	/* If it's a macro, do variable substitutions. */
 	if (cause == IA_MACRO) {
-		int j;
+		Cardinal j;
 
 		for (j = 0; j < count; j++)
 			params[j] = do_subst(params[j], True, False);
@@ -626,7 +627,7 @@ execute_command(enum iaction cause, char *s, char **np)
 
 	/* If it's a macro, undo variable substitutions. */
 	if (cause == IA_MACRO) {
-		int j;
+		Cardinal j;
 
 		for (j = 0; j < count; j++)
 			XtFree(params[j]);
@@ -987,7 +988,6 @@ sms_error(char *msg)
 }
 
 /* Process available input from a script. */
-/*ARGSUSED*/
 static void
 script_input(XtPointer fd)
 {
@@ -1136,7 +1136,7 @@ dump_range(int first, int len, Boolean in_ascii)
 }
 
 static void
-dump_fixed(String params[], Cardinal count, char *name, Boolean in_ascii)
+dump_fixed(String params[], Cardinal count, const char *name, Boolean in_ascii)
 {
 	int row, col, len, rows = 0, cols = 0;
 
@@ -1188,7 +1188,7 @@ dump_fixed(String params[], Cardinal count, char *name, Boolean in_ascii)
 }
 
 static void
-dump_field(Cardinal count, char *name, Boolean in_ascii)
+dump_field(Cardinal count, const char *name, Boolean in_ascii)
 {
 	unsigned char *fa;
 	int start, baddr;
@@ -1215,30 +1215,30 @@ dump_field(Cardinal count, char *name, Boolean in_ascii)
 	dump_range(start, len, in_ascii);
 }
 
-/*ARGSUSED*/
 void
-Ascii_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+Ascii_action(Widget w unused, XEvent *event unused, String *params,
+    Cardinal *num_params)
 {
 	dump_fixed(params, *num_params, action_name(Ascii_action), True);
 }
 
-/*ARGSUSED*/
 void
-AsciiField_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+AsciiField_action(Widget w unused, XEvent *event unused, String *params unused,
+    Cardinal *num_params)
 {
 	dump_field(*num_params, action_name(AsciiField_action), True);
 }
 
-/*ARGSUSED*/
 void
-Ebcdic_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+Ebcdic_action(Widget w unused, XEvent *event unused, String *params,
+    Cardinal *num_params)
 {
 	dump_fixed(params, *num_params, action_name(Ebcdic_action), False);
 }
 
-/*ARGSUSED*/
 void
-EbcdicField_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+EbcdicField_action(Widget w unused, XEvent *event unused,
+    String *params unused, Cardinal *num_params)
 {
 	dump_field(*num_params, action_name(EbcdicField_action), False);
 }
@@ -1273,7 +1273,6 @@ EbcdicField_action(Widget w, XEvent *event, String *params, Cardinal *num_params
  * 12 main window id
  */
 
-/*ARGSUSED*/
 static void
 script_prompt(Boolean success)
 {
@@ -1312,7 +1311,7 @@ script_prompt(Boolean success)
 		connect_stat = xs_buffer("C(%s)", current_host);
 		free_connect = True;
 	} else
-		connect_stat = "N";
+		connect_stat = XtNewString("N");
 
 	if (CONNECTED) {
 		if (IN_ANSI) {
@@ -1340,8 +1339,7 @@ script_prompt(Boolean success)
 	    XtWindow(toplevel),
 	    success ? "ok" : "error");
 
-	if (free_connect)
-		XtFree(connect_stat);
+	XtFree(connect_stat);
 
 	(void) fflush(sms->outfile);
 }
@@ -1349,9 +1347,9 @@ script_prompt(Boolean success)
 /*
  * Wait for the host to let us write onto the screen.
  */
-/*ARGSUSED*/
 void
-Wait_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+Wait_action(Widget w unused, XEvent *event unused, String *params,
+    Cardinal *num_params)
 {
 	enum sms_state next_state = SS_WAIT;
 
@@ -1560,9 +1558,9 @@ sms_store(unsigned char c)
 }
 
 /* Dump whatever ANSI data has been sent by the host since last called. */
-/*ARGSUSED*/
 void
-AnsiText_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+AnsiText_action(Widget w unused, XEvent *event unused, String *params unused,
+    Cardinal *num_params unused)
 {
 	register int i;
 	int ix;
@@ -1599,8 +1597,8 @@ AnsiText_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 
 /* Pause a script. */
 void
-PauseScript_action(Widget w, XEvent *event, String *params,
-    Cardinal *num_params)
+PauseScript_action(Widget w unused, XEvent *event unused, String *params unused,
+    Cardinal *num_params unused)
 {
 	if (sms == SN || (sms->type != ST_PEER && sms->type != ST_CHILD)) {
 		popup_an_error("%s can only be called from a script",
@@ -1612,7 +1610,7 @@ PauseScript_action(Widget w, XEvent *event, String *params,
 
 /* Continue a script. */
 void
-ContinueScript_action(Widget w, XEvent *event, String *params,
+ContinueScript_action(Widget w, XEvent *event unused, String *params,
     Cardinal *num_params)
 {
 	if (check_usage(ContinueScript_action, *num_params, 1, 1) < 0)
@@ -1638,9 +1636,9 @@ ContinueScript_action(Widget w, XEvent *event, String *params,
 }
 
 /* Stop listening to stdin. */
-/*ARGSUSED*/
 void
-CloseScript_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+CloseScript_action(Widget w unused, XEvent *event unused, String *params,
+    Cardinal *num_params)
 {
 	if (sms != SN &&
 	    (sms->type == ST_PEER || sms->type == ST_CHILD)) {
@@ -1663,9 +1661,9 @@ CloseScript_action(Widget w, XEvent *event, String *params, Cardinal *num_params
 }
 
 /* Execute an arbitrary shell command. */
-/*ARGSUSED*/
 void
-Execute_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+Execute_action(Widget w unused, XEvent *event unused, String *params,
+    Cardinal *num_params)
 {
 	if (check_usage(Execute_action, *num_params, 1, 1) < 0)
 		return;
@@ -1673,9 +1671,8 @@ Execute_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 }
 
 /* Timeout for Expect action. */
-/*ARGSUSED*/
 static void
-expect_timed_out(XtPointer closure, XtIntervalId *id)
+expect_timed_out(XtPointer closure unused, XtIntervalId *id unused)
 {
 	if (sms == SN || sms->state != SS_EXPECTING)
 		return;
@@ -1692,9 +1689,9 @@ expect_timed_out(XtPointer closure, XtIntervalId *id)
 }
 
 /* Wait for a string from the host (ANSI mode only). */
-/*ARGSUSED*/
 void
-Expect_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+Expect_action(Widget w unused, XEvent *event unused, String *params,
+    Cardinal *num_params)
 {
 	int tmo;
 
@@ -1738,9 +1735,9 @@ Expect_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 static Widget execute_action_shell = (Widget)NULL;
 
 /* Callback for "OK" button on execute action popup */
-/*ARGSUSED*/
 static void
-execute_action_callback(Widget w, XtPointer client_data, XtPointer call_data)
+execute_action_callback(Widget w unused, XtPointer client_data,
+    XtPointer call_data unused)
 {
 	char *text;
 
@@ -1751,13 +1748,13 @@ execute_action_callback(Widget w, XtPointer client_data, XtPointer call_data)
 	push_macro(text, False);
 }
 
-/*ARGSUSED*/
 void
-execute_action_option(Widget w, XtPointer client_data, XtPointer call_data)
+execute_action_option(Widget w unused, XtPointer client_data unused,
+    XtPointer call_data unused)
 {
 	if (execute_action_shell == NULL)
 		execute_action_shell = create_form_popup("ExecuteAction",
-		    execute_action_callback, (XtCallbackProc)NULL, False);
+		    execute_action_callback, (XtCallbackProc)NULL, FORM_NO_CC);
 
 	popup_popup(execute_action_shell, XtGrabExclusive);
 }
@@ -1765,13 +1762,12 @@ execute_action_option(Widget w, XtPointer client_data, XtPointer call_data)
 #endif /*]*/
 
 /* "Script" action, runs a script as a child process. */
-/*ARGSUSED*/
 void
-Script_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+Script_action(Widget w unused, XEvent *event unused, String *params,
+    Cardinal *num_params)
 {
 	int inpipe[2];
 	int outpipe[2];
-	extern int children;
 
 	if (*num_params < 1) {
 		popup_an_error("%s() requires at least one argument",
@@ -1824,7 +1820,7 @@ Script_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 	/* Child processing. */
 	if (sms->pid == 0) {
 		char **argv;
-		int i;
+		Cardinal i;
 		char env_buf[2][32];
 
 		/* Clean up the pipes. */
@@ -1863,7 +1859,8 @@ Script_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 
 /* "Macro" action, explicitly invokes a named macro. */
 void
-Macro_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+Macro_action(Widget w unused, XEvent *event unused, String *params,
+    Cardinal *num_params)
 {
 	struct macro_def *m;
 

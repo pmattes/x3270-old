@@ -87,7 +87,7 @@ static int eof;
 static unsigned long recnum;
 static char *abort_string = CN;
 
-static void dft_abort(char *s, unsigned short code);
+static void dft_abort(const char *s, unsigned short code);
 static void dft_close_request(void);
 static void dft_data_insert(struct data_buffer *data_bufr);
 static void dft_get_request(void);
@@ -98,7 +98,7 @@ static int filter_len(char *s, register int len);
 
 /* Process a Transfer Data structured field from the host. */
 void
-ft_dft_data(unsigned char *data, int length)
+ft_dft_data(unsigned char *data, int length unused)
 {
 	struct data_buffer *data_bufr = (struct data_buffer *)data;
 	unsigned short data_type;
@@ -221,16 +221,16 @@ dft_data_insert(struct data_buffer *data_bufr)
 
 		/* If transfer completed ok, use our msg. */
 		if (memcmp(msgp, END_TRANSFER, strlen(END_TRANSFER)) == 0) {
-			XtFree(msgp);
+			XtFree((XtPointer)msgp);
 			ft_complete((String)NULL);
 		} else if (ft_state == FT_ABORT_SENT && abort_string != CN) {
-			XtFree(msgp);
+			XtFree((XtPointer)msgp);
 			ft_complete(abort_string);
 			XtFree(abort_string);
 			abort_string = CN;
 		} else {
-			ft_complete(msgp);
-			XtFree(msgp);
+			ft_complete((char *)msgp);
+			XtFree((XtPointer)msgp);
 		}
 	} else if (my_length > 0) {
 		/* Write the data out to the file. */
@@ -242,7 +242,7 @@ dft_data_insert(struct data_buffer *data_bufr)
 
 			/* Delete CRs and ^Zs. */
 			while (len) {
-				int l = filter_len(s, len);
+				unsigned l = filter_len(s, len);
 
 				if (l) {
 					rv = fwrite(s, l, (size_t)1,
@@ -455,7 +455,7 @@ dft_close_request(void)
 
 /* Abort a transfer. */
 static void
-dft_abort(char *s, unsigned short code)
+dft_abort(const char *s, unsigned short code)
 {
 	if (abort_string != CN)
 		XtFree(abort_string);

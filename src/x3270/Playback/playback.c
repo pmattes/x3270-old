@@ -126,7 +126,7 @@ char *argv[];
 			perror("accept");
 			continue;
 		}
-		(void) printf("Connection from %s.%d.\n",
+		(void) printf("Connection from %s:%u.\n",
 		    inet_ntoa(sin.sin_addr), ntohs(sin.sin_port));
 		rewind(f);
 		pstate = BASE;
@@ -215,6 +215,13 @@ int s;
 				exit(0);
 			} else if (!strncmp(buf, "d", 1)) {	/* disconnect */
 				break;
+			} else if (buf[0] == '?') {
+				(void) printf("\
+s: step line\n\
+r: step record\n\
+q: quit\n\
+d: disconnect\n\
+?: help\n");
 			} else if (buf[0] != '\n') {		/* junk */
 				(void) printf("%c?\n", buf[0]);
 			}
@@ -345,7 +352,8 @@ int to_eor;
 					goto run_it;
 			} else {
 				NO_FDISP;
-				(void) printf("Non-hex digit in playback file");
+				(void) printf("Non-hex char '%c' in playback "
+					"file, skipping to newline.", c);
 				pstate = WRONG;
 				again = 1;
 			}
@@ -359,7 +367,8 @@ int to_eor;
 				goto run_it;
 			} else {
 				NO_FDISP;
-				(void) printf("Non-hex digit in playback file");
+				(void) printf("Non-hex char '%c' in playback "
+					"file, skipping to newline.", c);
 				pstate = WRONG;
 				again = 1;
 			}

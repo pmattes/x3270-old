@@ -19,9 +19,9 @@ user=${LOGNAME-$USER}
 trap 'rm -f version.c' 0 1 2 15
 
 cat <<EOF >version.c
-char *build = "${2-x3270} v$version $builddate $user";
-char *app_defaults_version = "$adversion";
-static char sccsid[] = "@(#)${2-x3270} v$version $sccsdate $user";
+const char *build = "${2-x3270} v$version $builddate $user";
+const char *app_defaults_version = "$adversion";
+static const char sccsid[] = "@(#)${2-x3270} v$version $sccsdate $user";
 EOF
 
 ${1-cc} -c version.c

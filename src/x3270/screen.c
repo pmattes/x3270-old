@@ -88,7 +88,6 @@ Pixel           colorbg_pixel;
 Pixel           keypadbg_pixel;
 Boolean         flipped = False;
 int		field_colors[4];
-Position	main_x, main_y;
 Pixmap          icon;
 Boolean		shifted = False;
 struct font_list *font_list = (struct font_list *) NULL;
@@ -249,7 +248,7 @@ static int fa_color(unsigned char fa);
 static Boolean cursor_off(void);
 static void draw_aicon_label(void);
 static void set_mcursor(void);
-static void scrollbar_init(Boolean do_reset);
+static void scrollbar_init(Boolean is_reset);
 static void init_rsfonts(void);
 static void allocate_pixels(void);
 static int fl_baddr(int baddr);
@@ -257,7 +256,7 @@ static GC get_gc(struct sstate *s, int color);
 static GC get_selgc(struct sstate *s, int color);
 static void default_color_scheme(void);
 static Boolean xfer_color_scheme(char *cs, Boolean do_popup);
-static void set_font_globals(XFontStruct *f, char *ef, Font ff);
+static void set_font_globals(XFontStruct *f, const char *ef, Font ff);
 static void screen_connect(Boolean ignored);
 static void configure_stable(XtPointer closure, XtIntervalId *id);
 static void cancel_blink(void);
@@ -369,7 +368,7 @@ screen_init(void)
 		gray = XCreatePixmapFromBitmapData(display,
 		    root_window, (char *)gray_bits,
 		    gray_width, gray_height,
-		    appres.foreground, appres.background, depth);
+		    appres.foreground, appres.background, screen_depth);
 
 	/* Initialize the resize list. */
 	init_rsfonts();
@@ -652,23 +651,23 @@ screen_set_thumb(float top, float shown)
 		XawScrollbarSetThumb(scrollbar, top, shown);
 }
 
-/*ARGSUSED*/
 static void
-screen_scroll_proc(Widget w, XtPointer client_data, XtPointer position)
+screen_scroll_proc(Widget w unused, XtPointer client_data unused,
+    XtPointer position)
 {
 	scroll_proc((int)position, (int)nss.screen_height);
 }
 
-/*ARGSUSED*/
 static void
-screen_jump_proc(Widget w, XtPointer client_data, XtPointer percent_ptr)
+screen_jump_proc(Widget w unused, XtPointer client_data unused,
+    XtPointer percent_ptr)
 {
 	jump_proc(*(float *)percent_ptr);
 }
 
 /* Create, move, or reset the scrollbar. */
 static void
-scrollbar_init(Boolean do_reset)
+scrollbar_init(Boolean is_reset)
 {
 	if (!scrollbar_width) {
 		if (scrollbar != (Widget)NULL)
@@ -716,16 +715,15 @@ scrollbar_init(Boolean do_reset)
 	 * If the screen dimensions have changed, reallocate the scroll
 	 * save area.
 	 */
-	if (do_reset || !scroll_initted)
+	if (is_reset || !scroll_initted)
 		scroll_init();
 	else
 		rethumb();
 }
 
 /* Turn the scrollbar on or off */
-/*ARGSUSED*/
 void
-toggle_scrollBar(struct toggle *t, enum toggle_type tt)
+toggle_scrollBar(struct toggle *t unused, enum toggle_type tt unused)
 {
 	scrollbar_changed = True;
 
@@ -746,7 +744,7 @@ toggle_scrollBar(struct toggle *t, enum toggle_type tt)
  * Called when a host connects, disconnects or changes ANSI/3270 mode.
  */
 static void
-screen_connect(Boolean ignored)
+screen_connect(Boolean ignored unused)
 {
 	if (!screen_buf)
 		return;		/* too soon */
@@ -847,9 +845,8 @@ blink_start(void)
 /*
  * Restore blanked blinking text
  */
-/*ARGSUSED*/
 static void
-text_blink_it(XtPointer closure, XtIntervalId *id)
+text_blink_it(XtPointer closure unused, XtIntervalId *id unused)
 {
 	/* Flip the state. */
 	text_blinking_on = !text_blinking_on;
@@ -895,9 +892,8 @@ cursor_off(void)
 /*
  * Blink the cursor
  */
-/*ARGSUSED*/
 static void
-cursor_blink_it(XtPointer closure, XtIntervalId *id)
+cursor_blink_it(XtPointer closure unused, XtIntervalId *id unused)
 {
 	cursor_blink_pending = False;
 	if (!CONNECTED || !toggled(CURSOR_BLINK))
@@ -937,9 +933,8 @@ cancel_blink(void)
 /*
  * Toggle cursor blinking (called from menu)
  */
-/*ARGSUSED*/
 void
-toggle_cursorBlink(struct toggle *t, enum toggle_type tt)
+toggle_cursorBlink(struct toggle *t unused, enum toggle_type tt unused)
 {
 	if (!CONNECTED)
 		return;
@@ -968,9 +963,8 @@ cursor_on(void)
 /*
  * Toggle the cursor (block/underline).
  */
-/*ARGSUSED*/
 void
-toggle_altCursor(struct toggle *t, enum toggle_type tt)
+toggle_altCursor(struct toggle *t, enum toggle_type tt unused)
 {
 	Boolean was_on;
 
@@ -1011,9 +1005,8 @@ cursor_pos(void)
 /*
  * Toggle the display of the cursor position
  */
-/*ARGSUSED*/
 void
-toggle_cursorPos(struct toggle *t, enum toggle_type tt)
+toggle_cursorPos(struct toggle *t unused, enum toggle_type tt unused)
 {
 	if (toggled(CURSOR_POS))
 		cursor_pos();
@@ -1038,9 +1031,9 @@ enable_cursor(Boolean on)
 /*
  * Redraw the screen.
  */
-/*ARGSUSED*/
 static void
-do_redraw(Widget w, XEvent *event, String *params, Cardinal *num_params)
+do_redraw(Widget w, XEvent *event, String *params unused,
+    Cardinal *num_params unused)
 {
 	int	x, y, width, height;
 	int	startcol, ncols;
@@ -1586,9 +1579,8 @@ screen_scroll(void)
 /*
  * Toggle mono-/dual-case mode.
  */
-/*ARGSUSED*/
 void
-toggle_monocase(struct toggle *t, enum toggle_type tt)
+toggle_monocase(struct toggle *t unused, enum toggle_type tt unused)
 {
 	(void) memset((char *) ss->image, 0,
 		      (ROWS*COLS) * sizeof(union sp));
@@ -2101,7 +2093,7 @@ alloc_color(char *name, enum fallback_color fb_color, Pixel *pixel)
 }
 
 /* Spell out a fallback color. */
-static char *
+static const char *
 fb_name(enum fallback_color fb_color)
 {
 	switch (fb_color) {
@@ -2561,9 +2553,9 @@ fa_color(unsigned char fa)
 static Boolean toplevel_focused = False;
 static Boolean keypad_entered = False;
 
-/*ARGSUSED*/
 void
-PA_Focus_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+PA_Focus_action(Widget w unused, XEvent *event, String *params unused,
+    Cardinal *num_params unused)
 {
 	XFocusChangeEvent *fe = (XFocusChangeEvent *)event;
 
@@ -2585,10 +2577,9 @@ PA_Focus_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 	}
 }
 
-/*ARGSUSED*/
 void
-PA_EnterLeave_action(Widget w, XEvent *event, String *params,
-    Cardinal *num_params)
+PA_EnterLeave_action(Widget w unused, XEvent *event unused,
+    String *params unused, Cardinal *num_params unused)
 {
 	XCrossingEvent *ce = (XCrossingEvent *)event;
 
@@ -2608,10 +2599,9 @@ PA_EnterLeave_action(Widget w, XEvent *event, String *params,
 	}
 }
 
-/*ARGSUSED*/
 void
-PA_KeymapNotify_action(Widget w, XEvent *event, String *params,
-    Cardinal *num_params)
+PA_KeymapNotify_action(Widget w unused, XEvent *event, String *params unused,
+    Cardinal *num_params unused)
 {
 	XKeymapEvent *k = (XKeymapEvent *)event;
 
@@ -2649,9 +2639,8 @@ query_window_state(void)
 	}
 }
 
-/*ARGSUSED*/
 void
-PA_StateChanged_action(Widget w, XEvent *event, String *params,
+PA_StateChanged_action(Widget w unused, XEvent *event, String *params,
     Cardinal *num_params)
 {
 	action_debug(PA_StateChanged_action, event, params, num_params);
@@ -2720,9 +2709,9 @@ screen_focus(Boolean in)
 /*
  * Change fonts.
  */
-/*ARGSUSED*/
 void
-SetFont_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+SetFont_action(Widget w unused, XEvent *event, String *params,
+    Cardinal *num_params)
 {
 	action_debug(SetFont_action, event, params, num_params);
 	if (check_usage(SetFont_action, *num_params, 1, 1) < 0)
@@ -2733,7 +2722,7 @@ SetFont_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 void
 screen_newfont(char *fontname, Boolean do_popup)
 {
-	char		*emsg;
+	const char *emsg;
 
 	/* Can't change fonts in APL mode. */
 	if (appres.apl_mode)
@@ -2761,8 +2750,8 @@ screen_newfont(char *fontname, Boolean do_popup)
  * Load and query a font.
  * Returns NULL (okay) or an error message.
  */
-char *
-load_fixed_font(char *name)
+const char *
+load_fixed_font(const char *name)
 {
 	XFontStruct *f;
 	Font ff;
@@ -2785,12 +2774,9 @@ load_fixed_font(char *name)
  * Set globals based on font name and info
  */
 static void
-set_font_globals(XFontStruct *f, char *ef, Font ff)
+set_font_globals(XFontStruct *f, const char *ef, Font ff)
 {
 	unsigned long svalue, svalue2;
-	extern Atom a_3270;
-	extern Atom a_registry, a_iso8859, a_ISO8859;
-	extern Atom a_encoding, a_1;
 
 	if (efontname)
 		XtFree(efontname);
@@ -2837,7 +2823,7 @@ font_init(void)
 {
 	char *s, *label, *font;
 	struct font_list *f;
-	char *ef, *emsg;
+	const char *ef, *emsg;
 
 	/* Parse the fontList resource. */
 	if (!appres.font_list)
@@ -2916,14 +2902,14 @@ screen_change_model(int mn, int ovc, int ovr)
  * Change emulation modes.
  */
 void
-screen_extended(Boolean extended)
+screen_extended(Boolean extended unused)
 {
 	set_rows_cols(model_num, ov_cols, ov_rows);
 	model_changed = True;
 }
 
 void
-screen_m3279(Boolean m3279)
+screen_m3279(Boolean m3279 unused)
 {
 	destroy_pixels();
 	screen_reinit(COLOR_CHANGE);
@@ -3016,7 +3002,6 @@ ring_bell(void)
 /*
  * Window deletion
  */
-/*ARGSUSED*/
 void
 PA_WMProtocols_action(Widget w, XEvent *event, String *params,
     Cardinal *num_params)
@@ -3067,7 +3052,7 @@ icon_init(void)
 			    NULL);
 		}
 	} else {
-		int i;
+		unsigned i;
 
 		for (i = 0; i < sizeof(x3270_bits); i++)
 			x3270_bits[i] = ~x3270_bits[i];
@@ -3162,8 +3147,6 @@ aicon_size(Dimension *iw, Dimension *ih)
 static void
 aicon_init(void)
 {
-	extern Widget icon_shell;
-
 	if (!appres.active_icon)
 		return;
 
@@ -3346,17 +3329,15 @@ init_rsfonts(void)
  * the window manager objecting to the new window size and posts an error
  * message.
  */
-/*ARGSUSED*/
 static void
-configure_stable(XtPointer closure, XtIntervalId *id)
+configure_stable(XtPointer closure unused, XtIntervalId *id unused)
 {
 	configure_ticking = False;
 }
 
-/*ARGSUSED*/
 void
-PA_ConfigureNotify_action(Widget w, XEvent *event, String *params,
-    Cardinal *num_params)
+PA_ConfigureNotify_action(Widget w unused, XEvent *event, String *params unused,
+    Cardinal *num_params unused)
 {
 	XConfigureEvent *re = (XConfigureEvent *) event;
 	Boolean needs_moving = False;
@@ -3578,10 +3559,9 @@ PA_ConfigureNotify_action(Widget w, XEvent *event, String *params,
  * Process a VisibilityNotify event, setting the 'visibile' flag in nss.
  * This will switch the behavior of screen scrolling.
  */
-/*ARGSUSED*/
 void
-PA_VisibilityNotify_action(Widget w, XEvent *event, String *params,
-    Cardinal *num_params)
+PA_VisibilityNotify_action(Widget w unused, XEvent *event unused,
+    String *params unused, Cardinal *num_params unused)
 {
 	XVisibilityEvent *e;
 
@@ -3596,10 +3576,9 @@ PA_VisibilityNotify_action(Widget w, XEvent *event, String *params,
  * Process a GraphicsExpose event, refreshing the screen if we have done
  * one or more failed XCopyArea calls.
  */
-/*ARGSUSED*/
 void
-PA_GraphicsExpose_action(Widget w, XEvent *event, String *params,
-    Cardinal *num_params)
+PA_GraphicsExpose_action(Widget w unused, XEvent *event unused,
+    String *params unused, Cardinal *num_params unused)
 {
 	int i;
 

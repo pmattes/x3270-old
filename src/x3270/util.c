@@ -25,7 +25,7 @@
  * own memory.
  */
 static char *
-xs_vsprintf(char *fmt, va_list args)
+xs_vsprintf(const char *fmt, va_list args)
 {
 	char c;
 	char *r;
@@ -66,7 +66,7 @@ xs_vsprintf(char *fmt, va_list args)
  * 'format' is assumed to be a printf format string with '%s's in it.
  */
 char *
-xs_buffer(char *fmt, ...)
+xs_buffer(const char *fmt, ...)
 {
 	va_list args;
 	char *r;
@@ -79,7 +79,7 @@ xs_buffer(char *fmt, ...)
 
 /* Common uses of xs_buffer. */
 void
-xs_warning(char *fmt, ...)
+xs_warning(const char *fmt, ...)
 {
 	va_list args;
 	char *r;
@@ -92,7 +92,7 @@ xs_warning(char *fmt, ...)
 }
 
 void
-xs_error(char *fmt, ...)
+xs_error(const char *fmt, ...)
 {
 	va_list args;
 	char *r;
@@ -289,7 +289,7 @@ split_lresource(char **st, char **value)
  * add classes too.
  */
 char *
-get_resource(char *name)
+get_resource(const char *name)
 {
 	XrmValue value;
 	char *type;
@@ -303,8 +303,8 @@ get_resource(char *name)
 	return r;
 }
 
-char *
-get_message(char *key)
+const char *
+get_message(const char *key)
 {
 	static char namebuf[128];
 	char *r;
@@ -322,7 +322,7 @@ get_message(char *key)
 
 /* Variable and tilde substitution functions. */
 static char *
-var_subst(char *s)
+var_subst(const char *s)
 {
 	enum { VS_BASE, VS_QUOTE, VS_DOLLAR, VS_BRACE, VS_VN, VS_VNB, VS_EOF }
 	    state = VS_BASE;
@@ -330,7 +330,7 @@ var_subst(char *s)
 	int o_len = strlen(s) + 1;
 	char *ob;
 	char *o;
-	char *vn_start = CN;
+	const char *vn_start = CN;
 
 	if (strchr(s, '$') == CN)
 		return XtNewString(s);
@@ -438,14 +438,19 @@ var_subst(char *s)
 	return ob;
 }
 
+/*
+ * Do tilde (home directory) substitution on a string.  Returns a malloc'd
+ * result.
+ */
 static char *
-tilde_subst(char *s)
+tilde_subst(const char *s)
 {
 	char *slash;
-	char *name;
-	char *rest;
+	const char *name;
+	const char *rest;
 	struct passwd *p;
 	char *r;
+	char *mname = CN;
 
 	/* Does it start with a "~"? */
 	if (*s != '~')
@@ -456,9 +461,10 @@ tilde_subst(char *s)
 	if (slash) {
 		int len = slash - s;
 
-		name = XtMalloc(len + 1);
-		(void) strncpy(name, s, len);
-		name[len] = '\0';
+		mname = XtMalloc(len + 1);
+		(void) strncpy(mname, s, len);
+		mname[len] = '\0';
+		name = mname;
 		rest = slash;
 	} else {
 		name = s;
@@ -471,6 +477,10 @@ tilde_subst(char *s)
 	else			/* somebody else */
 		p = getpwnam(name + 1);
 
+	/* Free any temporary copy. */
+	if (mname != CN)
+		XtFree(mname);
+
 	/* Substitute and return. */
 	if (p == (struct passwd *)NULL)
 		r = XtNewString(s);
@@ -479,13 +489,11 @@ tilde_subst(char *s)
 		(void) strcpy(r, p->pw_dir);
 		(void) strcat(r, rest);
 	}
-	if (name != s)
-		XtFree(name);
 	return r;
 }
 
 char *
-do_subst(char *s, Boolean do_vars, Boolean do_tilde)
+do_subst(const char *s, Boolean do_vars, Boolean do_tilde)
 {
 	if (!do_vars && !do_tilde)
 		return XtNewString(s);

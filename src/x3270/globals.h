@@ -54,6 +54,19 @@
 #endif /*]*/
 
 /*
+ * Compiler-specific #defines.
+ */
+
+/* 'unused' explicitly flags an unused parameter */
+#if defined(__GNUC__) /*[*/
+#define unused __attribute__((__unused__))
+#else /*][*/
+#define unused /* nothing */
+#endif /*]*/
+
+
+
+/*
  * Prerequisite #includes.
  */
 #include <stdio.h>			/* Unix standard I/O library */
@@ -70,15 +83,34 @@
 #endif /*]*/
 #include <X11/Intrinsic.h>
 
+#if defined(X3270_LOCAL_PROCESS) /*[*/
+#if defined(__FreeBSD__) /*[*/
+#include <termios.h>
+#include <libutil.h>
+#define LOCAL_PROCESS    1
+#endif /*]*/
+#if defined(__linux__) /*[*/
+#include <termios.h>
+#include <pty.h>
+#define LOCAL_PROCESS    1
+#endif /*]*/
+#endif /*]*/
+
 /* Simple global variables */
 
 extern int		COLS;
 extern int		ROWS;
+#if defined(X3270_DISPLAY) /*[*/
+extern Atom		a_3270, a_registry, a_iso8859, a_ISO8859, a_encoding,
+				a_1;
+#endif /*]*/
 extern XtAppContext	appcontext;
+extern const char	*build;
+extern int		children;
+extern char		*connected_lu;
 extern char		*current_host;
 extern unsigned short	current_port;
 extern Boolean		*debugging_font;
-extern int		depth;
 extern char		*efontname;
 extern Boolean		error_popup_visible;
 extern Boolean		ever_3270;
@@ -89,6 +121,9 @@ extern char		*full_current_host;
 extern char		full_model_name[];
 extern Boolean		*latin1_font;
 extern char		luname[];
+#if defined(LOCAL_PROCESS) /*[*/
+extern Boolean		local_process;
+#endif /*]*/
 extern int		maxCOLS;
 extern int		maxROWS;
 extern char		*model_name;
@@ -97,14 +132,13 @@ extern int		ov_cols, ov_rows;
 extern Boolean		passthru_host;
 extern char		*programname;
 extern Boolean		auto_reconnect_disabled;
+extern int		screen_depth;
 extern Boolean		scroll_initted;
 extern Boolean		shifted;
 extern Boolean		*standard_font;
 extern Boolean		std_ds_host;
 extern char		*termtype;
 extern Widget		toplevel;
-extern char		*user_icon_name;
-extern char		*user_title;
 extern XrmDatabase	rdb;
 
 #if defined(X3270_DISPLAY) /*[*/
@@ -125,8 +159,11 @@ enum cstate {
 	NOT_CONNECTED,		/* no socket, unknown mode */
 	PENDING,		/* connection pending */
 	CONNECTED_INITIAL,	/* connected, no mode yet */
-	CONNECTED_ANSI,		/* connected in ANSI mode */
-	CONNECTED_3270		/* connected in 3270 mode */
+	CONNECTED_ANSI,		/* connected in NVT ANSI mode */
+	CONNECTED_3270,		/* connected in old-style 3270 mode */
+	CONNECTED_INITIAL_E,	/* connected in TN3270E mode, unnegotiated */
+	CONNECTED_NVT,		/* connected in TN3270E mode, NVT mode */
+	CONNECTED_TN3270E	/* connected in TN3270E mode, 3270 mode */
 };
 extern enum cstate cstate;
 
@@ -134,8 +171,10 @@ extern enum cstate cstate;
 #define HALF_CONNECTED	(cstate == PENDING)
 #define CONNECTED	((int)cstate >= (int)CONNECTED_INITIAL)
 #define IN_NEITHER	(cstate == CONNECTED_INITIAL)
-#define IN_ANSI		(cstate == CONNECTED_ANSI)
-#define IN_3270		(cstate == CONNECTED_3270)
+#define IN_ANSI		(cstate == CONNECTED_ANSI || cstate == CONNECTED_NVT)
+#define IN_3270		(cstate == CONNECTED_3270 || cstate == CONNECTED_TN3270E)
+#define IN_TN3270E	(cstate == CONNECTED_TN3270E)
+#define IN_E		(cstate >= CONNECTED_INITIAL_E)
 
 /*   keyboard modifer bitmap */
 #define ShiftKeyDown	0x01
@@ -144,7 +183,7 @@ extern enum cstate cstate;
 
 /*   toggle names */
 struct toggle_name {
-	char *name;
+	const char *name;
 	int index;
 };
 extern struct toggle_name toggle_names[];

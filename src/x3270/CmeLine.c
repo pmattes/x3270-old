@@ -67,10 +67,13 @@ static XtResource resources[] = {
  * Function definitions. 
  */
 
-static void Redisplay(), Initialize();
-static void DestroyGC(), CreateGC();
-static Boolean SetValues();
-static XtGeometryResult QueryGeometry();
+static void Redisplay(Widget, XEvent *, Region);
+static void Initialize(Widget, Widget, ArgList, Cardinal *);
+static void DestroyGC(Widget);
+static void CreateGC(Widget);
+static Boolean SetValues(Widget, Widget, Widget, ArgList, Cardinal *);
+static XtGeometryResult QueryGeometry(Widget, XtWidgetGeometry *,
+	XtWidgetGeometry *);
 
 
 #define SUPERCLASS (&cmeClassRec)
@@ -140,8 +143,8 @@ WidgetClass cmeLineObjectClass = (WidgetClass) &cmeLineClassRec;
 
 /* ARGSUSED */
 static void
-Initialize(request, new)
-Widget request, new;
+Initialize(Widget request unused, Widget new, ArgList args unused,
+	Cardinal *num_args unused)
 {
     CmeLineObject entry = (CmeLineObject) new;
 
@@ -161,8 +164,7 @@ Widget request, new;
  */
 
 static void
-CreateGC(w)
-Widget w;
+CreateGC(Widget w)
 {
     CmeLineObject entry = (CmeLineObject) w;
     XGCValues values;
@@ -192,8 +194,7 @@ Widget w;
  */
 
 static void
-DestroyGC(w)
-Widget w;
+DestroyGC(Widget w)
 {
     CmeLineObject entry = (CmeLineObject) w;
 
@@ -212,10 +213,7 @@ Widget w;
 
 /*ARGSUSED*/
 static void
-Redisplay(w, event, region)
-Widget w;
-XEvent * event;
-Region region;
+Redisplay(Widget w, XEvent *event unused, Region region unused)
 {
     CmeLineObject entry = (CmeLineObject) w;
     int y = entry->rectangle.y + 
@@ -240,8 +238,8 @@ Region region;
 
 /* ARGSUSED */
 static Boolean
-SetValues(current, request, new)
-Widget current, request, new;
+SetValues(Widget current, Widget request unused, Widget new,
+	ArgList args unused, Cardinal *num_args unused)
 {
     CmeLineObject entry = (CmeLineObject) new;
     CmeLineObject old_entry = (CmeLineObject) current;
@@ -267,9 +265,8 @@ Widget current, request, new;
  */
 
 static XtGeometryResult
-QueryGeometry(w, intended, return_val) 
-Widget w;
-XtWidgetGeometry *intended, *return_val;
+QueryGeometry(Widget w, XtWidgetGeometry *intended,
+	XtWidgetGeometry *return_val)
 {
     CmeObject entry = (CmeObject) w;
     Dimension width;

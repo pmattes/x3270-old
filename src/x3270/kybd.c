@@ -73,7 +73,7 @@ static XtIntervalId unlock_id;
 static Boolean key_Character(int cgcode, Boolean with_ge);
 static Boolean flush_ta(void);
 static void key_AID(unsigned char aid_code);
-static void kybdlock_set(unsigned int bits, char *cause);
+static void kybdlock_set(unsigned int bits, const char *cause);
 static KeySym StringToKeysym(char *s, enum keytype *keytypep);
 
 static int nxk = 0;
@@ -224,7 +224,7 @@ flush_ta(void)
 /* Set bits in the keyboard lock. */
 /*ARGSUSED*/
 static void
-kybdlock_set(unsigned int bits, char *cause)
+kybdlock_set(unsigned int bits, const char *cause unused)
 {
 	unsigned int n;
 
@@ -242,7 +242,7 @@ kybdlock_set(unsigned int bits, char *cause)
 /* Clear bits in the keyboard lock. */
 /*ARGSUSED*/
 void
-kybdlock_clr(unsigned int bits, char *cause)
+kybdlock_clr(unsigned int bits, const char *cause unused)
 {
 	unsigned int n;
 
@@ -297,7 +297,7 @@ kybd_connect(Boolean connected)
  * Called when we switch between 3270 and ANSI modes.
  */
 static void
-kybd_in3270(Boolean in3270)
+kybd_in3270(Boolean in3270 unused)
 {
 	if (kybdlock & KL_DEFERRED_UNLOCK)
 		XtRemoveTimeOut(unlock_id);
@@ -363,7 +363,7 @@ key_AID(unsigned char aid_code)
 {
 #if defined(X3270_ANSI) /*[*/
 	if (IN_ANSI) {
-		register int	i;
+		register unsigned i;
 
 		if (aid_code == AID_ENTER) {
 			net_sendc('\r');
@@ -394,15 +394,15 @@ key_AID(unsigned char aid_code)
 
 /*ARGSUSED*/
 void
-PF_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+PF_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
-	int k;
+	unsigned k;
 
 	action_debug(PF_action, event, params, num_params);
 	if (check_usage(PF_action, *num_params, 1, 1) < 0)
 		return;
 	k = atoi(params[0]);
-	if (k < 0 || k > PF_SZ) {
+	if (k > PF_SZ) {
 		popup_an_error("%s: invalid argument", action_name(PF_action));
 		return;
 	}
@@ -414,15 +414,15 @@ PF_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 
 /*ARGSUSED*/
 void
-PA_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+PA_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
-	int k;
+	unsigned k;
 
 	action_debug(PA_action, event, params, num_params);
 	if (check_usage(PA_action, *num_params, 1, 1) < 0)
 		return;
 	k = atoi(params[0]);
-	if (k < 0 || k > PA_SZ) {
+	if (k > PA_SZ) {
 		popup_an_error("%s: invalid argument %d",
 		    action_name(PA_action), k);
 		return;
@@ -439,7 +439,8 @@ PA_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
  */
 /*ARGSUSED*/
 void
-Attn_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+Attn_action(Widget w unused, XEvent *event, String *params,
+    Cardinal *num_params)
 {
 	action_debug(Attn_action, event, params, num_params);
 	if (kybdlock) {
@@ -467,7 +468,8 @@ Attn_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
  */
 /*ARGSUSED*/
 void
-Interrupt_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+Interrupt_action(Widget w unused, XEvent *event, String *params,
+    Cardinal *num_params)
 {
 	action_debug(Interrupt_action, event, params, num_params);
 	if (!IN_3270)
@@ -479,7 +481,8 @@ Interrupt_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 
 /*ARGSUSED*/
 static void
-key_Character_wrapper(Widget w, XEvent *event, String *params, Cardinal *num_params)
+key_Character_wrapper(Widget w unused, XEvent *event unused, String *params,
+    Cardinal *num_params unused)
 {
 	int cgcode;
 	Boolean with_ge = False;
@@ -717,7 +720,8 @@ key_ACharacter(unsigned char c, enum keytype keytype, enum iaction cause)
 #if defined(X3270_DISPLAY) /*[*/
 /*ARGSUSED*/
 void
-AltCursor_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+AltCursor_action(Widget w unused, XEvent *event, String *params,
+    Cardinal *num_params)
 {
 	action_debug(AltCursor_action, event, params, num_params);
 	do_toggle(ALT_CURSOR);
@@ -726,7 +730,8 @@ AltCursor_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 
 /*ARGSUSED*/
 void
-MonoCase_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+MonoCase_action(Widget w unused, XEvent *event, String *params,
+    Cardinal *num_params)
 {
 	action_debug(MonoCase_action, event, params, num_params);
 	do_toggle(MONOCASE);
@@ -737,7 +742,8 @@ MonoCase_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
  */
 /*ARGSUSED*/
 void
-Flip_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+Flip_action(Widget w unused, XEvent *event, String *params,
+    Cardinal *num_params)
 {
 	action_debug(Flip_action, event, params, num_params);
 	screen_flip();
@@ -750,7 +756,7 @@ Flip_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
  */
 /*ARGSUSED*/
 void
-Tab_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+Tab_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
 	action_debug(Tab_action, event, params, num_params);
 	if (kybdlock) {
@@ -772,7 +778,8 @@ Tab_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
  */
 /*ARGSUSED*/
 void
-BackTab_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+BackTab_action(Widget w unused, XEvent *event, String *params,
+    Cardinal *num_params)
 {
 	register int	baddr, nbaddr;
 	int		sbaddr;
@@ -813,7 +820,7 @@ BackTab_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 
 /*ARGSUSED*/
 static void
-defer_unlock(XtPointer closure, XtIntervalId *id)
+defer_unlock(XtPointer closure unused, XtIntervalId *id unused)
 {
 	kybdlock_clr(KL_DEFERRED_UNLOCK, "defer_unlock");
 	status_reset();
@@ -886,7 +893,8 @@ do_reset(Boolean explicit)
 
 /*ARGSUSED*/
 void
-Reset_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+Reset_action(Widget w unused, XEvent *event, String *params,
+    Cardinal *num_params)
 {
 	action_debug(Reset_action, event, params, num_params);
 	do_reset(True);
@@ -898,7 +906,8 @@ Reset_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
  */
 /*ARGSUSED*/
 void
-Home_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+Home_action(Widget w unused, XEvent *event, String *params,
+    Cardinal *num_params)
 {
 	action_debug(Home_action, event, params, num_params);
 	if (kybdlock) {
@@ -934,7 +943,8 @@ do_left(void)
 
 /*ARGSUSED*/
 void
-Left_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+Left_action(Widget w unused, XEvent *event, String *params,
+    Cardinal *num_params)
 {
 	action_debug(Left_action, event, params, num_params);
 	if (kybdlock) {
@@ -997,7 +1007,8 @@ do_delete(void)
 
 /*ARGSUSED*/
 void
-Delete_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+Delete_action(Widget w unused, XEvent *event, String *params,
+    Cardinal *num_params)
 {
 	action_debug(Delete_action, event, params, num_params);
 	if (kybdlock) {
@@ -1027,7 +1038,8 @@ Delete_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
  */
 /*ARGSUSED*/
 void
-BackSpace_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+BackSpace_action(Widget w unused, XEvent *event, String *params,
+    Cardinal *num_params)
 {
 	action_debug(BackSpace_action, event, params, num_params);
 	if (kybdlock) {
@@ -1059,7 +1071,8 @@ BackSpace_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
  */
 /*ARGSUSED*/
 void
-Erase_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+Erase_action(Widget w unused, XEvent *event, String *params,
+    Cardinal *num_params)
 {
 	int	baddr;
 	unsigned char	*fa;
@@ -1093,7 +1106,8 @@ Erase_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
  */
 /*ARGSUSED*/
 void
-Right_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+Right_action(Widget w unused, XEvent *event, String *params,
+    Cardinal *num_params)
 {
 	register int	baddr;
 
@@ -1122,7 +1136,8 @@ Right_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
  */
 /*ARGSUSED*/
 void
-Left2_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+Left2_action(Widget w unused, XEvent *event, String *params,
+    Cardinal *num_params)
 {
 	register int	baddr;
 
@@ -1147,7 +1162,8 @@ Left2_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
  */
 /*ARGSUSED*/
 void
-PreviousWord_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+PreviousWord_action(Widget w unused, XEvent *event, String *params,
+    Cardinal *num_params)
 {
 	register int baddr;
 	int baddr0;
@@ -1215,7 +1231,8 @@ PreviousWord_action(Widget w, XEvent *event, String *params, Cardinal *num_param
  */
 /*ARGSUSED*/
 void
-Right2_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+Right2_action(Widget w unused, XEvent *event, String *params,
+    Cardinal *num_params)
 {
 	register int	baddr;
 
@@ -1288,7 +1305,7 @@ nt_word(int baddr)
  */
 /*ARGSUSED*/
 void
-NextWord_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+NextWord_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
 	register int	baddr;
 	unsigned char c;
@@ -1353,7 +1370,7 @@ NextWord_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
  */
 /*ARGSUSED*/
 void
-Up_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+Up_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
 	register int	baddr;
 
@@ -1380,7 +1397,7 @@ Up_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
  */
 /*ARGSUSED*/
 void
-Down_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+Down_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
 	register int	baddr;
 
@@ -1405,7 +1422,7 @@ Down_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
  */
 /*ARGSUSED*/
 void
-Newline_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+Newline_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
 	register int	baddr;
 	register unsigned char	*fa;
@@ -1436,7 +1453,7 @@ Newline_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
  */
 /*ARGSUSED*/
 void
-Dup_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+Dup_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
 	action_debug(Dup_action, event, params, num_params);
 	if (kybdlock) {
@@ -1457,7 +1474,7 @@ Dup_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
  */
 /*ARGSUSED*/
 void
-FieldMark_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+FieldMark_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
 	action_debug(FieldMark_action, event, params, num_params);
 	if (kybdlock) {
@@ -1477,7 +1494,7 @@ FieldMark_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
  */
 /*ARGSUSED*/
 void
-Enter_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+Enter_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
 	action_debug(Enter_action, event, params, num_params);
 	if (kybdlock)
@@ -1489,7 +1506,7 @@ Enter_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 
 /*ARGSUSED*/
 void
-SysReq_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+SysReq_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
 	action_debug(SysReq_action, event, params, num_params);
 	if (kybdlock)
@@ -1504,7 +1521,7 @@ SysReq_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
  */
 /*ARGSUSED*/
 void
-Clear_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+Clear_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
 	action_debug(Clear_action, event, params, num_params);
 	if (kybdlock && CONNECTED) {
@@ -1530,7 +1547,7 @@ Clear_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
  */
 /*ARGSUSED*/
 void
-CursorSelect_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+CursorSelect_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
 	register unsigned char	*fa, *sel;
 
@@ -1578,7 +1595,7 @@ CursorSelect_action(Widget w, XEvent *event, String *params, Cardinal *num_param
  */
 /*ARGSUSED*/
 void
-EraseEOF_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+EraseEOF_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
 	register int	baddr;
 	register unsigned char	*fa;
@@ -1618,7 +1635,7 @@ EraseEOF_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
  */
 /*ARGSUSED*/
 void
-EraseInput_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+EraseInput_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
 	register int	baddr, sbaddr;
 	unsigned char	fa;
@@ -1682,7 +1699,7 @@ EraseInput_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
  */
 /*ARGSUSED*/
 void
-DeleteWord_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+DeleteWord_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
 	register int	baddr, baddr2, front_baddr, back_baddr, end_baddr;
 	register unsigned char	*fa;
@@ -1783,7 +1800,7 @@ DeleteWord_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
  */
 /*ARGSUSED*/
 void
-DeleteField_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+DeleteField_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
 	register int	baddr;
 	register unsigned char	*fa;
@@ -1826,7 +1843,7 @@ DeleteField_action(Widget w, XEvent *event, String *params, Cardinal *num_params
  */
 /*ARGSUSED*/
 void
-Insert_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+Insert_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
 	action_debug(Insert_action, event, params, num_params);
 	if (kybdlock) {
@@ -1846,7 +1863,7 @@ Insert_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
  */
 /*ARGSUSED*/
 void
-ToggleInsert_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+ToggleInsert_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
 	action_debug(ToggleInsert_action, event, params, num_params);
 	if (kybdlock) {
@@ -1869,7 +1886,7 @@ ToggleInsert_action(Widget w, XEvent *event, String *params, Cardinal *num_param
  */
 /*ARGSUSED*/
 void
-ToggleReverse_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+ToggleReverse_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
 	action_debug(ToggleReverse_action, event, params, num_params);
 	if (kybdlock) {
@@ -1890,7 +1907,7 @@ ToggleReverse_action(Widget w, XEvent *event, String *params, Cardinal *num_para
  */
 /*ARGSUSED*/
 void
-FieldEnd_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+FieldEnd_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
 	int	baddr;
 	unsigned char	*fa, c;
@@ -1939,7 +1956,7 @@ FieldEnd_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
  * mouse cursor position, or to an absolute location.
  */
 void
-MoveCursor_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+MoveCursor_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
 	register int baddr;
 	int row, col;
@@ -1987,9 +2004,9 @@ MoveCursor_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
  */
 /*ARGSUSED*/
 void
-Key_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+Key_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
-	int i;
+	Cardinal i;
 	KeySym k;
 	enum keytype keytype;
 
@@ -2017,9 +2034,9 @@ Key_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
  */
 /*ARGSUSED*/
 void
-String_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+String_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
-	int i;
+	Cardinal i;
 	int len = 0;
 	char *s;
 
@@ -2046,9 +2063,9 @@ String_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
  */
 /*ARGSUSED*/
 void
-HexString_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+HexString_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
-	int i;
+	Cardinal i;
 	int len = 0;
 	char *s;
 	char *t;
@@ -2086,7 +2103,7 @@ HexString_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
  */
 /*ARGSUSED*/
 void
-CircumNot_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+CircumNot_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
 	action_debug(CircumNot_action, event, params, num_params);
 
@@ -2098,7 +2115,7 @@ CircumNot_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 
 /* PA key action for String actions */
 static void
-do_pa(int n)
+do_pa(unsigned n)
 {
 	if (n < 1 || n > PA_SZ) {
 		popup_an_error("Unknown PA key %d", n);
@@ -2116,7 +2133,7 @@ do_pa(int n)
 
 /* PF key action for String actions */
 static void
-do_pf(int n)
+do_pf(unsigned n)
 {
 	if (n < 1 || n > PF_SZ) {
 		popup_an_error("Unknown PF key %d", n);
@@ -2581,7 +2598,7 @@ hex_input(char *s)
  
 /*ARGSUSED*/
 void
-ignore_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+ignore_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
 	action_debug(ignore_action, event, params, num_params);
 }
@@ -2723,11 +2740,8 @@ clear_xks(void)
  */
 /*ARGSUSED*/
 void
-FieldExit_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+FieldExit_action(Widget w unused, XEvent *event, String *params,
+    Cardinal *num_params)
 {
 	register int    baddr;
 	register unsigned char  *fa;
@@ -2815,7 +2829,8 @@ state_from_keymap(char keymap[32])
  */
 /*ARGSUSED*/
 void
-PA_Shift_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+PA_Shift_action(Widget w unused, XEvent *event unused, String *params unused,
+    Cardinal *num_params unused)
 {
 	char	keys[32];
 
@@ -2901,7 +2916,7 @@ build_composites(void)
  */
 /*ARGSUSED*/
 void
-Compose_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+Compose_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
 	action_debug(Compose_action, event, params, num_params);
 
@@ -2921,7 +2936,7 @@ Compose_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
  */
 /*ARGSUSED*/
 void
-Default_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+Default_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
 	XKeyEvent	*kevent = (XKeyEvent *)event;
 	char		buf[32];
@@ -2999,7 +3014,7 @@ Default_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
  */
 /*ARGSUSED*/
 void
-TemporaryKeymap_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+TemporaryKeymap_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
 	action_debug(TemporaryKeymap_action, event, params, num_params);
 

@@ -15,24 +15,25 @@
 #if defined(X3270_TRACE) /*[*/
 
 extern FILE *tracef;
+extern Boolean trace_skipping;
 
-char *rcba(int baddr);
-char *see_aid(unsigned char code);
-char *see_attr(unsigned char fa);
-char *see_color(unsigned char setting);
-char *see_ebc(unsigned char ch);
-char *see_efa(unsigned char efa, unsigned char value);
-char *see_efa_only(unsigned char efa);
-char *see_qcode(unsigned char id);
+const char *rcba(int baddr);
+const char *see_aid(unsigned char code);
+const char *see_attr(unsigned char fa);
+const char *see_color(unsigned char setting);
+const char *see_ebc(unsigned char ch);
+const char *see_efa(unsigned char efa, unsigned char value);
+const char *see_efa_only(unsigned char efa);
+const char *see_qcode(unsigned char id);
 void toggle_dsTrace(struct toggle *t, enum toggle_type tt);
 void toggle_eventTrace(struct toggle *t, enum toggle_type tt);
 void toggle_screenTrace(struct toggle *t, enum toggle_type tt);
 void trace_ansi_disc(void);
 void trace_char(char c);
-void trace_ds(char *fmt, ...);
-void trace_event(char *fmt, ...);
+void trace_ds(const char *fmt, ...);
+void trace_event(const char *fmt, ...);
 void trace_screen(void);
-char *unknown(unsigned char value);
+const char *unknown(unsigned char value);
 
 #else /*][*/
 

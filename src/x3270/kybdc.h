@@ -131,7 +131,7 @@ extern void do_reset(Boolean explicit);
 extern int emulate_input(char *s, int len, Boolean pasting);
 extern void enq_ta(void (*fn)(), char *parm1, char *parm2);
 extern void hex_input(char *s);
-extern void kybdlock_clr(unsigned int bits, char *cause);
+extern void kybdlock_clr(unsigned int bits, const char *cause);
 extern void kybd_inhibit(Boolean inhibit);
 extern void kybd_init(void);
 extern int kybd_prime(void);

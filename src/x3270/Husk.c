@@ -14,19 +14,22 @@
  *	that allows children to move and resize themselves at will.
  */
 
+#include "globals.h"
 #include <X11/IntrinsicP.h>
 #include <X11/StringDefs.h>
 #include <X11/Xmu/Misc.h>
 #include <X11/Xaw/XawInit.h>
 #include "HuskP.h"
 
-static void ClassInitialize();
-static void Initialize();
-static void Realize();
-static Boolean SetValues();
-static XtGeometryResult GeometryManager();
-static void ChangeManaged();
-static XtGeometryResult QueryGeometry();
+static void ClassInitialize(void);
+static void Initialize(Widget, Widget, ArgList, Cardinal *);
+static void Realize(register Widget, Mask *, XSetWindowAttributes *);
+static Boolean SetValues(Widget, Widget, Widget, ArgList, Cardinal *);
+static XtGeometryResult GeometryManager(Widget, XtWidgetGeometry *,
+	XtWidgetGeometry *);
+static void ChangeManaged(Widget);
+static XtGeometryResult QueryGeometry(Widget, XtWidgetGeometry *,
+	XtWidgetGeometry *);
 
 HuskClassRec huskClassRec = {
     { /* core_class fields      */
@@ -78,18 +81,15 @@ HuskClassRec huskClassRec = {
 WidgetClass huskWidgetClass = (WidgetClass)&huskClassRec;
 
 static XtGeometryResult 
-QueryGeometry(widget, constraint, preferred)
-Widget widget;
-XtWidgetGeometry *constraint, *preferred;
+QueryGeometry(Widget widget unused, XtWidgetGeometry *constraint unused,
+	XtWidgetGeometry *preferred unused)
 {
 	return XtGeometryYes;
 }
 
 static XtGeometryResult 
-GeometryManager(w, request, reply)
-Widget w;
-XtWidgetGeometry *request;
-XtWidgetGeometry *reply;
+GeometryManager(Widget w, XtWidgetGeometry *request,
+    XtWidgetGeometry *reply unused)
 {
 	/* Always succeed. */
 	if (!(request->request_mode & XtCWQueryOnly)) {
@@ -108,28 +108,24 @@ XtWidgetGeometry *reply;
 }
 
 static void 
-ChangeManaged(w)
-Widget w;
+ChangeManaged(Widget w unused)
 {
 }
 
 static void 
-ClassInitialize()
+ClassInitialize(void)
 {
 	XawInitializeWidgetSet();
 }
 
 static void 
-Initialize(request, new)
-Widget request, new;
+Initialize(Widget request unused, Widget new unused, ArgList args unused,
+	Cardinal *num_args unused)
 {
 }
 
 static void 
-Realize(w, valueMask, attributes)
-register Widget w;
-Mask *valueMask;
-XSetWindowAttributes *attributes;
+Realize(register Widget w, Mask *valueMask, XSetWindowAttributes *attributes)
 {
 	attributes->bit_gravity = NorthWestGravity;
 	*valueMask |= CWBitGravity;
@@ -139,8 +135,8 @@ XSetWindowAttributes *attributes;
 }
 
 static Boolean 
-SetValues(current, request, new)
-Widget current, request, new;
+SetValues(Widget current unused, Widget request unused, Widget new unused,
+	ArgList args unused, Cardinal *num_args unused)
 {
 	return False;
 }

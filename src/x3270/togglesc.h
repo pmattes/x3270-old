@@ -18,6 +18,6 @@
  *		Global declarations for toggles.c.
  */
 
-extern void do_toggle(int index);
+extern void do_toggle(int);
 extern void initialize_toggles(void);
 extern void shutdown_toggles(void);

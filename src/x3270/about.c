@@ -23,8 +23,10 @@
 #include <X11/Xaw/Label.h>
 #include "appres.h"
 #include "objects.h"
+#include "resources.h"
 
 #include "aboutc.h"
+#include "keymapc.h"
 #include "popupsc.h"
 #include "telnetc.h"
 #include "utilc.h"
@@ -37,14 +39,13 @@ extern int ns_rrcvd;
 extern int ns_bsent;
 extern int ns_rsent;
 extern int linemode;
-extern char *build;
 extern Pixmap icon;
-extern struct trans_list *temp_keymaps;
 
 /* Called when OK is pressed on the about popup */
 /*ARGSUSED*/
 static void
-saw_about(Widget w, XtPointer client_data, XtPointer call_data)
+saw_about(Widget w unused, XtPointer client_data unused,
+	XtPointer call_data unused)
 {
 	XtPopdown(about_shell);
 }
@@ -52,7 +53,8 @@ saw_about(Widget w, XtPointer client_data, XtPointer call_data)
 /* Called when the about popup is popped down */
 /*ARGSUSED*/
 static void
-destroy_about(Widget w, XtPointer client_data, XtPointer call_data)
+destroy_about(Widget w unused, XtPointer client_data unused,
+	XtPointer call_data unused)
 {
 	XtDestroyWidget(about_shell);
 	about_shell = NULL;
@@ -157,7 +159,8 @@ popup_about(void)
 	Widget left_anchor = NULL;
 	int vd = 4;
 	char fbuf[1024];
-	char *ftype;
+	const char *ftype;
+	const char *emode;
 	char *xbuf;
 
 	/* Create the popup */
@@ -226,9 +229,9 @@ Copyright \251 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.\n\
 
 	MAKE_LABEL(get_message("terminalName"), 4);
 	MAKE_VALUE(termtype);
-	if (luname[0]) {
+	if (connected_lu != CN && connected_lu[0]) {
 		MAKE_LABEL2(get_message("luName"));
-		MAKE_VALUE(luname);
+		MAKE_VALUE(connected_lu);
 	}
 
 	MAKE_LABEL(get_message("emulatorFont"), 4);
@@ -295,19 +298,37 @@ Copyright \251 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.\n\
 
 	if (CONNECTED) {
 		MAKE_LABEL(get_message("connectedTo"), 4);
-		MAKE_VALUE(current_host);
-		(void) sprintf(fbuf, "  %s", get_message("port"));
-		MAKE_LABEL2(fbuf);
-		(void) sprintf(fbuf, "%d", current_port);
-		MAKE_VALUE(fbuf);
+#if defined(LOCAL_PROCESS) /*[*/
+		if (local_process && !strlen(current_host)) {
+			MAKE_VALUE("(shell)");
+		} else
+#endif /*]*/
+		{
+			MAKE_VALUE(current_host);
+		}
+#if defined(LOCAL_PROCESS) /*[*/
+		if (!local_process) {
+#endif /*]*/
+			(void) sprintf(fbuf, "  %s", get_message("port"));
+			MAKE_LABEL2(fbuf);
+			(void) sprintf(fbuf, "%d", current_port);
+			MAKE_VALUE(fbuf);
+#if defined(LOCAL_PROCESS) /*[*/
+		}
+#endif /*]*/
+		if (IN_E)
+			emode = "TN3270E ";
+		else
+			emode = "";
 		if (IN_ANSI) {
 			if (linemode)
 				ftype = get_message("lineMode");
 			else
 				ftype = get_message("charMode");
-			(void) sprintf(fbuf, "  %s, ", ftype);
+			(void) sprintf(fbuf, "  %s%s, ", emode, ftype);
 		} else if (IN_3270) {
-			(void) sprintf(fbuf, "  %s, ", get_message("dsMode"));
+			(void) sprintf(fbuf, "  %s%s, ", emode,
+			    get_message("dsMode"));
 		} else
 			(void) strcpy(fbuf, "  ");
 		(void) strcat(fbuf, hms(ns_time));

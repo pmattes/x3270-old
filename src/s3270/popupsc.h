@@ -9,5 +9,5 @@
 
 /* s3270 version of popupsc.h */
 
-extern void popup_an_errno(int errn, char *fmt, ...);
-extern void popup_an_error(char *fmt, ...);
+extern void popup_an_errno(int errn, const char *fmt, ...);
+extern void popup_an_error(const char *fmt, ...);

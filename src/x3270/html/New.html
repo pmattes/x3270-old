@@ -3,7 +3,7 @@
 <head>
    <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
    <meta name="Author" content="Paul Mattes">
-   <meta name="GENERATOR" content="Mozilla/4.51 [en] (Win95; I) [Netscape]">
+   <meta name="GENERATOR" content="Mozilla/4.7 [en] (Win98; U) [Netscape]">
    <title>x3270 3.2 New Features</title>
 </head>
 <body>
@@ -16,8 +16,10 @@ It is intended to be the future development platform for x3270, with x3270
 through the new <tt><font size=+1>parts.h</font></tt> header file, it is
 now possible to build subsets of x3270, excluding one or more of the following
 features:
-<br>tracing
 <ul>
+<li>
+Tracing</li>
+
 <li>
 ANSI mode</li>
 
@@ -44,10 +46,16 @@ an X display.
 <p>The code is also reorganized to reduce the amount of explicit coupling
 between modules. An event registration mechanism is used to propagate state
 changes, instead of explicit calls from one module to another.
-<p>The code is now written in ANSI C, using function prototypes.
-<p>Support for X11R4 has been dropped.
+<p>The code is now written in ANSI C, using function prototypes and <tt>const</tt>
+where appropriate.
+<p>Support for X11R4 and K&amp;R C compilers has been dropped.
 <p><b>External Changes</b>
-<br>All operating modes can now be changed at runtime via menus, including
+<br>Basic TN3270E mode is now supported.
+<p>On systems that support the <i>forkpty</i>() library call (such as BSD-derived
+systems), tn3270 supports local processes.&nbsp; A local process is a Unix
+process such as a shell which is connected to x3270 with a pty.&nbsp; In
+this way, x3270 will function as a local terminal emulator like <i>xterm</i>.
+<p>All operating modes can now be changed at runtime via menus, including
 extended data stream mode, and 3277/3278/3279 emulation.
 <p>The "Trace X Events" option has been replaced with a "Trace Keyboard
 and Mouse Events" option, which reports only X events which can be mapped

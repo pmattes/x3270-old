@@ -1,5 +1,5 @@
 '\" t
-.TH X3270 1 "15 March 1999"
+.TH X3270 1 "9 December 1999"
 .SH NAME
 x3270 \-
 .SM IBM
@@ -7,12 +7,13 @@ host access tool
 .SH SYNOPSIS
 .B x3270      
 .RI [ options ]       
-.RI [[ prefix :]...[ LUname @] hostname [: port ]] 
+.RI [[ prefix :]...[ LUname [, LUname ...]@] hostname [: port ]] 
 .SH DESCRIPTION
 .B x3270
 opens a telnet connection to an
 .SM IBM
 host in an X window.
+It implements RFCs 2355 (TN3270E), 1576 (TN3270) and 1646 (LU name selection).
 The window created by
 .B x3270
 can use its own font for displaying characters, so it is a fairly accurate
@@ -45,6 +46,17 @@ A specific LU name to use may be specified by prepending it to the
 .I hostname
 with an
 .RB `` @ ''.
+Multiple LU names to try can be separated by commas.
+An empty LU can be placed in the list with an extra comma.
+.LP
+On systems that support the
+.I forkpty
+library call, the
+.I hostname
+may be replaced with
+.B \-e
+and a command string.
+This will cause x3270 to connect to a local child process, such as a shell.
 .LP
 The port to connect to defaults to
 .BR telnet .
@@ -1517,6 +1529,8 @@ Character Set Reference, IBM GA27\-3831
 RFC 1576, TN3270 Current Practices
 .br
 RFC 1646, TN3270 Extensions for LUname and Printer Selection
+.br
+RFC 2355, TN3270 Enhancements
 .SH COPYRIGHTS
 .LP
 Modifications Copyright 1993, 1994, 1995, 1996, 1997, 1999 by Paul Mattes.
@@ -1537,4 +1551,4 @@ notice.
 .RE
 5250 Emulation Code copyright Minolta (Schweiz) AG, Beat Rubischon.
 .SH VERSION
-x3270 3.2A0
+x3270 3.2A1

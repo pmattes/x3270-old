@@ -153,7 +153,7 @@ static void ft_popup_init(void);
 static int ft_start(void);
 static void ft_start_callback(Widget w, XtPointer call_parms,
     XtPointer call_data);
-static void match_dimension(Widget w1, Widget w2, String n);
+static void match_dimension(Widget w1, Widget w2, const char *n);
 static void overwrite_cancel_callback(Widget w, XtPointer client_data,
     XtPointer call_data);
 static void overwrite_okay_callback(Widget w, XtPointer client_data,
@@ -191,7 +191,8 @@ static void ft_in3270(Boolean ignored);
  * Called back from the "File Transfer" option on the File menu.
  */
 void
-popup_ft(Widget w, XtPointer call_parms, XtPointer call_data)
+popup_ft(Widget w unused, XtPointer call_parms unused,
+	XtPointer call_data unused)
 {
 	/* Initialize it. */
 	if (ft_shell == (Widget)NULL)
@@ -727,7 +728,8 @@ ft_popup_init(void)
 
 /* Transfer pop-up popping up. */
 static void
-ft_popup_callback(Widget w, XtPointer client_data, XtPointer call_data)
+ft_popup_callback(Widget w unused, XtPointer client_data unused,
+	XtPointer call_data unused)
 {
 	/* Set the focus to the local file widget. */
 	PA_dialog_focus_action(local_file, (XEvent *)NULL, (String *)NULL,
@@ -739,14 +741,15 @@ ft_popup_callback(Widget w, XtPointer client_data, XtPointer call_data)
 
 /* Cancel button pushed. */
 static void
-ft_cancel(Widget w, XtPointer client_data, XtPointer call_data)
+ft_cancel(Widget w unused, XtPointer client_data unused,
+	XtPointer call_data unused)
 {
 	XtPopdown(ft_shell);
 }
 
 /* recfm options. */
 static void
-recfm_callback(Widget w, XtPointer user_data, XtPointer call_data)
+recfm_callback(Widget w, XtPointer user_data, XtPointer call_data unused)
 {
 	recfm = *(enum recfm *)user_data;
 	recfm_default = (recfm == DEFAULT_RECFM);
@@ -756,7 +759,7 @@ recfm_callback(Widget w, XtPointer user_data, XtPointer call_data)
 
 /* Units options. */
 static void
-units_callback(Widget w, XtPointer user_data, XtPointer call_data)
+units_callback(Widget w, XtPointer user_data, XtPointer call_data unused)
 {
 	units = *(enum units *)user_data;
 	units_default = (units == DEFAULT_UNITS);
@@ -766,7 +769,8 @@ units_callback(Widget w, XtPointer user_data, XtPointer call_data)
 
 /* OK button pushed. */
 static void
-ft_start_callback(Widget w, XtPointer call_parms, XtPointer call_data)
+ft_start_callback(Widget w unused, XtPointer call_parms unused,
+	XtPointer call_data unused)
 {
 	if (ft_start()) {
 		XtPopdown(ft_shell);
@@ -800,7 +804,8 @@ mark_toggle(Widget w, Pixmap p)
 
 /* Send/receive options. */
 static void
-toggle_receive(Widget w, XtPointer client_data, XtPointer call_data)
+toggle_receive(Widget w unused, XtPointer client_data,
+	XtPointer call_data unused)
 {
 	/* Toggle the flag */
 	receive_flag = *(Boolean *)client_data;
@@ -813,7 +818,7 @@ toggle_receive(Widget w, XtPointer client_data, XtPointer call_data)
 
 /* Ascii/binary options. */
 static void
-toggle_ascii(Widget w, XtPointer client_data, XtPointer call_data)
+toggle_ascii(Widget w unused, XtPointer client_data, XtPointer call_data unused)
 {
 	/* Toggle the flag. */
 	ascii_flag = *(Boolean *)client_data;
@@ -828,7 +833,7 @@ toggle_ascii(Widget w, XtPointer client_data, XtPointer call_data)
 
 /* CR option. */
 static void
-toggle_cr(Widget w, XtPointer client_data, XtPointer call_data)
+toggle_cr(Widget w, XtPointer client_data unused, XtPointer call_data unused)
 {
 	/* Toggle the cr flag */
 	cr_flag = !cr_flag;
@@ -838,7 +843,8 @@ toggle_cr(Widget w, XtPointer client_data, XtPointer call_data)
 
 /* Append option. */
 static void
-toggle_append(Widget w, XtPointer client_data, XtPointer call_data)
+toggle_append(Widget w, XtPointer client_data unused,
+	XtPointer call_data unused)
 {
 	/* Toggle Append Flag */
 	append_flag = !append_flag;
@@ -848,7 +854,8 @@ toggle_append(Widget w, XtPointer client_data, XtPointer call_data)
 
 /* TSO/VM option. */
 static void
-toggle_vm(Widget w, XtPointer client_data, XtPointer call_data)
+toggle_vm(Widget w unused, XtPointer client_data unused,
+    XtPointer call_data unused)
 {
 	/* Toggle the flag. */
 	vm_flag = *(Boolean *)client_data;
@@ -879,7 +886,7 @@ ft_start(void)
 	char *op = opts + 1;
 	char *cmd;
 	String lrecl, blksize, primspace, secspace;
-	int flen;
+	unsigned flen;
 	char *host_filename;
 
 	/* Get the host file from its widget */
@@ -1149,7 +1156,8 @@ progress_popup_init(void)
 
 /* In-progress pop-up popped up. */
 static void
-progress_popup_callback(Widget w, XtPointer client_data, XtPointer call_data)
+progress_popup_callback(Widget w unused, XtPointer client_data unused,
+	XtPointer call_data unused)
 {
 	String hf, lf;
 
@@ -1183,7 +1191,8 @@ progress_popup_callback(Widget w, XtPointer client_data, XtPointer call_data)
 
 /* In-progress "cancel" button. */
 static void
-progress_cancel_callback(Widget w, XtPointer client_data, XtPointer call_data)
+progress_cancel_callback(Widget w unused, XtPointer client_data unused,
+	XtPointer call_data unused)
 {
 	if (ft_state == FT_RUNNING) {
 		ft_state = FT_ABORT_WAIT;
@@ -1276,7 +1285,8 @@ overwrite_popup_init(void)
 
 /* Overwrite "okay" button. */
 static void
-overwrite_okay_callback(Widget w, XtPointer client_data, XtPointer call_data)
+overwrite_okay_callback(Widget w unused, XtPointer client_data unused,
+	XtPointer call_data unused)
 {
 	XtPopdown(overwrite_shell);
 
@@ -1289,14 +1299,16 @@ overwrite_okay_callback(Widget w, XtPointer client_data, XtPointer call_data)
 
 /* Overwrite "cancel" button. */
 static void
-overwrite_cancel_callback(Widget w, XtPointer client_data, XtPointer call_data)
+overwrite_cancel_callback(Widget w unused, XtPointer client_data unused,
+	XtPointer call_data unused)
 {
 	XtPopdown(overwrite_shell);
 }
 
 /* Overwrite pop-up popped down. */
 static void
-overwrite_popdown(Widget w, XtPointer client_data, XtPointer call_data)
+overwrite_popdown(Widget w unused, XtPointer client_data unused,
+	XtPointer call_data unused)
 {
 	XtDestroyWidget(overwrite_shell);
 	overwrite_shell = (Widget)NULL;
@@ -1306,7 +1318,7 @@ overwrite_popdown(Widget w, XtPointer client_data, XtPointer call_data)
 
 /* Pop up a message, end the transfer. */
 void
-ft_complete(String errmsg)
+ft_complete(const char *errmsg)
 {
 	/* Close the local file. */
 	if (ft_local_file != (FILE *)NULL && fclose(ft_local_file) < 0)
@@ -1320,17 +1332,20 @@ ft_complete(String errmsg)
 	XtPopdown(progress_shell);
 
 	/* Pop up the text. */
-	if (errmsg != (String)NULL) {
-		/* Make sure the error message will fit on the display. */
-		if (strlen(errmsg) > 50 && strchr(errmsg, '\n') == CN) {
-			char *s = errmsg + 50;
+	if (errmsg != CN) {
+		char *msg_copy = XtNewString(errmsg);
 
-			while (s > errmsg && *s != ' ')
+		/* Make sure the error message will fit on the display. */
+		if (strlen(msg_copy) > 50 && strchr(msg_copy, '\n') == CN) {
+			char *s = msg_copy + 50;
+
+			while (s > msg_copy && *s != ' ')
 				s--;
-			if (s > errmsg)
-				*s = '\n';
+			if (s > msg_copy)
+				*s = '\n';	/* yikes! */
 		}
-		popup_an_error(errmsg);
+		popup_an_error(msg_copy);
+		XtFree(msg_copy);
 	} else {
 		struct timeval t1;
 		double kbytes_sec;
@@ -1389,7 +1404,7 @@ ft_aborting(void)
 
 /* Process a disconnect abort. */
 static void
-ft_connected(Boolean ignored)
+ft_connected(Boolean ignored unused)
 {
 	if (!CONNECTED && ft_state != FT_NONE)
 		ft_complete(get_message("ftDisconnected"));
@@ -1397,7 +1412,7 @@ ft_connected(Boolean ignored)
 
 /* Process an abort from no longer being in 3270 mode. */
 static void
-ft_in3270(Boolean ignored)
+ft_in3270(Boolean ignored unused)
 {
 	if (!IN_3270 && ft_state != FT_NONE)
 		ft_complete(get_message("ftNot3270"));
@@ -1407,7 +1422,7 @@ ft_in3270(Boolean ignored)
 
 /* Match one dimension of two widgets. */
 static void
-match_dimension(Widget w1, Widget w2, String n)
+match_dimension(Widget w1, Widget w2, const char *n)
 {
 	Dimension h1, h2;
 	Dimension b1, b2;
@@ -1473,7 +1488,7 @@ flip_toggles(struct toggle_list *toggle_list, Widget w)
  * specified criteria.
  */
 static void
-text_callback(Widget w, XtPointer client_data, XtPointer call_data)
+text_callback(Widget w, XtPointer client_data, XtPointer call_data unused)
 {
 	XawTextBlock b;		/* firstPos, length, ptr, format */
 	static XawTextBlock nullb = { 0, 0, NULL };
@@ -1640,7 +1655,8 @@ focus_next(sr_t *s)
 
 /* Proceed to the next input field. */
 void
-PA_dialog_next_action(Widget w, XEvent *event, String *parms, Cardinal *num_parms)
+PA_dialog_next_action(Widget w, XEvent *event unused, String *parms unused,
+	Cardinal *num_parms unused)
 {
 	sr_t *s;
 
@@ -1654,7 +1670,8 @@ PA_dialog_next_action(Widget w, XEvent *event, String *parms, Cardinal *num_parm
 
 /* Set keyboard focus to an input field. */
 void
-PA_dialog_focus_action(Widget w, XEvent *event, String *parms, Cardinal *num_parms)
+PA_dialog_focus_action(Widget w, XEvent *event unused, String *parms unused,
+	Cardinal *num_parms unused)
 {
 	sr_t *s;
 

@@ -52,7 +52,7 @@
 
 /* Externals */
 #if defined(USE_APP_DEFAULTS) /*[*/
-extern char     *app_defaults_version;
+extern const char *app_defaults_version;
 #else /*][*/
 extern String	color_fallbacks[];
 extern String	mono_fallbacks[];
@@ -63,7 +63,7 @@ char           *programname;
 Display        *display;
 int             default_screen;
 Window          root_window;
-int             depth;
+int             screen_depth;
 Widget          toplevel;
 XtAppContext    appcontext;
 Atom            a_delete_me, a_save_yourself, a_3270, a_registry, a_iso8859,
@@ -77,12 +77,16 @@ int		children = 0;
 Boolean		exiting = False;
 
 /* Statics */
-static void     peek_at_xevent();
+static void	peek_at_xevent(XEvent *);
 static XtErrorMsgHandler old_emh;
-static void     trap_colormaps();
+static void	trap_colormaps(String, String, String, String, String *,
+			Cardinal *);
 static Boolean  colormap_failure = False;
-static void     parse_set_clear();
-static void	label_init();
+#if defined(LOCAL_PROCESS) /*[*/
+static void	parse_local_process(int *argcp, char **argv, char **cmds);
+#endif /*]*/
+static void	parse_set_clear(int *, char **);
+static void	label_init(void);
 static char    *user_title = CN;
 static char    *user_icon_name = CN;
 
@@ -151,7 +155,7 @@ struct toggle_name toggle_names[N_TOGGLES] = {
 
 
 static void
-usage(char *msg)
+usage(const char *msg)
 {
 	if (msg != CN)
 		XtWarning(msg);
@@ -247,6 +251,11 @@ main(int argc, char *argv[])
 		    app_defaults_version, appres.ad_version);
 #endif /*]*/
 
+#if defined(LOCAL_PROCESS) /*[*/
+	/* Pick out the -e option. */
+	parse_local_process(&argc, argv, &cl_hostname);
+#endif /*]*/
+
 	/* Pick out -set and -clear toggle options. */
 	parse_set_clear(&argc, argv);
 
@@ -254,14 +263,19 @@ main(int argc, char *argv[])
 	switch (argc) {
 	    case 1:
 #if !defined(X3270_MENUS) /*[*/
-		usage(CN);
+		if (cl_hostname == CN)
+			usage(CN);
 #endif /*]*/
 		break;
 	    case 2:
+		if (cl_hostname != CN)
+			usage(CN);
 		no_minus(argv[1]);
 		cl_hostname = argv[1];
 		break;
 	    case 3:
+		if (cl_hostname != CN)
+			usage(CN);
 		no_minus(argv[1]);
 		no_minus(argv[2]);
 		cl_hostname = xs_buffer("%s:%s", argv[1], argv[2]);
@@ -273,7 +287,7 @@ main(int argc, char *argv[])
 
 	default_screen = DefaultScreen(display);
 	root_window = RootWindow(display, default_screen);
-	depth = DefaultDepthOfScreen(XtScreen(toplevel));
+	screen_depth = DefaultDepthOfScreen(XtScreen(toplevel));
 
 	/* Sort out model, color and extended data stream modes. */
 	appres.model = XtNewString(appres.model);
@@ -298,13 +312,13 @@ main(int argc, char *argv[])
 	}
 	if (!appres.model[0])
 #if defined(RESTRICT_3279) /*[*/
-		appres.model = "3";
+		appres.model = XtNewString("3");
 #else /*][*/
-		appres.model = "4";
+		appres.model = XtNewString("4");
 #endif /*]*/
 	if (appres.m3279)
 		appres.extended = True;
-	if (depth <= 1 || colormap_failure)
+	if (screen_depth <= 1 || colormap_failure)
 		appres.mono = True;
 	if (appres.mono) {
 		appres.use_cursor_color = False;
@@ -346,8 +360,8 @@ main(int argc, char *argv[])
 	keymap_init(appres.key_map);
 
 	if (appres.apl_mode) {
-		appres.compose_map = Apl;
-		appres.charset = Apl;
+		appres.compose_map = XtNewString(Apl);
+		appres.charset = XtNewString(Apl);
 	}
 	if (!charset_init(appres.charset))
 		xs_warning("Cannot find charset \"%s\"", appres.charset);
@@ -360,7 +374,10 @@ main(int argc, char *argv[])
 	 * options.
 	 */
 	if (argc <= 1) {
-		appres.once = False;
+#if defined(LOCAL_PROCESS) /*[*/
+		if (cl_hostname == CN)
+#endif /*]*/
+			appres.once = False;
 		appres.reconnect = False;
 	}
 
@@ -406,7 +423,7 @@ main(int argc, char *argv[])
 	initialize_toggles();
 
 	/* Connect to the host. */
-	if (argc > 1)
+	if (cl_hostname != CN)
 		(void) host_connect(cl_hostname);
 
 	/* Prepare to run a peer script. */
@@ -432,7 +449,7 @@ main(int argc, char *argv[])
 
 /* Change the window and icon labels. */
 static void
-relabel(Boolean ignored)
+relabel(Boolean ignored unused)
 {
 	char *title;
 	char icon_label[8];
@@ -509,6 +526,40 @@ trap_colormaps(String name, String type, String class, String defaultp,
 	    colormap_failure = True;
     (*old_emh)(name, type, class, defaultp, params, num_params);
 }
+
+#if defined(LOCAL_PROCESS) /*[*/
+/*
+ * Pick out the -e option.
+ */
+static void
+parse_local_process(int *argcp, char **argv, char **cmds)
+{
+	int i, j;
+	int e_len = -1;
+
+	for (i = 1; i < *argcp; i++) {
+		if (strcmp(argv[i], OptLocalProcess))
+			continue;
+
+		/* Matched.  Copy 'em. */
+		e_len = strlen(OptLocalProcess) + 1;
+		for (j = i+1; j < *argcp; j++) {
+			e_len += 1 + strlen(argv[j]);
+		}
+		e_len++;
+		*cmds = XtMalloc(e_len);
+		(void) strcpy(*cmds, OptLocalProcess);
+		for (j = i+1; j < *argcp; j++) {
+			(void) strcat(strcat(*cmds, " "), argv[j]);
+		}
+
+		/* Stamp out the remaining args. */
+		*argcp = i;
+		argv[i] = CN;
+		break;
+	}
+}
+#endif /*]*/
 
 /*
  * Pick out -set and -clear toggle options.

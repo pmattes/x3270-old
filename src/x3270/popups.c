@@ -34,6 +34,8 @@
 
 static char vmsgbuf[4096];
 
+static enum form_type forms[] = { FORM_NO_WHITE, FORM_NO_CC, FORM_AS_IS };
+
 
 /*
  * General popup support
@@ -43,11 +45,11 @@ static char vmsgbuf[4096];
 static Window
 parent_of(Window w)
 {
-	Window root, parent, *children;
+	Window root, parent, *wchildren;
 	unsigned int nchildren;
 
-	XQueryTree(display, w, &root, &parent, &children, &nchildren);
-	XFree((char *) children);
+	XQueryTree(display, w, &root, &parent, &wchildren, &nchildren);
+	XFree((char *)wchildren);
 	return parent;
 }
 
@@ -56,7 +58,7 @@ parent_of(Window w)
  * root, so we can pop up a window relative to them.
  */
 void
-toplevel_geometry(Dimension *x, Dimension *y, Dimension *width,
+toplevel_geometry(Position *x, Position *y, Dimension *width,
     Dimension *height)
 {
 	Window tlw = XtWindow(toplevel);
@@ -129,14 +131,13 @@ enum placement *RightP = &RightD;
 /* Place a popped-up shell */
 /*ARGSUSED*/
 void
-place_popup(Widget w, XtPointer client_data, XtPointer call_data)
+place_popup(Widget w, XtPointer client_data, XtPointer call_data unused)
 {
 	Dimension width, height;
-	Dimension x = 0, y = 0;
+	Position x = 0, y = 0;
 	Dimension win_width, win_height;
 	Dimension popup_width, popup_height;
 	enum placement p = *(enum placement *)client_data;
-	extern Dimension main_width;
 
 	/* Get and fix the popup's dimensions */
 	XtRealizeWidget(w);
@@ -225,7 +226,8 @@ PA_confirm_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 /* Callback for "Cancel" button in data entry popup */
 /*ARGSUSED*/
 static void
-cancel_button_callback(Widget w, XtPointer client_data, XtPointer call_data)
+cancel_button_callback(Widget w unused, XtPointer client_data,
+    XtPointer call_data unused)
 {
 	XtPopdown((Widget) client_data);
 }
@@ -236,7 +238,8 @@ cancel_button_callback(Widget w, XtPointer client_data, XtPointer call_data)
  */
 /*ARGSUSED*/
 static void
-popup_dialog_callback(Widget w, XtPointer client_data, XtPointer call_data)
+popup_dialog_callback(Widget w, XtPointer client_data,
+    XtPointer call_data unused)
 {
 	static Boolean called_back = False;
 	XawTextBlock b, nullb;	/* firstPos, length, ptr, format */
@@ -246,6 +249,10 @@ popup_dialog_callback(Widget w, XtPointer client_data, XtPointer call_data)
 	int end_pos = 0;
 	int i;
 	enum { FRONT, MIDDLE, END } place = FRONT;
+	enum form_type *ftp = (enum form_type *)client_data;
+
+	if (*ftp == FORM_AS_IS)
+		return;
 
 	if (called_back)
 		return;
@@ -269,8 +276,11 @@ popup_dialog_callback(Widget w, XtPointer client_data, XtPointer call_data)
 			end_len += b.length;
 			continue;
 		}
-		for (i = 0; i < b.length; i++)
-			if (isspace(*(b.ptr + i))) {
+		for (i = 0; i < b.length; i++) {
+			char c;
+
+			c = *(b.ptr + i);
+			if (isspace(c) && (*ftp != FORM_NO_CC || c != ' ')) {
 				if (place == FRONT) {
 					front_len++;
 					continue;
@@ -282,6 +292,7 @@ popup_dialog_callback(Widget w, XtPointer client_data, XtPointer call_data)
 				}
 			} else
 				place = MIDDLE;
+		}
 		pos += b.length;
 		if (b.length < 1024)
 			break;
@@ -296,8 +307,8 @@ popup_dialog_callback(Widget w, XtPointer client_data, XtPointer call_data)
 
 /* Create a simple data entry popup */
 Widget
-create_form_popup(char *name, XtCallbackProc callback,
-    XtCallbackProc callback2, Boolean no_spaces)
+create_form_popup(const char *name, XtCallbackProc callback,
+    XtCallbackProc callback2, enum form_type form_type)
 {
 	char *widgetname;
 	Widget shell;
@@ -313,7 +324,7 @@ create_form_popup(char *name, XtCallbackProc callback,
 	    widgetname, transientShellWidgetClass, toplevel,
 	    NULL);
 	XtFree(widgetname);
-	XtAddCallback(shell, XtNpopupCallback, place_popup, (XtPointer) CenterP);
+	XtAddCallback(shell, XtNpopupCallback, place_popup, (XtPointer)CenterP);
 
 	/* Create a dialog in the popup */
 
@@ -341,7 +352,7 @@ create_form_popup(char *name, XtCallbackProc callback,
 	    NULL);
 	XtAddCallback(w, XtNcallback, cancel_button_callback, (XtPointer) shell);
 
-	if (!no_spaces)
+	if (form_type == FORM_AS_IS)
 		return shell;
 
 	/* Modify the translations for the objects in the dialog */
@@ -355,7 +366,8 @@ create_form_popup(char *name, XtCallbackProc callback,
 	if (w == NULL)
 		XtWarning("Cannot find text source in dialog");
 	else
-		XtAddCallback(w, XtNcallback, popup_dialog_callback, NULL);
+		XtAddCallback(w, XtNcallback, popup_dialog_callback,
+		    &forms[(int)form_type]);
 
 	return shell;
 }
@@ -372,7 +384,8 @@ Boolean error_popup_visible;
 /* Called when OK is pressed on the error popup */
 /*ARGSUSED*/
 static void
-saw_error(Widget w, XtPointer client_data, XtPointer call_data)
+saw_error(Widget w unused, XtPointer client_data unused,
+    XtPointer call_data unused)
 {
 	XtPopdown(error_shell);
 }
@@ -380,7 +393,8 @@ saw_error(Widget w, XtPointer client_data, XtPointer call_data)
 /* Called when the error popup is closed */
 /*ARGSUSED*/
 static void
-error_popdown(Widget w, XtPointer client_data, XtPointer call_data)
+error_popdown(Widget w unused, XtPointer client_data unused,
+    XtPointer call_data unused)
 {
 	error_popup_visible = False;
 	if (exiting)
@@ -425,7 +439,7 @@ error_popup_init(void)
 
 /* Pop up an error dialog. */
 void
-popup_an_error(char *fmt, ...)
+popup_an_error(const char *fmt, ...)
 {
 	va_list args;
 
@@ -451,25 +465,18 @@ popup_an_error(char *fmt, ...)
 
 /* Pop up an error dialog, based on an error number. */
 void
-popup_an_errno(int errn, char *fmt, ...)
+popup_an_errno(int errn, const char *fmt, ...)
 {
 	va_list args;
 	char *s;
-	extern int sys_nerr;
-#if !defined(__FreeBSD__)
-	extern char *sys_errlist[];
-#endif
 
 	va_start(args, fmt);
 	(void) vsprintf(vmsgbuf, fmt, args);
 	s = XtNewString(vmsgbuf);
 
-	if (errn > 0) {
-		if (errn < sys_nerr)
-			popup_an_error("%s:\n%s", s, sys_errlist[errn]);
-		else
-			popup_an_error("%s:\nError %d", s, errn);
-	} else
+	if (errn > 0)
+		popup_an_error("%s:\n%s", s, strerror(errn));
+	else
 		popup_an_error(s);
 	XtFree(s);
 }
@@ -486,7 +493,8 @@ Boolean info_popup_visible;
 /* Called when OK is pressed on the info popup */
 /*ARGSUSED*/
 static void
-saw_info(Widget w, XtPointer client_data, XtPointer call_data)
+saw_info(Widget w unused, XtPointer client_data unused,
+    XtPointer call_data unused)
 {
 	XtPopdown(info_shell);
 }
@@ -494,7 +502,8 @@ saw_info(Widget w, XtPointer client_data, XtPointer call_data)
 /* Called when the info popup is closed */
 /*ARGSUSED*/
 static void
-info_popdown(Widget w, XtPointer client_data, XtPointer call_data)
+info_popdown(Widget w unused, XtPointer client_data unused,
+    XtPointer call_data unused)
 {
 	info_popup_visible = False;
 }
@@ -537,7 +546,7 @@ info_popup_init(void)
 
 /* Pop up an info dialog. */
 void
-popup_an_info(char *fmt, ...)
+popup_an_info(const char *fmt, ...)
 {
 	va_list args;
 
@@ -561,7 +570,8 @@ popup_an_info(char *fmt, ...)
  */
 /*ARGSUSED*/
 void
-Info_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+Info_action(Widget w unused, XEvent *event, String *params,
+    Cardinal *num_params)
 {
 	action_debug(Info_action, event, params, num_params);
 	if (check_usage(Info_action, *num_params, 1, 1) < 0)

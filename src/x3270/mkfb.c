@@ -114,7 +114,7 @@ usage(void)
 	exit(1);
 }
 
-void
+int
 main(int argc, char *argv[])
 {
 	char buf[BUFSZ];
@@ -387,7 +387,7 @@ main()\n\
 	printf("#endif /*]*/\n\n");
 	printf("#endif /*]*/\n");
 
-	exit(0);
+	return 0;
 }
 
 int n_out = 0;

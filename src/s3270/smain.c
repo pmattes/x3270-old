@@ -409,7 +409,7 @@ static char vmsgbuf[4096];
 
 /* Pop up an error dialog. */
 void
-popup_an_error(char *fmt, ...)
+popup_an_error(const char *fmt, ...)
 {
 	va_list args;
 
@@ -423,25 +423,18 @@ popup_an_error(char *fmt, ...)
 
 /* Pop up an error dialog, based on an error number. */
 void
-popup_an_errno(int errn, char *fmt, ...)
+popup_an_errno(int errn, const char *fmt, ...)
 {
 	va_list args;
 	char *s;
-	extern int sys_nerr;
-#if !defined(__FreeBSD__)
-	extern char *sys_errlist[];
-#endif
 
 	va_start(args, fmt);
 	(void) vsprintf(vmsgbuf, fmt, args);
 	s = XtNewString(vmsgbuf);
 
-	if (errn > 0) {
-		if (errn < sys_nerr)
-			popup_an_error("%s:\n%s", s, sys_errlist[errn]);
-		else
-			popup_an_error("%s:\nError %d", s, errn);
-	} else
+	if (errn > 0)
+		popup_an_error("%s:\n%s", s, strerror(errn));
+	else
 		popup_an_error(s);
 	XtFree(s);
 }

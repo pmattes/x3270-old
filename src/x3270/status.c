@@ -233,8 +233,9 @@ static unsigned char *a_numeric;
 static unsigned char *a_overflow;
 static unsigned char *a_scrolled;
 
-static unsigned char *make_amsg(char *key);
-static unsigned char *make_emsg(unsigned char prefix[], char *key, int *len);
+static unsigned char *make_amsg(const char *key);
+static unsigned char *make_emsg(unsigned char prefix[], const char *key,
+	int *len);
 
 static void status_render(int region);
 static void do_ctlr(void);
@@ -279,7 +280,7 @@ status_init(void)
 void
 status_reinit(unsigned cmask)
 {
-	int	i;
+	unsigned i;
 
 	if (cmask & FONT_CHANGE)
 		nullblank = *standard_font ? ' ' : CG_space;
@@ -346,7 +347,7 @@ status_reinit(unsigned cmask)
 void
 status_disp(void)
 {
-	int	i;
+	unsigned i;
 
 	if (!status_changed)
 		return;
@@ -365,7 +366,7 @@ status_disp(void)
 void
 status_touch(void)
 {
-	int	i;
+	unsigned i;
 
 	for (i = 0; i < SSZ; i++) {
 		status_line[i].changed = True;
@@ -404,7 +405,7 @@ status_connect(Boolean connected)
 
 /* Half connected */
 static void
-status_half_connect(Boolean ignored)
+status_half_connect(Boolean ignored unused)
 {
 	oia_boxsolid = False;
 	do_ctlr();
@@ -590,7 +591,7 @@ status_uncursor_pos(void)
 static void
 status_add(int col, unsigned char symbol, enum keytype keytype)
 {
-	int	i;
+	unsigned i;
 	XChar2b n2b;
 
 	n2b.byte1 = (keytype == KT_STD) ? 0 : 1;
@@ -688,7 +689,7 @@ status_render(int region)
 
 /* Write into the message area of the status line */
 static void
-status_msg_set(unsigned char *msg, int len)
+status_msg_set(unsigned const char *msg, int len)
 {
 	register int	i;
 
@@ -783,7 +784,7 @@ do_nonspecific(void)
 	};
 
 	if (*standard_font)
-		status_msg_set((unsigned char *)"X", 1);
+		status_msg_set((unsigned const char *)"X", 1);
 	else
 		status_msg_set(nonspecific, sizeof(nonspecific));
 }
@@ -992,15 +993,15 @@ do_cursor(char *buf)
 /* Prepare status messages */
 
 static unsigned char *
-make_amsg(char *key)
+make_amsg(const char *key)
 {
 	return (unsigned char *)xs_buffer("X %s", get_message(key));
 }
 
 static unsigned char *
-make_emsg(unsigned char prefix[], char *key, int *len)
+make_emsg(unsigned char prefix[], const char *key, int *len)
 {
-	char *text = get_message(key);
+	const char *text = get_message(key);
 	unsigned char *buf = (unsigned char *)XtMalloc(*len + strlen(text));
 
 	(void) MEMORY_MOVE((char *)buf, (char *)prefix, *len);

@@ -13,12 +13,12 @@
  */
 
 extern char *ctl_see(int c);
-extern char *do_subst(char *s, Boolean do_vars, Boolean do_tilde);
+extern char *do_subst(const char *s, Boolean do_vars, Boolean do_tilde);
 extern void fcatv(FILE *f, char *s);
-extern char *get_message(char *key);
-extern char *get_resource(char *name);
+extern const char *get_message(const char *key);
+extern char *get_resource(const char *name);
 extern int split_dresource(char **st, char **left, char **right);
 extern int split_lresource(char **st, char **value);
-extern char *xs_buffer(char *fmt, ...);
-extern void xs_error(char *fmt, ...);
-extern void xs_warning(char *fmt, ...);
+extern char *xs_buffer(const char *fmt, ...);
+extern void xs_error(const char *fmt, ...);
+extern void xs_warning(const char *fmt, ...);

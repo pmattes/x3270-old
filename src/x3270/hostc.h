@@ -29,10 +29,10 @@ extern void Reconnect_action(Widget w, XEvent *event, String *params,
     Cardinal *num_params);
 
 /* Host connect/disconnect and state change. */
-extern int host_connect(char *n);
+extern int host_connect(const char *n);
 extern void host_connected(void);
 extern void host_disconnect(Boolean disable);
-extern void host_in3270(Boolean now3270);
+extern void host_in3270(Boolean now3270, Boolean e);
 extern void host_reconnect(void);
 extern void register_schange(int tx, void (*func)(Boolean));
 extern void st_changed(int tx, Boolean mode);

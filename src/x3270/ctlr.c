@@ -128,7 +128,7 @@ static unsigned char	code_table[64] = {
  * Initialize the emulated 3270 hardware.
  */
 void
-ctlr_init(unsigned cmask)
+ctlr_init(unsigned cmask unused)
 {
 	/* Register callback routines. */
 	register_schange(ST_HALF_CONNECT, ctlr_half_connect);
@@ -282,7 +282,7 @@ set_formatted(void)
  * Called when a host is half connected.
  */
 static void
-ctlr_half_connect(Boolean ignored)
+ctlr_half_connect(Boolean ignored unused)
 {
 	ticking_start(True);
 }
@@ -292,7 +292,7 @@ ctlr_half_connect(Boolean ignored)
  * Called when a host connects, disconnects, or changes ANSI/3270 modes.
  */
 static void
-ctlr_connect(Boolean ignored)
+ctlr_connect(Boolean ignored unused)
 {
 	ticking_stop();
 	status_untiming();
@@ -1013,7 +1013,7 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 	unsigned char	efa_fg;
 	unsigned char	efa_gr;
 	unsigned char	efa_cs;
-	char		*paren = "(";
+	const char	*paren = "(";
 	enum { NONE, ORDER, SBA, TEXT, NULLCH } previous = NONE;
 
 #define END_TEXT0	{ if (previous == TEXT) trace_ds("'"); }
@@ -1490,10 +1490,6 @@ ctlr_any_data(void)
 void
 ctlr_clear(Boolean can_snap)
 {
-#if defined(X3270_TRACE) /*[*/
-	extern Boolean trace_skipping;
-#endif /*]*/
-
 	/* Snap any data that is about to be lost into the trace file. */
 	if (ctlr_any_data()) {
 #if defined(X3270_TRACE) /*[*/
@@ -1844,7 +1840,7 @@ delta_msec(struct timeval *t1, struct timeval *t0)
 
 /*ARGSUSED*/
 static void
-keep_ticking(XtPointer closure, XtIntervalId *id)
+keep_ticking(XtPointer closure unused, XtIntervalId *id unused)
 {
 	struct timeval t1;
 	long msec;
@@ -1887,7 +1883,7 @@ ticking_stop(void)
 
 /*ARGSUSED*/
 void
-toggle_showTiming(struct toggle *t, enum toggle_type tt)
+toggle_showTiming(struct toggle *t unused, enum toggle_type tt unused)
 {
 	if (!toggled(SHOW_TIMING))
 		status_untiming();
@@ -1899,6 +1895,6 @@ toggle_showTiming(struct toggle *t, enum toggle_type tt)
  */
 /*ARGSUSED*/
 void
-toggle_nop(struct toggle *t, enum toggle_type tt)
+toggle_nop(struct toggle *t unused, enum toggle_type tt unused)
 {
 }

@@ -430,10 +430,10 @@ select_extend_action(Widget w, XEvent *event, String *params,
  */
 /*ARGSUSED*/
 void
-select_end_action(Widget w, XEvent *event, String *params,
+select_end_action(Widget w unused, XEvent *event, String *params,
     Cardinal *num_params)
 {
-	int i;
+	Cardinal i;
 	int x, y;
 
 	action_debug(select_end_action, event, params, num_params);
@@ -491,9 +491,10 @@ select_end_action(Widget w, XEvent *event, String *params,
  */
 /*ARGSUSED*/
 void
-set_select_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+set_select_action(Widget w unused, XEvent *event, String *params,
+    Cardinal *num_params)
 {
-	int i;
+	Cardinal i;
 
 	action_debug(set_select_action, event, params, num_params);
 
@@ -541,7 +542,7 @@ move_cursor_to_mouse(Widget w, XEvent *event)
 
 /*ARGSUSED*/
 void
-Cut_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+Cut_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
 	register int baddr;
 	unsigned char fa = *get_field_attribute(0);
@@ -701,7 +702,7 @@ convert_sel(Widget w, Atom *selection, Atom *target, Atom *type,
 
 /*ARGSUSED*/
 static void
-lose_sel(Widget w, Atom *selection)
+lose_sel(Widget w unused, Atom *selection)
 {
 	int i;
 
@@ -983,7 +984,7 @@ area_is_selected(int baddr, int len)
  */
 /*ARGSUSED*/
 void
-unselect(int baddr, int len)
+unselect(int baddr unused, int len unused)
 {
 	if (any_selected) {
 		(void) memset((char *) selected, 0, (ROWS*COLS + 7) / 8);
@@ -1001,7 +1002,9 @@ static Time	paste_time;
 
 /*ARGSUSED*/
 static void
-paste_callback(Widget w, XtPointer client_data, Atom *selection, Atom *type, XtPointer value, unsigned long *length, int *format)
+paste_callback(Widget w, XtPointer client_data unused, Atom *selection unused,
+    Atom *type unused, XtPointer value, unsigned long *length,
+    int *format unused)
 {
 	char *s;
 	unsigned long len;
@@ -1025,9 +1028,10 @@ paste_callback(Widget w, XtPointer client_data, Atom *selection, Atom *type, XtP
 }
 
 void
-insert_selection_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+insert_selection_action(Widget w, XEvent *event, String *params,
+    Cardinal *num_params)
 {
-	int	i;
+	Cardinal i;
 	Atom	a;
 	XButtonEvent *be = (XButtonEvent *)event;
 

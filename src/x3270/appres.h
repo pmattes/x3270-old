@@ -20,7 +20,7 @@ struct toggle {
 	Boolean value;		/* toggle value */
 	Boolean changed;	/* has the value changed since init */
 	Widget w[2];		/* the menu item widgets */
-	char *label[2];		/* labels */
+	const char *label[2];	/* labels */
 	void (*upcall)(struct toggle *, enum toggle_type); /* change value */
 };
 #define MONOCASE	0

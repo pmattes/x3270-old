@@ -66,13 +66,13 @@ enum kp_placement kp_placement;
  * Table of 3278 key labels and actions
  */
 struct button_list {
-	char *label;
-	char *name;
-	char *bits;
+	const char *label;
+	const char *name;
+	const char *bits;
 	int width;
 	int height;
 	XtActionProc action;
-	char *parm;
+	const char *parm;
 };
 
 Boolean keypad_changed = False;
@@ -268,7 +268,7 @@ keypad_placement_init(void)
  */
 /*ARGSUSED*/
 static void
-callfn(Widget w, XtPointer client_data, XtPointer call_data)
+callfn(Widget w unused, XtPointer client_data, XtPointer call_data unused)
 {
 	struct button_list *keyd = (struct button_list *) client_data;
 
@@ -312,7 +312,7 @@ make_a_button(Widget container, Position x, Position y, Dimension w,
 static void
 keypad_keys_horiz(Widget container)
 {
-	int i;
+	unsigned i;
 	Position row, col;
 	Position x0, y0;
 
@@ -379,7 +379,7 @@ static Widget spf_container;
 static void
 keypad_keys_vert(Widget container)
 {
-	int i;
+	unsigned i;
 	Position row, col;
 	Position x0, y0;
 	Widget c1, c2;
@@ -460,7 +460,7 @@ keypad_keys_vert(Widget container)
 }
 
 static Dimension
-get_keypad_dimension(char *name)
+get_keypad_dimension(const char *name)
 {
 	char *rname;
 	char *d;
@@ -614,7 +614,8 @@ keypad_first_up(void)
 /* Called when the keypad popup pops up or down */
 /*ARGSUSED*/
 static void
-keypad_updown(Widget w, XtPointer client_data, XtPointer call_data)
+keypad_updown(Widget w unused, XtPointer client_data,
+		XtPointer call_data unused)
 {
 	appres.keypad_on = keypad_popped = *(Boolean *)client_data;
 	if (keypad_popped) {
@@ -742,7 +743,7 @@ keypad_set_keymap(void)
 }
 
 static void
-measure_move(XtPointer closure, XtIntervalId *id)
+measure_move(XtPointer closure unused, XtIntervalId *id unused)
 {
 	Position x, y;
 
@@ -873,8 +874,8 @@ keypad_move(void)
  * window manager decorations and stores them in decor_width and decor_height.
  */
 void
-PA_ReparentNotify_action(Widget w, XEvent *event, String *params,
-    Cardinal *num_params)
+PA_ReparentNotify_action(Widget w unused, XEvent *event, String *params unused,
+    Cardinal *num_params unused)
 {
 	XReparentEvent *e = (XReparentEvent *)event;
 

@@ -52,6 +52,8 @@ EXTRA_DEFINES = -D_HPUX_SOURCE
 /* For Dynix/ptx, umcomment the following: */
 /* EXTRA_LIBRARIES = -lsocket -linet -lnsl */
 
+EXTRA_LIBRARIES = -lutil
+
 AllTarget($(FONTS) x3270 x3270if)
 
 ComplexProgramTarget_1(x3270,,$(LOCAL_LIBRARIES))

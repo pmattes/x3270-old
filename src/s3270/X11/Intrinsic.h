@@ -46,7 +46,7 @@ extern XtPointer XtMalloc(unsigned);
 extern XtPointer XtCalloc(unsigned, unsigned);
 extern XtPointer XtRealloc(XtPointer, unsigned);
 extern void XtFree(XtPointer);
-extern String XtNewString(const String);
+extern String XtNewString(const char *);
 
 typedef void (*XtTimerCallbackProc)(
     XtPointer 		/* closure */,

@@ -15,11 +15,13 @@
 #define PA_KEYMAP_TRACE		PA_PFX "KeymapTrace"
 #define PA_END			PA_PFX "End"
 
+extern struct trans_list *temp_keymaps;
+
 extern char *keymap_trace;
 
 extern void do_keymap_display(Widget w, XtPointer userdata, XtPointer calldata);
-extern void keymap_init(char *km);
-extern XtTranslations lookup_tt(char *name, char *table);
+extern void keymap_init(const char *km);
+extern XtTranslations lookup_tt(const char *name, char *table);
 extern void PA_End_action(Widget w, XEvent *event, String *params,
     Cardinal *num_params);
 extern void PA_KeymapTrace_action(Widget w, XEvent *event, String *params,

@@ -69,6 +69,9 @@ unsigned char  *obuf;		/* 3270 output buffer */
 int             obuf_size = 0;
 unsigned char  *obptr = (unsigned char *) NULL;
 int             linemode = 1;
+#if defined(LOCAL_PROCESS) /*[*/
+Boolean		local_process = False;
+#endif /*]*/
 char           *termtype;
 
 /* Externals */
@@ -84,6 +87,7 @@ static unsigned char *ibuf = (unsigned char *) NULL;
 			/* 3270 input buffer */
 static unsigned char *ibptr;
 static int      ibuf_size = 0;	/* size of ibuf */
+static unsigned char *obuf_base = (unsigned char *)NULL;
 static unsigned char *netrbuf = (unsigned char *)NULL;
 			/* network input buffer */
 static unsigned char *sbbuf = (unsigned char *)NULL;
@@ -109,15 +113,22 @@ static char     veof;
 static char     vwerase;
 static char     vrprnt;
 static char     vlnext;
-#endif /*[*/
+#endif /*]*/
+
+static int	tn3270e_done = 0;
+static char	**lus = (char **)NULL;
+static char	**curr_lu = (char **)NULL;
+static char	*try_lu = CN;
 
 static int telnet_fsm(unsigned char c);
-static void net_rawout(unsigned char *buf, int len);
+static void net_rawout(unsigned const char *buf, int len);
 static void check_in3270(void);
 static void store3270in(unsigned char c);
 static void check_linemode(Boolean init);
 static int non_blocking(Boolean on);
 static void net_connected(void);
+static void tn3270e_negotiate(void);
+static int process_eor(void);
 
 #if defined(X3270_ANSI) /*[*/
 static void do_data(char c);
@@ -135,11 +146,11 @@ static void cooked_init(void);
 #endif /*]*/
 
 #if defined(X3270_TRACE) /*[*/
-static void trace_str(char *s);
-static void vtrace_str(char *fmt, ...);
-static char *cmd(unsigned char c);
-static char *opt(unsigned char c);
-static char *nnn(int c);
+static void trace_str(const char *s);
+static void vtrace_str(const char *fmt, ...);
+static const char *cmd(unsigned char c);
+static const char *opt(unsigned char c);
+static const char *nnn(int c);
 #else /*][*/
 #define trace_str 0 &&
 #define vtrace_str 0 &&
@@ -167,8 +178,19 @@ static unsigned char	will_opt[]	= {
 	IAC, WILL, '_' };
 static unsigned char	wont_opt[]	= { 
 	IAC, WONT, '_' };
+static unsigned char	functions_req[] = {
+	IAC, SB, TELOPT_TN3270E, TN3270E_OP_FUNCTIONS, TN3270E_OP_REQUEST,
+	IAC, SE };
+static unsigned char	functions_is[] = {
+	IAC, SB, TELOPT_TN3270E, TN3270E_OP_FUNCTIONS, TN3270E_OP_IS,
+	IAC, SE };
 
-char *telquals[2] = { "IS", "SEND" };
+const char *telquals[2] = { "IS", "SEND" };
+const char *reason_code[8] = { "CONN-PARTNER", "DEVICE-IN-USE", "INV-ASSOCIATE",
+	"INV-NAME", "INV-DEVICE-TYPE", "TYPE-NAME-ERROR", "UNKNOWN-ERROR",
+	"UNSUPPORTED-REQ" };
+#define rsn(n)	(((n) <= TN3270E_REASON_UNSUPPORTED_REQ) ? \
+			reason_code[(n)] : "??")
 
 
 /*
@@ -178,7 +200,7 @@ char *telquals[2] = { "IS", "SEND" };
  *	variables.  Returns the file descriptor of the connected socket.
  */
 int
-net_connect(char *host, char *portname, Boolean *pending)
+net_connect(const char *host, char *portname, Boolean ls, Boolean *pending)
 {
 	struct servent	*sp;
 	struct hostent	*hp;
@@ -186,7 +208,7 @@ net_connect(char *host, char *portname, Boolean *pending)
 	char	        	passthru_haddr[8];
 	int			passthru_len = 0;
 	unsigned short		passthru_port = 0;
-	struct sockaddr_in	sin;
+	struct sockaddr_in	haddr;
 	int			on = 1;
 #if defined(OMTU) /*[*/
 	int			mtu = OMTU;
@@ -219,7 +241,7 @@ net_connect(char *host, char *portname, Boolean *pending)
 
 	/* get the passthru host and port number */
 	if (passthru_host) {
-		char *hn;
+		const char *hn;
 
 		hn = getenv("INTERNET_HOST");
 		if (hn == CN)
@@ -258,82 +280,136 @@ net_connect(char *host, char *portname, Boolean *pending)
 
 
 	/* fill in the socket address of the given host */
-	(void) memset((char *) &sin, 0, sizeof(sin));
+	(void) memset((char *) &haddr, 0, sizeof(haddr));
 	if (passthru_host) {
-		sin.sin_family = AF_INET;
-		(void) MEMORY_MOVE((char *) &sin.sin_addr,
+		haddr.sin_family = AF_INET;
+		(void) MEMORY_MOVE((char *) &haddr.sin_addr,
 				   passthru_haddr,
 				   passthru_len);
-		sin.sin_port = passthru_port;
+		haddr.sin_port = passthru_port;
 	} else {
-		if ((hp = gethostbyname(host)) == (struct hostent *) 0) {
-			sin.sin_family = AF_INET;
-			sin.sin_addr.s_addr = inet_addr(host);
-			if (sin.sin_addr.s_addr == -1) {
-				popup_an_error("Unknown host:\n%s", hostname);
-				return -1;
-			}
-		}
-		else {
-			sin.sin_family = hp->h_addrtype;
-			(void) MEMORY_MOVE((char *) &sin.sin_addr,
-					   (char *) hp->h_addr,
-					   hp->h_length);
-		}
-		sin.sin_port = port;
-	}
-
-	/* create the socket */
-	if ((sock = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
-		popup_an_errno(errno, "socket");
-		return -1;
-	}
-
-	/* set options for inline out-of-band data and keepalives */
-	if (setsockopt(sock, SOL_SOCKET, SO_OOBINLINE, (char *)&on,
-		    sizeof(on)) < 0) {
-		popup_an_errno(errno, "setsockopt(SO_OOBINLINE)");
-		close_fail;
-	}
-	if (setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, (char *)&on,
-		    sizeof(on)) < 0) {
-		popup_an_errno(errno, "setsockopt(SO_KEEPALIVE)");
-		close_fail;
-	}
-#if defined(OMTU) /*[*/
-	if (setsockopt(sock, SOL_SOCKET, SO_SNDBUF, (char *)&mtu,
-		    sizeof(mtu)) < 0) {
-		popup_an_errno(errno, "setsockopt(SO_SNDBUF)");
-		close_fail;
-	}
-#endif /*]*/
-
-	/* set the socket to be non-delaying */
-	if (non_blocking(True) < 0)
-		close_fail;
-
-	/* don't share the socket with our children */
-	(void) fcntl(sock, F_SETFD, 1);
-
-	/* connect */
-	if (connect(sock, (struct sockaddr *) &sin, sizeof(sin)) == -1) {
-		if (errno == EWOULDBLOCK
-#if defined(EINPROGRESS) /*[*/
-		    || errno == EINPROGRESS
-#endif /*]*/
-		                           ) {
-			trace_str("Connection pending.\n");
-			*pending = True;
+#if defined(LOCAL_PROCESS) /*[*/
+		if (ls) {
+			local_process = True;
 		} else {
-			popup_an_errno(errno, "Connect to %s, port %d",
-			    hostname, current_port);
+			local_process = False;
+#endif /*]*/
+			hp = gethostbyname(host);
+			if (hp == (struct hostent *) 0) {
+				haddr.sin_family = AF_INET;
+				haddr.sin_addr.s_addr = inet_addr(host);
+				if (haddr.sin_addr.s_addr == (unsigned long)-1) {
+					popup_an_error("Unknown host:\n%s",
+					    hostname);
+					return -1;
+				}
+			}
+			else {
+				haddr.sin_family = hp->h_addrtype;
+				(void) MEMORY_MOVE((char *) &haddr.sin_addr,
+						   (char *) hp->h_addr,
+						   hp->h_length);
+			}
+			haddr.sin_port = port;
+#if defined(LOCAL_PROCESS) /*[*/
+		}
+#endif /*]*/
+
+	}
+
+#if defined(LOCAL_PROCESS) /*[*/
+	if (local_process) {
+		int amaster;
+		struct winsize w;
+
+		w.ws_row = maxROWS;
+		w.ws_col = maxCOLS;
+		w.ws_xpixel = 0;
+		w.ws_ypixel = 0;
+
+		switch (forkpty(&amaster, NULL, NULL, &w)) {
+		    case -1:	/* failed */
+			popup_an_errno(errno, "forkpty");
 			close_fail;
+		    case 0:	/* child */
+			putenv("TERM=xterm");
+			if (strchr(host, ' ') != CN) {
+				(void) execlp("/bin/sh", "sh", "-c", host,
+				    NULL);
+			} else {
+				char *arg1;
+
+				arg1 = strrchr(host, '/');
+				(void) execlp(host,
+					(arg1 == CN) ? host : arg1 + 1,
+					NULL);
+			}
+			perror(host);
+			_exit(1);
+			break;
+		    default:	/* parent */
+			sock = amaster;
+			(void) fcntl(sock, F_SETFD, 1);
+			net_connected();
+			host_in3270(False, myopts[TELOPT_TN3270E]);
+			break;
 		}
 	} else {
-		if (non_blocking(False) < 0)
+#endif /*]*/
+		/* create the socket */
+		if ((sock = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
+			popup_an_errno(errno, "socket");
+			return -1;
+		}
+
+		/* set options for inline out-of-band data and keepalives */
+		if (setsockopt(sock, SOL_SOCKET, SO_OOBINLINE, (char *)&on,
+			    sizeof(on)) < 0) {
+			popup_an_errno(errno, "setsockopt(SO_OOBINLINE)");
 			close_fail;
-		net_connected();
+		}
+		if (setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, (char *)&on,
+			    sizeof(on)) < 0) {
+			popup_an_errno(errno, "setsockopt(SO_KEEPALIVE)");
+			close_fail;
+		}
+#if defined(OMTU) /*[*/
+		if (setsockopt(sock, SOL_SOCKET, SO_SNDBUF, (char *)&mtu,
+			    sizeof(mtu)) < 0) {
+			popup_an_errno(errno, "setsockopt(SO_SNDBUF)");
+			close_fail;
+		}
+#endif /*]*/
+
+		/* set the socket to be non-delaying */
+		if (non_blocking(True) < 0)
+			close_fail;
+
+		/* don't share the socket with our children */
+		(void) fcntl(sock, F_SETFD, 1);
+
+		/* connect */
+		if (connect(sock, (struct sockaddr *) &haddr, sizeof(haddr)) == -1) {
+			if (errno == EWOULDBLOCK
+#if defined(EINPROGRESS) /*[*/
+			    || errno == EINPROGRESS
+#endif /*]*/
+						   ) {
+				trace_str("Connection pending.\n");
+				*pending = True;
+			} else {
+				popup_an_errno(errno, "Connect to %s, port %d",
+				    hostname, current_port);
+				close_fail;
+			}
+		} else {
+			if (non_blocking(False) < 0)
+				close_fail;
+			net_connected();
+		}
+#if defined(LOCAL_PROCESS) /*[*/
 	}
+#endif /*]*/
 
 	/* set up temporary termtype */
 	if (appres.termname == CN && std_ds_host) {
@@ -346,6 +422,57 @@ net_connect(char *host, char *portname, Boolean *pending)
 	return sock;
 }
 #undef close_fail
+
+/* Set up the LU list. */
+static void
+setup_lus(void)
+{
+	char *lu;
+	char *comma;
+	int n_lus = 1;
+	int i;
+
+	connected_lu = CN;
+
+	if (!luname[0]) {
+		curr_lu = (char **)NULL;
+		try_lu = CN;
+		return;
+	}
+
+	/*
+	 * Count the commas in the LU name.  That plus one is the
+	 * number of LUs to try. 
+	 */
+	lu = luname;
+	while ((comma = strchr(lu, ',')) != CN) {
+		n_lus++;
+		lu++;
+	}
+
+	/*
+	 * Allocate enough memory to construct an argv[] array for
+	 * the LUs.
+	 */
+	lus = (char **)XtRealloc((XtPointer)lus,
+	    (n_lus+1) * sizeof(char *) + strlen(luname) + 1);
+
+	/* Copy each LU into the array. */
+	lu = (char *)(lus + n_lus + 1);
+	(void) strcpy(lu, luname);
+	i = 0;
+	do {
+		lus[i++] = lu;
+		comma = strchr(lu, ',');
+		if (comma != CN) {
+			*comma = '\0';
+			lu = comma + 1;
+		}
+	} while (comma != CN);
+	lus[i] = CN;
+	curr_lu = lus;
+	try_lu = *curr_lu;
+}
 
 static void
 net_connected(void)
@@ -365,6 +492,9 @@ net_connected(void)
 	ns_bsent = 0;
 	ns_rsent = 0;
 	syncing = 0;
+	tn3270e_done = 0;
+
+	setup_lus();
 
 	check_linemode(True);
 
@@ -405,7 +535,7 @@ net_disconnect(void)
  *	and calls process_ds to process the 3270 data stream.
  */
 void
-net_input(XtPointer closure, int *source, XtInputId *id)
+net_input(XtPointer closure unused, int *source unused, XtInputId *id unused)
 {
 	register unsigned char	*cp;
 	int	nr;
@@ -458,11 +588,29 @@ net_input(XtPointer closure, int *source, XtInputId *id)
 #endif /*]*/
 
 	ns_brcvd += nr;
-	for (cp = netrbuf; cp < (netrbuf + nr); cp++)
-		if (telnet_fsm(*cp)) {
-			host_disconnect(True);
-			return;
+	for (cp = netrbuf; cp < (netrbuf + nr); cp++) {
+#if defined(LOCAL_PROCESS) /*[*/
+		if (local_process) {
+			/* More to do here, probably. */
+			if (IN_NEITHER) {	/* now can assume ANSI mode */
+				host_in3270(False, False);
+				hisopts[TELOPT_ECHO] = 1;
+				check_linemode(False);
+				kybdlock_clr(KL_AWAITING_FIRST, "telnet_fsm");
+				status_reset();
+				ps_process();
+			}
+			ansi_process((unsigned int) *cp);
+		} else {
+#endif /*]*/
+			if (telnet_fsm(*cp)) {
+				host_disconnect(True);
+				return;
+			}
+#if defined(LOCAL_PROCESS) /*[*/
 		}
+#endif /*]*/
+	}
 
 #if defined(X3270_ANSI) /*[*/
 	if (ansi_data) {
@@ -516,6 +664,15 @@ send_naws(void)
 }
 
 
+
+/* Advance 'try_lu' to the next desired LU name. */
+static void
+next_lu(void)
+{
+	if (curr_lu != (char **)NULL && (try_lu = *++curr_lu) == CN)
+		curr_lu = (char **)NULL;
+}
+
 /*
  * telnet_fsm
  *	Telnet finite-state machine.
@@ -540,7 +697,7 @@ telnet_fsm(unsigned char c)
 			break;
 		}
 		if (IN_NEITHER) {	/* now can assume ANSI mode */
-			host_in3270(False);
+			host_in3270(False, False);
 #if defined(X3270_ANSI)/*[*/
 			if (linemode)
 				cooked_init();
@@ -549,7 +706,7 @@ telnet_fsm(unsigned char c)
 			status_reset();
 			ps_process();
 		}
-		if (IN_ANSI) {
+		if (IN_ANSI && !IN_E) {
 #if defined(X3270_ANSI) /*[*/
 			if (!ansi_data) {
 				trace_str("<.. ");
@@ -577,7 +734,7 @@ telnet_fsm(unsigned char c)
 		}
 		switch (c) {
 		    case IAC:	/* escaped IAC, insert it */
-			if (IN_ANSI) {
+			if (IN_ANSI && !IN_E) {
 #if defined(X3270_ANSI) /*[*/
 				if (!ansi_data) {
 					trace_str("<.. ");
@@ -600,11 +757,11 @@ telnet_fsm(unsigned char c)
 		    case EOR:	/* eor, process accumulated input */
 			if (IN_3270) {
 				ns_rrcvd++;
-				if (!syncing && (ibptr - ibuf))
-					if (process_ds(ibuf, ibptr - ibuf))
-						return -1;
+				if (process_eor())
+					return -1;
 			} else
-				XtWarning("EOR received when not in 3270 mode, ignored.");
+				XtWarning("EOR received when not in 3270 mode, "
+				    "ignored.");
 			trace_str("RCVD EOR\n");
 			ibptr = ibuf;
 			telnet_state = TNS_DATA;
@@ -652,12 +809,23 @@ telnet_fsm(unsigned char c)
 		    case TELOPT_BINARY:
 		    case TELOPT_EOR:
 		    case TELOPT_TTYPE:
-		    case TELOPT_ECHO: /* hack! hack! */
+		    case TELOPT_ECHO:
+		    case TELOPT_TN3270E:
 			if (!hisopts[c]) {
 				hisopts[c] = 1;
 				do_opt[2] = c;
 				net_rawout(do_opt, sizeof(do_opt));
 				vtrace_str("SENT %s %s\n", cmd(DO), opt(c));
+
+ 				/* For UTS, volunteer to do EOR when they do. */
+ 				if (c == TELOPT_EOR && !myopts[c]) {
+ 					myopts[c] = 1;
+ 					will_opt[2] = c;
+ 					net_rawout(will_opt, sizeof(will_opt));
+ 					vtrace_str("SENT %s %s\n", cmd(WILL),
+					    opt(c));
+ 				}
+
 				check_in3270();
 				check_linemode(False);
 			}
@@ -691,6 +859,7 @@ telnet_fsm(unsigned char c)
 		    case TELOPT_SGA:
 		    case TELOPT_NAWS:
 		    case TELOPT_TM:
+		    case TELOPT_TN3270E:
 			if (!myopts[c]) {
 				if (c != TELOPT_TM)
 					myopts[c] = 1;
@@ -730,9 +899,11 @@ telnet_fsm(unsigned char c)
 			*sbptr++ = c;
 		break;
 	    case TNS_SB_IAC:	/* telnet sub-option string command */
+		*sbptr++ = c;
 		if (c == SE) {
 			telnet_state = TNS_DATA;
-			if (sbbuf[0] == TELOPT_TTYPE && sbbuf[1] == TELQUAL_SEND) {
+			if (sbbuf[0] == TELOPT_TTYPE &&
+			    sbbuf[1] == TELQUAL_SEND) {
 				int tt_len, tb_len;
 				char *tt_out;
 
@@ -740,30 +911,271 @@ telnet_fsm(unsigned char c)
 				    telquals[sbbuf[1]]);
 
 				tt_len = strlen(termtype);
-				if (luname[0])
-					tt_len += strlen(luname) + 1;
+				if (try_lu != CN) {
+					tt_len += strlen(try_lu) + 1;
+					connected_lu = try_lu;
+				}
 
 				tb_len = 4 + tt_len + 2;
 				tt_out = XtMalloc(tb_len + 1);
 				(void) sprintf(tt_out, "%c%c%c%c%s%s%s%c%c",
 				    IAC, SB, TELOPT_TTYPE, TELQUAL_IS,
 				    termtype,
-				    luname[0] ? "@" : "", luname,
+				    (try_lu != CN) ? "@" : "",
+				    try_lu ? try_lu : "",
 				    IAC, SE);
 				net_rawout((unsigned char *)tt_out, tb_len);
 
-				vtrace_str("SENT %s %s %s %,*s %s\n",
+				vtrace_str("SENT %s %s %s %.*s %s\n",
 				    cmd(SB), opt(TELOPT_TTYPE),
 				    telquals[TELQUAL_IS],
 				    tt_len, tt_out + 4,
 				    cmd(SE));
 				XtFree(tt_out);
+
+				/* Advance to the next LU name. */
+				next_lu();
+			} else if (myopts[TELOPT_TN3270E] &&
+				   sbbuf[0] == TELOPT_TN3270E) {
+				tn3270e_negotiate();
 			}
 		} else {
-			*sbptr = c;	/* just stuff it */
 			telnet_state = TNS_SB;
 		}
 		break;
+	}
+	return 0;
+}
+
+/* Send a TN3270E terminal type request. */
+static void
+tn3270e_request(void)
+{
+	int tt_len, tb_len;
+	char *tt_out;
+	char *t;
+
+	tt_len = strlen(termtype);
+	if (try_lu != CN)
+		tt_len += strlen(try_lu) + 1;
+
+	tb_len = 5 + tt_len + 2;
+	tt_out = XtMalloc(tb_len + 1);
+	t = tt_out;
+	t += sprintf(tt_out, "%c%c%c%c%c%s",
+	    IAC, SB, TELOPT_TN3270E, TN3270E_OP_DEVICE_TYPE,
+	    TN3270E_OP_REQUEST, termtype);
+
+	/* Convert 3279 to 3278, per the RFC. */
+	if (tt_out[12] == '9')
+		tt_out[12] = '8';
+
+	if (try_lu != CN)
+		t += sprintf(t, "%c%s", TN3270E_OP_CONNECT, try_lu);
+
+	(void) sprintf(t, "%c%c", IAC, SE);
+
+	net_rawout((unsigned char *)tt_out, tb_len);
+
+	vtrace_str("SENT %s %s DEVICE-TYPE REQUEST %.*s%s%s "
+		   "%s\n",
+	    cmd(SB), opt(TELOPT_TN3270E), strlen(termtype), tt_out + 5,
+	    (try_lu != CN) ? " CONNECT " : "",
+	    (try_lu != CN) ? try_lu : "",
+	    cmd(SE));
+
+	XtFree(tt_out);
+
+	/* Prep for the next LU. */
+	connected_lu = try_lu;
+	next_lu();
+}
+
+/* Negotiation TN3270E options. */
+static void
+tn3270e_negotiate(void)
+{
+#define LU_MAX	32
+	static char reported_lu[LU_MAX+1];
+
+	vtrace_str("TN3270E ");
+
+	switch (sbbuf[1]) {
+
+	case TN3270E_OP_SEND:
+
+		if (sbbuf[2] == TN3270E_OP_DEVICE_TYPE) {
+
+			/* Host wants us to send our device type. */
+			vtrace_str("SEND DEVICE-TYPE SE\n");
+
+			tn3270e_request();
+		} else {
+			vtrace_str("SEND ??%u SE\n", sbbuf[2]);
+		}
+		break;
+
+	case TN3270E_OP_DEVICE_TYPE:
+
+		/* Device type negotiation. */
+		vtrace_str("DEVICE-TYPE ");
+
+		switch (sbbuf[2]) {
+		case TN3270E_OP_IS: {
+			int tnlen, snlen;
+
+			/* Device type success. */
+
+			/* Isolate the terminal type and session. */
+			tnlen = 0;
+			while (sbbuf[3+tnlen] != SE &&
+			       sbbuf[3+tnlen] != TN3270E_OP_CONNECT)
+				tnlen++;
+			snlen = 0;
+			if (sbbuf[3+tnlen] == TN3270E_OP_CONNECT) {
+				while(sbbuf[3+tnlen+1+snlen] != SE)
+					snlen++;
+			}
+			vtrace_str("IS %.*s CONNECT %.*s SE\n",
+				tnlen, &sbbuf[3],
+				snlen, &sbbuf[3+tnlen+1]);
+
+			/* Remember the LU. */
+			if (snlen) {
+				if (snlen > LU_MAX)
+					snlen = LU_MAX;
+				(void)strncpy(reported_lu,
+				    (char *)&sbbuf[3+tnlen+1], snlen);
+				reported_lu[snlen] = '\0';
+				connected_lu = reported_lu;
+			}
+
+			/* Tell them what we can do. */
+			net_rawout(functions_req, 7);
+
+			vtrace_str("SENT %s %s FUNCTIONS REQUEST %s\n",
+			    cmd(SB), opt(TELOPT_TN3270E), cmd(SE));
+			break;
+		}
+		case TN3270E_OP_REJECT:
+
+			/* Device type failure. */
+
+			vtrace_str("REJECT REASON %s SE\n", rsn(sbbuf[4]));
+
+			if (try_lu != CN) {
+				/* Try the next LU. */
+				tn3270e_request();
+			} else {
+				/*
+				 * Give up on TN3270E mode, and hope the host
+				 * can handle our device type in TN3270 mode.
+				 */
+				myopts[TELOPT_TN3270E] = 0;
+				wont_opt[2] = TELOPT_TN3270E;
+				net_rawout(wont_opt, sizeof(wont_opt));
+				vtrace_str("SENT %s %s\n", cmd(WONT),
+				    opt(TELOPT_TN3270E));
+				check_in3270();
+				check_linemode(False);
+			}
+
+			break;
+		default:
+			vtrace_str("??%u SE\n", sbbuf[2]);
+			break;
+		}
+		break;
+
+	case TN3270E_OP_FUNCTIONS:
+
+		/* Functions negotiation. */
+		vtrace_str("FUNCTIONS ");
+
+		switch (sbbuf[2]) {
+
+		case TN3270E_OP_REQUEST:
+
+			/* Host is telling us what functions they want. */
+			vtrace_str("REQUEST ");
+
+			if (sbbuf[3] == SE) {
+				/* Empty list: perfect. */
+				vtrace_str("SE\n");
+
+				/* Tell them so. */
+				net_rawout(functions_is, 7);
+
+				vtrace_str("SENT %s %s FUNCTIONS IS %s",
+				    cmd(SB), opt(TELOPT_TN3270E), cmd(SE));
+
+				tn3270e_done = 1;
+				check_in3270();
+			} else {
+				/* Non-empty list: sorry, too much. */
+				vtrace_str("... SE\n");
+
+				/* Tell them what we can do. */
+				net_rawout(functions_req, 7);
+
+				vtrace_str("SENT %s %s FUNCTIONS REQUEST %s",
+				    cmd(SB), opt(TELOPT_TN3270E), cmd(SE));
+			}
+			break;
+
+		case TN3270E_OP_IS:
+
+			/* They accept our request. */
+			vtrace_str("IS SE\n");
+			tn3270e_done = 1;
+			check_in3270();
+			break;
+
+		default:
+			vtrace_str("??%u SE\n", sbbuf[2]);
+			break;
+		}
+		break;
+
+	default:
+		vtrace_str("??%u SE\n", sbbuf[1]);
+	}
+}
+
+static int
+process_eor(void)
+{
+	unsigned char *s;
+
+	if (syncing || !(ibptr - ibuf))
+		return(0);
+
+	if (IN_E) {
+		tn3270e_header *h = (tn3270e_header *)ibuf;
+
+		switch (h->data_type) {
+		case TN3270E_DT_3270_DATA:
+			/* In tn3270e 3270 mode */
+			if (!IN_TN3270E) {
+				host_in3270(True, True);
+			}
+			return process_ds(ibuf + EH_SIZE,
+			    (ibptr - ibuf) - EH_SIZE);
+		case TN3270E_DT_NVT_DATA:
+			/* In tn3270e NVT mode */
+			if (!IN_TN3270E) {
+				host_in3270(False, True);
+			}
+			for (s = ibuf; s < ibptr; s++) {
+				ansi_process(*s++);
+			}
+			return 0;
+		default:
+			/* Should do something more extraordinary here. */
+			return 1;
+		}
+	} else {
+		return process_ds(ibuf, ibptr - ibuf);
 	}
 	return 0;
 }
@@ -774,7 +1186,8 @@ telnet_fsm(unsigned char c)
  *	Called when there is an exceptional condition on the socket.
  */
 void
-net_exception(XtPointer closure, int *source, XtInputId *id)
+net_exception(XtPointer closure unused, int *source unused,
+    XtInputId *id unused)
 {
 	trace_str("RCVD urgent data indication\n");
 	if (!syncing) {
@@ -806,7 +1219,7 @@ net_exception(XtPointer closure, int *source, XtInputId *id)
  *	EWOULDBLOCK.
  */
 static void
-net_rawout(unsigned char *buf, int len)
+net_rawout(unsigned const char *buf, int len)
 {
 	int	nw;
 
@@ -826,7 +1239,7 @@ net_rawout(unsigned char *buf, int len)
 #else
 #		define n2w len
 #endif
-		nw = write(sock, (char *) buf, n2w);
+		nw = write(sock, (const char *) buf, n2w);
 		if (nw < 0) {
 			vtrace_str("RCVD socket error %d\n", errno);
 			if (errno == EPIPE || errno == ECONNRESET) {
@@ -895,7 +1308,7 @@ net_hexansi_out(unsigned char *buf, int len)
 
 	/* Send it to the host. */
 	net_rawout(xbuf, tbuf - xbuf);
-	XtFree(xbuf);
+	XtFree((XtPointer)xbuf);
 }
 
 /*
@@ -903,7 +1316,7 @@ net_hexansi_out(unsigned char *buf, int len)
  *	Send user data out in ANSI mode, without cooked-mode processing.
  */
 static void
-net_cookedout(char *buf, int len)
+net_cookedout(const char *buf, int len)
 {
 #if defined(X3270_TRACE) /*[*/
 	if (toggled(DS_TRACE)) {
@@ -915,7 +1328,7 @@ net_cookedout(char *buf, int len)
 		(void) fprintf(tracef, "\n");
 	}
 #endif /*]*/
-	net_rawout((unsigned char *) buf, len);
+	net_rawout((unsigned const char *) buf, len);
 }
 
 
@@ -925,7 +1338,7 @@ net_cookedout(char *buf, int len)
  *	appropriate.
  */
 static void
-net_cookout(char *buf, int len)
+net_cookout(const char *buf, int len)
 {
 
 	if (!IN_ANSI || (kybdlock & KL_AWAITING_FIRST))
@@ -993,7 +1406,7 @@ cooked_init(void)
 }
 
 static void
-ansi_process_s(char *data)
+ansi_process_s(const char *data)
 {
 	while (*data)
 		ansi_process((unsigned int) *data++);
@@ -1190,16 +1603,19 @@ do_lnext(char c)
 static void
 check_in3270(void)
 {
-	Boolean now3270 = myopts[TELOPT_BINARY] &&
-	    myopts[TELOPT_EOR] &&
-	    myopts[TELOPT_TTYPE] &&
-	    hisopts[TELOPT_BINARY] &&
-	    hisopts[TELOPT_EOR];
+	Boolean now3270 =
+	    (myopts[TELOPT_TN3270E] && tn3270e_done) ||
+	    (myopts[TELOPT_BINARY] &&
+	     myopts[TELOPT_EOR] &&
+	     myopts[TELOPT_TTYPE] &&
+	     hisopts[TELOPT_BINARY] &&
+	     hisopts[TELOPT_EOR]);
 
 	if (now3270 != IN_3270) {
-		vtrace_str("No%c operating in 3270 mode.\n",
-		    now3270 ? 'w' : 't');
-		host_in3270(now3270);
+		vtrace_str("Now operating in %s%s mode.\n",
+			myopts[TELOPT_TN3270E] ? "TN3270E " : "",
+			now3270 ? "3270" : "NVT");
+		host_in3270(now3270, myopts[TELOPT_TN3270E]);
 
 		/* Allocate the initial 3270 input buffer. */
 		if (now3270 && !ibuf_size) {
@@ -1213,6 +1629,10 @@ check_in3270(void)
 		if (!now3270 && linemode)
 			cooked_init();
 #endif /*]*/
+
+		/* If we fell out of TN3270E, remove the state. */
+		if (!now3270)
+			tn3270e_done = 0;
 	}
 }
 
@@ -1235,21 +1655,27 @@ store3270in(unsigned char c)
 /*
  * space3270out
  *	Ensure that <n> more characters will fit in the 3270 output buffer.
+ *	Allocates the buffer in BUFSIZ chunks.
+ *	Allocates hidden space at the front of the buffer for TN3270E.
  */
 void
 space3270out(int n)
 {
-	if (obuf_size == 0) {
-		obuf_size = BUFSIZ;
-		obuf = (unsigned char *)XtMalloc(obuf_size);
-		obptr = obuf;
-		return;
-	}
-	if ((obptr + n) - obuf >= obuf_size) {
-		int nc = obptr - obuf;
+	unsigned nc = 0;	/* amount of data currently in obuf */
+	unsigned more = 0;
 
-		obuf_size += BUFSIZ;
-		obuf = (unsigned char *)XtRealloc((char *)obuf, obuf_size);
+	if (obuf_size)
+		nc = obptr - obuf;
+
+	while ((nc + n + EH_SIZE) > (obuf_size + more)) {
+		more += BUFSIZ;
+	}
+
+	if (more) {
+		obuf_size += more;
+		obuf_base = (unsigned char *)XtRealloc((char *)obuf_base,
+			obuf_size);
+		obuf = obuf_base + EH_SIZE;
 		obptr = obuf + nc;
 	}
 }
@@ -1302,7 +1728,7 @@ check_linemode(Boolean init)
  *	Expands a number to a character string, for displaying unknown telnet
  *	commands and options.
  */
-static char *
+static const char *
 nnn(int c)
 {
 	static char	buf[64];
@@ -1322,7 +1748,7 @@ nnn(int c)
  * cmd
  *	Expands a TELNET command into a character string.
  */
-static char *
+static const char *
 cmd(unsigned char c)
 {
 	if (TELCMD_OK(c))
@@ -1342,7 +1768,7 @@ cmd(unsigned char c)
  * opt
  *	Expands a TELNET option into a character string.
  */
-static char *
+static const char *
 opt(unsigned char c)
 {
 	if (TELOPT_OK(c))
@@ -1357,7 +1783,7 @@ opt(unsigned char c)
 #define LINEDUMP_MAX	32
 
 void
-trace_netdata(char direction, unsigned char *buf, int len)
+trace_netdata(char direction, unsigned const char *buf, int len)
 {
 	int offset;
 	struct timeval ts;
@@ -1391,10 +1817,22 @@ trace_netdata(char direction, unsigned char *buf, int len)
 void
 net_output(void)
 {
+#define BSTART	(IN_TN3270E ? obuf_base : obuf)
+
+	/* Set the TN3720E header. */
+	if (IN_TN3270E) {
+		tn3270e_header *h = (tn3270e_header *)obuf_base;
+
+		h->data_type = TN3270E_DT_3270_DATA;
+		h->request_flag = 0;
+		h->response_flag = 0;
+		h->seq_number[0] = h->seq_number[1] = 0;
+	}
+
 	/* Count the number of IACs in the message. */
 	{
-		char *buf = (char *)obuf;
-		int len = obptr - obuf;
+		char *buf = (char *)BSTART;
+		int len = obptr - BSTART;
 		char *iac;
 		int cnt = 0;
 
@@ -1405,8 +1843,8 @@ net_output(void)
 		}
 		if (cnt) {
 			space3270out(cnt);
-			len = obptr - obuf;
-			buf = (char *)obuf;
+			len = obptr - BSTART;
+			buf = (char *)BSTART;
 
 			/* Now quote them. */
 			while (len && (iac = memchr(buf, IAC, len)) != CN) {
@@ -1424,10 +1862,11 @@ net_output(void)
 	space3270out(2);
 	*obptr++ = IAC;
 	*obptr++ = EOR;
-	net_rawout(obuf, obptr - obuf);
+	net_rawout(BSTART, obptr - BSTART);
 
 	trace_str("SENT EOR\n");
 	ns_rsent++;
+#undef BSTART
 }
 
 #if defined(X3270_TRACE) /*[*/
@@ -1451,10 +1890,16 @@ net_add_eor(unsigned char *buf, int len)
 void
 net_sendc(char c)
 {
-	if (c == '\r' && !linemode)	/* CR must be quoted */
+	if (c == '\r' && !linemode
+#if defined(LOCAL_PROCESS) /*[*/
+				   && !local_process
+#endif /*]*/
+						    ) {
+		/* CR must be quoted */
 		net_cookout("\r\0", 2);
-	else
+	} else {
 		net_cookout(&c, 1);
+	}
 }
 
 
@@ -1463,7 +1908,7 @@ net_sendc(char c)
  *	Send a null-terminated string of user data in ANSI mode.
  */
 void
-net_sends(char *s)
+net_sends(const char *s)
 {
 	net_cookout(s, strlen(s));
 }
@@ -1642,9 +2087,11 @@ net_snap_options(void)
 
 	/* Do TTYPE first. */
 	if (myopts[TELOPT_TTYPE]) {
+		unsigned j;
+
 		space3270out(sizeof(ttype_str));
-		for (i = 0; i < sizeof(ttype_str); i++)
-			*obptr++ = ttype_str[i];
+		for (j = 0; j < sizeof(ttype_str); j++)
+			*obptr++ = ttype_str[j];
 	}
 
 	/* Do the other options. */
@@ -1707,7 +2154,7 @@ non_blocking(Boolean on)
 #if defined(X3270_TRACE) /*[*/
 
 static void
-trace_str(char *s)
+trace_str(const char *s)
 {
 	if (!toggled(DS_TRACE))
 		return;
@@ -1715,7 +2162,7 @@ trace_str(char *s)
 }
 
 static void
-vtrace_str(char *fmt, ...)
+vtrace_str(const char *fmt, ...)
 {
 	static char trace_msg[256];
 	va_list args;

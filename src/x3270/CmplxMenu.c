@@ -114,29 +114,45 @@ static char defaultTranslations[] =
  * Semi Public function definitions. 
  */
 
-static void Redisplay(), Realize(), Resize(), ChangeManaged();
-static void Initialize(), ClassInitialize(), ClassPartInitialize();
-static Boolean SetValues(), SetValuesHook();
-static XtGeometryResult GeometryManager();
+static void Redisplay(Widget, XEvent *, Region);
+static void Realize(Widget, XtValueMask *, XSetWindowAttributes *);
+static void ChangeManaged(Widget);
+static void Resize(Widget);
+static void Initialize(Widget, Widget, ArgList, Cardinal *);
+static void ClassInitialize(void);
+static void ClassPartInitialize(WidgetClass);
+static Boolean SetValues(Widget, Widget, Widget, ArgList, Cardinal *);
+static Boolean SetValuesHook(Widget, ArgList, Cardinal *);
+static XtGeometryResult GeometryManager(Widget, XtWidgetGeometry *,
+	XtWidgetGeometry *);
 
 /*
  * Action Routine Definitions
  */
 
-static void Highlight(), LeftWindow(), SaveUnhighlight(), PositionMenuAction();
+static void PositionMenuAction(Widget, XEvent *, String *, Cardinal *);
+static void SaveUnhighlight(Widget, XEvent *, String *, Cardinal *);
+static void LeftWindow(Widget, XEvent *, String *, Cardinal *);
+static void Highlight(Widget, XEvent *, String *, Cardinal *);
 
 /* 
  * Private Function Definitions.
  */
 
 static void Unhighlight(), Notify();
-static void MakeSetValuesRequest(), CreateLabel(), Layout();
-static void AddPositionAction(), PositionMenu(), ChangeCursorOnGrab();
-static void ClearParent();
-static Dimension GetMenuWidth(), GetMenuHeight();
-static Widget FindMenu();
-static CmeObject GetEventEntry(), GetRightEntry();
-static void MoveMenu();
+static void MakeSetValuesRequest(Widget, Dimension, Dimension);
+static void Layout(Widget, Dimension *, Dimension *);
+static void CreateLabel(Widget);
+static void AddPositionAction(XtAppContext, caddr_t);
+static void ChangeCursorOnGrab(Widget, XtPointer junk, XtPointer);
+static void PositionMenu(Widget, XPoint *);
+static void ClearParent(Widget, XtPointer, XtPointer);
+static Dimension GetMenuWidth(Widget, Widget);
+static Dimension GetMenuHeight(Widget);
+static Widget FindMenu(Widget, String);
+static CmeObject GetEventEntry(Widget, XEvent *);
+static CmeObject GetRightEntry(Widget, XEvent *);
+static void MoveMenu(Widget, Position, Position);
 
 static XtActionsRec actionsList[] =
 {
@@ -219,7 +235,7 @@ WidgetClass complexMenuWidgetClass = (WidgetClass)&complexMenuClassRec;
  */
 
 static void
-ClassInitialize()
+ClassInitialize(void)
 {
   XawInitializeWidgetSet();
   XtAddConverter( XtRString, XtRBackingStore, XmuCvtStringToBackingStore,
@@ -236,8 +252,7 @@ ClassInitialize()
  */
 
 static void
-ClassPartInitialize(wc)
-WidgetClass wc;
+ClassPartInitialize(WidgetClass wc)
 {
     ComplexMenuWidgetClass cmwc = (ComplexMenuWidgetClass) wc;
 
@@ -259,10 +274,8 @@ WidgetClass wc;
 
 /* ARGSUSED */
 static void
-Initialize(request, new, args, num_args)
-Widget request, new;
-ArgList args;
-Cardinal *num_args;
+Initialize(Widget request unused, Widget new, ArgList args unused,
+	Cardinal *num_args unused)
 {
   ComplexMenuWidget cmw = (ComplexMenuWidget) new;
 
@@ -316,10 +329,7 @@ Cardinal *num_args;
 
 /* ARGSUSED */
 static void
-Redisplay(w, event, region)
-Widget w;
-XEvent * event;
-Region region;
+Redisplay(Widget w, XEvent *event unused, Region region)
 {
     ComplexMenuWidget cmw = (ComplexMenuWidget) w;
     CmeObject * entry;
@@ -362,10 +372,7 @@ Region region;
  */
 
 static void
-Realize(w, mask, attrs)
-Widget w;
-XtValueMask * mask;
-XSetWindowAttributes * attrs;
+Realize(Widget w, XtValueMask *mask, XSetWindowAttributes *attrs)
 {
     ComplexMenuWidget cmw = (ComplexMenuWidget) w;
 
@@ -390,8 +397,7 @@ XSetWindowAttributes * attrs;
  */
 
 static void
-Resize(w)
-Widget w;
+Resize(Widget w)
 {
     ComplexMenuWidget cmw = (ComplexMenuWidget) w;
     CmeObject * entry;
@@ -415,10 +421,8 @@ Widget w;
 
 /* ARGSUSED */
 static Boolean
-SetValues(current, request, new, args, num_args)
-Widget current, request, new;
-ArgList args;
-Cardinal *num_args;
+SetValues(Widget current, Widget request unused, Widget new,
+	ArgList args unused, Cardinal *num_args unused)
 {
     ComplexMenuWidget cmw_old = (ComplexMenuWidget) current;
     ComplexMenuWidget cmw_new = (ComplexMenuWidget) new;
@@ -487,10 +491,7 @@ Cardinal *num_args;
  */
 
 static Boolean
-SetValuesHook(w, arglist, num_args)
-Widget w;
-ArgList arglist;
-Cardinal *num_args;
+SetValuesHook(Widget w, ArgList arglist, Cardinal *num_args)
 {
     register Cardinal i;
     Dimension width, height;
@@ -525,9 +526,7 @@ Cardinal *num_args;
  */
 
 static XtGeometryResult
-GeometryManager(w, request, reply)
-Widget w;
-XtWidgetGeometry * request, * reply;
+GeometryManager(Widget w, XtWidgetGeometry *request, XtWidgetGeometry *reply)
 {
     ComplexMenuWidget cmw = (ComplexMenuWidget) XtParent(w);
     CmeObject entry = (CmeObject) w;
@@ -595,8 +594,7 @@ XtWidgetGeometry * request, * reply;
  */
 
 static void
-ChangeManaged(w)
-Widget w;
+ChangeManaged(Widget w)
 {
     Layout(w, (Dimension *)NULL, (Dimension *)NULL);
 }
@@ -621,11 +619,8 @@ Widget w;
 
 /* ARGSUSED */
 static void
-PositionMenuAction(w, event, params, num_params)
-Widget w;
-XEvent * event;
-String * params;
-Cardinal * num_params;
+PositionMenuAction(Widget w, XEvent *event, String *params,
+	Cardinal *num_params)
 { 
   Widget menu;
   XPoint loc;
@@ -687,11 +682,8 @@ Cardinal * num_params;
 
 /* ARGSUSED */
 static void
-Unhighlight(w, event, params, num_params)
-Widget w;
-XEvent * event;
-String * params;
-Cardinal * num_params;
+Unhighlight(Widget w, XEvent *event unused, String *params unused,
+	Cardinal *num_params unused)
 { 
     ComplexMenuWidget cmw = (ComplexMenuWidget) w;
     CmeObject entry = cmw->complex_menu.entry_set;
@@ -706,11 +698,8 @@ Cardinal * num_params;
 
 /* ARGSUSED */
 static void
-SaveUnhighlight(w, event, params, num_params)
-Widget w;
-XEvent * event;
-String * params;
-Cardinal * num_params;
+SaveUnhighlight(Widget w, XEvent *event unused, String *params unused,
+	Cardinal *num_params unused)
 { 
     ComplexMenuWidget cmw = (ComplexMenuWidget) w;
     CmeObject entry = cmw->complex_menu.entry_set;
@@ -734,11 +723,8 @@ Cardinal * num_params;
 
 /* ARGSUSED */
 static void
-LeftWindow(w, event, params, num_params)
-Widget w;
-XEvent * event;
-String * params;
-Cardinal * num_params;
+LeftWindow(Widget w, XEvent *event, String *params unused,
+	Cardinal *num_params unused)
 { 
     ComplexMenuWidget cmw = (ComplexMenuWidget) w;
     CmeObject entry = cmw->complex_menu.entry_set;
@@ -768,11 +754,7 @@ Cardinal * num_params;
 
 /* ARGSUSED */
 static void
-Highlight(w, event, params, num_params)
-Widget w;
-XEvent * event;
-String * params;
-Cardinal * num_params;
+Highlight(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
     ComplexMenuWidget cmw = (ComplexMenuWidget) w;
     CmeObject entry;
@@ -822,11 +804,8 @@ Cardinal * num_params;
 
 /* ARGSUSED */
 static void
-Notify(w, event, params, num_params)
-Widget w;
-XEvent * event;
-String * params;
-Cardinal * num_params;
+Notify(Widget w, XEvent *event unused, String *params unused,
+	Cardinal *num_params unused)
 {
     ComplexMenuWidget cmw = (ComplexMenuWidget) w;
     CmeObject entry = cmw->complex_menu.entry_set;
@@ -873,12 +852,7 @@ Cardinal * num_params;
  */
 
 void
-#if NeedFunctionPrototypes
 XawComplexMenuAddGlobalActions(XtAppContext app_con)
-#else
-XawComplexMenuAddGlobalActions(app_con)
-XtAppContext app_con;
-#endif
 {
     XtInitializeWidgetClass(complexMenuWidgetClass);
     XmuCallInitializers( app_con );
@@ -892,12 +866,7 @@ XtAppContext app_con;
  */
 
 Widget
-#if NeedFunctionPrototypes
 XawComplexMenuGetActiveEntry(Widget w)
-#else
-XawComplexMenuGetActiveEntry(w)
-Widget w;
-#endif
 {
     ComplexMenuWidget cmw = (ComplexMenuWidget) w;
 
@@ -911,12 +880,7 @@ Widget w;
  */
 
 void
-#if NeedFunctionPrototypes
 XawComplexMenuClearActiveEntry(Widget w)
-#else
-XawComplexMenuClearActiveEntry(w)
-Widget w;
-#endif
 {
     ComplexMenuWidget cmw = (ComplexMenuWidget) w;
 
@@ -940,8 +904,7 @@ Widget w;
  */
 
 static void
-CreateLabel(w)
-Widget w;
+CreateLabel(Widget w)
 {
     ComplexMenuWidget cmw = (ComplexMenuWidget) w;
     register Widget * child, * next_child;
@@ -994,9 +957,7 @@ Widget w;
  */
 
 static void
-Layout(w, width_ret, height_ret)
-Widget w;
-Dimension *width_ret, *height_ret;
+Layout(Widget w, Dimension *width_ret, Dimension *height_ret)
 {
     CmeObject current_entry, *entry;
     ComplexMenuWidget cmw;
@@ -1073,9 +1034,7 @@ Dimension *width_ret, *height_ret;
 
 /* ARGSUSED */
 static void
-AddPositionAction(app_con, data)
-XtAppContext app_con;
-caddr_t data;
+AddPositionAction(XtAppContext app_con, caddr_t data unused)
 {
     static XtActionsRec pos_action[] = {
         { "XawPositionComplexMenu", PositionMenuAction },
@@ -1092,9 +1051,7 @@ caddr_t data;
  */
 
 static Widget 
-FindMenu(widget, name)
-Widget widget;
-String name;
+FindMenu(Widget widget, String name)
 {
     register Widget w, menu;
     
@@ -1112,9 +1069,7 @@ String name;
  */
 
 static void
-PositionMenu(w, location)
-Widget w;
-XPoint * location;
+PositionMenu(Widget w, XPoint *location)
 {
     ComplexMenuWidget cmw = (ComplexMenuWidget) w;
     CmeObject entry;
@@ -1166,9 +1121,7 @@ XPoint * location;
  */
 
 static void
-MoveMenu(w, x, y)
-Widget w;
-Position x, y;
+MoveMenu(Widget w, Position x, Position y)
 {
     Arg arglist[2];
     Cardinal num_args = 0;
@@ -1210,9 +1163,7 @@ Position x, y;
 
 /* ARGSUSED */
 static void
-ChangeCursorOnGrab(w, junk, garbage)
-Widget w;
-XtPointer junk, garbage;
+ChangeCursorOnGrab(Widget w, XtPointer junk unused, XtPointer garbage unused)
 {
     ComplexMenuWidget cmw = (ComplexMenuWidget) w;
     
@@ -1235,9 +1186,7 @@ XtPointer junk, garbage;
 
 /*ARGSUSED*/
 static void
-ClearParent(w, junk, garbage)
-Widget w;
-XtPointer junk, garbage;
+ClearParent(Widget w, XtPointer junk unused, XtPointer garbage unused)
 {
     ComplexMenuWidget cmw = (ComplexMenuWidget) w;
     
@@ -1257,9 +1206,7 @@ XtPointer junk, garbage;
  */
 
 static void
-MakeSetValuesRequest(w, width, height)
-Widget w;
-Dimension width, height;
+MakeSetValuesRequest(Widget w, Dimension width, Dimension height)
 {
     ComplexMenuWidget cmw = (ComplexMenuWidget) w;
     Arg arglist[2];
@@ -1285,8 +1232,7 @@ Dimension width, height;
  */
 
 static Dimension
-GetMenuWidth(w, w_ent)
-Widget w, w_ent;
+GetMenuWidth(Widget w, Widget w_ent)
 {
     CmeObject cur_entry = (CmeObject) w_ent;
     ComplexMenuWidget cmw = (ComplexMenuWidget) w;
@@ -1326,8 +1272,7 @@ Widget w, w_ent;
  */
 
 static Dimension
-GetMenuHeight(w)
-Widget w;
+GetMenuHeight(Widget w)
 {
     ComplexMenuWidget cmw = (ComplexMenuWidget) w;
     CmeObject * entry;
@@ -1356,9 +1301,7 @@ Widget w;
  */
 
 static CmeObject
-GetEventEntry(w, event)
-Widget w;
-XEvent * event;
+GetEventEntry(Widget w, XEvent *event)
 {
     Position x_loc = 0, y_loc = 0;
     ComplexMenuWidget cmw = (ComplexMenuWidget) w;
@@ -1413,9 +1356,7 @@ XEvent * event;
  */
 
 static CmeObject
-GetRightEntry(w, event)
-Widget w;
-XEvent * event;
+GetRightEntry(Widget w, XEvent *event)
 {
     Position x_loc, y_loc;
     ComplexMenuWidget cmw = (ComplexMenuWidget) w;

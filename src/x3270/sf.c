@@ -38,7 +38,7 @@ extern unsigned char crm_attr[];
 
 /* Statics */
 static Boolean  qr_in_progress = False;
-static void sf_read_part(unsigned char buf[], int buflen);
+static void sf_read_part(unsigned char buf[], unsigned buflen);
 static void sf_erase_reset(unsigned char buf[], int buflen);
 static void sf_set_reply_mode(unsigned char buf[], int buflen);
 static void sf_outbound_ds(unsigned char buf[], int buflen);
@@ -143,12 +143,12 @@ write_structured_field(unsigned char buf[], int buflen)
 }
 
 static void
-sf_read_part(unsigned char buf[], int buflen)
+sf_read_part(unsigned char buf[], unsigned buflen)
 {
 	unsigned char partition;
-	int i;
+	unsigned i;
 	int any = 0;
-	char *comma = "";
+	const char *comma = "";
 
 	if (buflen < 5) {
 		trace_ds(" error: field length %d too small\n", buflen);
@@ -290,7 +290,7 @@ sf_set_reply_mode(unsigned char buf[], int buflen)
 {
 	unsigned char partition;
 	int i;
-	char *comma = "(";
+	const char *comma = "(";
 
 	if (buflen < 5) {
 		trace_ds(" error: wrong field length %d\n", buflen);
@@ -391,8 +391,8 @@ static void
 do_query_reply(unsigned char code)
 {
 	int len;
-	int i;
-	char *comma = "";
+	unsigned i;
+	const char *comma = "";
 	int obptr0 = obptr - obuf;
 	unsigned char *obptr_len;
 	unsigned short num, denom;

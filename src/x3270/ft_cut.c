@@ -105,7 +105,7 @@ static void cut_retransmit(void);
 static void cut_data(void);
 
 static void cut_ack(void);
-static void cut_abort(char *s, unsigned short reason);
+static void cut_abort(const char *s, unsigned short reason);
 
 static unsigned from6(unsigned char c);
 static int xlate_getc(void);
@@ -115,7 +115,7 @@ static int xlate_getc(void);
  * Returns the length of the converted data.
  * If there is a conversion error, calls cut_abort() and returns -1.
  */
-int
+static int
 upload_convert(unsigned char *buf, int len)
 {
 	unsigned char *ob0 = buf;
@@ -182,10 +182,10 @@ upload_convert(unsigned char *buf, int len)
 }
 
 /* Convert a buffer for downloading (local->host). */
-int
-download_convert(unsigned char *buf, int len, unsigned char *obuf)
+static int
+download_convert(unsigned const char *buf, unsigned len, unsigned char *xobuf)
 {
-	unsigned char *ob0 = obuf;
+	unsigned char *ob0 = xobuf;
 	unsigned char *ob = ob0;
 
 	while (len--) {
@@ -356,12 +356,12 @@ cut_data_request(void)
 
 	/* Check for errors. */
 	if (ferror(ft_local_file)) {
-		int i;
+		int j;
 		char *msg;
 
 		/* Clean out any data we may have written. */
-		for (i = 0; i < count; i++)
-			ctlr_add(O_UP_DATA + i, 0, 0);
+		for (j = 0; j < count; j++)
+			ctlr_add(O_UP_DATA + j, 0, 0);
 
 		/* Abort the transfer. */
 		msg = xs_buffer("read(%s): %s", ft_local_filename,
@@ -489,7 +489,7 @@ cut_ack(void)
  * Abort a transfer in progress.
  */
 static void
-cut_abort(char *s, unsigned short reason)
+cut_abort(const char *s, unsigned short reason)
 {
 	/* Save the error message. */
 	if (saved_errmsg != CN)
@@ -537,7 +537,7 @@ xlate_getc(void)
 
 	/* Expand it. */
 	if (ascii_flag && cr_flag && c == '\n') {
-		nc = download_convert("\r", 1, cbuf);
+		nc = download_convert((unsigned const char *)"\r", 1, cbuf);
 	} else
 		nc = 0;
 

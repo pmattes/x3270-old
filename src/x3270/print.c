@@ -121,9 +121,9 @@ print_text_done(FILE *f, Boolean do_popdown)
 }
 
 /* Callback for "OK" button on print text popup. */
-/*ARGSUSED*/
 static void
-print_text_callback(Widget w, XtPointer client_data, XtPointer call_data)
+print_text_callback(Widget w unused, XtPointer client_data,
+    XtPointer call_data unused)
 {
 	char *filter;
 	FILE *f;
@@ -142,9 +142,9 @@ print_text_callback(Widget w, XtPointer client_data, XtPointer call_data)
 }
 
 /* Print the contents of the screen as text. */
-/*ARGSUSED*/
 void
-PrintText_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+PrintText_action(Widget w unused, XEvent *event, String *params,
+    Cardinal *num_params)
 {
 	char *filter = get_resource(ResPrintTextCommand);
 	Boolean secure = appres.secure;
@@ -177,7 +177,7 @@ PrintText_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 	}
 	if (print_text_shell == NULL)
 		print_text_shell = create_form_popup("PrintText",
-		    print_text_callback, (XtCallbackProc)NULL, False);
+		    print_text_callback, (XtCallbackProc)NULL, FORM_AS_IS);
 	XtVaSetValues(XtNameToWidget(print_text_shell, ObjDialog),
 	    XtNvalue, filter,
 	    NULL);
@@ -186,9 +186,9 @@ PrintText_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 
 #if defined(X3270_MENUS) /*[*/
 /* Callback for Print Text menu option. */
-/*ARGSUSED*/
 void
-print_text_option(Widget w, XtPointer client_data, XtPointer call_data)
+print_text_option(Widget w, XtPointer client_data unused,
+    XtPointer call_data unused)
 {
 	Cardinal zero = 0;
 
@@ -228,9 +228,8 @@ print_window_done(int status)
 }
 
 /* Timeout callback for window print. */
-/*ARGSUSED*/
 static void
-snap_it(XtPointer closure, XtIntervalId *id)
+snap_it(XtPointer closure unused, XtIntervalId *id unused)
 {
 	if (!print_window_command)
 		return;
@@ -240,9 +239,9 @@ snap_it(XtPointer closure, XtIntervalId *id)
 }
 
 /* Callback for "OK" button on print window popup. */
-/*ARGSUSED*/
 static void
-print_window_callback(Widget w, XtPointer client_data, XtPointer call_data)
+print_window_callback(Widget w unused, XtPointer client_data,
+    XtPointer call_data unused)
 {
 	print_window_command = XawDialogGetValueString((Widget)client_data);
 	XtPopdown(print_window_shell);
@@ -251,9 +250,9 @@ print_window_callback(Widget w, XtPointer client_data, XtPointer call_data)
 }
 
 /* Print the contents of the screen as a bitmap. */
-/*ARGSUSED*/
 void
-PrintWindow_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+PrintWindow_action(Widget w unused, XEvent *event, String *params,
+    Cardinal *num_params)
 {
 	char *filter = get_resource(ResPrintWindowCommand);
 	char *fb = XtMalloc(strlen(filter) + 16);
@@ -292,9 +291,9 @@ PrintWindow_action(Widget w, XEvent *event, String *params, Cardinal *num_params
 
 #if defined(X3270_MENUS) /*[*/
 /* Callback for menu Print Window option. */
-/*ARGSUSED*/
 void
-print_window_option(Widget w, XtPointer client_data, XtPointer call_data)
+print_window_option(Widget w, XtPointer client_data unused,
+    XtPointer call_data unused)
 {
 	Cardinal zero = 0;
 

@@ -30,7 +30,7 @@ extern char *optarg;
 char *me;
 int verbose = 0;
 
-void
+static void
 usage(void)
 {
 	(void) fprintf(stderr, "usage: %s [-v] action[(param[,...])]\n", me);
@@ -39,8 +39,8 @@ usage(void)
 }
 
 /* Get a file descriptor from the environment. */
-int
-fd_env(char *name)
+static int
+fd_env(const char *name)
 {
 	char *fdname;
 	int fd;

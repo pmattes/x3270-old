@@ -218,6 +218,7 @@
 #define OptIconY		"-icony"
 #define OptKeymap		"-keymap"
 #define OptKeypadOn		"-keypad"
+#define OptLocalProcess		"-e"
 #define OptM3279		"-color"
 #define OptModel		"-model"
 #define OptMono			"-mono"

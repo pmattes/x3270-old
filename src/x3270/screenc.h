@@ -12,6 +12,8 @@
  *		Global declarations for screen.c.
  */
 
+extern Dimension main_width, main_height;
+
 extern void blink_start(void);
 extern void cursor_move(int baddr);
 extern unsigned display_height(void);
@@ -21,7 +23,7 @@ extern unsigned display_widthMM(void);
 extern void enable_cursor(Boolean on);
 extern void font_init(void);
 extern void icon_init(void);
-extern char *load_fixed_font(char *name);
+extern const char *load_fixed_font(const char *name);
 extern void mcursor_locked(void);
 extern void mcursor_normal(void);
 extern void mcursor_waiting(void);

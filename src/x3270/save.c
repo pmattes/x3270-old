@@ -53,7 +53,7 @@ static Status x_get_window_attributes(Window w, XWindowAttributes *wa);
 
 /* Search for an option in the tmp_cmd array. */
 static int
-cmd_srch(char *s)
+cmd_srch(const char *s)
 {
 	int i;
 
@@ -65,7 +65,7 @@ cmd_srch(char *s)
 
 /* Replace an options in the tmp_cmd array. */
 static void
-cmd_replace(int ix, char *s)
+cmd_replace(int ix, const char *s)
 {
 	XtFree(tmp_cmd[ix]);
 	tmp_cmd[ix] = XtNewString(s);
@@ -73,7 +73,7 @@ cmd_replace(int ix, char *s)
 
 /* Append an option to the tmp_cmd array. */
 static void
-cmd_append(char *s)
+cmd_append(const char *s)
 {
 	tmp_cmd[tcs++] = XtNewString(s);
 	tmp_cmd[tcs] = (char *) NULL;
@@ -107,13 +107,13 @@ save_xy(void)
 	frame = XtWindow(toplevel);
 	while (True) {
 		Window root, parent;
-		Window *children;
+		Window *wchildren;
 		unsigned int nchildren;
 
 		int status = XQueryTree(display, frame, &root, &parent,
-		    &children, &nchildren);
-		if (status && children)
-			XFree((char *)children);
+		    &wchildren, &nchildren);
+		if (status && wchildren)
+			XFree((char *)wchildren);
 		if (parent == root || !parent || !status)
 			break;
 		frame = parent;
@@ -526,7 +526,8 @@ static char **xargv;
 
 /* Save one option in the file. */
 static void
-save_opt(FILE *f, char *full_name, char *opt_name, char *res_name, char *value)
+save_opt(FILE *f, const char *full_name, const char *opt_name,
+    const char *res_name, const char *value)
 {
 	(void) fprintf(f, "! %s (%s)\nx3270.%s: %s\n",
 	    full_name, opt_name, res_name, value);
@@ -540,8 +541,7 @@ save_options(char *n)
 	Boolean exists = False;
 	char *ct;
 	int i;
-	extern char *build;
-	long clock;
+	long clk;
 	char buf[64];
 	Boolean any_toggles = False;
 
@@ -568,8 +568,8 @@ save_options(char *n)
 	profile_name = n;
 
 	/* Print the header. */
-	clock = time((long *)0);
-	ct = ctime(&clock);
+	clk = time((long *)0);
+	ct = ctime(&clk);
 	if (ct[strlen(ct)-1] == '\n')
 		ct[strlen(ct)-1] = '\0';
 	if (exists)
@@ -662,7 +662,7 @@ save_args(int argc, char *argv[])
 void
 merge_profile(XrmDatabase *d)
 {
-	char *fname;
+	const char *fname;
 	XrmDatabase dd;
 
 	/* Open the file. */
@@ -701,7 +701,7 @@ merge_profile(XrmDatabase *d)
  */
 /*ARGSUSED*/
 static int
-dummy_error_handler(Display *d, XErrorEvent *e)
+dummy_error_handler(Display *d unused, XErrorEvent *e unused)
 {
 	return 0;
 }

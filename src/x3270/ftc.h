@@ -30,7 +30,7 @@ enum ft_state {
 extern enum ft_state ft_state;
 
 extern void ft_aborting(void);
-extern void ft_complete(String errmsg);
+extern void ft_complete(const char *errmsg);
 extern void ft_running(Boolean is_cut);
 extern void ft_update_length(void);
 extern void PA_dialog_focus_action(Widget w, XEvent *event, String *parms,

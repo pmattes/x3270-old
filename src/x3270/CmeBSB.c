@@ -88,19 +88,27 @@ static XtResource resources[] = {
  * Semi Public function definitions. 
  */
 
-static void Redisplay(), Destroy(), Initialize(), FlipColors();
-static void FlipOn(), FlipOff();
-static void PopupMenu();
-static void ClassInitialize();
-static Boolean SetValues();
-static XtGeometryResult QueryGeometry();
+static void FlipColors(Widget);
+static void Initialize(Widget, Widget);
+static void Destroy(Widget);
+static void Redisplay(Widget, XEvent *, Region);
+static void FlipOn(Widget);
+static void FlipOff(Widget);
+static void PopupMenu(Widget);
+static void ClassInitialize(void);
+static Boolean SetValues(Widget, Widget, Widget);
+static XtGeometryResult QueryGeometry(Widget, XtWidgetGeometry *,
+	XtWidgetGeometry *);
 
 /* 
  * Private Function Definitions.
  */
 
-static void GetDefaultSize(), DrawBitmaps(), GetBitmapInfo();
-static void CreateGCs(), DestroyGCs();
+static void GetDefaultSize(Widget, Dimension *, Dimension *);
+static void DrawBitmaps(Widget, GC);
+static void GetBitmapInfo(Widget, Boolean);
+static void CreateGCs(Widget);
+static void DestroyGCs(Widget);
     
 #define superclass (&cmeClassRec)
 CmeBSBClassRec cmeBSBClassRec = {
@@ -111,7 +119,7 @@ CmeBSBClassRec cmeBSBClassRec = {
     /* class_initializer  */	ClassInitialize,
     /* class_part_initialize*/	NULL,
     /* Class init'ed      */	FALSE,
-    /* initialize         */    Initialize,
+    /* initialize         */    (XtInitProc)Initialize,
     /* initialize_hook    */	NULL,
     /* realize            */    NULL,
     /* actions            */    NULL,
@@ -126,7 +134,7 @@ CmeBSBClassRec cmeBSBClassRec = {
     /* destroy            */    Destroy,
     /* resize             */    NULL,
     /* expose             */    Redisplay,
-    /* set_values         */    SetValues,
+    /* set_values         */    (XtSetValuesFunc)SetValues,
     /* set_values_hook    */	NULL,
     /* set_values_almost  */	XtInheritSetValuesAlmost,  
     /* get_values_hook    */	NULL,			
@@ -166,7 +174,7 @@ WidgetClass cmeBSBObjectClass = (WidgetClass) &cmeBSBClassRec;
  */
 
 static void 
-ClassInitialize()
+ClassInitialize(void)
 {
     XawInitializeWidgetSet();
     XtAddConverter( XtRString, XtRJustify, XmuCvtStringToJustify, NULL, 0 );
@@ -182,8 +190,7 @@ ClassInitialize()
 
 /* ARGSUSED */
 static void
-Initialize(request, new)
-Widget request, new;
+Initialize(Widget request unused, Widget new)
 {
     CmeBSBObject entry = (CmeBSBObject) new;
 
@@ -211,8 +218,7 @@ Widget request, new;
  */
 
 static void
-Destroy(w)
-Widget w;
+Destroy(Widget w)
 {
     CmeBSBObject entry = (CmeBSBObject) w;
 
@@ -233,10 +239,7 @@ Widget w;
 
 /* ARGSUSED */
 static void
-Redisplay(w, event, region)
-Widget w;
-XEvent * event;
-Region region;
+Redisplay(Widget w, XEvent *event unused, Region region unused)
 {
     GC gc;
     CmeBSBObject entry = (CmeBSBObject) w;
@@ -307,8 +310,7 @@ Region region;
 
 /* ARGSUSED */
 static Boolean
-SetValues(current, request, new)
-Widget current, request, new;
+SetValues(Widget current, Widget request unused, Widget new)
 {
     CmeBSBObject entry = (CmeBSBObject) new;
     CmeBSBObject old_entry = (CmeBSBObject) current;
@@ -364,9 +366,8 @@ Widget current, request, new;
  */
 
 static XtGeometryResult
-QueryGeometry(w, intended, return_val) 
-Widget w;
-XtWidgetGeometry *intended, *return_val;
+QueryGeometry(Widget w, XtWidgetGeometry *intended,
+	XtWidgetGeometry *return_val)
 {
     CmeBSBObject entry = (CmeBSBObject) w;
     Dimension width, height;
@@ -408,9 +409,7 @@ XtWidgetGeometry *intended, *return_val;
 
 /*ARGSUSED*/
 static void
-OnCallback(closure, id)
-XtPointer closure;
-XtIntervalId *id;
+OnCallback(XtPointer closure, XtIntervalId *id unused)
 {
     Widget w = (Widget) closure;
     CmeBSBObject entry = (CmeBSBObject) w;
@@ -428,8 +427,7 @@ XtIntervalId *id;
  */
 
 static void 
-FlipOn(w)
-Widget w;
+FlipOn(Widget w)
 {
     CmeBSBObject entry = (CmeBSBObject) w;
 
@@ -450,8 +448,7 @@ Widget w;
  */
 
 static void 
-FlipOff(w)
-Widget w;
+FlipOff(Widget w)
 {
     CmeBSBObject entry = (CmeBSBObject) w;
     Widget menu = NULL, temp;
@@ -491,8 +488,7 @@ Widget w;
  */
 
 static void 
-FlipColors(w)
-Widget w;
+FlipColors(Widget w)
 {
     CmeBSBObject entry = (CmeBSBObject) w;
 
@@ -519,9 +515,7 @@ Widget w;
  */
 
 static void
-GetDefaultSize(w, width, height) 
-Widget w;
-Dimension * width, * height;
+GetDefaultSize(Widget w, Dimension *width, Dimension *height)
 {
     CmeBSBObject entry = (CmeBSBObject) w;
 
@@ -548,9 +542,7 @@ Dimension * width, * height;
  */
 
 static void
-DrawBitmaps(w, gc)
-Widget w;
-GC gc;
+DrawBitmaps(Widget w, GC gc)
 {
     int x_loc, y_loc;
     CmeBSBObject entry = (CmeBSBObject) w;
@@ -604,9 +596,7 @@ GC gc;
  */
 
 static void
-GetBitmapInfo(w, is_left)
-Widget w;
-Boolean is_left;
+GetBitmapInfo(Widget w, Boolean is_left)
 {
     CmeBSBObject entry = (CmeBSBObject) w;    
     unsigned int depth, bw;
@@ -662,8 +652,7 @@ Boolean is_left;
  */
 
 static void
-CreateGCs(w)
-Widget w;
+CreateGCs(Widget w)
 {
     CmeBSBObject entry = (CmeBSBObject) w;    
     XGCValues values;
@@ -703,8 +692,7 @@ Widget w;
  */
 
 static void
-DestroyGCs(w)
-Widget w;
+DestroyGCs(Widget w)
 {
     CmeBSBObject entry = (CmeBSBObject) w;    
 
@@ -721,8 +709,7 @@ Widget w;
  */
 
 static void
-PopupMenu(w)
-Widget w;
+PopupMenu(Widget w)
 {
     CmeBSBObject entry = (CmeBSBObject) w;
     Widget menu = NULL, temp;
@@ -793,7 +780,8 @@ Widget w;
  * highlight and unhighlight.
  */
 
-void _XawCmeBSBApolloHack ()
+void
+_XawCmeBSBApolloHack(void)
 {
     FlipColors();
 }

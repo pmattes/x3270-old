@@ -17,14 +17,14 @@ extern unsigned char *obuf, *obptr;
 
 /* Spelled-out tty control character. */
 struct ctl_char {
-	char *name;
+	const char *name;
 	char value[3];
 };
 
 extern void net_add_eor(unsigned char *buf, int len);
 extern void net_break(void);
 extern void net_charmode(void);
-extern int net_connect(char *host, char *portname, Boolean *pending);
+extern int net_connect(const char *, char *, Boolean, Boolean *);
 extern void net_disconnect(void);
 extern void net_exception(XtPointer closure, int *source, XtInputId *id);
 extern void net_hexansi_out(unsigned char *buf, int len);
@@ -34,10 +34,10 @@ extern void net_linemode(void);
 extern struct ctl_char *net_linemode_chars(void);
 extern void net_output(void);
 extern void net_sendc(char c);
-extern void net_sends(char *s);
+extern void net_sends(const char *s);
 extern void net_send_erase(void);
 extern void net_send_kill(void);
 extern void net_send_werase(void);
 extern Boolean net_snap_options(void);
 extern void space3270out(int n);
-extern void trace_netdata(char direction, unsigned char *buf, int len);
+extern void trace_netdata(char direction, unsigned const char *buf, int len);

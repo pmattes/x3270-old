@@ -10,3 +10,5 @@
 /* s3270 version of savec.h */
 
 #define save_yourself()
+
+extern char *command_string;
