@@ -1,4 +1,11 @@
 #! /bin/sh
+# Copyright 1995, 1999 by Paul Mattes.
+#  Permission to use, copy, modify, and distribute this software and its
+#  documentation for any purpose and without fee is hereby granted,
+#  provided that the above copyright notice appear in all copies and that
+#  both that copyright notice and this permission notice appear in
+#  supporting documentation.
+#
 # Run x3270 from the current directory
 
 # Bomb on any error
@@ -15,10 +22,10 @@ xset fp rehash
 
 # Set up the dynamic library path
 if [ -d /usr/openwin/lib ]
-then	LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/openwin/lib
+then  LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/openwin/lib
 fi
 if [ -d /usr/ucblib ]
-then	LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/ucblib
+then  LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/ucblib
 fi
 export LD_LIBRARY_PATH
 

@@ -1,5 +1,5 @@
 /*
- * Modifications Copyright 1993, 1994, 1995 by Paul Mattes.
+ * Modifications Copyright 1993, 1994, 1995, 1999 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -20,9 +20,7 @@
  */
 
 #define fCHAR_WIDTH(f)	((f)->max_bounds.width)
-#define CHAR_WIDTH	fCHAR_WIDTH(*efontinfo)
 #define fCHAR_HEIGHT(f)	((f)->ascent + (f)->descent)
-#define CHAR_HEIGHT	fCHAR_HEIGHT(*efontinfo)
 
 #define HHALO	2	/* number of pixels to pad screen left-right */
 #define VHALO	1	/* number of pixels to pad screen top-bottom */
@@ -42,8 +40,7 @@
 #define COL_TO_X(col)		cwCOL_TO_X(col, *char_width)
 #define ROW_TO_Y(row)		chROW_TO_Y(row, *char_height)
 
-#define SGAP	((*efontinfo)->descent+3) 	/* gap between screen
-						   and status line */
+#define SGAP	(*descent+3) 	/* gap between screen and status line */
 
 #define SCREEN_WIDTH(cw)	(cwCOL_TO_X(maxCOLS, cw) + HHALO)
 #define SCREEN_HEIGHT(ch)	(chROW_TO_Y(maxROWS, ch) + VHALO+SGAP+VHALO)
@@ -72,3 +69,4 @@ union sp {
  */
 extern int	 *char_width, *char_height;
 extern unsigned char *selected;		/* selection bitmap */
+extern int	 *ascent, *descent;

@@ -1,5 +1,5 @@
 /*
- * Copyright 1994, 1995 by Paul Mattes.
+ * Copyright 1994, 1995, 1999 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -40,13 +40,15 @@ static Boolean  vscreen_swapped = False;
 static char    *sbuf = CN;
 static int      sa_bufsize;
 static char    *zbuf = CN;
-static void     sync_scroll();
+static void sync_scroll(int sb);
+static void save_image(void);
+static void scroll_reset(void);
 
 /*
  * Initialize (or re-initialize) the scrolling parameters and save area.
  */
 void
-scroll_init()
+scroll_init(void)
 {
 	register int i;
 	int sa_size;
@@ -82,8 +84,8 @@ scroll_init()
 /*
  * Reset the scrolling parameters and erase the save area.
  */
-void
-scroll_reset()
+static void
+scroll_reset(void)
 {
 	(void) memset(sbuf, 0, sa_bufsize);
 	scroll_next = 0;
@@ -100,9 +102,7 @@ scroll_reset()
  * Save <n> lines of data from the top of the screen.
  */
 void
-scroll_save(n, trim_blanks)
-int n;
-Boolean trim_blanks;
+scroll_save(int n, Boolean trim_blanks)
 {
 	int i;
 
@@ -162,7 +162,7 @@ Boolean trim_blanks;
  * screen size.
  */
 void
-scroll_round()
+scroll_round(void)
 {
 	int n;
 
@@ -191,7 +191,7 @@ scroll_round()
  * Jump to the bottom of the scroll buffer.
  */
 void
-scroll_to_bottom()
+scroll_to_bottom(void)
 {
 	if (scrolled_back) {
 		sync_scroll(0);
@@ -203,8 +203,8 @@ scroll_to_bottom()
 /*
  * Save the current screen image, if it hasn't been saved since last updated.
  */
-void
-save_image()
+static void
+save_image(void)
 {
 	int i;
 
@@ -225,15 +225,14 @@ save_image()
  * Redraw the display so it begins back <sb> lines.
  */
 static void
-sync_scroll(sb)
-int sb;
+sync_scroll(int sb)
 {
 	int slop;
 	int i;
 	int scroll_first;
 	float tt0;
 
-	(void) unselect(0, ROWS*COLS);
+	unselect(0, ROWS*COLS);
 
 	/*
 	 * If in 3270 mode, round to a multiple of the screen size and
@@ -307,9 +306,7 @@ int sb;
  * Callback for "scroll" action (incrementing the thumb in one direction).
  */
 void
-scroll_proc(n, total)
-int n;
-int total;
+scroll_proc(int n, int total)
 {
 	float pct;
 	int nss;
@@ -354,8 +351,7 @@ int total;
  * Callback for "jump" action (moving the thumb to a particular spot).
  */
 void
-jump_proc(top)
-float top;
+jump_proc(float top)
 {
 	/*printf("jump_proc(%f)\n", top);*/
 	if (!n_saved) {
@@ -375,7 +371,7 @@ float top;
  * Resynchronize the thumb (called when the scrollbar is turned on).
  */
 void
-rethumb()
+rethumb(void)
 {
 	screen_set_thumb(thumb_top, thumb_shown);
 }

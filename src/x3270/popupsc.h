@@ -1,5 +1,5 @@
 /*
- * Copyright 1995 by Paul Mattes.
+ * Copyright 1995, 1999 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -14,28 +14,23 @@
 
 /* window placement enumeration */
 enum placement { Center, Bottom, Left, Right };
-extern enum kp_placement {
-	kp_right, kp_left, kp_bottom, kp_integral
-} kp_placement;
 extern enum placement *CenterP;
 extern enum placement *BottomP;
 extern enum placement *LeftP;
 extern enum placement *RightP;
 
-extern void confirm_action();
-extern Widget create_form_popup();
-extern void error_popup_init();
-extern void Info_action();
-extern void info_popup_init();
-extern void place_popup();
-#if defined(__STDC__)
-extern void popup_an_info(char *fmt, ...);
-extern void popup_an_errno(int err, char *fmt, ...);
+extern Widget create_form_popup(char *name, XtCallbackProc callback,
+    XtCallbackProc callback2, Boolean no_spaces);
+extern void error_popup_init(void);
+extern void Info_action(Widget w, XEvent *event, String *params,
+    Cardinal *num_params);
+extern void info_popup_init(void);
+extern void PA_confirm_action(Widget w, XEvent *event, String *params,
+    Cardinal *num_params);
+extern void place_popup(Widget w, XtPointer client_data, XtPointer call_data);
+extern void popup_an_errno(int errn, char *fmt, ...);
 extern void popup_an_error(char *fmt, ...);
-#else
-extern void popup_an_info();
-extern void popup_an_errno();
-extern void popup_an_error();
-#endif
-extern void popup_popup();
-extern void toplevel_geometry();
+extern void popup_an_info(char *fmt, ...);
+extern void popup_popup(Widget shell, XtGrabKind grab);
+extern void toplevel_geometry(Dimension *x, Dimension *y, Dimension *width,
+    Dimension *height);

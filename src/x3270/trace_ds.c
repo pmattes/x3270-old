@@ -1,10 +1,10 @@
 /*
- * Copyright 1993, 1994, 1995 by Paul Mattes.
- *   Permission to use, copy, modify, and distribute this software and its
- *   documentation for any purpose and without fee is hereby granted,
- *   provided that the above copyright notice appear in all copies and that
- *   both that copyright notice and this permission notice appear in
- *   supporting documentation.
+ * Copyright 1993, 1994, 1995, 1999 by Paul Mattes.
+ *  Permission to use, copy, modify, and distribute this software and its
+ *  documentation for any purpose and without fee is hereby granted,
+ *  provided that the above copyright notice appear in all copies and that
+ *  both that copyright notice and this permission notice appear in
+ *  supporting documentation.
  */
 
 /*
@@ -14,19 +14,21 @@
  */
 
 #include "globals.h"
+
+#if defined(X3270_TRACE) /*[*/
+
+#if defined(X3270_DISPLAY) /*[*/
 #include <X11/StringDefs.h>
 #include <X11/Xaw/Dialog.h>
+#endif /*]*/
 #include <errno.h>
 #include <signal.h>
 #include <time.h>
-#if defined(__STDC__)
 #include <stdarg.h>
-#else
-#include <varargs.h>
-#endif
 #include <fcntl.h>
 #include "3270ds.h"
 #include "appres.h"
+#include "objects.h"
 #include "resources.h"
 #include "ctlr.h"
 
@@ -53,8 +55,7 @@ struct timeval  ds_ts;
 Boolean         trace_skipping = False;
 
 char *
-unknown(value)
-unsigned char value;
+unknown(unsigned char value)
 {
 	static char buf[64];
 
@@ -64,8 +65,7 @@ unsigned char value;
 
 /* display a (row,col) */
 char *
-rcba(baddr)
-int baddr;
+rcba(int baddr)
 {
 	static char buf[16];
 
@@ -74,8 +74,7 @@ int baddr;
 }
 
 char *
-see_ebc(ch)
-unsigned char ch;
+see_ebc(unsigned char ch)
 {
 	static char buf[8];
 
@@ -107,8 +106,7 @@ unsigned char ch;
 }
 
 char *
-see_aid(code)
-unsigned char code;
+see_aid(unsigned char code)
 {
 	switch (code) {
 	case AID_NO: 
@@ -187,8 +185,7 @@ unsigned char code;
 }
 
 char *
-see_attr(fa)
-unsigned char fa;
+see_attr(unsigned char fa)
 {
 	static char buf[256];
 	char *paren = "(";
@@ -242,8 +239,7 @@ unsigned char fa;
 }
 
 static char *
-see_highlight(setting)
-unsigned char setting;
+see_highlight(unsigned char setting)
 {
 	switch (setting) {
 	    case XAH_DEFAULT:
@@ -264,8 +260,7 @@ unsigned char setting;
 }
 
 char *
-see_color(setting)
-unsigned char setting;
+see_color(unsigned char setting)
 {
 	static char *color_name[] = {
 	    "neutralBlack",
@@ -295,8 +290,7 @@ unsigned char setting;
 }
 
 static char *
-see_transparency(setting)
-unsigned char setting;
+see_transparency(unsigned char setting)
 {
 	switch (setting) {
 	    case XAT_DEFAULT:
@@ -313,8 +307,7 @@ unsigned char setting;
 }
 
 static char *
-see_validation(setting)
-unsigned char setting;
+see_validation(unsigned char setting)
 {
 	static char buf[64];
 	char *paren = "(";
@@ -343,8 +336,7 @@ unsigned char setting;
 }
 
 static char *
-see_outline(setting)
-unsigned char setting;
+see_outline(unsigned char setting)
 {
 	static char buf[64];
 	char *paren = "(";
@@ -378,9 +370,7 @@ unsigned char setting;
 }
 
 char *
-see_efa(efa, value)
-unsigned char efa;
-unsigned char value;
+see_efa(unsigned char efa, unsigned char value)
 {
 	static char buf[64];
 
@@ -419,8 +409,7 @@ unsigned char value;
 }
 
 char *
-see_efa_only(efa)
-unsigned char efa;
+see_efa_only(unsigned char efa)
 {
 	switch (efa) {
 	    case XA_ALL:
@@ -447,8 +436,7 @@ unsigned char efa;
 }
 
 char *
-see_qcode(id)
-unsigned char id;
+see_qcode(unsigned char id)
 {
 	static char buf[64];
 
@@ -469,8 +457,6 @@ unsigned char id;
 		return "ReplyModes";
 	    case QR_ALPHA_PART:
 		return "AlphanumericPartitions";
-	    case QR_DDM:
-		return "DistributedDataManagement";
 	    default:
 		(void) sprintf(buf, "unknown[0x%x]", id);
 		return buf;
@@ -479,12 +465,11 @@ unsigned char id;
 
 /* Data Stream trace print, handles line wraps */
 
-static char tdsbuf[4096];
+static char *tdsbuf = CN;
 #define TDS_LEN	75
 
 static void
-trace_ds_s(s)
-char *s;
+trace_ds_s(char *s)
 {
 	int len = strlen(s);
 	Boolean nl = False;
@@ -514,40 +499,48 @@ char *s;
 	}
 }
 
-#if defined(__STDC__)
 void
 trace_ds(char *fmt, ...)
-#else
-void
-trace_ds(va_alist)
-va_dcl
-#endif
 {
 	va_list args;
 
-#if defined(__STDC__)
 	va_start(args, fmt);
-#else
-	char *fmt;
-	va_start(args);
-	fmt = va_arg(args, char *);
-#endif
+
+	/* allocate buffer */
+	if (tdsbuf == CN)
+		tdsbuf = XtMalloc(4096);
+
 	/* print out remainder of message */
 	(void) vsprintf(tdsbuf, fmt, args);
 	trace_ds_s(tdsbuf);
 	va_end(args);
 }
 
+/* Conditional event trace. */
+void
+trace_event(char *fmt, ...)
+{
+	va_list args;
+
+	if (!toggled(EVENT_TRACE))
+		return;
+
+	va_start(args, fmt);
+
+	/* print out message */
+	(void) vfprintf(tracef, fmt, args);
+	va_end(args);
+}
+
+#if defined(X3270_DISPLAY) /*[*/
 static Widget trace_shell = (Widget)NULL;
+#endif
 static int trace_reason;
 
 /* Callback for "OK" button on trace popup */
 /*ARGSUSED*/
 static void
-tracefile_callback(w, client_data, call_data)
-Widget w;
-XtPointer client_data;
-XtPointer call_data;
+tracefile_callback(Widget w, XtPointer client_data, XtPointer call_data)
 {
 	char *tfn;
 	char *tracecmd;
@@ -556,9 +549,11 @@ XtPointer call_data;
 	extern char *command_string;
 	extern int children;
 
+#if defined(X3270_DISPLAY) /*[*/
 	if (w)
 		tfn = XawDialogGetValueString((Widget)client_data);
 	else
+#endif /*]*/
 		tfn = (char *)client_data;
 	tfn = do_subst(tfn, True, True);
 	if (strchr(tfn, '\'') ||
@@ -601,7 +596,7 @@ XtPointer call_data;
 
 	/* Start the monitor window */
 	tracecmd = get_resource(ResTraceCommand);
-	if (!tracecmd || !strcmp(tracecmd, "none"))
+	if (tracecmd == CN || !strcmp(tracecmd, "none"))
 		goto done;
 	switch (tracewindow_pid = fork()) {
 	    case 0:	/* child process */
@@ -626,8 +621,10 @@ XtPointer call_data;
 	appres.toggle[trace_reason].changed = True;
 	menubar_retoggle(&appres.toggle[trace_reason]);
 
+#if defined(X3270_DISPLAY) /*[*/
 	if (w)
 		XtPopdown(trace_shell);
+#endif /*]*/
 
 	/* Snap the current TELNET options. */
 	if (net_snap_options()) {
@@ -657,26 +654,24 @@ XtPointer call_data;
 
 /* Open the trace file. */
 static void
-tracefile_on(reason, tt)
-int reason;
-enum toggle_type tt;
+tracefile_on(int reason, enum toggle_type tt)
 {
 	char tracefile[256];
 
 	if (tracef)
 		return;
 
-	(void) sprintf(tracefile, "%s/x3trc.%d", appres.trace_dir,
-		getpid());
+	(void) sprintf(tracefile, "%s/x3trc.%d", appres.trace_dir, getpid());
 	trace_reason = reason;
 	if (tt == TT_INITIAL) {
 		tracefile_callback((Widget)NULL, tracefile, PN);
 		return;
 	}
+#if defined(X3270_DISPLAY) /*[*/
 	if (trace_shell == NULL) {
 		trace_shell = create_form_popup("trace",
 		    tracefile_callback, (XtCallbackProc)NULL, True);
-		XtVaSetValues(XtNameToWidget(trace_shell, "dialog"),
+		XtVaSetValues(XtNameToWidget(trace_shell, ObjDialog),
 		    XtNvalue, tracefile,
 		    NULL);
 	}
@@ -686,11 +681,12 @@ enum toggle_type tt;
 	appres.toggle[reason].changed = True;
 
 	popup_popup(trace_shell, XtGrabExclusive);
+#endif /*]*/
 }
 
 /* Close the trace file. */
 static void
-tracefile_off()
+tracefile_off(void)
 {
 	long clock;
 
@@ -705,9 +701,7 @@ tracefile_off()
 
 /*ARGSUSED*/
 void
-toggle_dsTrace(t, tt)
-struct toggle *t;
-enum toggle_type tt;
+toggle_dsTrace(struct toggle *t, enum toggle_type tt)
 {
 	/* If turning on trace and no trace file, open one. */
 	if (toggled(DS_TRACE) && !tracef)
@@ -724,9 +718,7 @@ enum toggle_type tt;
 
 /*ARGSUSED*/
 void
-toggle_eventTrace(t, tt)
-struct toggle *t;
-enum toggle_type tt;
+toggle_eventTrace(struct toggle *t, enum toggle_type tt)
 {
 	/* If turning on event debug, and no trace file, open one. */
 	if (toggled(EVENT_TRACE) && !tracef)
@@ -740,14 +732,16 @@ enum toggle_type tt;
 
 /* Screen trace file support. */
 
+#if defined(X3270_DISPLAY) /*[*/
 static Widget screentrace_shell = (Widget)NULL;
+#endif /*]*/
 static FILE *screentracef = (FILE *)0;
 
 /*
  * Screen trace function, called when the host clears the screen.
  */
 static void
-do_screentrace()
+do_screentrace(void)
 {
 	register int i;
 
@@ -759,7 +753,7 @@ do_screentrace()
 }
 
 void
-trace_screen()
+trace_screen(void)
 {
 	trace_skipping = False;
 
@@ -770,8 +764,7 @@ trace_screen()
 
 /* Called from ANSI emulation code to log a single character. */
 void
-trace_char(c)
-char c;
+trace_char(char c)
 {
 	if (!toggled(SCREEN_TRACE) | !screentracef)
 		return;
@@ -785,7 +778,7 @@ char c;
  * manipulated directly in ctlr_clear()).
  */
 void
-trace_ansi_disc()
+trace_ansi_disc(void)
 {
 	int i;
 
@@ -797,26 +790,19 @@ trace_ansi_disc()
 	trace_skipping = True;
 }
 
-/* Callback for "OK" button on screentrace popup */
-/*ARGSUSED*/
-static void
-screentrace_callback(w, client_data, call_data)
-Widget w;
-XtPointer client_data;
-XtPointer call_data;
+/*
+ * Screen tracing callback.
+ * Returns True for success, False for failure.
+ */
+static Boolean
+screentrace_cb(char *tfn)
 {
-	char *tfn;
-
-	if (w)
-		tfn = XawDialogGetValueString((Widget)client_data);
-	else
-		tfn = (char *)client_data;
 	tfn = do_subst(tfn, True, True);
 	screentracef = fopen(tfn, "a");
 	if (screentracef == (FILE *)NULL) {
 		popup_an_errno(errno, tfn);
 		XtFree(tfn);
-		return;
+		return False;
 	}
 	XtFree(tfn);
 	(void) SETLINEBUF(screentracef);
@@ -826,18 +812,23 @@ XtPointer call_data;
 	appres.toggle[SCREEN_TRACE].value = True;
 	appres.toggle[SCREEN_TRACE].changed = True;
 	menubar_retoggle(&appres.toggle[SCREEN_TRACE]);
+	return True;
+}
 
-	if (w)
+#if defined(X3270_DISPLAY) /*[*/
+/* Callback for "OK" button on screentrace popup */
+/*ARGSUSED*/
+static void
+screentrace_callback(Widget w, XtPointer client_data, XtPointer call_data)
+{
+	if (screentrace_cb(XawDialogGetValueString((Widget)client_data)))
 		XtPopdown(screentrace_shell);
 }
 
 /* Callback for second "OK" button on screentrace popup */
 /*ARGSUSED*/
 static void
-onescreen_callback(w, client_data, call_data)
-Widget w;
-XtPointer client_data;
-XtPointer call_data;
+onescreen_callback(Widget w, XtPointer client_data, XtPointer call_data)
 {
 	char *tfn;
 
@@ -865,12 +856,11 @@ XtPointer call_data;
 	if (w)
 		XtPopdown(screentrace_shell);
 }
+#endif /*]*/
 
 /*ARGSUSED*/
 void
-toggle_screenTrace(t, tt)
-struct toggle *t;
-enum toggle_type tt;
+toggle_screenTrace(struct toggle *t, enum toggle_type tt)
 {
 	char tracefile[256];
 
@@ -878,22 +868,27 @@ enum toggle_type tt;
 		(void) sprintf(tracefile, "%s/x3scr.%d", appres.trace_dir,
 			getpid());
 		if (tt == TT_INITIAL) {
-			screentrace_callback((Widget)NULL, tracefile, PN);
+			(void) screentrace_cb(XtNewString(tracefile));
 			return;
 		}
+#if defined(X3270_DISPLAY) /*[*/
 		if (screentrace_shell == NULL) {
 			screentrace_shell = create_form_popup("screentrace",
 			    screentrace_callback, onescreen_callback, True);
-			XtVaSetValues(XtNameToWidget(screentrace_shell, "dialog"),
+			XtVaSetValues(XtNameToWidget(screentrace_shell,
+					ObjDialog),
 			    XtNvalue, tracefile,
 			    NULL);
 		}
 		appres.toggle[SCREEN_TRACE].value = False;
 		appres.toggle[SCREEN_TRACE].changed = True;
 		popup_popup(screentrace_shell, XtGrabExclusive);
+#endif /*]*/
 	} else {
 		if (ctlr_any_data() && !trace_skipping)
 			do_screentrace();
 		(void) fclose(screentracef);
 	}
 }
+
+#endif /*]*/

@@ -1,12 +1,12 @@
 /* (from) $XConsortium: SimpleMenu.c,v 1.41 92/09/10 16:25:07 converse Exp $ */
 
 /*
- * Modifications Copyright 1995 by Paul Mattes.
- *   Permission to use, copy, modify, and distribute this software and its
- *   documentation for any purpose and without fee is hereby granted,
- *   provided that the above copyright notice appear in all copies and that
- *   both that copyright notice and this permission notice appear in
- *   supporting documentation.
+ * Modifications Copyright 1995, 1999 by Paul Mattes.
+ *  Permission to use, copy, modify, and distribute this software and its
+ *  documentation for any purpose and without fee is hereby granted,
+ *  provided that the above copyright notice appear in all copies and that
+ *  both that copyright notice and this permission notice appear in
+ *  supporting documentation.
  *
  * Copyright 1989 Massachusetts Institute of Technology
  *
@@ -38,6 +38,9 @@
  *          MIT X Consortium 
  *          kit@expo.lcs.mit.edu
  */
+
+#include "globals.h"
+#if defined(X3270_MENUS) /*[*/
 
 #include <stdio.h>
 #include <X11/IntrinsicP.h>
@@ -438,7 +441,7 @@ Cardinal *num_args;
 	XDefineCursor(XtDisplay(new),
 		      XtWindow(new), cmw_new->complex_menu.cursor);
     
-    if (cmw_old->complex_menu.label_string !=cmw_new->complex_menu.label_string) 
+    if (cmw_old->complex_menu.label_string !=cmw_new->complex_menu.label_string) { 
 	if (cmw_new->complex_menu.label_string == NULL)         /* Destroy. */
 	    XtDestroyWidget((Widget) cmw_old->complex_menu.label);
 	else if (cmw_old->complex_menu.label_string == NULL)    /* Create. */
@@ -449,6 +452,7 @@ Cardinal *num_args;
 	    XtSetArg(arglist[0], XtNlabel, cmw_new->complex_menu.label_string);
 	    XtSetValues((Widget) cmw_new->complex_menu.label, arglist, ONE);
 	}
+    }
     
     if (cmw_old->complex_menu.label_class != cmw_new->complex_menu.label_class)
 	XtAppWarning(XtWidgetToApplicationContext(new),
@@ -1356,7 +1360,7 @@ GetEventEntry(w, event)
 Widget w;
 XEvent * event;
 {
-    Position x_loc, y_loc;
+    Position x_loc = 0, y_loc = 0;
     ComplexMenuWidget cmw = (ComplexMenuWidget) w;
     CmeObject * entry;
     
@@ -1389,11 +1393,12 @@ XEvent * event;
 	if (!XtIsManaged ((Widget) *entry)) continue;
 
 	if ( ((*entry)->rectangle.y < y_loc) &&
-	    ((*entry)->rectangle.y + (int) (*entry)->rectangle.height > y_loc) )
+            ((*entry)->rectangle.y + (int) (*entry)->rectangle.height > y_loc) ) {
 	    if ( *entry == cmw->complex_menu.label )
 		return(NULL);	/* cannot select the label. */
 	    else
 		return(*entry);
+        }
     }
     
     return(NULL);
@@ -1427,12 +1432,15 @@ XEvent * event;
 	if (!XtIsManaged ((Widget) *entry)) continue;
 
 	if ( ((*entry)->rectangle.y < y_loc) &&
-	    ((*entry)->rectangle.y + (int) (*entry)->rectangle.height > y_loc) )
+            ((*entry)->rectangle.y + (int) (*entry)->rectangle.height > y_loc) ) {
 	    if ( *entry == cmw->complex_menu.label )
 		return(NULL);	/* cannot select the label. */
 	    else
 		return(*entry);
+        }
     }
 
     return(NULL);
 }
+
+#endif /*]*/

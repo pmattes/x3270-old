@@ -1,80 +1,68 @@
-<HTML>
-<TITLE>x3270 Version 3.1.1 -- New Features and Bug Fixes</TITLE>
+<!doctype html public "-//w3c//dtd html 4.0 transitional//en">
+<html>
+<head>
+   <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+   <meta name="Author" content="Paul Mattes">
+   <meta name="GENERATOR" content="Mozilla/4.51 [en] (Win95; I) [Netscape]">
+   <title>x3270 3.2 New Features</title>
+</head>
+<body>
+<b>New Features in x3270 3.2</b>
+<p>x3270 3.2 is a reorganization of x3270 3.1, with some additional enhancements.&nbsp;
+It is intended to be the future development platform for x3270, with x3270
+3.1 continued only with bug fixes.
+<p><b>Internal Changes</b>
+<br>The primary focus of the reorganzation is modularity. For example,
+through the new <tt><font size=+1>parts.h</font></tt> header file, it is
+now possible to build subsets of x3270, excluding one or more of the following
+features:
+<br>tracing
+<ul>
+<li>
+ANSI mode</li>
 
-<H1>x3270 Version 3.1.1 -- New Features and Bug Fixes</H1>
+<li>
+Scripting</li>
 
-x3270 3.1.1.6 is functionally identical to x3270 3.1.0.7, with the following
-exceptions:
-<H2>IND$FILE File Transfer Support</H2>
-File transfer with IBM hosts is now supported using the IND$FILE protocol.
-A new <B>File</B> menu item, <B>File Transfer</B>, initiates a transfer.
-<P>The IND$FILE program must be installed on the IBM host, and the 3270
-cursor must be positioned on a field which can accept a TSO or VM/CMS
-command.
-<P>A pop-up menu allows the file names and transfer options to be specified.
-<P>Both types of file transfer are supported and automatically recognized:
-<I>CUT</I>, expanding the data into displayable characters a screenful at a
-time, and <I>DFT</I>, exchanging binary data with Structured Fields.
-<P>This code was created in collaboration with Dick Altenbern.
-<H2>Miscellaneous Minor Changes</H2>
-<UL>
-<LI>The APL keymap and compose-key map are fully documented on the man page.
-<LI>Resources for colors and fonts are simplified.
-<LI>Colors for buttons and input fields have different colors.
-<LI>Several more Frequently Asked Questions are answered, and more common
-build problems are addressed, in the documentation.
-</UL>
-<H2>Changes Since x3270 3.1.1A1</H2>
-<UL>
-<LI>Can now build under SunOS 4 / OpenWindows and other X11R4-based systems.
-<LI>Fixed typos in the APL symbols list on the man page.
-<LI>Handle some additional exceptions during file transfer.
-<LI>Allow interaction with the emulator while the file transfer dialog is
-visible.
-<LI>Put the name of the file transfer command in a resource,
-<B>x3270.ftCommand</B>.
-<LI>Implemented TELNET timing marks.
-<LI>Added an Icelandic keymap and character set.
-</UL>
-<H2>Changes Since x3270 3.1.1B2</H2>
-<UL>
-<LI>Removed some compiler warnings.
-<LI>Fixed a longstanding problem where menu items will not highlight if
-CapsLock or NumLock are active.
-</UL>
-<H2>Changes Since x3270 3.1.1.3</H2>
-<UL>
-<LI>Restored the keypad following the main window around the screen.
-<LI>Completed the Xaw drop-down menu fix for all possible modifiers.  (Bug #355)
-<LI>Fixed a memory leak in kybd.c  (Bug #354)
-<LI>Added ":" qualifiers to keymaps, to prevent strange behaviors with
-servers that mix certain keysyms on the same keycode.  (Bug #353)
-<LI>Completed support for the 3270 Character Set attribute.  (Bug #350)
-<LI>Fixed a number of minor 3270 protocol and keyboard interaction bugs.
-<LI>Restored the <B>PauseScript()</B> and <B>ContinueScript()</B> actions.
-<LI>Fixed an error in the documentation of the child script interface.  (Bug
-#356)
-<LI>Extended the operation of the <B>x3270.modifiedSel</B> option to 3279
-(full color) mode.
-</UL>
-<H2>Changes Since x3270 3.1.1.4</H2>
-<UL>
-<LI>Fixed a compiler warning.  (Bug #357)
-<LI>Finally fully support Sun numeric keypads, without xmodmap nonsense.
-<LI>Fixed a formatting bug in the html version of the man page.  (Bug #359)
-<LI>Replaced silent rejection of illegal oversize dimensions with real error
-messages.  (Bug #358)
-<LI>Fixed a missing backslash on the man page.
-<LI>Fixed problems with trying to build X3270.ad with gcc.  (Partial fix for bug
-#360)
-</UL>
-<H2>Changes Since x3270 3.1.1.5</H2>
-<UL>
-<LI>Added #ifdefs around an X11R5ism.  (Bug #361)
-<LI>Understand fonts with both "ISO8859" and "iso8859" registries.
-<LI>Set the MDT for pen-selected fields.  (Bug #362)
-<LI>Added a "Macros" action, to run a macro by name from a keymap or a login
-macro.
-<LI>Added x3270.lsm (Linux Software Map).
-<LI>Fixed X3270.ad generation problem.  (Bug #360)
-</UL>
+<li>
+Menu bar</li>
+
+<li>
+Pop-up keypad</li>
+
+<li>
+APL support</li>
+
+<li>
+X display</li>
+</ul>
+This can make for a much smaller footprint for limited applications, as
+well as new applications based on components of x3270. For example, a new
+program, s3270, is now available, which consists of only the 3270 protocol
+engine and the scripting facility, allowing x3270 scripts to be run without
+an X display.
+<p>The code is also reorganized to reduce the amount of explicit coupling
+between modules. An event registration mechanism is used to propagate state
+changes, instead of explicit calls from one module to another.
+<p>The code is now written in ANSI C, using function prototypes.
+<p>Support for X11R4 has been dropped.
+<p><b>External Changes</b>
+<br>All operating modes can now be changed at runtime via menus, including
+extended data stream mode, and 3277/3278/3279 emulation.
+<p>The "Trace X Events" option has been replaced with a "Trace Keyboard
+and Mouse Events" option, which reports only X events which can be mapped
+with keymaps. It also reports the keymap that was used to map each action,
+making keymap debug much easier.
+<p>A menu option allows the current keymap to be displayed.
+<p>A new <tt><font size=+1>base</font></tt> keymap is defined, containing
+the default keyboard mappings.&nbsp; This keymap can be modified at will,
+without interfering with the basic operation of x3270, or the processing
+of X events not related to the keyboard or mouse (as was the case with
+the previous default translations resource).
+<p>Default keymaps are defined for several well-known keyboards. These
+keymaps are automatically used when x3270 recognizes the vendor string
+for the associated X server.
+<p>Several x3270 bugs, which were in the "impossible to fix" category (because
+of basic code organization problems) have finally been fixed.
+</body>
+</html>

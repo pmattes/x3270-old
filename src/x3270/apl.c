@@ -1,5 +1,5 @@
 /*
- * Copyright 1993, 1994, 1995 by Paul Mattes.
+ * Copyright 1993, 1994, 1995, 1999 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -12,10 +12,10 @@
  *		This module handles APL-specific actions.
  */
 
-#include <X11/Intrinsic.h>
-#define XK_APL
-#define XK_GREEK
-#define XK_TECHNICAL
+#include "globals.h"
+
+#if defined(X3270_APL) /*[*/
+
 #include <X11/keysym.h>
 
 #include "aplc.h"
@@ -172,9 +172,7 @@ static struct {
  * Translation from APL ksysym names to indirect APL keysyms.
  */
 KeySym
-APLStringToKeysym(s, is_gep)
-char *s;
-int *is_gep;
+APLStringToKeysym(char *s, int *is_gep)
 {
 	register int i;
 
@@ -188,3 +186,5 @@ int *is_gep;
 		}
 	return NoSymbol;
 }
+
+#endif /*]*/

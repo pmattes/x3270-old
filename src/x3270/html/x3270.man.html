@@ -1,8 +1,8 @@
 <HTML>
 <TITLE>x3270 - IBM host access tool</TITLE>
-<H1><IMG SRC="x3270.xbm" ALIGN=MIDDLE>  x3270 - IBM host access tool</H1>
+<H1><IMG SRC="x3270.jpg" ALIGN=MIDDLE>  x3270 - IBM host access tool</H1>
 <H2>SYNOPSIS</H2>
-<B>x3270</B> [<I>options</I>] [[<I>prefix:</I>]<I>hostname</I> [<I>port</I>]]
+<B>x3270</B> [<I>options</I>] [[<I>prefix</I><B>:</B>]...[<I>LUname</I><B>@</B>]<I>hostname</I>[<B>:</B><I>port</I>]]
 <BR>
 <H2>DESCRIPTION</H2>
 <B>x3270</B> opens a telnet connection to an IBM host in an X window.
@@ -18,10 +18,15 @@ Prepending an <B>s:</B> onto <I>hostname</I> removes the "extended
 data stream" option reported to the host.
 See <A HREF="#-tn"><B>-tn</B></A> for further information.
 <P>
+A specific LU name to use may be specified by prepending it to the
+<I>hostname</I> with an <B>@</B>.
+<P>
 The port to connect to defaults to <B>telnet</B>.
 This can be overridden with the <A HREF="#-port"><B>-port</B></A> option, or
-by specifying a
-<I>port</I> on the command line.
+by appending a <I>port</I> to the <I>hostname</I> with a colon <B>:</B>.
+(For compatability with previous versions of <I>x3270</I> and with
+<I>tn3270</I>, the <I>port</I> may also be specified as a second, separate
+argument.)
 <H2>OPTIONS</H2>
 <B>x3270</B> is a toolkit based program, so it understands standard options
 and resources.
@@ -722,6 +727,7 @@ and are not documented here.
     HexString(<I>hex_digits</I>)  insert control-character string
     Home                   move cursor to first input field
     Insert                 set insert mode
+    Interrupt              send TELNET IP to host
     Key(<I>keysym</I>)            insert key <I>keysym</I>
     Keymap(<I>keymap</I>)         toggle alternate <I>keymap</I> (or remove with <B>None</B>)
     Left                   move cursor left
@@ -1014,7 +1020,7 @@ simple aliases for standard EBCDIC characters.
 This is not native 520 terminal emulation, but rather for use with hosts which
 allow a 3270 terminal to emulate a 5250.
 A 5250 keymap is defined, which maps the keyboard function keys to the 5250
-emulator's PA/PF key sequences, as well as redefining the Return key to use the
+emulator's PA/PF key sequences, as well as redefining the Return key to use th
 special FieldExit() action.
 The command line for 5250 support is:
 <PRE>
@@ -1089,8 +1095,12 @@ applications as well.
 <CITE>Data Stream Programmer's Reference, IBM GA23-0059</CITE>
 <BR>
 <CITE>Character Set Reference, IBM GA27-3831</CITE>
+<BR>
+<CITE>RFC 1576, TN3270 Current Practices</CITE>
+<BR>
+<CITE>RFC 1646, TN3270 Extensions for LUname and Printer Selection</CITE>
 <H2> COPYRIGHTS</H2>
-Modifications Copyright &#169; 1993, 1994, 1995, 1996, 1997 by Paul Mattes.
+Modifications Copyright &#169; 1993, 1994, 1995, 1996, 1997, 1999 by Paul Mattes.
 <BR>
 Original X11 Port Copyright &#169; 1990 by Jeff Sparkes.
 <BR>
@@ -1109,5 +1119,5 @@ notice.
 5250 Emulation Code Copyright &#169; Minolta (Schweiz) AG, Beat Rubischon.
 <HR>
 <ADDRESS>
-x3270 version 3.1.1.7, last modified 25. September 1997
+x3270 version 3.2A0, last modified 15. March 1999
 </ADDRESS>

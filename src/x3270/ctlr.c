@@ -1,5 +1,5 @@
 /*
- * Modifications Copyright 1993, 1994, 1995, 1996 by Paul Mattes.
+ * Modifications Copyright 1993, 1994, 1995, 1996, 1999 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -31,8 +31,7 @@
 #include "resources.h"
 
 #include "ctlrc.h"
-#include "ft_cutc.h"
-#include "ftc.h"
+#include "hostc.h"
 #include "kybdc.h"
 #include "macrosc.h"
 #include "popupsc.h"
@@ -52,6 +51,8 @@ extern unsigned char aid;
 /* Globals */
 int             ROWS, COLS;
 int             maxROWS, maxCOLS;
+int		ov_rows, ov_cols;
+int             model_num;
 int             cursor_addr, buffer_addr;
 Boolean         screen_alt = True;	/* alternate screen? */
 Boolean         is_altbuffer = False;
@@ -69,14 +70,17 @@ unsigned char   crm_attr[16];
 static unsigned char *ascreen_buf;	/* alternate 3270 display buffer */
 static struct ea *aea_buf;	/* alternate 3270 extended attribute buffer */
 static unsigned char *zero_buf;	/* empty buffer, for area clears */
-static void     set_formatted();
-static void     ctlr_blanks();
+static void set_formatted(void);
+static void ctlr_blanks(void);
 static unsigned char fake_fa;
 static struct ea fake_ea;
 static Boolean  trace_primed = False;
 static unsigned char default_fg;
 static unsigned char default_gr;
 static unsigned char default_cs;
+static void	ctlr_half_connect(Boolean ignored);
+static void	ctlr_connect(Boolean ignored);
+static void ticking_stop(void);
 
 /*
  * code_table is used to translate buffer addresses and attributes to the 3270
@@ -124,13 +128,21 @@ static unsigned char	code_table[64] = {
  * Initialize the emulated 3270 hardware.
  */
 void
-ctlr_init(keep_contents, model_changed)
-Boolean keep_contents;
-Boolean model_changed;
+ctlr_init(unsigned cmask)
 {
-	/* Allocate buffers */
-
-	if (model_changed) {
+	/* Register callback routines. */
+	register_schange(ST_HALF_CONNECT, ctlr_half_connect);
+	register_schange(ST_CONNECT, ctlr_connect);
+	register_schange(ST_3270_MODE, ctlr_connect);
+}
+/*
+ * Reinitialize the emulated 3270 hardware.
+ */
+void
+ctlr_reinit(unsigned cmask)
+{
+	if (cmask & MODEL_CHANGE) {
+		/* Allocate buffers */
 		if (screen_buf)
 			XtFree((char *)screen_buf);
 		screen_buf = (unsigned char *)XtCalloc(sizeof(unsigned char),
@@ -151,9 +163,6 @@ Boolean model_changed;
 			XtFree((char *)zero_buf);
 		zero_buf = (unsigned char *)XtCalloc(sizeof(unsigned char),
 		    maxROWS * maxCOLS);
-	}
-
-	if (!keep_contents) {
 		cursor_addr = 0;
 		buffer_addr = 0;
 	}
@@ -163,9 +172,7 @@ Boolean model_changed;
  * Deal with the relationships between model numbers and rows/cols.
  */
 void
-set_rows_cols(mn, ovc, ovr)
-int mn;
-int ovc, ovr;
+set_rows_cols(int mn, int ovc, int ovr)
 {
 	int defmod;
 
@@ -256,7 +263,7 @@ int ovc, ovr;
  * has at least one field somewhere on it.
  */
 static void
-set_formatted()
+set_formatted(void)
 {
 	register int	baddr;
 
@@ -272,11 +279,24 @@ set_formatted()
 }
 
 /*
+ * Called when a host is half connected.
+ */
+static void
+ctlr_half_connect(Boolean ignored)
+{
+	ticking_start(True);
+}
+
+
+/*
  * Called when a host connects, disconnects, or changes ANSI/3270 modes.
  */
-void
-ctlr_connect()
+static void
+ctlr_connect(Boolean ignored)
 {
+	ticking_stop();
+	status_untiming();
+
 	if (ever_3270)
 		fake_fa = 0xE0;
 	else
@@ -295,8 +315,7 @@ ctlr_connect()
  * rather than its value.
  */
 unsigned char *
-get_field_attribute(baddr)
-register int	baddr;
+get_field_attribute(register int baddr)
 {
 	int	sbaddr;
 
@@ -319,10 +338,7 @@ register int	baddr;
  * Returns True if an attribute is found, False if boundary hit.
  */
 Boolean
-get_bounded_field_attribute(baddr, bound, fa_out)
-register int	baddr;
-register int	bound;
-unsigned char	*fa_out;
+get_bounded_field_attribute(register int baddr, register int bound, unsigned char *fa_out)
 {
 	int	sbaddr;
 
@@ -355,8 +371,7 @@ unsigned char	*fa_out;
  * extended attribute structure.
  */
 struct ea *
-fa2ea(fa)
-unsigned char *fa;
+fa2ea(unsigned char *fa)
 {
 	if (fa == &fake_fa)
 		return &fake_ea;
@@ -370,8 +385,7 @@ unsigned char *fa;
  * can be found.
  */
 int
-next_unprotected(baddr0)
-int baddr0;
+next_unprotected(int baddr0)
 {
 	register int baddr, nbaddr;
 
@@ -392,8 +406,7 @@ int baddr0;
  * size.
  */
 void
-ctlr_erase(alt)
-Boolean alt;
+ctlr_erase(Boolean alt)
 {
 	kybd_inhibit(False);
 
@@ -429,9 +442,7 @@ Boolean alt;
  * Interpret an incoming 3270 command.
  */
 int
-process_ds(buf, buflen)
-unsigned char	*buf;
-int	buflen;
+process_ds(unsigned char *buf, int buflen)
 {
 	if (!buflen)
 		return 0;
@@ -500,11 +511,7 @@ int	buflen;
  * Functions to insert SA attributes into the inbound data stream.
  */
 static void
-insert_sa1(attr, value, currentp, anyp)
-unsigned char attr;
-unsigned char value;
-unsigned char *currentp;
-Boolean *anyp;
+insert_sa1(unsigned char attr, unsigned char value, unsigned char *currentp, Boolean *anyp)
 {
 	if (value == *currentp)
 		return;
@@ -520,12 +527,7 @@ Boolean *anyp;
 }
 
 static void
-insert_sa(baddr, current_fgp, current_grp, current_csp, anyp)
-int baddr;
-unsigned char *current_fgp;
-unsigned char *current_grp;
-unsigned char *current_csp;
-Boolean *anyp;
+insert_sa(int baddr, unsigned char *current_fgp, unsigned char *current_grp, unsigned char *current_csp, Boolean *anyp)
 {
 	if (reply_mode != SF_SRM_CHAR)
 		return;
@@ -548,7 +550,6 @@ Boolean *anyp;
 			cs |= 0xf0;
 		insert_sa1(XA_CHARSET, cs, current_csp, anyp);
 	}
-
 }
 
 
@@ -557,9 +558,7 @@ Boolean *anyp;
  * host.
  */
 void
-ctlr_read_modified(aid_byte, all)
-unsigned char aid_byte;
-Boolean all;
+ctlr_read_modified(unsigned char aid_byte, Boolean all)
 {
 	register int	baddr, sbaddr;
 	Boolean		send_data = True;
@@ -697,8 +696,7 @@ Boolean all;
  * Calculate the proper 3270 DS value for an internal field attribute.
  */
 static unsigned char
-calc_fa(fa)
-unsigned char fa;
+calc_fa(unsigned char fa)
 {
 	register unsigned char r = 0x00;
 
@@ -717,13 +715,12 @@ unsigned char fa;
  * host.
  */
 void
-ctlr_read_buffer(aid_byte)
-unsigned char aid_byte;
+ctlr_read_buffer(unsigned char aid_byte)
 {
 	register int	baddr;
 	unsigned char	fa;
 	Boolean		any = False;
-	int		attr_count;
+	int		attr_count = 0;
 	unsigned char	current_fg = 0x00;
 	unsigned char	current_gr = 0x00;
 	unsigned char	current_cs = 0x00;
@@ -823,11 +820,12 @@ unsigned char aid_byte;
 	net_output();
 }
 
+#if defined(X3270_TRACE) /*[*/
 /*
  * Construct a 3270 command to reproduce the current state of the display.
  */
 void
-ctlr_snap_buffer()
+ctlr_snap_buffer(void)
 {
 	register int	baddr = 0;
 	int		attr_count;
@@ -917,7 +915,7 @@ ctlr_snap_buffer()
  * Returns a Boolean indicating if one is necessary.
  */
 Boolean
-ctlr_snap_modes()
+ctlr_snap_modes(void)
 {
 	int i;
 
@@ -937,13 +935,14 @@ ctlr_snap_modes()
 			*obptr++ = crm_attr[i];
 	return True;
 }
+#endif /*]*/
 
 
 /*
  * Process a 3270 Erase All Unprotected command.
  */
 void
-ctlr_erase_all_unprotected()
+ctlr_erase_all_unprotected(void)
 {
 	register int	baddr, sbaddr;
 	unsigned char	fa;
@@ -998,10 +997,7 @@ ctlr_erase_all_unprotected()
  * Process a 3270 Write command.
  */
 void
-ctlr_write(buf, buflen, erase)
-unsigned char	buf[];
-int	buflen;
-Boolean erase;
+ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 {
 	register unsigned char	*cp;
 	register int	baddr;
@@ -1165,7 +1161,6 @@ Boolean erase;
 				}
 				if (baddr == 0)
 					last_zpt = True;
-
 			} else
 				last_zpt = False;
 			buffer_addr = baddr;
@@ -1463,30 +1458,18 @@ Boolean erase;
  * Process pending input.
  */
 void
-ps_process()
+ps_process(void)
 {
-	/* Process typeahead. */
 	while (run_ta())
 		;
-
-	/* Process pending scripts and macros. */
 	sms_continue();
-
-	/* Process file transfers. */
-	if (ft_state != FT_NONE &&	/* transfer in progress */
-	    formatted &&		/* screen is formatted */
-	    !screen_alt &&		/* 24x80 screen */
-	    !kybdlock &&		/* keyboard not locked */
-	    				/* magic field */
-	    IS_FA(screen_buf[1919]) && FA_IS_SKIP(screen_buf[1919]))
-		ft_cut_data();
 }
 
 /*
  * Tell me if there is any data on the screen.
  */
 Boolean
-ctlr_any_data()
+ctlr_any_data(void)
 {
 	register unsigned char *c = screen_buf;
 	register int i;
@@ -1505,18 +1488,23 @@ ctlr_any_data()
  * and buffer addresses and extended attributes.
  */
 void
-ctlr_clear(can_snap)
-Boolean can_snap;
+ctlr_clear(Boolean can_snap)
 {
+#if defined(X3270_TRACE) /*[*/
 	extern Boolean trace_skipping;
+#endif /*]*/
 
 	/* Snap any data that is about to be lost into the trace file. */
 	if (ctlr_any_data()) {
+#if defined(X3270_TRACE) /*[*/
 		if (can_snap && !trace_skipping && toggled(SCREEN_TRACE))
 			trace_screen();
+#endif /*]*/
 		scroll_save(maxROWS, ever_3270 ? False : True);
 	}
+#if defined(X3270_TRACE) /*[*/
 	trace_skipping = False;
+#endif /*]*/
 
 	/* Clear the screen. */
 	(void) memset((char *)screen_buf, 0, ROWS*COLS);
@@ -1524,7 +1512,7 @@ Boolean can_snap;
 	ALL_CHANGED;
 	cursor_move(0);
 	buffer_addr = 0;
-	(void) unselect(0, ROWS*COLS);
+	unselect(0, ROWS*COLS);
 	formatted = False;
 	default_fg = 0;
 	default_gr = 0;
@@ -1534,13 +1522,13 @@ Boolean can_snap;
  * Fill the screen buffer with blanks.
  */
 static void
-ctlr_blanks()
+ctlr_blanks(void)
 {
 	(void) memset((char *)screen_buf, CG_space, ROWS*COLS);
 	ALL_CHANGED;
 	cursor_move(0);
 	buffer_addr = 0;
-	(void) unselect(0, ROWS*COLS);
+	unselect(0, ROWS*COLS);
 	formatted = False;
 }
 
@@ -1549,22 +1537,21 @@ ctlr_blanks()
  * Change a character in the 3270 buffer.
  */
 void
-ctlr_add(baddr, c, cs)
-int	baddr;		/* buffer address */
-unsigned char	c;	/* character */
-unsigned char	cs;	/* character set */
+ctlr_add(int baddr, unsigned char c, unsigned char cs)
 {
 	unsigned char oc;
 
 	if ((oc = screen_buf[baddr]) != c || ea_buf[baddr].cs != cs) {
 		if (trace_primed && !IsBlank(oc)) {
+#if defined(X3270_TRACE) /*[*/
 			if (toggled(SCREEN_TRACE))
 				trace_screen();
+#endif /*]*/
 			scroll_save(maxROWS, False);
 			trace_primed = False;
 		}
 		if (SELECTED(baddr))
-			(void) unselect(baddr, 1);
+			unselect(baddr, 1);
 		ONE_CHANGED(baddr);
 		screen_buf[baddr] = c;
 		ea_buf[baddr].cs = cs;
@@ -1575,13 +1562,11 @@ unsigned char	cs;	/* character set */
  * Change the graphic rendition of a character in the 3270 buffer.
  */
 void
-ctlr_add_gr(baddr, gr)
-int	baddr;
-unsigned char	gr;
+ctlr_add_gr(int baddr, unsigned char gr)
 {
 	if (ea_buf[baddr].gr != gr) {
 		if (SELECTED(baddr))
-			(void) unselect(baddr, 1);
+			unselect(baddr, 1);
 		ONE_CHANGED(baddr);
 		ea_buf[baddr].gr = gr;
 		if (gr & GR_BLINK)
@@ -1593,9 +1578,7 @@ unsigned char	gr;
  * Change the foreground color for a character in the 3270 buffer.
  */
 void
-ctlr_add_fg(baddr, color)
-int	baddr;
-unsigned char	color;
+ctlr_add_fg(int baddr, unsigned char color)
 {
 	if (!appres.m3279)
 		return;
@@ -1603,19 +1586,18 @@ unsigned char	color;
 		color = 0;
 	if (ea_buf[baddr].fg != color) {
 		if (SELECTED(baddr))
-			(void) unselect(baddr, 1);
+			unselect(baddr, 1);
 		ONE_CHANGED(baddr);
 		ea_buf[baddr].fg = color;
 	}
 }
 
+#if defined(X3270_ANSI) /*[*/
 /*
  * Change the background color for a character in the 3270 buffer.
  */
 void
-ctlr_add_bg(baddr, color)
-int	baddr;
-unsigned char	color;
+ctlr_add_bg(int baddr, unsigned char color)
 {
 	if (!appres.m3279)
 		return;
@@ -1623,11 +1605,12 @@ unsigned char	color;
 		color = 0;
 	if (ea_buf[baddr].bg != color) {
 		if (SELECTED(baddr))
-			(void) unselect(baddr, 1);
+			unselect(baddr, 1);
 		ONE_CHANGED(baddr);
 		ea_buf[baddr].bg = color;
 	}
 }
+#endif /*]*/
 
 /*
  * Copy a block of characters in the 3270 buffer, optionally including all of
@@ -1635,11 +1618,7 @@ unsigned char	color;
  * extended attributes, is considered part of the characters here.)
  */
 void
-ctlr_bcopy(baddr_from, baddr_to, count, move_ea)
-int	baddr_from;
-int	baddr_to;
-int	count;
-int	move_ea;
+ctlr_bcopy(int baddr_from, int baddr_to, int count, int move_ea)
 {
 	/* Move the characters. */
 	if (memcmp((char *) &screen_buf[baddr_from],
@@ -1656,7 +1635,7 @@ int	move_ea;
 		 * selected text moves.
 		 */
 		if (area_is_selected(baddr_to, count))
-			(void) unselect(baddr_to, count);
+			unselect(baddr_to, count);
 	}
 
 	/*
@@ -1688,7 +1667,7 @@ int	move_ea;
 			}
 		}
 		if (any && area_is_selected(baddr_to, count))
-			(void) unselect(baddr_to, count);
+			unselect(baddr_to, count);
 	}
 
 	/* Move extended attributes. */
@@ -1702,21 +1681,19 @@ int	move_ea;
 	}
 }
 
+#if defined(X3270_ANSI) /*[*/
 /*
  * Erase a region of the 3270 buffer, optionally clearing extended attributes
  * as well.
  */
 void
-ctlr_aclear(baddr, count, clear_ea)
-int	baddr;
-int	count;
-int	clear_ea;
+ctlr_aclear(int baddr, int count, int clear_ea)
 {
 	if (memcmp((char *) &screen_buf[baddr], (char *) zero_buf, count)) {
 		(void) memset((char *) &screen_buf[baddr], 0, count);
 		REGION_CHANGED(baddr, baddr + count);
 		if (area_is_selected(baddr, count))
-			(void) unselect(baddr, count);
+			unselect(baddr, count);
 	}
 	if (clear_ea && memcmp((char *) &ea_buf[baddr], (char *) zero_buf, count*sizeof(struct ea))) {
 		(void) memset((char *) &ea_buf[baddr], 0, count*sizeof(struct ea));
@@ -1731,13 +1708,13 @@ int	clear_ea;
  * operation is common enough to warrant a separate path.
  */
 void
-ctlr_scroll()
+ctlr_scroll(void)
 {
 	int qty = (ROWS - 1) * COLS;
 	Boolean obscured;
 
 	/* Make sure nothing is selected. (later this can be fixed) */
-	(void) unselect(0, ROWS*COLS);
+	unselect(0, ROWS*COLS);
 
 	/* Synchronize pending changes prior to this. */
 	obscured = screen_obscured();
@@ -1759,27 +1736,27 @@ ctlr_scroll()
 	/* Update the screen. */
 	if (obscured) {
 		ALL_CHANGED;
-	} else
+	} else {
 		screen_scroll();
+	}
 }
+#endif /*]*/
 
 /*
  * Note that a particular region of the screen has changed.
  */
 void
-ctlr_changed(bstart, bend)
-int bstart;	/* first changed location */
-int bend;	/* last changed location, plus 1 */
+ctlr_changed(int bstart, int bend)
 {
 	REGION_CHANGED(bstart, bend);
 }
 
+#if defined(X3270_ANSI) /*[*/
 /*
  * Swap the regular and alternate screen buffers
  */
 void
-ctlr_altbuffer(alt)
-Boolean	alt;
+ctlr_altbuffer(Boolean alt)
 {
 	unsigned char *stmp;
 	struct ea *etmp;
@@ -1796,7 +1773,7 @@ Boolean	alt;
 
 		is_altbuffer = alt;
 		ALL_CHANGED;
-		(void) unselect(0, ROWS*COLS);
+		unselect(0, ROWS*COLS);
 
 		/*
 		 * There may be blinkers on the alternate screen; schedule one
@@ -1805,15 +1782,14 @@ Boolean	alt;
 		blink_start();
 	}
 }
-#undef SWAP
+#endif /*]*/
 
 
 /*
  * Set or clear the MDT on an attribute
  */
 void
-mdt_set(fa)
-unsigned char *fa;
+mdt_set(unsigned char *fa)
 {
 	if (*fa & FA_MODIFY)
 		return;
@@ -1823,8 +1799,7 @@ unsigned char *fa;
 }
 
 void
-mdt_clear(fa)
-unsigned char *fa;
+mdt_clear(unsigned char *fa)
 {
 	if (!(*fa & FA_MODIFY))
 		return;
@@ -1838,7 +1813,7 @@ unsigned char *fa;
  * Support for screen-size swapping for scrolling
  */
 void
-ctlr_shrink()
+ctlr_shrink(void)
 {
 	(void) memset((char *)screen_buf,
 	    *debugging_font ? CG_space : CG_null,
@@ -1861,8 +1836,7 @@ static struct timeval t_want;
 
 /* Return the difference in milliseconds between two timevals. */
 static long
-delta_msec(t1, t0)
-struct timeval *t1, *t0;
+delta_msec(struct timeval *t1, struct timeval *t0)
 {
 	return (t1->tv_sec - t0->tv_sec) * 1000 +
 	       (t1->tv_usec - t0->tv_usec + 500) / 1000;
@@ -1870,9 +1844,7 @@ struct timeval *t1, *t0;
 
 /*ARGSUSED*/
 static void
-keep_ticking(closure, id)
-XtPointer closure;
-XtIntervalId *id;
+keep_ticking(XtPointer closure, XtIntervalId *id)
 {
 	struct timeval t1;
 	long msec;
@@ -1887,8 +1859,7 @@ XtIntervalId *id;
 }
 
 void
-ticking_start(anyway)
-Boolean anyway;
+ticking_start(Boolean anyway)
 {
 	if (!toggled(SHOW_TIMING) && !anyway)
 		return;
@@ -1901,8 +1872,8 @@ Boolean anyway;
 	t_want = t_start;
 }
 
-void
-ticking_stop()
+static void
+ticking_stop(void)
 {
 	struct timeval t1;
 
@@ -1916,9 +1887,7 @@ ticking_stop()
 
 /*ARGSUSED*/
 void
-toggle_showTiming(t, tt)
-struct toggle *t;
-enum toggle_type tt;
+toggle_showTiming(struct toggle *t, enum toggle_type tt)
 {
 	if (!toggled(SHOW_TIMING))
 		status_untiming();
@@ -1930,8 +1899,6 @@ enum toggle_type tt;
  */
 /*ARGSUSED*/
 void
-toggle_nop(t, tt)
-struct toggle *t;
-enum toggle_type tt;
+toggle_nop(struct toggle *t, enum toggle_type tt)
 {
 }

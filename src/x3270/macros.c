@@ -1,5 +1,5 @@
 /*
- * Copyright 1993, 1994, 1995, 1996 by Paul Mattes.
+ * Copyright 1993, 1994, 1995, 1996, 1999 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -13,8 +13,12 @@
  */
 
 #include "globals.h"
+
+#if defined(X3270_MENUS) /*[*/
 #include <X11/StringDefs.h>
 #include <X11/Xaw/Dialog.h>
+#endif /*]*/
+
 #include <sys/wait.h>
 #include <sys/signal.h>
 #include <errno.h>
@@ -28,9 +32,9 @@
 
 #include "actionsc.h"
 #include "ctlrc.h"
+#include "hostc.h"
 #include "kybdc.h"
 #include "macrosc.h"
-#include "mainc.h"
 #include "menubarc.h"
 #include "popupsc.h"
 #include "screenc.h"
@@ -38,12 +42,12 @@
 #include "tablesc.h"
 #include "trace_dsc.h"
 #include "utilc.h"
+#include "xioc.h"
 
 #define ANSI_SAVE_SIZE	4096
 
 /* Externals */
 extern int      linemode;
-extern FILE    *tracef;
 
 /* Globals */
 struct macro_def *macro_defs = (struct macro_def *)NULL;
@@ -76,7 +80,7 @@ typedef struct sms {
 	Boolean	success;
 	Boolean	need_prompt;
 	Boolean	is_login;
-	Boolean is_hex;
+	Boolean	is_hex;		/* flag for ST_STRING only */
 	FILE   *outfile;
 	int	infd;
 	int	pid;
@@ -86,7 +90,9 @@ typedef struct sms {
 static sms_t *sms = SN;
 static int sms_depth = 0;
 
+#if defined(X3270_MENUS) /*[*/
 static struct macro_def *macro_last = (struct macro_def *) NULL;
+#endif /*]*/
 static XtInputId stdin_id = (XtInputId)NULL;
 static unsigned char *ansi_save_buf;
 static int      ansi_save_cnt = 0;
@@ -97,8 +103,9 @@ static char *st_name[] = { "String", "Macro", "ChildScript", "PeerScript" };
 #define ST_sNAME(s)	st_name[(int)(s)->type]
 #define ST_NAME		ST_sNAME(sms)
 
-static void     script_prompt();
-static void	script_input();
+static void script_prompt(Boolean success);
+static void script_input(XtPointer fd);
+static void sms_pop(Boolean can_exit);
 
 /* Macro that defines that the keyboard is locked due to user input. */
 #define KBWAIT	(kybdlock & (KL_OIA_LOCKED|KL_OIA_TWAIT|KL_DEFERRED_UNLOCK))
@@ -109,10 +116,39 @@ static void	script_input();
     (IN_ANSI && !(kybdlock & KL_AWAITING_FIRST)) \
 )
 
+/* Callbacks for state changes. */
+static void
+sms_connect(Boolean connected)
+{
+	if (!connected) {
+		while (sms != SN && sms->is_login) {
+			if (sms->type == ST_CHILD && sms->pid > 0)
+				(void) kill(sms->pid, SIGTERM);
+			sms_pop(False);
+		}
+	}
+	sms_continue();
+}
 
+static void
+sms_in3270(Boolean in3270)
+{
+	if (in3270)
+		sms_continue();
+}
+
+/* One-time initialization. */
+void
+sms_init(void)
+{
+	register_schange(ST_CONNECT, sms_connect);
+	register_schange(ST_3270_MODE, sms_in3270);
+}
+
+#if defined(X3270_MENUS) /*[*/
 /* Parse the macros resource into the macro list */
 void
-macros_init()
+macros_init(void)
 {
 	char *s = CN;
 	char *name, *action;
@@ -148,11 +184,12 @@ macros_init()
 		s = get_resource(rname);
 		XtFree(rname);
 	}
-	if (!s) {
-		if (!(s = appres.macros))
+	if (s == CN) {
+		if (appres.macros == CN)
 			return;
+		s = XtNewString(appres.macros);
+	} else
 		s = XtNewString(s);
-	}
 	last_s = s;
 
 	while ((ns = split_dresource(&s, &name, &action)) == 1) {
@@ -174,17 +211,20 @@ macros_init()
 		XtWarning(buf);
 	}
 }
+#endif /*]*/
 
 /*
  * Enable input from a script.
  */
 static void
-script_enable()
+script_enable(void)
 {
 	if (sms->infd >= 0 && stdin_id == (XtInputId)NULL) {
+#if defined(X3270_TRACE) /*[*/
 		if (toggled(DS_TRACE))
 			(void) fprintf(tracef, "Enabling input for %s[%d]\n",
 			    ST_NAME, sms_depth);
+#endif /*]*/
 		stdin_id = XtAppAddInput(appcontext, sms->infd,
 		    (XtPointer)XtInputReadMask,
 		    (XtInputCallbackProc)script_input,
@@ -196,12 +236,14 @@ script_enable()
  * Disable input from a script.
  */
 static void
-script_disable()
+script_disable(void)
 {
 	if (stdin_id != (XtInputId)NULL) {
+#if defined(X3270_TRACE) /*[*/
 		if (toggled(DS_TRACE))
 			(void) fprintf(tracef, "Disabling input for %s[%d]\n",
 			    ST_NAME, sms_depth);
+#endif /*]*/
 		XtRemoveInput(stdin_id);
 		stdin_id = (XtInputId)NULL;
 	}
@@ -209,8 +251,7 @@ script_disable()
 
 /* Allocate a new sms. */
 static sms_t *
-new_sms(type)
-enum sms_type type;
+new_sms(enum sms_type type)
 {
 	sms_t *s;
 
@@ -235,8 +276,7 @@ enum sms_type type;
  * Returns whether or not that is legal.
  */
 static Boolean
-sms_push(type)
-enum sms_type type;
+sms_push(enum sms_type type)
 {
 	sms_t *s;
 
@@ -267,8 +307,7 @@ enum sms_type type;
  * Add an sms definition to the _bottom_ of the stack.
  */
 static sms_t *
-sms_enqueue(type)
-enum sms_type type;
+sms_enqueue(enum sms_type type)
 {
 	sms_t *s, *t, *t_prev = SN;
 
@@ -304,14 +343,15 @@ enum sms_type type;
 
 /* Pop an sms definition off the stack. */
 static void
-sms_pop(can_exit)
-Boolean can_exit;
+sms_pop(Boolean can_exit)
 {
 	sms_t *s;
 
+#if defined(X3270_TRACE) /*[*/
 	if (toggled(DS_TRACE))
 		(void) fprintf(tracef, "%s[%d] complete\n",
 		    ST_NAME, sms_depth);
+#endif /*]*/
 
 	/* When you pop the peer script, that's the end of x3270. */
 	if (sms->type == ST_PEER && can_exit)
@@ -343,9 +383,11 @@ Boolean can_exit;
 	} else if (KBWAIT && (int)sms->state < (int)SS_KBWAIT) {
 		/* The child implicitly blocked the parent. */
 		sms->state = SS_KBWAIT;
+#if defined(X3270_TRACE) /*[*/
 		if (toggled(DS_TRACE))
 			(void) fprintf(tracef, "%s[%d] implicitly paused %d\n",
 			    ST_NAME, sms_depth, sms->state);
+#endif /*]*/
 	} else if (sms->state == SS_IDLE) {
 		/* The parent needs to be restarted. */
 		script_enable();
@@ -359,7 +401,7 @@ Boolean can_exit;
  * command line, so that the initial state can be set properly.
  */
 void
-peer_script_init()
+peer_script_init(void)
 {
 	sms_t *s;
 	Boolean on_top;
@@ -398,10 +440,7 @@ peer_script_init()
  */
 enum em_stat { EM_CONTINUE, EM_PAUSE, EM_ERROR };
 static enum em_stat
-execute_command(cause, s, np)
-enum iaction cause;
-char *s;
-char **np;
+execute_command(enum iaction cause, char *s, char **np)
 {
 	enum {
 		ME_GND,		/* before action name */
@@ -416,7 +455,7 @@ char **np;
 	char c;
 	char aname[64+1];
 	char parm[1024+1];
-	int nx;
+	int nx = 0;
 	Cardinal count = 0;
 	String params[64];
 	int i;
@@ -451,7 +490,7 @@ char **np;
 				state = ME_LPAREN;
 			} else
 				state = ME_FUNCTIONx;
-		} else if (isalnum(c)) {
+		} else if (isalnum(c) || c == '_' || c == '-') {
 			if (nx < 64)
 				aname[nx++] = c;
 		} else
@@ -570,6 +609,10 @@ char **np;
 	}
 
 	/* Search the action list. */
+	if (!strncmp(aname, PA_PFX, strlen(PA_PFX))) {
+		popup_an_error("Invalid action: %s", aname);
+		return EM_ERROR;
+	}
 	for (i = 0; i < actioncount; i++) {
 		if (!strcmp(aname, actions[i].string)) {
 			ia_cause = cause;
@@ -607,27 +650,35 @@ char **np;
 
 /* Run the string at the top of the stack. */
 static void
-run_string()
+run_string(void)
 {
 	int len;
 	int len_left;
 
+#if defined(X3270_TRACE) /*[*/
 	if (toggled(DS_TRACE))
 		(void) fprintf(tracef, "%s[%d] running\n",
 		    ST_NAME, sms_depth);
+#endif /*]*/
 
 	sms->state = SS_RUNNING;
 	len = strlen(sms->dptr);
+#if defined(X3270_TRACE) /*[*/
 	if (toggled(DS_TRACE))
-		(void) fprintf(tracef, "String[%d]: '%s'\n", sms_depth,
-		    sms->dptr);
+		(void) fprintf(tracef, "%sString[%d]: '%s'\n",
+		    sms->is_hex ? "Hex" : "",
+		    sms_depth, sms->dptr);
+#endif /*]*/
+
 	if (sms->is_hex) {
 		if (KBWAIT) {
 			sms->state = SS_KBWAIT;
+#if defined(X3270_TRACE) /*[*/
 			if (toggled(DS_TRACE))
 				(void) fprintf(tracef,
 				    "%s[%d] paused %d\n",
 				    ST_NAME, sms_depth, sms->state);
+#endif /*]*/
 		} else {
 			hex_input(sms->dptr);
 			sms_pop(False);
@@ -637,10 +688,12 @@ run_string()
 			sms->dptr += len - len_left;
 			if (KBWAIT) {
 				sms->state = SS_KBWAIT;
+#if defined(X3270_TRACE) /*[*/
 				if (toggled(DS_TRACE))
 					(void) fprintf(tracef,
 					    "%s[%d] paused %d\n",
 					    ST_NAME, sms_depth, sms->state);
+#endif /*]*/
 			}
 		} else {
 			sms_pop(False);
@@ -651,16 +704,18 @@ run_string()
 /* Run the macro at the top of the stack. */
 
 static void
-run_macro()
+run_macro(void)
 {
 	char *a = sms->dptr;
 	char *nextm;
 	enum em_stat es;
 	sms_t *s;
 
+#if defined(X3270_TRACE) /*[*/
 	if (toggled(DS_TRACE))
 		(void) fprintf(tracef, "%s[%d] running\n",
 		    ST_NAME, sms_depth);
+#endif /*]*/
 
 	/*
 	 * Keep executing commands off the line until one pauses or
@@ -671,9 +726,11 @@ run_macro()
 		 * Check for command failure.
 		 */
 		if (!sms->success) {
+#if defined(X3270_TRACE) /*[*/
 			if (toggled(DS_TRACE))
 				(void) fprintf(tracef, "Macro[%d] failed\n",
 				    sms_depth);
+#endif /*]*/
 			/* Propogate it. */
 			if (sms->next != SN)
 				sms->next->success = False;
@@ -681,9 +738,11 @@ run_macro()
 		}
 
 		sms->state = SS_RUNNING;
+#if defined(X3270_TRACE) /*[*/
 		if (toggled(DS_TRACE))
 			(void) fprintf(tracef, "Macro[%d]: '%s'\n",
 			    sms_depth, a);
+#endif /*]*/
 		s = sms;
 		s->success = True;
 		es = execute_command(IA_MACRO, a, &nextm);
@@ -699,9 +758,11 @@ run_macro()
 
 		/* Macro could not execute.  Abort it. */
 		if (es == EM_ERROR) {
+#if defined(X3270_TRACE) /*[*/
 			if (toggled(DS_TRACE))
 				(void) fprintf(tracef, "Macro[%d] error\n",
 				    sms_depth);
+#endif /*]*/
 			/* Propogate it. */
 			if (sms->next != SN)
 				sms->next->success = False;
@@ -712,9 +773,11 @@ run_macro()
 		if (es == EM_PAUSE || (int)sms->state >= (int)SS_KBWAIT) {
 			if (sms->state == SS_RUNNING)
 				sms->state = SS_KBWAIT;
+#if defined(X3270_TRACE) /*[*/
 			if (toggled(DS_TRACE))
 				(void) fprintf(tracef, "%s[%d] paused %d\n",
 				    ST_NAME, sms_depth, sms->state);
+#endif /*]*/
 			sms->dptr = nextm;
 			return;
 		}
@@ -729,9 +792,7 @@ run_macro()
 
 /* Push a macro on the stack. */
 static void
-push_macro(s, is_login)
-char *s;
-Boolean is_login;
+push_macro(char *s, Boolean is_login)
 {
 	if (!sms_push(ST_MACRO))
 		return;
@@ -751,10 +812,7 @@ Boolean is_login;
 
 /* Push a string on the stack. */
 static void
-push_string(s, is_login, is_hex)
-char *s;
-Boolean is_login;
-Boolean is_hex;
+push_string(char *s, Boolean is_login, Boolean is_hex)
 {
 	if (!sms_push(ST_STRING))
 		return;
@@ -775,28 +833,26 @@ Boolean is_hex;
 
 /* Set a pending string. */
 void
-ps_set(s, is_hex)
-char *s;
-Boolean is_hex;
+ps_set(char *s, Boolean is_hex)
 {
 	push_string(s, False, is_hex);
 }
 
+#if defined(X3270_MENUS) /*[*/
 /* Callback for macros menu. */
 void
-macro_command(m)
-struct macro_def *m;
+macro_command(struct macro_def *m)
 {
 	push_macro(m->action, False);
 }
+#endif /*]*/
 
 /*
  * If the string looks like an action, e.g., starts with "Xxx(", run a login
  * macro.  Otherwise, set a simple pending login string.
  */
 void
-login_macro(s)
-char *s;
+login_macro(char *s)
 {
 	char *t = s;
 	Boolean looks_right = False;
@@ -815,16 +871,18 @@ char *s;
 	if (looks_right)
 		push_macro(s, True);
 	else
-		push_string(s, True);
+		push_string(s, True, False);
 }
 
 /* Run the first command in the msc[] buffer. */
 static void
-run_script()
+run_script(void)
 {
+#if defined(X3270_TRACE) /*[*/
 	if (toggled(DS_TRACE))
 		(void) fprintf(tracef, "%s[%d] running\n",
 		    ST_NAME, sms_depth);
+#endif /*]*/
 
 	for (;;) {
 		char *ptr;
@@ -858,9 +916,11 @@ run_script()
 		/* Execute it. */
 		sms->state = SS_RUNNING;
 		sms->success = True;
+#if defined(X3270_TRACE) /*[*/
 		if (toggled(DS_TRACE))
 			(void) fprintf(tracef, "%s[%d]: '%s'\n", ST_NAME,
 			    sms_depth, cmd);
+#endif /*]*/
 		s = sms;
 		es = execute_command(IA_SCRIPT, cmd, (char **)NULL);
 
@@ -891,26 +951,29 @@ run_script()
 			}
 			sms->need_prompt = True;
 		} else if (es == EM_ERROR) {
+#if defined(X3270_TRACE) /*[*/
 			if (toggled(DS_TRACE))
 				(void) fprintf(tracef, "%s[%d] error\n",
 				    ST_NAME, sms_depth);
+#endif /*]*/
 			script_prompt(False);
 		} else
 			script_prompt(sms->success);
 		if (sms->state == SS_RUNNING)
 			sms->state = SS_IDLE;
 		else {
+#if defined(X3270_TRACE) /*[*/
 			if (toggled(DS_TRACE))
 				(void) fprintf(tracef, "%s[%d] paused %d\n",
 				    ST_NAME, sms_depth, sms->state);
+#endif /*]*/
 		}
 	}
 }
 
 /* Handle an error generated during the execution of a script or macro. */
 void
-sms_error(msg)
-char *msg;
+sms_error(char *msg)
 {
 	/* Print the error message. */
 	(void) fprintf(stderr, "%s\n", msg);
@@ -920,23 +983,24 @@ char *msg;
 
 	/* Cancel any login. */
 	if (sms->is_login)
-		x_disconnect(True);
+		host_disconnect(True);
 }
 
 /* Process available input from a script. */
 /*ARGSUSED*/
 static void
-script_input(fd)
-XtPointer fd;
+script_input(XtPointer fd)
 {
 	char buf[128];
 	int nr;
 	char *ptr;
 	char c;
 
+#if defined(X3270_TRACE) /*[*/
 	if (toggled(DS_TRACE))
 		(void) fprintf(tracef, "Input for %s[%d] %d\n",
 		    ST_NAME, sms_depth, sms->state);
+#endif /*]*/
 
 	/* Read in what you can. */
 	nr = read((int)fd, buf, sizeof(buf));
@@ -963,7 +1027,7 @@ XtPointer fd;
 
 /* Resume a paused sms, if conditions are now ripe. */
 void
-sms_continue()
+sms_continue(void)
 {
 	while (True) {
 		if (sms == SN)
@@ -985,15 +1049,15 @@ sms_continue()
 
 		    case SS_WAIT_ANSI:
 			if (IN_ANSI) {
-				sms->state = SS_WAIT;
-				continue;
+			    sms->state = SS_WAIT;
+			    continue;
 			}
 			return;
 
 		    case SS_WAIT_3270:
 			if (IN_3270) {
-				sms->state = SS_WAIT;
-				continue;
+			    sms->state = SS_WAIT;
+			    continue;
 			}
 			return;
 
@@ -1043,10 +1107,7 @@ sms_continue()
  */
 
 static void
-dump_range(first, len, in_ascii)
-int first;
-int len;
-Boolean in_ascii;
+dump_range(int first, int len, Boolean in_ascii)
 {
 	register int i;
 	Boolean any = False;
@@ -1075,13 +1136,9 @@ Boolean in_ascii;
 }
 
 static void
-dump_fixed(params, count, name, in_ascii)
-String params[];
-Cardinal count;
-char *name;
-Boolean in_ascii;
+dump_fixed(String params[], Cardinal count, char *name, Boolean in_ascii)
 {
-	int row, col, len, rows, cols;
+	int row, col, len, rows = 0, cols = 0;
 
 	switch (count) {
 	    case 0:	/* everything */
@@ -1131,10 +1188,7 @@ Boolean in_ascii;
 }
 
 static void
-dump_field(count, name, in_ascii)
-Cardinal count;
-char *name;
-Boolean in_ascii;
+dump_field(Cardinal count, char *name, Boolean in_ascii)
 {
 	unsigned char *fa;
 	int start, baddr;
@@ -1163,44 +1217,28 @@ Boolean in_ascii;
 
 /*ARGSUSED*/
 void
-Ascii_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+Ascii_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
 	dump_fixed(params, *num_params, action_name(Ascii_action), True);
 }
 
 /*ARGSUSED*/
 void
-AsciiField_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+AsciiField_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
 	dump_field(*num_params, action_name(AsciiField_action), True);
 }
 
 /*ARGSUSED*/
 void
-Ebcdic_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+Ebcdic_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
 	dump_fixed(params, *num_params, action_name(Ebcdic_action), False);
 }
 
 /*ARGSUSED*/
 void
-EbcdicField_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+EbcdicField_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
 	dump_field(*num_params, action_name(EbcdicField_action), False);
 }
@@ -1237,8 +1275,7 @@ Cardinal *num_params;
 
 /*ARGSUSED*/
 static void
-script_prompt(success)
-Boolean success;
+script_prompt(Boolean success)
 {
 	char kb_stat;
 	char fmt_stat;
@@ -1314,11 +1351,7 @@ Boolean success;
  */
 /*ARGSUSED*/
 void
-Wait_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+Wait_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
 	enum sms_state next_state = SS_WAIT;
 
@@ -1335,10 +1368,10 @@ Cardinal *num_params;
 				next_state = SS_WAIT_ANSI;
 		} else if (!strcmp(params[0], "3270")) {
 			if (!IN_3270)
-				next_state = SS_WAIT_3270;
+			    next_state = SS_WAIT_3270;
 		} else {
 			popup_an_error("%s: parameter must be 'ansi' or '3270'",
-			    action_name(Wait_action));
+			action_name(Wait_action));
 			return;
 		}
 	}
@@ -1360,7 +1393,7 @@ Cardinal *num_params;
  * running sms.
  */
 void
-sms_connect_wait()
+sms_connect_wait(void)
 {
 	if (sms != SN &&
 	    (int)sms->state >= (int)SS_RUNNING &&
@@ -1373,30 +1406,31 @@ sms_connect_wait()
 
 /* Return whether error pop-ups should be short-circuited. */
 Boolean
-sms_redirect()
+sms_redirect(void)
 {
 	return sms != SN &&
 	       (sms->type == ST_CHILD || sms->type == ST_PEER) &&
 	       sms->state == SS_RUNNING;
 }
 
+#if defined(X3270_MENUS) /*[*/
 /* Return whether any scripts are active. */
 Boolean
-sms_active()
+sms_active(void)
 {
 	return sms != SN;
 }
+#endif /*]*/
 
 /* Translate an expect string (uses C escape syntax). */
 static void
-expand_expect(s)
-char *s;
+expand_expect(char *s)
 {
 	char *t = XtMalloc(strlen(s) + 1);
 	char c;
 	enum { XS_BASE, XS_BS, XS_O, XS_X } state = XS_BASE;
-	int n;
-	int nd;
+	int n = 0;
+	int nd = 0;
 	static char hexes[] = "0123456789abcdef";
 
 	expect_text = t;
@@ -1471,11 +1505,7 @@ char *s;
 
 /* 'mem' version of strstr */
 static char *
-memstr(s1, s2, n1, n2)
-char *s1;
-char *s2;
-int n1;
-int n2;
+memstr(char *s1, char *s2, int n1, int n2)
 {
 	int i;
 
@@ -1487,7 +1517,7 @@ int n2;
 
 /* Check for a match against an expect string. */
 static Boolean
-expect_matches()
+expect_matches(void)
 {
 	int ix, i;
 	unsigned char buf[ANSI_SAVE_SIZE];
@@ -1509,8 +1539,7 @@ expect_matches()
 
 /* Store an ANSI character for use by the Ansi action. */
 void
-sms_store(c)
-unsigned char c;
+sms_store(unsigned char c)
 {
 	if (sms == SN)
 		return;
@@ -1533,11 +1562,7 @@ unsigned char c;
 /* Dump whatever ANSI data has been sent by the host since last called. */
 /*ARGSUSED*/
 void
-AnsiText_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+AnsiText_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
 	register int i;
 	int ix;
@@ -1573,13 +1598,9 @@ Cardinal *num_params;
 }
 
 /* Pause a script. */
-/*ARGSUSED*/
 void
-PauseScript_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+PauseScript_action(Widget w, XEvent *event, String *params,
+    Cardinal *num_params)
 {
 	if (sms == SN || (sms->type != ST_PEER && sms->type != ST_CHILD)) {
 		popup_an_error("%s can only be called from a script",
@@ -1590,13 +1611,9 @@ Cardinal *num_params;
 }
 
 /* Continue a script. */
-/*ARGSUSED*/
 void
-ContinueScript_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+ContinueScript_action(Widget w, XEvent *event, String *params,
+    Cardinal *num_params)
 {
 	if (check_usage(ContinueScript_action, *num_params, 1, 1) < 0)
 		return;
@@ -1623,11 +1640,7 @@ Cardinal *num_params;
 /* Stop listening to stdin. */
 /*ARGSUSED*/
 void
-CloseScript_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+CloseScript_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
 	if (sms != SN &&
 	    (sms->type == ST_PEER || sms->type == ST_CHILD)) {
@@ -1642,7 +1655,7 @@ Cardinal *num_params;
 		    sms->next != SN) {
 			sms->next->success = False;
 			if (sms->is_login)
-				x_disconnect(True);
+				host_disconnect(True);
 		}
 	} else
 		popup_an_error("%s can only be called from a script",
@@ -1652,11 +1665,7 @@ Cardinal *num_params;
 /* Execute an arbitrary shell command. */
 /*ARGSUSED*/
 void
-Execute_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+Execute_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
 	if (check_usage(Execute_action, *num_params, 1, 1) < 0)
 		return;
@@ -1666,9 +1675,7 @@ Cardinal *num_params;
 /* Timeout for Expect action. */
 /*ARGSUSED*/
 static void
-expect_timed_out(closure, id)
-XtPointer closure;
-XtIntervalId *id;
+expect_timed_out(XtPointer closure, XtIntervalId *id)
 {
 	if (sms == SN || sms->state != SS_EXPECTING)
 		return;
@@ -1680,18 +1687,14 @@ XtIntervalId *id;
 	sms->state = SS_INCOMPLETE;
 	sms->success = False;
 	if (sms->is_login)
-		x_disconnect(True);
+		host_disconnect(True);
 	sms_continue();
 }
 
 /* Wait for a string from the host (ANSI mode only). */
 /*ARGSUSED*/
 void
-Expect_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+Expect_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
 	int tmo;
 
@@ -1728,6 +1731,8 @@ Cardinal *num_params;
 }
 
 
+#if defined(X3270_MENUS) /*[*/
+
 /* "Execute an Action" menu option */
 
 static Widget execute_action_shell = (Widget)NULL;
@@ -1735,10 +1740,7 @@ static Widget execute_action_shell = (Widget)NULL;
 /* Callback for "OK" button on execute action popup */
 /*ARGSUSED*/
 static void
-execute_action_callback(w, client_data, call_data)
-Widget w;
-XtPointer client_data;
-XtPointer call_data;
+execute_action_callback(Widget w, XtPointer client_data, XtPointer call_data)
 {
 	char *text;
 
@@ -1751,10 +1753,7 @@ XtPointer call_data;
 
 /*ARGSUSED*/
 void
-execute_action_option(w, client_data, call_data)
-Widget w;
-XtPointer client_data;
-XtPointer call_data;
+execute_action_option(Widget w, XtPointer client_data, XtPointer call_data)
 {
 	if (execute_action_shell == NULL)
 		execute_action_shell = create_form_popup("ExecuteAction",
@@ -1763,14 +1762,12 @@ XtPointer call_data;
 	popup_popup(execute_action_shell, XtGrabExclusive);
 }
 
+#endif /*]*/
+
 /* "Script" action, runs a script as a child process. */
 /*ARGSUSED*/
 void
-Script_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+Script_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
 	int inpipe[2];
 	int outpipe[2];
@@ -1865,13 +1862,8 @@ Cardinal *num_params;
 }
 
 /* "Macro" action, explicitly invokes a named macro. */
-/*ARGSUSED*/
 void
-Macro_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+Macro_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
 	struct macro_def *m;
 
@@ -1886,9 +1878,11 @@ Cardinal *num_params;
 	popup_an_error("no such macro: '%s'", params[0]);
 }
 
+
+#if defined(X3270_MENUS) /*[*/
 /* Abort all running scripts. */
 void
-abort_script()
+abort_script(void)
 {
 	while (sms != SN) {
 		if (sms->type == ST_CHILD && sms->pid > 0)
@@ -1896,14 +1890,4 @@ abort_script()
 		sms_pop(True);
 	}
 }
-
-/* Abort all login scripts. */
-void
-sms_cancel_login()
-{
-	while (sms != SN && sms->is_login) {
-		if (sms->type == ST_CHILD && sms->pid > 0)
-			(void) kill(sms->pid, SIGTERM);
-		sms_pop(False);
-	}
-}
+#endif /*]*/

@@ -1,5 +1,5 @@
 /*
- * Copyright 1994, 1995, 1996 by Paul Mattes.
+ * Copyright 1994, 1995, 1996, 1999 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -21,8 +21,11 @@
 #include "cg.h"
 
 #include "ctlrc.h"
+#if defined(X3270_FT) /*[*/
 #include "ft_dftc.h"
+#endif /*]*/
 #include "kybdc.h"
+#include "screenc.h"
 #include "sfc.h"
 #include "telnetc.h"
 #include "trace_dsc.h"
@@ -33,18 +36,15 @@ extern unsigned char reply_mode;
 extern int      crm_nattr;
 extern unsigned char crm_attr[];
 
-/* Globals */
-void            write_structured_field();
-
 /* Statics */
 static Boolean  qr_in_progress = False;
-static void     sf_read_part();
-static void     sf_erase_reset();
-static void     sf_set_reply_mode();
-static void     sf_outbound_ds();
-static void     query_reply_start();
-static void     do_query_reply();
-static void     query_reply_end();
+static void sf_read_part(unsigned char buf[], int buflen);
+static void sf_erase_reset(unsigned char buf[], int buflen);
+static void sf_set_reply_mode(unsigned char buf[], int buflen);
+static void sf_outbound_ds(unsigned char buf[], int buflen);
+static void query_reply_start(void);
+static void do_query_reply(unsigned char code);
+static void query_reply_end(void);
 
 static unsigned char supported_replies[] = {
 	QR_SUMMARY,		/* 0x80 */
@@ -55,7 +55,9 @@ static unsigned char supported_replies[] = {
 	QR_HIGHLIGHTING,	/* 0x87 */
 	QR_REPLY_MODES,		/* 0x88 */
 	QR_IMP_PART,		/* 0xa6 */
+#if defined(X3270_FT) /*[*/
 	QR_DDM,			/* 0x95 */
+#endif /*]*/
 };
 #define NSR	(sizeof(supported_replies)/sizeof(unsigned char))
 
@@ -65,9 +67,7 @@ static unsigned char supported_replies[] = {
  * Process a 3270 Write Structured Field command
  */
 void
-write_structured_field(buf, buflen)
-unsigned char buf[];
-int buflen;
+write_structured_field(unsigned char buf[], int buflen)
 {
 	unsigned short fieldlen;
 	unsigned char *cp = buf;
@@ -123,10 +123,12 @@ int buflen;
 			trace_ds("OutboundDS");
 			sf_outbound_ds(cp, (int)fieldlen);
 			break;
+#if defined(X3270_FT) /*[*/
 		    case SF_TRANSFER_DATA:   /* File transfer data         */
 			trace_ds("FileTransferData");
 			ft_dft_data(cp, (int)fieldlen);
 			break;
+#endif /*]*/
 		    default:
 			trace_ds("unsupported ID 0x%02x\n", cp[2]);
 			break;
@@ -141,9 +143,7 @@ int buflen;
 }
 
 static void
-sf_read_part(buf, buflen)
-unsigned char buf[];
-int buflen;
+sf_read_part(unsigned char buf[], int buflen)
 {
 	unsigned char partition;
 	int i;
@@ -263,9 +263,7 @@ int buflen;
 }
 
 static void
-sf_erase_reset(buf, buflen)
-unsigned char buf[];
-int buflen;
+sf_erase_reset(unsigned char buf[], int buflen)
 {
 	if (buflen != 4) {
 		trace_ds(" error: wrong field length %d\n", buflen);
@@ -288,9 +286,7 @@ int buflen;
 }
 
 static void
-sf_set_reply_mode(buf, buflen)
-unsigned char buf[];
-int buflen;
+sf_set_reply_mode(unsigned char buf[], int buflen)
 {
 	unsigned char partition;
 	int i;
@@ -335,9 +331,7 @@ int buflen;
 }
 
 static void
-sf_outbound_ds(buf, buflen)
-unsigned char buf[];
-int buflen;
+sf_outbound_ds(unsigned char buf[], int buflen)
 {
 	if (buflen < 5) {
 		trace_ds(" error: field length %d too short\n", buflen);
@@ -385,7 +379,7 @@ int buflen;
 }
 
 static void
-query_reply_start()
+query_reply_start(void)
 {
 	obptr = obuf;
 	space3270out(1);
@@ -394,8 +388,7 @@ query_reply_start()
 }
 
 static void
-do_query_reply(code)
-unsigned char code;
+do_query_reply(unsigned char code)
 {
 	int len;
 	int i;
@@ -403,7 +396,6 @@ unsigned char code;
 	int obptr0 = obptr - obuf;
 	unsigned char *obptr_len;
 	unsigned short num, denom;
-	extern int default_screen;
 
 	if (qr_in_progress) {
 		trace_ds("> StructuredField\n");
@@ -484,16 +476,16 @@ unsigned char code;
 		SET16(obptr, maxCOLS);	/* usable width */
 		SET16(obptr, maxROWS);	/* usable height */
 		*obptr++ = 0x01;	/* units (mm) */
-		num = XDisplayWidthMM(display, default_screen);
-		denom = XDisplayWidth(display, default_screen);
+		num = display_widthMM();
+		denom = display_width();
 		while (!(num %2) && !(denom % 2)) {
 			num /= 2;
 			denom /= 2;
 		}
 		SET16(obptr, (int)num);	/* Xr numerator */
 		SET16(obptr, (int)denom); /* Xr denominator */
-		num = XDisplayHeightMM(display, default_screen);
-		denom = XDisplayHeight(display, default_screen);
+		num = display_heightMM();
+		denom = display_height();
 		while (!(num %2) && !(denom % 2)) {
 			num /= 2;
 			denom /= 2;
@@ -553,6 +545,7 @@ unsigned char code;
 		*obptr++ = 0;		/* no special features */
 		break;
 
+#if defined(X3270_FT) /*[*/
 	    case QR_DDM:
 		trace_ds("> QueryReply(DistributedDataManagement)\n");
 		space3270out(8);
@@ -561,6 +554,7 @@ unsigned char code;
 		SET16(obptr,2048);	/* set outbound length limit */
 		SET16(obptr,0x0101);	/* NSS=01, DDMSS=01 */
 		break;
+#endif /*]*/
 
 	    default:
 		return;	/* internal error */
@@ -571,7 +565,7 @@ unsigned char code;
 }
 
 static void
-query_reply_end()
+query_reply_end(void)
 {
 	net_output();
 	kybd_inhibit(True);

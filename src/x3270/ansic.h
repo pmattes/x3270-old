@@ -1,5 +1,5 @@
 /*
- * Copyright 1995 by Paul Mattes.
+ * Copyright 1995, 1999 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -12,14 +12,31 @@
  *		Global declarations for ansi.c.
  */
 
-extern void ansi_init();
-extern void ansi_process();
-extern void ansi_send_clear();
-extern void ansi_send_down();
-extern void ansi_send_home();
-extern void ansi_send_left();
-extern void ansi_send_pa();
-extern void ansi_send_pf();
-extern void ansi_send_right();
-extern void ansi_send_up();
-extern void toggle_lineWrap();
+#if defined(X3270_ANSI) /*[*/
+
+extern void ansi_init(void);
+extern void ansi_process(unsigned int c);
+extern void ansi_send_clear(void);
+extern void ansi_send_down(void);
+extern void ansi_send_home(void);
+extern void ansi_send_left(void);
+extern void ansi_send_pa(int nn);
+extern void ansi_send_pf(int nn);
+extern void ansi_send_right(void);
+extern void ansi_send_up(void);
+extern void toggle_lineWrap(struct toggle *t, enum toggle_type type);
+
+#else /*][*/
+
+#define ansi_init()
+#define ansi_process(n)
+#define ansi_send_clear()
+#define ansi_send_down()
+#define ansi_send_home()
+#define ansi_send_left()
+#define ansi_send_pa(n)
+#define ansi_send_pf(n)
+#define ansi_send_right()
+#define ansi_send_up()
+
+#endif /*]*/

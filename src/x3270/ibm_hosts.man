@@ -1,5 +1,5 @@
 '\\" t
-.TH IBM_HOSTS 5 "10 July 1995"
+.TH IBM_HOSTS 5 "12 March 1999"
 .SH NAME
 ibm_hosts \-
 host database for
@@ -20,7 +20,7 @@ Each line defines a name in the following format
 (optional fields are shown in brackets):
 .nf
 
-	\fIname	type hostname\fP[/\fIport\fP] [\fIactions\fP]
+	\fIname	type \fP[\fIopt\fP:]...[\fIluname\fP@]\fIhostname\fP[:\fIport\fP] [\fIactions\fP]
 
 .fi
 Items are separated by any number of blanks and/or TAB characters.
@@ -56,14 +56,29 @@ field is the Internet hostname or dot-notation Internet address of the host.
 .LP
 The
 .I hostname
-can also optionally include a non-default
+can include ``s:'' or ``p:'' prefixes,
+.IR e . g .,
+.B s:finicky
+(see the
+.IR x3270 (1)
+man page for details).
+It can also include an LU name, separated by an ``@'' character,
+.IR e . g .,
+.BR oddlu@bluehost .
+Finally, it can include a non-default
 .I port
 number, appended to the
 .I hostname
 with
-a slash ``/'' character,
+a colon ``:'' character,
 .IR e . g .,
-.BR bluehost/97 .
+.BR bluehost:97 .
+(For compatability with earlier versions of
+.IR x3270 ,
+the
+.I port
+can also be
+separated by a slash ``/'' character.)
 .LP
 The optional
 .I actions

@@ -1,5 +1,5 @@
 /*
- * Copyright 1994, 1995 by Paul Mattes.
+ * Copyright 1994, 1995, 1999 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -22,7 +22,6 @@
 #include "appres.h"
 #include "resources.h"
 
-#include "mainc.h"
 #include "savec.h"
 #include "popupsc.h"
 #include "utilc.h"
@@ -50,10 +49,11 @@ static int      cmd_len;
 static char   **tmp_cmd;
 static int      tcs;
 
+static Status x_get_window_attributes(Window w, XWindowAttributes *wa);
+
 /* Search for an option in the tmp_cmd array. */
 static int
-cmd_srch(s)
-char *s;
+cmd_srch(char *s)
 {
 	int i;
 
@@ -65,9 +65,7 @@ char *s;
 
 /* Replace an options in the tmp_cmd array. */
 static void
-cmd_replace(ix, s)
-int ix;
-char *s;
+cmd_replace(int ix, char *s)
 {
 	XtFree(tmp_cmd[ix]);
 	tmp_cmd[ix] = XtNewString(s);
@@ -75,8 +73,7 @@ char *s;
 
 /* Append an option to the tmp_cmd array. */
 static void
-cmd_append(s)
-char *s;
+cmd_append(char *s)
 {
 	tmp_cmd[tcs++] = XtNewString(s);
 	tmp_cmd[tcs] = (char *) NULL;
@@ -84,8 +81,7 @@ char *s;
 
 /* Delete an option from the tmp_cmd array. */
 static void
-cmd_delete(ix)
-int ix;
+cmd_delete(int ix)
 {
 	XtFree(tmp_cmd[ix]);
 	tmp_cmd[ix] = (char *) NULL;
@@ -93,7 +89,7 @@ int ix;
 
 /* Save the screen geometry. */
 static void
-save_xy()
+save_xy(void)
 {
 	char tbuf[64];
 	Window window, frame, child;
@@ -116,11 +112,11 @@ save_xy()
 
 		int status = XQueryTree(display, frame, &root, &parent,
 		    &children, &nchildren);
+		if (status && children)
+			XFree((char *)children);
 		if (parent == root || !parent || !status)
 			break;
 		frame = parent;
-		if (status && children)
-			XFree((char *)children);
 	}
 	if (frame != window) {
 		if (!x_get_window_attributes(frame, &wa))
@@ -140,7 +136,7 @@ save_xy()
 
 /* Save the icon information: state, label, geometry. */
 static void
-save_icon()
+save_icon(void)
 {
 	unsigned char *data;
 	int iconX, iconY;
@@ -215,7 +211,7 @@ save_icon()
 /* Save the keymap information. */
 /*ARGSUSED*/
 static void
-save_keymap()
+save_keymap(void)
 {
        /* Note: keymap propogation is deliberately disabled, because it
 	  may vary from workstation to workstation.  The recommended
@@ -236,7 +232,7 @@ save_keymap()
 
 /* Save the model name. */
 static void
-save_model()
+save_model(void)
 {
 	int ix;
 
@@ -250,9 +246,10 @@ save_model()
 	}
 }
 
+#if defined(X3270_KEYPAD) /*[*/
 /* Save the keypad state. */
 static void
-save_keypad()
+save_keypad(void)
 {
 	int ix;
 
@@ -265,10 +262,11 @@ save_keypad()
 			cmd_delete(ix);
 	}
 }
+#endif /*]*/
 
 /* Save the scrollbar state. */
 static void
-save_scrollbar()
+save_scrollbar(void)
 {
 	int i_on, i_off;
 
@@ -295,7 +293,7 @@ save_scrollbar()
 
 /* Save the name of the host we are connected to. */
 static void
-save_host()
+save_host(void)
 {
 	char *space;
 
@@ -322,7 +320,7 @@ save_host()
 
 /* Save the settings of each of the toggles. */
 static void
-save_toggles()
+save_toggles(void)
 {
 	int i, j;
 	int ix;
@@ -342,7 +340,11 @@ save_toggles()
 			     !strcmp(tmp_cmd[j], OptClear)) &&
 			    tmp_cmd[j+1] &&
 			    !strcmp(tmp_cmd[j+1], toggle_names[i].name)) {
-				if (i == SCROLL_BAR || i == DS_TRACE) {
+				if (i == SCROLL_BAR
+#if defined(X3270_TRACE) /*[*/
+				    || i == DS_TRACE
+#endif /*]*/
+				    ) {
 					cmd_delete(j);
 					cmd_delete(j + 1);
 				} else
@@ -353,6 +355,7 @@ save_toggles()
 		switch (i) {
 		    case SCROLL_BAR:
 			continue;	/* +sb/-sb done separately */
+#if defined(X3270_TRACE) /*[*/
 		    case DS_TRACE:
 			ix = cmd_srch(OptDsTrace);
 			if (appres.toggle[DS_TRACE].value) {
@@ -363,6 +366,7 @@ save_toggles()
 					cmd_delete(ix);
 			}
 			continue;
+#endif /*]*/
 		}
 
 		/* If need be, switch "-set" with "-clear", or append one. */
@@ -386,8 +390,7 @@ save_toggles()
 
 /* Remove a positional parameter from the command line. */
 static void
-remove_positional(s)
-char *s;
+remove_positional(char *s)
 {
 	char *c;
 
@@ -401,10 +404,7 @@ char *s;
 
 /* Save a copy of he XA_WM_COMMAND poperty. */
 void
-save_init(argc, hostname, port)
-int argc;
-char *hostname;
-char *port;
+save_init(int argc, char *hostname, char *port)
 {
 	Atom actual_type;
 	int actual_format;
@@ -439,7 +439,7 @@ char *port;
 
 /* Handle a WM_SAVE_YOURSELF ICCM. */
 void
-save_yourself()
+save_yourself(void)
 {
 	int i;
 	char *c, *c2;
@@ -471,7 +471,9 @@ save_yourself()
 	save_icon();
 	save_keymap();
 	save_model();
+#if defined(X3270_KEYPAD) /*[*/
 	save_keypad();
+#endif /*]*/
 	save_scrollbar();
 	save_host();
 	save_toggles();
@@ -520,14 +522,11 @@ static char *xcmd;
 static int xargc;
 static char **xargv;
 
+#if defined(X3270_MENUS) /*[*/
+
 /* Save one option in the file. */
 static void
-save_opt(f, full_name, opt_name, res_name, value)
-FILE *f;
-char *full_name;
-char *opt_name;
-char *res_name;
-char *value;
+save_opt(FILE *f, char *full_name, char *opt_name, char *res_name, char *value)
 {
 	(void) fprintf(f, "! %s (%s)\nx3270.%s: %s\n",
 	    full_name, opt_name, res_name, value);
@@ -535,8 +534,7 @@ char *value;
 
 /* Save the current options settings in a profile. */
 int
-save_options(n)
-char *n;
+save_options(char *n)
 {
 	FILE *f;
 	Boolean exists = False;
@@ -589,8 +587,10 @@ char *n;
 	for (i = 0; i < N_TOGGLES; i++) {
 		if (!appres.toggle[i].changed)
 			continue;
+#if defined(X3270_TRACE) /*[*/
 		if (i == DS_TRACE || i == SCREEN_TRACE || i == EVENT_TRACE)
 			continue;
+#endif /*]*/
 		if (!any_toggles) {
 			(void) fprintf(f, "! toggles (%s, %s)\n",
 			    OptSet, OptClear);
@@ -600,11 +600,13 @@ char *n;
 		    appres.toggle[i].value ? ResTrue : ResFalse);
 	}
 
+#if defined(X3270_KEYPAD) /*[*/
 	/* Save the keypad state. */
 	if (keypad_changed)
 		save_opt(f, "keypad state", OptKeypadOn, ResKeypadOn,
 			(appres.keypad_on || keypad_popped) ?
 			    ResTrue : ResFalse);
+#endif /*]*/
 
 	/* Save other menu-changeable options. */
 	if (efont_changed)
@@ -632,11 +634,11 @@ char *n;
 	return 0;
 }
 
+#endif /*]*/
+
 /* Save a copy of the command-line options. */
 void
-save_args(argc, argv)
-int argc;
-char *argv[];
+save_args(int argc, char *argv[])
 {
 	int i;
 	int len = 0;
@@ -658,8 +660,7 @@ char *argv[];
 
 /* Merge in the options settings from a profile. */
 void
-merge_profile(d)
-XrmDatabase *d;
+merge_profile(XrmDatabase *d)
 {
 	char *fname;
 	XrmDatabase dd;
@@ -693,4 +694,31 @@ XrmDatabase *d;
 	xcmd = CN;
 	XtFree((char *)xargv);
 	xargv = (char **)NULL;
+}
+
+/*
+ * Safe routine for querying window attributes
+ */
+/*ARGSUSED*/
+static int
+dummy_error_handler(Display *d, XErrorEvent *e)
+{
+	return 0;
+}
+
+static Status
+x_get_window_attributes(Window w, XWindowAttributes *wa)
+{
+	int (*old_handler)();
+	Status s;
+
+	old_handler = XSetErrorHandler(dummy_error_handler);
+
+	s = XGetWindowAttributes(display, w, wa);
+	if (!s)
+		(void) fprintf(stderr, "Error: querying bad window 0x%lx\n", w);
+
+	(void) XSetErrorHandler(old_handler);
+
+	return s;
 }

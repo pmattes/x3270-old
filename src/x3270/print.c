@@ -1,5 +1,5 @@
 /*
- * Copyright 1994, 1995 by Paul Mattes.
+ * Copyright 1994, 1995, 1999 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -13,28 +13,34 @@
  */
 
 #include "globals.h"
-#include <errno.h>
-#include <X11/StringDefs.h>
-#include <X11/Xaw/Dialog.h>
 
 #include "appres.h"
 #include "3270ds.h"
 #include "ctlr.h"
+
+#include "ctlrc.h"
+#include "tablesc.h"
+
+#if defined(X3270_DISPLAY) /*[*/
+#include <errno.h>
+#include <X11/StringDefs.h>
+#include <X11/Xaw/Dialog.h>
+
+#include "objects.h"
 #include "resources.h"
 
 #include "actionsc.h"
-#include "ctlrc.h"
 #include "popupsc.h"
 #include "printc.h"
-#include "tablesc.h"
 #include "utilc.h"
 
 /* Statics */
 
 static Widget print_text_shell = (Widget)NULL;
-
 static Widget print_window_shell = (Widget)NULL;
 static char *print_window_command = CN;
+
+#endif /*]*/
 
 
 /* Print Text popup */
@@ -44,9 +50,7 @@ static char *print_window_command = CN;
  * Returns True if anything printed, False otherwise.
  */
 Boolean
-fprint_screen(f, even_if_empty)
-FILE *f;
-Boolean even_if_empty;
+fprint_screen(FILE *f, Boolean even_if_empty)
 {
 	register int i;
 	unsigned char e;
@@ -95,11 +99,11 @@ Boolean even_if_empty;
 	return True;
 }
 
+#if defined(X3270_DISPLAY) /*[*/
+
 /* Termination code for print text process. */
 static void
-print_text_done(f, do_popdown)
-FILE *f;
-Boolean do_popdown;
+print_text_done(FILE *f, Boolean do_popdown)
 {
 	int status;
 
@@ -119,10 +123,7 @@ Boolean do_popdown;
 /* Callback for "OK" button on print text popup. */
 /*ARGSUSED*/
 static void
-print_text_callback(w, client_data, call_data)
-Widget w;
-XtPointer client_data;
-XtPointer call_data;
+print_text_callback(Widget w, XtPointer client_data, XtPointer call_data)
 {
 	char *filter;
 	FILE *f;
@@ -143,11 +144,7 @@ XtPointer call_data;
 /* Print the contents of the screen as text. */
 /*ARGSUSED*/
 void
-PrintText_action(w, event, params, num_params)
-Widget	w;
-XEvent	*event;
-String	*params;
-Cardinal *num_params;
+PrintText_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
 	char *filter = get_resource(ResPrintTextCommand);
 	Boolean secure = appres.secure;
@@ -158,6 +155,11 @@ Cardinal *num_params;
 	if (*num_params > 1)
 		xs_warning("%s: extra arguments ignored",
 		    action_name(PrintText_action));
+	if (filter == CN) {
+		xs_warning("%s: no %s defined",
+		    action_name(PrintText_action), ResPrintTextCommand);
+		return;
+	}
 	if (filter[0] == '@') {
 		filter++;
 		secure = True;
@@ -176,24 +178,23 @@ Cardinal *num_params;
 	if (print_text_shell == NULL)
 		print_text_shell = create_form_popup("PrintText",
 		    print_text_callback, (XtCallbackProc)NULL, False);
-	XtVaSetValues(XtNameToWidget(print_text_shell, "dialog"),
+	XtVaSetValues(XtNameToWidget(print_text_shell, ObjDialog),
 	    XtNvalue, filter,
 	    NULL);
 	popup_popup(print_text_shell, XtGrabExclusive);
 }
 
+#if defined(X3270_MENUS) /*[*/
 /* Callback for Print Text menu option. */
 /*ARGSUSED*/
 void
-print_text_option(w, client_data, call_data)
-Widget w;
-XtPointer client_data;
-XtPointer call_data;
+print_text_option(Widget w, XtPointer client_data, XtPointer call_data)
 {
 	Cardinal zero = 0;
 
 	PrintText_action(w, (XEvent *)NULL, (String *)NULL, &zero);
 }
+#endif /*]*/
 
 
 /* Print Window popup */
@@ -217,8 +218,7 @@ XtPointer call_data;
 
 /* Termination procedure for window print. */
 static void
-print_window_done(status)
-int status;
+print_window_done(int status)
 {
 	if (status)
 		popup_an_error("Print program exited with status %d.",
@@ -230,9 +230,7 @@ int status;
 /* Timeout callback for window print. */
 /*ARGSUSED*/
 static void
-snap_it(closure, id)
-XtPointer closure;
-XtIntervalId *id;
+snap_it(XtPointer closure, XtIntervalId *id)
 {
 	if (!print_window_command)
 		return;
@@ -244,10 +242,7 @@ XtIntervalId *id;
 /* Callback for "OK" button on print window popup. */
 /*ARGSUSED*/
 static void
-print_window_callback(w, client_data, call_data)
-Widget w;
-XtPointer client_data;
-XtPointer call_data;
+print_window_callback(Widget w, XtPointer client_data, XtPointer call_data)
 {
 	print_window_command = XawDialogGetValueString((Widget)client_data);
 	XtPopdown(print_window_shell);
@@ -258,11 +253,7 @@ XtPointer call_data;
 /* Print the contents of the screen as a bitmap. */
 /*ARGSUSED*/
 void
-PrintWindow_action(w, event, params, num_params)
-Widget	w;
-XEvent	*event;
-String	*params;
-Cardinal *num_params;
+PrintWindow_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
 	char *filter = get_resource(ResPrintWindowCommand);
 	char *fb = XtMalloc(strlen(filter) + 16);
@@ -275,9 +266,9 @@ Cardinal *num_params;
 	if (*num_params > 1)
 		xs_warning("%s: extra arguments ignored",
 		    action_name(PrintWindow_action));
-	if (!filter) {
-		popup_an_error("%s: no command defined",
-		    action_name(PrintWindow_action));
+	if (filter == CN) {
+		xs_warning("%s: no %s defined",
+		    action_name(PrintWindow_action), ResPrintWindowCommand);
 		return;
 	}
 	(void) sprintf(fb, filter, XtWindow(toplevel));
@@ -293,21 +284,22 @@ Cardinal *num_params;
 	if (print_window_shell == NULL)
 		print_window_shell = create_form_popup("printWindow",
 		    print_window_callback, (XtCallbackProc)NULL, False);
-	XtVaSetValues(XtNameToWidget(print_window_shell, "dialog"),
+	XtVaSetValues(XtNameToWidget(print_window_shell, ObjDialog),
 	    XtNvalue, fb,
 	    NULL);
 	popup_popup(print_window_shell, XtGrabExclusive);
 }
 
+#if defined(X3270_MENUS) /*[*/
 /* Callback for menu Print Window option. */
 /*ARGSUSED*/
 void
-print_window_option(w, client_data, call_data)
-Widget w;
-XtPointer client_data;
-XtPointer call_data;
+print_window_option(Widget w, XtPointer client_data, XtPointer call_data)
 {
 	Cardinal zero = 0;
 
 	PrintWindow_action(w, (XEvent *)NULL, (String *)NULL, &zero);
 }
+#endif /*]*/
+
+#endif /*]*/

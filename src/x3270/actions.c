@@ -1,5 +1,5 @@
 /*
- * Modifications Copyright 1993, 1994, 1995 by Paul Mattes.
+ * Modifications Copyright 1993, 1994, 1995, 1999 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -22,109 +22,132 @@
 #include "appres.h"
 
 #include "actionsc.h"
-#include "ftc.h"
-#include "keypadc.h"
+#include "hostc.h"
+#include "keymapc.h"
 #include "kybdc.h"
 #include "macrosc.h"
-#include "menubarc.h"
 #include "popupsc.h"
 #include "printc.h"
-#include "screenc.h"
 #include "selectc.h"
 #include "trace_dsc.h"
+#include "utilc.h"
+#include "xioc.h"
+
+#if defined(X3270_DISPLAY) /*[*/
+#include "ftc.h"
+#include "keypadc.h"
+#include "menubarc.h"
+#include "screenc.h"
+#endif /*]*/
 
 XtActionsRec actions[] = {
-	{ "AltCursor",  	(XtActionProc)AltCursor_action },
-	{ "AnsiText",		(XtActionProc)AnsiText_action },
-	{ "Ascii",		(XtActionProc)Ascii_action },
-	{ "AsciiField",		(XtActionProc)AsciiField_action },
-	{ "Attn",		(XtActionProc)Attn_action },
-	{ "BackSpace",		(XtActionProc)BackSpace_action },
-	{ "BackTab",		(XtActionProc)BackTab_action },
-	{ "CircumNot",		(XtActionProc)CircumNot_action },
-	{ "Clear",		(XtActionProc)Clear_action },
-	{ "CloseScript",	(XtActionProc)CloseScript_action },
-	{ "Compose",		(XtActionProc)Compose_action },
-	{ "Configure",		(XtActionProc)Configure_action },
-	{ "Connect",		(XtActionProc)Connect_action },
-	{ "ContinueScript",	(XtActionProc)ContinueScript_action },
-	{ "CursorSelect",	(XtActionProc)CursorSelect_action },
-	{ "Cut",		(XtActionProc)Cut_action },
-	{ "Default",		(XtActionProc)Default_action },
-	{ "Delete", 		(XtActionProc)Delete_action },
-	{ "DeleteField",	(XtActionProc)DeleteField_action },
-	{ "DeleteWord",		(XtActionProc)DeleteWord_action },
-	{ "Disconnect",		(XtActionProc)Disconnect_action },
-	{ "Down",		(XtActionProc)Down_action },
-	{ "Dup",		(XtActionProc)Dup_action },
-	{ "Ebcdic",		(XtActionProc)Ebcdic_action },
-	{ "EbcdicField",	(XtActionProc)EbcdicField_action },
-	{ "Enter",		(XtActionProc)Enter_action },
-	{ "EnterLeave",		(XtActionProc)EnterLeave_action },
-	{ "Erase",		(XtActionProc)Erase_action },
-	{ "EraseEOF",		(XtActionProc)EraseEOF_action },
-	{ "EraseInput",		(XtActionProc)EraseInput_action },
-	{ "Execute",		(XtActionProc)Execute_action },
-	{ "Expect",		(XtActionProc)Expect_action },
-	{ "FieldEnd",		(XtActionProc)FieldEnd_action },
-	{ "FieldExit",		(XtActionProc)FieldExit_action },
-	{ "FieldMark",		(XtActionProc)FieldMark_action },
-	{ "Flip",		(XtActionProc)Flip_action },
-	{ "FocusEvent",		(XtActionProc)FocusEvent_action },
-	{ "GraphicsExpose",	(XtActionProc)GraphicsExpose_action },
-	{ "HandleMenu",		(XtActionProc)HandleMenu_action },
-	{ "HardPrint",		(XtActionProc)PrintText_action },
-	{ "HexString",		(XtActionProc)HexString_action },
-	{ "Home",		(XtActionProc)Home_action },
-	{ "Info",		(XtActionProc)Info_action },
-	{ "Insert",		(XtActionProc)Insert_action },
-	{ "Key",		(XtActionProc)Key_action },
-	{ "Keymap",		(XtActionProc)Keymap_action },
-	{ "KeymapEvent",	(XtActionProc)KeymapEvent_action },
-	{ "Left",		(XtActionProc)Left_action },
-	{ "Left2", 		(XtActionProc)Left2_action },
-	{ "Macro",		(XtActionProc)Macro_action },
-	{ "MonoCase",		(XtActionProc)MonoCase_action },
-	{ "MoveCursor",		(XtActionProc)MoveCursor_action },
-	{ "Newline",		(XtActionProc)Newline_action },
-	{ "NextWord",		(XtActionProc)NextWord_action },
-	{ "PA",			(XtActionProc)PA_action },
-	{ "PF",			(XtActionProc)PF_action },
-	{ "PauseScript",	(XtActionProc)PauseScript_action },
-	{ "PreviousWord",	(XtActionProc)PreviousWord_action },
-	{ "PrintText",		(XtActionProc)PrintText_action },
-	{ "PrintWindow",	(XtActionProc)PrintWindow_action },
-	{ "Quit",		(XtActionProc)Quit_action },
-	{ "Reconnect",		(XtActionProc)Reconnect_action },
-	{ "Redraw",		(XtActionProc)Redraw_action },
-	{ "ReparentNotify",	(XtActionProc)ReparentNotify_action },
-	{ "Reset",		(XtActionProc)Reset_action },
-	{ "Right",		(XtActionProc)Right_action },
-	{ "Right2",		(XtActionProc)Right2_action },
-	{ "Script",		(XtActionProc)Script_action },
-	{ "SetFont",		(XtActionProc)SetFont_action },
-	{ "Shift",		(XtActionProc)Shift_action },
-	{ "StateChanged",	(XtActionProc)StateChanged_action },
-	{ "String",		(XtActionProc)String_action },
-	{ "SysReq",		(XtActionProc)SysReq_action },
-	{ "Tab",		(XtActionProc)Tab_action },
-	{ "ToggleInsert",	(XtActionProc)ToggleInsert_action },
-	{ "ToggleReverse",	(XtActionProc)ToggleReverse_action },
-	{ "Up",			(XtActionProc)Up_action },
-	{ "Visible",		(XtActionProc)Visible_action },
-	{ "WMProtocols",	(XtActionProc)WMProtocols_action },
-	{ "Wait",		(XtActionProc)Wait_action },
-	{ "confirm",		(XtActionProc)confirm_action },
-	{ "dialog-next",	(XtActionProc)dialog_next_action },
-	{ "dialog-focus",	(XtActionProc)dialog_focus_action },
-	{ "ignore",		(XtActionProc)ignore_action },
-	{ "insert-selection",	(XtActionProc)insert_selection_action },
-	{ "move-select",	(XtActionProc)move_select_action },
-	{ "select-end",		(XtActionProc)select_end_action },
-	{ "select-extend",	(XtActionProc)select_extend_action },
-	{ "select-start",	(XtActionProc)select_start_action },
-	{ "set-select",		(XtActionProc)set_select_action },
-	{ "start-extend",	(XtActionProc)start_extend_action }
+#if defined(X3270_DISPLAY) /*[*/
+	{ "AltCursor",  	AltCursor_action },
+	{ "Compose",		Compose_action },
+	{ "Cut",		Cut_action },
+	{ "Default",		Default_action },
+	{ "Flip",		Flip_action },
+	{ "HandleMenu",		HandleMenu_action },
+	{ "HardPrint",		PrintText_action },
+	{ "HexString",		HexString_action },
+	{ "Info",		Info_action },
+	{ "Keymap",		TemporaryKeymap_action },
+	{ PA_PFX "ConfigureNotify", PA_ConfigureNotify_action },
+	{ PA_END,		PA_End_action },
+	{ PA_PFX "EnterLeave",	PA_EnterLeave_action },
+	{ PA_PFX "Expose",	PA_Expose_action },
+	{ PA_PFX "Focus",	PA_Focus_action },
+	{ PA_PFX "GraphicsExpose", PA_GraphicsExpose_action },
+	{ PA_PFX "KeymapNotify", PA_KeymapNotify_action },
+# if defined(X3270_TRACE) /*[*/
+	{ PA_KEYMAP_TRACE,	PA_KeymapTrace_action },
+# endif /*]*/
+# if defined(X3270_KEYPAD) /*[*/
+	{ PA_PFX "ReparentNotify", PA_ReparentNotify_action },
+# endif /*]*/
+	{ PA_PFX "Shift",	PA_Shift_action },
+	{ PA_PFX "StateChanged", PA_StateChanged_action },
+	{ PA_PFX "VisibilityNotify",PA_VisibilityNotify_action },
+	{ PA_PFX "WMProtocols",	PA_WMProtocols_action },
+	{ PA_PFX "confirm",	PA_confirm_action },
+	{ "PrintText",		PrintText_action },
+	{ "PrintWindow",	PrintWindow_action },
+	{ "Redraw",		Redraw_action },
+	{ "SetFont",		SetFont_action },
+	{ "TemporaryKeymap",	TemporaryKeymap_action },
+# if defined(X3270_FT) /*[*/
+	{ PA_PFX "dialog-next",	PA_dialog_next_action },
+	{ PA_PFX "dialog-focus", PA_dialog_focus_action },
+# endif /*]*/
+	{ "insert-selection",	insert_selection_action },
+	{ "move-select",	move_select_action },
+	{ "select-end",		select_end_action },
+	{ "select-extend",	select_extend_action },
+	{ "select-start",	select_start_action },
+	{ "set-select",		set_select_action },
+	{ "start-extend",	start_extend_action },
+#endif /*]*/
+	{ "AnsiText",		AnsiText_action },
+	{ "Ascii",		Ascii_action },
+	{ "AsciiField",		AsciiField_action },
+	{ "Attn",		Attn_action },
+	{ "BackSpace",		BackSpace_action },
+	{ "BackTab",		BackTab_action },
+	{ "CircumNot",		CircumNot_action },
+	{ "Clear",		Clear_action },
+	{ "CloseScript",	CloseScript_action },
+	{ "Connect",		Connect_action },
+	{ "ContinueScript",	ContinueScript_action },
+	{ "CursorSelect",	CursorSelect_action },
+	{ "Delete", 		Delete_action },
+	{ "DeleteField",	DeleteField_action },
+	{ "DeleteWord",		DeleteWord_action },
+	{ "Disconnect",		Disconnect_action },
+	{ "Down",		Down_action },
+	{ "Dup",		Dup_action },
+	{ "Ebcdic",		Ebcdic_action },
+	{ "EbcdicField",	EbcdicField_action },
+	{ "Enter",		Enter_action },
+	{ "Erase",		Erase_action },
+	{ "EraseEOF",		EraseEOF_action },
+	{ "EraseInput",		EraseInput_action },
+	{ "Execute",		Execute_action },
+	{ "Expect",		Expect_action },
+	{ "FieldEnd",		FieldEnd_action },
+	{ "FieldMark",		FieldMark_action },
+	{ "FieldExit",		FieldExit_action },
+	{ "HexString",		HexString_action},
+	{ "Home",		Home_action },
+	{ "Insert",		Insert_action },
+	{ "Interrupt",		Interrupt_action },
+	{ "Key",		Key_action },
+	{ "Left",		Left_action },
+	{ "Left2", 		Left2_action },
+	{ "Macro", 		Macro_action },
+	{ "MonoCase",		MonoCase_action },
+	{ "MoveCursor",		MoveCursor_action },
+	{ "Newline",		Newline_action },
+	{ "NextWord",		NextWord_action },
+	{ "PA",			PA_action },
+	{ "PF",			PF_action },
+	{ "PauseScript",	PauseScript_action },
+	{ "PreviousWord",	PreviousWord_action },
+	{ "Quit",		Quit_action },
+#if defined(X3270_MENUS) /*[*/
+	{ "Reconnect",		Reconnect_action },
+#endif /*]*/
+	{ "Reset",		Reset_action },
+	{ "Right",		Right_action },
+	{ "Right2",		Right2_action },
+	{ "Script",		Script_action },
+	{ "String",		String_action },
+	{ "SysReq",		SysReq_action },
+	{ "Tab",		Tab_action },
+	{ "ToggleInsert",	ToggleInsert_action },
+	{ "ToggleReverse",	ToggleReverse_action },
+	{ "Up",			Up_action },
+	{ "Wait",		Wait_action },
+	{ "ignore",		ignore_action }
 };
 
 int actioncount = XtNumber(actions);
@@ -139,20 +162,19 @@ char *ia_name[] = {
  * Return a name for an action.
  */
 char *
-action_name(action)
-XtActionProc action;
+action_name(XtActionProc action)
 {
 	register int i;
 
 	for (i = 0; i < actioncount; i++)
-		if (actions[i].proc == (XtActionProc)action)
+		if (actions[i].proc == action)
 			return actions[i].string;
 	return "(unknown)";
 }
 
+#if defined(X3270_DISPLAY) && defined(X3270_TRACE) /*[*/
 static char *
-key_state(state)
-unsigned int state;
+key_state(unsigned int state)
 {
 	static char rs[64];
 	char *comma = "";
@@ -191,6 +213,7 @@ unsigned int state;
 		(void) sprintf(strchr(rs, '\0'), "|%d", state);
 	return rs;
 }
+#endif /*]*/
 
 /*
  * Check the number of argument to an action, and possibly pop up a usage
@@ -199,11 +222,8 @@ unsigned int state;
  * Returns 0 if the argument count is correct, -1 otherwise.
  */
 int
-check_usage(action, nargs, nargs_min, nargs_max)
-XtActionProc action;
-Cardinal nargs;
-Cardinal nargs_min;
-Cardinal nargs_max;
+check_usage(XtActionProc action, Cardinal nargs, Cardinal nargs_min,
+    Cardinal nargs_max)
 {
 	if (nargs >= nargs_min && nargs <= nargs_max)
 		return 0;
@@ -219,15 +239,15 @@ Cardinal nargs_max;
 /*
  * Display an action debug message
  */
+#if defined(X3270_TRACE) /*[*/
+
 #define KSBUF	256
 void
-action_debug(action, event, params, num_params)
-void (*action)();
-XEvent *event;
-String *params;
-Cardinal *num_params;
+action_debug(void (*action)(), XEvent *event, String *params,
+    Cardinal *num_params)
 {
 	int i;
+#if defined(X3270_DISPLAY) /*[*/
 	XKeyEvent *kevent;
 	KeySym ks;
 	XButtonEvent *bevent;
@@ -238,12 +258,15 @@ Cardinal *num_params;
 	char *press = "Press";
 	char dummystr[KSBUF+1];
 	char *atom_name;
+#endif /*]*/
 
 	if (!toggled(EVENT_TRACE))
 		return;
-	if (!event) {
+	if (event == (XEvent *)NULL) {
 		(void) fprintf(tracef, " %s", ia_name[(int)ia_cause]);
-	} else switch (event->type) {
+	}
+#if defined(X3270_DISPLAY) /*[*/
+	else switch (event->type) {
 	    case KeyRelease:
 		press = "Release";
 	    case KeyPress:
@@ -307,30 +330,29 @@ Cardinal *num_params;
 		(void) fprintf(tracef, "Event %d", event->type);
 		break;
 	}
-	(void) fprintf(tracef, " -> %s(", action_name((XtActionProc)action));
+	if (keymap_trace != CN)
+		(void) fprintf(tracef, " via %s -> %s(", keymap_trace,
+		    action_name(action));
+	else
+#endif /*]*/
+		(void) fprintf(tracef, " -> %s(",
+		    action_name(action));
 	for (i = 0; i < *num_params; i++) {
-		Boolean quoted;
-
-		quoted = (strchr(params[i], ' ')  != CN ||
-			  strchr(params[i], '\t') != CN);
-		(void) fprintf(tracef, "%s%s%s%s",
-		    i ? ", " : "",
-		    quoted ? "\"" : "",
-		    params[i],
-		    quoted ? "\"" : "");
+		(void) fprintf(tracef, "%s\"", i ? ", " : "");
+		fcatv(tracef, params[i]);
+		fputc('"', tracef);
 	}
 	(void) fprintf(tracef, ")\n");
 }
+
+#endif /*]*/
 
 /*
  * Wrapper for calling an action internally.
  */
 void
-action_internal(fn, cause, parm1, parm2)
-void (*fn)();
-enum iaction cause;
-char *parm1;
-char *parm2;
+action_internal(XtActionProc action, enum iaction cause, char *parm1,
+    char *parm2)
 {
 	Cardinal count = 0;
 	String parms[2];
@@ -346,6 +368,7 @@ char *parm2;
 		count = 0;
 
 	ia_cause = cause;
-	(*fn)((Widget) NULL, (XEvent *) NULL, count ? parms : (String *) NULL,
+	(*action)((Widget) NULL, (XEvent *) NULL,
+	    count ? parms : (String *) NULL,
 	    &count);
 }

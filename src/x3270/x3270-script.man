@@ -1,9 +1,14 @@
-.TH X3270-SCRIPT 1 "17 April 1997"
+.TH X3270-SCRIPT 1 "1 March 1999"
 .SH NAME
-Scripting Facilities for x3270
+Scripting Facilities for x3270 and s3270
 .SH SYNOPSIS
 .B x3270
 .B \-script
+[
+.I x3270-options
+]
+.br
+.B s3270
 [
 .I x3270-options
 ]
@@ -18,16 +23,24 @@ The
 .B x3270
 scripting facilities allow
 .B x3270
+and
+.B s3270
 to be operated under the control of another program.
 .PP
 There are two basic methods.
 The first is the
 .B "peer script"
 facility, invoked by the
+.B x3270
 .B \-script
-switch.
+switch
+(
+.B s3270
+functions exclusively in script mode).
 This runs
 .B x3270
+or
+.B s3270
 as a child of another process.
 Typically this would be a script using
 .IR expect (1)
@@ -46,16 +59,26 @@ facility, invoked by the
 .B Script()
 action.
 This runs a script as a child process of
-.B x3270.
-The child has access to pipes connected to
-.B x3270;
 .B x3270
-looks for commands on one pipe, and places the responses on the other.
+or
+.B s3270.
+The child has access to pipes connected to
+.B x3270
+or
+.B s3270;
+.B x3270
+or
+.B s3270
+look for commands on one pipe, and places the responses on the other.
 (The file descriptor of the pipe for commands to
 .B x3270
+or
+.B s3270
 is passed in the environment variable X3270INPUT; the file descriptor
 of the pipe for responses from
 .B x3270
+or
+.B s3270
 is passed in the environment variable X3270OUTPUT.)
 .PP
 (It is possible to mix the two methods: A script can invoke another script
@@ -76,6 +99,8 @@ if no parameters are needed by the action, the parentheses may be omitted.
 .PP
 Any
 .B x3270
+or
+.B s3270
 action may be specified.
 Several new actions have been defined for use by scripts, and the behavior
 of certain other actions (and of
@@ -86,7 +111,9 @@ Some actions generate output; some may delay completion until the certain
 external events occur, such as the host unlocking the keyboard.
 The completion of every command is marked by a two-line message.
 The first line is the current status of
-.BR x3270 ,
+.B x3270
+or
+.BR s3270 ,
 documented below.
 If the command is successful, the second line is the string "ok"; otherwise it
 is the string "error".
@@ -140,6 +167,8 @@ Number of Rows
 The current number of rows defined on the screen.
 The host can request that
 .B x3270
+or
+.B s3270
 use a 24x80 screen, so this number may be smaller than the maximum number of
 rows possible with the current model.
 .TP
@@ -158,6 +187,9 @@ The X window identifier for the main
 .B x3270
 window, in hexadecimal preceded by
 .BR 0x .
+For
+.BR s3270,
+this is zero.
 .SH DIFFERENCES
 When an action is initiated by a script,
 .B x3270
@@ -381,3 +413,5 @@ expect(1)
 ksh(1)
 .br
 x3270(1)
+.br
+s3270(1)

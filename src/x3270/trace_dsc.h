@@ -1,5 +1,5 @@
 /*
- * Copyright 1995 by Paul Mattes.
+ * Copyright 1995, 1999 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -12,23 +12,40 @@
  *		Global declarations for trace_ds.c.
  */
 
-extern char *rcba();
-extern char *see_aid();
-extern char *see_attr();
-extern char *see_color();
-extern char *see_ebc();
-extern char *see_efa();
-extern char *see_efa_only();
-extern char *see_qcode();
-extern void toggle_dsTrace();
-extern void toggle_eventTrace();
-extern void toggle_screenTrace();
+#if defined(X3270_TRACE) /*[*/
+
 extern FILE *tracef;
-extern void trace_char();
-#if defined(__STDC__)
-extern void trace_ds(char *fmt, ...);
-#else
-extern void trace_ds();
-#endif
-extern void trace_screen();
-extern void trace_ansi_disc();
+
+char *rcba(int baddr);
+char *see_aid(unsigned char code);
+char *see_attr(unsigned char fa);
+char *see_color(unsigned char setting);
+char *see_ebc(unsigned char ch);
+char *see_efa(unsigned char efa, unsigned char value);
+char *see_efa_only(unsigned char efa);
+char *see_qcode(unsigned char id);
+void toggle_dsTrace(struct toggle *t, enum toggle_type tt);
+void toggle_eventTrace(struct toggle *t, enum toggle_type tt);
+void toggle_screenTrace(struct toggle *t, enum toggle_type tt);
+void trace_ansi_disc(void);
+void trace_char(char c);
+void trace_ds(char *fmt, ...);
+void trace_event(char *fmt, ...);
+void trace_screen(void);
+char *unknown(unsigned char value);
+
+#else /*][*/
+
+#define tracef 0
+#define trace_ds 0 &&
+#define trace_event 0 &&
+#define rcba 0 &&
+#define see_aid 0 &&
+#define see_attr 0 &&
+#define see_color 0 &&
+#define see_ebc 0 &&
+#define see_efa 0 &&
+#define see_efa_only 0 &&
+#define see_qcode 0 &&
+
+#endif /*]*/

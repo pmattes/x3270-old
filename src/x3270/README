@@ -1,9 +1,8 @@
-x3270 3.1.1 General Release
+x3270 3.2 Alpha Test Release
 
 x3270 is an IBM 3278/3279 terminal emulator for X windows.
 
-Documentation is in the Docs directory (plain text) and the html directory
-(hypertext). The files are:
+Documentation is in the html directory.  The files are:
 
 Intro
      What x3270 is
@@ -25,25 +24,29 @@ Bugs
      What's broken in this release
 Wishlist
      What isn't in this release
+Y2K
+     Year 2000 Compliance Statement
 
-There is also a hypertext version of the x3270 man page, and of the man pages
-for x3270if, x3270-script and ibm_hosts.
+There is also a hypertext version of the x3270 man page, and of the man
+pages for x3270if, x3270-script and ibm_hosts.
 
 Please read Build before going ahead and building the program. Also, if you
-have a problem, scan through FAQ; there are lots of interesting answers there.
+have a problem, scan through FAQ; there are lots of interesting answers
+there.
 
 Updates to x3270, as well as the current status of development and bugs, are
-available from the x3270 Web Page:
-    http://www.geocities.com/SiliconValley/Peaks/7814
-Updates are also available on ftp.x.org and several X11R6 mirror sites,
-usually in the /contrib/applications/ directory. Fixes are often
-distributed as patch files (you will need gnu patch to apply them) under the
-name fix.nn, e.g., the next fix to version 3.1.1 will be x3270-3.1.1.fix08.
+available from the x3270 Web Page,
+http://www.geocities.com/SiliconValley/Peaks/7814.
 
-Feel free to send comments, criticism, suggestions, complaints, etc., to Paul
-Mattes, Paul.Mattes@usa.net. Requests will be addressed as time and resources
-permit.
+Updates are also available on ftp.x.org and several X11R6 mirror sites,
+usually in the /contrib/applications/x3270 directory. Fixes are often
+distributed as patch files (you will need gnu patch to apply them) under the
+name fix.nn, e.g., the next fix to version 3.2 will be x3270-3.2.fix01.
+
+Feel free to send comments, criticism, suggestions, complaints, etc., to
+Paul Mattes, Paul.Mattes@usa.net. Requests will be addressed as time and
+resources permit.
 
 There is also an x3270 mailing list, which receives news about new releases.
-Send a message to Paul.Mattes@usa.net (it's a real person, with an automatic
+Send a message to Paul.Mattes@usa.net (a real person, with an automatic
 responses for certain subject lines) to get on the list.

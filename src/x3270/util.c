@@ -1,11 +1,11 @@
 /*
- * Copyright 1993, 1994, 1995 by Paul Mattes.
+ * Copyright 1993, 1994, 1995, 1999 by Paul Mattes.
  * Parts Copyright 1990 by Jeff Sparkes.
- *   Permission to use, copy, modify, and distribute this software and its
- *   documentation for any purpose and without fee is hereby granted,
- *   provided that the above copyright notice appear in all copies and that
- *   both that copyright notice and this permission notice appear in
- *   supporting documentation.
+ *  Permission to use, copy, modify, and distribute this software and its
+ *  documentation for any purpose and without fee is hereby granted,
+ *  provided that the above copyright notice appear in all copies and that
+ *  both that copyright notice and this permission notice appear in
+ *  supporting documentation.
  */
 
 /*
@@ -15,11 +15,7 @@
 
 #include "globals.h"
 #include <pwd.h>
-#if defined(__STDC__)
 #include <stdarg.h>
-#else
-#include <varargs.h>
-#endif
 #include "resources.h"
 
 #include "utilc.h"
@@ -29,9 +25,7 @@
  * own memory.
  */
 static char *
-xs_vsprintf(fmt, args)
-char *fmt;
-va_list args;
+xs_vsprintf(char *fmt, va_list args)
 {
 	char c;
 	char *r;
@@ -72,24 +66,12 @@ va_list args;
  * 'format' is assumed to be a printf format string with '%s's in it.
  */
 char *
-#if defined(__STDC__)
 xs_buffer(char *fmt, ...)
-#else
-xs_buffer(va_alist)
-va_dcl
-#endif
 {
 	va_list args;
 	char *r;
 
-#if defined(__STDC__)
 	va_start(args, fmt);
-#else
-	char *fmt;
-	va_start(args);
-	fmt = va_arg(args, char *);
-#endif
-
 	r = xs_vsprintf(fmt, args);
 	va_end(args);
 	return r;
@@ -97,24 +79,12 @@ va_dcl
 
 /* Common uses of xs_buffer. */
 void
-#if defined(__STDC__)
 xs_warning(char *fmt, ...)
-#else
-xs_warning(va_alist)
-va_dcl
-#endif
 {
 	va_list args;
 	char *r;
 
-#if defined(__STDC__)
 	va_start(args, fmt);
-#else
-	char *fmt;
-	va_start(args);
-	fmt = va_arg(args, char *);
-#endif
-
 	r = xs_vsprintf(fmt, args);
 	va_end(args);
 	XtWarning(r);
@@ -122,28 +92,43 @@ va_dcl
 }
 
 void
-#if defined(__STDC__)
 xs_error(char *fmt, ...)
-#else
-xs_error(va_alist)
-va_dcl
-#endif
 {
 	va_list args;
 	char *r;
 
-#if defined(__STDC__)
 	va_start(args, fmt);
-#else
-	char *fmt;
-	va_start(args);
-	fmt = va_arg(args, char *);
-#endif
-
 	r = xs_vsprintf(fmt, args);
 	va_end(args);
 	XtError(r);
 	XtFree(r);
+}
+
+/* Prettyprinter for strings with unprintable data. */
+void
+fcatv(FILE *f, char *s)
+{
+	char c;
+
+	while ((c = *s++)) {
+		switch (c) {
+		    case '\n':
+			(void) fprintf(f, "\\n");
+			break;
+		    case '\t':
+			(void) fprintf(f, "\\t");
+			break;
+		    case '\b':
+			(void) fprintf(f, "\\b");
+			break;
+		    default:
+			if ((c & 0x7f) < ' ')
+				(void) fprintf(f, "\\%03o", c & 0xff);
+			else
+				fputc(c, f);
+			break;
+		}
+	}
 }
 
 #if !defined(MEMORY_MOVE) /*[*/
@@ -151,10 +136,7 @@ va_dcl
  * A version of memcpy that handles overlaps
  */
 char *
-MEMORY_MOVE(dst, src, cnt)
-register char *dst;
-register char *src;
-register int cnt;
+MEMORY_MOVE(register char *dst, register char *src, register int cnt)
 {
 	char *r = dst;
 
@@ -179,12 +161,11 @@ register int cnt;
  *
  * Can be called iteratively to parse a list.
  * Returns 1 for success, 0 for EOF, -1 for error.
+ *
+ * Note: Modifies the input string.
  */
 int
-split_dresource(st, left, right)
-char **st;
-char **left;
-char **right;
+split_dresource(char **st, char **left, char **right)
 {
 	char *s = *st;
 	char *t;
@@ -259,9 +240,7 @@ char **right;
  * Returns 1 for success, 0 for EOF, -1 for error.
  */
 int
-split_lresource(st, value)
-char **st;
-char **value;
+split_lresource(char **st, char **value)
 {
 	char *s = *st;
 	char *t;
@@ -310,30 +289,28 @@ char **value;
  * add classes too.
  */
 char *
-get_resource(name)
-char	*name;
+get_resource(char *name)
 {
 	XrmValue value;
-	char *type[20];
+	char *type;
 	char *str;
 	char *r = CN;
 
 	str = xs_buffer("%s.%s", XtName(toplevel), name);
-	if ((XrmGetResource(rdb, str, 0, type, &value) == True) && *value.addr)
-		r = XtNewString(value.addr);
+	if ((XrmGetResource(rdb, str, 0, &type, &value) == True) && *value.addr)
+		r = value.addr;
 	XtFree(str);
 	return r;
 }
 
 char *
-get_message(key)
-char *key;
+get_message(char *key)
 {
 	static char namebuf[128];
 	char *r;
 
 	(void) sprintf(namebuf, "%s.%s", ResMessage, key);
-	if ((r = get_resource(namebuf)))
+	if ((r = get_resource(namebuf)) != CN)
 		return r;
 	else {
 		(void) sprintf(namebuf, "[missing \"%s\" message]", key);
@@ -345,8 +322,7 @@ char *key;
 
 /* Variable and tilde substitution functions. */
 static char *
-var_subst(s)
-char *s;
+var_subst(char *s)
 {
 	enum { VS_BASE, VS_QUOTE, VS_DOLLAR, VS_BRACE, VS_VN, VS_VNB, VS_EOF }
 	    state = VS_BASE;
@@ -354,7 +330,7 @@ char *s;
 	int o_len = strlen(s) + 1;
 	char *ob;
 	char *o;
-	char *vn_start;
+	char *vn_start = CN;
 
 	if (strchr(s, '$') == CN)
 		return XtNewString(s);
@@ -463,8 +439,7 @@ char *s;
 }
 
 static char *
-tilde_subst(s)
-char *s;
+tilde_subst(char *s)
 {
 	char *slash;
 	char *name;
@@ -510,10 +485,7 @@ char *s;
 }
 
 char *
-do_subst(s, do_vars, do_tilde)
-char *s;
-Boolean do_vars;
-Boolean do_tilde;
+do_subst(char *s, Boolean do_vars, Boolean do_tilde)
 {
 	if (!do_vars && !do_tilde)
 		return XtNewString(s);
@@ -540,8 +512,7 @@ Boolean do_tilde;
  *	Expands a character in the manner of "cat -v".
  */
 char *
-ctl_see(c)
-int	c;
+ctl_see(int c)
 {
 	static char	buf[64];
 	char	*p = buf;
@@ -564,33 +535,4 @@ int	c;
 	}
 	*p = '\0';
 	return buf;
-}
-
-/*
- * Handle the permutations of strerror().
- *
- * Most systems implement strerror(), but some common ones (such as SunOS 4)
- * don't.  There is no way to reliably detect this, so we have to implement
- * our own, using sys_nerr and sys_errlist[].
- *
- * sys_nerr and sys_errlist[] are often declared in <errno.h>; however, many
- * systems (such as SunOS 5) do not, so we have to declare them explicitly
- * here.
- *
- * Finally, some systems (such as FreeBSD) use a different declaration for
- * sys_errlist[], so our declaration has to be conditional.
- */
-
-char *
-local_strerror(e)
-int e;
-{
-	extern int sys_nerr;
-#if !defined(__FreeBSD__)
-	extern char *sys_errlist[];
-#endif
-
-	if (e < 0 || e >= sys_nerr)
-		return "Undefined Error";
-	return sys_errlist[e];
 }

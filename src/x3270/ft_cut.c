@@ -1,5 +1,5 @@
 /*
- * Copyright 1996 by Paul Mattes.
+ * Copyright 1996, 1999 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -15,6 +15,10 @@
 #include <errno.h>
 
 #include "globals.h"
+
+#if defined(X3270_FT) /*[*/
+
+#include "appres.h"
 #include "ctlr.h"
 #include "3270ds.h"
 
@@ -95,16 +99,16 @@ static int xlate_buffered = 0;			/* buffer count */
 static int xlate_buf_ix = 0;			/* buffer index */
 static unsigned char xlate_buf[XLATE_NBUF];	/* buffer */
 
-static void cut_control_code();
-static void cut_data_request();
-static void cut_retransmit();
-static void cut_data();
+static void cut_control_code(void);
+static void cut_data_request(void);
+static void cut_retransmit(void);
+static void cut_data(void);
 
-static void cut_ack();
-static void cut_abort();
+static void cut_ack(void);
+static void cut_abort(char *s, unsigned short reason);
 
-static unsigned from6();
-static int xlate_getc();
+static unsigned from6(unsigned char c);
+static int xlate_getc(void);
 
 /*
  * Convert a buffer for uploading (host->local).  Overwrites the buffer.
@@ -112,9 +116,7 @@ static int xlate_getc();
  * If there is a conversion error, calls cut_abort() and returns -1.
  */
 int
-upload_convert(buf, len)
-unsigned char *buf;
-int len;
+upload_convert(unsigned char *buf, int len)
 {
 	unsigned char *ob0 = buf;
 	unsigned char *ob = ob0;
@@ -181,10 +183,7 @@ int len;
 
 /* Convert a buffer for downloading (local->host). */
 int
-download_convert(buf, len, obuf)
-unsigned char *buf;
-int len;
-unsigned char *obuf;
+download_convert(unsigned char *buf, int len, unsigned char *obuf)
 {
 	unsigned char *ob0 = obuf;
 	unsigned char *ob = ob0;
@@ -244,7 +243,7 @@ unsigned char *obuf;
  * We have received what looks like an appropriate message from the host.
  */
 void
-ft_cut_data()
+ft_cut_data(void)
 {
 	switch (cg2ebc[screen_buf[O_FRAME_TYPE]]) {
 	    case FT_CONTROL_CODE:
@@ -271,7 +270,7 @@ ft_cut_data()
  * Process a control code from the host.
  */
 static void
-cut_control_code()
+cut_control_code(void)
 {
 	unsigned short code;
 	char *buf;
@@ -320,6 +319,7 @@ cut_control_code()
 				strcpy(buf, get_message("ftHostCancel"));
 		}
 		ft_complete(buf);
+		XtFree(buf);
 		break;
 	    default:
 		trace_ds("unknown 0x%04x\n", code);
@@ -332,7 +332,7 @@ cut_control_code()
  * Process a data request from the host.
  */
 static void
-cut_data_request()
+cut_data_request(void)
 {
 	unsigned char seq = screen_buf[O_DR_FRAME_SEQ];
 	int count;
@@ -365,7 +365,7 @@ cut_data_request()
 
 		/* Abort the transfer. */
 		msg = xs_buffer("read(%s): %s", ft_local_filename,
-		    local_strerror(errno));
+		    strerror(errno));
 		cut_abort(msg, SC_ABORT_FILE);
 		XtFree(msg);
 		return;
@@ -403,7 +403,7 @@ cut_data_request()
  * (Improperly) process a retransmit from the host.
  */
 static void
-cut_retransmit()
+cut_retransmit(void)
 {
 	trace_ds("< FT RETRANSMIT\n");
 	cut_abort(get_message("ftCutRetransmit"), SC_ABORT_XMIT);
@@ -413,8 +413,7 @@ cut_retransmit()
  * Convert an encoded integer.
  */
 static unsigned
-from6(c)
-unsigned char c;
+from6(unsigned char c)
 {
 	char *p;
 
@@ -429,7 +428,7 @@ unsigned char c;
  * Process data from the host.
  */
 static void
-cut_data()
+cut_data(void)
 {
 	static unsigned char cvbuf[O_RESPONSE - O_DT_DATA];
 	unsigned short raw_length;
@@ -466,7 +465,7 @@ cut_data()
 		char *msg;
 
 		msg = xs_buffer("write(%s): %s", ft_local_filename,
-		    local_strerror(errno));
+		    strerror(errno));
 		cut_abort(msg, SC_ABORT_FILE);
 		XtFree(msg);
 	} else {
@@ -480,7 +479,7 @@ cut_data()
  * Acknowledge a host command.
  */
 static void
-cut_ack()
+cut_ack(void)
 {
 	trace_ds("> FT ACK\n");
 	action_internal(Enter_action, IA_FT, CN, CN);
@@ -490,9 +489,7 @@ cut_ack()
  * Abort a transfer in progress.
  */
 static void
-cut_abort(s, reason)
-char *s;
-unsigned short reason;
+cut_abort(char *s, unsigned short reason)
 {
 	/* Save the error message. */
 	if (saved_errmsg != CN)
@@ -516,7 +513,7 @@ unsigned short reason;
  * Returns the character (in EBCDIC), or EOF.
  */
 static int
-xlate_getc()
+xlate_getc(void)
 {
 	int r;
 	int c;
@@ -559,3 +556,5 @@ xlate_getc()
 	}
 	return r;
 }
+
+#endif /*]*/

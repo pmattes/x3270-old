@@ -17,59 +17,14 @@ through this file first.
     You are also free to modify it and to distribute it, provided you include
     the existing copyright notices, and don't profit from it.
 
-<H3>How can I tell if I'm running X11R4, X11R5 or X11R6?</H3>
-
-    This is defined in the header file <X11/Intrinsic.h>.  Assuming your X
-    header files are in /usr/include, you can find out with:
-<PRE>
-    grep XtSpecificationRelease /usr/include/X11/Intrinsic.h
-</PRE>
-    (You may need to use a different path name if your header files are
-    somewhere else.)
-<P>
-    If you are running X11R4, the answer will be:
-<PRE>
-    #define XtSpecificationRelease 4
-</PRE>
-    If R5:
-<PRE>
-    #define XtSpecificationRelease 5
-</PRE>
-    If R6:
-<PRE>
-    #define XtSpecificationRelease 6
-</PRE>
-
 <H2>FATAL ERRORS FROM 'make'</H2>
 
 <H3>Make reports: Fatal error: Don't know how to make target `FontObj(3270)'.</H3>
 
     This generally means that you are running X11R4, rather than X11R5 or
-    X11R6.  The procedure for building x3270 under X11R4 is explained in
-    the "Build" document.
-<P>
-    (Carefully note the differences in build procedures between Sun OpenWindows
-    and other operating systems -- or you'll end up back here anyway.)
-
-<H3>Make reports: "Don't know how to make 3270.snf.  Stop."</H3>
-
-    This is usually a symptom of running a hybrid X implementation -- one that
-    is based on X11R4 but uses some of the later font conventions.  Assuming
-    you have already renamed Imakefile.R4 to Imakefile, what you need to do is
-    to edit Imakefile and change every occurrence of ".snf" to ".pcf".  Then
-    try again with xmkmf.
+    X11R6.  x3270 3.2 does not run under X11R4.
 
 <H2>FATAL COMPILE ERRORS</H2>
-
-<H3>Undefined symbols on a Sun:</H3>
-<PRE>
-    _get_wmShellWidgetClass
-    _get_applicationShellWidgetClass
-</PRE>
-    This is a bug in Sun's X11 libraries, and can be corrected by obtaining
-    patches 100512-02 and 100573-03 from Sun.  As a short-term workaround,
-    edit Makefile.openwin; there is a line you can uncomment for just this
-    purpose.
 
 <H3>Undefined symbols on System V, Release 4</H3>
 <PRE>
@@ -134,43 +89,6 @@ through this file first.
     (Note that on Sun OpenWindows prior to version 3.3, the only directory in
     your font path is usually /usr/openwin/lib/fonts, and there is no "misc"
     directory to add to your path.)
-
-<H2>STRANGE 3270 BEHAVIOR</H2>
-
-<H3>Why does my keyboard lock with that funny "X" symbol at the bottom?</H3>
-You have discovered that 3270 displays are rather different
-from standard ASCII terminals.  <B>x3270</B> attempts to emulate a real
-3270 display as closely as possible; this can be rather disconcerting to
-people who are used to simple ASCII terminals or terminal emulators.
-<P>The "X" symbol means that the keyboard is locked.  This can be
-locked for any of the following reasons:
-<UL>
-<LI>The host has not finished processing your last command.
-<LI>You attempted to type into a protected area of the screen.
-<LI>You typed too many characters into a field in Insert mode.
-</UL>
-If the keyboard is locked for the first reason, your only recourse is to
-wait.  However, you may type ahead.  If the keyboard is locked for one of
-the other two reasons, you can press the 3270 <B>Reset</B> key (usually
-mapped to <B>Alt-r</B>) to unlock it.
-
-<H3>Why doesn't Insert turn off Insert Mode?</H3>
-Because that's how real 3270s work.
-<P>Pressing the <B>Insert</B> key (<B>Alt-i</B> or the <B>Insert</B> key if
-your keyboard has one) puts x3270 into Insert mode.  Pressing it again
-does not disable Insert mode; to do that you must use <B>Reset</B>.
-<P>There is an alternate <B>x3270</B> action you can bind to the <B>Insert</B>
-key, <B>ToggleInsert()</B>, to change that behavior.
-
-<H3>This field has lots of empty space.  Why can't I insert into it?</H3>
-You can only insert characters into a field that has empty space at the
-end.  Depending on the application you are running on the host, the
-<I>apparently</I> empty space at the end of a field can either be NULL
-characters (which truly are empty space), or SPACE characters (which are not).
-Unforturnately, NULLs are indistinguishable from SPACEs on the screen, so
-often a simple attempt to insert a character results in a locked keyboard.
-<P><B>x3270</B> has a configurable option, "Blank Fill", which disables this
-"3270 warts-and-all" emulation behavior.
 
 <H2>SUBTLE PROBLEMS</H2>
 
@@ -314,15 +232,10 @@ often a simple attempt to insert a character results in a locked keyboard.
     make
 </PRE>
 
-<H2>OTHER COMMON QUESTIONS</H2>
-
-<H3>Can I move the 3270 cursor with the mouse?</H3>
-Yes, hold down the <B>Shift</B> key while pressing the left mouse button.
-
 <H2>GETTING HELP</H2>
 
     If you are still having a problem with x3270, feel free to send e-mail to
-    <A HREF="mailto:Paul.Mattes@usa.net"><B>Paul.Mattes@usa.net</B></A>.
+    Paul Mattes, <A HREF="mailto:Paul.Mattes@usa.net"><B>Paul.Mattes@usa.net</B></A>
     No guarantees are made about responses to
     particular problems, but a patches are usually forthcoming in a few days.
     It will also get you on an x3270 mailing list, where you can find out

@@ -1,5 +1,5 @@
 /*
- * Copyright 1993, 1994, 1995, 1996 by Paul Mattes.
+ * Copyright 1993, 1994, 1995, 1996, 1999 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -14,6 +14,9 @@
  */
 
 #include "globals.h"
+
+#if defined(X3270_KEYPAD) /*[*/
+
 #include <X11/Shell.h>
 #include <X11/StringDefs.h>
 #include <X11/Xaw/Command.h>
@@ -29,6 +32,8 @@
 #include "utilc.h"
 
 #include "keypad.bm"
+
+enum kp_placement kp_placement;
 
 #define NUM_ROWS	4
 #define NUM_VROWS	15
@@ -66,9 +71,11 @@ struct button_list {
 	char *bits;
 	int width;
 	int height;
-	void (*fn)();
+	XtActionProc action;
 	char *parm;
 };
+
+Boolean keypad_changed = False;
 
 static char Lg[] = "large";
 static char Bm[] = "bm";
@@ -239,31 +246,41 @@ static XtTranslations keypad_t0 = (XtTranslations) NULL;
 static XtTranslations saved_xt = (XtTranslations) NULL;
 
 
+/* Initialize the keypad placement from the keypad resource. */
+void
+keypad_placement_init(void)
+{
+	if (!strcmp(appres.keypad, KpLeft))
+		kp_placement = kp_left;
+	else if (!strcmp(appres.keypad, KpRight))
+		kp_placement = kp_right;
+	else if (!strcmp(appres.keypad, KpBottom))
+		kp_placement = kp_bottom;
+	else if (!strcmp(appres.keypad, KpIntegral))
+		kp_placement = kp_integral;
+	else
+		xs_error("Unknown value for %s", ResKeypad);
+}
+
 /*
  * Callback for keypad buttons.  Simply calls the function pointed to by the
  * client data.
  */
 /*ARGSUSED*/
 static void
-callfn(w, client_data, call_data)
-	Widget w;
-	XtPointer client_data;
-	XtPointer call_data;
+callfn(Widget w, XtPointer client_data, XtPointer call_data)
 {
 	struct button_list *keyd = (struct button_list *) client_data;
 
-	action_internal(keyd->fn, IA_KEYPAD, keyd->parm, CN);
+	action_internal(keyd->action, IA_KEYPAD, keyd->parm, CN);
 }
 
 /*
  * Create a button.
  */
 static Widget
-make_a_button(container, x, y, w, h, keyd)
-	Widget container;
-	Position x, y;
-	Dimension w, h;
-	struct button_list *keyd;
+make_a_button(Widget container, Position x, Position y, Dimension w,
+    Dimension h, struct button_list *keyd)
 {
 	Widget command;
 	Pixmap pixmap;
@@ -293,8 +310,7 @@ make_a_button(container, x, y, w, h, keyd)
  * Create the keys for a horizontal keypad
  */
 static void
-keypad_keys_horiz(container)
-	Widget container;
+keypad_keys_horiz(Widget container)
 {
 	int i;
 	Position row, col;
@@ -361,8 +377,7 @@ static Widget spf_container;
  * Create the keys for a vertical keypad.
  */
 static void
-keypad_keys_vert(container)
-	Widget container;
+keypad_keys_vert(Widget container)
 {
 	int i;
 	Position row, col;
@@ -445,24 +460,23 @@ keypad_keys_vert(container)
 }
 
 static Dimension
-get_keypad_dimension(name)
-char *name;
+get_keypad_dimension(char *name)
 {
-	static char rname[64];
+	char *rname;
 	char *d;
 	long v;
 
-	(void) sprintf(rname, "%s.%s", ResKeypad, name);
-	if (!(d = get_resource(rname)))
+	rname = xs_buffer("%s.%s", ResKeypad, name);
+	if ((d = get_resource(rname)) == CN)
 		xs_error("Cannot find %s resource", ResKeypad);
+	XtFree(rname);
 	if ((v = strtol(d, (char **)0, 0)) <= 0)
 		xs_error("Illegal %s resource", ResKeypad);
-	XtFree(d);
 	return (Dimension)v;
 }
 
 static void
-init_keypad_dimensions()
+init_keypad_dimensions(void)
 {
 	static Boolean done = False;
 
@@ -477,14 +491,14 @@ init_keypad_dimensions()
 }
 
 Dimension
-min_keypad_width()
+min_keypad_width(void)
 {
 	init_keypad_dimensions();
 	return HORIZ_WIDTH;
 }
 
 Dimension
-keypad_qheight()
+keypad_qheight(void)
 {
 	init_keypad_dimensions();
 	return TOP_MARGIN +
@@ -496,14 +510,9 @@ keypad_qheight()
  * Create a keypad.
  */
 Widget
-keypad_init(container, voffset, screen_width, floating, vert)
-	Widget container;
-	Dimension voffset;
-	Dimension screen_width;
-	Boolean floating;
-	Boolean vert;
+keypad_init(Widget container, Dimension voffset, Dimension screen_width, Boolean floating, Boolean vert)
 {
-	Widget key_pad;
+	static Widget key_pad;
 	Dimension height;
 	Dimension width = screen_width;
 	Dimension hoffset;
@@ -530,24 +539,33 @@ keypad_init(container, voffset, screen_width, floating, vert)
 		hoffset = 0;
 	if (voffset & 1)
 		voffset++;
-	key_pad = XtVaCreateManagedWidget(
-		"keyPad", compositeWidgetClass, container,
-		XtNx, hoffset,
-		XtNy, voffset,
-		XtNborderWidth, (Dimension) (floating ? 1 : 0),
-		XtNwidth, width,
-		XtNheight, height,
-		NULL);
-	if (appres.mono)
-		XtVaSetValues(key_pad, XtNbackgroundPixmap, gray, NULL);
-	else
-		XtVaSetValues(key_pad, XtNbackground, keypadbg_pixel, NULL);
+	if (key_pad == (Widget)NULL) {
+		key_pad = XtVaCreateManagedWidget(
+		    "keyPad", compositeWidgetClass, container,
+		    XtNx, hoffset,
+		    XtNy, voffset,
+		    XtNborderWidth, (Dimension) (floating ? 1 : 0),
+		    XtNwidth, width,
+		    XtNheight, height,
+		    NULL);
+		if (appres.mono)
+			XtVaSetValues(key_pad, XtNbackgroundPixmap, gray,
+			    NULL);
+		else
+			XtVaSetValues(key_pad, XtNbackground, keypadbg_pixel,
+			    NULL);
 
-	/* Create the keys */
-	if (vert)
-		keypad_keys_vert(key_pad);
-	else
-		keypad_keys_horiz(key_pad);
+		/* Create the keys */
+		if (vert)
+			keypad_keys_vert(key_pad);
+		else
+			keypad_keys_horiz(key_pad);
+	} else {
+		XtVaSetValues(key_pad,
+		    XtNx, hoffset,
+		    XtNy, voffset,
+		    NULL);
+	}
 
 	return key_pad;
 }
@@ -557,7 +575,7 @@ keypad_init(container, voffset, screen_width, floating, vert)
  * unmapping the window containing the shifted keys.
  */
 void
-keypad_shift()
+keypad_shift(void)
 {
 	if (!vert_keypad || !XtIsRealized(spf_container))
 		return;
@@ -585,7 +603,7 @@ enum { WA_UNKNOWN, WA_ALL, WA_PARTIAL, WA_NONE } wa_mode = WA_UNKNOWN;
  * first time
  */
 void
-keypad_first_up()
+keypad_first_up(void)
 {
 	if (!appres.keypad_on || kp_placement == kp_integral || up_once)
 		return;
@@ -596,10 +614,7 @@ keypad_first_up()
 /* Called when the keypad popup pops up or down */
 /*ARGSUSED*/
 static void
-keypad_updown(w, client_data, call_data)
-Widget w;
-XtPointer client_data;
-XtPointer call_data;
+keypad_updown(Widget w, XtPointer client_data, XtPointer call_data)
 {
 	appres.keypad_on = keypad_popped = *(Boolean *)client_data;
 	if (keypad_popped) {
@@ -619,11 +634,11 @@ static enum placement *pp;
 
 /* Create the pop-up keypad */
 void
-keypad_popup_init()
+keypad_popup_init(void)
 {
 	Widget w;
 	Dimension height, width, border;
-	Boolean vert;
+	Boolean vert = False;
 
 	if (keypad_shell != NULL)
 		return;
@@ -703,8 +718,7 @@ keypad_popup_init()
 
 /* Set a temporary keymap. */
 void
-keypad_set_temp_keymap(trans)
-XtTranslations trans;
+keypad_set_temp_keymap(XtTranslations trans)
 {
 	if (keypad_container != (Widget) NULL) {
 		if (trans == (XtTranslations)NULL) {
@@ -719,7 +733,7 @@ XtTranslations trans;
 
 /* Change the baseleve keymap. */
 void
-keypad_set_keymap()
+keypad_set_keymap(void)
 {
 	if (keypad_container == (Widget)NULL)
 		return;
@@ -728,9 +742,7 @@ keypad_set_keymap()
 }
 
 static void
-measure_move(closure, id)
-XtPointer closure;
-XtIntervalId *id;
+measure_move(XtPointer closure, XtIntervalId *id)
 {
 	Position x, y;
 
@@ -770,7 +782,7 @@ XtIntervalId *id;
 
 /* Move the keypad. */
 void
-keypad_move()
+keypad_move(void)
 {
 	Position x, y;
 	Dimension w, h;
@@ -861,11 +873,8 @@ keypad_move()
  * window manager decorations and stores them in decor_width and decor_height.
  */
 void
-ReparentNotify_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+PA_ReparentNotify_action(Widget w, XEvent *event, String *params,
+    Cardinal *num_params)
 {
 	XReparentEvent *e = (XReparentEvent *)event;
 
@@ -879,3 +888,5 @@ Cardinal *num_params;
 		}
 	}
 }
+
+#endif /*]*/

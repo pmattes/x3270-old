@@ -1,5 +1,5 @@
 /*
- * Copyright 1993, 1994, 1995 by Paul Mattes.
+ * Copyright 1993, 1994, 1995, 1999 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -21,19 +21,16 @@
 #include <X11/Xaw/Form.h>
 #include <X11/Xaw/Label.h>
 #include <X11/Xaw/Text.h>
-#if defined(__STDC__)
 #include <stdarg.h>
-#else
-#include <varargs.h>
-#endif
 #include "objects.h"
+#include "appres.h"
 
 #include "actionsc.h"
 #include "macrosc.h"
-#include "mainc.h"
 #include "popupsc.h"
 #include "screenc.h"
 #include "utilc.h"
+#include "xioc.h"
 
 static char vmsgbuf[4096];
 
@@ -44,8 +41,7 @@ static char vmsgbuf[4096];
 
 /* Find the parent of a window */
 static Window
-parent_of(w)
-Window w;
+parent_of(Window w)
 {
 	Window root, parent, *children;
 	unsigned int nchildren;
@@ -60,8 +56,8 @@ Window w;
  * root, so we can pop up a window relative to them.
  */
 void
-toplevel_geometry(x, y, width, height)
-Dimension *x, *y, *width, *height;
+toplevel_geometry(Dimension *x, Dimension *y, Dimension *width,
+    Dimension *height)
 {
 	Window tlw = XtWindow(toplevel);
 	Window win;
@@ -115,9 +111,7 @@ Dimension *x, *y, *width, *height;
 
 /* Pop up a popup shell */
 void
-popup_popup(shell, grab)
-Widget shell;
-XtGrabKind grab;
+popup_popup(Widget shell, XtGrabKind grab)
 {
 	XtPopup(shell, grab);
 	XSetWMProtocols(display, XtWindow(shell), &a_delete_me, 1);
@@ -135,10 +129,7 @@ enum placement *RightP = &RightD;
 /* Place a popped-up shell */
 /*ARGSUSED*/
 void
-place_popup(w, client_data, call_data)
-Widget w;
-XtPointer client_data;
-XtPointer call_data;
+place_popup(Widget w, XtPointer client_data, XtPointer call_data)
 {
 	Dimension width, height;
 	Dimension x = 0, y = 0;
@@ -210,16 +201,14 @@ XtPointer call_data;
 
 /* Action called when "Return" is pressed in data entry popup */
 void
-confirm_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+PA_confirm_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
 	Widget w2;
 
 	/* Find the Confirm or Okay button */
 	w2 = XtNameToWidget(XtParent(w), ObjConfirmButton);
+	if (w2 == NULL)
+		w2 = XtNameToWidget(XtParent(w), ObjConfirmButton);
 	if (w2 == NULL)
 		w2 = XtNameToWidget(w, ObjConfirmButton);
 	if (w2 == NULL) {
@@ -236,10 +225,7 @@ Cardinal *num_params;
 /* Callback for "Cancel" button in data entry popup */
 /*ARGSUSED*/
 static void
-cancel_button_callback(w, client_data, call_data)
-Widget w;
-XtPointer client_data;
-XtPointer call_data;
+cancel_button_callback(Widget w, XtPointer client_data, XtPointer call_data)
 {
 	XtPopdown((Widget) client_data);
 }
@@ -250,10 +236,7 @@ XtPointer call_data;
  */
 /*ARGSUSED*/
 static void
-popup_dialog_callback(w, client_data, call_data)
-Widget w;
-XtPointer client_data;
-XtPointer call_data;
+popup_dialog_callback(Widget w, XtPointer client_data, XtPointer call_data)
 {
 	static Boolean called_back = False;
 	XawTextBlock b, nullb;	/* firstPos, length, ptr, format */
@@ -313,11 +296,8 @@ XtPointer call_data;
 
 /* Create a simple data entry popup */
 Widget
-create_form_popup(name, callback, callback2, no_spaces)
-char *name;
-XtCallbackProc callback;
-XtCallbackProc callback2;
-Boolean no_spaces;
+create_form_popup(char *name, XtCallbackProc callback,
+    XtCallbackProc callback2, Boolean no_spaces)
 {
 	char *widgetname;
 	Widget shell;
@@ -392,10 +372,7 @@ Boolean error_popup_visible;
 /* Called when OK is pressed on the error popup */
 /*ARGSUSED*/
 static void
-saw_error(w, client_data, call_data)
-Widget w;
-XtPointer client_data;
-XtPointer call_data;
+saw_error(Widget w, XtPointer client_data, XtPointer call_data)
 {
 	XtPopdown(error_shell);
 }
@@ -403,10 +380,7 @@ XtPointer call_data;
 /* Called when the error popup is closed */
 /*ARGSUSED*/
 static void
-error_popdown(w, client_data, call_data)
-Widget w;
-XtPointer client_data;
-XtPointer call_data;
+error_popdown(Widget w, XtPointer client_data, XtPointer call_data)
 {
 	error_popup_visible = False;
 	if (exiting)
@@ -414,7 +388,7 @@ XtPointer call_data;
 }
 
 void
-error_popup_init()
+error_popup_init(void)
 {
 	Widget w;
 
@@ -431,7 +405,7 @@ error_popup_init()
 	/* Create a dialog in the popup */
 
 	error_form = XtVaCreateManagedWidget(
-	    "dialog", dialogWidgetClass, error_shell,
+	    ObjDialog, dialogWidgetClass, error_shell,
 	    NULL);
 	XtVaSetValues(XtNameToWidget(error_form, XtNlabel),
 	    XtNlabel, "first line\nsecond line",
@@ -451,23 +425,11 @@ error_popup_init()
 
 /* Pop up an error dialog. */
 void
-#if defined(__STDC__)
 popup_an_error(char *fmt, ...)
-#else
-popup_an_error(va_alist)
-va_dcl
-#endif
 {
 	va_list args;
 
-#if defined(__STDC__)
 	va_start(args, fmt);
-#else
-	char *fmt;
-	va_start(args);
-	fmt = va_arg(args, char *);
-#endif
-
 	(void) vsprintf(vmsgbuf, fmt, args);
 	if (!error_shell) {
 		(void) fprintf(stderr, "%s: %s\n", programname, vmsgbuf);
@@ -489,12 +451,7 @@ va_dcl
 
 /* Pop up an error dialog, based on an error number. */
 void
-#if defined(__STDC__)
 popup_an_errno(int errn, char *fmt, ...)
-#else
-popup_an_errno(va_alist)
-va_dcl
-#endif
 {
 	va_list args;
 	char *s;
@@ -503,15 +460,7 @@ va_dcl
 	extern char *sys_errlist[];
 #endif
 
-#if defined(__STDC__)
 	va_start(args, fmt);
-#else
-	int errn;
-	char *fmt;
-	va_start(args);
-	errn = va_arg(args, int);
-	fmt = va_arg(args, char *);
-#endif
 	(void) vsprintf(vmsgbuf, fmt, args);
 	s = XtNewString(vmsgbuf);
 
@@ -537,10 +486,7 @@ Boolean info_popup_visible;
 /* Called when OK is pressed on the info popup */
 /*ARGSUSED*/
 static void
-saw_info(w, client_data, call_data)
-Widget w;
-XtPointer client_data;
-XtPointer call_data;
+saw_info(Widget w, XtPointer client_data, XtPointer call_data)
 {
 	XtPopdown(info_shell);
 }
@@ -548,16 +494,13 @@ XtPointer call_data;
 /* Called when the info popup is closed */
 /*ARGSUSED*/
 static void
-info_popdown(w, client_data, call_data)
-Widget w;
-XtPointer client_data;
-XtPointer call_data;
+info_popdown(Widget w, XtPointer client_data, XtPointer call_data)
 {
 	info_popup_visible = False;
 }
 
 void
-info_popup_init()
+info_popup_init(void)
 {
 	Widget w;
 
@@ -574,7 +517,7 @@ info_popup_init()
 	/* Create a dialog in the popup */
 
 	info_form = XtVaCreateManagedWidget(
-	    "dialog", dialogWidgetClass, info_shell,
+	    ObjDialog, dialogWidgetClass, info_shell,
 	    NULL);
 	XtVaSetValues(XtNameToWidget(info_form, XtNlabel),
 	    XtNlabel, "first line\nsecond line",
@@ -594,23 +537,11 @@ info_popup_init()
 
 /* Pop up an info dialog. */
 void
-#if defined(__STDC__)
 popup_an_info(char *fmt, ...)
-#else
-popup_an_info(va_alist)
-va_dcl
-#endif
 {
 	va_list args;
 
-#if defined(__STDC__)
 	va_start(args, fmt);
-#else
-	char *fmt;
-	va_start(args);
-	fmt = va_arg(args, char *);
-#endif
-
 	(void) vsprintf(vmsgbuf, fmt, args);
 	if (!info_shell) {
 		(void) printf("%s: %s\n", programname, vmsgbuf);
@@ -630,11 +561,7 @@ va_dcl
  */
 /*ARGSUSED*/
 void
-Info_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+Info_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
 	action_debug(Info_action, event, params, num_params);
 	if (check_usage(Info_action, *num_params, 1, 1) < 0)

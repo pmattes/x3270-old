@@ -1,12 +1,12 @@
 /* (from) $XConsortium: SmeLine.c,v 1.13 91/07/23 12:23:21 rws Exp $ */
 
 /*
- * Modifications Copyright 1995 by Paul Mattes.
- *   Permission to use, copy, modify, and distribute this software and its
- *   documentation for any purpose and without fee is hereby granted,
- *   provided that the above copyright notice appear in all copies and that
- *   both that copyright notice and this permission notice appear in
- *   supporting documentation.
+ * Modifications Copyright 1995, 1999 by Paul Mattes.
+ *  Permission to use, copy, modify, and distribute this software and its
+ *  documentation for any purpose and without fee is hereby granted,
+ *  provided that the above copyright notice appear in all copies and that
+ *  both that copyright notice and this permission notice appear in
+ *  supporting documentation.
  *
  * Copyright 1989 Massachusetts Institute of Technology
  *
@@ -40,6 +40,9 @@
  *          MIT X Consortium 
  *          kit@expo.lcs.mit.edu
  */
+
+#include "globals.h"
+#if defined(X3270_MENUS) /*[*/
 
 #include <stdio.h>
 #include <X11/IntrinsicP.h>
@@ -287,3 +290,5 @@ XtWidgetGeometry *intended, *return_val;
     }
     return(ret_val);
 }
+
+#endif /*]*/

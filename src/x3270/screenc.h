@@ -1,5 +1,5 @@
 /*
- * Copyright 1995, 1996 by Paul Mattes.
+ * Copyright 1995, 1996, 1999 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -12,46 +12,65 @@
  *		Global declarations for screen.c.
  */
 
-extern void aicon_font_init();
-extern void aicon_size();
-extern void blink_start();
-extern void Configure_action();
-extern void cursor_move();
-extern void do_toggle();
-extern void enable_cursor();
-extern void EnterLeave_action();
-extern void FocusEvent_action();
-extern void GraphicsExpose_action();
-extern void initialize_toggles();
-extern void KeymapEvent_action();
-extern char *load_fixed_font();
-extern void mcursor_locked();
-extern void mcursor_normal();
-extern void mcursor_waiting();
-extern void Quit_action();
-extern void Redraw_action();
-extern void ring_bell();
-extern void save_00translations();
-extern void screen_change_model();
-extern void screen_connect();
-extern void screen_disp();
-extern void screen_flip();
-extern void screen_init();
-extern void screen_newcharset();
-extern void screen_newfont();
-extern void screen_newscheme();
-extern Boolean screen_obscured();
-extern void screen_scroll();
-extern void screen_set_keymap();
-extern void screen_set_temp_keymap();
-extern void screen_set_thumb();
-extern void screen_showikeypad();
-extern void SetFont_action();
-extern void set_aicon_label();
-extern void set_font_globals();
-extern void set_translations();
-extern void shift_event();
-extern void shutdown_toggles();
-extern void StateChanged_action();
-extern void Visible_action();
-extern void WMProtocols_action();
+extern void blink_start(void);
+extern void cursor_move(int baddr);
+extern unsigned display_height(void);
+extern unsigned display_heightMM(void);
+extern unsigned display_width(void);
+extern unsigned display_widthMM(void);
+extern void enable_cursor(Boolean on);
+extern void font_init(void);
+extern void icon_init(void);
+extern char *load_fixed_font(char *name);
+extern void mcursor_locked(void);
+extern void mcursor_normal(void);
+extern void mcursor_waiting(void);
+extern void PA_ConfigureNotify_action(Widget w, XEvent *event, String *params,
+    Cardinal *num_params);
+extern void PA_EnterLeave_action(Widget w, XEvent *event, String *params,
+    Cardinal *num_params);
+extern void PA_Expose_action(Widget w, XEvent *event, String *params,
+    Cardinal *num_params);
+extern void PA_Focus_action(Widget w, XEvent *event, String *params,
+    Cardinal *num_params);
+extern void PA_GraphicsExpose_action(Widget w, XEvent *event, String *params,
+    Cardinal *num_params);
+extern void PA_KeymapNotify_action(Widget w, XEvent *event, String *params,
+    Cardinal *num_params);
+extern void PA_StateChanged_action(Widget w, XEvent *event, String *params,
+    Cardinal *num_params);
+extern void PA_VisibilityNotify_action(Widget w, XEvent *event, String *params,
+    Cardinal *num_params);
+extern void PA_WMProtocols_action(Widget w, XEvent *event, String *params,
+    Cardinal *num_params);
+extern void Redraw_action(Widget w, XEvent *event, String *params,
+    Cardinal *num_params);
+extern void ring_bell(void);
+extern void save_00translations(Widget w, XtTranslations *t00);
+extern void screen_change_model(int mn, int ovc, int ovr);
+extern void screen_disp(void);
+extern void screen_extended(Boolean extended);
+extern void screen_flip(void);
+extern GC screen_gc(int color);
+extern void screen_init(void);
+extern GC screen_invgc(int color);
+extern void screen_m3279(Boolean m3279);
+extern void screen_newcharset(char *csname);
+extern void screen_newfont(char *fontname, Boolean do_popup);
+extern void screen_newscheme(char *s);
+extern Boolean screen_obscured(void);
+extern void screen_scroll(void);
+extern void screen_set_keymap(void);
+extern void screen_set_temp_keymap(XtTranslations trans);
+extern void screen_set_thumb(float top, float shown);
+extern void screen_showikeypad(Boolean on);
+extern void SetFont_action(Widget w, XEvent *event, String *params,
+    Cardinal *num_params);
+extern void set_aicon_label(char *l);
+extern void set_translations(Widget w, XtTranslations *t00, XtTranslations *t0);
+extern void shift_event(int event_state);
+extern void toggle_altCursor(struct toggle *t, enum toggle_type tt);
+extern void toggle_cursorBlink(struct toggle *t, enum toggle_type tt);
+extern void toggle_cursorPos(struct toggle *t, enum toggle_type tt);
+extern void toggle_monocase(struct toggle *t, enum toggle_type tt);
+extern void toggle_scrollBar(struct toggle *t, enum toggle_type tt);

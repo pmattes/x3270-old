@@ -1,5 +1,5 @@
 /*
- * Modifications Copyright 1996 by Paul Mattes.
+ * Modifications Copyright 1996, 1999 by Paul Mattes.
  * Copyright Octover 1995 by Dick Altenbern.
  * Based in part on code Copyright 1993, 1994, 1995 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
@@ -16,8 +16,12 @@
 
 #include "globals.h"
 
+#if defined(X3270_FT) /*[*/
+
+#include "appres.h"
 #include "3270ds.h"
 #include "ft_dft_ds.h"
+
 #include "actionsc.h"
 #include "kybdc.h"
 #include "ft_dftc.h"
@@ -79,25 +83,24 @@ struct upload_buffer {
 
 /* Statics. */
 static Boolean message_flag = False;	/* Open Request for msg received */
-static int at_eof;
+static int eof;
 static unsigned long recnum;
 static char *abort_string = CN;
 
-static void dft_abort();
-static void dft_close_request();
-static void dft_data_insert();
-static void dft_get_request();
-static void dft_insert_request();
-static void dft_open_request();
-static void dft_set_cur_req();
-static int filter_len();
+static void dft_abort(char *s, unsigned short code);
+static void dft_close_request(void);
+static void dft_data_insert(struct data_buffer *data_bufr);
+static void dft_get_request(void);
+static void dft_insert_request(void);
+static void dft_open_request(struct open_buffer *open_buf);
+static void dft_set_cur_req(void);
+static int filter_len(char *s, register int len);
 
 /* Process a Transfer Data structured field from the host. */
 void
-ft_dft_data(data_bufr, length)
-struct data_buffer *data_bufr;
-int length;
+ft_dft_data(unsigned char *data, int length)
 {
+	struct data_buffer *data_bufr = (struct data_buffer *)data;
 	unsigned short data_type;
 	unsigned char *cp;
 
@@ -140,8 +143,7 @@ int length;
 
 /* Process an Open request. */
 static void
-dft_open_request(open_buf)
-struct open_buffer *open_buf;
+dft_open_request(struct open_buffer *open_buf)
 {
 	trace_ds(" Open %*.*s\n", 7, 7, open_buf->name);
 
@@ -151,7 +153,7 @@ struct open_buffer *open_buf;
 		message_flag = False;
 		ft_running(False);
 	}
-	at_eof = False;
+	eof = False;
 	recnum = 1;
 
 	trace_ds("> WriteStructuredField FileTransferData OpenAck\n");
@@ -166,7 +168,7 @@ struct open_buffer *open_buf;
 
 /* Process an Insert request. */
 static void
-dft_insert_request()
+dft_insert_request(void)
 {
 	trace_ds(" Insert\n");
 	/* Doesn't currently do anything. */
@@ -174,8 +176,7 @@ dft_insert_request()
 
 /* Process a Data Insert request. */
 static void
-dft_data_insert(data_bufr)
-struct data_buffer *data_bufr;
+dft_data_insert(struct data_buffer *data_bufr)
 {
 	/* Received a data buffer, get the length and process it */
 	int my_length;
@@ -225,9 +226,12 @@ struct data_buffer *data_bufr;
 		} else if (ft_state == FT_ABORT_SENT && abort_string != CN) {
 			XtFree(msgp);
 			ft_complete(abort_string);
+			XtFree(abort_string);
 			abort_string = CN;
-		} else
+		} else {
 			ft_complete(msgp);
+			XtFree(msgp);
+		}
 	} else if (my_length > 0) {
 		/* Write the data out to the file. */
 		int rv = 1;
@@ -263,7 +267,7 @@ struct data_buffer *data_bufr;
 			char *buf;
 
 			buf = xs_buffer("write(%s): %s", ft_local_filename,
-			    local_strerror(errno));
+			    strerror(errno));
 
 			dft_abort(buf, TR_DATA_INSERT);
 			XtFree(buf);
@@ -290,7 +294,7 @@ struct data_buffer *data_bufr;
 
 /* Process a Set Cursor request. */
 static void
-dft_set_cur_req()
+dft_set_cur_req(void)
 {
 	trace_ds(" SetCursor\n");
 	/* Currently doesn't do anything. */
@@ -298,7 +302,7 @@ dft_set_cur_req()
 
 /* Process a Get request. */
 static void
-dft_get_request()
+dft_get_request(void)
 {
 	int numbytes;
 	size_t numread;
@@ -314,9 +318,9 @@ dft_get_request()
 
 	/*
 	 * This is a request to send an upload buffer.
-	 * First check to see if we are finished (at_eof = True).
+	 * First check to see if we are finished (eof = True).
 	 */
-	if (at_eof) {
+	if (eof) {
 		/* We are done, send back the eof error. */
 		trace_ds("> WriteStructuredField FileTransferData EOF\n");
 		space3270out(sizeof(struct error_response) + 1);
@@ -395,14 +399,14 @@ dft_get_request()
 				/* End of file. */
 
 				/* Set that we are out of data. */
-				at_eof = True;
+				eof = True;
 				break;
 			} else if (ferror(ft_local_file)) {
 				char *buf;
 
 				buf = xs_buffer("read(%s): %s",
 					ft_local_filename,
-					local_strerror(errno));
+					strerror(errno));
 				dft_abort(buf, TR_GET_REQ);
 			}
 		}
@@ -432,7 +436,7 @@ dft_get_request()
 
 /* Process a Close request. */
 static void
-dft_close_request()
+dft_close_request(void)
 {
 	/*
 	 * Recieved a close request from the system.
@@ -451,9 +455,7 @@ dft_close_request()
 
 /* Abort a transfer. */
 static void
-dft_abort(s, code)
-char *s;
-unsigned short code;
+dft_abort(char *s, unsigned short code)
 {
 	if (abort_string != CN)
 		XtFree(abort_string);
@@ -478,9 +480,7 @@ unsigned short code;
 
 /* Returns the number of bytes in s, limited by len, that aren't CRs or ^Zs. */
 static int
-filter_len(s, len)
-char *s;
-register int len;
+filter_len(char *s, register int len)
 {
 	register char *t = s;
 
@@ -490,3 +490,5 @@ register int len;
 	}
 	return t - s;
 }
+
+#endif /*]*/

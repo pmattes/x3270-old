@@ -1,5 +1,5 @@
 /*
- * Copyright 1993, 1994, 1995 by Paul Mattes.
+ * Copyright 1993, 1994, 1995, 1999 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -13,6 +13,9 @@
  */
 
 #include "globals.h"
+
+#if defined(X3270_MENUS) /*[*/
+
 #include <X11/Shell.h>
 #include <X11/StringDefs.h>
 #include <X11/Xaw/Command.h>
@@ -41,10 +44,7 @@ extern struct trans_list *temp_keymaps;
 /* Called when OK is pressed on the about popup */
 /*ARGSUSED*/
 static void
-saw_about(w, client_data, call_data)
-Widget w;
-XtPointer client_data;
-XtPointer call_data;
+saw_about(Widget w, XtPointer client_data, XtPointer call_data)
 {
 	XtPopdown(about_shell);
 }
@@ -52,10 +52,7 @@ XtPointer call_data;
 /* Called when the about popup is popped down */
 /*ARGSUSED*/
 static void
-destroy_about(w, client_data, call_data)
-Widget w;
-XtPointer client_data;
-XtPointer call_data;
+destroy_about(Widget w, XtPointer client_data, XtPointer call_data)
 {
 	XtDestroyWidget(about_shell);
 	about_shell = NULL;
@@ -63,8 +60,7 @@ XtPointer call_data;
 
 /* Return a time difference in English */
 static char *
-hms(ts)
-time_t ts;
+hms(time_t ts)
 {
 	time_t t, td;
 	long hr, mn, sc;
@@ -154,7 +150,7 @@ time_t ts;
 
 /* Called when the "About x3270..." button is pressed */
 void
-popup_about()
+popup_about(void)
 {
 	Widget w = NULL, w_prev = NULL;
 	Widget v = NULL;
@@ -177,7 +173,7 @@ popup_about()
 	/* Create a form in the popup */
 
 	about_form = XtVaCreateManagedWidget(
-	    "dialog", formWidgetClass, about_shell,
+	    ObjDialog, formWidgetClass, about_shell,
 	    NULL);
 
 	/* Pretty picture */
@@ -204,9 +200,10 @@ popup_about()
 	w = left_anchor;
 	left_anchor = NULL;
 
-	MAKE_SMALL("Modifications Copyright \251 1993, 1994, 1995, 1996, 1997 by Paul Mattes.\n\
+	MAKE_SMALL("Modifications Copyright \251 1993, 1994, 1995, 1996, 1997, 1999 by Paul Mattes.\n\
 Original X11 Port Copyright \251 1990 by Jeff Sparkes.\n\
 File transfer code Copyright \251 1995 by Dick Altenbern.\n\
+Includes IAC IP patch by Carey Evans, 1998.\n\
  Permission to use, copy, modify, and distribute this software and its documentation\n\
  for any purpose and without fee is hereby granted, provided that the above copyright\n\
  notice appear in all copies and that both that copyright notice and this permission\n\
@@ -229,6 +226,10 @@ Copyright \251 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.\n\
 
 	MAKE_LABEL(get_message("terminalName"), 4);
 	MAKE_VALUE(termtype);
+	if (luname[0]) {
+		MAKE_LABEL2(get_message("luName"));
+		MAKE_VALUE(luname);
+	}
 
 	MAKE_LABEL(get_message("emulatorFont"), 4);
 	MAKE_VALUE(efontname);
@@ -246,8 +247,9 @@ Copyright \251 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.\n\
 	if (appres.charset) {
 		MAKE_LABEL(get_message("characterSet"), 4);
 		MAKE_VALUE(appres.charset);
-	} else
+	} else {
 		MAKE_LABEL(get_message("defaultCharacterSet"), 4);
+	}
 
 	if (trans_list != (struct trans_list *)NULL ||
 	    temp_keymaps != (struct trans_list *)NULL) {
@@ -303,9 +305,11 @@ Copyright \251 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.\n\
 				ftype = get_message("lineMode");
 			else
 				ftype = get_message("charMode");
+			(void) sprintf(fbuf, "  %s, ", ftype);
+		} else if (IN_3270) {
+			(void) sprintf(fbuf, "  %s, ", get_message("dsMode"));
 		} else
-			ftype = get_message("dsMode");
-		(void) sprintf(fbuf, "  %s, ", ftype);
+			(void) strcpy(fbuf, "  ");
 		(void) strcat(fbuf, hms(ns_time));
 
 		MAKE_LABEL(fbuf, 0);
@@ -350,7 +354,6 @@ Copyright \251 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.\n\
 	} else if (HALF_CONNECTED) {
 		MAKE_LABEL(get_message("connectionPending"), 4);
 		MAKE_VALUE(current_host);
-		MAKE_LABEL(hms(ns_time), 0);
 	} else
 		MAKE_LABEL(get_message("notConnected"), 4);
 
@@ -371,3 +374,5 @@ Copyright \251 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.\n\
 
 #undef MAKE_LABEL
 #undef MAKE_VALUE
+
+#endif /*]*/

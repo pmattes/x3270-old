@@ -1,5 +1,5 @@
 /*
- * Modifications Copyright 1996 by Paul Mattes.
+ * Modifications Copyright 1996, 1999 by Paul Mattes.
  * Copyright October 1995 by Dick Altenbern
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -12,6 +12,8 @@
  *	ftc.h
  *		Global declarations for ft.c.
  */
+
+#if defined(X3270_FT) /*[*/
 
 extern Boolean ascii_flag;
 extern Boolean cr_flag;
@@ -27,14 +29,14 @@ enum ft_state {
 	};
 extern enum ft_state ft_state;
 
-extern void popup_ft();
+extern void ft_aborting(void);
+extern void ft_complete(String errmsg);
+extern void ft_running(Boolean is_cut);
+extern void ft_update_length(void);
+extern void PA_dialog_focus_action(Widget w, XEvent *event, String *parms,
+    Cardinal *num_parms);
+extern void PA_dialog_next_action(Widget w, XEvent *event, String *parms,
+    Cardinal *num_parms);
+extern void popup_ft(Widget w, XtPointer call_parms, XtPointer call_data);
 
-extern void dialog_focus_action();
-extern void dialog_next_action();
-
-extern void ft_aborting();
-extern void ft_complete();
-extern void ft_disconnected();
-extern void ft_not3270();
-extern void ft_running();
-extern void ft_update_length();
+#endif /*]*/

@@ -1,5 +1,5 @@
 /*
- * Copyright 1993, 1994, 1995, 199 by Paul Mattes.
+ * Copyright 1993, 1994, 1995, 1999 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -21,6 +21,7 @@
 #include "cg.h"
 
 #include "kybdc.h"
+#include "hostc.h"
 #include "statusc.h"
 #include "tablesc.h"
 #include "utilc.h"
@@ -130,19 +131,19 @@ static Position		status_y;
 
 /* Status line contents (high-level) */
 
-static void     do_disconnected();
-static void     do_connecting();
-static void     do_nonspecific();
-static void     do_inhibit();
-static void     do_blank();
-static void     do_twait();
-static void     do_syswait();
-static void     do_protected();
-static void     do_numeric();
-static void     do_overflow();
-static void     do_scrolled();
+static void do_disconnected(void);
+static void do_connecting(void);
+static void do_nonspecific(void);
+static void do_inhibit(void);
+static void do_blank(void);
+static void do_twait(void);
+static void do_syswait(void);
+static void do_protected(void);
+static void do_numeric(void);
+static void do_overflow(void);
+static void do_scrolled(void);
 
-static Boolean  oia_undera = False;
+static Boolean  oia_undera = True;
 static Boolean  oia_boxsolid = False;
 static int      oia_shift = 0;
 static Boolean  oia_typeahead = False;
@@ -164,7 +165,7 @@ static enum msg {
 }               oia_msg = DISCONNECTED, saved_msg;
 static Boolean  msg_is_saved = False;
 static int      n_scrolled = 0;
-static void     (*msg_proc[]) () = {
+static void     (*msg_proc[])(void) = {
 	do_disconnected,
 	do_connecting,
 	do_nonspecific,
@@ -232,60 +233,65 @@ static unsigned char *a_numeric;
 static unsigned char *a_overflow;
 static unsigned char *a_scrolled;
 
-static unsigned char *make_amsg();
-static unsigned char *make_emsg();
+static unsigned char *make_amsg(char *key);
+static unsigned char *make_emsg(unsigned char prefix[], char *key, int *len);
 
-static void     status_render();
-static void     do_ctlr();
-static void     do_msg();
-static void     paint_msg();
-static void     do_insert();
-static void     do_reverse();
-static void     do_kmap();
-static void	do_script();
-static void     do_shift();
-static void     do_typeahead();
-static void     do_compose();
-static void     do_timing();
-static void     do_cursor();
+static void status_render(int region);
+static void do_ctlr(void);
+static void do_msg(enum msg t);
+static void paint_msg(enum msg t);
+static void do_insert(Boolean on);
+static void do_reverse(Boolean on);
+static void do_kmap(Boolean on);
+static void do_script(Boolean on);
+static void do_shift(int state);
+static void do_typeahead(int state);
+static void do_compose(Boolean on, unsigned char c, enum keytype keytype);
+static void do_timing(char *buf);
+static void do_cursor(char *buf);
+
+static void status_connect(Boolean connected);
+static void status_half_connect(Boolean ignored);
 
 
-/* Initialize, or reinitialize the status line */
+/* Initialize the status line */
 void
-status_init(keep_contents, model_changed, font_changed)
-Boolean keep_contents;
-Boolean model_changed;
-Boolean font_changed;
+status_init(void)
+{
+	a_not_connected = make_amsg("statusNotConnected");
+	disc_msg = make_emsg(disc_pfx, "statusNotConnected",
+	    &disc_len);
+	a_connecting = make_amsg("statusConnecting");
+	cnct_msg = make_emsg(cnct_pfx, "statusConnecting", &cnct_len);
+	a_inhibit = make_amsg("statusInhibit");
+	a_twait = make_amsg("statusTwait");
+	a_syswait = make_amsg("statusSyswait");
+	a_protected = make_amsg("statusProtected");
+	a_numeric = make_amsg("statusNumeric");
+	a_overflow = make_amsg("statusOverflow");
+	a_scrolled = make_amsg("statusScrolled");
+
+	register_schange(ST_HALF_CONNECT, status_half_connect);
+	register_schange(ST_CONNECT, status_connect);
+}
+
+/* Reinitialize the status line */
+void
+status_reinit(unsigned cmask)
 {
 	int	i;
-	static Boolean	ever = False;
 
-	if (!ever) {
-		a_not_connected = make_amsg("statusNotConnected");
-		disc_msg = make_emsg(disc_pfx, "statusNotConnected",
-		    &disc_len);
-		a_connecting = make_amsg("statusConnecting");
-		cnct_msg = make_emsg(cnct_pfx, "statusConnecting", &cnct_len);
-		a_inhibit = make_amsg("statusInhibit");
-		a_twait = make_amsg("statusTwait");
-		a_syswait = make_amsg("statusSyswait");
-		a_protected = make_amsg("statusProtected");
-		a_numeric = make_amsg("statusNumeric");
-		a_overflow = make_amsg("statusOverflow");
-		a_scrolled = make_amsg("statusScrolled");
-		ever = True;
-	}
-	if (font_changed)
+	if (cmask & FONT_CHANGE)
 		nullblank = *standard_font ? ' ' : CG_space;
-	if (font_changed || model_changed) {
+	if (cmask & (FONT_CHANGE | MODEL_CHANGE)) {
 		status_y = STATUS_Y;
-		if (!(*efontinfo)->descent)
+		if (!*descent)
 			++status_y;
 	}
-	if (model_changed) {
+	if (cmask & MODEL_CHANGE) {
 		if (status_line)
 			XtFree((char *)status_line);
-		status_line = (struct status_line *) XtCalloc(sizeof(struct status_line), SSZ);
+		status_line = (struct status_line *)XtCalloc(sizeof(struct status_line), SSZ);
 		if (status_2b != (XChar2b *)NULL)
 			XtFree((char *)status_2b);
 		status_2b = (XChar2b *)XtCalloc(sizeof(XChar2b), maxCOLS);
@@ -300,8 +306,6 @@ Boolean font_changed;
 		if (appres.mono)
 			colors[1] = FA_INT_NORM_NSEL;
 		for (i = 0; i < SSZ; i++) {
-			status_line[i].color = appres.m3279 ?
-			    colors3279[i] : colors[i];
 			status_line[i].start = offsets[i];
 			status_line[i].len = offsets[i+1] - offsets[i];
 			status_line[i].s2b = status_2b + offsets[i];
@@ -310,33 +314,37 @@ Boolean font_changed;
 		}
 	} else
 		(void) memset(display_2b, 0, maxCOLS * sizeof(XChar2b));
+	if (cmask & (COLOR_CHANGE | MODEL_CHANGE)) {
+		for (i = 0; i < SSZ; i++) {
+			status_line[i].color = appres.m3279 ?
+			    colors3279[i] : colors[i];
+		}
+	}
 
 	for (i = 0; i < SSZ; i++)
-		status_line[i].changed = keep_contents;
-	status_changed = keep_contents;
+		status_line[i].changed = True;
+	status_changed = True;
 
 	/*
-	 * If reinitializing, redo the whole line, in case we switched between
-	 * a 3270 font and a standard font.
+	 * Always redraw all the fields; it's easier than keeping track of
+	 * what may have changed and why.
 	 */
-	if (keep_contents && font_changed) {
-		do_ctlr();
-		paint_msg(oia_msg);
-		do_insert(oia_insert);
-		do_reverse(oia_reverse);
-		do_kmap(oia_kmap);
-		do_script(oia_script);
-		do_shift(oia_shift);
-		do_typeahead(oia_typeahead);
-		do_compose(oia_compose, oia_compose_char, oia_compose_keytype);
-		do_cursor(oia_cursor);
-		do_timing(oia_timing);
-	}
+	do_ctlr();
+	paint_msg(oia_msg);
+	do_insert(oia_insert);
+	do_reverse(oia_reverse);
+	do_kmap(oia_kmap);
+	do_script(oia_script);
+	do_shift(oia_shift);
+	do_typeahead(oia_typeahead);
+	do_compose(oia_compose, oia_compose_char, oia_compose_keytype);
+	do_cursor(oia_cursor);
+	do_timing(oia_timing);
 }
 
 /* Render the status line onto the screen */
 void
-status_disp()
+status_disp(void)
 {
 	int	i;
 
@@ -355,7 +363,7 @@ status_disp()
 
 /* Mark the entire status line as changed */
 void
-status_touch()
+status_touch(void)
 {
 	int	i;
 
@@ -367,26 +375,18 @@ status_touch()
 	status_changed = True;
 }
 
-/* Initialize the controller status */
-void
-status_ctlr_init()
-{
-	oia_undera = True;
-	do_ctlr();
-}
-
 /* Keyboard lock status changed */
 void
-status_kybdlock()
+status_kybdlock(void)
 {
 	/* presently implemented as explicit calls */
 }
 
 /* Connected or disconnected */
-void
-status_connect()
+static void
+status_connect(Boolean connected)
 {
-	if (CONNECTED) {
+	if (connected) {
 		oia_boxsolid = True;
 		do_ctlr();
 		if (kybdlock & KL_AWAITING_FIRST)
@@ -394,13 +394,7 @@ status_connect()
 		else
 			do_msg(BLANK);
 		status_untiming();
-	} else if (HALF_CONNECTED) {
-		oia_boxsolid = False;
-		do_ctlr();
-		do_msg(CONNECTING);
-		status_untiming();
-		status_uncursor_pos();
-	} else {	/* not connected */
+	} else {
 		oia_boxsolid = False;
 		do_ctlr();
 		do_msg(DISCONNECTED);
@@ -408,9 +402,20 @@ status_connect()
 	}
 }
 
+/* Half connected */
+static void
+status_half_connect(Boolean ignored)
+{
+	oia_boxsolid = False;
+	do_ctlr();
+	do_msg(CONNECTING);
+	status_untiming();
+	status_uncursor_pos();
+}
+
 /* Lock the keyboard (twait) */
 void
-status_twait()
+status_twait(void)
 {
 	oia_undera = False;
 	do_ctlr();
@@ -419,7 +424,7 @@ status_twait()
 
 /* Done with controller confirmation */
 void
-status_ctlr_done()
+status_ctlr_done(void)
 {
 	oia_undera = True;
 	do_ctlr();
@@ -427,15 +432,14 @@ status_ctlr_done()
 
 /* Lock the keyboard (X SYSTEM) */
 void
-status_syswait()
+status_syswait(void)
 {
 	do_msg(SYSWAIT);
 }
 
 /* Lock the keyboard (operator error) */
 void
-status_oerr(error_type)
-int error_type;
+status_oerr(int error_type)
 {
 	switch (error_type) {
 	    case KL_OERR_PROTECTED:
@@ -452,8 +456,7 @@ int error_type;
 
 /* Lock the keyboard (X Scrolled) */
 void
-status_scrolled(n)
-int n;
+status_scrolled(int n)
 {
 	if (n != 0) {
 		if (!msg_is_saved) {
@@ -472,7 +475,7 @@ int n;
 
 /* Unlock the keyboard */
 void
-status_reset()
+status_reset(void)
 {
 	if (kybdlock & KL_ENTER_INHIBIT)
 		do_msg(INHIBIT);
@@ -484,58 +487,49 @@ status_reset()
 
 /* Toggle insert mode */
 void
-status_insert_mode(on)
-Boolean on;
+status_insert_mode(Boolean on)
 {
 	do_insert(oia_insert = on);
 }
 
 /* Toggle reverse mode */
 void
-status_reverse_mode(on)
-Boolean on;
+status_reverse_mode(Boolean on)
 {
 	do_reverse(oia_reverse = on);
 }
 
 /* Toggle kmap mode */
 void
-status_kmap(on)
-Boolean on;
+status_kmap(Boolean on)
 {
 	do_kmap(oia_kmap = on);
 }
 
 /* Toggle script mode */
 void
-status_script(on)
-Boolean on;
+status_script(Boolean on)
 {
 	do_script(oia_script = on);
 }
 
 /* Toggle shift mode */
 void
-status_shift_mode(state)
-int state;
+status_shift_mode(int state)
 {
 	do_shift(oia_shift = state);
 }
 
 /* Toggle typeahead */
 void
-status_typeahead(on)
-Boolean on;
+status_typeahead(Boolean on)
 {
 	do_typeahead(oia_typeahead = on);
 }
 
 /* Set compose character */
 void
-status_compose(on, c, keytype)
-Boolean on;
-unsigned char c;
-enum keytype keytype;
+status_compose(Boolean on, unsigned char c, enum keytype keytype)
 {
 	oia_compose = on;
 	oia_compose_char = c;
@@ -545,8 +539,7 @@ enum keytype keytype;
 
 /* Display timing */
 void
-status_timing(t0, t1)
-struct timeval *t0, *t1;
+status_timing(struct timeval *t0, struct timeval *t1)
 {
 	static char	no_time[] = ":??.?";
 	static char	buf[TCNT+1];
@@ -568,15 +561,14 @@ struct timeval *t0, *t1;
 
 /* Erase timing indication */
 void
-status_untiming()
+status_untiming(void)
 {
 	do_timing(oia_timing = (char *) 0);
 }
 
 /* Update cursor position */
 void
-status_cursor_pos(ca)
-int ca;
+status_cursor_pos(int ca)
 {
 	static char	buf[CCNT+1];
 
@@ -586,7 +578,7 @@ int ca;
 
 /* Erase cursor position */
 void
-status_uncursor_pos()
+status_uncursor_pos(void)
 {
 	do_cursor(oia_cursor = (char *) 0);
 }
@@ -596,10 +588,7 @@ status_uncursor_pos()
 
 /* Update the status line by displaying "symbol" at column "col".  */
 static void
-status_add(col, symbol, keytype)
-	int	col;
-	unsigned char symbol;
-	enum keytype keytype;
+status_add(int col, unsigned char symbol, enum keytype keytype)
 {
 	int	i;
 	XChar2b n2b;
@@ -628,8 +617,7 @@ status_add(col, symbol, keytype)
  * redundantly draw over B or not?  Right now we don't.
  */
 static void
-status_render(region)
-	int	region;
+status_render(int region)
 {
 	int	i;
 	struct status_line *sl = &status_line[region];
@@ -677,7 +665,7 @@ status_render(region)
 				XDrawImageString(display, *screen_window,
 				    screen_gc(sl->color),
 				    COL_TO_X(sl->start + i0), status_y,
-				    (char *) sl->s1b + i0, nd);
+				    (char *)sl->s1b + i0, nd);
 		}
 	}
 
@@ -689,7 +677,7 @@ status_render(region)
 		    (char *) sl->s1b + LBOX, 1);
 		XDrawRectangle(display, *screen_window, screen_gc(sl->color),
 		    COL_TO_X(sl->start + CNCT),
-		    status_y - (*efontinfo)->ascent + *char_height - 1,
+		    status_y - *ascent + *char_height - 1,
 		    *char_width - 1, 0);
 		XDrawImageString(display, *screen_window,
 		    screen_invgc(sl->color),
@@ -700,9 +688,7 @@ status_render(region)
 
 /* Write into the message area of the status line */
 static void
-status_msg_set(msg, len)
-unsigned char *msg;
-int len;
+status_msg_set(unsigned char *msg, int len)
 {
 	register int	i;
 
@@ -715,7 +701,7 @@ int len;
 
 /* Controller status */
 static void
-do_ctlr()
+do_ctlr(void)
 {
 	if (*standard_font) {
 		status_add(LBOX, '4', KT_STD);
@@ -744,8 +730,7 @@ do_ctlr()
 
 /* Change the state of the message area, or if scrolled, the saved message */
 static void
-do_msg(t)
-enum msg t;
+do_msg(enum msg t)
 {
 	if (msg_is_saved) {
 		saved_msg = t;
@@ -756,8 +741,7 @@ enum msg t;
 
 /* Paint the message area. */
 static void
-paint_msg(t)
-enum msg t;
+paint_msg(enum msg t)
 {
 	oia_msg = t;
 	(*msg_proc[(int)t])();
@@ -767,13 +751,13 @@ enum msg t;
 }
 
 static void
-do_blank()
+do_blank(void)
 {
 	status_msg_set((unsigned char *) 0, 0);
 }
 
 static void
-do_disconnected()
+do_disconnected(void)
 {
 	if (*standard_font)
 		status_msg_set(a_not_connected,
@@ -783,7 +767,7 @@ do_disconnected()
 }
 
 static void
-do_connecting()
+do_connecting(void)
 {
 	if (*standard_font)
 		status_msg_set(a_connecting, strlen((char *)a_connecting));
@@ -792,7 +776,7 @@ do_connecting()
 }
 
 static void
-do_nonspecific()
+do_nonspecific(void)
 {
 	static unsigned char nonspecific[] = {
 		CG_lock
@@ -805,7 +789,7 @@ do_nonspecific()
 }
 
 static void
-do_inhibit()
+do_inhibit(void)
 {
 	static unsigned char inhibit[] = {
 		CG_lock, CG_space, CG_I, CG_n, CG_h, CG_i, CG_b, CG_i, CG_t
@@ -818,7 +802,7 @@ do_inhibit()
 }
 
 static void
-do_twait()
+do_twait(void)
 {
 	static unsigned char twait[] = {
 		CG_lock, CG_space, CG_clockleft, CG_clockright
@@ -831,7 +815,7 @@ do_twait()
 }
 
 static void
-do_syswait()
+do_syswait(void)
 {
 	static unsigned char syswait[] = {
 		CG_lock, CG_space, CG_S, CG_Y, CG_S, CG_T, CG_E, CG_M
@@ -844,7 +828,7 @@ do_syswait()
 }
 
 static void
-do_protected()
+do_protected(void)
 {
 	static unsigned char protected[] = {
 		CG_lock, CG_space, CG_leftarrow, CG_human, CG_rightarrow
@@ -857,7 +841,7 @@ do_protected()
 }
 
 static void
-do_numeric()
+do_numeric(void)
 {
 	static unsigned char numeric[] = {
 		CG_lock, CG_space, CG_human, CG_N, CG_U, CG_M
@@ -870,7 +854,7 @@ do_numeric()
 }
 
 static void
-do_overflow()
+do_overflow(void)
 {
 	static unsigned char overflow[] = {
 		CG_lock, CG_space, CG_human, CG_greater
@@ -883,7 +867,7 @@ do_overflow()
 }
 
 static void
-do_scrolled()
+do_scrolled(void)
 {
 	static unsigned char scrolled[] = {
 		CG_lock, CG_space, CG_S, CG_c, CG_r, CG_o, CG_l, CG_l, CG_e,
@@ -916,36 +900,31 @@ do_scrolled()
 /* Insert, reverse, kmap, script, shift, compose */
 
 static void
-do_insert(on)
-Boolean on;
+do_insert(Boolean on)
 {
 	status_add(INSERT, on ? (*standard_font ? 'I' : CG_insert) : nullblank, KT_STD);
 }
 
 static void
-do_reverse(on)
-Boolean on;
+do_reverse(Boolean on)
 {
 	status_add(REVERSE, on ? (*standard_font ? 'R' : CG_R) : nullblank, KT_STD);
 }
 
 static void
-do_kmap(on)
-Boolean on;
+do_kmap(Boolean on)
 {
 	status_add(KMAP, on ? (*standard_font ? 'K' : CG_K) : nullblank, KT_STD);
 }
 
 static void
-do_script(on)
-Boolean on;
+do_script(Boolean on)
 {
 	status_add(SCRIPT, on ? (*standard_font ? 'S' : CG_S) : nullblank, KT_STD);
 }
 
 static void
-do_shift(state)
-int state;
+do_shift(int state)
 {
 	status_add(SHIFT-2, (state & MetaKeyDown) ?
 		(*standard_font ? 'M' : CG_M) : nullblank, KT_STD);
@@ -956,17 +935,13 @@ int state;
 }
 
 static void
-do_typeahead(state)
-int state;
+do_typeahead(int state)
 {
 	status_add(TYPEAHD, state ? (*standard_font ? 'T' : CG_T) : nullblank, KT_STD);
 }
 
 static void
-do_compose(on, c, keytype)
-Boolean on;
-unsigned char c;
-enum keytype keytype;
+do_compose(Boolean on, unsigned char c, enum keytype keytype)
 {
 	if (on) {
 		status_add(COMPOSE,
@@ -981,8 +956,7 @@ enum keytype keytype;
 
 /* Timing */
 static void
-do_timing(buf)
-char *buf;
+do_timing(char *buf)
 {
 	register int	i;
 
@@ -1003,8 +977,7 @@ char *buf;
 
 /* Cursor position */
 static void
-do_cursor(buf)
-char *buf;
+do_cursor(char *buf)
 {
 	register int	i;
 
@@ -1019,22 +992,18 @@ char *buf;
 /* Prepare status messages */
 
 static unsigned char *
-make_amsg(key)
-char *key;
+make_amsg(char *key)
 {
 	return (unsigned char *)xs_buffer("X %s", get_message(key));
 }
 
 static unsigned char *
-make_emsg(prefix, key, len)
-unsigned char prefix[];
-char *key;
-int *len;
+make_emsg(unsigned char prefix[], char *key, int *len)
 {
 	char *text = get_message(key);
-	unsigned char *buf = (unsigned char *) XtMalloc(*len + strlen(key));
+	unsigned char *buf = (unsigned char *)XtMalloc(*len + strlen(text));
 
-	(void) MEMORY_MOVE((char *)buf, (char *) prefix, *len);
+	(void) MEMORY_MOVE((char *)buf, (char *)prefix, *len);
 	while (*text)
 		buf[(*len)++] = asc2cg[(int)*text++];
 

@@ -1,5 +1,5 @@
 /*
- * Modifications Copyright 1996 by Paul Mattes.
+ * Modifications Copyright 1996, 1999 by Paul Mattes.
  * Copyright Octover 1995 by Dick Altenbern.
  * Based in part on code Copyright 1993, 1994, 1995 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its

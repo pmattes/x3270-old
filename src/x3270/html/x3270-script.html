@@ -1,16 +1,18 @@
 <HTML>
-<TITLE>Scripting Facilies for x3270</TITLE>
-<H1>Scripting Facilities for x3270</H1>
+<TITLE>Scripting Facilies for x3270 and s3270</TITLE>
+<H1>Scripting Facilities for x3270 and s3270</H1>
 <H2>SYNOPSIS</H2>
 <B>x3270 -script</B> [<I>x3270-options</I>]
+<P><B>s3270</B> [<I>s3270-options</I>]
 <P><B>Script(</B><I>command</I>[<I>,arg</I>...]<B>)</B>
 <H2>DESCRIPTION</H2>
-The <B>x3270</B> scripting facilities allow <B>x3270</B>
+The <B>x3270</B> scripting facilities allow <B>x3270</B> and <B>s3270</B>
 to be operated under the control of another program.
 <P>There are two basic methods.
-The first is the <B>peer script</B> facility, invoked by the <B>-script</B>
-switch.
-This runs <B>x3270</B> as a child of another process.
+The first is the <B>peer script</B> facility, invoked by the
+<B>x3270 -script</B> switch (<B>s3270</B> functions exclusively in script
+mode).
+This runs <B>x3270</B> or <B>s3270</B> as a child of another process.
 Typically this would be a script using <I>expect</I>(1)
 or the co-process facility of the Korn Shell <I>ksh</I>(1).
 When the <B>-script</B> switch is given, <B>x3270</B>
@@ -19,13 +21,13 @@ standard output and standard error output.
 <P>
 The second method is the <B>child script</B> facility, invoked by the
 <B>Script()</B> action.
-This runs a script as a child process of <B>x3270</B>.
+This runs a script as a child process of <B>x3270</B> or <B>s3270</B>.
 The child has access to pipes connected
-to <B>x3270</B>; <B>x3270</B> looks for commands on one pipe, and places the
-responses on the other.
-(The file descriptor of the pipe for commands to <B>x3270</B>
+to <B>x3270</B> or <B>s3270</B>; <B>x3270</B> or <B>s3270</B> look for commands
+on one pipe, and places the responses on the other.
+(The file descriptor of the pipe for commands to <B>x3270</B> or <B>s3270</B>
 is passed in the environment variable X3270INPUT; the file descriptor
-of the pipe for responses from <B>x3270</B>
+of the pipe for responses from <B>x3270</B> or <B>s3270</B>
 is passed in the environment variable X3270OUTPUT.)
 <P>
 (It is possible to mix the two methods: A script can invoke another
@@ -39,7 +41,7 @@ side of an X translation table (an <B>x3270</B>
 keymap), with two exceptions: only one action may appear per line, and
 if no parameters are needed by the action, the parentheses may be omitted.
 <P>
-Any <B>x3270</B> action may be specified.
+Any <B>x3270</B> or <B>s3270</B> action may be specified.
 Several new actions have been defined for use by scripts, and the behavior
 of certain other actions (and of <B>x3270</B>
 in general) is different when an action is initiated by a script.
@@ -47,7 +49,8 @@ in general) is different when an action is initiated by a script.
 Some actions generate output; some may delay completion until the certain
 external events occur, such as the host unlocking the keyboard.
 The completion of every command is marked by a two-line message.
-The first line is the current status of <B>x3270</B>, documented below.
+The first line is the current status of <B>x3270</B> or <B>s3270</B>,
+documented below.
 If the command is successful, the second line is the string "ok"; otherwise it
 is the string "error".
 <H2>STATUS FORMAT</H2>
@@ -77,7 +80,7 @@ If not connected, the letter <B>N</B>.
 <DD>
 <DT>Number of Rows
 <DD>The current number of rows defined on the screen.
-The host can request that <B>x3270</B>
+The host can request that <B>x3270</B> or <B>s3270</B>
 use a 24x80 screen, so this number may be smaller than the maximum number of
 rows possible with the current model.
 <DT>Number of Columns
@@ -92,6 +95,7 @@ difference for rows, above.
 <B>x3270</B>
 window, in hexadecimal preceded by
 <B>0x</B>.
+For <B>s3270</B>, this is zero.
 </DL>
 <H2>DIFFERENCES</H2>
 When an action is initiated by a script, <B>x3270</B>
@@ -156,7 +160,7 @@ The text is preceded by the string <SAMP>data:</SAMP>.
 <DT><B>Connect(</B><I>hostname</I><B>)</B>
 <DD>Connects to a host.
 The action does not return until
-<B>x3270</B>
+<B>x3270</B> or <B>s3270</B>
 is successfully connected in the proper mode, or the connection fails.
 <DT><B>CloseScript(</B><I>status</I><B>)</B>
 <DD>Causes <B>x3270</B> to stop reading commands from the script.
@@ -226,8 +230,9 @@ a byte from the host as above.
 <H2>SEE ALSO</H2>
 <I>expect</I>(1)<BR>
 <I>ksh(1)</I><BR>
-<A HREF="x3270.man.html"><I>x3270</I>(1)</A>
+<A HREF="x3270.man.html"><I>x3270</I>(1)</A><BR>
+<A HREF="s3270.man.html"><I>s3270</I>(1)</A>
 <HR>
 <ADDRESS>
-Last modified 17. April 1997
+Last modified 1. March 1999
 </ADDRESS>

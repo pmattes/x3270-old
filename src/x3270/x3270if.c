@@ -1,5 +1,5 @@
 /*
- * Copyright 1995, 1996 by Paul Mattes.
+ * Copyright 1995, 1996, 1999 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -31,7 +31,7 @@ char *me;
 int verbose = 0;
 
 void
-usage()
+usage(void)
 {
 	(void) fprintf(stderr, "usage: %s [-v] action[(param[,...])]\n", me);
 	(void) fprintf(stderr, "       %s [-v] -s field\n", me);
@@ -40,8 +40,7 @@ usage()
 
 /* Get a file descriptor from the environment. */
 int
-fd_env(name)
-char *name;
+fd_env(char *name)
 {
 	char *fdname;
 	int fd;
@@ -62,9 +61,7 @@ char *name;
 }
 
 int
-main(argc, argv)
-int argc;
-char *argv[];
+main(int argc, char *argv[])
 {
 	int c;
 	int fn = -1;

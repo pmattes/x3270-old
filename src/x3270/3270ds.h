@@ -1,5 +1,5 @@
 /*
- * Modifications Copyright 1993, 1994, 1995 by Paul Mattes.
+ * Modifications Copyright 1993, 1994, 1995, 1999 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -249,19 +249,11 @@
 #define COLOR_WHITE		15
 
 /* Data stream manipulation macros. */
-#if defined(__STDC__)
 #define MASK32	0xff000000U
 #define MASK24	0x00ff0000U
 #define MASK16	0x0000ff00U
 #define MASK08	0x000000ffU
 #define MINUS1	0xffffffffU
-#else
-#define MASK32	0xff000000
-#define MASK24	0x00ff0000
-#define MASK16	0x0000ff00
-#define MASK08	0x000000ff
-#define MINUS1	0xffffffff
-#endif
 
 #define SET16(ptr, val) { \
 	*((ptr)++) = ((val) & MASK16) >> 8; \

@@ -1,12 +1,12 @@
 /* (from) $XConsortium: SmeBSB.c,v 1.16 91/03/15 15:59:41 gildea Exp $ */
 
 /*
- * Modifications Copyright 1995 by Paul Mattes.
- *   Permission to use, copy, modify, and distribute this software and its
- *   documentation for any purpose and without fee is hereby granted,
- *   provided that the above copyright notice appear in all copies and that
- *   both that copyright notice and this permission notice appear in
- *   supporting documentation.
+ * Modifications Copyright 1995, 1999 by Paul Mattes.
+ *  Permission to use, copy, modify, and distribute this software and its
+ *  documentation for any purpose and without fee is hereby granted,
+ *  provided that the above copyright notice appear in all copies and that
+ *  both that copyright notice and this permission notice appear in
+ *  supporting documentation.
  *
  * Copyright 1989 Massachusetts Institute of Technology
  *
@@ -38,6 +38,9 @@
  *          MIT X Consortium 
  *          kit@expo.lcs.mit.edu
  */
+
+#include "globals.h"
+#if defined(X3270_MENUS) /*[*/
 
 #include <X11/IntrinsicP.h>
 #include <X11/StringDefs.h>
@@ -451,7 +454,7 @@ FlipOff(w)
 Widget w;
 {
     CmeBSBObject entry = (CmeBSBObject) w;
-    Widget menu, temp;
+    Widget menu = NULL, temp;
 
     FlipColors(w);
     if (entry->cme_bsb.menu_name == NULL)
@@ -722,7 +725,7 @@ PopupMenu(w)
 Widget w;
 {
     CmeBSBObject entry = (CmeBSBObject) w;
-    Widget menu, temp;
+    Widget menu = NULL, temp;
     Arg arglist[3];
     Cardinal num_args;
     int menu_x, menu_y, menu_width, menu_height, button_width;
@@ -795,3 +798,5 @@ void _XawCmeBSBApolloHack ()
     FlipColors();
 }
 #endif /* apollo */
+
+#endif /*]*/

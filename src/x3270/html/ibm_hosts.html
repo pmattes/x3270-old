@@ -14,7 +14,7 @@ is a host which can communicate with a 3270 terminal emulator such as
 Each line defines a name in the following format
 (optional fields are shown in brackets):
 <PRE>
-    name type hostname[/port] [actions]
+    <I>name type</I> [<I>opt</I>:]...[<I>LUname</I>@]<I>hostname</I>[:<I>port</I>] [<I>actions</I>]
 </PRE>
 Items are separated by any number of blanks and/or TAB characters.
 A line beginning with `#' is taken as a comment (note that `#' anywhere
@@ -33,10 +33,15 @@ when a host name is required.
 The <I>hostname</I>
 field is the Internet hostname or dot-notation Internet address of the host.
 <P>
-The <I>hostname</I> can also optionally include a non-default
-<I>port</I> number, appended to the <I>hostname</I>
-with a slash ``/'' character,
-<I>e.g.</I>, <B>bluehost/9700</B>.
+The <I>hostname</I> can include <tt>s:</tt> or <tt>p:</tt> prefixes,
+<I>e.g.</I>, <tt>s:finicky</tt> (see the <I>x3270</I>(1) man page for details).
+It can also include an LU name, separated by an <tt>@</tt> character,
+<I>e.g.</I>, <tt>oddlu@bluehost</tt>.
+Finally, it can include a non-default <I>port</I> number, appended to the
+<I>hostname</I> with a colon <tt>:</tt> character,
+<I>e.g.</I>, <tt>bluehost:9700</tt>.
+(For compatability with earlier versions of <I>x3270</I>, the <I>port</I> can
+also be separated by a slash <tt>/</tt> character.)
 <P>
 The optional <I>actions</I> field
 specifies actions to be taken once the connection is made and a data-entry
@@ -72,5 +77,5 @@ send the ENTER AID sequence.
 <A HREF="x3270.man.html"><I>x3270</I>(1)</A>
 <HR>
 <ADDRESS>
-Last modified 10. July 1995
+Last modified 11. March 1999
 </ADDRESS>

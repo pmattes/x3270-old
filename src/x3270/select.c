@@ -1,5 +1,5 @@
 /*
- * Copyright 1993, 1994, 1995 by Paul Mattes.
+ * Copyright 1993, 1994, 1995, 1999 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -74,7 +74,7 @@ static Dimension down1_x, down1_y;
 static unsigned long up_time = 0;
 static int      saw_motion = 0;
 static int      num_clicks = 0;
-static void     grab_sel();
+static void grab_sel(int start, int end, Boolean really, Time t);
 #define NS		5
 static Atom     want_sel[NS];
 static struct {			/* owned selections */
@@ -83,7 +83,7 @@ static struct {			/* owned selections */
 }               own_sel[NS];
 static Boolean  cursor_moved = False;
 static int      saved_cursor_addr;
-static void     own_sels();
+static void own_sels(Time t);
 int             n_owned = -1;
 Boolean         any_selected = False;
 
@@ -148,8 +148,7 @@ static int char_class[256] = {
 
 /* Parse a charClass string: [low-]high:value[,...] */
 void
-reclass(s)
-char *s;
+reclass(char *s)
 {
 	int n;
 	int low, high, value;
@@ -203,9 +202,7 @@ char *s;
 }
 
 static void
-select_word(baddr, t)
-int baddr;
-Time t;
+select_word(int baddr, Time t)
 {
 	unsigned char fa = *get_field_attribute(baddr);
 	unsigned char ch;
@@ -250,9 +247,7 @@ Time t;
 }
 
 static void
-select_line(baddr, t)
-int baddr;
-Time t;
+select_line(int baddr, Time t)
 {
 	f_start = baddr - (baddr % COLS);
 	f_end = f_start + COLS - 1;
@@ -268,11 +263,8 @@ Time t;
  */
 /*ARGSUSED*/
 void
-select_start_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+select_start_action(Widget w, XEvent *event, String *params,
+    Cardinal *num_params)
 {
 	int x, y;
 	register int baddr;
@@ -301,11 +293,8 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-move_select_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+move_select_action(Widget w, XEvent *event, String *params,
+    Cardinal *num_params)
 {
 	int x, y;
 	register int baddr;
@@ -343,11 +332,8 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-start_extend_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+start_extend_action(Widget w, XEvent *event, String *params,
+    Cardinal *num_params)
 {
 	int x, y;
 	int baddr;
@@ -381,11 +367,8 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-select_extend_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+select_extend_action(Widget w, XEvent *event, String *params,
+    Cardinal *num_params)
 {
 	int x, y;
 	int baddr;
@@ -396,8 +379,8 @@ Cardinal *num_params;
 
 	/* Ignore initial drag events if are too near. */
 	if (down1_time != 0L &&
-	    abs((int) event_x(event) - (int) down1_x) < CHAR_WIDTH &&
-	    abs((int) event_y(event) - (int) down1_y) < CHAR_HEIGHT)
+	    abs((int) event_x(event) - (int) down1_x) < *char_width &&
+	    abs((int) event_y(event) - (int) down1_y) < *char_height)
 		return;
 	else
 		down1_time = 0L;
@@ -447,11 +430,8 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-select_end_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+select_end_action(Widget w, XEvent *event, String *params,
+    Cardinal *num_params)
 {
 	int i;
 	int x, y;
@@ -511,11 +491,7 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-set_select_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+set_select_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
 	int i;
 
@@ -539,57 +515,20 @@ Cardinal *num_params;
 }
 
 /*
- * MoveCursor action.  Not a selection operation, but it uses the same macros
- * to map the mouse position onto a cursor position.
- * Usually bound to Shift<Btn1Down>.
+ * Called from the MoveCursor action with no parameters, to move the cursor
+ * to the mouse cursor location.
  */
-/*ARGSUSED*/
 void
-MoveCursor_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+move_cursor_to_mouse(Widget w, XEvent *event)
 {
 	int x, y;
 	register int baddr;
-	int row, col;
 
-	action_debug(MoveCursor_action, event, params, num_params);
-
-	if (kybdlock) {
-		if (*num_params == 2)
-			enq_ta(MoveCursor_action, params[0], params[1]);
+	if (w != *screen)
 		return;
-	}
-
-	switch (*num_params) {
-	    case 0:		/* mouse click, presumably */
-		if (w != *screen)
-			return;
-		BOUNDED_XY(event, x, y);
-		baddr = ROWCOL_TO_BA(y, x);
-		cursor_move(baddr);
-		break;
-	    case 2:		/* probably a macro call */
-		row = atoi(params[0]);
-		col = atoi(params[1]);
-		if (!IN_3270) {
-			row--;
-			col--;
-		}
-		if (row < 0)
-			row = 0;
-		if (col < 0)
-			col = 0;
-		baddr = ((row * COLS) + col) % (ROWS * COLS);
-		cursor_move(baddr);
-		break;
-	    default:		/* couln't say */
-		popup_an_error("%s: illegal argument count",
-		    action_name(MoveCursor_action));
-		break;
-	}
+	BOUNDED_XY(event, x, y);
+	baddr = ROWCOL_TO_BA(y, x);
+	cursor_move(baddr);
 }
 
 /*
@@ -602,11 +541,7 @@ Cardinal *num_params;
 
 /*ARGSUSED*/
 void
-Cut_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+Cut_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
 	register int baddr;
 	unsigned char fa = *get_field_attribute(0);
@@ -652,7 +587,7 @@ static int      sb_size = 0;
 static Time     sel_time;
 
 static void
-init_select_buf()
+init_select_buf(void)
 {
 	if (select_buf == CN)
 		select_buf = XtMalloc(sb_size = SB_CHUNK);
@@ -660,8 +595,7 @@ init_select_buf()
 }
 
 static void
-store_sel(c)
-char c;
+store_sel(char c)
 {
 	if (sb_ptr - select_buf >= sb_size) {
 		sb_size += SB_CHUNK;
@@ -672,12 +606,8 @@ char c;
 }
 
 static Boolean
-convert_sel(w, selection, target, type, value, length, format)
-Widget w;
-Atom *selection, *target, *type;
-XtPointer *value;
-unsigned long *length;
-int *format;
+convert_sel(Widget w, Atom *selection, Atom *target, Atom *type,
+    XtPointer *value, unsigned long *length, int *format)
 {
 	int i;
 
@@ -771,9 +701,7 @@ int *format;
 
 /*ARGSUSED*/
 static void
-lose_sel(w, selection)
-Widget w;
-Atom *selection;
+lose_sel(Widget w, Atom *selection)
 {
 	int i;
 
@@ -799,15 +727,13 @@ Atom *selection;
 static Boolean osc_valid = False;
 
 static void
-osc_start()
+osc_start(void)
 {
 	osc_valid = False;
 }
 
 static unsigned char
-onscreen_char(baddr, ge)
-int baddr;
-Boolean *ge;
+onscreen_char(int baddr, Boolean *ge)
 {
 	static int osc_baddr;
 	static unsigned char fa;
@@ -858,8 +784,7 @@ Boolean *ge;
  * Attempt to own the selections in want_sel[].
  */
 static void
-own_sels(t)
-Time t;
+own_sels(Time t)
 {
 	register int i, j;
 
@@ -919,10 +844,7 @@ Time t;
  * own the selections in want_sel[].
  */
 static void
-grab_sel(start, end, really, t)
-int start, end;
-Boolean really;
-Time t;
+grab_sel(int start, int end, Boolean really, Time t)
 {
 	register int i;
 	int start_row, end_row;
@@ -1046,8 +968,7 @@ Time t;
  * Check if any character in a given region is selected.
  */
 Boolean
-area_is_selected(baddr, len)
-int baddr, len;
+area_is_selected(int baddr, int len)
 {
 	register int i;
 
@@ -1062,13 +983,70 @@ int baddr, len;
  */
 /*ARGSUSED*/
 void
-unselect(baddr, len)
-int baddr;
-int len;
+unselect(int baddr, int len)
 {
 	if (any_selected) {
 		(void) memset((char *) selected, 0, (ROWS*COLS + 7) / 8);
 		ctlr_changed(0, ROWS*COLS);
 		any_selected = False;
+	}
+}
+
+/* Selection insertion. */
+#define NP	5
+static Atom	paste_atom[NP];
+static int	n_pasting = 0;
+static int	pix = 0;
+static Time	paste_time;
+
+/*ARGSUSED*/
+static void
+paste_callback(Widget w, XtPointer client_data, Atom *selection, Atom *type, XtPointer value, unsigned long *length, int *format)
+{
+	char *s;
+	unsigned long len;
+
+	if ((value == NULL) || (*length == 0)) {
+		XtFree(value);
+
+		/* Try the next one. */
+		if (n_pasting > pix)
+			XtGetSelectionValue(w, paste_atom[pix++], XA_STRING,
+			    paste_callback, NULL, paste_time);
+		return;
+	}
+
+	s = (char *)value;
+	len = *length;
+	(void) emulate_input(s, (int) len, True);
+	n_pasting = 0;
+
+	XtFree(value);
+}
+
+void
+insert_selection_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+{
+	int	i;
+	Atom	a;
+	XButtonEvent *be = (XButtonEvent *)event;
+
+	action_debug(insert_selection_action, event, params, num_params);
+	n_pasting = 0;
+	for (i = 0; i < *num_params; i++) {
+		a = XInternAtom(display, params[i], True);
+		if (a == None) {
+			popup_an_error("%s: no atom for selection",
+			    action_name(insert_selection_action));
+			continue;
+		}
+		if (n_pasting < NP)
+			paste_atom[n_pasting++] = a;
+	}
+	pix = 0;
+	if (n_pasting > pix) {
+		paste_time = be->time;
+		XtGetSelectionValue(w, paste_atom[pix++], XA_STRING,
+		    paste_callback, NULL, paste_time);
 	}
 }

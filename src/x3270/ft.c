@@ -1,5 +1,5 @@
 /*
- * Modifications Copyright 1996 by Paul Mattes.
+ * Modifications Copyright 1996, 1999 by Paul Mattes.
  * Copyright Octover 1995 by Dick Altenbern.
  * Based in part on code Copyright 1993, 1994, 1995 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
@@ -15,6 +15,8 @@
  */
 
 #include "globals.h"
+
+#if defined(X3270_FT) /*[*/
 
 #include <X11/StringDefs.h>
 #include <X11/Xaw/Toggle.h>
@@ -37,6 +39,7 @@
 #include "ft_cutc.h"
 #include "ft_dftc.h"
 #include "ftc.h"
+#include "hostc.h"
 #include "kybdc.h"
 #include "objects.h"
 #include "popupsc.h"
@@ -52,6 +55,8 @@
 #define FAR_VGAP	10	/* distance between single toggles and groups */
 #define BUTTON_GAP	5	/* horizontal distance between buttons */
 #define COLUMN_GAP	40	/* distance between columns */
+
+#define BN	(Boolean *)NULL
 
 /* Externals. */
 extern Pixmap diamond;
@@ -137,34 +142,45 @@ static Boolean ft_is_cut;		/* File transfer is CUT-style */
 
 static Widget overwrite_shell;
 
-static void apply_bitmap();
-static void check_sensitivity();
-static void flip_toggles();
-static void focus_next();
-static void ft_cancel();
-static void ft_popup_callback();
-static void ft_popup_init();
-static int ft_start();
-static void ft_start_callback();
-static void match_dimension();
-static void overwrite_cancel_callback();
-static void overwrite_okay_callback();
-static void overwrite_popdown();
-static void overwrite_popup_init();
-static void popup_overwrite();
-static void popup_progress();
-static void progress_cancel_callback();
-static void progress_popup_callback();
-static void progress_popup_init();
-static void recfm_callback();
-static void register_sensitivity();
-static void text_callback();
-static void toggle_append();
-static void toggle_ascii();
-static void toggle_cr();
-static void toggle_receive();
-static void toggle_vm();
-static void units_callback();
+static void apply_bitmap(Widget w, Pixmap p);
+static void check_sensitivity(Boolean *bvar);
+static void flip_toggles(struct toggle_list *toggle_list, Widget w);
+static void focus_next(sr_t *s);
+static void ft_cancel(Widget w, XtPointer client_data, XtPointer call_data);
+static void ft_popup_callback(Widget w, XtPointer client_data,
+    XtPointer call_data);
+static void ft_popup_init(void);
+static int ft_start(void);
+static void ft_start_callback(Widget w, XtPointer call_parms,
+    XtPointer call_data);
+static void match_dimension(Widget w1, Widget w2, String n);
+static void overwrite_cancel_callback(Widget w, XtPointer client_data,
+    XtPointer call_data);
+static void overwrite_okay_callback(Widget w, XtPointer client_data,
+    XtPointer call_data);
+static void overwrite_popdown(Widget w, XtPointer client_data,
+    XtPointer call_data);
+static void overwrite_popup_init(void);
+static void popup_overwrite(void);
+static void popup_progress(void);
+static void progress_cancel_callback(Widget w, XtPointer client_data,
+    XtPointer call_data);
+static void progress_popup_callback(Widget w, XtPointer client_data,
+    XtPointer call_data);
+static void progress_popup_init(void);
+static void recfm_callback(Widget w, XtPointer user_data, XtPointer call_data);
+static void register_sensitivity(Widget w, Boolean *bvar1, Boolean bval1,
+    Boolean *bvar2, Boolean bval2, Boolean *bvar3, Boolean bval3);
+static void text_callback(Widget w, XtPointer client_data, XtPointer call_data);
+static void toggle_append(Widget w, XtPointer client_data, XtPointer call_data);
+static void toggle_ascii(Widget w, XtPointer client_data, XtPointer call_data);
+static void toggle_cr(Widget w, XtPointer client_data, XtPointer call_data);
+static void toggle_receive(Widget w, XtPointer client_data,
+    XtPointer call_data);
+static void toggle_vm(Widget w, XtPointer client_data, XtPointer call_data);
+static void units_callback(Widget w, XtPointer user_data, XtPointer call_data);
+static void ft_connected(Boolean ignored);
+static void ft_in3270(Boolean ignored);
 
 /* Main external entry point. */
 
@@ -175,10 +191,7 @@ static void units_callback();
  * Called back from the "File Transfer" option on the File menu.
  */
 void
-popup_ft(w, call_parms, call_data)
-Widget w;
-XtPointer call_parms;
-XtPointer call_data;
+popup_ft(Widget w, XtPointer call_parms, XtPointer call_data)
 {
 	/* Initialize it. */
 	if (ft_shell == (Widget)NULL)
@@ -191,7 +204,7 @@ XtPointer call_data;
 
 /* Initialize the transfer pop-up. */
 static void
-ft_popup_init()
+ft_popup_init(void)
 {
 	Widget w;
 	Widget cancel_button;
@@ -204,6 +217,10 @@ ft_popup_init()
 	Widget recfm_label, units_label;
 	Widget start_button;
 
+	/* Register for state changes. */
+	register_schange(ST_CONNECT, ft_connected);
+	register_schange(ST_3270_MODE, ft_in3270);
+
 	/* Create the menu shell. */
 	ft_shell = XtVaCreatePopupShell(
 	    "ftPopup", transientShellWidgetClass, toplevel,
@@ -215,7 +232,7 @@ ft_popup_init()
 
 	/* Create the form within the shell. */
 	ft_dialog = XtVaCreateManagedWidget(
-	    "dialog", formWidgetClass, ft_shell,
+	    ObjDialog, formWidgetClass, ft_shell,
 	    NULL);
 
 	/* Create the file name widgets. */
@@ -241,9 +258,9 @@ ft_popup_init()
 		XtAddCallback(w, XtNcallback, text_callback,
 		    (XtPointer)&t_unixfile);
 	register_sensitivity(local_file,
-	    NULL, NULL,
-	    NULL, NULL,
-	    NULL, NULL);
+	    BN, False,
+	    BN, False,
+	    BN, False);
 
 	host_label = XtVaCreateManagedWidget(
 	    "host", labelWidgetClass, ft_dialog,
@@ -271,9 +288,9 @@ ft_popup_init()
 		XtAddCallback(w, XtNcallback, text_callback,
 		    (XtPointer)&t_hostfile);
 	register_sensitivity(host_file,
-	    NULL, NULL,
-	    NULL, NULL,
-	    NULL, NULL);
+	    BN, False,
+	    BN, False,
+	    BN, False);
 
 	/* Create the left column. */
 
@@ -342,8 +359,8 @@ ft_popup_init()
 	    NULL);
 	register_sensitivity(recfm_label,
 	    &receive_flag, False,
-	    NULL, NULL,
-	    NULL, NULL);
+	    BN, False,
+	    BN, False);
 
 	recfm_options[0] = XtVaCreateManagedWidget(
 	    "recfmDefault", commandWidgetClass, ft_dialog,
@@ -358,8 +375,8 @@ ft_popup_init()
 	    (XtPointer)&r_default_recfm);
 	register_sensitivity(recfm_options[0],
 	    &receive_flag, False,
-	    NULL, NULL,
-	    NULL, NULL);
+	    BN, False,
+	    BN, False);
 
 	recfm_options[1] = XtVaCreateManagedWidget(
 	    "fixed", commandWidgetClass, ft_dialog,
@@ -374,8 +391,8 @@ ft_popup_init()
 	    (XtPointer)&r_fixed);
 	register_sensitivity(recfm_options[1],
 	    &receive_flag, False,
-	    NULL, NULL,
-	    NULL, NULL);
+	    BN, False,
+	    BN, False);
 
 	recfm_options[2] = XtVaCreateManagedWidget(
 	    "variable", commandWidgetClass, ft_dialog,
@@ -390,8 +407,8 @@ ft_popup_init()
 	    (XtPointer)&r_variable);
 	register_sensitivity(recfm_options[2],
 	    &receive_flag, False,
-	    NULL, NULL,
-	    NULL, NULL);
+	    BN, False,
+	    BN, False);
 
 	recfm_options[3] = XtVaCreateManagedWidget(
 	    "undefined", commandWidgetClass, ft_dialog,
@@ -407,7 +424,7 @@ ft_popup_init()
 	register_sensitivity(recfm_options[3],
 	    &receive_flag, False,
 	    &vm_flag, False,
-	    NULL, NULL);
+	    BN, False);
 
 	lrecl_label = XtVaCreateManagedWidget(
 	    "lrecl", labelWidgetClass, ft_dialog,
@@ -419,7 +436,7 @@ ft_popup_init()
 	register_sensitivity(lrecl_label,
 	    &receive_flag, False,
 	    &recfm_default, False,
-	    NULL, NULL);
+	    BN, False);
 	lrecl_widget = XtVaCreateManagedWidget(
 	    "value", asciiTextWidgetClass, ft_dialog,
 	    XtNfromVert, recfm_options[3],
@@ -440,7 +457,7 @@ ft_popup_init()
 	register_sensitivity(lrecl_widget,
 	    &receive_flag, False,
 	    &recfm_default, False,
-	    NULL, NULL);
+	    BN, False);
 
 	blksize_label = XtVaCreateManagedWidget(
 	    "blksize", labelWidgetClass, ft_dialog,
@@ -453,7 +470,7 @@ ft_popup_init()
 	register_sensitivity(blksize_label,
 	    &receive_flag, False,
 	    &recfm_default, False,
-	    NULL, NULL);
+	    BN, False);
 	blksize_widget = XtVaCreateManagedWidget(
 	    "value", asciiTextWidgetClass, ft_dialog,
 	    XtNfromVert, lrecl_widget,
@@ -474,7 +491,7 @@ ft_popup_init()
 	register_sensitivity(blksize_widget,
 	    &receive_flag, False,
 	    &recfm_default, False,
-	    NULL, NULL);
+	    BN, False);
 
 
 	/* Find the widest widget in the left column. */
@@ -530,8 +547,8 @@ ft_popup_init()
 	XtAddCallback(cr_widget, XtNcallback, toggle_cr, 0);
 	register_sensitivity(cr_widget,
 	    &ascii_flag, True,
-	    NULL, NULL,
-	    NULL, NULL);
+	    BN, False,
+	    BN, False);
 
 	/* Set up the Units group. */
 	units_label = XtVaCreateManagedWidget(
@@ -545,7 +562,7 @@ ft_popup_init()
 	register_sensitivity(units_label,
 	    &receive_flag, False,
 	    &vm_flag, False,
-	    NULL, NULL);
+	    BN, False);
 
 	units_options[0] = XtVaCreateManagedWidget(
 	    "spaceDefault", commandWidgetClass, ft_dialog,
@@ -562,7 +579,7 @@ ft_popup_init()
 	register_sensitivity(units_options[0],
 	    &receive_flag, False,
 	    &vm_flag, False,
-	    NULL, NULL);
+	    BN, False);
 
 	units_options[1] = XtVaCreateManagedWidget(
 	    "tracks", commandWidgetClass, ft_dialog,
@@ -579,7 +596,7 @@ ft_popup_init()
 	register_sensitivity(units_options[1],
 	    &receive_flag, False,
 	    &vm_flag, False,
-	    NULL, NULL);
+	    BN, False);
 
 	units_options[2] = XtVaCreateManagedWidget(
 	    "cylinders", commandWidgetClass, ft_dialog,
@@ -596,7 +613,7 @@ ft_popup_init()
 	register_sensitivity(units_options[2],
 	    &receive_flag, False,
 	    &vm_flag, False,
-	    NULL, NULL);
+	    BN, False);
 
 	units_options[3] = XtVaCreateManagedWidget(
 	    "avblock", commandWidgetClass, ft_dialog,
@@ -613,7 +630,7 @@ ft_popup_init()
 	register_sensitivity(units_options[3],
 	    &receive_flag, False,
 	    &vm_flag, False,
-	    NULL, NULL);
+	    BN, False);
 
 	primspace_label = XtVaCreateManagedWidget(
 	    "primspace", labelWidgetClass, ft_dialog,
@@ -710,13 +727,10 @@ ft_popup_init()
 
 /* Transfer pop-up popping up. */
 static void
-ft_popup_callback(w, client_data, call_data)
-Widget w;
-XtPointer client_data;
-XtPointer call_data;
+ft_popup_callback(Widget w, XtPointer client_data, XtPointer call_data)
 {
 	/* Set the focus to the local file widget. */
-	dialog_focus_action(local_file, (XEvent *)NULL, (String *)NULL,
+	PA_dialog_focus_action(local_file, (XEvent *)NULL, (String *)NULL,
 	    (Cardinal *)NULL);
 
 	/* Disallow overwrites. */
@@ -725,20 +739,14 @@ XtPointer call_data;
 
 /* Cancel button pushed. */
 static void
-ft_cancel(w, client_data, call_data)
-Widget w;
-XtPointer client_data;
-XtPointer call_data;
+ft_cancel(Widget w, XtPointer client_data, XtPointer call_data)
 {
 	XtPopdown(ft_shell);
 }
 
 /* recfm options. */
 static void
-recfm_callback(w, user_data, call_data)
-Widget w;
-XtPointer user_data;
-XtPointer call_data;
+recfm_callback(Widget w, XtPointer user_data, XtPointer call_data)
 {
 	recfm = *(enum recfm *)user_data;
 	recfm_default = (recfm == DEFAULT_RECFM);
@@ -748,10 +756,7 @@ XtPointer call_data;
 
 /* Units options. */
 static void
-units_callback(w, user_data, call_data)
-Widget w;
-XtPointer user_data;
-XtPointer call_data;
+units_callback(Widget w, XtPointer user_data, XtPointer call_data)
 {
 	units = *(enum units *)user_data;
 	units_default = (units == DEFAULT_UNITS);
@@ -761,10 +766,7 @@ XtPointer call_data;
 
 /* OK button pushed. */
 static void
-ft_start_callback(w, call_parms, call_data)
-Widget w;
-XtPointer call_parms;
-XtPointer call_data;
+ft_start_callback(Widget w, XtPointer call_parms, XtPointer call_data)
 {
 	if (ft_start()) {
 		XtPopdown(ft_shell);
@@ -774,9 +776,7 @@ XtPointer call_data;
 
 /* Mark a toggle. */
 static void
-mark_toggle(w, p)
-Widget w;
-Pixmap p;
+mark_toggle(Widget w, Pixmap p)
 {
 #if defined(TOGGLE_HACK) /*[*/
 	String l, nl;
@@ -800,10 +800,7 @@ Pixmap p;
 
 /* Send/receive options. */
 static void
-toggle_receive(w, client_data, call_data)
-Widget w;
-XtPointer client_data;
-XtPointer call_data;
+toggle_receive(Widget w, XtPointer client_data, XtPointer call_data)
 {
 	/* Toggle the flag */
 	receive_flag = *(Boolean *)client_data;
@@ -816,10 +813,7 @@ XtPointer call_data;
 
 /* Ascii/binary options. */
 static void
-toggle_ascii(w, client_data, call_data)
-Widget w;
-XtPointer client_data;
-XtPointer call_data;
+toggle_ascii(Widget w, XtPointer client_data, XtPointer call_data)
 {
 	/* Toggle the flag. */
 	ascii_flag = *(Boolean *)client_data;
@@ -834,10 +828,7 @@ XtPointer call_data;
 
 /* CR option. */
 static void
-toggle_cr(w, client_data, call_data)
-Widget w;
-XtPointer client_data;
-XtPointer call_data;
+toggle_cr(Widget w, XtPointer client_data, XtPointer call_data)
 {
 	/* Toggle the cr flag */
 	cr_flag = !cr_flag;
@@ -847,10 +838,7 @@ XtPointer call_data;
 
 /* Append option. */
 static void
-toggle_append(w, client_data, call_data)
-Widget w;
-XtPointer client_data;
-XtPointer call_data;
+toggle_append(Widget w, XtPointer client_data, XtPointer call_data)
 {
 	/* Toggle Append Flag */
 	append_flag = !append_flag;
@@ -860,10 +848,7 @@ XtPointer call_data;
 
 /* TSO/VM option. */
 static void
-toggle_vm(w, client_data, call_data)
-Widget w;
-XtPointer client_data;
-XtPointer call_data;
+toggle_vm(Widget w, XtPointer client_data, XtPointer call_data)
 {
 	/* Toggle the flag. */
 	vm_flag = *(Boolean *)client_data;
@@ -888,7 +873,7 @@ XtPointer call_data;
  * Returns 1 if the transfer has started, 0 otherwise.
  */
 static int
-ft_start()
+ft_start(void)
 {
 	char opts[80];
 	char *op = opts + 1;
@@ -1055,7 +1040,7 @@ ft_start()
 
 /* Pop up the "in progress" pop-up. */
 static void
-popup_progress()
+popup_progress(void)
 {
 	/* Initialize it. */
 	if (progress_shell == (Widget)NULL)
@@ -1067,7 +1052,7 @@ popup_progress()
 
 /* Initialize the "in progress" pop-up. */
 static void
-progress_popup_init()
+progress_popup_init(void)
 {
 	Widget progress_pop, from_label, to_label, cancel_button;
 
@@ -1082,7 +1067,7 @@ progress_popup_init()
 
 	/* Create a form structure to contain the other stuff */
 	progress_pop = XtVaCreateManagedWidget(
-	    "dialog", formWidgetClass, progress_shell,
+	    ObjDialog, formWidgetClass, progress_shell,
 	    NULL);
 
 	/* Create the widgets. */
@@ -1164,10 +1149,7 @@ progress_popup_init()
 
 /* In-progress pop-up popped up. */
 static void
-progress_popup_callback(w, client_data, call_data)
-Widget w;
-XtPointer client_data;
-XtPointer call_data;
+progress_popup_callback(Widget w, XtPointer client_data, XtPointer call_data)
 {
 	String hf, lf;
 
@@ -1201,10 +1183,7 @@ XtPointer call_data;
 
 /* In-progress "cancel" button. */
 static void
-progress_cancel_callback(w, client_data, call_data)
-Widget w;
-XtPointer client_data;
-XtPointer call_data;
+progress_cancel_callback(Widget w, XtPointer client_data, XtPointer call_data)
 {
 	if (ft_state == FT_RUNNING) {
 		ft_state = FT_ABORT_WAIT;
@@ -1221,7 +1200,7 @@ XtPointer call_data;
 
 /* Pop up the "overwrite" pop-up. */
 static void
-popup_overwrite()
+popup_overwrite(void)
 {
 	/* Initialize it. */
 	if (overwrite_shell == (Widget)NULL)
@@ -1233,7 +1212,7 @@ popup_overwrite()
 
 /* Initialize the "overwrite" pop-up. */
 static void
-overwrite_popup_init()
+overwrite_popup_init(void)
 {
 	Widget overwrite_pop, overwrite_name, okay_button, cancel_button;
 	String overwrite_string, label, lf;
@@ -1250,7 +1229,7 @@ overwrite_popup_init()
 
 	/* Create a form structure to contain the other stuff */
 	overwrite_pop = XtVaCreateManagedWidget(
-	    "dialog", formWidgetClass, overwrite_shell,
+	    ObjDialog, formWidgetClass, overwrite_shell,
 	    NULL);
 
 	/* Create the widgets. */
@@ -1273,7 +1252,7 @@ overwrite_popup_init()
 		d += 20;
 	XtVaSetValues(overwrite_name, XtNwidth, d, NULL);
 	XtVaGetValues(overwrite_name, XtNheight, &d, NULL);
-	XtVaSetValues(overwrite_name, XtNheight, d + 10, NULL);
+	XtVaSetValues(overwrite_name, XtNheight, d + 20, NULL);
 
 	okay_button = XtVaCreateManagedWidget(
 	    ObjConfirmButton, commandWidgetClass, overwrite_pop,
@@ -1297,10 +1276,7 @@ overwrite_popup_init()
 
 /* Overwrite "okay" button. */
 static void
-overwrite_okay_callback(w, client_data, call_data)
-Widget w;
-XtPointer client_data;
-XtPointer call_data;
+overwrite_okay_callback(Widget w, XtPointer client_data, XtPointer call_data)
 {
 	XtPopdown(overwrite_shell);
 
@@ -1313,20 +1289,14 @@ XtPointer call_data;
 
 /* Overwrite "cancel" button. */
 static void
-overwrite_cancel_callback(w, client_data, call_data)
-Widget w;
-XtPointer client_data;
-XtPointer call_data;
+overwrite_cancel_callback(Widget w, XtPointer client_data, XtPointer call_data)
 {
 	XtPopdown(overwrite_shell);
 }
 
 /* Overwrite pop-up popped down. */
 static void
-overwrite_popdown(w, client_data, call_data)
-Widget w;
-XtPointer client_data;
-XtPointer call_data;
+overwrite_popdown(Widget w, XtPointer client_data, XtPointer call_data)
 {
 	XtDestroyWidget(overwrite_shell);
 	overwrite_shell = (Widget)NULL;
@@ -1336,8 +1306,7 @@ XtPointer call_data;
 
 /* Pop up a message, end the transfer. */
 void
-ft_complete(errmsg)
-String errmsg;
+ft_complete(String errmsg)
 {
 	/* Close the local file. */
 	if (ft_local_file != (FILE *)NULL && fclose(ft_local_file) < 0)
@@ -1362,7 +1331,6 @@ String errmsg;
 				*s = '\n';
 		}
 		popup_an_error(errmsg);
-		XtFree(errmsg);
 	} else {
 		struct timeval t1;
 		double kbytes_sec;
@@ -1382,7 +1350,7 @@ String errmsg;
 
 /* Update the bytes-transferred count on the progress pop-up. */
 void
-ft_update_length()
+ft_update_length(void)
 {
 	char text_string[80];
 
@@ -1394,8 +1362,7 @@ ft_update_length()
 
 /* Process a transfer acknowledgement. */
 void
-ft_running(is_cut)
-Boolean is_cut;
+ft_running(Boolean is_cut)
 {
 	if (ft_state == FT_AWAIT_ACK)
 		ft_state = FT_RUNNING;
@@ -1410,7 +1377,7 @@ Boolean is_cut;
 
 /* Process a protocol-generated abort. */
 void
-ft_aborting()
+ft_aborting(void)
 {
 	if (ft_state == FT_RUNNING || ft_state == FT_ABORT_WAIT) {
 		ft_state = FT_ABORT_SENT;
@@ -1421,18 +1388,18 @@ ft_aborting()
 }
 
 /* Process a disconnect abort. */
-void
-ft_disconnected()
+static void
+ft_connected(Boolean ignored)
 {
-	if (ft_state != FT_NONE)
+	if (!CONNECTED && ft_state != FT_NONE)
 		ft_complete(get_message("ftDisconnected"));
 }
 
 /* Process an abort from no longer being in 3270 mode. */
-void
-ft_not3270()
+static void
+ft_in3270(Boolean ignored)
 {
-	if (ft_state != FT_NONE)
+	if (!IN_3270 && ft_state != FT_NONE)
 		ft_complete(get_message("ftNot3270"));
 }
 
@@ -1440,10 +1407,7 @@ ft_not3270()
 
 /* Match one dimension of two widgets. */
 static void
-match_dimension(w1, w2, n)
-Widget w1;
-Widget w2;
-String n;
+match_dimension(Widget w1, Widget w2, String n)
 {
 	Dimension h1, h2;
 	Dimension b1, b2;
@@ -1460,9 +1424,7 @@ String n;
 
 /* Apply a bitmap to a widget. */
 static void
-apply_bitmap(w, p)
-Widget w;
-Pixmap p;
+apply_bitmap(Widget w, Pixmap p)
 {
 	Dimension d1;
 #if defined(TOGGLE_HACK) /*[*/
@@ -1494,9 +1456,7 @@ Pixmap p;
 
 /* Flip a multi-valued toggle. */
 static void
-flip_toggles(toggle_list, w)
-struct toggle_list *toggle_list;
-Widget w;
+flip_toggles(struct toggle_list *toggle_list, Widget w)
 {
 	int i;
 
@@ -1513,10 +1473,7 @@ Widget w;
  * specified criteria.
  */
 static void
-text_callback(w, client_data, call_data)
-Widget w;
-XtPointer client_data;
-XtPointer call_data;
+text_callback(Widget w, XtPointer client_data, XtPointer call_data)
 {
 	XawTextBlock b;		/* firstPos, length, ptr, format */
 	static XawTextBlock nullb = { 0, 0, NULL };
@@ -1577,14 +1534,8 @@ XtPointer call_data;
 
 /* Register widget sensitivity, based on zero to three Booleans. */
 static void
-register_sensitivity(w, bvar1, bval1, bvar2, bval2, bvar3, bval3)
-Widget w;
-Boolean *bvar1;
-Boolean bval1;
-Boolean *bvar2;
-Boolean bval2;
-Boolean *bvar3;
-Boolean bval3;
+register_sensitivity(Widget w, Boolean *bvar1, Boolean bval1, Boolean *bvar2,
+    Boolean bval2, Boolean *bvar3, Boolean bval3)
 {
 	sr_t *s;
 	Boolean f;
@@ -1624,8 +1575,7 @@ Boolean bval3;
 
 /* Scan the list of registered widgets for a sensitivity change. */
 static void
-check_sensitivity(bvar)
-Boolean *bvar;
+check_sensitivity(Boolean *bvar)
 {
 	sr_t *s;
 
@@ -1650,8 +1600,7 @@ Boolean *bvar;
 
 /* Move the input focus to the next sensitive value field. */
 static void
-focus_next(s)
-sr_t *s;
+focus_next(sr_t *s)
 {
 	sr_t *t;
 	Boolean sen;
@@ -1691,11 +1640,7 @@ sr_t *s;
 
 /* Proceed to the next input field. */
 void
-dialog_next_action(w, event, parms, num_parms)
-Widget w;
-XEvent *event;
-String *parms;
-Cardinal *num_parms;
+PA_dialog_next_action(Widget w, XEvent *event, String *parms, Cardinal *num_parms)
 {
 	sr_t *s;
 
@@ -1709,11 +1654,7 @@ Cardinal *num_parms;
 
 /* Set keyboard focus to an input field. */
 void
-dialog_focus_action(w, event, parms, num_parms)
-Widget w;
-XEvent *event;
-String *parms;
-Cardinal *num_parms;
+PA_dialog_focus_action(Widget w, XEvent *event, String *parms, Cardinal *num_parms)
 {
 	sr_t *s;
 
@@ -1741,3 +1682,5 @@ Cardinal *num_parms;
 	XawTextDisplayCaret(w, True);
 	XtSetKeyboardFocus(ft_dialog, w);
 }
+
+#endif /*]*/

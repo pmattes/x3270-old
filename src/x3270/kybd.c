@@ -1,5 +1,5 @@
 /*
- * Modifications Copyright 1993, 1994, 1995, 1996 by Paul Mattes.
+ * Modifications Copyright 1993, 1994, 1995, 1996, 1999 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -19,8 +19,12 @@
  */
 
 #include "globals.h"
+
+#if defined(X3270_DISPLAY) /*[*/
 #include <X11/Xatom.h>
+#endif
 #include <X11/keysym.h>
+
 #include <fcntl.h>
 #include "3270ds.h"
 #include "appres.h"
@@ -33,24 +37,25 @@
 #include "aplc.h"
 #include "ctlrc.h"
 #include "ftc.h"
+#include "hostc.h"
+#include "keymapc.h"
 #include "keypadc.h"
 #include "kybdc.h"
 #include "macrosc.h"
 #include "popupsc.h"
 #include "printc.h"
 #include "screenc.h"
+#if defined(X3270_DISPLAY) /*[*/
+#include "selectc.h"
+#endif /*]*/
 #include "statusc.h"
 #include "tablesc.h"
 #include "telnetc.h"
+#include "togglesc.h"
 #include "trace_dsc.h"
 #include "utilc.h"
 
 /* Statics */
-#define NP	5
-static Atom	paste_atom[NP];
-static int	n_pasting = 0;
-static int	pix = 0;
-static Time	paste_time;
 static enum	{ NONE, COMPOSE, FIRST } composing = NONE;
 static unsigned char pf_xlate[] = { 
 	AID_PF1,  AID_PF2,  AID_PF3,  AID_PF4,  AID_PF5,  AID_PF6,
@@ -65,22 +70,24 @@ static unsigned char pa_xlate[] = {
 #define PA_SZ	(sizeof(pa_xlate)/sizeof(pa_xlate[0]))
 static XtIntervalId unlock_id;
 #define UNLOCK_MS	350
-static Boolean	key_Character();
+static Boolean key_Character(int cgcode, Boolean with_ge);
+static Boolean flush_ta(void);
+static void key_AID(unsigned char aid_code);
+static void kybdlock_set(unsigned int bits, char *cause);
+static KeySym StringToKeysym(char *s, enum keytype *keytypep);
 
 static int nxk = 0;
 static struct xks {
 	KeySym key;
 	KeySym assoc;
 } *xk;
-static struct trans_list *tkm_last;
 
 static Boolean		insert = False;		/* insert mode */
 static Boolean		reverse = False;	/* reverse-input mode */
 
 /* Globals */
-unsigned int	kybdlock;
+unsigned int	kybdlock = KL_NOT_CONNECTED;
 unsigned char	aid = AID_NO;		/* current attention ID */
-struct trans_list *temp_keymaps;	/* temporary keymap list */
 
 /* Composite key mappings. */
 
@@ -114,40 +121,33 @@ static char dxl[] = "0123456789abcdef";
  * Put an action on the typeahead queue.
  */
 void
-enq_ta(fn, parm1, parm2)
-void (*fn)();
-char *parm1;
-char *parm2;
+enq_ta(void (*fn)(), char *parm1, char *parm2)
 {
 	struct ta *ta;
 
 	/* If no connection, forget it. */
 	if (!CONNECTED) {
-		if (toggled(EVENT_TRACE))
-			(void) fprintf(tracef, "  dropped (not connected)\n");
+		trace_event("  dropped (not connected)\n");
 		return;
 	}
 
 	/* If operator error, complain and drop it. */
 	if (kybdlock & KL_OERR_MASK) {
 		ring_bell();
-		if (toggled(EVENT_TRACE))
-			(void) fprintf(tracef, "  dropped (operator error)\n");
+		trace_event("  dropped (operator error)\n");
 		return;
 	}
 
 	/* If scroll lock, complain and drop it. */
 	if (kybdlock & KL_SCROLLED) {
 		ring_bell();
-		if (toggled(EVENT_TRACE))
-			(void) fprintf(tracef, "  dropped (scrolled)\n");
+		trace_event("  dropped (scrolled)\n");
 		return;
 	}
 
 	/* If typeahead disabled, complain and drop it. */
 	if (!appres.typeahead) {
-		if (toggled(EVENT_TRACE))
-			(void) fprintf(tracef, "  dropped (no typeahead)\n");
+		trace_event("  dropped (no typeahead)\n");
 		return;
 	}
 
@@ -168,16 +168,14 @@ char *parm2;
 	}
 	ta_tail = ta;
 
-	if (toggled(EVENT_TRACE))
-		(void) fprintf(tracef, "  action queued (kybdlock 0x%x)\n",
-		    kybdlock);
+	trace_event("  action queued (kybdlock 0x%x)\n", kybdlock);
 }
 
 /*
  * Execute an action from the typeahead queue.
  */
 Boolean
-run_ta()
+run_ta(void)
 {
 	struct ta *ta;
 
@@ -185,15 +183,15 @@ run_ta()
 		return False;
 
 	if ((ta_head = ta->next) == (struct ta *)NULL) {
-		ta_tail = (struct ta *) NULL;
+		ta_tail = (struct ta *)NULL;
 		status_typeahead(False);
 	}
 
 	action_internal(ta->fn, IA_TYPEAHEAD, ta->parm1, ta->parm2);
 	if (ta->parm1 != CN)
-		XtFree(ta->parm1);
+		XtFree((XtPointer)ta->parm1);
 	if (ta->parm2 != CN)
-		XtFree(ta->parm2);
+		XtFree((XtPointer)ta->parm2);
 	XtFree((XtPointer)ta);
 
 	return True;
@@ -203,8 +201,8 @@ run_ta()
  * Flush the typeahead queue.
  * Returns whether or not anything was flushed.
  */
-Boolean
-flush_ta()
+static Boolean
+flush_ta(void)
 {
 	struct ta *ta, *next;
 	Boolean any = False;
@@ -223,55 +221,18 @@ flush_ta()
 	return any;
 }
 
-/*
- * Translation table cache.
- */
-XtTranslations
-lookup_tt(name, table)
-char *name;
-char *table;
-{
-	struct tt_cache {
-		char *name;
-		XtTranslations trans;
-		struct tt_cache *next;
-	};
-#	define TTN (struct tt_cache *)NULL
-	static struct tt_cache *tt_cache = TTN;
-	struct tt_cache *t;
-
-	/* Look for an old one. */
-	for (t = tt_cache; t != TTN; t = t->next)
-		if (!strcmp(name, t->name))
-			return t->trans;
-
-	/* Allocate and translate a new one. */
-	t = (struct tt_cache *)XtMalloc(sizeof(*t));
-	t->name = XtNewString(name);
-	t->trans = XtParseTranslationTable(table);
-	t->next = tt_cache;
-	tt_cache = t;
-
-	return t->trans;
-}
-#undef TTN
-
 /* Set bits in the keyboard lock. */
 /*ARGSUSED*/
-void
-kybdlock_set(bits, cause)
-unsigned int bits;
-char *cause;
+static void
+kybdlock_set(unsigned int bits, char *cause)
 {
 	unsigned int n;
 
 	n = kybdlock | bits;
 	if (n != kybdlock) {
 #if defined(KYBDLOCK_TRACE) /*[*/
-		if (toggled(EVENT_TRACE))
-			(void) fprintf(tracef,
-			    "  %s: kybdlock |= 0x%04x, 0x%04x -> 0x%04x\n",
-			    cause, bits, kybdlock, n);
+	       trace_event("  %s: kybdlock |= 0x%04x, 0x%04x -> 0x%04x\n",
+		    cause, bits, kybdlock, n);
 #endif /*]*/
 		kybdlock = n;
 		status_kybdlock();
@@ -281,19 +242,15 @@ char *cause;
 /* Clear bits in the keyboard lock. */
 /*ARGSUSED*/
 void
-kybdlock_clr(bits, cause)
-unsigned int bits;
-char *cause;
+kybdlock_clr(unsigned int bits, char *cause)
 {
 	unsigned int n;
 
 	n = kybdlock & ~bits;
 	if (n != kybdlock) {
 #if defined(KYBDLOCK_TRACE) /*[*/
-		if (toggled(EVENT_TRACE))
-			(void) fprintf(tracef,
-			    "  %s: kybdlock &= ~0x%04x, 0x%04x -> 0x%04x\n",
-			    cause, bits, kybdlock, n);
+		trace_event("  %s: kybdlock &= ~0x%04x, 0x%04x -> 0x%04x\n",
+		    cause, bits, kybdlock, n);
 #endif /*]*/
 		kybdlock = n;
 		status_kybdlock();
@@ -304,8 +261,7 @@ char *cause;
  * Set or clear enter-inhibit mode.
  */
 void
-kybd_inhibit(inhibit)
-Boolean inhibit;
+kybd_inhibit(Boolean inhibit)
 {
 	if (inhibit) {
 		kybdlock_set(KL_ENTER_INHIBIT, "kybd_inhibit");
@@ -321,14 +277,14 @@ Boolean inhibit;
 /*
  * Called when a host connects or disconnects.
  */
-void
-kybd_connect()
+static void
+kybd_connect(Boolean connected)
 {
 	if (kybdlock & KL_DEFERRED_UNLOCK)
 		XtRemoveTimeOut(unlock_id);
 	kybdlock_clr(-1, "kybd_connect");
 
-	if (CONNECTED) {
+	if (connected) {
 		/* Wait for any output or a WCC(restore) from the host */
 		kybdlock_set(KL_AWAITING_FIRST, "kybd_connect");
 	} else {
@@ -338,11 +294,32 @@ kybd_connect()
 }
 
 /*
+ * Called when we switch between 3270 and ANSI modes.
+ */
+static void
+kybd_in3270(Boolean in3270)
+{
+	if (kybdlock & KL_DEFERRED_UNLOCK)
+		XtRemoveTimeOut(unlock_id);
+	kybdlock_clr(-1, "kybd_connect");
+}
+
+/*
+ * Called to initialize the keyboard logic.
+ */
+void
+kybd_init(void)
+{
+	/* Register interest in connect and disconnect events. */
+	register_schange(ST_CONNECT, kybd_connect);
+	register_schange(ST_3270_MODE, kybd_in3270);
+}
+
+/*
  * Toggle insert mode.
  */
 static void
-insert_mode(on)
-Boolean on;
+insert_mode(Boolean on)
 {
 	insert = on;
 	status_insert_mode(on);
@@ -352,8 +329,7 @@ Boolean on;
  * Toggle reverse mode.
  */
 static void
-reverse_mode(on)
-Boolean on;
+reverse_mode(Boolean on)
 {
 	reverse = on;
 	status_reverse_mode(on);
@@ -363,8 +339,7 @@ Boolean on;
  * Lock the keyboard because of an operator error.
  */
 static void
-operator_error(error_type)
-int error_type;
+operator_error(int error_type)
 {
 	if (sms_redirect())
 		popup_an_error("Keyboard locked");
@@ -373,8 +348,9 @@ int error_type;
 		mcursor_locked();
 		kybdlock_set((unsigned int)error_type, "operator_error");
 		(void) flush_ta();
-	} else
+	} else {
 		ring_bell();
+	}
 }
 
 
@@ -382,10 +358,10 @@ int error_type;
  * Handle an AID (Attention IDentifier) key.  This is the common stuff that
  * gets executed for all AID keys (PFs, PAs, Clear and etc).
  */
-void
-key_AID(aid_code)
-unsigned char	aid_code;
+static void
+key_AID(unsigned char aid_code)
 {
+#if defined(X3270_ANSI) /*[*/
 	if (IN_ANSI) {
 		register int	i;
 
@@ -405,6 +381,7 @@ unsigned char	aid_code;
 			}
 		return;
 	}
+#endif /*]*/
 	status_twait();
 	mcursor_waiting();
 	insert_mode(False);
@@ -417,11 +394,7 @@ unsigned char	aid_code;
 
 /*ARGSUSED*/
 void
-PF_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+PF_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
 	int k;
 
@@ -441,11 +414,7 @@ Cardinal *num_params;
 
 /*ARGSUSED*/
 void
-PA_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+PA_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
 	int k;
 
@@ -470,19 +439,15 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-Attn_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+Attn_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
 	action_debug(Attn_action, event, params, num_params);
-	if (!IN_3270)
-		return;
 	if (kybdlock) {
 		enq_ta(Attn_action, CN, CN);
 		return;
 	}
+	if (!IN_3270)
+		return;
 	if (appres.attn_lock) {
 		status_twait();
 		mcursor_waiting();
@@ -496,15 +461,25 @@ Cardinal *num_params;
 	}
 }
 
+/*
+ * IAC IP, which works for 5250 System Request and interrupts the program
+ * on an AS/400, even when the keyboard is locked.
+ */
+/*ARGSUSED*/
+void
+Interrupt_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+{
+	action_debug(Interrupt_action, event, params, num_params);
+	if (!IN_3270)
+		return;
+	net_interrupt();
+}
+
 
 
 /*ARGSUSED*/
 static void
-key_Character_wrapper(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+key_Character_wrapper(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
 	int cgcode;
 	Boolean with_ge = False;
@@ -514,12 +489,10 @@ Cardinal *num_params;
 		with_ge = True;
 		cgcode &= 0xff;
 	}
-	if (toggled(EVENT_TRACE)) {
-		(void) fprintf(tracef, " %s -> Key(%s\"%s\")\n",
-		    ia_name[(int) ia_cause],
-		    with_ge ? "GE " : "",
-		    ctl_see((int) cg2asc[cgcode]));
-	}
+	trace_event(" %s -> Key(%s\"%s\")\n",
+	    ia_name[(int) ia_cause],
+	    with_ge ? "GE " : "",
+	    ctl_see((int) cg2asc[cgcode]));
 	(void) key_Character(cgcode, with_ge);
 }
 
@@ -528,9 +501,7 @@ Cardinal *num_params;
  * insert-mode, protected fields and etc.
  */
 static Boolean
-key_Character(cgcode, with_ge)
-int	cgcode;
-Boolean	with_ge;
+key_Character(int cgcode, Boolean with_ge)
 {
 	register int	baddr, end_baddr;
 	register unsigned char	*fa;
@@ -674,10 +645,7 @@ Boolean	with_ge;
  * Handle an ordinary character key, given an ASCII code.
  */
 static void
-key_ACharacter(c, keytype, cause)
-unsigned char	c;
-enum keytype	keytype;
-enum iaction	cause;
+key_ACharacter(unsigned char c, enum keytype keytype, enum iaction cause)
 {
 	register int i;
 	struct akeysym ak;
@@ -723,23 +691,22 @@ enum iaction	cause;
 		break;
 	}
 
-	if (toggled(EVENT_TRACE)) {
-		(void) fprintf(tracef, " %s -> Key(\"%s\")\n",
+		trace_event(" %s -> Key(\"%s\")\n",
 		    ia_name[(int) cause], ctl_see((int) c));
-	}
 	if (IN_3270) {
 		if (c < ' ') {
-			if (toggled(EVENT_TRACE))
-				(void) fprintf(tracef,
-					    "  dropped (control char)\n");
+			trace_event("  dropped (control char)\n");
 			return;
 		}
 		(void) key_Character((int) asc2cg[c], keytype == KT_GE);
-	} else if (IN_ANSI) {
+	}
+#if defined(X3270_ANSI) /*[*/
+	else if (IN_ANSI) {
 		net_sendc((char) c);
-	} else {
-		if (toggled(EVENT_TRACE))
-			(void) fprintf(tracef, "  dropped (not connected)\n");
+	}
+#endif /*]*/
+	else {
+		trace_event("  dropped (not connected)\n");
 	}
 }
 
@@ -747,25 +714,19 @@ enum iaction	cause;
 /*
  * Simple toggles.
  */
+#if defined(X3270_DISPLAY) /*[*/
 /*ARGSUSED*/
 void
-AltCursor_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+AltCursor_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
 	action_debug(AltCursor_action, event, params, num_params);
 	do_toggle(ALT_CURSOR);
 }
+#endif /*]*/
 
 /*ARGSUSED*/
 void
-MonoCase_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+MonoCase_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
 	action_debug(MonoCase_action, event, params, num_params);
 	do_toggle(MONOCASE);
@@ -776,11 +737,7 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-Flip_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+Flip_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
 	action_debug(Flip_action, event, params, num_params);
 	screen_flip();
@@ -793,21 +750,19 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-Tab_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+Tab_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
 	action_debug(Tab_action, event, params, num_params);
-	if (IN_ANSI) {
-		net_sendc('\t');
-		return;
-	}
 	if (kybdlock) {
 		enq_ta(Tab_action, CN, CN);
 		return;
 	}
+#if defined(X3270_ANSI) /*[*/
+	if (IN_ANSI) {
+		net_sendc('\t');
+		return;
+	}
+#endif /*]*/
 	cursor_move(next_unprotected(cursor_addr));
 }
 
@@ -817,22 +772,18 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-BackTab_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+BackTab_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
 	register int	baddr, nbaddr;
 	int		sbaddr;
 
 	action_debug(BackTab_action, event, params, num_params);
-	if (!IN_3270)
-		return;
 	if (kybdlock) {
 		enq_ta(BackTab_action, CN, CN);
 		return;
 	}
+	if (!IN_3270)
+		return;
 	baddr = cursor_addr;
 	DEC_BA(baddr);
 	if (IS_FA(screen_buf[baddr]))	/* at bof */
@@ -862,9 +813,7 @@ Cardinal *num_params;
 
 /*ARGSUSED*/
 static void
-defer_unlock(closure, id)
-XtPointer closure;
-XtIntervalId *id;
+defer_unlock(XtPointer closure, XtIntervalId *id)
 {
 	kybdlock_clr(KL_DEFERRED_UNLOCK, "defer_unlock");
 	status_reset();
@@ -876,14 +825,17 @@ XtIntervalId *id;
  * Reset keyboard lock.
  */
 void
-do_reset(explicit)
-Boolean explicit;
+do_reset(Boolean explicit)
 {
 	/*
 	 * If explicit (from the keyboard) and there is typeahead or
 	 * a half-composed key, simply flush it.
 	 */
-	if (explicit) {
+	if (explicit
+#if defined(X3270_FT) /*[*/
+	    || ft_state != FT_NONE
+#endif /*]*/
+	    ) {
 		Boolean half_reset = False;
 
 		if (flush_ta())
@@ -915,7 +867,7 @@ Boolean explicit;
 	 * If explicit (from the keyboard), unlock the keyboard now.
 	 * Otherwise (from the host), schedule a deferred keyboard unlock.
 	 */
-	if (explicit || ft_state != FT_NONE) {
+	if (explicit) {
 		kybdlock_clr(-1, "do_reset");
 	} else if (kybdlock &
   (KL_DEFERRED_UNLOCK | KL_OIA_TWAIT | KL_OIA_LOCKED | KL_AWAITING_FIRST)) {
@@ -934,11 +886,7 @@ Boolean explicit;
 
 /*ARGSUSED*/
 void
-Reset_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+Reset_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
 	action_debug(Reset_action, event, params, num_params);
 	do_reset(True);
@@ -950,21 +898,19 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-Home_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+Home_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
 	action_debug(Home_action, event, params, num_params);
-	if (IN_ANSI) {
-		ansi_send_home();
-		return;
-	}
 	if (kybdlock) {
 		enq_ta(Home_action, CN, CN);
 		return;
 	}
+#if defined(X3270_ANSI) /*[*/
+	if (IN_ANSI) {
+		ansi_send_home();
+		return;
+	}
+#endif /*]*/
 	if (!formatted) {
 		cursor_move(0);
 		return;
@@ -977,7 +923,7 @@ Cardinal *num_params;
  * Cursor left 1 position.
  */
 static void
-do_left()
+do_left(void)
 {
 	register int	baddr;
 
@@ -988,21 +934,19 @@ do_left()
 
 /*ARGSUSED*/
 void
-Left_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+Left_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
 	action_debug(Left_action, event, params, num_params);
-	if (IN_ANSI) {
-		ansi_send_left();
-		return;
-	}
 	if (kybdlock) {
 		enq_ta(Left_action, CN, CN);
 		return;
 	}
+#if defined(X3270_ANSI) /*[*/
+	if (IN_ANSI) {
+		ansi_send_left();
+		return;
+	}
+#endif /*]*/
 	if (!flipped)
 		do_left();
 	else {
@@ -1020,7 +964,7 @@ Cardinal *num_params;
  * Returns "True" if succeeds, "False" otherwise.
  */
 static Boolean
-do_delete()
+do_delete(void)
 {
 	register int	baddr, end_baddr;
 	register unsigned char	*fa;
@@ -1053,21 +997,19 @@ do_delete()
 
 /*ARGSUSED*/
 void
-Delete_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+Delete_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
 	action_debug(Delete_action, event, params, num_params);
-	if (IN_ANSI) {
-		net_sendc('\177');
-		return;
-	}
 	if (kybdlock) {
 		enq_ta(Delete_action, CN, CN);
 		return;
 	}
+#if defined(X3270_ANSI) /*[*/
+	if (IN_ANSI) {
+		net_sendc('\177');
+		return;
+	}
+#endif /*]*/
 	if (!do_delete())
 		return;
 	if (reverse) {
@@ -1085,31 +1027,29 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-BackSpace_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+BackSpace_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
 	action_debug(BackSpace_action, event, params, num_params);
+	if (kybdlock) {
+		enq_ta(BackSpace_action, CN, CN);
+		return;
+	}
+#if defined(X3270_ANSI) /*[*/
 	if (IN_ANSI) {
 		net_send_erase();
-	} else {
-		if (kybdlock) {
-			enq_ta(BackSpace_action, CN, CN);
-			return;
-		}
-		if (reverse)
-			(void) do_delete();
-		else if (!flipped)
-			do_left();
-		else {
-			register int	baddr;
+		return;
+	}
+#endif /*]*/
+	if (reverse)
+		(void) do_delete();
+	else if (!flipped)
+		do_left();
+	else {
+		register int	baddr;
 
-			baddr = cursor_addr;
-			INC_BA(baddr);
-			cursor_move(baddr);
-		}
+		baddr = cursor_addr;
+		INC_BA(baddr);
+		cursor_move(baddr);
 	}
 }
 
@@ -1119,24 +1059,22 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-Erase_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+Erase_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
 	int	baddr;
 	unsigned char	*fa;
 
 	action_debug(Erase_action, event, params, num_params);
-	if (IN_ANSI) {
-		net_send_erase();
-		return;
-	}
 	if (kybdlock) {
 		enq_ta(Erase_action, CN, CN);
 		return;
 	}
+#if defined(X3270_ANSI) /*[*/
+	if (IN_ANSI) {
+		net_send_erase();
+		return;
+	}
+#endif /*]*/
 	baddr = cursor_addr;
 	fa = get_field_attribute(baddr);
 	if (fa == &screen_buf[baddr] || FA_IS_PROTECTED(*fa)) {
@@ -1155,23 +1093,21 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-Right_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+Right_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
 	register int	baddr;
 
 	action_debug(Right_action, event, params, num_params);
-	if (IN_ANSI) {
-		ansi_send_right();
-		return;
-	}
 	if (kybdlock) {
 		enq_ta(Right_action, CN, CN);
 		return;
 	}
+#if defined(X3270_ANSI) /*[*/
+	if (IN_ANSI) {
+		ansi_send_right();
+		return;
+	}
+#endif /*]*/
 	if (!flipped) {
 		baddr = cursor_addr;
 		INC_BA(baddr);
@@ -1186,21 +1122,19 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-Left2_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+Left2_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
 	register int	baddr;
 
 	action_debug(Left2_action, event, params, num_params);
-	if (IN_ANSI)
-		return;
 	if (kybdlock) {
 		enq_ta(Left2_action, CN, CN);
 		return;
 	}
+#if defined(X3270_ANSI) /*[*/
+	if (IN_ANSI)
+		return;
+#endif /*]*/
 	baddr = cursor_addr;
 	DEC_BA(baddr);
 	DEC_BA(baddr);
@@ -1213,11 +1147,7 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-PreviousWord_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+PreviousWord_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
 	register int baddr;
 	int baddr0;
@@ -1225,12 +1155,14 @@ Cardinal *num_params;
 	Boolean prot;
 
 	action_debug(PreviousWord_action, event, params, num_params);
-	if (IN_ANSI)
-		return;
 	if (kybdlock) {
 		enq_ta(PreviousWord_action, CN, CN);
 		return;
 	}
+#if defined(X3270_ANSI) /*[*/
+	if (IN_ANSI)
+		return;
+#endif /*]*/
 	if (!formatted)
 		return;
 
@@ -1283,21 +1215,19 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-Right2_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+Right2_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
 	register int	baddr;
 
 	action_debug(Right2_action, event, params, num_params);
-	if (IN_ANSI)
-		return;
 	if (kybdlock) {
 		enq_ta(Right2_action, CN, CN);
 		return;
 	}
+#if defined(X3270_ANSI) /*[*/
+	if (IN_ANSI)
+		return;
+#endif /*]*/
 	baddr = cursor_addr;
 	INC_BA(baddr);
 	INC_BA(baddr);
@@ -1307,8 +1237,7 @@ Cardinal *num_params;
 
 /* Find the next unprotected word, or -1 */
 static int
-nu_word(baddr)
-int baddr;
+nu_word(int baddr)
 {
 	int baddr0 = baddr;
 	unsigned char c;
@@ -1330,8 +1259,7 @@ int baddr;
 
 /* Find the next word in this field, or -1 */
 static int
-nt_word(baddr)
-int baddr;
+nt_word(int baddr)
 {
 	int baddr0 = baddr;
 	unsigned char c;
@@ -1360,22 +1288,20 @@ int baddr;
  */
 /*ARGSUSED*/
 void
-NextWord_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+NextWord_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
 	register int	baddr;
 	unsigned char c;
 
 	action_debug(NextWord_action, event, params, num_params);
-	if (IN_ANSI)
-		return;
 	if (kybdlock) {
 		enq_ta(NextWord_action, CN, CN);
 		return;
 	}
+#if defined(X3270_ANSI) /*[*/
+	if (IN_ANSI)
+		return;
+#endif /*]*/
 	if (!formatted)
 		return;
 
@@ -1427,23 +1353,21 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-Up_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+Up_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
 	register int	baddr;
 
 	action_debug(Up_action, event, params, num_params);
-	if (IN_ANSI) {
-		ansi_send_up();
-		return;
-	}
 	if (kybdlock) {
 		enq_ta(Up_action, CN, CN);
 		return;
 	}
+#if defined(X3270_ANSI) /*[*/
+	if (IN_ANSI) {
+		ansi_send_up();
+		return;
+	}
+#endif /*]*/
 	baddr = cursor_addr - COLS;
 	if (baddr < 0)
 		baddr = (cursor_addr + (ROWS * COLS)) - COLS;
@@ -1456,23 +1380,21 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-Down_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+Down_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
 	register int	baddr;
 
 	action_debug(Down_action, event, params, num_params);
-	if (IN_ANSI) {
-		ansi_send_down();
-		return;
-	}
 	if (kybdlock) {
 		enq_ta(Down_action, CN, CN);
 		return;
 	}
+#if defined(X3270_ANSI) /*[*/
+	if (IN_ANSI) {
+		ansi_send_down();
+		return;
+	}
+#endif /*]*/
 	baddr = (cursor_addr + COLS) % (COLS * ROWS);
 	cursor_move(baddr);
 }
@@ -1483,24 +1405,22 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-Newline_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+Newline_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
 	register int	baddr;
 	register unsigned char	*fa;
 
 	action_debug(Newline_action, event, params, num_params);
-	if (IN_ANSI) {
-		net_sendc('\n');
-		return;
-	}
 	if (kybdlock) {
 		enq_ta(Newline_action, CN, CN);
 		return;
 	}
+#if defined(X3270_ANSI) /*[*/
+	if (IN_ANSI) {
+		net_sendc('\n');
+		return;
+	}
+#endif /*]*/
 	baddr = (cursor_addr + COLS) % (COLS * ROWS);	/* down */
 	baddr = (baddr / COLS) * COLS;			/* 1st col */
 	fa = get_field_attribute(baddr);
@@ -1516,19 +1436,17 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-Dup_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+Dup_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
 	action_debug(Dup_action, event, params, num_params);
-	if (IN_ANSI)
-		return;
 	if (kybdlock) {
 		enq_ta(Dup_action, CN, CN);
 		return;
 	}
+#if defined(X3270_ANSI) /*[*/
+	if (IN_ANSI)
+		return;
+#endif /*]*/
 	if (key_Character(CG_dup, False))
 		cursor_move(next_unprotected(cursor_addr));
 }
@@ -1539,19 +1457,17 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-FieldMark_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+FieldMark_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
 	action_debug(FieldMark_action, event, params, num_params);
-	if (IN_ANSI)
-		return;
 	if (kybdlock) {
 		enq_ta(FieldMark_action, CN, CN);
 		return;
 	}
+#if defined(X3270_ANSI) /*[*/
+	if (IN_ANSI)
+		return;
+#endif /*]*/
 	(void) key_Character(CG_fm, False);
 }
 
@@ -1561,11 +1477,7 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-Enter_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+Enter_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
 	action_debug(Enter_action, event, params, num_params);
 	if (kybdlock)
@@ -1577,11 +1489,7 @@ Cardinal *num_params;
 
 /*ARGSUSED*/
 void
-SysReq_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+SysReq_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
 	action_debug(SysReq_action, event, params, num_params);
 	if (kybdlock)
@@ -1596,21 +1504,19 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-Clear_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+Clear_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
 	action_debug(Clear_action, event, params, num_params);
-	if (IN_ANSI) {
-		ansi_send_clear();
-		return;
-	}
 	if (kybdlock && CONNECTED) {
 		enq_ta(Clear_action, CN, CN);
 		return;
 	}
+#if defined(X3270_ANSI) /*[*/
+	if (IN_ANSI) {
+		ansi_send_clear();
+		return;
+	}
+#endif /*]*/
 	buffer_addr = 0;
 	ctlr_clear(True);
 	cursor_move(0);
@@ -1624,21 +1530,19 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-CursorSelect_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+CursorSelect_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
 	register unsigned char	*fa, *sel;
 
 	action_debug(CursorSelect_action, event, params, num_params);
-	if (IN_ANSI)
-		return;
 	if (kybdlock) {
 		enq_ta(CursorSelect_action, CN, CN);
 		return;
 	}
+#if defined(X3270_ANSI) /*[*/
+	if (IN_ANSI)
+		return;
+#endif /*]*/
 	fa = get_field_attribute(cursor_addr);
 	if (!FA_IS_SELECTABLE(*fa)) {
 		operator_error(KL_OERR_PROTECTED);
@@ -1674,22 +1578,20 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-EraseEOF_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+EraseEOF_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
 	register int	baddr;
 	register unsigned char	*fa;
 
 	action_debug(EraseEOF_action, event, params, num_params);
-	if (IN_ANSI)
-		return;
 	if (kybdlock) {
 		enq_ta(EraseEOF_action, CN, CN);
 		return;
 	}
+#if defined(X3270_ANSI) /*[*/
+	if (IN_ANSI)
+		return;
+#endif /*]*/
 	baddr = cursor_addr;
 	fa = get_field_attribute(baddr);
 	if (FA_IS_PROTECTED(*fa) || IS_FA(screen_buf[baddr])) {
@@ -1716,23 +1618,21 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-EraseInput_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+EraseInput_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
 	register int	baddr, sbaddr;
 	unsigned char	fa;
 	Boolean		f;
 
 	action_debug(EraseInput_action, event, params, num_params);
-	if (IN_ANSI)
-		return;
 	if (kybdlock) {
 		enq_ta(EraseInput_action, CN, CN);
 		return;
 	}
+#if defined(X3270_ANSI) /*[*/
+	if (IN_ANSI)
+		return;
+#endif /*]*/
 	if (formatted) {
 		/* find first field attribute */
 		baddr = 0;
@@ -1782,24 +1682,22 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-DeleteWord_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+DeleteWord_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
 	register int	baddr, baddr2, front_baddr, back_baddr, end_baddr;
 	register unsigned char	*fa;
 
 	action_debug(DeleteWord_action, event, params, num_params);
-	if (IN_ANSI) {
-		net_send_werase();
-		return;
-	}
 	if (kybdlock) {
 		enq_ta(DeleteWord_action, CN, CN);
 		return;
 	}
+#if defined(X3270_ANSI) /*[*/
+	if (IN_ANSI) {
+		net_send_werase();
+		return;
+	}
+#endif /*]*/
 	if (!formatted)
 		return;
 
@@ -1885,24 +1783,22 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-DeleteField_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+DeleteField_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
 	register int	baddr;
 	register unsigned char	*fa;
 
 	action_debug(DeleteField_action, event, params, num_params);
-	if (IN_ANSI) {
-		net_send_kill();
-		return;
-	}
 	if (kybdlock) {
 		enq_ta(DeleteField_action, CN, CN);
 		return;
 	}
+#if defined(X3270_ANSI) /*[*/
+	if (IN_ANSI) {
+		net_send_kill();
+		return;
+	}
+#endif /*]*/
 	if (!formatted)
 		return;
 
@@ -1930,19 +1826,17 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-Insert_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+Insert_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
 	action_debug(Insert_action, event, params, num_params);
-	if (IN_ANSI)
-		return;
 	if (kybdlock) {
 		enq_ta(Insert_action, CN, CN);
 		return;
 	}
+#if defined(X3270_ANSI) /*[*/
+	if (IN_ANSI)
+		return;
+#endif /*]*/
 	insert_mode(True);
 }
 
@@ -1952,19 +1846,17 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-ToggleInsert_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+ToggleInsert_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
 	action_debug(ToggleInsert_action, event, params, num_params);
-	if (IN_ANSI)
-		return;
 	if (kybdlock) {
 		enq_ta(ToggleInsert_action, CN, CN);
 		return;
 	}
+#if defined(X3270_ANSI) /*[*/
+	if (IN_ANSI)
+		return;
+#endif /*]*/
 	if (insert)
 		insert_mode(False);
 	else
@@ -1977,19 +1869,17 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-ToggleReverse_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+ToggleReverse_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
 	action_debug(ToggleReverse_action, event, params, num_params);
-	if (IN_ANSI)
-		return;
 	if (kybdlock) {
 		enq_ta(ToggleReverse_action, CN, CN);
 		return;
 	}
+#if defined(X3270_ANSI) /*[*/
+	if (IN_ANSI)
+		return;
+#endif /*]*/
 	reverse_mode(!reverse);
 }
 
@@ -2000,23 +1890,21 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-FieldEnd_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+FieldEnd_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
 	int	baddr;
 	unsigned char	*fa, c;
 	int	last_nonblank = -1;
 
 	action_debug(FieldEnd_action, event, params, num_params);
-	if (IN_ANSI)
-		return;
 	if (kybdlock) {
 		enq_ta(FieldEnd_action, CN, CN);
 		return;
 	}
+#if defined(X3270_ANSI) /*[*/
+	if (IN_ANSI)
+		return;
+#endif /*]*/
 	if (!formatted)
 		return;
 	baddr = cursor_addr;
@@ -2047,359 +1935,51 @@ Cardinal *num_params;
 }
 
 /*
- * FieldExit for the 5250-like emulation.
- * Erases from the current cursor position to the end of the field, and moves
- * the cursor to the beginning of the next field.
- *
- * Derived from work (C) Minolta (Schweiz) AG, Beat Rubischon <bru@minolta.ch>
+ * MoveCursor action.  Depending on arguments, this is either a move to the
+ * mouse cursor position, or to an absolute location.
  */
-/*ARGSUSED*/
 void
-FieldExit_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+MoveCursor_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
-	register int    baddr;
-	register unsigned char  *fa;
+	register int baddr;
+	int row, col;
 
-	action_debug(FieldExit_action, event, params, num_params);
-	if (IN_ANSI) {
-		net_sendc('\n');
-		return;
-	}
+	action_debug(MoveCursor_action, event, params, num_params);
+
 	if (kybdlock) {
-		enq_ta(FieldExit_action, CN, CN);
+		if (*num_params == 2)
+			enq_ta(MoveCursor_action, params[0], params[1]);
 		return;
 	}
-	baddr = cursor_addr;
-	fa = get_field_attribute(baddr);
-	if (FA_IS_PROTECTED(*fa) || IS_FA(screen_buf[baddr])) {
-		operator_error(KL_OERR_PROTECTED);
-		return;
-	}
-	if (formatted) {        /* erase to next field attribute */
-		do {
-			  ctlr_add(baddr, CG_null, 0);
-			  INC_BA(baddr);
-		} while (!IS_FA(screen_buf[baddr]));
-		mdt_set(fa);
-		cursor_move(next_unprotected(cursor_addr));
-	} else {        /* erase to end of screen */
-		do {
-			ctlr_add(baddr, CG_null, 0);
-			INC_BA(baddr);
-		} while (baddr != 0);
+
+	switch (*num_params) {
+#if defined(X3270_DISPLAY) /*[*/
+	    case 0:		/* mouse click, presumably */
+		move_cursor_to_mouse(w, event);
+		break;
+#endif /*]*/
+	    case 2:		/* probably a macro call */
+		row = atoi(params[0]);
+		col = atoi(params[1]);
+		if (!IN_3270) {
+			row--;
+			col--;
+		}
+		if (row < 0)
+			row = 0;
+		if (col < 0)
+			col = 0;
+		baddr = ((row * COLS) + col) % (ROWS * COLS);
+		cursor_move(baddr);
+		break;
+	    default:		/* couln't say */
+		popup_an_error("%s: illegal argument count",
+		    action_name(MoveCursor_action));
+		break;
 	}
 }
 
 
-/*
- * X-dependent code starts here.
- */
-
-/*
- * Translate a keymap (from an XQueryKeymap or a KeymapNotify event) into
- * a bitmap of Shift, Meta or Alt keys pressed.
- */
-#define key_is_down(kc, bitmap) (kc && ((bitmap)[(kc)/8] & (1<<((kc)%8))))
-int
-state_from_keymap(keymap)
-char keymap[32];
-{
-	static Boolean	initted = False;
-	static KeyCode	kc_Shift_L, kc_Shift_R;
-	static KeyCode	kc_Meta_L, kc_Meta_R;
-	static KeyCode	kc_Alt_L, kc_Alt_R;
-	int	pseudo_state = 0;
-
-	if (!initted) {
-		kc_Shift_L = XKeysymToKeycode(display, XK_Shift_L);
-		kc_Shift_R = XKeysymToKeycode(display, XK_Shift_R);
-		kc_Meta_L  = XKeysymToKeycode(display, XK_Meta_L);
-		kc_Meta_R  = XKeysymToKeycode(display, XK_Meta_R);
-		kc_Alt_L   = XKeysymToKeycode(display, XK_Alt_L);
-		kc_Alt_R   = XKeysymToKeycode(display, XK_Alt_R);
-		initted = True;
-	}
-	if (key_is_down(kc_Shift_L, keymap) ||
-	    key_is_down(kc_Shift_R, keymap))
-		pseudo_state |= ShiftKeyDown;
-	if (key_is_down(kc_Meta_L, keymap) ||
-	    key_is_down(kc_Meta_R, keymap))
-		pseudo_state |= MetaKeyDown;
-	if (key_is_down(kc_Alt_L, keymap) ||
-	    key_is_down(kc_Alt_R, keymap))
-		pseudo_state |= AltKeyDown;
-	return pseudo_state;
-}
-#undef key_is_down
-
-/*
- * Process shift keyboard events.  The code has to look for the raw Shift keys,
- * rather than using the handy "state" field in the event structure.  This is
- * because the event state is the state _before_ the key was pressed or
- * released.  This isn't enough information to distinguish between "left
- * shift released" and "left shift released, right shift still held down"
- * events, for example.
- *
- * This function is also called as part of Focus event processing.
- */
-/*ARGSUSED*/
-void
-Shift_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
-{
-	char	keys[32];
-
-	XQueryKeymap(display, keys);
-	shift_event(state_from_keymap(keys));
-}
-
-/* Add a key to the extended association table. */
-void
-add_xk(key, assoc)
-KeySym key;
-KeySym assoc;
-{
-	int i;
-
-	for (i = 0; i < nxk; i++)
-		if (xk[i].key == key) {
-			xk[i].assoc = assoc;
-			return;
-		}
-	xk = (struct xks *)XtRealloc((XtPointer)xk,
-	    (nxk + 1) * sizeof(struct xks));
-	xk[nxk].key = key;
-	xk[nxk].assoc = assoc;
-	nxk++;
-}
-
-/* Clear the extended association table. */
-void
-clear_xks()
-{
-	if (nxk) {
-		XtFree((XtPointer)xk);
-		xk = (struct xks *)NULL;
-		nxk = 0;
-	}
-}
-
-/*
- * Translate a keysym name to a keysym, including APL and extended
- * characters.
- */
-static KeySym
-StringToKeysym(s, keytypep)
-char *s;
-enum keytype *keytypep;
-{
-	KeySym k;
-	int is_ge;
-
-	if (!strncmp(s, "apl_", 4)) {
-		k = APLStringToKeysym(s, &is_ge);
-		if (is_ge)
-			*keytypep = KT_GE;
-		else
-			*keytypep = KT_STD;
-	} else {
-		k = XStringToKeysym(s);
-		*keytypep = KT_STD;
-	}
-	if (k == NoSymbol && strlen(s) == 1)
-		k = s[0] & 0xff;
-	if (k < ' ')
-		k = NoSymbol;
-	else if (k > 0xff) {
-		int i;
-
-		for (i = 0; i < nxk; i++)
-			if (xk[i].key == k) {
-				k = xk[i].assoc;
-				break;
-			}
-		if (k > 0xff)
-			k = NoSymbol;
-	}
-	return k;
-}
-
-static Boolean
-build_composites()
-{
-	char *c;
-	char *cn;
-	char *ln;
-	char ksname[3][64];
-	char junk[2];
-	KeySym k[3];
-	enum keytype a[3];
-	int i;
-	struct composite *cp;
-
-	if (!appres.compose_map) {
-		xs_warning("%s: No %s defined", action_name(Compose_action),
-		    ResComposeMap);
-		return False;
-	}
-	cn = xs_buffer("%s.%s", ResComposeMap, appres.compose_map);
-	if ((c = get_resource(cn)) == NULL) {
-		xs_warning("%s: Cannot find %s \"%s\"",
-		    action_name(Compose_action), ResComposeMap,
-		    appres.compose_map);
-		return False;
-	}
-	XtFree(cn);
-	while ((ln = strtok(c, "\n"))) {
-		Boolean okay = True;
-
-		c = NULL;
-		if (sscanf(ln, " %63[^+ \t] + %63[^= \t] =%63s%1s",
-		    ksname[0], ksname[1], ksname[2], junk) != 3) {
-			xs_warning("%s: Invalid syntax: %s",
-			    action_name(Compose_action), ln);
-			continue;
-		}
-		for (i = 0; i < 3; i++) {
-			k[i] = StringToKeysym(ksname[i], &a[i]);
-			if (k[i] == NoSymbol) {
-				xs_warning("%s: Invalid KeySym: \"%s\"",
-				    action_name(Compose_action), ksname[i]);
-				okay = False;
-				break;
-			}
-		}
-		if (!okay)
-			continue;
-		composites = (struct composite *) XtRealloc((char *)composites,
-		    (n_composites + 1) * sizeof(struct composite));
-		cp = composites + n_composites;
-		cp->k1.keysym = k[0];
-		cp->k1.keytype = a[0];
-		cp->k2.keysym = k[1];
-		cp->k2.keytype = a[1];
-		cp->translation.keysym = k[2];
-		cp->translation.keytype = a[2];
-		n_composites++;
-	}
-	return True;
-}
-
-/*
- * Called by the toolkit when the "Compose" key is pressed.  "Compose" is
- * implemented by pressing and releasing three keys: "Compose" and two
- * data keys.  For example, "Compose" "s" "s" gives the German "ssharp"
- * character, and "Compose" "C", "," gives a capital "C" with a cedilla
- * (symbol Ccedilla).
- *
- * The mechanism breaks down a little when the user presses "Compose" and
- * then a non-data key.  Oh well.
- */
-/*ARGSUSED*/
-void
-Compose_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
-{
-	action_debug(Compose_action, event, params, num_params);
-
-	if (!composites && !build_composites())
-		return;
-
-	if (composing == NONE) {
-		composing = COMPOSE;
-		status_compose(True, 0, KT_STD);
-	}
-}
-
-/*
- * Called by the toolkit for any key without special actions.
- */
-/*ARGSUSED*/
-void
-Default_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
-{
-	XKeyEvent	*kevent = (XKeyEvent *)event;
-	char		buf[32];
-	KeySym		ks;
-	int		ll;
-
-	action_debug(Default_action, event, params, num_params);
-	ll = XLookupString(kevent, buf, 32, &ks, (XComposeStatus *) 0);
-	if (ll == 1) {
-		/* Remap certain control characters. */
-		switch (buf[0]) {
-		    case '\t':
-			action_internal(Tab_action, IA_DEFAULT, CN, CN);
-			break;
-		    case '\177':
-			action_internal(Delete_action, IA_DEFAULT, CN, CN);
-			break;
-		    case '\b':
-			action_internal(BackSpace_action, IA_DEFAULT, CN, CN);
-			break;
-		    case '\r':
-			action_internal(Enter_action, IA_DEFAULT, CN, CN);
-			break;
-		    case '\n':
-			action_internal(Newline_action, IA_DEFAULT, CN, CN);
-			break;
-		    default:
-			key_ACharacter((unsigned char) buf[0], KT_STD,
-			    IA_DEFAULT);
-		}
-		return;
-	}
-
-	/* Pick some other reasonable defaults. */
-	switch (ks) {
-	    case XK_Up:
-		action_internal(Up_action, IA_DEFAULT, CN, CN);
-		break;
-	    case XK_Down:
-		action_internal(Down_action, IA_DEFAULT, CN, CN);
-		break;
-	    case XK_Left:
-		action_internal(Left_action, IA_DEFAULT, CN, CN);
-		break;
-	    case XK_Right:
-		action_internal(Right_action, IA_DEFAULT, CN, CN);
-		break;
-	    case XK_Insert:
-#if defined(XK_KP_Insert) /*[*/
-	    case XK_KP_Insert:
-#endif /*]*/
-		action_internal(Insert_action, IA_DEFAULT, CN, CN);
-		break;
-	    case XK_Delete:
-		action_internal(Delete_action, IA_DEFAULT, CN, CN);
-		break;
-	    case XK_Home:
-		action_internal(Home_action, IA_DEFAULT, CN, CN);
-		break;
-	    case XK_Tab:
-		action_internal(Tab_action, IA_DEFAULT, CN, CN);
-		break;
-	    default:
-		if (toggled(EVENT_TRACE))
-			(void) fprintf(tracef, " %s: Unknown keysym\n",
-			    action_name(Default_action));
-		break;
-	}
-}
 
 
 /*
@@ -2407,11 +1987,7 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-Key_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+Key_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
 	int i;
 	KeySym k;
@@ -2441,11 +2017,7 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-String_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+String_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
 	int i;
 	int len = 0;
@@ -2474,11 +2046,7 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-HexString_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+HexString_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
 	int i;
 	int len = 0;
@@ -2518,11 +2086,7 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 void
-CircumNot_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+CircumNot_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
 	action_debug(CircumNot_action, event, params, num_params);
 
@@ -2534,8 +2098,7 @@ Cardinal *num_params;
 
 /* PA key action for String actions */
 static void
-do_pa(n)
-int n;
+do_pa(int n)
 {
 	if (n < 1 || n > PA_SZ) {
 		popup_an_error("Unknown PA key %d", n);
@@ -2553,8 +2116,7 @@ int n;
 
 /* PF key action for String actions */
 static void
-do_pf(n)
-int n;
+do_pf(int n)
 {
 	if (n < 1 || n > PF_SZ) {
 		popup_an_error("Unknown PF key %d", n);
@@ -2574,8 +2136,7 @@ int n;
  * Set or clear the keyboard scroll lock.
  */
 void
-kybd_scroll_lock(lock)
-Boolean lock;
+kybd_scroll_lock(Boolean lock)
 {
 	if (!IN_3270)
 		return;
@@ -2590,11 +2151,10 @@ Boolean lock;
  * Returns a Boolean indicating success.
  */
 static Boolean
-remargin(lmargin)
-int lmargin;
+remargin(int lmargin)
 {
 	Boolean ever = False;
-	int baddr, b0;
+	int baddr, b0 = 0;
 	unsigned char *fa;
 
 	baddr = cursor_addr;
@@ -2632,20 +2192,16 @@ int lmargin;
  * Returns the number of unprocessed characters.
  */
 int
-emulate_input(s, len, pasting)
-char *s;
-int len;
-Boolean pasting;
+emulate_input(char *s, int len, Boolean pasting)
 {
 	char c;
 	enum { BASE, BACKSLASH, BACKX, BACKP, BACKPA, BACKPF, OCTAL, HEX,
 	       XGE } state = BASE;
-	int literal;
-	int nc;
+	int literal = 0;
+	int nc = 0;
 	enum iaction ia = pasting ? IA_PASTE : IA_STRING;
 	int orig_addr = cursor_addr;
 	int orig_col = BA_TO_COL(cursor_addr);
-	static char dxl[] = "0123456789abcdef";
 
 	/*
 	 * In the switch statements below, "break" generally means "consume
@@ -2658,9 +2214,7 @@ Boolean pasting;
 		 * so if the keyboard is locked, it's fatal
 		 */
 		if (kybdlock) {
-			if (toggled(EVENT_TRACE))
-				(void) fprintf(tracef,
-				    "  keyboard locked, string dropped\n");
+			trace_event("  keyboard locked, string dropped\n");
 			return 0;
 		}
 
@@ -2875,7 +2429,7 @@ Boolean pasting;
 			}
 		    case OCTAL:	/* have seen \ and one or more octal digits */
 			if (nc < 3 && isdigit(c) && c < '8') {
-				literal = (literal * 8) + (strchr(dxl, c) - dxl);
+				literal = (literal * 8) + FROM_HEX(c);
 				nc++;
 				break;
 			} else {
@@ -2886,7 +2440,7 @@ Boolean pasting;
 			}
 		    case HEX:	/* have seen \ and one or more hex digits */
 			if (nc < 2 && isxdigit(c)) {
-				literal = (literal * 16) + (strchr(dxl, tolower(c)) - dxl);
+				literal = (literal * 16) + FROM_HEX(c);
 				nc++;
 				break;
 			} else {
@@ -2933,69 +2487,6 @@ Boolean pasting;
 	return len;
 }
 
-/*ARGSUSED*/
-static void
-paste_callback(w, client_data, selection, type, value, length, format)
-Widget w;
-XtPointer client_data;
-Atom *selection;
-Atom *type;
-XtPointer value;
-unsigned long *length;
-int *format;
-{
-	char *s;
-	unsigned long len;
-
-	if ((value == NULL) || (*length == 0)) {
-		XtFree(value);
-
-		/* Try the next one. */
-		if (n_pasting > pix)
-			XtGetSelectionValue(w, paste_atom[pix++], XA_STRING,
-			    paste_callback, NULL, paste_time);
-		return;
-	}
-
-	s = (char *)value;
-	len = *length;
-	(void) emulate_input(s, (int) len, True);
-	n_pasting = 0;
-
-	XtFree(value);
-}
-
-void
-insert_selection_action(w, event, params, num_params)
-Widget w;
-XButtonEvent *event;
-String *params;
-Cardinal *num_params;
-{
-	int	i;
-	Atom	a;
-
-	action_debug(insert_selection_action, (XEvent *)event, params,
-	    num_params);
-	n_pasting = 0;
-	for (i = 0; i < *num_params; i++) {
-		a = XInternAtom(display, params[i], True);
-		if (a == None) {
-			popup_an_error("%s: no atom for selection",
-			    action_name(insert_selection_action));
-			continue;
-		}
-		if (n_pasting < NP)
-			paste_atom[n_pasting++] = a;
-	}
-	pix = 0;
-	if (n_pasting > pix) {
-		paste_time = event->time;
-		XtGetSelectionValue(w, paste_atom[pix++], XA_STRING,
-		    paste_callback, NULL, paste_time);
-	}
-}
-
 /*
  * Pretend that a sequence of hexadecimal characters was entered at the
  * keyboard.  The input is a sequence of hexadecimal bytes, 2 characters
@@ -3005,14 +2496,15 @@ Cardinal *num_params;
  * Graphic Escapes are handled as \E.
  */
 void
-hex_input(s)
-char *s;
+hex_input(char *s)
 {
 	char *t;
 	Boolean escaped;
-	unsigned char *xbuf;
-	unsigned char *tbuf;
+#if defined(X3270_ANSI) /*[*/
+	unsigned char *xbuf = (unsigned char *)NULL;
+	unsigned char *tbuf = (unsigned char *)NULL;
 	int nbytes = 0;
+#endif /*]*/
 
 	/* Validate the string. */
 	if (strlen(s) % 2) {
@@ -3025,7 +2517,9 @@ char *s;
 	while (*t) {
 		if (isxdigit(*t) && isxdigit(*(t + 1))) {
 			escaped = False;
+#if defined(X3270_ANSI) /*[*/
 			nbytes++;
+#endif /*]*/
 		} else if (!strncmp(t, "\\E", 2) || !strncmp(t, "\\e", 2)) {
 			if (escaped) {
 				popup_an_error("%s: Double \\E",
@@ -3051,9 +2545,11 @@ char *s;
 		return;
 	}
 
+#if defined(X3270_ANSI) /*[*/
 	/* Allocate a temporary buffer. */
 	if (!IN_3270 && nbytes)
 		tbuf = xbuf = (unsigned char *)XtMalloc(nbytes);
+#endif /*]*/
 
 	/* Pump it in. */
 	t = s;
@@ -3065,147 +2561,39 @@ char *s;
 			c = (FROM_HEX(*t) * 16) + FROM_HEX(*(t + 1));
 			if (IN_3270)
 				key_Character(ebc2cg[c], escaped);
+#if defined(X3270_ANSI) /*[*/
 			else
 				*tbuf++ = (unsigned char)c;
+#endif /*]*/
 			escaped = False;
 		} else if (!strncmp(t, "\\E", 2) || !strncmp(t, "\\e", 2)) {
 			escaped = True;
 		}
 		t += 2;
 	}
+#if defined(X3270_ANSI) /*[*/
 	if (!IN_3270 && nbytes) {
 		net_hexansi_out(xbuf, nbytes);
 		XtFree((XtPointer)xbuf);
 	}
+#endif /*]*/
 }
-
+ 
 /*ARGSUSED*/
 void
-ignore_action(w, event, params, num_params)
-Widget w;
-XButtonEvent *event;
-String *params;
-Cardinal *num_params;
+ignore_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
-	action_debug(ignore_action, (XEvent *)event, params, num_params);
+	action_debug(ignore_action, event, params, num_params);
 }
 
-/*
- * Set or clear a temporary keymap.
- *
- *   Keymap(x)		toggle keymap "x" (add "x" to the keymap, or if "x"
- *			 was already added, remove it)
- *   Keymap()		removes the previous keymap, if any
- *   Keymap(None)	removes the previous keymap, if any
- */
-/*ARGSUSED*/
-void
-Keymap_action(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
-{
-	char *k;
-	char *kmname, *km;
-	XtTranslations trans;
-	struct trans_list *t, *prev;
-#	define TN (struct trans_list *)NULL
-
-	action_debug(Keymap_action, event, params, num_params);
-
-	if (check_usage(Keymap_action, *num_params, 0, 1) < 0)
-		return;
-
-	if (*num_params == 0 || !strcmp(params[0], "None")) {
-		struct trans_list *next;
-
-		/* Delete all temporary keymaps. */
-		for (t = temp_keymaps; t != TN; t = next) {
-			XtFree((XtPointer)t->name);
-			next = t->next;
-			XtFree((XtPointer)t);
-		}
-		tkm_last = temp_keymaps = TN;
-		screen_set_temp_keymap((XtTranslations)NULL);
-		keypad_set_temp_keymap((XtTranslations)NULL);
-		status_kmap(False);
-		return;
-	}
-
-	k = params[0];
-
-	/* Check for deleting one keymap. */
-	for (prev = TN, t = temp_keymaps; t != TN; prev = t, t = t->next)
-		if (!strcmp(k, t->name))
-			break;
-	if (t != TN) {
-
-		/* Delete the keymap from the list. */
-		if (prev != TN)
-			prev->next = t->next;
-		else
-			temp_keymaps = t->next;
-		if (tkm_last == t)
-			tkm_last = prev;
-		XtFree((XtPointer)t->name);
-		XtFree((XtPointer)t);
-
-		/* Rebuild the translation tables from the remaining ones. */
-		screen_set_temp_keymap((XtTranslations)NULL);
-		keypad_set_temp_keymap((XtTranslations)NULL);
-		for (t = temp_keymaps; t != TN; t = t->next) {
-			trans = lookup_tt(t->name, CN);
-			screen_set_temp_keymap(trans);
-			keypad_set_temp_keymap(trans);
-		}
-
-		/* Update the status line. */
-		if (temp_keymaps == TN)
-			status_kmap(False);
-		return;
-	}
-
-	/* Add a keymap. */
-
-	/* Look up the resource. */
-	kmname = xs_buffer("%s.%s", ResKeymap, k);
-	km = get_resource(kmname);
-	XtFree(kmname);
-	if (km == CN) {
-		popup_an_error("%s: can't find %s.%s",
-		    action_name(Keymap_action), ResKeymap, k);
-		return;
-	}
-
-	/* Update the translation tables. */
-	trans = lookup_tt(k, km);
-	XtFree(km);
-	screen_set_temp_keymap(trans);
-	keypad_set_temp_keymap(trans);
-
-	/* Add it to the list. */
-	t = (struct trans_list *)XtMalloc(sizeof(*t));
-	t->name = XtNewString(k);
-	t->next = TN;
-	if (tkm_last != TN)
-		tkm_last->next = t;
-	else
-		temp_keymaps = t;
-	tkm_last = t;
-
-	/* Update the status line. */
-	status_kmap(True);
-}
-#undef TN
-
+#if defined(X3270_FT) /*[*/
 /*
  * Set up the cursor and input field for command input.
  * Returns the length of the input field, or 0 if there is no field
  * to set up.
  */
 int
-kybd_prime()
+kybd_prime(void)
 {
 	int baddr;
 	register unsigned char *fa;
@@ -3253,3 +2641,379 @@ kybd_prime()
 	/* Return the field length. */
 	return len;
 }
+#endif /*]*/
+
+/*
+ * Translate a keysym name to a keysym, including APL and extended
+ * characters.
+ */
+static KeySym
+StringToKeysym(char *s, enum keytype *keytypep)
+{
+	KeySym k;
+
+#if defined(X3270_APL) /*[*/
+	if (!strncmp(s, "apl_", 4)) {
+		int is_ge;
+
+		k = APLStringToKeysym(s, &is_ge);
+		if (is_ge)
+			*keytypep = KT_GE;
+		else
+			*keytypep = KT_STD;
+	} else
+#endif /*]*/
+	{
+		k = XStringToKeysym(s);
+		*keytypep = KT_STD;
+	}
+	if (k == NoSymbol && strlen(s) == 1)
+		k = s[0] & 0xff;
+	if (k < ' ')
+		k = NoSymbol;
+	else if (k > 0xff) {
+		int i;
+
+		for (i = 0; i < nxk; i++)
+			if (xk[i].key == k) {
+				k = xk[i].assoc;
+				break;
+			}
+		if (k > 0xff)
+			k = NoSymbol;
+	}
+	return k;
+}
+
+/* Add a key to the extended association table. */
+void
+add_xk(KeySym key, KeySym assoc)
+{
+	int i;
+
+	for (i = 0; i < nxk; i++)
+		if (xk[i].key == key) {
+			xk[i].assoc = assoc;
+			return;
+		}
+	xk = (struct xks *)XtRealloc((XtPointer)xk,
+	    (nxk + 1) * sizeof(struct xks));
+	xk[nxk].key = key;
+	xk[nxk].assoc = assoc;
+	nxk++;
+}
+
+/* Clear the extended association table. */
+void
+clear_xks(void)
+{
+	if (nxk) {
+		XtFree((XtPointer)xk);
+		xk = (struct xks *)NULL;
+		nxk = 0;
+	}
+}
+
+/*
+ * FieldExit for the 5250-like emulation.
+ * Erases from the current cursor position to the end of the field, and moves
+ * the cursor to the beginning of the next field.
+ *
+ * Derived from work (C) Minolta (Schweiz) AG, Beat Rubischon <bru@minolta.ch>
+ */
+/*ARGSUSED*/
+void
+FieldExit_action(w, event, params, num_params)
+Widget w;
+XEvent *event;
+String *params;
+Cardinal *num_params;
+{
+	register int    baddr;
+	register unsigned char  *fa;
+
+	action_debug(FieldExit_action, event, params, num_params);
+	if (IN_ANSI) {
+		net_sendc('\n');
+		return;
+	}
+	if (kybdlock) {
+		enq_ta(FieldExit_action, CN, CN);
+		return;
+	}
+	baddr = cursor_addr;
+	fa = get_field_attribute(baddr);
+	if (FA_IS_PROTECTED(*fa) || IS_FA(screen_buf[baddr])) {
+		operator_error(KL_OERR_PROTECTED);
+		return;
+	}
+	if (formatted) {        /* erase to next field attribute */
+		do {
+			ctlr_add(baddr, CG_null, 0);
+			INC_BA(baddr);
+		} while (!IS_FA(screen_buf[baddr]));
+		mdt_set(fa);
+		cursor_move(next_unprotected(cursor_addr));
+	} else {        /* erase to end of screen */
+		do {
+			ctlr_add(baddr, CG_null, 0);
+			INC_BA(baddr);
+		} while (baddr != 0);
+	}
+}
+
+#if defined(X3270_DISPLAY) /*[*/
+/*
+ * X-dependent code starts here.
+ */
+
+/*
+ * Translate a keymap (from an XQueryKeymap or a KeymapNotify event) into
+ * a bitmap of Shift, Meta or Alt keys pressed.
+ */
+#define key_is_down(kc, bitmap) (kc && ((bitmap)[(kc)/8] & (1<<((kc)%8))))
+int
+state_from_keymap(char keymap[32])
+{
+	static Boolean	initted = False;
+	static KeyCode	kc_Shift_L, kc_Shift_R;
+	static KeyCode	kc_Meta_L, kc_Meta_R;
+	static KeyCode	kc_Alt_L, kc_Alt_R;
+	int	pseudo_state = 0;
+
+	if (!initted) {
+		kc_Shift_L = XKeysymToKeycode(display, XK_Shift_L);
+		kc_Shift_R = XKeysymToKeycode(display, XK_Shift_R);
+		kc_Meta_L  = XKeysymToKeycode(display, XK_Meta_L);
+		kc_Meta_R  = XKeysymToKeycode(display, XK_Meta_R);
+		kc_Alt_L   = XKeysymToKeycode(display, XK_Alt_L);
+		kc_Alt_R   = XKeysymToKeycode(display, XK_Alt_R);
+		initted = True;
+	}
+	if (key_is_down(kc_Shift_L, keymap) ||
+	    key_is_down(kc_Shift_R, keymap))
+		pseudo_state |= ShiftKeyDown;
+	if (key_is_down(kc_Meta_L, keymap) ||
+	    key_is_down(kc_Meta_R, keymap))
+		pseudo_state |= MetaKeyDown;
+	if (key_is_down(kc_Alt_L, keymap) ||
+	    key_is_down(kc_Alt_R, keymap))
+		pseudo_state |= AltKeyDown;
+	return pseudo_state;
+}
+#undef key_is_down
+
+/*
+ * Process shift keyboard events.  The code has to look for the raw Shift keys,
+ * rather than using the handy "state" field in the event structure.  This is
+ * because the event state is the state _before_ the key was pressed or
+ * released.  This isn't enough information to distinguish between "left
+ * shift released" and "left shift released, right shift still held down"
+ * events, for example.
+ *
+ * This function is also called as part of Focus event processing.
+ */
+/*ARGSUSED*/
+void
+PA_Shift_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+{
+	char	keys[32];
+
+#if defined(INTERNAL_ACTION_DEBUG) /*[*/
+	action_debug(PA_Shift_action, event, params, num_params);
+#endif /*]*/
+	XQueryKeymap(display, keys);
+	shift_event(state_from_keymap(keys));
+}
+
+static Boolean
+build_composites(void)
+{
+	char *cname;
+	char *c, *c0;
+	char *ln;
+	char ksname[3][64];
+	char junk[2];
+	KeySym k[3];
+	enum keytype a[3];
+	int i;
+	struct composite *cp;
+
+	if (appres.compose_map == CN) {
+		xs_warning("%s: No %s defined", action_name(Compose_action),
+		    ResComposeMap);
+		return False;
+	}
+	cname = xs_buffer("%s.%s", ResComposeMap, appres.compose_map);
+	if ((c0 = get_resource(cname)) == CN) {
+		xs_warning("%s: Cannot find %s \"%s\"",
+		    action_name(Compose_action), ResComposeMap,
+		    appres.compose_map);
+		return False;
+	}
+	XtFree(cname);
+	c = XtNewString(c0);	/* will be modified by strtok */
+	while ((ln = strtok(c, "\n"))) {
+		Boolean okay = True;
+
+		c = NULL;
+		if (sscanf(ln, " %63[^+ \t] + %63[^= \t] =%63s%1s",
+		    ksname[0], ksname[1], ksname[2], junk) != 3) {
+			xs_warning("%s: Invalid syntax: %s",
+			    action_name(Compose_action), ln);
+			continue;
+		}
+		for (i = 0; i < 3; i++) {
+			k[i] = StringToKeysym(ksname[i], &a[i]);
+			if (k[i] == NoSymbol) {
+				xs_warning("%s: Invalid KeySym: \"%s\"",
+				    action_name(Compose_action), ksname[i]);
+				okay = False;
+				break;
+			}
+		}
+		if (!okay)
+			continue;
+		composites = (struct composite *) XtRealloc((char *)composites,
+		    (n_composites + 1) * sizeof(struct composite));
+		cp = composites + n_composites;
+		cp->k1.keysym = k[0];
+		cp->k1.keytype = a[0];
+		cp->k2.keysym = k[1];
+		cp->k2.keytype = a[1];
+		cp->translation.keysym = k[2];
+		cp->translation.keytype = a[2];
+		n_composites++;
+	}
+	XtFree(c0);
+	return True;
+}
+
+/*
+ * Called by the toolkit when the "Compose" key is pressed.  "Compose" is
+ * implemented by pressing and releasing three keys: "Compose" and two
+ * data keys.  For example, "Compose" "s" "s" gives the German "ssharp"
+ * character, and "Compose" "C", "," gives a capital "C" with a cedilla
+ * (symbol Ccedilla).
+ *
+ * The mechanism breaks down a little when the user presses "Compose" and
+ * then a non-data key.  Oh well.
+ */
+/*ARGSUSED*/
+void
+Compose_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+{
+	action_debug(Compose_action, event, params, num_params);
+
+	if (!composites && !build_composites())
+		return;
+
+	if (composing == NONE) {
+		composing = COMPOSE;
+		status_compose(True, 0, KT_STD);
+	}
+}
+
+
+
+/*
+ * Called by the toolkit for any key without special actions.
+ */
+/*ARGSUSED*/
+void
+Default_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+{
+	XKeyEvent	*kevent = (XKeyEvent *)event;
+	char		buf[32];
+	KeySym		ks;
+	int		ll;
+
+	action_debug(Default_action, event, params, num_params);
+	ll = XLookupString(kevent, buf, 32, &ks, (XComposeStatus *) 0);
+	if (ll == 1) {
+		/* Remap certain control characters. */
+		switch (buf[0]) {
+		    case '\t':
+			action_internal(Tab_action, IA_DEFAULT, CN, CN);
+			break;
+                   case '\177':
+			action_internal(Delete_action, IA_DEFAULT, CN, CN);
+			break;
+		    case '\b':
+			action_internal(BackSpace_action, IA_DEFAULT, CN, CN);
+			break;
+		    case '\r':
+			action_internal(Enter_action, IA_DEFAULT, CN, CN);
+			break;
+		    case '\n':
+			action_internal(Newline_action, IA_DEFAULT, CN, CN);
+			break;
+		    default:
+			key_ACharacter((unsigned char) buf[0], KT_STD,
+			    IA_DEFAULT);
+		}
+		return;
+	}
+
+	/* Pick some other reasonable defaults. */
+	switch (ks) {
+	    case XK_Up:
+		action_internal(Up_action, IA_DEFAULT, CN, CN);
+		break;
+	    case XK_Down:
+		action_internal(Down_action, IA_DEFAULT, CN, CN);
+		break;
+	    case XK_Left:
+		action_internal(Left_action, IA_DEFAULT, CN, CN);
+		break;
+	    case XK_Right:
+		action_internal(Right_action, IA_DEFAULT, CN, CN);
+		break;
+	    case XK_Insert:
+	    case XK_KP_Insert:
+		action_internal(Insert_action, IA_DEFAULT, CN, CN);
+		break;
+	    case XK_Delete:
+		action_internal(Delete_action, IA_DEFAULT, CN, CN);
+		break;
+	    case XK_Home:
+		action_internal(Home_action, IA_DEFAULT, CN, CN);
+		break;
+	    case XK_Tab:
+		action_internal(Tab_action, IA_DEFAULT, CN, CN);
+		break;
+	    default:
+		trace_event(" %s: dropped (non-alphanumeric keysym)\n",
+		    action_name(Default_action));
+		return;
+	}
+}
+
+/*
+ * Set or clear a temporary keymap.
+ *
+ *   TemporaryKeymap(x)		toggle keymap "x" (add "x" to the keymap, or if
+ *				"x" was already added, remove it)
+ *   TemporaryKeymap()		removes the previous keymap, if any
+ *   TemporaryKeymap(None)	removes the previous keymap, if any
+ */
+/*ARGSUSED*/
+void
+TemporaryKeymap_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
+{
+	action_debug(TemporaryKeymap_action, event, params, num_params);
+
+	if (check_usage(TemporaryKeymap_action, *num_params, 0, 1) < 0)
+		return;
+
+	if (*num_params == 0 || !strcmp(params[0], "None")) {
+		(void) temporary_keymap(CN);
+		return;
+	}
+
+	if (temporary_keymap(params[0]) < 0)
+		popup_an_error("%s: can't find %s %s",
+		    action_name(TemporaryKeymap_action), ResKeymap, params[0]);
+}
+
+#endif /*]*/

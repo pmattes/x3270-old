@@ -1,5 +1,5 @@
 /*
- * Copyright 1995 by Paul Mattes.
+ * Copyright 1995, 1999 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -12,16 +12,10 @@
  *		Global declarations for main.c.
  */
 
-extern void invert_icon();
-extern void lock_icon();
-extern void relabel();
-extern void setup_keymaps();
-extern void x3270_exit();
-extern int x_connect();
-extern void x_connected();
-extern void x_disconnect();
-extern void x_except_off();
-extern void x_except_on();
-extern Status x_get_window_attributes();
-extern void x_in3270();
-extern void x_reconnect();
+extern void Quit_action(Widget w, XEvent *event, String *params,
+    Cardinal *num_params);
+extern void x3270_exit(int n);
+extern void x_add_input(int net_sock);
+extern void x_except_off(void);
+extern void x_except_on(int net_sock);
+extern void x_remove_input(void);
