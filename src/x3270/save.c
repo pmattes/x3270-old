@@ -1,5 +1,5 @@
 /*
- * Copyright 1994, 1995, 1999, 2000 by Paul Mattes.
+ * Copyright 1994, 1995, 1999, 2000, 2001 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -23,6 +23,7 @@
 #include "resources.h"
 
 #include "savec.h"
+#include "charsetc.h"
 #include "popupsc.h"
 #include "utilc.h"
 
@@ -341,7 +342,7 @@ save_toggles(void)
 	int ix;
 
 	for (i = 0; i < N_TOGGLES; i++) {
-		if (!appres.toggle[i].changed)
+		if (toggle_names[i].index < 0 || !appres.toggle[i].changed)
 			continue;
 
 		/*
@@ -601,7 +602,7 @@ save_options(char *n)
 
 	/* Save most of the toggles. */
 	for (i = 0; i < N_TOGGLES; i++) {
-		if (!appres.toggle[i].changed)
+		if (toggle_names[i].index < 0 || !appres.toggle[i].changed)
 			continue;
 #if defined(X3270_TRACE) /*[*/
 		if (i == DS_TRACE || i == SCREEN_TRACE || i == EVENT_TRACE)
@@ -641,8 +642,9 @@ save_options(char *n)
 		    appres.color_scheme);
 	if (keymap_changed && appres.key_map != (char *)NULL)
 		save_opt(f, "keymap", OptKeymap, ResKeymap, appres.key_map);
-	if (charset_changed && appres.charset != (char *)NULL)
-		save_opt(f, "charset", OptCharset, ResCharset, appres.charset);
+	if (charset_changed)
+		save_opt(f, "charset", OptCharset, ResCharset,
+		    get_charset_name());
 
 	/* Done. */
 	(void) fclose(f);
@@ -710,6 +712,20 @@ merge_profile(XrmDatabase *d)
 	xcmd = CN;
 	XtFree((char *)xargv);
 	xargv = (char **)NULL;
+}
+
+int
+read_resource_file(const char *filename, Boolean fatal)
+{
+	XrmDatabase dd, rdb;
+
+	dd = XrmGetFileDatabase(filename);
+	if (dd == NULL)
+		return -1;
+
+	rdb = XtDatabase(display);
+	XrmMergeDatabases(dd, &rdb);
+	return 0;
 }
 
 /*

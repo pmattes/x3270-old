@@ -1,5 +1,5 @@
 /*
- * Copyright 1995, 1996, 1999, 2000 by Paul Mattes.
+ * Copyright 1995, 1996, 1999, 2000, 2001 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -15,6 +15,7 @@
 /* Resources. */
 #define ResActiveIcon		"activeIcon"
 #define ResAdVersion		"adVersion"
+#define ResAllBold		"allBold"
 #define ResAllowResize		"allowResize"
 #define ResAltCursor		"altCursor"
 #define ResAplFont		"aplFont"
@@ -31,6 +32,7 @@
 #define ResColorBackground	"colorBackground"
 #define ResColorScheme		"colorScheme"
 #define ResComposeMap		"composeMap"
+#define ResConfDir		"confDir"
 #define ResConnectFileName	"connectFileName"
 #define ResCursorBlink		"cursorBlink"
 #define ResCursorColor		"cursorColor"
@@ -38,6 +40,7 @@
 #define ResDebugFont		"debugFont"
 #define ResDebugTracing		"debugTracing"
 #define ResDisconnectClear	"disconnectClear"
+#define ResDisplayCharset	"displayCharset"
 #define ResDoConfirms		"doConfirms"
 #define ResDsTrace		"dsTrace"
 #define ResEmulatorFont		"emulatorFont"
@@ -46,6 +49,7 @@
 #define ResEventTrace		"eventTrace"
 #define ResExtended		"extended"
 #define ResFontList		"fontMenuList"
+#define ResFtCharset		"ftCharset"
 #define ResFtCommand		"ftCommand"
 #define ResHighlightBold	"highlightBold"
 #define ResHighlightSelect	"highlightSelect"
@@ -88,6 +92,7 @@
 #define ResQuit			"quit"
 #define ResReconnect		"reconnect"
 #define ResRectangleSelect	"rectangleSelect"
+#define ResRequiredFont		"requiredFont"
 #define ResRprnt		"rprnt"
 #define ResSaveLines		"saveLines"
 #define ResSchemeList		"schemeList"
@@ -136,6 +141,7 @@
 /* Resource classes. */
 #define ClsActiveIcon		"ActiveIcon"
 #define ClsAdVersion		"AdVersion"
+#define ClsAllBold		"AllBold"
 #define ClsAllowResize		"AllowResize"
 #define ClsAltCursor		"AltCursor"
 #define ClsAplFont		"AplFont"
@@ -149,6 +155,7 @@
 #define ClsColorBackground	"ColorBackground"
 #define ClsColorScheme		"ColorScheme"
 #define ClsComposeMap		"ComposeMap"
+#define ClsConfDir		"ConfDir"
 #define ClsConnectFileName	"ConnectFileName"
 #define ClsCursorBlink		"CursorBlink"
 #define ClsCursorColor		"CursorColor"
@@ -226,6 +233,7 @@
 
 /* Options. */
 #define OptActiveIcon		"-activeicon"
+#define OptAllBold		"-allbold"
 #define OptAplMode		"-apl"
 #define OptCharClass		"-cc"
 #define OptCharset		"-charset"

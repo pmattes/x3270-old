@@ -1,5 +1,5 @@
 /*
- * Copyright 1993, 1994, 1995, 1996, 1999, 2000 by Paul Mattes.
+ * Copyright 1993, 1994, 1995, 1996, 1999, 2000, 2001 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -591,11 +591,11 @@ keypad_shift(void)
  */
 Widget keypad_shell = NULL;
 Boolean keypad_popped = False;
-Boolean up_once = False;
+static Boolean up_once = False;
 static Position kset_x, kset_y;
 static Position kmove_x, kmove_y;
 static Dimension decor_width, decor_height;
-enum { WA_UNKNOWN, WA_ALL, WA_PARTIAL, WA_NONE } wa_mode = WA_UNKNOWN;
+static enum { WA_UNKNOWN, WA_ALL, WA_PARTIAL, WA_NONE } wa_mode = WA_UNKNOWN;
 
 /*
  * Called when the main screen is first exposed, to pop up the keypad the

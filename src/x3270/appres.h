@@ -1,5 +1,5 @@
 /*
- * Modifications Copyright 1993, 1994, 1995, 1996, 1999, 2000 by Paul Mattes.
+ * Modifications Copyright 1993, 1994, 1995, 1996, 1999, 2000, 2001 by Paul Mattes.
  * Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -86,6 +86,9 @@ typedef struct {
 	Boolean	keypad_on;
 # endif /*]*/
 #endif /*]*/
+#if defined(C3270) /*[*/
+	Boolean all_bold;
+#endif /*]*/
 	Boolean	apl_mode;
 	Boolean scripted;
 	Boolean numeric_lock;
@@ -126,6 +129,7 @@ typedef struct {
 	int	modified_sel_color;
 	int	visual_select_color;
 #endif /*]*/
+	char	*conf_dir;
 	char	*model;
 	char	*hostsfile;
 	char	*port;

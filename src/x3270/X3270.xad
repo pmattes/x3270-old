@@ -1,4 +1,4 @@
-! Copyright 1995, 1999, 2000 by Paul Mattes.
+! Copyright 1995, 1999, 2000, 2001 by Paul Mattes.
 !  Permission to use, copy, modify, and distribute this software and its
 !  documentation for any purpose and without fee is hereby granted,
 !  provided that the above copyright notice appear in all copies and that
@@ -109,8 +109,6 @@ x3270.charsetList:			U.S. English: us-intl\n\
 					Finnish: finnish\n\
 					French: french\n\
 					German: german\n\
-					Greek: greek\n\
-					Hebrew: hebrew\n\
 					Icelandic: icelandic\n\
 					Italian: italian\n\
 					Norwegian: norwegian\n\
@@ -241,22 +239,13 @@ x3270.serverKeymapList: \
 !
 ! Keymaps (keyboard and mouse mappings)
 !
-! Base keymap:  What you get by default.  Any other user-specified keymap is
-! logically added to this keymap.
+! Base keymap:  What you get by default, in both 3270 and NVT modes.  Any other
+! user-specified keymap is logically added to this keymap.
 x3270.keymap.base: \
-	:<Key>Multi_key:			Compose()\n\
-	Shift<Key>Return:		Newline()\n\
-	:<Key>Return:			Enter()\n\
-	:<Key>Linefeed:			Newline()\n\
-	Shift<Key>Tab:			BackTab()\n\
-	:Meta<Key>Left:			PreviousWord()\n\
-	:Meta<Key>Right:			NextWord()\n\
-	:<Key>BackSpace: 		BackSpace()\n\
-	:Ctrl Shift<Btn1Down>:		MouseSelect()\n\
+	:<Key>Multi_key:		Compose()\n\
 	Ctrl<Btn1Down>:			HandleMenu(fileMenu)\n\
 	Ctrl<Btn2Down>:			HandleMenu(optionsMenu)\n\
 	Ctrl<Btn3Down>:			HandleMenu(hostMenu,macrosMenu)\n\
-	Shift<Btn1Down>:		MoveCursor()\n\
 	<Btn1Down>:			select-start()\n\
 	~Shift<Btn1Motion>:		select-extend()\n\
 	<Btn2Down>:			ignore()\n\
@@ -293,6 +282,27 @@ x3270.keymap.base: \
 	:<Key>F10:			PF(10)\n\
 	:<Key>F11:			PF(11)\n\
 	:<Key>F12:			PF(12)\n\
+	:<Key>Print:			PrintText()\n\
+	Alt<Key>q:			Quit()\n
+!
+! Base keymap for 3270 mode.  These mappings are added to the base keymap,
+! but only when in 3270 mode.
+! These were originally part of the base keymap, but were moved here, because
+! they were no-ops in NVT mode, or interfered with NVT-mode data entry.
+!
+! Note that as yet, there is no x3270.keymap.base.nvt, which would define the
+! base keymap extensions for NVT mode.
+!
+x3270.keymap.base.3270: #override \
+	:Ctrl Shift<Btn1Down>:		MouseSelect()\n\
+	Shift<Btn1Down>:		MoveCursor()\n\
+	Shift<Key>Return:		Newline()\n\
+	:<Key>Return:			Enter()\n\
+	:<Key>Linefeed:			Newline()\n\
+	:<Key>BackSpace: 		BackSpace()\n\
+	Shift<Key>Tab:			BackTab()\n\
+	:Meta<Key>Left:			PreviousWord()\n\
+	:Meta<Key>Right:		NextWord()\n\
 	:Meta<Key>1:			PA(1)\n\
 	:Meta<Key>2:			PA(2)\n\
 	:Meta<Key>3:			PA(3)\n\
@@ -306,12 +316,11 @@ x3270.keymap.base: \
 	Meta<Key>i:			Insert()\n\
 	Meta<Key>l:			Redraw()\n\
 	Meta<Key>p:			PrintText()\n\
-	:<Key>Print:			PrintText()\n\
-	Meta<Key>q:			Quit()\n\
 	Meta<Key>r:			Reset()\n\
-	Ctrl<Key>u:			DeleteField()\n\
-	Ctrl<Key>w:			DeleteWord()\n\
+	Meta<Key>u:			Unselect()\n\
 	:Meta<Key>asciicircum:		Key(notsign)\n
+	Ctrl<Key>u:			DeleteField()\n\
+	Ctrl<Key>w:			DeleteWord()\n
 !
 ! Start of keyboard-specific mappings.
 !
@@ -559,10 +568,24 @@ x3270.keymap.ibm-xterm: \
 	:<Key>Prior:		PA(1)\n\
 	:<Key>Next:		PA(2)\n\
 	:<Key>Escape:		Reset()\n\
-	:<Key>Control_L:		Reset()\n\
+	:<Key>Control_L:	Reset()\n\
 	:<Key>Insert:		Insert()\n\
 	!Shift<Key>Right:	Right2()\n\
 	!Shift<Key>Left:	Left2()\n
+! Keymap for common 3270 functions on a PC keyboard, from Richard Lennox.
+x3270.keymap.rlx: #override \
+	<Key>Prior:		PF(7)\n\
+	<Key>Next:		PF(8)\n\
+	<Key>Control_R:		Enter()\n\
+	<Key>Return: 		Newline()\n\
+	<Key>Pause: 		Clear()\n\
+	Shift<Key>Escape:	Attn()\n\
+	Shift<Key>Left:		PreviousWord()\n\
+	Shift<Key>Right:	NextWord()\n\
+	Ctrl<Key>Left:		PreviousWord()\n\
+	Ctrl<Key>Right:		NextWord()\n\
+	Shift<Key>End:		EraseEOF()\n\
+	<Key>End:		FieldEnd()
 ! Keymap modifier for OpenWindows (makes button 2 the extend key; defines the
 ! Paste and Cut keys; uses CLIPBOARD).
 x3270.keymap.ow:	#override \
@@ -719,8 +742,6 @@ x3270.keymap.5250: \
 	Shift<Key>Escape:	Interrupt()\n
 ! Keymap modifier for keyboards which lack a Meta key, such as the RS/6000.
 x3270.keymap.alt: \
-	:Alt<Key>Left:		Left2()\n\
-	:Alt<Key>Right:		Right2()\n\
 	:Alt<Key>F1:		PF(13)\n\
 	:Alt<Key>F2:		PF(14)\n\
 	:Alt<Key>F3:		PF(15)\n\
@@ -732,7 +753,10 @@ x3270.keymap.alt: \
 	:Alt<Key>F9:		PF(21)\n\
 	:Alt<Key>F10:		PF(22)\n\
 	:Alt<Key>F11:		PF(23)\n\
-	:Alt<Key>F12:		PF(24)\n\
+	:Alt<Key>F12:		PF(24)\n
+x3270.keymap.alt.3270: \
+	:Alt<Key>Left:		Left2()\n\
+	:Alt<Key>Right:		Right2()\n\
 	:Alt<Key>1:		PA(1)\n\
 	:Alt<Key>2:		PA(2)\n\
 	:Alt<Key>3:		PA(3)\n\
@@ -746,7 +770,8 @@ x3270.keymap.alt: \
 	Alt<Key>l:		Redraw()\n\
 	Alt<Key>p:		PrintText()\n\
 	Alt<Key>q:		Quit()\n\
-	Alt<Key>r:		Reset()\n
+	Alt<Key>r:		Reset()\n\
+	Alt<Key>u:		Unselect()\n
 ! Helpful modifier to disply the translation table.
 x3270.keymap.t: \
 	Meta<Key>t:		XtDisplayTranslations()\n
@@ -807,9 +832,11 @@ x3270.keymap.icelandic: \
 x3270.errorPopup.title:				x3270 Error
 x3270.errorPopup*cancelButton.label:		Exit
 x3270.printerErrorPopup.title:			x3270 Printer Error
+x3270.childErrorPopup.title:			x3270 Child Process Error
 #ifdef X3270_MENUS
 x3270.infoPopup.title:				x3270 Information
 x3270.printerInfoPopup.title:			x3270 Printer Information
+x3270.childInfoPopup.title:			x3270 Child Process Information
 x3270.connectPopup.title:			x3270 Connect
 x3270.connectPopup.dialog.label:		Enter Hostname
 x3270.fontPopup.title:				x3270 Font
@@ -862,6 +889,8 @@ x3270.kmPopup.title:				x3270 Keymap
 x3270*confirmButton.label:			OK
 x3270.printerErrorPopup*cancelButton.label:	Abort Printer
 x3270.printerInfoPopup*cancelButton.label:	Abort Printer
+x3270.childErrorPopup*cancelButton.label:	Discard Output
+x3270.childInfoPopup*cancelButton.label:	Discard Output
 x3270*cancelButton.label:			Cancel
 #ifdef X3270_MENUS
 x3270*aboutOption.label:			About x3270...
@@ -986,11 +1015,13 @@ x3270.message.standardDs:			standard data stream
 x3270.message.terminalName:			Terminal name:
 x3270.message.luName:				LU name:
 x3270.message.emulatorFont:			Emulator font:
-x3270.message.fullFont:				full ISO 8859-1 font
-x3270.message.asciiFont:			7-bit ASCII X font
+x3270.message.xFont:				standard X11 font
 x3270.message.cgFont:				special 3270 CG font
-x3270.message.characterSet:			EBCDIC character set:
+x3270.message.characterSet:			Host EBCDIC character set:
 x3270.message.defaultCharacterSet:		Default (us) EBCDIC character set
+x3270.message.displayCharacterSet:		Display character set:
+x3270.message.require:				require
+x3270.message.have:				have
 x3270.message.keyboardMap:			Keyboard map:
 x3270.message.defaultKeyboardMap:		Default keyboard map
 x3270.message.composeMap:			Compose-key map:
@@ -1024,7 +1055,6 @@ x3270.message.bytes:				bytes
 x3270.message.record:				record
 x3270.message.records:				records
 x3270.message.statusNotConnected:		Not Connected
-x3270.message.statusConnecting:			Connecting
 x3270.message.statusTwait:			Wait
 x3270.message.statusSyswait:			System
 x3270.message.statusProtected:			Protected
@@ -1034,6 +1064,7 @@ x3270.message.statusInhibit:			Inhibit
 x3270.message.statusScrolled:			Scrolled
 x3270.message.statusMinus:			No Function
 #endif
+x3270.message.statusConnecting:			Connecting
 #ifdef X3270_FT
 x3270.message.ftComplete:			Transfer complete, %i bytes transferred\n\
 %.2lg Kbytes/sec in %s mode
@@ -1067,7 +1098,7 @@ x3270.message.kmFromServer:			\ (expanded from '@server')
 !=============================================================================
 !
 ! App-defaults file version
-x3270.adVersion:		3.2.14
+x3270.adVersion:		3.2.17
 !
 ! Fonts
 #ifdef X3270_APL
@@ -1216,8 +1247,10 @@ x3270*dialog*foreground:			black
 ! Fixed popup sizes
 x3270.errorPopup.width:				400
 x3270.printerErrorPopup.width:			400
+x3270.childErrorPopup.width:			400
 x3270.infoPopup.width:				400
 x3270.printerInfoPopup.width:			400
+x3270.childInfoPopup.width:			400
 x3270.printerLuPopup.width:			300
 x3270.connectPopup.width:			300
 x3270.fontPopup.width:				300
@@ -1235,6 +1268,7 @@ x3270.saveOptionsPopup.width:			300
 x3270.aboutPopup*icon.foreground:		darkslateblue
 x3270.errorPopup*label.foreground:		firebrick
 x3270.printerErrorPopup*label.foreground:	firebrick
+x3270.childErrorPopup*label.foreground:		firebrick
 #ifdef X3270_FT
 x3270.ftProgressPopup*filename.borderWidth:	2
 x3270.ftProgressPopup*filename.borderColor:	grey40
@@ -1335,17 +1369,25 @@ x3270.errorPopup.translations: \
 	<Message>WM_PROTOCOLS:		PA-WMProtocols()
 x3270.printerErrorPopup.translations: \
 	<Message>WM_PROTOCOLS:		PA-WMProtocols()
+x3270.childErrorPopup.translations: \
+	<Message>WM_PROTOCOLS:		PA-WMProtocols()
 x3270.errorPopup*translations:		#override \n\
 	<Key>Return:			PA-confirm()
 x3270.printerErrorPopup*translations:	#override \n\
+	<Key>Return:			PA-confirm()
+x3270.childErrorPopup*translations:	#override \n\
 	<Key>Return:			PA-confirm()
 x3270.infoPopup.translations: \
 	<Message>WM_PROTOCOLS:		PA-WMProtocols()
 x3270.printerInfoPopup.translations: \
 	<Message>WM_PROTOCOLS:		PA-WMProtocols()
+x3270.childInfoPopup.translations: \
+	<Message>WM_PROTOCOLS:		PA-WMProtocols()
 x3270.infoPopup*translations:		#override \n\
 	<Key>Return:			PA-confirm()
 x3270.printerInfoPopup*translations:	#override \n\
+	<Key>Return:			PA-confirm()
+x3270.childInfoPopup*translations:	#override \n\
 	<Key>Return:			PA-confirm()
 #ifdef X3270_MENUS
 x3270.connectPopup.translations: \
@@ -1740,6 +1782,8 @@ x3270.charset.hebrew: \
 	0x66: hebrew_zade	\n	0x67: hebrew_qoph	\n\
 	0x68: hebrew_resh	\n	0x69: hebrew_shin	\n\
 	0x71: hebrew_taw	\n
+x3270.codepage.hebrew: 424
+x3270.requiredFont.hebrew: 3270h
 ! Icelandic, courtesy of Rikhardur Egilsson
 x3270.charset.icelandic: \
 	0xa1: odiaeresis	\n	0x5f: Odiaeresis	\n\
@@ -1760,42 +1804,6 @@ x3270.charset.belgian: \
 	0xb0: cent		\n	0xba: notsign		\n\
 	0xbb: bar		\n
 x3270.codepage.belgian: 500
-! Greek, requires the 3270gr font
-! Courtesty of Mantzios Achilleus
-x3270.charset.greek: \
-	0x41: Á		\n	0x42: Â		\n\
-	0x43: Atilde		\n	0x44: Ä		\n\
-	0x45: Å		\n	0x46: Æ		\n\
-	0x47: Ç		\n	0x48: È		\n\
-	0x49: É		\n	0x51: Ê		\n\
-	0x52: Ediaeresis	\n	0x53: Ì		\n\
-	0x54: Í		\n	0x55: Î		\n\
-	0x56: Ï		\n	0x57: Ð		\n\
-	0x58: Ñ		\n	0x59: Ó		\n\
-	0x62: Ô		\n	0x63: Õ		\n\
-	0x64: Ö		\n	0x65: ×		\n\
-	0x66: Ø		\n	0x67: Ù		\n\
-	0x8a: á		\n	0x8b: â		\n\
-	0x8c: ã		\n	0x8d: ä		\n\
-	0x8e: å		\n	0x8f: æ		\n\
-	0x9a: ç		\n	0x9b: è		\n\
-	0x9c: é		\n	0x9d: ê		\n\
-	0x9e: ë		\n	0x9f: ì		\n\
-	0xaa: í		\n	0xab: î		\n\
-	0xac: ï		\n	0xad: ð		\n\
-	0xae: ñ		\n	0xaf: ó		\n\
-	0xbb: ô		\n	0xbc: õ		\n\
-	0xbd: ö		\n	0xbe: ÷		\n\
-	0xbf: ø		\n	0xcb: ù		\n\
-	0xb1: Ü		\n	0xb2: Ý		\n\
-	0xb3: Þ		\n	0xb5: ß		\n\
-	0xb6: ü		\n	0xb7: ý		\n\
-	0xb8: ucircumflex	\n	0xb4: uacute		\n\
-	0xb9: þ		\n	0xba: ò		\n\
-	0x71: ¶		\n	0x72: ¸		\n\
-	0x73: ¹		\n	0x75: º		\n\
-	0x76: ¼		\n	0x77: ¾		\n\
-	0x78: ¿		\n
 ! Italian, courtesy of Claudio Maniscalco and Daniele Patoner
 x3270.charset.italian: \
 	0x44: braceleft		\n\	0x48: backslash		\n\
@@ -1812,3 +1820,42 @@ x3270.charset.italian: \
 	0xd0: egrave		\n\	0xdd: grave		\n\
 	0xe0: ccedilla		\n
 x3270.codepage.italian: 280
+! Turkish, uses standard ISO 8859-9 fonts
+x3270.charset.iso-turkish: \
+	0x48: {			\n	0x4a: 0xc7		\n\
+	0x4f: !			\n	0x5a: 0xd0		\n\
+	0x5b: 0xdd		\n	0x5f: ^			\n\
+	0x68: [			\n	0x6a: 0xfe		\n\
+	0x79: 0xfd		\n	0x7b: 0xd6		\n\
+	0x7c: 0xde		\n	0x7f: 0xdc		\n\
+	0x8c: }			\n	0x8d: 0x91		\n\
+	0x8e: 0xa6		\n	0xa1: 0xf6		\n\
+	0xac: ]			\n	0xad: $			\n\
+	0xae: @			\n	0xb0: 0xa2		\n\
+	0xba: 0xac		\n	0xbb: |			\n\
+	0xbe: 0x92		\n	0xc0: 0xe7		\n\
+	0xcc: ~			\n	0xd0: 0xf0		\n\
+	0xdc: 0x5c		\n	0xe0: 0xfc		\n\
+	0xec: #			\n	0xfc: "	
+x3270.codepage.iso-turkish: 0x04800402
+x3270.displayCharset.iso-turkish: iso8859-9
+! Hebrew, uses standard ISO 8859-8 fonts
+x3270.charset.iso-hebrew: \
+	0x41: 0xe0		\n	0x42: 0xe1		\n\
+	0x43: 0xe2		\n	0x44: 0xe3		\n\
+	0x45: 0xe4		\n	0x46: 0xe5		\n\
+	0x47: 0xe6		\n	0x48: 0xe7		\n\
+	0x49: 0xe8		\n	0x51: 0xe9		\n\
+	0x52: 0xea		\n	0x53: 0xea		\n\
+	0x54: 0xec		\n	0x55: 0xec		\n\
+	0x56: 0xee		\n	0x57: 0xef		\n\
+	0x58: 0xf0		\n	0x59: 0xf1		\n\
+	0x62: 0xf2		\n	0x63: 0xf3		\n\
+	0x64: 0xf4		\n	0x65: 0xf5		\n\
+	0x66: 0xf6		\n	0x67: 0xf7		\n\
+	0x68: 0xf8		\n	0x69: 0xf9		\n\
+	0x71: 0xfa
+! This value is wrong, but I can't find a reference for the CGCSGID for
+! Hebrew...
+x3270.codepage.iso-hebrew: 424
+x3270.displayCharset.iso-hebrew: iso8859-8

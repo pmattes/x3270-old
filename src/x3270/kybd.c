@@ -1,5 +1,5 @@
 /*
- * Modifications Copyright 1993, 1994, 1995, 1996, 1999, 2000 by Paul Mattes.
+ * Modifications Copyright 1993, 1994, 1995, 1996, 1999, 2000, 2001 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -126,7 +126,7 @@ extern Widget *screen;
 /*
  * Put an action on the typeahead queue.
  */
-void
+static void
 enq_ta(XtActionProc fn, char *parm1, char *parm2)
 {
 	struct ta *ta;
@@ -654,12 +654,12 @@ key_Character(int cgcode, Boolean with_ge, Boolean pasting)
 	 * keyboard-generated data except DUP.
 	 */
 	if (pasting || (cgcode != CG_dup)) {
-		if (IS_FA(screen_buf[baddr]) &&
-		    FA_IS_SKIP(screen_buf[baddr]))
-			baddr = next_unprotected(baddr);
-		else while (IS_FA(screen_buf[baddr]))
-			INC_BA(baddr);
-
+		while (IS_FA(screen_buf[baddr])) {
+			if (FA_IS_SKIP(screen_buf[baddr]))
+				baddr = next_unprotected(baddr);
+			else
+				INC_BA(baddr);
+		}
 		cursor_move(baddr);
 	}
 
@@ -2388,6 +2388,10 @@ emulate_input(char *s, int len, Boolean pasting)
 				action_internal(Tab_action, ia, CN, CN);
 				state = BASE;
 				break;
+			    case 'T':
+				action_internal(BackTab_action, ia, CN, CN);
+				state = BASE;
+				break;
 			    case 'v':
 				popup_an_error("%s: Vertical tab not supported",
 				    action_name(String_action));
@@ -2801,10 +2805,12 @@ FieldExit_action(Widget w unused, XEvent *event, String *params,
 	register unsigned char  *fa;
 
 	action_debug(FieldExit_action, event, params, num_params);
+#if defined(X3270_ANSI) /*[*/
 	if (IN_ANSI) {
 		net_sendc('\n');
 		return;
 	}
+#endif /*]*/
 	if (kybdlock) {
 		enq_ta(FieldExit_action, CN, CN);
 		return;
@@ -2910,13 +2916,13 @@ build_composites(void)
 	struct composite *cp;
 
 	if (appres.compose_map == CN) {
-		xs_warning("%s: No %s defined", action_name(Compose_action),
+		popup_an_error("%s: No %s defined", action_name(Compose_action),
 		    ResComposeMap);
 		return False;
 	}
 	cname = xs_buffer("%s.%s", ResComposeMap, appres.compose_map);
 	if ((c0 = get_resource(cname)) == CN) {
-		xs_warning("%s: Cannot find %s \"%s\"",
+		popup_an_error("%s: Cannot find %s \"%s\"",
 		    action_name(Compose_action), ResComposeMap,
 		    appres.compose_map);
 		return False;
@@ -2929,14 +2935,14 @@ build_composites(void)
 		c = NULL;
 		if (sscanf(ln, " %63[^+ \t] + %63[^= \t] =%63s%1s",
 		    ksname[0], ksname[1], ksname[2], junk) != 3) {
-			xs_warning("%s: Invalid syntax: %s",
+			popup_an_error("%s: Invalid syntax: %s",
 			    action_name(Compose_action), ln);
 			continue;
 		}
 		for (i = 0; i < 3; i++) {
 			k[i] = MyStringToKeysym(ksname[i], &a[i]);
 			if (k[i] == NoSymbol) {
-				xs_warning("%s: Invalid KeySym: \"%s\"",
+				popup_an_error("%s: Invalid KeySym: \"%s\"",
 				    action_name(Compose_action), ksname[i]);
 				okay = False;
 				break;
@@ -3002,8 +3008,11 @@ Default_action(Widget w unused, XEvent *event, String *params, Cardinal *num_par
 	    case KeyPress:
 		ll = XLookupString(kevent, buf, 32, &ks, (XComposeStatus *) 0);
 		if (ll == 1) {
+			/* Add Meta; XLookupString won't. */
+			if (event_is_meta(kevent->state))
+				buf[0] |= 0x80;
 			/* Remap certain control characters. */
-			switch (buf[0]) {
+			if (!IN_ANSI) switch (buf[0]) {
 			    case '\t':
 				action_internal(Tab_action, IA_DEFAULT, CN, CN);
 				break;
@@ -3024,6 +3033,10 @@ Default_action(Widget w unused, XEvent *event, String *params, Cardinal *num_par
 				    CN);
 				break;
 			    default:
+				key_ACharacter((unsigned char) buf[0], KT_STD,
+				    IA_DEFAULT);
+				break;
+			} else {
 				key_ACharacter((unsigned char) buf[0], KT_STD,
 				    IA_DEFAULT);
 			}

@@ -4,31 +4,38 @@
    <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
    <meta name="GENERATOR" content="Mozilla/4.73 [en]C-CCK-MCD   (WinNT; U) [Netscape]">
    <title>Known Bugs in x3270 3.2</title>
-   <link HREF="http://www.w3.org/StyleSheets/Core/Steely" TYPE="text/css" REL="stylesheet">
+<link HREF="http://www.w3.org/StyleSheets/Core/Steely" TYPE="text/css" REL="stylesheet">
 </head>
 <body>
 
 <h1>
-Known Bugs in x3270 3.2.15</h1>
+Known Bugs in x3270 3.2.16</h1>
 
 <ol>
+<li>
+<b>Crash During Paste</b></li>
+
+<br>There has been a report of a crash when a selection owned by x3270
+is pasted into a CDE application.&nbsp; This problem does not occur on
+most platforms.&nbsp; It is under investigation; if anyone can shed additional
+light on it, please let me know.
+<br>&nbsp;
 <li>
 <b>Crash in Keymap Display</b></li>
 
 <br>There has been a report of a crash when the OK button is pressed in
 the <b>Options->Display Current Keymap</b> pop-up.&nbsp; This problem does
-not occur on most platforms.&nbsp; It is under
-<br>investigation; if anyone can shed additional light on it, please let
-me know.
-<br><b></b>&nbsp;
+not occur on most platforms.&nbsp; It is under investigation; if anyone
+can shed additional light on it, please let me know.
+<br>&nbsp;
 <li>
 <b>Host Session Hangs</b></li>
 
 <br>Several users have reported a problem where the session hangs during
 initialization -- immediately after x3270 has sent a Query Reply. I need
-more information about this problem in order to debug it.
-<br>The best information would be a TCP packet trace of a successful session
-with a different emulator.&nbsp; Help!
+more information about this problem in order to debug it. The best information
+would be a TCP packet trace of a successful session with a different emulator.&nbsp;
+Help!
 <br>&nbsp;
 <li>
 <b>User Area Too Small</b></li>

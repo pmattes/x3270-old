@@ -1,5 +1,5 @@
 /*
- * Copyright 2000 by Paul Mattes.
+ * Copyright 2000, 2001 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -18,12 +18,23 @@
  *		associate with a session (TN3270E only)
  *	    -command "string"
  *		command to use to print (default "lpr")
+ *          -charset name
+ *          -charset @file
+ *          -charset =spec
+ *		use the specified character set
+ *          -blanklines
+ *		display blank lines even if they're empty (formatted LU3)
+ *          -reconnect
+ *		keep trying to reconnect
  *	    -trace
  *		trace data stream to a file
+ *          -v
+ *		verbose output about negotiation
  */
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <errno.h>
 #include <syslog.h>
 #include <string.h>
 #include <netdb.h>
@@ -51,17 +62,20 @@
 
 /* External functions. */
 extern int negotiate(int s, const char *lu, const char *assoc);
-extern void process(int s, char *command);
+extern int process(int s);
+extern int charset_init(const char *csname);
 extern char *build;
 extern FILE *tracef;
 
 /* Globals. */
 char *programname = NULL;	/* program name */
+int blanklines = 0;
+int reconnect = 0;
 
 /* User options. */
 static enum { NOT_DAEMON, WILL_DAEMON, AM_DAEMON } bdaemon = NOT_DAEMON;
 static char *assoc = NULL;	/* TN3270 session to associate with */
-char *command = "lpr";		/* command to run for printing */
+const char *command = "lpr";	/* command to run for printing */
 static int tracing = 0;		/* are we tracing? */
 
 /* Print a usage message and exit. */
@@ -72,7 +86,13 @@ usage(void)
 "Options:\n"
 "  -daemon          become a daemon after connecting\n"
 "  -assoc <session> associate with a session (TN3270E only)\n"
+"  -charset <name>  use built-in alternate EBCDIC-to-ASCII mappings\n"
+"  -charset @<file> use alternate EBCDIC-to-ASCII mappings from file\n"
+"  -charset =\"<ebc>=<asc> ...\"\n"
+"                   specify alternate EBCDIC-to-ASCII mappings\n"
 "  -command \"<cmd>\" use <cmd> for printing (default \"lpr\")\n"
+"  -blanklines      display blank lines even if empty (formatted LU3)\n"
+"  -reconnect       keep trying to reconnect\n"
 "  -trace           trace data stream to /tmp/x3trc.<pid>\n",
 		programname);
 	exit(1);
@@ -83,20 +103,24 @@ void
 errmsg(const char *fmt, ...)
 {
 	va_list args;
-	char buf[4096];
+	static char buf[2][4096] = { "", "" };
+	static int ix = 0;
 
+	ix = !ix;
 	va_start(args, fmt);
-	(void) vsprintf(buf, fmt, args);
-	if (bdaemon == AM_DAEMON)
-		syslog(LOG_ERR, "%s: %s", programname, buf);
-	else
-		(void) fprintf(stderr, "%s: %s\n", programname, buf);
+	(void) vsprintf(buf[ix], fmt, args);
 	va_end(args);
+	if (!strcmp(buf[ix], buf[!ix]))
+		return;
+	if (bdaemon == AM_DAEMON)
+		syslog(LOG_ERR, "%s", buf[ix]);
+	else
+		(void) fprintf(stderr, "%s: %s\n", programname, buf[ix]);
 }
 
 /* Memory allocation. */
 void *
-Malloc(unsigned len)
+Malloc(size_t len)
 {
 	void *p = malloc(len);
 
@@ -114,7 +138,7 @@ Free(void *p)
 }
 
 void *
-Realloc(void *p, unsigned len)
+Realloc(void *p, size_t len)
 {
 	void *pn;
 
@@ -153,16 +177,19 @@ main(int argc, char *argv[])
 	int i;
 	char *at, *colon;
 	int len;
+	char const *charset = NULL;
 	char *lu = NULL;
 	char *host = NULL;
-	char *port = "telnet";
+	const char *port = "telnet";
 	int verbose = 0;
 	struct hostent *he;
 	struct in_addr ha;
 	struct servent *se;
 	u_short p;
 	struct sockaddr_in sin;
-	int s;
+	int s = -1;
+	int rc = 0;
+	int report_success = 0;
 
 	/* Learn our name. */
 	if ((programname = strrchr(argv[0], '/')) != NULL)
@@ -173,7 +200,7 @@ main(int argc, char *argv[])
 	/* Gather the options. */
 	for (i = 1; i < argc && argv[i][0] == '-'; i++) {
 		if (!strcmp(argv[i], "-daemon"))
-			bdaemon = 1;
+			bdaemon = WILL_DAEMON;
 		else if (!strcmp(argv[i], "-assoc")) {
 			if (argc <= i + 1 || !argv[i + 1][0]) {
 				(void) fprintf(stderr,
@@ -190,6 +217,18 @@ main(int argc, char *argv[])
 			}
 			command = argv[i + 1];
 			i++;
+		} else if (!strcmp(argv[i], "-charset")) {
+			if (argc <= i + 1 || !argv[i + 1][0]) {
+				(void) fprintf(stderr,
+				    "Missing value for -charset\n");
+				usage();
+			}
+			charset = argv[i + 1];
+			i++;
+		} else if (!strcmp(argv[i], "-blanklines")) {
+			blanklines = 1;
+		} else if (!strcmp(argv[i], "-reconnect")) {
+			reconnect = 1;
 		} else if (!strcmp(argv[i], "-v")) {
 			verbose = 1;
 		} else if (!strcmp(argv[i], "-trace")) {
@@ -227,18 +266,6 @@ main(int argc, char *argv[])
 		host = tmp;
 	}
 
-	/* Resolve the host name. */
-	he = gethostbyname(host);
-	if (he != NULL) {
-		(void) memcpy(&ha, he->h_addr_list[0], he->h_length);
-	} else {
-		ha.s_addr = inet_addr(host);
-		if (ha.s_addr == INADDR_NONE) {
-			(void) fprintf(stderr, "Unknown host: %s\n", host);
-			exit(1);
-		}
-	}
-
 	/* Resolve the port number. */
 	se = getservbyname(port, "tcp");
 	if (se != NULL)
@@ -259,6 +286,12 @@ main(int argc, char *argv[])
 		p = htons((u_short)l);
 	}
 
+	/* Remap the character set. */
+	if (charset != NULL) {
+		if (charset_init(charset) < 0)
+			exit(1);
+	}
+
 	/* Try opening the trace file, if there is one. */
 	if (tracing) {
 		char tracefile[256];
@@ -276,39 +309,8 @@ main(int argc, char *argv[])
 		(void) fprintf(tracef, " Version %s\n", build);
 	}
 
-	/* Connect to the host. */
-	s = socket(PF_INET, SOCK_STREAM, 0);
-	if (s < 0) {
-		perror("socket");
-		exit(1);
-	}
-	sin.sin_family = AF_INET;
-	sin.sin_addr = ha;
-	sin.sin_port = p;
-	if (connect(s, (struct sockaddr *)&sin, sizeof(sin)) < 0) {
-		perror(host);
-		exit(1);
-	}
-
-	/* Say hello. */
-	if (verbose) {
-		(void) fprintf(stderr, "Connected to %s, port %u\n",
-		    inet_ntoa(sin.sin_addr),
-		    ntohs(sin.sin_port));
-		if (assoc != NULL)
-			(void) fprintf(stderr, "Associating with LU %s\n",
-			    assoc);
-		else
-			(void) fprintf(stderr, "Connecting to LU %s\n", lu);
-		(void) fprintf(stderr, "Command: %s\n", command);
-	}
-
-	/* Negotiate. */
-	if (negotiate(s, lu, assoc) < 0)
-		exit(1);
-
 	/* Become a daemon. */
-	if (bdaemon) {
+	if (bdaemon != NOT_DAEMON) {
 		switch (fork()) {
 			case -1:
 				perror("fork");
@@ -318,6 +320,7 @@ main(int argc, char *argv[])
 				/* Child: Break away from the TTY. */
 				if (setsid() < 0)
 					exit(1);
+				bdaemon = AM_DAEMON;
 				break;
 			default:
 				/* Parent: We're all done. */
@@ -333,12 +336,96 @@ main(int argc, char *argv[])
 	(void) signal(SIGHUP, fatal_signal);
 	(void) signal(SIGPIPE, SIG_IGN);
 
-	/* Process what we're told to process. */
-	process(s, command);
+	/*
+	 * One-time initialization is now complete.
+	 * (Most) everything beyond this will now be retried, if the -reconnect
+	 * option is in effect.
+	 */
+	for (;;) {
 
-	/* Flush any pending data and exit. */
-	print_eoj();
-	return 0;
+		/* Resolve the host name. */
+		he = gethostbyname(host);
+		if (he != NULL) {
+			(void) memcpy(&ha, he->h_addr_list[0], he->h_length);
+		} else {
+			ha.s_addr = inet_addr(host);
+			if (ha.s_addr == INADDR_NONE) {
+				errmsg("Unknown host: %s", host);
+				rc = 1;
+				goto retry;
+			}
+		}
+
+		/* Connect to the host. */
+		s = socket(PF_INET, SOCK_STREAM, 0);
+		if (s < 0) {
+			errmsg("socket: %s", strerror(errno));
+			exit(1);
+		}
+		(void) memset(&sin, '\0', sizeof(sin));
+		sin.sin_family = AF_INET;
+		sin.sin_addr = ha;
+		sin.sin_port = p;
+		if (connect(s, (struct sockaddr *)&sin, sizeof(sin)) < 0) {
+			errmsg("%s: %s", host, strerror(errno));
+			rc = 1;
+			goto retry;
+		}
+
+		/* Say hello. */
+		if (verbose) {
+			(void) fprintf(stderr, "Connected to %s, port %u\n",
+			    inet_ntoa(sin.sin_addr),
+			    ntohs(sin.sin_port));
+			if (assoc != NULL)
+				(void) fprintf(stderr, "Associating with LU "
+				    "%s\n", assoc);
+			else
+				(void) fprintf(stderr, "Connecting to LU %s\n",
+				    lu);
+			(void) fprintf(stderr, "Command: %s\n", command);
+		}
+
+		/* Negotiate. */
+		if (negotiate(s, lu, assoc) < 0) {
+			rc = 1;
+			goto retry;
+		}
+
+		/* Report sudden success. */
+		if (report_success) {
+			errmsg("Connected to %s, port %u",
+			    inet_ntoa(sin.sin_addr),
+			    ntohs(sin.sin_port));
+			report_success = 0;
+		}
+
+		/* Process what we're told to process. */
+		if (process(s) < 0) {
+			rc = 1;
+			goto retry;
+		}
+
+	    retry:
+		/* Flush any pending data. */
+		print_eoj();
+
+		/* Close the socket. */
+		if (s >= 0) {
+			close(s);
+			s = -1;
+		}
+
+		if (!reconnect)
+			break;
+		report_success = 1;
+		rc = 0;
+
+		/* Wait a while, to reduce thrash. */
+		sleep(5);
+	}
+
+	return rc;
 }
 
 /* Tracing function. */

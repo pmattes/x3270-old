@@ -1,5 +1,5 @@
 /*
- * Copyright 1995, 1996, 1999, 2000 by Paul Mattes.
+ * Copyright 1995, 1996, 1999, 2000, 2001 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -13,7 +13,7 @@
  *	file
  */
 
-#include "parts.h"
+#include "conf.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -51,7 +51,7 @@ struct {
 int ssp = 0;
 
 struct {
-	char *name;
+	const char *name;
 	unsigned long mask;
 } parts[] = {
 	{ "COLOR", MODE_COLOR },
@@ -130,7 +130,7 @@ main(int argc, char *argv[])
 	int cc = 0;
 	int i;
 	int continued = 0;
-	char *filename = "standard input";
+	const char *filename = "standard input";
 	FILE *t, *o;
 
 	is_undefined = MODE_COLOR | (~is_defined & MODEMASK);

@@ -1,5 +1,5 @@
 /*
- * Copyright 1993, 1994, 1995, 1996, 1999, 2000 by Paul Mattes.
+ * Copyright 1993, 1994, 1995, 1996, 1999, 2000, 2001 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -32,6 +32,7 @@
 #include "resources.h"
 
 #include "actionsc.h"
+#include "childc.h"
 #include "ctlrc.h"
 #include "ftc.h"
 #include "hostc.h"
@@ -137,7 +138,7 @@ static unsigned char *ansi_save_buf;
 static int      ansi_save_cnt = 0;
 static int      ansi_save_ix = 0;
 static char    *expect_text = CN;
-int		expect_len = 0;
+static int	expect_len = 0;
 static const char *st_name[] = { "String", "Macro", "Command", "KeymapAction",
 				 "ChildScript", "PeerScript" };
 #define ST_sNAME(s)	st_name[(int)(s)->type]
@@ -516,8 +517,9 @@ execute_command(enum iaction cause, char *s, char **np)
 	static const char *fail_text[] = {
 		/*1*/ "Action name must begin with an alphanumeric character",
 		/*2*/ "Syntax error in action name",
-		/*3*/ "Syntax error, \")\" expected",
-		/*4*/ "Extra data after parameters"
+		/*3*/ "Syntax error: \")\" or \",\" expected",
+		/*4*/ "Extra data after parameters",
+		/*5*/ "Syntax error: \")\" expected"
 	};
 #define fail(n) { failreason = n; goto failure; }
 #define free_params() { \
@@ -698,7 +700,7 @@ execute_command(enum iaction cause, char *s, char **np)
 		params[++count] = &parm[nx];
 		break;
 	    default:
-		fail(3);
+		fail(5);
 	}
 
     success:
@@ -945,8 +947,7 @@ push_xmacro(enum sms_type type, char *s, Boolean is_login)
 		sms->is_login = True;
 	} else
 		sms->state = SS_INCOMPLETE;
-	if (sms_depth == 1)
-		sms_continue();
+	sms_continue();
 }
 
 /* Push a macro on the stack. */
@@ -2365,7 +2366,7 @@ Script_action(Widget w unused, XEvent *event unused, String *params,
 	(void) SETLINEBUF(sms->outfile);
 
 	/* Fork and exec the script process. */
-	if ((sms->pid = fork()) < 0) {
+	if ((sms->pid = fork_child()) < 0) {
 		(void) close(inpipe[0]);
 		(void) close(inpipe[1]);
 		(void) close(outpipe[0]);
@@ -2456,7 +2457,6 @@ Printer_action(Widget w unused, XEvent *event unused, String *params,
 }
 #endif /*]*/
 
-#if defined(X3270_MENUS) /*[*/
 /* Abort all running scripts. */
 void
 abort_script(void)
@@ -2467,4 +2467,12 @@ abort_script(void)
 		sms_pop(True);
 	}
 }
-#endif /*]*/
+
+/* "Abort" action, stops pending scripts. */
+void
+Abort_action(Widget w unused, XEvent *event unused, String *params,
+    Cardinal *num_params)
+{
+	child_ignore_output();
+	abort_script();
+}

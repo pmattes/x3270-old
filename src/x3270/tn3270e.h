@@ -1,5 +1,5 @@
 /*
- * Copyright 1996, 1999 by Paul Mattes.
+ * Copyright 1996, 1999, 2001 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -12,11 +12,6 @@
  *
  *		Header file for the TN3270E Protocol, RFC 2355.
  */
-
-/* TELNET option. */
-#if !defined(TELOPT_TN3270E) /*[*/
-#define TELOPT_TN3270E			40
-#endif /*]*/
 
 /* Negotiation operations. */
 #define TN3270E_OP_ASSOCIATE		0

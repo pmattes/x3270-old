@@ -1,5 +1,5 @@
 /*
- * Modifications Copyright 1996, 1999, 2000 by Paul Mattes.
+ * Modifications Copyright 1996, 1999, 2000, 2001 by Paul Mattes.
  * Copyright Octover 1995 by Dick Altenbern.
  * Based in part on code Copyright 1993, 1994, 1995 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
@@ -65,7 +65,7 @@ struct error_response {			/* Buffer to build for an error resp. */
 	char sf_err_hdr[2];		/* 0x6904 */
 	char sf_err_code[2];		/* The error code */
 };
-#define UPLOAD_LENGTH 2048-2
+#define UPLOAD_LENGTH (DFT_INBUF - 2)
 struct upload_buffer_hdr {
 	char sf_length[2];		/* SF length */
 	char sf_d0;			/* 0xd0 */

@@ -1,5 +1,5 @@
 /*
- * Copyright 1995, 1999 by Paul Mattes.
+ * Copyright 1995, 1999, 2001 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -20,6 +20,7 @@ extern unsigned char ebc2cg0[256];
 extern unsigned char cg2ebc[256];
 extern unsigned char cg2ebc0[256];
 extern unsigned char ebc2asc[256];
+extern unsigned char ebc2asc0[256];
 extern unsigned char cg2uc[256];
 extern unsigned char ge2asc[256];
 extern unsigned char ge2cg8[256];

@@ -1,5 +1,5 @@
 /*
- * Modifications Copyright 1993, 1994, 1995, 1996, 2000 by Paul Mattes.
+ * Modifications Copyright 1993, 1994, 1995, 1996, 2000, 2001 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *   Permission to use, copy, modify, and distribute this software and its
  *   documentation for any purpose and without fee is hereby granted,
@@ -26,7 +26,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tcl3270.c,v 1.14 2000/12/23 17:55:57 pdm Exp $
+ * RCS: @(#) $Id: tcl3270.c,v 1.24 2001/06/12 14:27:07 pdm Exp $
  */
 
 /*
@@ -90,6 +90,7 @@ static enum {
 	AWAITING_3270,		/* Wait 3270Mode */
 	AWAITING_ANSI,		/* Wait NVTMode */
 	AWAITING_OUTPUT,	/* Wait Output */
+	AWAITING_SOUTPUT,	/* Snap Wait */
 	AWAITING_DISCONNECT	/* Wait Disconnect */
 } waiting = NOT_WAITING;
 static const char *wait_name[] = {
@@ -101,6 +102,7 @@ static const char *wait_name[] = {
 	"need 3270 mode",
 	"need NVT mode",
 	"need host output",
+	"need snap host output",
 	"need host disconnect"
 };
 static const char *unwait_name[] = {
@@ -112,16 +114,21 @@ static const char *unwait_name[] = {
 	"in 3270 mode",
 	"in NVT mode",
 	"host generated output",
+	"host generated snap output",
 	"host disconnected"
 };
+static unsigned long wait_id = 0L;
 static int cmd_ret;
 static char *action = NULL;
+static Boolean interactive = False;
 
 /* Local prototypes. */
 static void ps_clear(void);
 static int tcl3270_main(int argc, char *argv[]);
 static void negotiate(void);
 static char *scatv(char *s);
+static void snap_save(void);
+static void wait_timed_out(void);
 
 /* Macros.c stuff. */
 static Boolean in_cmd = False;
@@ -149,6 +156,10 @@ Boolean macro_output = False;
 #define UNBLOCK() { \
 	trace_event("Unblocked %s (%s)\n", action, unwait_name[waiting]); \
 	waiting = NOT_WAITING; \
+	if (wait_id != 0L) { \
+		RemoveTimeOut(wait_id); \
+		wait_id = 0L; \
+	} \
 }
 
 
@@ -237,6 +248,10 @@ Tcl_AppInit(Tcl_Interp *interp)
     }
     argv[argc] = NULL;
 
+    /* Find out if we're interactive. */
+    s = Tcl_GetVar(interp, "tcl_interactive", 0);
+    interactive = (s != NULL && !strcmp(s, "1"));
+
     /* Call main. */
     if (tcl3270_main(argc, argv) == TCL_ERROR)
 	return TCL_ERROR;
@@ -283,10 +298,10 @@ Tcl_AppInit(Tcl_Interp *interp)
      * where "app" is the name of the application.  If this line is deleted
      * then no user-specific startup file will be run under any conditions.
      */
-
 #if 0
     Tcl_SetVar(interp, "tcl_rcFileName", "~/.tclshrc", TCL_GLOBAL_ONLY);
 #endif
+
     return TCL_OK;
 }
 
@@ -347,8 +362,8 @@ main_connect(Boolean ignored)
 				trace_event("Unblocked %s (was '%s') -- "
 					"failure\n", action,
 					wait_name[waiting]);
+				popup_an_error("Host disconnected");
 				waiting = NOT_WAITING;
-				cmd_ret = TCL_ERROR;
 			}
 		}
 	}
@@ -362,13 +377,15 @@ tcl3270_main(int argc, char *argv[])
 
 	argc = parse_command_line(argc, argv, &cl_hostname);
 
-	if (!charset_init(appres.charset))
+	if (charset_init(appres.charset) != CS_OKAY)
 		xs_warning("Cannot find charset \"%s\"", appres.charset);
 	ctlr_init(-1);
 	ctlr_reinit(-1);
 	kybd_init();
 	ansi_init();
+#if defined(X3270_FT) /*[*/
 	ft_init();
+#endif /*]*/
 
 	register_schange(ST_CONNECT, main_connect);
 	register_schange(ST_3270_MODE, main_connect);
@@ -447,7 +464,7 @@ x3270_cmd(ClientData clientData, Tcl_Interp *interp, int objc,
 		Tcl_Obj *CONST objv[])
 {
 	int i, j;
-	int count;
+	unsigned count;
 	char **argv = NULL;
 
 	/* Set up ugly global variables. */
@@ -486,6 +503,7 @@ x3270_cmd(ClientData clientData, Tcl_Interp *interp, int objc,
 		}
 	}
 
+#if defined(X3270_TRACE) /*[*/
 	/* Trace what we're about to do. */
 	if (toggled(EVENT_TRACE)) {
 		trace_event("Running %s", action);
@@ -497,6 +515,7 @@ x3270_cmd(ClientData clientData, Tcl_Interp *interp, int objc,
 		}
 		trace_event("\n");
 	}
+#endif /*]*/
 
 	/* Set up more ugly global variables and run the action. */
 	ia_cause = IA_SCRIPT;
@@ -504,9 +523,12 @@ x3270_cmd(ClientData clientData, Tcl_Interp *interp, int objc,
 	(*actions[i].proc)((Widget)NULL, (XEvent *)NULL, argv, &count);
 
 	/* Set implicit wait state. */
+#if defined(X3270_FT) /*[*/
 	if (ft_state != FT_NONE)
 		waiting = AWAITING_FT;
-	else if (KBWAIT)
+	else
+#endif /*]*/
+	if (KBWAIT)
 		waiting = AWAITING_RESET;
 
 	if (waiting != NOT_WAITING)
@@ -534,10 +556,12 @@ x3270_cmd(ClientData clientData, Tcl_Interp *interp, int objc,
 			if (!KBWAIT)
 				UNBLOCK();
 			break;
+#if defined(X3270_FT) /*[*/
 		case AWAITING_FT:
 			if (ft_state == FT_NONE)
 				UNBLOCK();
 			break;
+#endif /*]*/
 		default:
 			break;
 		}
@@ -545,6 +569,7 @@ x3270_cmd(ClientData clientData, Tcl_Interp *interp, int objc,
 		/* Push more string text in. */
 		process_pending_string();
 	}
+#if defined(X3270_TRACE) /*[*/
 	if (toggled(EVENT_TRACE)) {
 		char *s;
 #		define TRUNC_LEN 40
@@ -564,6 +589,7 @@ x3270_cmd(ClientData clientData, Tcl_Interp *interp, int objc,
 		}
 		trace_event("\n");
 	}
+#endif /*]*/
 	in_cmd = False;
 	sms_interp = NULL;
 	return cmd_ret;
@@ -621,8 +647,16 @@ void
 sms_host_output(void)
 {
 	/* Release the script, if it is waiting now. */
-	if (waiting == AWAITING_OUTPUT)
+	switch (waiting) {
+	    case AWAITING_SOUTPUT:
+		snap_save();
+		/* fall through... */
+	    case AWAITING_OUTPUT:
 		UNBLOCK();
+		break;
+	    default:
+		break;
+	}
 
 	/* If there was no script waiting, ensure that it won't later. */
 	output_wait_needed = False;
@@ -678,7 +712,7 @@ dump_range(int first, int len, Boolean in_ascii, unsigned char *buf,
 			c = cg2asc[buf[first + i]];
 			if (!c)
 				c = ' ';
-			Tcl_AppendToObj(row, &c, 1);
+			Tcl_AppendToObj(row, (char *)&c, 1);
 		} else {
 			char s[5];
 
@@ -739,7 +773,7 @@ dump_rectangle(int start_row, int start_col, int rows, int cols,
 				ch = cg2asc[buf[loc]];
 				if (!ch)
 					ch = ' ';
-				Tcl_AppendToObj(row, &ch, 1);
+				Tcl_AppendToObj(row, (char *)&ch, 1);
 			} else {
 				char s[5];
 
@@ -955,7 +989,7 @@ Status_action(Widget w unused, XEvent *event unused, String *params,
 /*
  * "Snap" action, maintains a snapshot for consistent multi-field comparisons:
  *
- *  Snap
+ *  Snap Save
  *	updates the saved image from the live image
  *  Snap Rows
  *	returns the number of rows
@@ -967,94 +1001,213 @@ Status_action(Widget w unused, XEvent *event unused, String *params,
  *  Snap Ebcdic ...
  *  Snap EbcdicField (not yet)
  *	runs the named command
+ *  Snap Wait [tmo] Output
+ *	waits for the screen to change
  */
+
+static char *snap_status = NULL;
+static unsigned char *snap_buf = NULL;
+static int snap_rows = 0;
+static int snap_cols = 0;
+static int snap_field_start = -1;
+static int snap_field_length = -1;
+static int snap_caddr = 0;
+
+static void
+snap_save(void)
+{
+	output_wait_needed = True;
+	if (snap_status != NULL)
+		Free(snap_status);
+	snap_status = status_string();
+
+	if (snap_buf != NULL)
+		Free(snap_buf);
+	snap_buf = (unsigned char *)Malloc(ROWS*COLS);
+	(void) memcpy(snap_buf, screen_buf, ROWS*COLS);
+
+	snap_rows = ROWS;
+	snap_cols = COLS;
+
+	if (!formatted) {
+		snap_field_start = -1;
+		snap_field_length = -1;
+	} else {
+		unsigned char *fa;
+		int baddr;
+
+		snap_field_length = 0;
+		fa = get_field_attribute(cursor_addr);
+		snap_field_start = fa - screen_buf;
+		INC_BA(snap_field_start);
+		baddr = snap_field_start;
+		do {
+			if (IS_FA(screen_buf[baddr]))
+				break;
+			snap_field_length++;
+			INC_BA(baddr);
+		} while (baddr != snap_field_start);
+	}
+	snap_caddr = cursor_addr;
+}
+
 void
 Snap_action(Widget w unused, XEvent *event unused, String *params,
     Cardinal *num_params)
 {
-	static char *snap_status = NULL;
-	static unsigned char *snap_buf = NULL;
-	static int snap_rows = 0;
-	static int snap_cols = 0;
-	static int snap_field_start = -1;
-	static int snap_field_length = -1;
-	static int snap_caddr = 0;
 	char nbuf[16];
 
 	if (*num_params == 0) {
-		output_wait_needed = True;
-		if (snap_status != NULL)
-			Free(snap_status);
-		snap_status = status_string();
+		snap_save();
+		return;
+	}
 
-		if (snap_buf != NULL)
-			Free(snap_buf);
-		snap_buf = (unsigned char *)Malloc(ROWS*COLS);
-		(void) memcpy(snap_buf, screen_buf, ROWS*COLS);
+	/* Handle 'Snap Wait' separately. */
+	if (!strcasecmp(params[0], action_name(Wait_action))) {
+		unsigned long tmo;
+		char *ptr;
+		int maxp = 0;
 
-		snap_rows = ROWS;
-		snap_cols = COLS;
-
-		if (!formatted) {
-			snap_field_start = -1;
-			snap_field_length = -1;
+		if (*num_params > 1 &&
+		    (tmo = strtoul(params[1], &ptr, 10)) > 0 &&
+		    ptr != params[0] &&
+		    *ptr == '\0') {
+			maxp = 3;
 		} else {
-			unsigned char *fa;
-			int baddr;
-
-			snap_field_length = 0;
-			fa = get_field_attribute(cursor_addr);
-			snap_field_start = fa - screen_buf;
-			INC_BA(snap_field_start);
-			baddr = snap_field_start;
-			do {
-				if (IS_FA(screen_buf[baddr]))
-					break;
-				snap_field_length++;
-				INC_BA(baddr);
-			} while (baddr != snap_field_start);
+			tmo = 0L;
+			maxp = 2;
 		}
-		snap_caddr = cursor_addr;
+		if (*num_params > maxp) {
+			popup_an_error("Too many arguments to %s %s",
+			    action_name(Snap_action),
+			    action_name(Wait_action));
+			    return;
+		}
+		if (*num_params < maxp) {
+			popup_an_error("Too few arguments to %s %s",
+			    action_name(Snap_action),
+			    action_name(Wait_action));
+			    return;
+		}
+		if (strcasecmp(params[*num_params - 1], "Output")) {
+			popup_an_error("Unknown parameter to %s %s",
+			action_name(Snap_action),
+			action_name(Wait_action));
+			return;
+		}
+
+		/* Must be connected. */
+		if (!(CONNECTED || HALF_CONNECTED)) {
+			popup_an_error("%s: Not connected",
+			    action_name(Snap_action));
+			return;
+		}
+
+		/*
+		 * Make sure we need to wait.
+		 * If we don't, then Snap Wait Output is equivalen to Snap Save.
+		 */
+		if (!output_wait_needed) {
+			snap_save();
+			return;
+		}
+
+		/* Set the new state. */
+		waiting = AWAITING_SOUTPUT;
+
+		/* Set up a timeout, if they want one. */
+		if (tmo)
+			wait_id = AddTimeOut(tmo * 1000, wait_timed_out);
 		return;
 	}
 
-	if (snap_status == NULL) {
-		popup_an_error("No saved state");
-		return;
-	}
-	if (!strcmp(params[0], "Status")) {
-		if (*num_params != 1)
-			popup_an_error("extra argument(s)");
+	if (!strcasecmp(params[0], "Save")) {
+		if (*num_params != 1) {
+			popup_an_error("Extra argument(s)");
+			return;
+		}
+		snap_save();
+	} else if (!strcasecmp(params[0], "Status")) {
+		if (*num_params != 1) {
+			popup_an_error("Extra argument(s)");
+			return;
+		}
+		if (snap_status == NULL) {
+			popup_an_error("No saved state");
+			return;
+		}
 		Tcl_SetResult(sms_interp, snap_status, TCL_VOLATILE);
-	} else if (!strcmp(params[0], "Rows")) {
-		if (*num_params != 1)
-			popup_an_error("extra argument(s)");
+	} else if (!strcasecmp(params[0], "Rows")) {
+		if (*num_params != 1) {
+			popup_an_error("Extra argument(s)");
+			return;
+		}
+		if (snap_status == NULL) {
+			popup_an_error("No saved state");
+			return;
+		}
 		(void) sprintf(nbuf, "%d", snap_rows);
 		Tcl_SetResult(sms_interp, nbuf, TCL_VOLATILE);
-	} else if (!strcmp(params[0], "Cols")) {
+	} else if (!strcasecmp(params[0], "Cols")) {
 		if (*num_params != 1)
 			popup_an_error("extra argument(s)");
 		(void) sprintf(nbuf, "%d", snap_cols);
 		Tcl_SetResult(sms_interp, nbuf, TCL_VOLATILE);
-	} else if (!strcmp(params[0], "Ascii")) {
+	} else if (!strcasecmp(params[0], action_name(Ascii_action))) {
+		if (snap_status == NULL) {
+			popup_an_error("No saved state");
+			return;
+		}
 		dump_fixed(params + 1, *num_params - 1,
 			action_name(Ascii_action), True, snap_buf,
 			snap_rows, snap_cols, snap_caddr);
-	} else if (!strcmp(params[0], "Ebcdic")) {
+	} else if (!strcasecmp(params[0], action_name(Ebcdic_action))) {
+		if (snap_status == NULL) {
+			popup_an_error("No saved state");
+			return;
+		}
 		dump_fixed(params + 1, *num_params - 1,
 			action_name(Ebcdic_action), False, snap_buf,
 			snap_rows, snap_cols, snap_caddr);
 	} else {
-		popup_an_error("Unknown parameter to 'Snap': %s",
-			params[0]);
+		popup_an_error("%s: Argument must be Save, Status, Rows, Cols, "
+		    "%s, %s or %s",
+		    action_name(Snap_action),
+		    action_name(Wait_action),
+		    action_name(Ascii_action),
+		    action_name(Ebcdic_action));
 	}
+}
+
+static void
+wait_timed_out(void)
+{
+	popup_an_error("Wait timed out");
+	wait_id = 0L;
+	UNBLOCK();
 }
 
 void
 Wait_action(Widget w unused, XEvent *event unused, String *params,
     Cardinal *num_params)
 {
-	if (*num_params == 0) {
+	unsigned long tmo = 0;
+	char *ptr;
+	Cardinal np;
+	String *pr;
+
+	if (*num_params > 0 &&
+	    (tmo = strtoul(params[0], &ptr, 10)) > 0 &&
+	     ptr != params[0] &&
+	     *ptr == '\0') {
+		np = *num_params - 1;
+		pr = params + 1;
+	 } else {
+		np = *num_params;
+		pr = params;
+	}
+
+	if (np == 0) {
 		if (!CONNECTED) {
 			popup_an_error("Not connected");
 			return;
@@ -1063,11 +1216,11 @@ Wait_action(Widget w unused, XEvent *event unused, String *params,
 			waiting = AWAITING_INPUT;
 		return;
 	}
-	if (*num_params != 1) {
+	if (np != 1) {
 		popup_an_error("Too many parameters");
 		return;
 	}
-	if (!strcasecmp(params[0], "InputField")) {
+	if (!strcasecmp(pr[0], "InputField")) {
 		/* Same as no parameters. */
 		if (!CONNECTED) {
 			popup_an_error("Not connected");
@@ -1075,35 +1228,39 @@ Wait_action(Widget w unused, XEvent *event unused, String *params,
 		}
 		if (!INPUT_OKAY)
 			waiting = AWAITING_INPUT;
-	} else if (!strcasecmp(params[0], "Output")) {
+	} else if (!strcasecmp(pr[0], "Output")) {
 		if (!CONNECTED) {
 			popup_an_error("Not connected");
 			return;
 		}
 		if (output_wait_needed)
 			waiting = AWAITING_OUTPUT;
-	} else if (!strcasecmp(params[0], "3270") ||
-		   !strcasecmp(params[0], "3270Mode")) {
+	} else if (!strcasecmp(pr[0], "3270") ||
+		   !strcasecmp(pr[0], "3270Mode")) {
 		if (!CONNECTED) {
 			popup_an_error("Not connected");
 			return;
 		}
 		if (!IN_3270)
 			waiting = AWAITING_3270;
-	} else if (!strcasecmp(params[0], "ansi") ||
-		   !strcasecmp(params[0], "NVTMode")) {
+	} else if (!strcasecmp(pr[0], "ansi") ||
+		   !strcasecmp(pr[0], "NVTMode")) {
 		if (!CONNECTED) {
 			popup_an_error("Not connected");
 			return;
 		}
 		if (!IN_ANSI)
 			waiting = AWAITING_ANSI;
-	} else if (!strcasecmp(params[0], "Disconnect")) {
+	} else if (!strcasecmp(pr[0], "Disconnect")) {
 		if (CONNECTED)
 			waiting = AWAITING_DISCONNECT;
 	} else {
-		popup_an_error("Unknown Wait type: %s", params[0]);
+		popup_an_error("Unknown Wait type: %s", pr[0]);
+		return;
 	}
+
+	if (tmo)
+		wait_id = AddTimeOut(tmo * 1000L, wait_timed_out);
 }
 
 static int

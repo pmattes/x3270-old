@@ -15,7 +15,77 @@ New Features in x3270 3.2
 x3270 3.2 is a reorganization of x3270 3.1, with some significant enhancements.
 It is intended to be the future development platform for x3270, with x3270
 3.1 continued only with bug fixes.
-<h2>Changes in x3270 3.2.16, xx. February 2001</h2>
+<h2>Changes in x3270 3.2.17, 15. June 2001</h2>
+<ul>
+ <li>Installation Changes:
+  <ul>
+   <li>Moved the feature disable logic (turning off NVT mode, file transfers,
+     etc.) to <tt>configure --disable</tt> options.</li>
+   <li>Moved the <tt>ibm_hosts</tt> file to <tt><i>sysconfdir</i>/x3270</tt>
+    (usually <tt>/usr/local/etc/x3270</tt>). This can be overridden with
+    <tt>configure --sysconfdir=</tt>. <b>[Incompatible Change]</b></li>
+   <li>Allowed the location of the configuration directory (where the
+    <tt>ibm_hosts</tt> and character set files are) to be set with a new
+     resource: <tt>x3270.confDir</tt>.</li>
+   <li>Removed the <tt>xmkmf</tt> step from the build procedure.</li>
+   <li>Now install in <tt>/usr/local</tt> by default.  x3270 can still be
+    installed in the system X11 directory by specifying <tt>configure
+    --with-xinstall</tt>. <b>[Incompatible Change]</b></li>
+  </ul>
+ </li>
+ <li>Bug Fixes:
+  <ul>
+   <li>Verified that x3270 builds with all permutations of disabled
+    features.</li>
+   <li>Fixed a problem with 3270 Modify Field orders that specify no
+    attributes.</li>
+   <li>Fixed a typo in the base keymap definition, which disabled the last
+    three key mappings.</li>
+   <li>Fixed a problem with misinterpreting skipped 3270 field attributes.</li>
+   <li>Removed the redundant <i>localhost</i> entry from the default
+    <tt>ibm_hosts</tt> file.
+    Changed the rules for accessing <tt>ibm_hosts</tt> -- now it is accessed
+    only when the supplied hostname has no qualifiers.</li>
+   <li>Compatibility changes for Cygwin.</li>
+   <li>Fixed the behavior of the <tt>-xrm</tt> option when there is a conflict
+    with the <tt>.x3270pro</tt> file.  The command-line options were supposed to
+    be the final definitions; now they are.</li>
+   <li>Improved the performance of DFT file transfers.</li>
+  </ul>
+ </li>
+ <li>Character Set Improvements:
+  <ul>
+   <li>Added support for other 8-bit character sets (Latin-5, etc.), using
+  standard X fonts.  Strengthened the rules for the character sets implemented
+  by the emulator font.</li>
+   <li>Added support for Turkish, ISO Hebrew, Russian, Thai and Brazilian
+    character sets.</li>
+   <li>Added support for file-based character sets, in the <tt>charset</tt>
+    subdirectory of the configuration directory.</li>
+   <li>Added support for specifying an entire character set translation table,
+    rather than listing the exceptions from ISO 8859-1.</li>
+   <li>Added support for file transfer character sets (a definition of how
+    the host translates EBCDIC to ASCII for file transfers).</li>
+  </ul>
+ </li>
+ <li>Other Improvements:
+  <ul>
+   <li>Added support for <b>BackTab</b> in <b>String</b> actions, via the
+    <tt>\T</tt> sequence.</li>
+   <li>Added support for 3270-mode keymaps (like NVT-mode keymaps).  Changed
+    the <b>base</b> and <b>alt</b> keymaps to have default and 3270-only
+    components.  Changed the interpretation of NVT-mode keymaps so they
+    augment the default, rather than replacing it.
+    <b>[Incompatible Change]</b></li>
+   <li>Allow IPv6-style square-bracket-delimited hostnames, and tightened the
+    rules for port numbers.</li>
+   <li>Nearly all error messages and output from scripts is now captured in
+    pop-ups. The only exceptions are fatal errors which prevent x3270 from
+    creating its windows.</li>
+  </ul>
+ </li>
+</ul>
+<h2>Changes in x3270 3.2.16, 28. February 2001</h2>
 <ul>
  <li>Added a timeout parameter to the scripting <b>Wait</b> action.</li>
  <li>Added <b>Snap(Wait Output)</b>.</li>
@@ -25,7 +95,7 @@ It is intended to be the future development platform for x3270, with x3270
  <li>Added a <tt>--with-fontdir=<i>xxx</i></tt> option to the configure
   script, to specify a different font installation directory.</li>
  <li>Resolved some build problems on HP/UX.</li>
- <li>Added an Italian character set.<li>
+ <li>Added an Italian character set.</li>
  <li>Corrected the behavior of the <b>start-extend</b> action (usually bound
   to <b>Btn3Down</b>) when doing rectangular selections.</li>
  <li>Added <b>KybdSelect</b> and <b>Unselect</b> actions to allow the keyboard

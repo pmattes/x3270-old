@@ -1,4 +1,4 @@
-# Copyright 1999, 2000 by Paul Mattes.
+# Copyright 1999, 2000, 2001 by Paul Mattes.
 #  Permission to use, copy, modify, and distribute this software and its
 #  documentation for any purpose and without fee is hereby granted,
 #  provided that the above copyright notice appear in all copies and that
@@ -25,20 +25,20 @@ LDFLAGS = @LDFLAGS@
 LIBS = @LIBS@
 INSTALL = @INSTALL@
 
-OBJECTS = pr3287.o ctlr.o trace_ds.o tables.o telnet.o sf.o
+OBJECTS = pr3287.o ctlr.o trace_ds.o tables.o telnet.o sf.o charset.o
 
 version.o: version.txt mkversion.sh
 	@chmod +x mkversion.sh version.txt
-	sh ./mkversion.sh $(CC) c3270
+	sh ./mkversion.sh $(CC) pr3287
 
 pr3287: $(OBJECTS) version.o
 	$(CC) -o $@ $(OBJECTS) version.o $(LDFLAGS) $(LIBS)
 
 install: pr3287
-	$(INSTALL) pr3287 $(BINDIR)/pr3287
+	$(INSTALL) pr3287 $(DESTDIR)$(BINDIR)/pr3287
 
 install.man:
-	$(INSTALL) pr3287.man $(MANDIR)/man1/pr3287.1
+	$(INSTALL) pr3287.man $(DESTDIR)$(MANDIR)/man1/pr3287.1
 
 clean:
 	$(RM) pr3287 *.o

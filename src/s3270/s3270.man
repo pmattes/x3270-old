@@ -1,5 +1,5 @@
 '\" t
-.TH s3270 1 "26 December 2000"
+.TH s3270 1 "15 June 2001"
 .SH "NAME"
 s3270 \-
 \s-1IBM\s+1 host access tool
@@ -165,19 +165,22 @@ Available sets include:
 .PP
 .TS
 center;
-l c
-lfB c.
-Charset Name	Q121 Code
+l l l
+lfB l l.
+Charset Name	Code Page	Font	
 _
-bracket	\-
-us-intl	01
-german	03
-finnish	09
-uk	22
-norwegian	23
-french	30
-icelandic	\-
-belgian	\-
+belgian	500	iso8859-1
+bracket	37	iso8859-1
+finnish	278	iso8859-1
+french	297	iso8859-1
+german	273	iso8859-1
+icelandic	871	iso8859-1
+iso-hebrew	424	iso8859-8
+iso-turkish	1026	iso8859-9
+italian	280	iso8859-1
+norwegian	277	iso8859-1
+uk	285	iso8859-1
+us-intl	37	iso8859-1
 .TE
 .PP
 The default character set is
@@ -298,7 +301,7 @@ NextWord	move cursor to next word
 PA(\fIn\fP)	Program Attention \s-1AID\s+1 (\fIn\fP from 1 to 3)
 PF(\fIn\fP)	Program Function \s-1AID\s+1 (\fIn\fP from 1 to 24)
 PreviousWord	move cursor to previous word
-Quit	exit \fBs3270\fP
+)Quit	exit \fBs3270\fP
 Redraw	redraw window
 Reset	reset locked keyboard
 Right	move cursor right
@@ -426,10 +429,11 @@ l l.
 \eb	Left
 \ef	Clear*
 \en	Enter*
-\epa\fIn\fP	PA key \fIn\fP*
-\epf\fInn\fP	PF key \fInn\fP*
+\epa\fIn\fP	PA(\fIn\fP)*
+\epf\fInn\fP	PF(\fInn\fP)*
 \er	Newline
 \et	Tab
+\eT	BackTab
 .TE
 .IP
 An example keymap entry would be:
@@ -513,9 +517,7 @@ werase	^W	\ 	\s-1NVT\s+1-mode word-erase character
 .LP
 .RS
 \fINote 1\fP: \fBm3279\fP defaults to
-\fBTrue\fP.
-It can be forced to
-\fBFalse\fP with the \fB\-mono\fP option.
+\fBFalse\fP.  It can be forced to \fBTrue\fP with the \fB\-model\fP option.
 .LP
 \fINote 2\fP:
 The default terminal type string is constructed from the model number, color
@@ -534,6 +536,8 @@ If more than one \fB\-xrm\fP option is given for the same resource,
 the last one on the command line is used.
 .SH "FILES"
 /usr/local/lib/x3270/ibm_hosts
+.br
+
 .SH "SEE ALSO"
 x3270(1), c3270(1), tcl3270(1), ibm_hosts(5), x3270-script(1), telnet(1), tn3270(1)
 .br
@@ -548,7 +552,7 @@ RFC 1646, TN3270 Extensions for LUname and Printer Selection
 RFC 2355, TN3270 Enhancements
 .SH "COPYRIGHTS"
 .LP
-Modifications Copyright 1993, 1994, 1995, 1996, 1997, 1999, 2000 by Paul Mattes.
+Modifications Copyright 1993, 1994, 1995, 1996, 1997, 1999, 2000, 2001 by Paul Mattes.
 .br
 Original X11 Port Copyright 1990 by Jeff Sparkes.
 .RS
@@ -566,4 +570,4 @@ notice.
 .RE
 5250 Emulation Code Copyright Minolta (Schweiz) AG, Beat Rubischon.
 .SH "VERSION"
-s3270 3.2.15
+s3270 3.2.17b

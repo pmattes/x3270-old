@@ -1,5 +1,5 @@
 /*
- * Copyright 1995, 1996, 1999 by Paul Mattes.
+ * Copyright 1995, 1996, 1999, 2001 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -12,18 +12,20 @@
  *		Global declarations for screen.c.
  */
 
-extern Dimension main_width, main_height;
+extern char *efont_charset;
+extern Boolean efont_matches;
+extern Dimension main_width;
 
 extern void blink_start(void);
 extern void cursor_move(int baddr);
 extern unsigned display_height(void);
+extern char *display_charset(char **dash);
 extern unsigned display_heightMM(void);
 extern unsigned display_width(void);
 extern unsigned display_widthMM(void);
 extern void enable_cursor(Boolean on);
 extern void font_init(void);
 extern void icon_init(void);
-extern const char *load_fixed_font(const char *name);
 extern void mcursor_locked(void);
 extern void mcursor_normal(void);
 extern void mcursor_waiting(void);
@@ -58,7 +60,7 @@ extern void screen_init(void);
 extern GC screen_invgc(int color);
 extern void screen_m3279(Boolean m3279);
 extern void screen_newcharset(char *csname);
-extern void screen_newfont(char *fontname, Boolean do_popup);
+extern void screen_newfont(char *fontname, Boolean do_popup, Boolean is_cs);
 extern void screen_newscheme(char *s);
 extern Boolean screen_obscured(void);
 extern void screen_scroll(void);

@@ -29,15 +29,23 @@
 #define	NOP	241		/* nop */
 #define	SE	240		/* end sub negotiation */
 #define EOR     239             /* end of record (transparent mode) */
+#define SUSP	237		/* suspend process */
+#define xEOF	236		/* end of file */
 
 #define SYNCH	242		/* for telfunc calls */
 
 #ifdef TELCMDS
-char *telcmds[] = {
-	"SE", "NOP", "DMARK", "BRK", "IP", "AO", "AYT", "EC",
-	"EL", "GA", "SB", "WILL", "WONT", "DO", "DONT", "IAC",
+const char *telcmds[] = {
+	"EOF", "SUSP", "ABORT", "EOR", "SE", "NOP", "DMARK", "BRK", "IP",
+	"AO", "AYT", "EC", "EL", "GA", "SB", "WILL", "WONT", "DO", "DONT",
+	"IAC", 0
 };
 #endif
+#define TELCMD_FIRST	xEOF
+#define TELCMD_LAST	IAC
+#define	TELCMD_OK(x)	((unsigned int)(x) <= TELCMD_LAST && \
+			 (unsigned int)(x) >= TELCMD_FIRST)
+#define TELCMD(x)	telcmds[(x)-TELCMD_FIRST]
 
 /* telnet options */
 #define TELOPT_BINARY	0	/* 8-bit data path */
@@ -66,19 +74,44 @@ char *telcmds[] = {
 #define	TELOPT_SNDLOC	23	/* send location */
 #define	TELOPT_TTYPE	24	/* terminal type */
 #define	TELOPT_EOR	25	/* end or record */
+#define TELOPT_TUID	26      /* TACACS user identification */
+#define TELOPT_OUTMRK	27      /* output marking */
+#define TELOPT_TTYLOC	28      /* terminal location number */
+#define TELOPT_3270REGIME 29    /* 3270 regime */
+#define TELOPT_X3PAD    30      /* X.3 PAD */
+#define TELOPT_NAWS     31      /* window size */
+#define TELOPT_TSPEED	32      /* terminal speed */
+#define TELOPT_LFLOW	33      /* remote flow control */
+#define TELOPT_LINEMODE 34      /* linemode option */
+#define TELOPT_XDISPLOC 35      /* X Display Location */
+#define TELOPT_OLD_ENVIRON 36   /* old - Environment variables */
+#define TELOPT_AUTHENTICATION 37/* authenticate */
+#define TELOPT_ENCRYPT	38      /* encryption option */
+#define TELOPT_NEW_ENVIRON 39   /* new - environment variables */
+#define TELOPT_TN3270E	40	/* extended 3270 regime */
 #define TELOPT_EXOPL	255	/* extended-options-list */
 
+#define NTELOPTS	(1+TELOPT_TN3270E)
 #ifdef TELOPTS
-#define	NTELOPTS	(1+TELOPT_EOR)
-char *telopts[NTELOPTS] = {
+const char *telopts[NTELOPTS+1] = {
 	"BINARY", "ECHO", "RCP", "SUPPRESS GO AHEAD", "NAME",
 	"STATUS", "TIMING MARK", "RCTE", "NAOL", "NAOP",
 	"NAOCRD", "NAOHTS", "NAOHTD", "NAOFFD", "NAOVTS",
 	"NAOVTD", "NAOLFD", "EXTEND ASCII", "LOGOUT", "BYTE MACRO",
 	"DATA ENTRY TERMINAL", "SUPDUP", "SUPDUP OUTPUT",
 	"SEND LOCATION", "TERMINAL TYPE", "END OF RECORD",
+	"TACACS UID", "OUTPUT MARKING", "TTYLOC",
+	"3270 REGIME", "X.3 PAD", "NAWS", "TSPEED", "LFLOW",
+	"LINEMODE", "XDISPLOC", "OLD-ENVIRON", "AUTHENTICATION",
+	"ENCRYPT", "NEW-ENVIRON", "TN3270E",
+	0
 };
+#define TELOPT_FIRST	TELOPT_BINARY
+#define TELOPT_LAST	TELOPT_TN3270E
+#define TELOPT_OK(x)	((unsigned int)(x) <= TELOPT_LAST)
+#define TELOPT(x)	telopts[(x)-TELOPT_FIRST]
 #endif
+
 
 /* sub-option qualifiers */
 #define	TELQUAL_IS	0	/* option is... */

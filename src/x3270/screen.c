@@ -1,5 +1,5 @@
 /*
- * Modifications Copyright 1993, 1994, 1995, 1996, 1999, 2000 by Paul Mattes.
+ * Modifications Copyright 1993, 1994, 1995, 1996, 1999, 2000, 2001 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -77,29 +77,32 @@ extern int      last_changed;
 
 /* Globals */
 unsigned char  *selected;	/* selection bitmap */
-Dimension       main_width, main_height;
+Dimension       main_width;
 #include <X11/bitmaps/gray>
 Boolean         scrollbar_changed = False;
 Boolean         model_changed = False;
 Boolean		efont_changed = False;
 Boolean		oversize_changed = False;
 Boolean		scheme_changed = False;
-Pixel           colorbg_pixel;
 Pixel           keypadbg_pixel;
 Boolean         flipped = False;
-int		field_colors[4];
 Pixmap          icon;
 Boolean		shifted = False;
 struct font_list *font_list = (struct font_list *) NULL;
 int             font_count = 0;
 char	       *efontname;
+char	       *efont_charset;
+Boolean		efont_matches = True;
 
 /* Statics */
+static Dimension main_height;
 static union sp *temp_image;	/* temporary for X display */
+static Pixel	colorbg_pixel;
 static Boolean  cursor_displayed = False;
 static Boolean  cursor_enabled = True;
 static Boolean  cursor_blink_pending = False;
 static XtIntervalId cursor_blink_id;
+static int	field_colors[4];
 static Boolean  in_focus = False;
 static Boolean  line_changed = False;
 static Boolean  cursor_changed = False;
@@ -206,7 +209,7 @@ struct sstate {
 	int		descent;
 	Boolean         standard_font;
 	Boolean		extended_3270font;
-	Boolean         latin1_font;
+	Boolean         font_8bit;
 	Boolean         debugging_font;
 	Boolean         obscured;
 	Boolean         copied;
@@ -224,7 +227,7 @@ int            *char_height = &nss.char_height;
 int            *ascent = &nss.ascent;
 int            *descent = &nss.descent;
 Boolean        *standard_font = &nss.standard_font;
-Boolean        *latin1_font = &nss.latin1_font;
+Boolean        *font_8bit = &nss.font_8bit;
 Boolean        *debugging_font = &nss.debugging_font;
 Boolean        *extended_3270font = &nss.extended_3270font;
 
@@ -270,6 +273,7 @@ static void screen_reinit(unsigned cmask);
 static void aicon_font_init(void);
 static void aicon_size(Dimension *iw, Dimension *ih);
 static void invert_icon(Boolean inverted);
+static Boolean load_fixed_font(const char *name);
 static void lock_icon(enum mcursor_state state);
 
 /* Resize font list. */
@@ -2116,30 +2120,30 @@ allocate_pixels(void)
 
 	/* Allocate constant elements. */
 	if (!alloc_color(appres.colorbg_name, FB_BLACK, &colorbg_pixel))
-		xs_warning("Cannot allocate colormap \"%s\" for screen background, using \"black\"",
+		popup_an_error("Cannot allocate colormap \"%s\" for screen background, using \"black\"",
 		    appres.colorbg_name);
 	if (!alloc_color(appres.selbg_name, FB_BLACK, &selbg_pixel))
-		xs_warning("Cannot allocate colormap \"%s\" for select background, using \"black\"",
+		popup_an_error("Cannot allocate colormap \"%s\" for select background, using \"black\"",
 		    appres.selbg_name);
 	if (!alloc_color(appres.keypadbg_name, FB_WHITE, &keypadbg_pixel))
-		xs_warning("Cannot allocate colormap \"%s\" for keypad background, using \"white\"",
+		popup_an_error("Cannot allocate colormap \"%s\" for keypad background, using \"white\"",
 		    appres.keypadbg_name);
 	if (appres.use_cursor_color) {
 		if (!alloc_color(appres.cursor_color_name, FB_WHITE, &cursor_pixel))
-			xs_warning("Cannot allocate colormap \"%s\" for cursor color, using \"white\"",
+			popup_an_error("Cannot allocate colormap \"%s\" for cursor color, using \"white\"",
 			    appres.cursor_color_name);
 	}
 
 	/* Allocate pseudocolors. */
 	if (!appres.m3279) {
 		if (!alloc_color(appres.normal_name, FB_WHITE, &normal_pixel))
-			xs_warning("Cannot allocate colormap \"%s\" for text, using \"white\"",
+			popup_an_error("Cannot allocate colormap \"%s\" for text, using \"white\"",
 			    appres.normal_name);
 		if (!alloc_color(appres.select_name, FB_WHITE, &select_pixel))
-			xs_warning("Cannot allocate colormap \"%s\" for selectable text, using \"white\"",
+			popup_an_error("Cannot allocate colormap \"%s\" for selectable text, using \"white\"",
 			    appres.select_name);
 		if (!alloc_color(appres.bold_name, FB_WHITE, &bold_pixel))
-			xs_warning("Cannot allocate colormap \"%s\" for bold text, using \"white\"",
+			popup_an_error("Cannot allocate colormap \"%s\" for bold text, using \"white\"",
 			    appres.bold_name);
 		return;
 	}
@@ -2294,7 +2298,7 @@ xfer_color_scheme(char *cs, Boolean do_popup)
 	for (i = 0; (tk = strtok(scheme, " \t\n")) != CN; i++) {
 		scheme = CN;
 		if (i > 22) {
-			xs_warning("Ignoring excess data in %s resource",
+			popup_an_error("Ignoring excess data in %s resource",
 			    scheme_name);
 			break;
 		}
@@ -2400,7 +2404,7 @@ get_gc(struct sstate *s, int color)
 			static char nbuf[16];
 
 			(void) sprintf(nbuf, "%d", pixel_index);
-			xs_warning("Cannot allocate colormap \"%s\" for 3279 color %s (%s), using \"%s\"",
+			popup_an_error("Cannot allocate colormap \"%s\" for 3279 color %s (%s), using \"%s\"",
 			    color_name[pixel_index], nbuf,
 			    see_color((unsigned char)(pixel_index + 0xf0)),
 			    fb_name(ibm_fb));
@@ -2450,7 +2454,7 @@ get_selgc(struct sstate *s, int color)
 			static char nbuf[16];
 
 			(void) sprintf(nbuf, "%d", color);
-			xs_warning("Cannot allocate colormap \"%s\" for 3279 color %s (%s), using \"white\"",
+			popup_an_error("Cannot allocate colormap \"%s\" for 3279 color %s (%s), using \"white\"",
 			    color_name[color], nbuf,
 			    see_color((unsigned char)(color + 0xf0)));
 		}
@@ -2726,29 +2730,28 @@ SetFont_action(Widget w unused, XEvent *event, String *params,
 	action_debug(SetFont_action, event, params, num_params);
 	if (check_usage(SetFont_action, *num_params, 1, 1) < 0)
 		return;
-	screen_newfont(params[0], True);
+	screen_newfont(params[0], True, False);
 }
 
 void
-screen_newfont(char *fontname, Boolean do_popup)
+screen_newfont(char *fontname, Boolean do_popup, Boolean is_cs)
 {
-	const char *emsg;
 	char *old_font;
 
 	/* Can't change fonts in APL mode. */
 	if (appres.apl_mode)
 		return;
 
-	if (efontname && !strcmp(fontname, efontname))
+	if (!is_cs && efontname && !strcmp(fontname, efontname))
 		return;
 
 	/* Save the old font before trying the new one. */
 	old_font = XtNewString(efontname);
 
 	/* Try the new one. */
-	if ((emsg = load_fixed_font(fontname))) {
+	if (!load_fixed_font(fontname)) {
 		if (do_popup)
-			popup_an_error("Font \"%s\"\n%s", fontname, emsg);
+			popup_an_error("Font not found:\n%s", fontname);
 		XtFree(old_font);
 		return;
 	}
@@ -2767,7 +2770,7 @@ screen_newfont(char *fontname, Boolean do_popup)
  * Load and query a font.
  * Returns NULL (okay) or an error message.
  */
-const char *
+static Boolean
 load_fixed_font(const char *name)
 {
 	XFontStruct *f;
@@ -2780,11 +2783,90 @@ load_fixed_font(const char *name)
 
 	matches = XListFontsWithInfo(display, name, 1, &count, &f);
 	if (matches == (char **)NULL)
-		return "does not exist";
+		return False;
 	ff = XLoadFont(display, matches[0]);
 	set_font_globals(f, name, ff);
 	XFreeFontInfo(matches, f, count);
-	return CN;
+	return True;
+}
+
+/*
+ * Figure out what sort of registry and encoding we want.
+ */
+char *
+display_charset(char **dash)
+{
+	char *r, *d;
+
+	r = get_display_charset();
+	d = strchr(r, '-');
+	if (dash != (char **)NULL)
+		*dash = d;
+	return r;
+}
+
+static char *charset_list = CN;
+static char *last_charset_list = CN;
+
+static char *
+screen_next_charset(Boolean first, char **dash)
+{
+	char *comma;
+	char *d;
+	char *r;
+
+	/* If first, start with a fresh list, and free the old one. */
+	if (first) {
+		if (last_charset_list != CN)
+			Free(last_charset_list);
+		last_charset_list = charset_list =
+		    NewString(get_display_charset());
+	}
+
+	/* If the remaining list is now NULL, then return EOL. */
+	if (charset_list == CN)
+		return CN;
+
+	/* Split off the first element. */
+	r = charset_list;
+	comma = strchr(charset_list, ',');
+	if (comma != CN) {
+		*comma = '\0';
+		charset_list = comma + 1;
+	} else {
+		charset_list = CN;
+	}
+	d = strchr(r, '-');
+	if (dash != (char **)NULL)
+		*dash = d;
+	return r;
+}
+
+static Boolean
+screen_more_registries(void)
+{
+	return charset_list != CN;
+}
+
+static char *
+screen_get_registry(Boolean first)
+{
+	char *dash;
+	char *r = screen_next_charset(first, &dash);
+	char *ret;
+
+	ret = NewString(r);
+	*(ret + (dash - r)) = '\0';
+	return ret;
+}
+
+static char *
+screen_get_encoding(Boolean first)
+{
+	char *dash;
+
+	(void) screen_next_charset(first, &dash);
+	return NewString(dash + 1);
 }
 
 /*
@@ -2793,31 +2875,95 @@ load_fixed_font(const char *name)
 static void
 set_font_globals(XFontStruct *f, const char *ef, Font ff)
 {
-	unsigned long svalue, svalue2;
+	unsigned long svalue;
+	char *font_registry = NULL, *font_encoding = NULL;
 
 	if (efontname)
 		XtFree(efontname);
 	efontname = XtNewString(ef);
+
+	/* Check for a required font. */
+	{
+		char *rf_name;
+		char *rf;
+
+		rf_name = xs_buffer("%s.%s", ResRequiredFont,
+		    get_charset_name());
+		rf = get_resource(rf_name);
+		efont_matches = (rf == CN || !strcasecmp(rf, efontname));
+		if (!efont_matches) {
+			popup_an_error("Charset '%s' requires font '%s'", 
+			    get_charset_name(), rf, efontname);
+		}
+		Free(rf_name);
+	}
+
+	/* Set the dimensions. */
 	nss.char_width  = fCHAR_WIDTH(f);
 	nss.char_height = fCHAR_HEIGHT(f);
 	nss.fid = ff;
 	nss.ascent = f->ascent;
 	nss.descent = f->descent;
+
+	/* Figure out if this is a 3270 font, or a standard X font. */
 	if (XGetFontProperty(f, XA_FAMILY_NAME, &svalue))
 		nss.standard_font = (Atom) svalue != a_3270;
 	else if (!strncmp(efontname, "3270", 4))
 		nss.standard_font = False;
 	else
 		nss.standard_font = True;
+
+	/* Figure out the character set. */
+	if (nss.standard_font) {
+		unsigned long a_font_registry, a_font_encoding;
+
+		if (XGetFontProperty(f, a_registry, &a_font_registry))
+			font_registry = XGetAtomName(display, a_font_registry);
+		if (XGetFontProperty(f, a_encoding, &a_font_encoding))
+			font_encoding = XGetAtomName(display, a_font_encoding);
+	} else {
+		font_registry = NewString("iso8859");
+		font_encoding = NewString("1");
+	}
+	if (font_registry == CN || font_encoding == CN) {
+		Free(font_registry);
+		Free(font_encoding);
+		font_registry = NewString("ascii");
+		font_encoding = NewString("7");
+	}
+	if (efont_charset != CN)
+		Free(efont_charset);
+	efont_charset = xs_buffer("%s-%s", font_registry, font_encoding);
+
+	/* Check the character set. */
+	{
+		char *want_registry = CN;
+		char *want_encoding = CN;
+
+		do {
+			want_registry =
+			    screen_get_registry(want_registry == CN);
+			want_encoding =
+			    screen_get_encoding(want_encoding == CN);
+			efont_matches =
+			    !strcasecmp(font_registry, want_registry) &&
+			    !strcasecmp(font_encoding, want_encoding);
+			Free(want_registry);
+			Free(want_encoding);
+		} while (!efont_matches && screen_more_registries());
+	}
+	if (!efont_matches) {
+		popup_an_error("Font does not implement '%s'\nAssuming ascii-7",
+		    display_charset(NULL));
+	}
+	Free(font_registry);
+	Free(font_encoding);
+
+	/* Set other globals. */
 	if (nss.standard_font) {
 		nss.extended_3270font = False;
-		nss.latin1_font =
-		    f->max_char_or_byte2 > 127 &&
-		    XGetFontProperty(f, a_registry, &svalue) &&
-		    (svalue == a_iso8859 || svalue == a_ISO8859) &&
-		    XGetFontProperty(f, a_encoding, &svalue2) &&
-		    svalue2 == a_1;
-		nss.xfmap = nss.latin1_font ? cg2asc : cg2asc7;
+		nss.font_8bit = efont_matches;
+		nss.xfmap = nss.font_8bit ? cg2asc : cg2asc7;
 		nss.debugging_font = False;
 	} else {
 #if defined(BROKEN_MACH32)
@@ -2826,7 +2972,7 @@ set_font_globals(XFontStruct *f, const char *ef, Font ff)
 		nss.extended_3270font = f->max_byte1 > 0 ||
 			f->max_char_or_byte2 > 255;
 #endif
-		nss.latin1_font = False;
+		nss.font_8bit = False;
 		nss.xfmap = (unsigned char *)NULL;
 		nss.debugging_font = !strcmp(efontname, "3270d");
 	}
@@ -2840,7 +2986,7 @@ font_init(void)
 {
 	char *s, *label, *font;
 	struct font_list *f;
-	const char *ef, *emsg;
+	const char *ef;
 
 	/* Parse the fontMenuList resource. */
 	if (!appres.font_list)
@@ -2868,7 +3014,7 @@ font_init(void)
 		 * isn't an APL font defined, APL mode is ignored.
 		 */
 		if ((appres.efontname = appres.afontname) == NULL) {
-			xs_warning("No %s resource, ignoring APL mode",
+			popup_an_error("No %s resource, ignoring APL mode",
 			    ResAplFont);
 			appres.apl_mode = False;
 		}
@@ -2886,26 +3032,28 @@ font_init(void)
 	 * "fixed", then give up altogether.
 	 */
 	ef = appres.efontname;
-	if ((emsg = load_fixed_font(ef)) != CN) {
-		xs_warning("%s \"%s\" %s", ResEmulatorFont, ef, emsg);
+	if (!load_fixed_font(ef)) {
+		if (strcmp(ef, "3270"))
+			popup_an_error("Font not found:\n%s", ef);
 		if (appres.apl_mode) {
-			XtWarning("Ignoring APL mode");
+			popup_an_error("Ignoring APL mode");
 			appres.apl_mode = False;
 		}
 		if (strcmp(ef, font_list->font)) {
 			ef = font_list->font;
-			emsg = load_fixed_font(ef);
-			if (emsg != CN)
-				xs_warning("%s \"%s\" %s", ResEmulatorFont, ef,
-				    emsg);
-		}
-		if (emsg != CN) {
+			if (!load_fixed_font(ef)) {
+				if (strcmp(ef, "3270"))
+					popup_an_error("Font not found:\n%s",
+					    ef);
+				ef = CN;
+			}
+		} else
+			ef = CN;
+		if (ef == CN) {
 			ef = "fixed";
-			if ((emsg = load_fixed_font(ef)) != CN)
-				xs_error("%s \"%s\" %s", ResEmulatorFont, ef,
-				    emsg);
+			if (!load_fixed_font(ef))
+				xs_error("Font not found: %s", ef);
 		}
-		xs_warning("Using font \"%s\"", ef);
 	}
 }
 
@@ -2977,13 +3125,20 @@ screen_newscheme(char *s)
 void
 screen_newcharset(char *csname)
 {
-	if (!charset_init(csname))
-		popup_an_error("Cannot find charset \"%s\"", csname);
-	else {
+	switch (charset_init(csname)) {
+	    case CS_OKAY:
+		screen_newfont(efontname, False, True);
 		screen_reinit(CHARSET_CHANGE);
 		charset_changed = True;
 		popup_an_info("The new character set will only be reflected\n"
 			"in new data from the host");
+		break;
+	    case CS_NOTFOUND:
+		popup_an_error("Cannot find charset \"%s\"", csname);
+		break;
+	    case CS_BAD:
+		popup_an_error("Invalid charset \"%s\"", csname);
+		break;
 	}
 }
 #endif /*]*/
@@ -3126,7 +3281,7 @@ aicon_font_init(void)
 
 	matches = XListFontsWithInfo(display, appres.icon_font, 1, &count, &f);
 	if (matches == (char **)NULL) {
-		xs_warning("No font %s \"%s\"; activeIcon will not work",
+		popup_an_error("No font %s \"%s\"\nactiveIcon will not work",
 		    ResIconFont, appres.icon_font);
 		appres.active_icon = False;
 		return;
@@ -3140,7 +3295,7 @@ aicon_font_init(void)
 	iss.overstrike = False;
 	iss.standard_font = True;
 	iss.extended_3270font = False;
-	iss.latin1_font = False;
+	iss.font_8bit = False;
 	iss.debugging_font = False;
 	iss.obscured = True;
 	iss.xfmap = cg2asc7;
@@ -3148,7 +3303,7 @@ aicon_font_init(void)
 		matches = XListFontsWithInfo(display, appres.icon_label_font,
 		    1, &count, &ailabel_font);
 		if (matches == (char **)NULL) {
-			xs_warning("Cannot load %s \"%s\" font; labelIcon will not work",
+			popup_an_error("Cannot load %s \"%s\" font\nlabelIcon will not work",
 			    ResIconLabelFont, appres.icon_label_font);
 			appres.label_icon = False;
 			return;
@@ -3540,7 +3695,7 @@ do_resize(void)
 	} else {
 		trace_event("    switching to font '%s', new size %dx%d\n",
 		    best->name, best->total_width, best->total_height);
-		screen_newfont(best->name, False);
+		screen_newfont(best->name, False, False);
 
 		/* screen_newfont() sets screen_redo to REDO_FONT. */
 		screen_redo = REDO_RESIZE;
@@ -3591,7 +3746,7 @@ stream_end(XtPointer closure unused, XtIntervalId *id unused)
 	switch (screen_redo) {
 	    case REDO_FONT:
 		revert = "font";
-		screen_newfont(redo_old_font, False);
+		screen_newfont(redo_old_font, False, False);
 		break;
 #if defined(X3270_MENUS) /*[*/
 	    case REDO_MODEL:

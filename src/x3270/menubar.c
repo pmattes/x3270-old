@@ -1,5 +1,5 @@
 /*
- * Copyright 1993, 1994, 1995, 1996, 1999, 2000 by Paul Mattes.
+ * Copyright 1993, 1994, 1995, 1996, 1999, 2000, 2001 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -31,6 +31,7 @@
 
 #include "actionsc.h"
 #include "aboutc.h"
+#include "charsetc.h"
 #include "ftc.h"
 #include "hostc.h"
 #include "keymapc.h"
@@ -265,12 +266,14 @@ menubar_init(Widget container, Dimension overall_width, Dimension current_width)
 	    LEFT_MARGIN + CN_OFFSET*(KEY_WIDTH+2*BORDER+SPACING),
 	    TOP_MARGIN);
 
+#if defined(X3270_KEYPAD) /*[*/
 	/* Keypad button */
 
 	keypad_button_init(
 	    (Position) (current_width - LEFT_MARGIN - (ky_width+8) -
 			    2*BORDER - 2*MENU_BORDER),
 	    TOP_MARGIN);
+#endif /*]*/
 }
 
 /*
@@ -397,6 +400,7 @@ menubar_printer(Boolean printer_on)
 }
 #endif /*]*/
 
+#if defined(X3270_KEYPAD) /*[*/
 void
 menubar_keypad_changed(void)
 {
@@ -406,6 +410,7 @@ menubar_keypad_changed(void)
 			appres.keypad_on || keypad_popped ? dot : None,
 		    NULL);
 }
+#endif /*]*/
 
 /* Called when we switch between ANSI and 3270 modes. */
 static void
@@ -959,6 +964,7 @@ macros_menu_init(Boolean regen, Position x, Position y)
 		    NULL);
 }
 
+#if defined(X3270_KEYPAD) /*[*/
 /* Called toggle the keypad */
 static void
 toggle_keypad(Widget w unused, XtPointer client_data unused,
@@ -1006,13 +1012,16 @@ keypad_button_init(Position x, Position y)
 		XtVaSetValues(keypad_button, XtNx, x, NULL);
 	}
 }
+#endif /*]*/
 
 void
 menubar_resize(Dimension width)
 {
+#if defined(X3270_KEYPAD) /*[*/
 	keypad_button_init(
 	    (Position) (width - LEFT_MARGIN - (ky_width+8) - 2*BORDER),
 	    TOP_MARGIN);
+#endif /*]*/
 }
 
 
@@ -1020,7 +1029,7 @@ menubar_resize(Dimension width)
  * "Options..." menu
  */
 
-void
+static void
 toggle_callback(Widget w, XtPointer userdata, XtPointer calldata unused)
 {
 	struct toggle *t = (struct toggle *) userdata;
@@ -1037,7 +1046,7 @@ toggle_callback(Widget w, XtPointer userdata, XtPointer calldata unused)
 	do_toggle(t - appres.toggle);
 }
 
-Widget oversize_shell = NULL;
+static Widget oversize_shell = NULL;
 
 /* Called from the "Change" button on the oversize dialog */
 static void
@@ -1095,14 +1104,14 @@ toggle_init(Widget menu, int ix, const char *name1, const char *name2)
 		t->w[1] = NULL;
 }
 
-Widget *font_widgets;
-Widget other_font;
-Widget font_shell = NULL;
+static Widget *font_widgets;
+static Widget other_font;
+static Widget font_shell = NULL;
 
-void
+static void
 do_newfont(Widget w unused, XtPointer userdata, XtPointer calldata unused)
 {
-	screen_newfont((char *)userdata, True);
+	screen_newfont((char *)userdata, True, False);
 }
 
 /* Called from the "Select Font" button on the font dialog */
@@ -1207,13 +1216,12 @@ do_newcharset(Widget w unused, XtPointer userdata, XtPointer calldata unused)
 	for (i = 0, s = charsets; i < charset_count; i++, s = s->next)
 		XtVaSetValues(charset_widgets[i],
 		    XtNleftBitmap,
-			((appres.charset == CN) ||
-			 strcmp(appres.charset, s->charset)) ?
+			(strcmp(get_charset_name(), s->charset)) ?
 			    no_diamond : diamond,
 		    NULL);
 }
 
-Widget keymap_shell = NULL;
+static Widget keymap_shell = NULL;
 
 /* Called from the "Set Keymap" button on the keymap dialog */
 static void
@@ -1382,6 +1390,7 @@ options_menu_init(Boolean regen, Position x, Position y)
 	t = XtVaCreatePopupShell(
 	    "togglesMenu", complexMenuWidgetClass, menu_parent,
 	    NULL);
+#if defined(X3270_KEYPAD) /*[*/
 	if (!menubar_buttons) {
 		keypad_option_button = XtVaCreateManagedWidget(
 		    "keypadOption", cmeBSBObjectClass, t,
@@ -1393,6 +1402,7 @@ options_menu_init(Boolean regen, Position x, Position y)
 		(void) XtVaCreateManagedWidget("space", cmeLineObjectClass,
 		    t, NULL);
 	}
+#endif /*]*/
 	toggle_init(t, MONOCASE, "monocaseOption", CN);
 	toggle_init(t, CURSOR_BLINK, "cursorBlinkOption", CN);
 	toggle_init(t, BLANK_FILL, "blankFillOption", CN);
@@ -1580,8 +1590,7 @@ options_menu_init(Boolean regen, Position x, Position y)
 			charset_widgets[ix] = XtVaCreateManagedWidget(
 			    cs->label, cmeBSBObjectClass, t,
 			    XtNleftBitmap,
-				((appres.charset == CN) ||
-				 strcmp(appres.charset, cs->charset)) ?
+				(strcmp(get_charset_name(), cs->charset)) ?
 				    no_diamond : diamond,
 			    NULL);
 			XtAddCallback(charset_widgets[ix], XtNcallback,

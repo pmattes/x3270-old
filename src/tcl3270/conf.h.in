@@ -1,5 +1,5 @@
 /*
- * Copyright 2000 by Paul Mattes.
+ * Copyright 2000, 2001 by Paul Mattes.
  *   Permission to use, copy, modify, and distribute this software and its
  *   documentation for any purpose and without fee is hereby granted,
  *   provided that the above copyright notice appear in all copies and that
@@ -26,3 +26,11 @@
 
 /* Uncommon functions. */
 #undef HAVE_VASPRINTF
+
+/* Optional parts. */
+#undef X3270_ANSI
+#undef X3270_APL
+#undef X3270_FT
+#undef X3270_LOCAL_PROCESS
+#undef X3270_TN3270E
+#undef X3270_TRACE

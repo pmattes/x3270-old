@@ -10,6 +10,65 @@
 <h1>
 tcl3270 Version 3.2 -- New Features and Bug Fixes</h1>
 
+<h2>Changes in tcl3270 3.2.17, 15. June 2001</h2>
+<ul>
+ <li>Installation Changes:
+  <ul>
+   <li>Moved the feature disable logic (turning off NVT mode, file transfers,
+    etc.) to <b>configure --disable</b> options.</li>
+   <li>Allowed the location of the configuration directory (where the
+    character set files are) to be set with a new resource:
+    <tt>tcl3270.confDir</tt>.</li>
+  </ul>
+ </li>
+ <li>Bug Fixes:
+  <ul>
+   <li>Verified that tcl3270 builds with all permutations of disabled
+    features.</li>
+   <li>Fixed a problem with 3270 Modify Field orders that specify no
+    attributes.</li>
+   <li>Fixed a problem with misinterpreting skipped 3270 field attributes.</li>
+   <li>Compatibility changes for Cygwin.</li>
+   <li>Improved the performance of DFT file transfers.</li>
+  </ul>
+ </li>
+ <li>Character Set Improvements:
+  <ul>
+   <li>Added support for other 8-bit character sets (Latin-5, etc.).</li>
+   <li>Added support for Turkish, ISO Hebrew, Russian, Thai and Brazilian
+    character sets.</li>
+   <li>Added support for file-based character sets, in the <tt>charset</tt>
+    subdirectory of the configuration directory.</li>
+   <li>Added support for specifying an entire character set translation table,
+    rather than listing the exceptions from ISO 8859-1.</li>
+   <li>Added support for file transfer character sets (a definition of how
+    the host translates EBCDIC to ASCII for file transfers).</li>
+  </ul>
+ </li>
+ <li>Other Improvements:
+  <ul>
+   <li>Added support for <b>BackTab</b> in <b>String</b> actions, via the
+    <tt>\T</tt> sequence.</li>
+   <li>Allow IPv6-style square-bracket-delimited hostnames, and tightened the
+    rules for port numbers.</li>
+  </ul>
+ </li>
+</ul>
+<h2>Changes in tcl3270 3.2.16, 28. February 2001</h2>
+<ul>
+ <li>Removed the stray reference to x3270if from the Makefile template.</li>
+ <li>Changed the configure script to find the BSD versions of the TclX
+  library.</li>
+ <li>Added a timeout parameter to the <b>Wait</b> command.</li>
+ <li>Added an Italian character set.<li>
+ <li>Added translations ASCII file transfers, so square brackets, pipe 
+   characters and anything from the upper half of the IOS 8859-1 character set
+   stand a better chance of coming through correctly.</li> 
+ <li>Corrected a subtle problem in TN3270E option negotiation.</li>
+ <li>Improved SSCP-LU support.</li>
+ <li>Restored the operation of CUT-mode file transfer. (It had been disabled
+   early in the 3.2 development cycle.)</li>
+</ul>
 <h2>Changes in tcl3270 3.2.15, 26. December 2000</h2>
 <ul>
 <li>Corrected the Makefile template to build tcl3270 instead of c3270.</li>
@@ -23,13 +82,14 @@ supported with the <tt>configure --with-tcl=8.2</tt> option).</li>
 <li>Fixed a problem with disconnecting from hosts when they send illegal
 commands in non-TN3270E mode.</li>
 <li>Allow, but ignore, Create Partition structured fields.</li>
+</ul>
 <h2>
-<b>Changes in tcl3270 3.2.14, 15. November 2000</b></h2>^M  
+<b>Changes in tcl3270 3.2.14, 15. November 2000</b></h2>
 Corrected some problems with the internal event scheduler, which could
 cause timeouts to hang.
 <br>Added support for -xrm.
 <br>Updated the man pages and synchronized the HTML versions.
-<b>Changes in tcl3270 3.2.12, 8. September 2000</b></h2>
+<h2><b>Changes in tcl3270 3.2.12, 8. September 2000</b></h2>
 Added Rows and Cols commnds.
 <br>Corrected the documentation of the status fields (there are only 11 of 
 them).

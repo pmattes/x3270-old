@@ -66,7 +66,8 @@ x3270.charset		Default bracket		Switch -charset
     displayed for each EBCDIC code.
 
     For each character set x, an additional resource by the name of charset.x
-    must be defined.
+    must be defined.  Optionally, resources by the name of codepage.x and
+    displayCharset.x may be defined.
 
 x3270.charset.us-intl
 x3270.charset.us
@@ -81,10 +82,10 @@ x3270.charset.french
 x3270.charset.hebrew
     Individual character set definitions.  These resources consist of a series
     of newline-separated strings that define how an EBCDIC national character
-    set differs from IBM's standard U.S.-International set (table 01).  Each
-    string is a number, a colon, and a symbol.  The number is the EBCDIC code,
-    and the symbol is an ASCII character or ISO Latin-1 name of the graphic it
-    represents.
+    set differs from IBM's standard U.S. English set (codepage 37).  Each
+    string is a number, a colon, and a symbol.  The number is the EBCDIC code
+    in decimal, and the symbol is a single character, the ISO Latin-1 name of
+    the graphic it represents, or a hexadecimal number in the form 0xnn.
 
 x3270.charsetList	Default U.S. International: us-intl
 				Bracket: bracket
@@ -95,6 +96,16 @@ x3270.charsetList	Default U.S. International: us-intl
 				French: french
 				Hebrew: hebrew
     Defines the "Character Set" pull-right menu.
+
+x3270.codepage.x		Default 37
+    Code page definitions for various character sets.  If x3270.charset is x,
+    then x3270.codepage.x defines the IBM code page reported to the host in
+    a Query Reply.  The default code page is 37.  The base character set and
+    the code page are combined into a CGCSGID reported to the host.  If the
+    value of x3270.codepage.x is a 16-bit number (65535 or less), then the
+    code page is combined with the default base character set of 697 to form
+    the CGCSGID.  If the value of x3270.codepage.x is greater than 16 bits,
+    then it specifies the entire CGCSGID reported to the host.
 
 x3270.colorBackground	Default black
     The background color for the emulator window.  This resource is used only
@@ -190,6 +201,13 @@ x3270.debugTracing	Default true
 
 x3270.disconnectClear	Default false
     If set to true, x3270 will clear the screen when a host disconnects.
+
+x3270.displayCharset.x	Default iso8859-1
+    Defines the character set that the x3270.emulatorFont must implement, in
+    order for x3270 to display all characters that the host can generate.
+    If x3270.charset is x, then x3270.displayCharset defines the display
+    character set.  If the x3270.emulator font does not implement the specified
+    display character set, then x3270 will display only ASCII-7 characters.
 
 x3270.doConfirms	Default true
     When set to true, x3270 will display a pop-up to report successful

@@ -1,5 +1,5 @@
 '\" t
-.TH x3270 1 "23 February 2001"
+.TH x3270 1 "15 June 2001"
 .SH "NAME"
 x3270 \-
 \s-1IBM\s+1 host access tool
@@ -291,33 +291,37 @@ Available sets include:
 .PP
 .TS
 center;
-l c
-lfB c.
-Charset Name	Q121 Code
+l l l
+lfB l l.
+Charset Name	Code Page	Font	
 _
-bracket	\-
-us-intl	01
-german	03
-finnish	09
-uk	22
-norwegian	23
-french	30
-hebrew*	\-
-icelandic	\-
-belgian	\-
-italian	\-
-greek**	\-
+belgian	500	iso8859-1
+bracket	37	iso8859-1
+finnish	278	iso8859-1
+french	297	iso8859-1
+german	273	iso8859-1
+greek	423	3270gr
+hebrew	424	3270h
+icelandic	871	iso8859-1
+iso-hebrew	424	iso8859-8
+iso-turkish	1026	iso8859-9
+italian	280	iso8859-1
+norwegian	277	iso8859-1
+uk	285	iso8859-1
+us-intl	37	iso8859-1
 .TE
-.IP
-(*) requires a special font, \fB3270h\fP
-.br
-(**) requires a special font, \fB3270gr\fP
 .PP
 The default character set is
 \fBbracket\fP,
 which is useful for common \s-1IBM\s+1 hosts which use \s-1EBCDIC\s+1
 codes 0xAD and 0xBD for the `[' and `]' characters,
 respectively.
+.PP
+Most 3270 fonts (3270, 3270-12, 3270gt8, etc.) implement the ISO 8859-1
+character set.  3270h and 3270gr implement special character sets for Hebrew
+and Greek, respsectively.  Some character sets work only with standard X fonts
+that implement that character set.  These are prefixed with the
+name \fBiso-\fP.
 .PP
 You can also specify national-language translations for your keyboard;
 see \s-1KEYMAPS\s+1 below.
@@ -435,8 +439,8 @@ Quit	x3270.quit	^\e
 End of file	x3270.eof	^D
 .TE
 .LP
-A separate keymap can be defined for use only when \fBx3270\fP is in
-\s-1NVT\s+1 mode.
+Separate keymaps can be defined for use only when \fBx3270\fP is in
+3270 mode or \s-1NVT\s+1 mode.
 See \s-1KEYMAPS\s+1 for details.
 .SH "MENUS"
 \fBx3270\fP has a menu bar with three pull-down menus (File, Options, and
@@ -759,27 +763,23 @@ override key definitions.
 This keymap is defined by the \fBx3270.keymap.\fP\fIname\fP\fB.user\fP
 resource.
 .PP
-In addition, a separate keymap may be defined for use in \s-1NVT\s+1 mode.
-This keymap uses the suffix \fB.nvt\fP in its name.
-If a keymap \fBx3270.keymap.\fP\fIname\fP\fB.nvt\fP is defined, it
-will replace the keymap \fBx3270.keymap.\fP\fIname\fP when \fBx3270\fP
-is in \s-1NVT\s+1 mode.
-If a keymap \fBx3270.keymap.\fP\fIname\fP\fB.user.nvt\fP is defined, it
-will replace the keymap \fBx3270.keymap.\fP\fIname\fP\fB.user\fP when
+In addition, keymaps may be defined for use in 3270 mode or \s-1NVT\s+1 mode
+only.
+These keymaps use the suffixes \fB.3270\fP and \fB.nvt\fP in their names,
+respectively.
+If a keymap \fBx3270.keymap.\fP\fIname\fP.\fImode\fP is defined, it
+will augment the keymap \fBx3270.keymap.\fP\fIname\fP when \fBx3270\fP
+is in the given \fImode\fP.
+If a keymap \fBx3270.keymap.\fP\fIname\fP.\fBuser\fP.\fImode\fP is
+defined, it will augment the
+keymap \fBx3270.keymap\fP.\fIname\fP.\fBuser\fP when
 \fBx3270\fP
-is in \s-1NVT\s+1 mode.
+is in the given \fImode\fP.
 .PP
-The basic default translation table is:
+The default translation table \fBx3270.keymap.base\fP is:
 .TS
 l l .
 <Key>Multi_key	Compose()
-Shift<Key>Return	Newline()
-<Key>Return	Enter()
-<Key>Linefeed	Newline()
-Shift<Key>Tab	BackTab()
-<Key>Tab	Tab()
-<Key>Home	Home()
-Meta<Key>Left	PreviousWord()
 Shift<Key>Left	KybdSelect(Left,PRIMARY)
 <Key>Left	Left()
 Meta<Key>Right	NextWord()
@@ -789,13 +789,9 @@ Shift<Key>Up	KybdSelect(Up,PRIMARY)
 <Key>Up	Up()
 Shift<Key>Down	KybdSelect(Down,PRIMARY)
 <Key>Down	Down()
-<Key>Insert	Insert()
-<Key>Delete	Delete()
-<Key>BackSpace	BackSpace()
 Ctrl<Btn1Down>	HandleMenu(quitMenu)
 Ctrl<Btn2Down>	HandleMenu(optionsMenu)
 Ctrl<Btn3Down>	HandleMenu(hostMenu)
-Ctrl Shift<Btn1Down>	MouseSelect()
 Shift<Btn1Down>	MoveCursor()
 <Btn1Down>	select\-start()
 <Btn1Motion>	select\-extend()
@@ -829,6 +825,27 @@ Meta<Key>F12	PF(24)
 <Key>F10	PF(10)
 <Key>F11	PF(11)
 <Key>F12	PF(12)
+Alt<Key>q	Quit()
+:<Key>	Default()
+.TE
+.PP
+The default 3270-mode table \fBx3270.keymap.base.3270\fP adds the
+following definitions:
+.TS
+l l .
+Shift<Key>Return	Newline()
+<Key>Return	Enter()
+<Key>Linefeed	Newline()
+Shift<Key>Tab	BackTab()
+<Key>Tab	Tab()
+<Key>Home	Home()
+Meta<Key>Left	PreviousWord()
+Meta<Key>Right	NextWord()
+<Key>Insert	Insert()
+<Key>Delete	Delete()
+<Key>BackSpace	BackSpace()
+Ctrl Shift<Btn1Down>	MouseSelect()
+Shift<Btn1Down>	MoveCursor()
 Meta<Key>1	PA(1)
 Meta<Key>2	PA(2)
 Meta<Key>3	PA(3)
@@ -840,12 +857,11 @@ Meta<Key>h	Home()
 Meta<Key>i	Insert()
 Meta<Key>l	Redraw()
 Meta<Key>p	PrintText()
-Meta<Key>q	Quit()
 Meta<Key>r	Reset()
+Meta<Key>u	Unselect()
 Ctrl<Key>u	DeleteField()
 Ctrl<Key>w	DeleteWord()
 :Meta<Key>asciicircum	Key(notsign)
-:<Key>	Default()
 .TE
 .PP
 Meta is the diamond shaped key on a sun_k4, "Alt" on an \s-1NCD\s+1,
@@ -986,10 +1002,11 @@ l l.
 \eb	Left
 \ef	Clear*
 \en	Enter*
-\epa\fIn\fP	PA key \fIn\fP*
-\epf\fInn\fP	PF key \fInn\fP*
+\epa\fIn\fP	PA(\fIn\fP)*
+\epf\fInn\fP	PF(\fInn\fP)*
 \er	Newline
 \et	Tab
+\eT	BackTab
 .TE
 .IP
 An example keymap entry would be:
@@ -1346,7 +1363,7 @@ RFC 1646, TN3270 Extensions for LUname and Printer Selection
 RFC 2355, TN3270 Enhancements
 .SH "COPYRIGHTS"
 .LP
-Modifications Copyright 1993, 1994, 1995, 1996, 1997, 1999, 2000 by Paul Mattes.
+Modifications Copyright 1993, 1994, 1995, 1996, 1997, 1999, 2000, 2001 by Paul Mattes.
 .br
 Original X11 Port Copyright 1990 by Jeff Sparkes.
 .RS
@@ -1364,4 +1381,4 @@ notice.
 .RE
 5250 Emulation Code Copyright Minolta (Schweiz) AG, Beat Rubischon.
 .SH "VERSION"
-x3270 3.2.16p
+x3270 3.2.17b

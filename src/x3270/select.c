@@ -1,5 +1,5 @@
 /*
- * Copyright 1993, 1994, 1995, 1999, 2000 by Paul Mattes.
+ * Copyright 1993, 1994, 1995, 1999, 2000, 2001 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -87,8 +87,8 @@ static struct {			/* owned selections */
 static Boolean  cursor_moved = False;
 static int      saved_cursor_addr;
 static void own_sels(Time t);
-int             n_owned = -1;
-Boolean         any_selected = False;
+static int	n_owned = -1;
+static Boolean	any_selected = False;
 
 extern Widget  *screen;
 
@@ -201,7 +201,7 @@ reclass(char *s)
 	}
 
     fail:
-	xs_warning("Error in %s string", ResCharClass);
+	popup_an_error("Error in %s string", ResCharClass);
 }
 
 static void
@@ -572,7 +572,6 @@ set_select_action(Widget w unused, XEvent *event, String *params,
 	if (*num_params == 0)
 		want_sel[0] = XA_PRIMARY;
 	own_sels(event_time(event));
-	any_selected = False; /* a useful lie */
 }
 
 /*

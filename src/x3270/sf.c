@@ -22,6 +22,7 @@
 #include "ctlr.h"
 #include "resources.h"
 
+#include "charsetc.h"
 #include "ctlrc.h"
 #if defined(X3270_FT) /*[*/
 #include "ft_dftc.h"
@@ -383,12 +384,14 @@ sf_create_partition(unsigned char buf[], int buflen)
 	unsigned short pw;		/* character cell point width */
 	unsigned short ph;		/* character cell point height */
 
+#if defined(X3270_TRACE) /*[*/
 	static const char *bit4[16] = {
 	    "0000", "0001", "0010", "0011",
 	    "0100", "0101", "0110", "0111",
 	    "1000", "1001", "1010", "1011",
 	    "1100", "1101", "1110", "1111"
 	};
+#endif /*]*/
 
 	if (buflen > 3) {
 		trace_ds("(");
@@ -567,10 +570,6 @@ do_query_reply(unsigned char code)
 	int obptr0 = obptr - obuf;
 	unsigned char *obptr_len;
 	unsigned short num, denom;
-	char *cp_name;
-	char *cp_value;
-	unsigned long cp;
-	char *ptr;
 
 	if (qr_in_progress) {
 		trace_ds("> StructuredField\n");
@@ -599,24 +598,7 @@ do_query_reply(unsigned char code)
 		*obptr++ = 0x10;	/*  FLAGS: non-loadable, single-plane,
 					     single-byte, no compare */
 		*obptr++ = 0x00;	/*  LCID */
-		*obptr++ = 0x02;	/*  CGCSGID: English (U.S.) */
-		*obptr++ = 0xb9;
-		/* Get the codepage resource. */
-		cp_name = xs_buffer("%s.%s", ResCodepage, appres.charset);
-		cp_value = get_resource(cp_name);
-		if (cp_value != CN &&
-		    (cp = strtoul(cp_value, &ptr, 0)) &&
-		    ptr != cp_value &&
-		    *ptr == '\0' &&
-		    !(cp & ~0xffffL)) {
-			/* Reasonable non-default value defined. */
-			SET16(obptr, cp);
-		} else {
-			/* Default to codepage 37. */
-			*obptr++ = 0x00;
-			*obptr++ = 0x25;
-		}
-		Free(cp_name);
+		SET32(obptr, cgcsgid);	/*  CGCSGID */
 		if (!*standard_font) {
 			/* special 3270 font, includes APL */
 			*obptr++ = 0x01;/* SET 1: */
@@ -742,8 +724,8 @@ do_query_reply(unsigned char code)
 		trace_ds("> QueryReply(DistributedDataManagement)\n");
 		space3270out(8);
 		SET16(obptr,0);		/* set reserved field to 0 */
-		SET16(obptr,2048);	/* set inbound length limit */
-		SET16(obptr,2048);	/* set outbound length limit */
+		SET16(obptr,DFT_INBUF);	/* set inbound length limit */
+		SET16(obptr,DFT_OUTBUF);/* set outbound length limit */
 		SET16(obptr,0x0101);	/* NSS=01, DDMSS=01 */
 		break;
 #endif /*]*/

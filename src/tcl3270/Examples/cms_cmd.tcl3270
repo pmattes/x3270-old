@@ -1,4 +1,10 @@
 #!tcl3270
+# Copyright 2000, 2001 by Paul Mattes.
+#  Permission to use, copy, modify, and distribute this software and its
+#  documentation for any purpose and without fee is hereby granted,
+#  provided that the above copyright notice appear in all copies and that
+#  both that copyright notice and this permission notice appear in
+#  supporting documentation.
 
 # Pluck the username, password and command from the command line.
 if {$argc != 4} {
@@ -12,11 +18,10 @@ set command [lindex $argv 3]
 
 # Procedure to wait for a READ prompt from CMS or CP.
 proc waitread {} {
-	Snap
+	Snap Save
 	while {[Snap Ascii [expr [Snap Rows]-1] [expr [Snap Cols]-17] 4]
 			!= "READ"} {
-		Wait Output
-		Snap
+		Snap Wait Output
 	}
 }
 
@@ -25,8 +30,8 @@ proc waitread {} {
 # data to read in the Snap buffer.
 proc cmd_done {} {
 	global verbose
+	Snap Save
 	while {1} {
-		Snap
 		if {[Snap Ascii [expr [Snap Rows]-1] [expr [Snap Cols]-20] 7]
 				== "MORE..."} {
 			if {$verbose} {puts "MORE..."}
@@ -49,7 +54,7 @@ proc cmd_done {} {
 			}
 			incr i -1
 		}
-		Wait Output
+		Snap Wait Output
 	}
 }
 
@@ -137,6 +142,5 @@ if {[catch {cms_cmd $command} result]} {
 # Log off, and wait for the host to hang up on us, so we don't unintentionally
 # create a disconnected session.
 Clear
-String "logoff\n"
-Wait Disconnect
+if {! [catch {String "logoff\n"}]} {Wait Disconnect}
 exit $rc

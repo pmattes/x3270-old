@@ -1,5 +1,5 @@
 /*
- * Copyright 1995, 1996, 1999, 2000 by Paul Mattes.
+ * Copyright 1995, 1996, 1999, 2000, 2001 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -35,6 +35,5 @@ extern int host_connect(const char *n);
 extern void host_connected(void);
 extern void host_disconnect(Boolean disable);
 extern void host_in3270(enum cstate);
-extern void host_reconnect(void);
 extern void register_schange(int tx, void (*func)(Boolean));
 extern void st_changed(int tx, Boolean mode);

@@ -1,5 +1,5 @@
 /*
- * Copyright 1999, 2000 by Paul Mattes.
+ * Copyright 1999, 2000, 2001 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -331,7 +331,7 @@ typedef struct timeout {
 	void (*proc)(void);
 } timeout_t;
 #define TN	(timeout_t *)NULL
-timeout_t *timeouts = TN;
+static timeout_t *timeouts = TN;
 
 unsigned long
 AddTimeOut(unsigned long interval, void (*proc)(void))
@@ -400,8 +400,8 @@ typedef struct input {
         int condition;
         void (*proc)(void);
 } input_t;          
-input_t *inputs = (input_t *)NULL;
-Boolean inputs_changed = False;
+static input_t *inputs = (input_t *)NULL;
+static Boolean inputs_changed = False;
 
 unsigned long
 AddInput(int source, void (*fn)(void))

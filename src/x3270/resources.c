@@ -1,5 +1,5 @@
 /*
- * Modifications Copyright 1993, 1994, 1995, 1996, 1999, 2000 by Paul Mattes.
+ * Modifications Copyright 1993, 1994, 1995, 1996, 1999, 2000, 2001 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -127,6 +127,8 @@ XtResource resources[] = {
 	  offset(modified_sel_color), XtRString, "10" },
 	{ ResVisualSelectColor, ClsVisualSelectColor, XtRInt, sizeof(int),
 	  offset(visual_select_color), XtRString, "6" },
+	{ ResConfDir, ClsConfDir, XtRString, sizeof(char *),
+	  offset(conf_dir), XtRString, LIBX3270DIR },
 	{ ResModel, ClsModel, XtRString, sizeof(char *),
 	  offset(model), XtRString,
 #if defined(RESTRICT_3279) /*[*/

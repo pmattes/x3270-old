@@ -1,5 +1,5 @@
 /*
- * Copyright 1993, 1994, 1995, 1999, 2000 by Paul Mattes.
+ * Copyright 1993, 1994, 1995, 1999, 2000, 2001 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -26,6 +26,7 @@
 #include "appres.h"
 
 #include "actionsc.h"
+#include "hostc.h"
 #include "macrosc.h"
 #include "popupsc.h"
 #include "screenc.h"
@@ -372,41 +373,59 @@ create_form_popup(const char *name, XtCallbackProc callback,
 /*
  * Read-only popups.
  */
+struct rsm {
+	struct rsm *next;
+	char *text;
+};
 struct rop {
 	const char *name;			/* resource name */
 	XtGrabKind grab;			/* grab kind */
 	Boolean is_error;			/* is it? */
+	Boolean overwrites;			/* does it? */
 	const char *itext;			/* initial text */
 	Widget shell;				/* pop-up shell */
 	Widget form;				/* dialog form */
 	Widget cancel_button;			/* cancel button */
 	abort_callback_t *cancel_callback;	/* callback for cancel button */
 	Boolean visible;			/* visibility flag */
+	struct rsm *rsms;			/* stored messages */
 };
 
 static struct rop error_popup = {
-	"errorPopup", XtGrabExclusive, True,
-	"first line\nsecond line",
+	"errorPopup", XtGrabExclusive, True, False,
+	"first line\nsecond line\nthird line",
 	NULL, NULL, NULL, NULL,
-	False
+	False, NULL
 };
 static struct rop info_popup = {
-	"infoPopup", XtGrabNonexclusive, False,
-	"first line\nsecond line",
+	"infoPopup", XtGrabNonexclusive, False, False,
+	"first line\nsecond line\nthird line",
 	NULL, NULL, NULL, NULL,
-	False
+	False, NULL
 };
 
 static struct rop printer_error_popup = {
-	"printerErrorPopup", XtGrabExclusive, True,
+	"printerErrorPopup", XtGrabExclusive, True, True,
 	"first line\nsecond line\nthird line\nfourth line",
-	NULL, NULL, NULL, NULL, False
+	NULL, NULL, NULL, NULL, False, NULL
 };
 static struct rop printer_info_popup = {
-	"printerInfoPopup", XtGrabNonexclusive, False,
+	"printerInfoPopup", XtGrabNonexclusive, False, True,
 	"first line\nsecond line\nthird line\nfourth line",
 	NULL,
-	NULL, NULL, NULL, False
+	NULL, NULL, NULL, False, NULL
+};
+
+static struct rop child_error_popup = {
+	"childErrorPopup", XtGrabNonexclusive, True, True,
+	"first line\nsecond line\nthird line\nfourth line",
+	NULL, NULL, NULL, NULL, False, NULL
+};
+static struct rop child_info_popup = {
+	"childInfoPopup", XtGrabNonexclusive, False, True,
+	"first line\nsecond line\nthird line\nfourth line",
+	NULL,
+	NULL, NULL, NULL, False, NULL
 };
 
 /* Called when OK is pressed in a read-only popup */
@@ -414,8 +433,16 @@ static void
 rop_ok(Widget w unused, XtPointer client_data, XtPointer call_data unused)
 {
 	struct rop *rop = (struct rop *)client_data;
+	struct rsm *r;
 
-	XtPopdown(rop->shell);
+	if ((r = rop->rsms) != NULL) {
+		XtVaSetValues(rop->form, XtNlabel, r->text, NULL);
+		rop->rsms = r->next;
+		Free(r->text);
+		Free(r);
+	} else {
+		XtPopdown(rop->shell);
+	}
 }
 
 /* Called when Cancel is pressed in a read-only popup */
@@ -441,10 +468,11 @@ rop_popdown(Widget w unused, XtPointer client_data, XtPointer call_data unused)
 }
 
 /* Initialize a read-only pop-up. */
-void
+static void
 rop_init(struct rop *rop)
 {
 	Widget w;
+	struct rsm *r;
 
 	if (rop->shell != NULL)
 		return;
@@ -480,6 +508,17 @@ rop_init(struct rop *rop)
 
 	/* Force it into existence so it sizes itself with 4-line text */
 	XtRealizeWidget(rop->shell);
+
+	/* If there's a pending message, pop it up now. */
+	if ((r = rop->rsms) != NULL) {
+		if (rop->is_error)
+			popup_an_error("%s", r->text);
+		else
+			popup_an_info("%s", r->text);
+		rop->rsms = r->next;
+		Free(r->text);
+		Free(r);
+	}
 }
 
 /* Pop up a dialog.  Common logic for all forms. */
@@ -487,9 +526,28 @@ static void
 popup_rop(struct rop *rop, abort_callback_t *a, const char *fmt, va_list args)
 {
 	(void) vsprintf(vmsgbuf, fmt, args);
-	if (!rop->shell) {
+	if (!rop->shell || (rop->visible && !rop->overwrites)) {
+#if 0
+		char *nl;
+
+		while ((nl = strchr(vmsgbuf, '\n')) != CN) {
+			*nl = ' ';
+		}
 		(void) fprintf(stderr, "%s: %s\n", programname, vmsgbuf);
-		exit(1);
+		if (rop->is_error)
+			exit(1);
+		else
+			return;
+#endif
+		struct rsm *r, **s;
+
+		r = (struct rsm *)Malloc(sizeof(struct rsm));
+		r->text = NewString(vmsgbuf);
+		r->next = NULL;
+		for (s = &rop->rsms; *s != NULL; s = &(*s)->next)
+			;
+		*s = r;
+		return;
 	}
 
 	if (rop->is_error && sms_redirect()) {
@@ -587,7 +645,27 @@ action_output(const char *fmt, ...)
 	va_end(args);
 }
 
+/* Callback for x3270 exit.  Dumps any undisplayed error messages to stderr. */
+static void
+dump_errmsgs(Boolean b unused)
+{
+	while (error_popup.rsms != NULL) {
+		fprintf(stderr, "Error: %s\n", error_popup.rsms->text);
+		error_popup.rsms = error_popup.rsms->next;
+	}
+	while (info_popup.rsms != NULL) {
+		fprintf(stderr, "%s\n", info_popup.rsms->text);
+		info_popup.rsms = info_popup.rsms->next;
+	}
+}
+
 /* Initialization. */
+
+void
+error_init(void)
+{
+	register_schange(ST_EXITING, dump_errmsgs);
+}
 
 void
 error_popup_init(void)
@@ -608,6 +686,15 @@ printer_popup_init(void)
 		return;
 	rop_init(&printer_error_popup);
 	rop_init(&printer_info_popup);
+}
+
+void
+child_popup_init(void)
+{
+	if (child_error_popup.shell != NULL)
+		return;
+	rop_init(&child_error_popup);
+	rop_init(&child_info_popup);
 }
 
 /* Query. */
@@ -635,6 +722,26 @@ popup_printer_output(Boolean is_err, abort_callback_t *a, const char *fmt, ...)
 	va_start(args, fmt);
 	popup_rop(is_err? &printer_error_popup: &printer_info_popup, a, fmt,
 	    args);
+	va_end(args);
+}
+
+/*
+ * Child output pop-up.
+ * Allows both error and info popups, and a cancel button.
+ *   is_err	If True, this is an error pop-up.  If false, this is an info
+ *		pop-up.
+ *   a		If non-NULL, the Cancel button is enabled, and this is the
+ *		callback function for it.  If NULL, there will be no Cancel
+ *		button.
+ *   fmt...	printf()-like format and arguments.
+ */
+void
+popup_child_output(Boolean is_err, abort_callback_t *a, const char *fmt, ...)
+{
+	va_list args;
+
+	va_start(args, fmt);
+	popup_rop(is_err? &child_error_popup: &child_info_popup, a, fmt, args);
 	va_end(args);
 }
 

@@ -1,5 +1,5 @@
 '\" t
-.TH c3270 1 "26 December 2000"
+.TH c3270 1 "15 June 2001"
 .SH "NAME"
 c3270 \-
 curses-based 
@@ -52,6 +52,11 @@ may also be specified as a second, separate argument.)
 \fBc3270\fP
 understands
 the following options:
+.TP
+\fB\-allbold\fP
+Forces all characters to be displayed in bold.
+This helps with PC consoles which display non-bold characters in unreadably
+dim colors.
 .TP
 \fB\-charset\fP \fIname\fP
 Specifies an \s-1EBCDIC\s+1 national character set.
@@ -177,19 +182,22 @@ Available sets include:
 .PP
 .TS
 center;
-l c
-lfB c.
-Charset Name	Q121 Code
+l l l
+lfB l l.
+Charset Name	Code Page	Font	
 _
-bracket	\-
-us-intl	01
-german	03
-finnish	09
-uk	22
-norwegian	23
-french	30
-icelandic	\-
-belgian	\-
+belgian	500	iso8859-1
+bracket	37	iso8859-1
+finnish	278	iso8859-1
+french	297	iso8859-1
+german	273	iso8859-1
+icelandic	871	iso8859-1
+iso-hebrew	424	iso8859-8
+iso-turkish	1026	iso8859-9
+italian	280	iso8859-1
+norwegian	277	iso8859-1
+uk	285	iso8859-1
+us-intl	37	iso8859-1
 .TE
 .PP
 The default character set is
@@ -238,8 +246,8 @@ Quit	c3270.quit	^\e
 End of file	c3270.eof	^D
 .TE
 .LP
-A separate keymap can be defined for use only when \fBc3270\fP is in
-\s-1NVT\s+1 mode.
+Separate keymaps can be defined for use only when \fBc3270\fP is in
+3270 mode or \s-1NVT\s+1 mode.
 See \s-1KEYMAPS\s+1 for details.
 .SH "TOGGLES"
 \fBc3270\fP has a number of configurable modes which may be selected by
@@ -355,7 +363,6 @@ PF(\fIn\fP)	Program Function \s-1AID\s+1 (\fIn\fP from 1 to 24)
 PreviousWord	move cursor to previous word
 Printer(Start[,\fIlu\fP]|Stop)	Start or stop printer session
 PrintText(\fIcommand\fP)	print screen text on printer
-PrintWindow(\fIcommand\fP)	print screen image (bitmap) on printer
 Quit	exit \fBc3270\fP
 Redraw	redraw window
 Reset	reset locked keyboard
@@ -412,14 +419,16 @@ if that is not found, then it will look for a file named \fIxxx\fP.
 Multiple keymaps may be specified be separating their names with commas.
 Definitions in later keymaps supercede those in earlier keymaps.
 .LP
-In addition, separate keymaps may be defined that apply only in \s-1NVT\s+1
-mode.
+In addition, separate keymaps may be defined that apply only in 3270 mode or
+only in \s-1NVT\s+1 mode.
 For example, the resource definition
-\fBc3270.keymap.\fP\fIxxx\fP\fB.nvt\fP will override the definition
+\fBc3270.keymap.\fP\fIxxx\fP\fB.nvt\fP will augment the definition
 of \fBc3270.keymap.\fP\fIxxx\fP, when \fBc3270\fP is in \s-1NVT\s+1
 mode.
-Similarly, the keymap in the file \fBxxx.nvt\fP will override the keymap
-in the file \fBxxx\fP, when \fBc3270\fP is in \s-1NVT\s+1 mode.
+Similarly, the resource definition
+\fBc3270.keymap.\fP\fIxxx\fP\fB.3270\fP will augment the definition
+of \fBc3270.keymap.\fP\fIxxx\fP, when \fBc3270\fP is in 3270
+mode.
 .LP
 Keymaps specify actions to perform when a particular sequence of keys is
 pressed.
@@ -462,34 +471,45 @@ The base keymap is:
 l l.
 Key	Action
 _
-<Key>Escape	Escape
-Meta<Key>c	Clear
-Ctrl<Key>a <Key>c	Clear
-Meta<Key>r	Reset
-Ctrl<Key>a <Key>r	Reset
-Meta<Key>l	Redraw
-Ctrl<Key>a <Key>l	Redraw
-Meta<Key>m	Compose
-Ctrl<Key>a <Key>m	Compose
-<Key>Tab	Tab
+Ctrl<Key>]	Escape
+Ctrl<Key>a Ctrl<Key>a	Key(0x01)
+Ctrl<Key>a Ctrl<Key>]	Key(0x1d)
 Ctrl<Key>a <Key>Tab	BackTab
-<Key>DC	Delete
-<Key>BACKSPACE	BackSpace
-<Key>BackSpace	BackSpace
-<Key>Return	Enter
-<Key>Linefeed	Newline
+Ctrl<Key>a <Key>c	Clear
+Ctrl<Key>a <Key>r	Reset
+Ctrl<Key>a <Key>l	Redraw
+Ctrl<Key>a <Key>m	Compose
 <Key>UP	Up
 <Key>DOWN	Down
 <Key>LEFT	Left
 <Key>RIGHT	Right
 <Key>F(\fIn\fP)	PF(\fIn\fP)
 Ctrl<Key>a <Key>F(\fIn\fP)	PF(\fIn\fP+12)
-Meta<Key>1	PA(1)
 Ctrl<Key>a <Key>1	PA(1)
-Meta<Key>2	PA(2)
 Ctrl<Key>a <Key>2	PA(2)
-Meta<Key>3	PA(3)
 Ctrl<Key>a <Key>3	PA(3)
+.TE
+.LP
+The base 3270-mode keymap adds:
+.LP
+.TS
+l l.
+Key	Action
+_
+Meta<Key>c	Clear
+Meta<Key>r	Reset
+Meta<Key>l	Redraw
+Meta<Key>m	Compose
+<Key>Tab	Tab
+Meta<Key>^	Key(notsign)
+<Key>DC	Delete
+<Key>BACKSPACE	BackSpace
+<Key>BackSpace	BackSpace
+<Key>Return	Enter
+<Key>Linefeed	Newline
+Meta<Key>1	PA(1)
+Meta<Key>2	PA(2)
+Meta<Key>3	PA(3)
 .TE
 .LP
 For keyboards which do not have a \fBMeta\fP key, there is an additional
@@ -613,10 +633,11 @@ l l.
 \eb	Left
 \ef	Clear*
 \en	Enter*
-\epa\fIn\fP	PA key \fIn\fP*
-\epf\fInn\fP	PF key \fInn\fP*
+\epa\fIn\fP	PA(\fIn\fP)*
+\epf\fInn\fP	PF(\fInn\fP)*
 \er	Newline
 \et	Tab
+\eT	BackTab
 .TE
 .IP
 An example keymap entry would be:
@@ -735,6 +756,7 @@ The resources available in \fBc3270\fP are:
 l l l l.
 Resource	Default	Option	Purpose
 _
+allBold	False	\-allbold	Display all characters bold
 blankFill	False	\-set blankFill	Blank Fill mode
 charset	bracket	\-charset	\s-1EBCDIC\s+1 character set
 charset.\fIfoo\fP	\ 	\ 	Definition of character set \fIfoo\fP
@@ -775,8 +797,7 @@ werase	^W	\ 	\s-1NVT\s+1-mode word-erase character
 \fINote 1\fP: \fBm3279\fP defaults to
 \fBTrue\fP if the terminal supports color,
 \fBFalse\fP otherwise.
-It can be forced to
-\fBFalse\fP with the \fB\-mono\fP option.
+It can be forced to \fBFalse\fP with the \fB\-mono\fP option.
 .LP
 \fINote 2\fP:
 The default terminal type string is constructed from the model number, color
@@ -800,6 +821,9 @@ If more than one \fB\-xrm\fP option is given for the same resource,
 the last one on the command line is used.
 .SH "FILES"
 /usr/local/lib/x3270/ibm_hosts
+.br
+$HOME/.c3270pro
+
 .SH "SEE ALSO"
 x3270(1), s3270(1), tcl3270(1), ibm_hosts(5), x3270-script(1), pr3287(1), telnet(1), tn3270(1)
 .br
@@ -814,7 +838,7 @@ RFC 1646, TN3270 Extensions for LUname and Printer Selection
 RFC 2355, TN3270 Enhancements
 .SH "COPYRIGHTS"
 .LP
-Modifications Copyright 1993, 1994, 1995, 1996, 1997, 1999, 2000 by Paul Mattes.
+Modifications Copyright 1993, 1994, 1995, 1996, 1997, 1999, 2000, 2001 by Paul Mattes.
 .br
 Original X11 Port Copyright 1990 by Jeff Sparkes.
 .RS
@@ -832,4 +856,4 @@ notice.
 .RE
 5250 Emulation Code Copyright Minolta (Schweiz) AG, Beat Rubischon.
 .SH "VERSION"
-c3270 3.2.15
+c3270 3.2.17b

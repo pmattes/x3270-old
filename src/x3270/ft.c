@@ -1,5 +1,5 @@
 /*
- * Modifications Copyright 1996, 1999, 2000 by Paul Mattes.
+ * Modifications Copyright 1996, 1999, 2000, 2001 by Paul Mattes.
  * Copyright October 1995 by Dick Altenbern.
  * Based in part on code Copyright 1993, 1994, 1995 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
@@ -70,7 +70,6 @@ extern Pixmap dot;
 /* Globals. */
 enum ft_state ft_state = FT_NONE;	/* File transfer state */
 char *ft_local_filename;		/* Local file to transfer to/from */
-char *ft_host_filename;			/* Host file to transfer to/from */
 FILE *ft_local_file = (FILE *)NULL;	/* File descriptor for local file */
 Boolean ascii_flag = True;		/* Convert to ascii */
 Boolean cr_flag = True;			/* Add crlf to each line */
@@ -89,6 +88,7 @@ static Widget cr_widget;
 static Widget remap_widget;
 #endif /*]*/
 
+static char *ft_host_filename;		/* Host file to transfer to/from */
 static Boolean receive_flag = True;	/* Current transfer is receive */
 static Boolean append_flag = False;	/* Append transfer */
 static Boolean vm_flag = False;		/* VM Transfer flag */
@@ -150,8 +150,8 @@ typedef struct sr {
 	Boolean is_value;
 	Boolean has_focus;
 } sr_t;
-sr_t *sr = (sr_t *)NULL;
-sr_t *sr_last = (sr_t *)NULL;
+static sr_t *sr = (sr_t *)NULL;
+static sr_t *sr_last = (sr_t *)NULL;
 
 static Widget progress_shell, from_file, to_file;
 static Widget ft_status, waiting, aborting;
@@ -1762,7 +1762,7 @@ PA_dialog_focus_action(Widget w, XEvent *event unused, String *parms unused,
  *   PrimarySpace=n		no default
  *   SecondarySpace=n		no default
  */
-struct {
+static struct {
 	const char *name;
 	char *value;
 	const char *keyword[4];

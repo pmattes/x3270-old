@@ -19,4 +19,8 @@
  */
 
 extern Boolean charset_changed;
-extern Boolean charset_init(char *csname);
+extern unsigned long cgcsgid;
+enum cs_result { CS_OKAY, CS_NOTFOUND, CS_BAD };
+extern enum cs_result charset_init(char *csname);
+extern char *get_display_charset(void);
+extern char *get_charset_name(void);

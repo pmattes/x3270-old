@@ -1,5 +1,5 @@
 /*
- * Copyright 1996, 1999, 2000 by Paul Mattes.
+ * Copyright 1996, 1999, 2000, 2001 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -37,6 +37,7 @@
 #include "utilc.h"
 
 #define PA_ENDL		" " PA_END "()"
+#define Res3270		"3270"
 
 Boolean keymap_changed = False;
 struct trans_list *trans_list = (struct trans_list *)NULL;
@@ -46,6 +47,7 @@ struct trans_list *temp_keymaps;	/* temporary keymap list */
 char *keymap_trace = CN;
 static char *last_keymap = CN;
 static Boolean last_nvt = False;
+static Boolean last_3270 = False;
 
 static void setup_keymaps(const char *km, Boolean do_popup);
 static void add_keymap(const char *name, Boolean do_popup);
@@ -64,7 +66,7 @@ extern Widget *screen;
 extern Pixmap diamond;
 extern Pixmap no_diamond;
 
-enum { SORT_EVENT, SORT_KEYMAP, SORT_ACTION } sort = SORT_KEYMAP;
+static enum { SORT_EVENT, SORT_KEYMAP, SORT_ACTION } sort = SORT_KEYMAP;
 
 static Boolean km_isup = False;
 static Widget km_shell, sort_event, sort_keymap, sort_action, text;
@@ -104,6 +106,7 @@ keymap_init(const char *km)
 	if (!initted) {
 		initted = True;
 		last_nvt = IN_ANSI;
+		last_3270 = IN_3270;
 		register_schange(ST_3270_MODE, keymap_3270_mode);
 		register_schange(ST_CONNECT, keymap_3270_mode);
 	} else {
@@ -129,8 +132,9 @@ keymap_init(const char *km)
 static void
 keymap_3270_mode(Boolean ignored unused)
 {
-	if (last_nvt != IN_ANSI) {
+	if (last_nvt != IN_ANSI || last_3270 != IN_3270) {
 		last_nvt = IN_ANSI;
+		last_3270 = IN_3270;
 		keymap_init(last_keymap);
 	}
 }
@@ -228,7 +232,7 @@ get_file_keymap(const char *name, char **pathp)
 
 	/* Look for a global keymap file. */
 	if (dd == (XrmDatabase)NULL) {
-		path = xs_buffer("%s/keymap.%s", LIBX3270DIR, name);
+		path = xs_buffer("%s/keymap.%s", appres.conf_dir, name);
 		dd = XrmGetFileDatabase(path);
 		if (dd != (XrmDatabase)NULL)
 			*pathp = path;
@@ -258,10 +262,10 @@ get_file_keymap(const char *name, char **pathp)
 static void
 add_keymap(const char *name, Boolean do_popup)
 {
-	char *translations, *translations_nvt;
-	char *buf, *buf_nvt;
+	char *translations, *translations_nvt, *translations_3270;
+	char *buf, *buf_nvt, *buf_3270;
 	int any = 0;
-	char *path, *path_nvt;
+	char *path, *path_nvt, *path_3270;
 	Boolean is_from_server = False;
 
 	if (appres.key_map == (char *)NULL)
@@ -313,35 +317,50 @@ add_keymap(const char *name, Boolean do_popup)
 	translations = get_file_keymap(name, &path);
 	buf_nvt = xs_buffer("%s.%s", name, ResNvt);
 	translations_nvt = get_file_keymap(buf_nvt, &path_nvt);
-	if (translations != CN || translations_nvt != CN) {
+	buf_3270 = xs_buffer("%s.%s", name, Res3270);
+	translations_3270 = get_file_keymap(buf_3270, &path_3270);
+	if (translations != CN || translations_nvt != CN || translations_3270 != CN) {
 		any++;
+		if (translations != CN)
+			add_trans(name, translations, path, is_from_server);
 		if (IN_ANSI && translations_nvt != CN)
 			add_trans(buf_nvt, translations_nvt, path_nvt,
 			    is_from_server);
-		else if (translations != CN)
-			add_trans(name, translations, path, is_from_server);
+		if (IN_3270 && translations_3270 != CN)
+			add_trans(buf_3270, translations_3270, path_3270,
+			    is_from_server);
 		if (translations != CN)
 			XtFree(translations);
 		if (translations_nvt != CN)
 			XtFree(translations_nvt);
+		if (translations_3270 != CN)
+			XtFree(translations_3270);
 		XtFree(buf_nvt);
+		XtFree(buf_3270);
 	} else {
 		XtFree(buf_nvt);
+		XtFree(buf_3270);
 
 		/* Shared keymap. */
 		buf = xs_buffer("%s.%s", ResKeymap, name);
 		translations = get_resource(buf);
 		buf_nvt = xs_buffer("%s.%s.%s", ResKeymap, name, ResNvt);
 		translations_nvt = get_resource(buf_nvt);
-		if (translations != CN || translations_nvt != CN)
+		buf_3270 = xs_buffer("%s.%s.%s", ResKeymap, name, Res3270);
+		translations_3270 = get_resource(buf_3270);
+		if (translations != CN || translations_nvt != CN || translations_3270)
 			any++;
+		if (translations != CN)
+			add_trans(name, translations, CN, is_from_server);
 		if (IN_ANSI && translations_nvt != CN)
 			add_trans(buf_nvt + strlen(ResKeymap) + 1,
 			    translations_nvt, CN, is_from_server);
-		else if (translations != CN)
-			add_trans(name, translations, CN, is_from_server);
+		if (IN_3270 && translations_3270 != CN)
+			add_trans(buf_3270 + strlen(ResKeymap) + 1,
+			    translations_3270, CN, is_from_server);
 		XtFree(buf);
 		XtFree(buf_nvt);
+		XtFree(buf_3270);
 
 		/* User keymap */
 		buf = xs_buffer("%s.%s.%s", ResKeymap, name, ResUser);
@@ -349,15 +368,22 @@ add_keymap(const char *name, Boolean do_popup)
 		buf_nvt = xs_buffer("%s.%s.%s.%s", ResKeymap, name, ResNvt,
 		    ResUser);
 		translations_nvt = get_resource(buf_nvt);
-		if (translations != CN || translations_nvt != CN)
+		buf_3270 = xs_buffer("%s.%s.%s.%s", ResKeymap, name, Res3270,
+		    ResUser);
+		translations_3270 = get_resource(buf_3270);
+		if (translations != CN || translations_nvt != CN || translations_3270 != CN)
 			any++;
 		if (IN_ANSI && translations_nvt != CN)
 			add_trans(buf_nvt + strlen(ResKeymap) + 1,
 			    translations_nvt, CN, is_from_server);
-		else if (translations != CN)
+		if (IN_3270 && translations_3270 != CN)
+			add_trans(buf_3270 + strlen(ResKeymap) + 1,
+			    translations_3270, CN, is_from_server);
+		if (translations != CN)
 			add_trans(buf, translations, CN, is_from_server);
 		XtFree(buf);
 		XtFree(buf_nvt);
+		XtFree(buf_3270);
 	}
 
 	if (!any) {

@@ -1,5 +1,5 @@
 /*
- * Copyright 1999, 2000 by Paul Mattes.
+ * Copyright 1999, 2000, 2001 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -126,6 +126,41 @@ static struct {
 0xb0: cent		\n	0xba: notsign		\n\
 0xbb: bar		\n" },
 	{ "codepage.belgian", "500" },
+	{ "charset.turkish",
+"0x48: {		\n	0x4a: 0xc7		\n\
+0x4f: !			\n	0x5a: 0xd0		\n\
+0x5b: 0xdd		\n	0x5f: ^			\n\
+0x68: [			\n	0x6a: 0xfe		\n\
+0x79: 0xfd		\n	0x7b: 0xd6		\n\
+0x7c: 0xde		\n	0x7f: 0xdc		\n\
+0x8c: }			\n	0x8d: 0x91		\n\
+0x8e: 0xa6		\n	0xa1: 0xf6		\n\
+0xac: ]			\n	0xad: $			\n\
+0xae: @			\n	0xb0: 0xa2		\n\
+0xba: 0xac		\n	0xbb: |			\n\
+0xbe: 0x92		\n	0xc0: 0xe7		\n\
+0xcc: ~			\n	0xd0: 0xf0		\n\
+0xdc: 0x5c		\n	0xe0: 0xfc		\n\
+0xec: #			\n	0xfc: \"" },
+	{ "codepage.turkish", "0x04800402" },
+	{ "displayCharset.turkish", "iso8859-9" },
+	{ "charset.iso-hebrew",
+"0x41: 0xe0		\n	0x42: 0xe1		\n\
+0x43: 0xe2		\n	0x44: 0xe3		\n\
+0x45: 0xe4		\n	0x46: 0xe5		\n\
+0x47: 0xe6		\n	0x48: 0xe7		\n\
+0x49: 0xe8		\n	0x51: 0xe9		\n\
+0x52: 0xea		\n	0x53: 0xea		\n\
+0x54: 0xec		\n	0x55: 0xec		\n\
+0x56: 0xee		\n	0x57: 0xef		\n\
+0x58: 0xf0		\n	0x59: 0xf1		\n\
+0x62: 0xf2		\n	0x63: 0xf3		\n\
+0x64: 0xf4		\n	0x65: 0xf5		\n\
+0x66: 0xf6		\n	0x67: 0xf7		\n\
+0x68: 0xf8		\n	0x69: 0xf9		\n\
+0x71: 0xfa" },
+	{ "codepage.iso-hebrew", "424" },
+	{ "displayCharset.iso-hebrew", "iso8859-8" },
 #if defined(C3270) /*[*/
 	{ "composeMap.latin1", "c + bar		= cent			\n\
 c + slash	= cent			\n\
@@ -204,6 +239,7 @@ y + quotedbl	= ydiaeresis		\n" },
 	{ "printer.command",	"lpr" },
 	{ "printer.assocCommandLine", "pr3287 -assoc %L% -command \"%C%\" %H%" },
 	{ "printer.luCommandLine", "pr3287 -command \"%C%\" %L%@%H%" },
+	{ "printTextCommand",	"lpr" },
 #endif /*]*/
 	{ "message.ftComplete",
 "Transfer complete, %i bytes transferred\n\
@@ -260,7 +296,7 @@ y + quotedbl	= ydiaeresis		\n" },
 	{ (char *)NULL, (char *)NULL }
 };
 
-struct dresource {
+static struct dresource {
 	struct dresource *next;
 	const char *name;
 	char *value;

@@ -1,5 +1,5 @@
 /*
- * Modifications Copyright 1993, 1994, 1995, 1996, 2000 by Paul Mattes.
+ * Modifications Copyright 1993, 1994, 1995, 1996, 2000, 2001 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *   Permission to use, copy, modify, and distribute this software and its
  *   documentation for any purpose and without fee is hereby granted,
@@ -64,31 +64,20 @@ static FILE *pager = NULL;
 /* Base keymap. */
 static char *base_keymap =
 "Ctrl<Key>]: Escape\n"
-"Meta<Key>c: Clear\n"
+"Ctrl<Key>a Ctrl<Key>a: Key(0x01)\n"
+"Ctrl<Key>a Ctrl<Key>]: Key(0x1d)\n"
 "Ctrl<Key>a <Key>c: Clear\n"
-"Meta<Key>r: Reset\n"
 "Ctrl<Key>a <Key>r: Reset\n"
-"Meta<Key>l: Redraw\n"
 "Ctrl<Key>a <Key>l: Redraw\n"
-"Meta<Key>m: Compose\n"
 "Ctrl<Key>a <Key>m: Compose\n"
-"Ctrl<Key>i: Tab\n"
-"Ctrl<Key>a Ctrl<Key>i: BackTab\n"
 "<Key>DC: Delete\n"
-"Ctrl<Key>h: BackSpace\n"
-"<Key>BACKSPACE: BackSpace\n"
-"Ctrl<Key>j: Return\n"
-"Ctrl<Key>m: Enter\n"
 "<Key>UP: Up\n"
 "<Key>DOWN: Down\n"
 "<Key>LEFT: Left\n"
 "<Key>RIGHT: Right\n"
 "<Key>HOME: Home\n"
-"Meta<Key>1: PA(1)\n"
 "Ctrl<Key>a <Key>1: PA(1)\n"
-"Meta<Key>2: PA(2)\n"
 "Ctrl<Key>a <Key>2: PA(2)\n"
-"Meta<Key>3: PA(3)\n"
 "Ctrl<Key>a <Key>3: PA(3)\n"
 "<Key>F1: PF(1)\n"
 "Ctrl<Key>a <Key>F1: PF(13)\n"
@@ -115,11 +104,30 @@ static char *base_keymap =
 "<Key>F12: PF(12)\n"
 "Ctrl<Key>a <Key>F12: PF(24)\n";
 
-static char *nometa_keymap =
+/* Base keymap, 3270 mode. */
+static char *base_3270_keymap =
+"Meta<Key>c: Clear\n"
+"Meta<Key>r: Reset\n"
+"Meta<Key>l: Redraw\n"
+"Meta<Key>m: Compose\n"
+"Ctrl<Key>i: Tab\n"
+"<Key>DC: Delete\n"
+"Ctrl<Key>h: BackSpace\n"
+"<Key>BACKSPACE: BackSpace\n"
+"Ctrl<Key>j: Newline\n"
+"Ctrl<Key>m: Enter\n"
+"<Key>HOME: Home\n"
+"Meta<Key>^: Key(notsign)\n"
+"Meta<Key>1: PA(1)\n"
+"Meta<Key>2: PA(2)\n"
+"Meta<Key>3: PA(3)\n";
+
+static char *nometa_3270_keymap =
 "<Key>Escape <Key>c: Clear\n"
 "<Key>Escape <Key>r: Reset\n"
 "<Key>Escape <Key>l: Redraw\n"
 "<Key>Escape <Key>m: Compose\n"
+"<Key>Escape <Key>^: Key(notsign)\n"
 "<Key>Escape <Key>1: PA(1)\n"
 "<Key>Escape <Key>2: PA(2)\n"
 "<Key>Escape <Key>3: PA(3)\n";
@@ -157,15 +165,25 @@ main(int argc, char *argv[])
 	char	*cl_hostname = CN;
 
 	add_resource("keymap.base", NewString(base_keymap));
-	add_resource("keymap.nometa", NewString(nometa_keymap));
+	add_resource("keymap.base.3270", NewString(base_3270_keymap));
+	add_resource("keymap.nometa.3270", NewString(nometa_3270_keymap));
 #if defined(__CYGWIN__) /*[*/
 	appres.key_map = NewString("nometa");
 #endif /*]*/
 
 	argc = parse_command_line(argc, argv, &cl_hostname);
 
-	if (!charset_init(appres.charset))
+	if (charset_init(appres.charset) != CS_OKAY)
 		xs_warning("Cannot find charset \"%s\"", appres.charset);
+
+#if defined(HAVE_LIBREADLINE) /*[*/
+	/* Set up readline. */
+	rl_readline_name = "c3270";
+	rl_initialize();
+	rl_attempted_completion_function = attempted_completion;
+	rl_completion_entry_function = (Function *)completion_entry;
+#endif /*]*/
+
 	screen_init();
 	kybd_init();
 	keymap_init();
@@ -193,14 +211,6 @@ main(int argc, char *argv[])
 	}
 #endif /*]*/
 	initialize_toggles();
-
-#if defined(HAVE_LIBREADLINE) /*[*/
-	/* Set up readline. */
-	rl_readline_name = "c3270";
-	rl_initialize();
-	rl_attempted_completion_function = attempted_completion;
-	rl_completion_entry_function = (Function *)completion_entry;
-#endif /*]*/
 
 	/* Connect to the host. */
 	screen_suspend();
@@ -561,12 +571,8 @@ status_dump(void)
 	action_output("%s %s", get_message("terminalName"), termtype);
 	if (connected_lu != CN && connected_lu[0])
 		action_output("%s %s", get_message("luName"), connected_lu);
-	if (appres.charset) {
-		action_output("%s %s", get_message("characterSet"),
-		    appres.charset);
-	} else {
-		action_output("%s", get_message("defaultCharacterSet"));
-	}
+	action_output("%s %s", get_message("characterSet"),
+	    get_charset_name());
 	if (appres.key_map) {
 		action_output("%s %s", get_message("keyboardMap"),
 		    appres.key_map);
@@ -637,6 +643,7 @@ status_dump(void)
 			    ns_brcvd, (ns_brcvd == 1) ?
 				get_message("byte") : get_message("bytes"));
 
+#if defined(X3270_ANSI) /*[*/
 		if (IN_ANSI) {
 			struct ctl_char *c = net_linemode_chars();
 			int i;
@@ -658,6 +665,7 @@ status_dump(void)
 				action_output("%s", buf);
 			}
 		}
+#endif /*]*/
 	} else if (HALF_CONNECTED) {
 		action_output("%s %s", get_message("connectionPending"),
 		    current_host);
@@ -685,6 +693,7 @@ Show_action(Widget w unused, XEvent *event unused, String *params,
 		popup_an_error("Unknown 'Show' keyword");
 }
 
+#if defined(X3270_TRACE) /*[*/
 /* Trace([data|keyboard][on[filename]|off]) */
 void
 Trace_action(Widget w unused, XEvent *event unused, String *params,
@@ -751,6 +760,7 @@ Trace_action(Widget w unused, XEvent *event unused, String *params,
 		do_toggle(tg);
 	}
 }
+#endif /*]*/
 
 /* Break to the command prompt. */
 void
@@ -773,86 +783,16 @@ merge_profile(void)
 {
 	const char *fname;
 	char *profile_name;
-	FILE *pf;
-	char buf[4096];
-	char *where;
-	int lno = 0;
-	int ilen;
 
 	/* Check for the no-profile environment variable. */
 	if (getenv(NO_PROFILE_ENV) != CN)
 		return;
 
-	/* Open the file. */
+	/* Read the file. */
 	fname = getenv(PROFILE_ENV);
 	if (fname == CN || *fname == '\0')
 		fname = DEFAULT_PROFILE;
 	profile_name = do_subst(fname, True, True);
-	pf = fopen(profile_name, "r");
-	if (pf == (FILE *)NULL) {
-		Free(profile_name);
-		return;
-	}
-	where = Malloc(strlen(profile_name) + 64);
-
-	/* Merge in what's in the file. */
-	ilen = 0;
-	while (fgets(buf + ilen, sizeof(buf) - ilen, pf) != CN || ilen) {
-		char *s;
-		unsigned sl;
-
-		lno++;
-
-		/* If this line is a continuation, try again. */
-		sl = strlen(buf + ilen);
-		if (sl && (buf + ilen)[sl-1] == '\n')
-			(buf + ilen)[--sl] = '\0';
-		if (sl && (buf + ilen)[sl-1] == '\\') {
-			(buf + ilen)[--sl] = '\0';
-			/*
-			 * Translate a quoted newline at the end of a line to
-			 * a real newline.  This isn't really general enough,
-			 * but it will do to deal with multi-line definitions.
-			 */
-			if (sl >= 2 &&
-			    (buf + ilen)[sl - 2] == '\\' &&
-			    (buf + ilen)[sl - 1] == 'n') {
-				(buf + ilen)[sl - 2] = '\n';
-				(buf + ilen)[--sl] = '\0';
-			}
-			ilen += sl;
-			if (ilen >= sizeof(buf) - 1) {
-				(void) sprintf(where, "%s:%d: Line too long\n",
-				    profile_name, lno);
-				Warning(where);
-				break;
-			}
-			continue;
-		}
-
-		s = buf;
-		while (isspace(*s))
-			s++;
-		sl = strlen(s);
-		while (sl && isspace(s[sl-1]))
-			s[--sl] = '\0';
-		if (!sl || *s == '!')
-			continue;
-		if (*s == '#') {
-			(void) sprintf(where, "%s:%d: Invalid profile "
-			    "syntax ('#' ignored)", profile_name, lno);
-			Warning(where);
-			continue;
-		}
-		(void) sprintf(where, "%s:%d", profile_name, lno);
-		parse_xrm(s, where);
-
-		/* Get ready for the next iteration. */
-		ilen = 0;
-	}
-
-	/* All done. */
-	Free(where);
-	(void) fclose(pf);
+	(void) read_resource_file(profile_name, False);
 	Free(profile_name);
 }

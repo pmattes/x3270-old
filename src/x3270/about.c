@@ -1,5 +1,5 @@
 /*
- * Copyright 1993, 1994, 1995, 1999, 2000 by Paul Mattes.
+ * Copyright 1993, 1994, 1995, 1999, 2000, 2001 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -26,8 +26,10 @@
 #include "resources.h"
 
 #include "aboutc.h"
+#include "charsetc.h"
 #include "keymapc.h"
 #include "popupsc.h"
+#include "screenc.h"
 #include "telnetc.h"
 #include "utilc.h"
 
@@ -204,7 +206,7 @@ popup_about(void)
 	w = left_anchor;
 	left_anchor = NULL;
 
-	MAKE_SMALL("Modifications Copyright \251 1993, 1994, 1995, 1996, 1997, 1999, 2000 by Paul Mattes.\n\
+	MAKE_SMALL("Modifications Copyright \251 1993, 1994, 1995, 1996, 1997, 1999, 2000, 2001 by Paul Mattes.\n\
 Original X11 Port Copyright \251 1990 by Jeff Sparkes.\n\
 File transfer code Copyright \251 1995 by Dick Altenbern.\n\
 Includes IAC IP patch by Carey Evans, 1998.\n\
@@ -238,21 +240,30 @@ Copyright \251 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.\n\
 	MAKE_LABEL(get_message("emulatorFont"), 4);
 	MAKE_VALUE(efontname);
 	if (*standard_font) {
-		if (*latin1_font)
-			ftype = get_message("fullFont");
-		else
-			ftype = get_message("asciiFont");
-	} else
+		ftype = get_message("xFont");
+	} else {
 		ftype = get_message("cgFont");
+	}
 	xbuf = xs_buffer("  %s", ftype);
 	MAKE_LABEL(xbuf, 0);
 	XtFree(xbuf);
 
-	if (appres.charset) {
-		MAKE_LABEL(get_message("characterSet"), 4);
-		MAKE_VALUE(appres.charset);
+	MAKE_LABEL(get_message("characterSet"), 4);
+	xbuf = xs_buffer("%s (base %u, code page %u)",
+	    get_charset_name(), (cgcsgid >> 16) & 0xffff,
+	    cgcsgid & 0xffff);
+	MAKE_VALUE(xbuf);
+	XtFree(xbuf);
+
+	MAKE_LABEL(get_message("displayCharacterSet"), 4);
+	if (!efont_matches) {
+		xbuf = xs_buffer("ascii-7 (%s %s, %s %s)",
+		    get_message("require"), display_charset(NULL),
+		    get_message("have"), efont_charset);
+		MAKE_VALUE(xbuf);
+		XtFree(xbuf);
 	} else {
-		MAKE_LABEL(get_message("defaultCharacterSet"), 4);
+		MAKE_VALUE(efont_charset);
 	}
 
 	if (trans_list != (struct trans_list *)NULL ||
@@ -375,6 +386,7 @@ Copyright \251 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.\n\
 				get_message("byte") : get_message("bytes"));
 		MAKE_LABEL(fbuf, 4);
 
+#if defined(X3270_ANSI) /*[*/
 		if (IN_ANSI) {
 			struct ctl_char *c = net_linemode_chars();
 			int i;
@@ -390,6 +402,7 @@ Copyright \251 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.\n\
 				MAKE_VALUE(c[i].value);
 			}
 		}
+#endif /*]*/
 	} else if (HALF_CONNECTED) {
 		MAKE_LABEL(get_message("connectionPending"), 4);
 		MAKE_VALUE(current_host);

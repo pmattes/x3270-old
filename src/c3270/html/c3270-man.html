@@ -79,6 +79,10 @@ may also be specified as a second, separate argument.)
 <b>c3270</b>
 understands
 the following options:<dl>
+<dt><b>-allbold</b></dt><dd>
+Forces all characters to be displayed in bold.
+This helps with PC consoles which display non-bold characters in unreadably
+dim colors.
 <dt><b>-charset</b> <i>name</i></dt><dd>
 Specifies an <font size=-1>EBCDIC</font> national character set.
 See <a HREF="#Character-Sets"><font size=-1>CHARACTER SETS</font></a> below.
@@ -188,18 +192,21 @@ option or the "c3270.charset" resource controls the <font size=-1>EBCDIC</font>
 national character set used by <b>c3270</b>.
 Available sets include:
 <p>
-<table BORDER cols=2 width="75%">
-<tr><td ><center>Charset Name</center></td>	<td ><center>Q121 Code</center></td></tr>
+<table BORDER cols=3 width="75%">
+<tr><td ><center>Charset Name</center></td>	<td ><center>Code Page</center></td>	<td ><center>Font</center></td></tr>	
 
-<tr><td ><center>bracket</center></td>	<td ><center>-</center></td></tr>
-<tr><td ><center>us-intl</center></td>	<td ><center>01</center></td></tr>
-<tr><td ><center>german</center></td>	<td ><center>03</center></td></tr>
-<tr><td ><center>finnish</center></td>	<td ><center>09</center></td></tr>
-<tr><td ><center>uk</center></td>	<td ><center>22</center></td></tr>
-<tr><td ><center>norwegian</center></td>	<td ><center>23</center></td></tr>
-<tr><td ><center>french</center></td>	<td ><center>30</center></td></tr>
-<tr><td ><center>icelandic</center></td>	<td ><center>-</center></td></tr>
-<tr><td ><center>belgian</center></td>	<td ><center>-</center></td></tr>
+<tr><td ><center>belgian</center></td>	<td ><center>500</center></td>	<td ><center>iso8859-1</center></td></tr>
+<tr><td ><center>bracket</center></td>	<td ><center>37</center></td>	<td ><center>iso8859-1</center></td></tr>
+<tr><td ><center>finnish</center></td>	<td ><center>278</center></td>	<td ><center>iso8859-1</center></td></tr>
+<tr><td ><center>french</center></td>	<td ><center>297</center></td>	<td ><center>iso8859-1</center></td></tr>
+<tr><td ><center>german</center></td>	<td ><center>273</center></td>	<td ><center>iso8859-1</center></td></tr>
+<tr><td ><center>icelandic</center></td>	<td ><center>871</center></td>	<td ><center>iso8859-1</center></td></tr>
+<tr><td ><center>iso-hebrew</center></td>	<td ><center>424</center></td>	<td ><center>iso8859-8</center></td></tr>
+<tr><td ><center>iso-turkish</center></td>	<td ><center>1026</center></td>	<td ><center>iso8859-9</center></td></tr>
+<tr><td ><center>italian</center></td>	<td ><center>280</center></td>	<td ><center>iso8859-1</center></td></tr>
+<tr><td ><center>norwegian</center></td>	<td ><center>277</center></td>	<td ><center>iso8859-1</center></td></tr>
+<tr><td ><center>uk</center></td>	<td ><center>285</center></td>	<td ><center>iso8859-1</center></td></tr>
+<tr><td ><center>us-intl</center></td>	<td ><center>37</center></td>	<td ><center>iso8859-1</center></td></tr>
 </table>
 <p>
 The default character set is
@@ -246,8 +253,8 @@ defined by resources:
 <tr><td >End of file</td>	<td >c3270.eof</td>	<td >^D</td></tr>
 </table>
 <p>
-A separate keymap can be defined for use only when <b>c3270</b> is in
-<font size=-1>NVT</font> mode.
+Separate keymaps can be defined for use only when <b>c3270</b> is in
+3270 mode or <font size=-1>NVT</font> mode.
 See <a HREF="#Keymaps"><font size=-1>KEYMAPS</font></a> for details.
 <a NAME="Toggles"></a><h2>Toggles</h2>
 <b>c3270</b> has a number of configurable modes which may be selected by
@@ -351,7 +358,6 @@ Script-specific actions are described on the
 <tr><td >PreviousWord</td>	<td >move cursor to previous word</td></tr>
 <tr><td >Printer(Start[,<i>lu</i>]|Stop)</td>	<td >Start or stop printer session</td></tr>
 <tr><td >PrintText(<i>command</i>)</td>	<td >print screen text on printer</td></tr>
-<tr><td >PrintWindow(<i>command</i>)</td>	<td >print screen image (bitmap) on printer</td></tr>
 <tr><td >Quit</td>	<td >exit <b>c3270</b></td></tr>
 <tr><td >Redraw</td>	<td >redraw window</td></tr>
 <tr><td >Reset</td>	<td >reset locked keyboard</td></tr>
@@ -402,14 +408,16 @@ if that is not found, then it will look for a file named <i>xxx</i>.
 Multiple keymaps may be specified be separating their names with commas.
 Definitions in later keymaps supercede those in earlier keymaps.
 <p>
-In addition, separate keymaps may be defined that apply only in <font size=-1>NVT</font>
-mode.
+In addition, separate keymaps may be defined that apply only in 3270 mode or
+only in <font size=-1>NVT</font> mode.
 For example, the resource definition
-<b>c3270.keymap.</b><i>xxx</i><b>.nvt</b> will override the definition
+<b>c3270.keymap.</b><i>xxx</i><b>.nvt</b> will augment the definition
 of <b>c3270.keymap.</b><i>xxx</i>, when <b>c3270</b> is in <font size=-1>NVT</font>
 mode.
-Similarly, the keymap in the file <b>xxx.nvt</b> will override the keymap
-in the file <b>xxx</b>, when <b>c3270</b> is in <font size=-1>NVT</font> mode.
+Similarly, the resource definition
+<b>c3270.keymap.</b><i>xxx</i><b>.3270</b> will augment the definition
+of <b>c3270.keymap.</b><i>xxx</i>, when <b>c3270</b> is in 3270
+mode.
 <p>
 Keymaps specify actions to perform when a particular sequence of keys is
 pressed.
@@ -447,34 +455,44 @@ The base keymap is:
 <table BORDER cols=2 width="75%">
 <tr><td >Key</td>	<td >Action</td></tr>
 
-<tr><td >&lt;Key>Escape</td>	<td >Escape</td></tr>
-<tr><td >Meta&lt;Key>c</td>	<td >Clear</td></tr>
-<tr><td >Ctrl&lt;Key>a &lt;Key>c</td>	<td >Clear</td></tr>
-<tr><td >Meta&lt;Key>r</td>	<td >Reset</td></tr>
-<tr><td >Ctrl&lt;Key>a &lt;Key>r</td>	<td >Reset</td></tr>
-<tr><td >Meta&lt;Key>l</td>	<td >Redraw</td></tr>
-<tr><td >Ctrl&lt;Key>a &lt;Key>l</td>	<td >Redraw</td></tr>
-<tr><td >Meta&lt;Key>m</td>	<td >Compose</td></tr>
-<tr><td >Ctrl&lt;Key>a &lt;Key>m</td>	<td >Compose</td></tr>
-<tr><td >&lt;Key>Tab</td>	<td >Tab</td></tr>
+<tr><td >Ctrl&lt;Key>]</td>	<td >Escape</td></tr>
+<tr><td >Ctrl&lt;Key>a Ctrl&lt;Key>a</td>	<td >Key(0x01)</td></tr>
+<tr><td >Ctrl&lt;Key>a Ctrl&lt;Key>]</td>	<td >Key(0x1d)</td></tr>
 <tr><td >Ctrl&lt;Key>a &lt;Key>Tab</td>	<td >BackTab</td></tr>
-<tr><td >&lt;Key>DC</td>	<td >Delete</td></tr>
-<tr><td >&lt;Key>BACKSPACE</td>	<td >BackSpace</td></tr>
-<tr><td >&lt;Key>BackSpace</td>	<td >BackSpace</td></tr>
-<tr><td >&lt;Key>Return</td>	<td >Enter</td></tr>
-<tr><td >&lt;Key>Linefeed</td>	<td >Newline</td></tr>
+<tr><td >Ctrl&lt;Key>a &lt;Key>c</td>	<td >Clear</td></tr>
+<tr><td >Ctrl&lt;Key>a &lt;Key>r</td>	<td >Reset</td></tr>
+<tr><td >Ctrl&lt;Key>a &lt;Key>l</td>	<td >Redraw</td></tr>
+<tr><td >Ctrl&lt;Key>a &lt;Key>m</td>	<td >Compose</td></tr>
 <tr><td >&lt;Key>UP</td>	<td >Up</td></tr>
 <tr><td >&lt;Key>DOWN</td>	<td >Down</td></tr>
 <tr><td >&lt;Key>LEFT</td>	<td >Left</td></tr>
 <tr><td >&lt;Key>RIGHT</td>	<td >Right</td></tr>
 <tr><td >&lt;Key>F(<i>n</i>)</td>	<td >PF(<i>n</i>)</td></tr>
 <tr><td >Ctrl&lt;Key>a &lt;Key>F(<i>n</i>)</td>	<td >PF(<i>n</i>+12)</td></tr>
-<tr><td >Meta&lt;Key>1</td>	<td >PA(1)</td></tr>
 <tr><td >Ctrl&lt;Key>a &lt;Key>1</td>	<td >PA(1)</td></tr>
-<tr><td >Meta&lt;Key>2</td>	<td >PA(2)</td></tr>
 <tr><td >Ctrl&lt;Key>a &lt;Key>2</td>	<td >PA(2)</td></tr>
-<tr><td >Meta&lt;Key>3</td>	<td >PA(3)</td></tr>
 <tr><td >Ctrl&lt;Key>a &lt;Key>3</td>	<td >PA(3)</td></tr>
+</table>
+<p>
+The base 3270-mode keymap adds:
+<p>
+<table BORDER cols=2 width="75%">
+<tr><td >Key</td>	<td >Action</td></tr>
+
+<tr><td >Meta&lt;Key>c</td>	<td >Clear</td></tr>
+<tr><td >Meta&lt;Key>r</td>	<td >Reset</td></tr>
+<tr><td >Meta&lt;Key>l</td>	<td >Redraw</td></tr>
+<tr><td >Meta&lt;Key>m</td>	<td >Compose</td></tr>
+<tr><td >&lt;Key>Tab</td>	<td >Tab</td></tr>
+<tr><td >Meta&lt;Key>^</td>	<td >Key(notsign)</td></tr>
+<tr><td >&lt;Key>DC</td>	<td >Delete</td></tr>
+<tr><td >&lt;Key>BACKSPACE</td>	<td >BackSpace</td></tr>
+<tr><td >&lt;Key>BackSpace</td>	<td >BackSpace</td></tr>
+<tr><td >&lt;Key>Return</td>	<td >Enter</td></tr>
+<tr><td >&lt;Key>Linefeed</td>	<td >Newline</td></tr>
+<tr><td >Meta&lt;Key>1</td>	<td >PA(1)</td></tr>
+<tr><td >Meta&lt;Key>2</td>	<td >PA(2)</td></tr>
+<tr><td >Meta&lt;Key>3</td>	<td >PA(3)</td></tr>
 </table>
 <p>
 For keyboards which do not have a <b>Meta</b> key, there is an additional
@@ -583,10 +601,11 @@ processing the string.)
 <tr><td >\b</td>	<td >Left</td></tr>
 <tr><td >\f</td>	<td >Clear*</td></tr>
 <tr><td >\n</td>	<td >Enter*</td></tr>
-<tr><td >\pa<i>n</i></td>	<td >PA key <i>n</i>*</td></tr>
-<tr><td >\pf<i>nn</i></td>	<td >PF key <i>nn</i>*</td></tr>
+<tr><td >\pa<i>n</i></td>	<td >PA(<i>n</i>)*</td></tr>
+<tr><td >\pf<i>nn</i></td>	<td >PF(<i>nn</i>)*</td></tr>
 <tr><td >\r</td>	<td >Newline</td></tr>
 <tr><td >\t</td>	<td >Tab</td></tr>
+<tr><td >\T</td>	<td >BackTab</td></tr>
 </table>
 <p>
 An example keymap entry would be:
@@ -697,6 +716,7 @@ The resources available in <b>c3270</b> are:
 <table BORDER cols=4 width="75%">
 <tr><td >Resource</td>	<td >Default</td>	<td >Option</td>	<td >Purpose</td></tr>
 
+<tr><td >allBold</td>	<td >False</td>	<td >-allbold</td>	<td >Display all characters bold</td></tr>
 <tr><td >blankFill</td>	<td >False</td>	<td >-set blankFill</td>	<td >Blank Fill mode</td></tr>
 <tr><td >charset</td>	<td >bracket</td>	<td >-charset</td>	<td ><font size=-1>EBCDIC</font> character set</td></tr>
 <tr><td >charset.<i>foo</i></td>	<td >&nbsp;</td>	<td >&nbsp;</td>	<td >Definition of character set <i>foo</i></td></tr>
@@ -736,8 +756,7 @@ The resources available in <b>c3270</b> are:
 <blockquote><a NAME="rn1"></a><i>Note 1</i>: <b>m3279</b> defaults to
 <b>True</b> if the terminal supports color,
 <b>False</b> otherwise.
-It can be forced to
-<b>False</b> with the <b>-mono</b> option.
+It can be forced to <b>False</b> with the <b>-mono</b> option.
 <p>
 <a NAME="rn2"></a><i>Note 2</i>:
 The default terminal type string is constructed from the model number, color
@@ -760,6 +779,9 @@ If more than one <b>-xrm</b> option is given for the same resource,
 the last one on the command line is used.
 <a NAME="Files"></a><h2>Files</h2>
 /usr/local/lib/x3270/ibm_hosts
+<br>
+$HOME/.c3270pro
+
 <a NAME="See-Also"></a><h2>See Also</h2>
 <a HREF="x3270-man.html">x3270(1)</a>, <a HREF="s3270-man.html">s3270(1)</a>, <a HREF="tcl3270-man.html">tcl3270(1)</a>, <a HREF="ibm_hosts.html">ibm_hosts(5)</a>, <a HREF="x3270-script.html">x3270-script(1)</a>, <a HREF="pr3287-man.html">pr3287(1)</a>, telnet(1), tn3270(1)
 <br>
@@ -774,7 +796,7 @@ RFC 1646, TN3270 Extensions for LUname and Printer Selection
 RFC 2355, TN3270 Enhancements
 <a NAME="Copyrights"></a><h2>Copyrights</h2>
 <p>
-Modifications Copyright &copy; 1993, 1994, 1995, 1996, 1997, 1999, 2000 by Paul Mattes.
+Modifications Copyright &copy; 1993, 1994, 1995, 1996, 1997, 1999, 2000, 2001 by Paul Mattes.
 <br>
 Original X11 Port Copyright &copy; 1990 by Jeff Sparkes.
 <blockquote>Permission to use, copy, modify, and distribute this software and its
@@ -788,12 +810,12 @@ Derivative works based on this software must incorporate this copyright
 notice.</blockquote>
 5250 Emulation Code Copyright &copy; Minolta (Schweiz) AG, Beat Rubischon.
 <a NAME="Version"></a><h2>Version</h2>
-c3270 3.2.15
+c3270 3.2.17b
 <hr>
 <address>
 This HTML document and the accompanying troff document were generated with
 a set of write-only <b>m4</b> macros and the powerful <b>vi</b> editor.
-<br>Last modified 26 December 2000.
+<br>Last modified 15 June 2001.
 </address>
 </body>
 </html>

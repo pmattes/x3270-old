@@ -21,10 +21,12 @@
 #include "ctlrc.h"
 #include "tablesc.h"
 
-#if defined(X3270_DISPLAY) /*[*/
 #include <errno.h>
+
+#if defined(X3270_DISPLAY) /*[*/
 #include <X11/StringDefs.h>
 #include <X11/Xaw/Dialog.h>
+#endif /*]*/
 
 #include "objects.h"
 #include "resources.h"
@@ -36,10 +38,10 @@
 
 /* Statics */
 
+#if defined(X3270_DISPLAY) /*[*/
 static Widget print_text_shell = (Widget)NULL;
 static Widget print_window_shell = (Widget)NULL;
 static char *print_window_command = CN;
-
 #endif /*]*/
 
 
@@ -99,11 +101,13 @@ fprint_screen(FILE *f, Boolean even_if_empty)
 	return True;
 }
 
-#if defined(X3270_DISPLAY) /*[*/
-
 /* Termination code for print text process. */
 static void
-print_text_done(FILE *f, Boolean do_popdown)
+print_text_done(FILE *f, Boolean do_popdown
+#if defined(X3270_DISPLAY) /*[*/
+					    unused
+#endif /*]*/
+						  )
 {
 	int status;
 
@@ -112,14 +116,17 @@ print_text_done(FILE *f, Boolean do_popdown)
 		popup_an_error("Print program exited with status %d.",
 		    (status & 0xff00) > 8);
 	} else {
+#if defined(X3270_DISPLAY) /*[*/
 		if (do_popdown)
 			XtPopdown(print_text_shell);
 		if (appres.do_confirms)
 			popup_an_info("Screen image printed.");
+#endif /*]*/
 	}
 
 }
 
+#if defined(X3270_DISPLAY) /*[*/
 /* Callback for "OK" button on print text popup. */
 static void
 print_text_callback(Widget w unused, XtPointer client_data,
@@ -140,6 +147,7 @@ print_text_callback(Widget w unused, XtPointer client_data,
 	(void) fprint_screen(f, True);
 	print_text_done(f, True);
 }
+#endif /*]*/
 
 /* Print the contents of the screen as text. */
 void
@@ -153,10 +161,10 @@ PrintText_action(Widget w unused, XEvent *event, String *params,
 	if (*num_params > 0)
 		filter = params[0];
 	if (*num_params > 1)
-		xs_warning("%s: extra arguments ignored",
+		popup_an_error("%s: extra arguments ignored",
 		    action_name(PrintText_action));
 	if (filter == CN) {
-		xs_warning("%s: no %s defined",
+		popup_an_error("%s: no %s defined",
 		    action_name(PrintText_action), ResPrintTextCommand);
 		return;
 	}
@@ -164,7 +172,10 @@ PrintText_action(Widget w unused, XEvent *event, String *params,
 		filter++;
 		secure = True;
 	}
-	if (secure) {
+#if defined(X3270_DISPLAY) /*[*/
+	if (secure)
+#endif /*]*/
+	{
 		FILE *f;
 
 		if (!(f = popen(filter, "w"))) {
@@ -175,6 +186,8 @@ PrintText_action(Widget w unused, XEvent *event, String *params,
 		print_text_done(f, False);
 		return;
 	}
+
+#if defined(X3270_DISPLAY) /*[*/
 	if (print_text_shell == NULL)
 		print_text_shell = create_form_popup("PrintText",
 		    print_text_callback, (XtCallbackProc)NULL, FORM_AS_IS);
@@ -182,8 +195,10 @@ PrintText_action(Widget w unused, XEvent *event, String *params,
 	    XtNvalue, filter,
 	    NULL);
 	popup_popup(print_text_shell, XtGrabExclusive);
+#endif /*]*/
 }
 
+#if defined(X3270_DISPLAY) /*[*/
 #if defined(X3270_MENUS) /*[*/
 /* Callback for Print Text menu option. */
 void
@@ -263,10 +278,10 @@ PrintWindow_action(Widget w unused, XEvent *event, String *params,
 	if (*num_params > 0)
 		filter = params[0];
 	if (*num_params > 1)
-		xs_warning("%s: extra arguments ignored",
+		popup_an_error("%s: extra arguments ignored",
 		    action_name(PrintWindow_action));
 	if (filter == CN) {
-		xs_warning("%s: no %s defined",
+		popup_an_error("%s: no %s defined",
 		    action_name(PrintWindow_action), ResPrintWindowCommand);
 		return;
 	}

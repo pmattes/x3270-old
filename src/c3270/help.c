@@ -1,5 +1,5 @@
 /*
- * Copyright 2000 by Paul Mattes.
+ * Copyright 2000, 2001 by Paul Mattes.
  *   Permission to use, copy, modify, and distribute this software and its
  *   documentation for any purpose and without fee is hereby granted,
  *   provided that the above copyright notice appear in all copies and that
@@ -26,12 +26,13 @@
 #define P_OPTIONS	0x0008	/* command-line options */
 #define P_TRANSFER	0x0010	/* file transfer options */
 
-struct {
+static struct {
 	const char *name;
 	const char *args;
 	int purpose;
 	const char *help;
 } cmd_help[] = {
+	{ "Abort",	CN, P_SCRIPTING, "Abort pending scripts and macros" },
 	{ "AnsiText",	CN, P_SCRIPTING, "Dump pending NVT text" },
 	{ "Ascii",	CN, P_SCRIPTING, "Screen contents in ASCII" },
 	{ "Ascii",	"<n>", P_SCRIPTING, "<n> bytes of screen contents from cursor, in ASCII" },
@@ -215,8 +216,8 @@ Help_action(Widget w unused, XEvent *event unused, String *params,
 			if (cmd_help[i].purpose & match) {
 				action_output("  %s %s\n    %s",
 				    cmd_help[i].name,
-				    cmd_help[i].args?:"",
-				    cmd_help[i].help?:"");
+				    cmd_help[i].args? cmd_help[i].args: "",
+				    cmd_help[i].help? cmd_help[i].help: "");
 			}
 		}
 	} else {
@@ -227,8 +228,8 @@ Help_action(Widget w unused, XEvent *event unused, String *params,
 			    strlen(params[0]))) {
 				action_output("  %s %s\n    %s",
 				    cmd_help[i].name,
-				    cmd_help[i].args?:"",
-				    cmd_help[i].help?:"");
+				    cmd_help[i].args? cmd_help[i].args: "",
+				    cmd_help[i].help? cmd_help[i].help: "");
 				any = True;
 			}
 		}

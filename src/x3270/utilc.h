@@ -31,3 +31,4 @@ extern unsigned long AddTimeOut(unsigned long msec, void (*fn)(void));
 extern void RemoveTimeOut(unsigned long cookie);
 extern KeySym StringToKeysym(char *s);
 extern char *KeysymToString(KeySym k);
+extern int read_resource_file(const char *filename, Boolean fatal);

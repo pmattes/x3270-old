@@ -1,5 +1,5 @@
 /*
- * Copyright 1993, 1994, 1995, 1999, 2000 by Paul Mattes.
+ * Copyright 1993, 1994, 1995, 1999, 2000, 2001 by Paul Mattes.
  * Parts Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -19,6 +19,8 @@
 #include "resources.h"
 
 #include "utilc.h"
+
+#define my_isspace(c)	isspace((unsigned char)c)
 
 /*
  * Cheesy internal version of sprintf that allocates its own memory.
@@ -132,7 +134,7 @@ split_dresource(char **st, char **left, char **right)
 	Boolean quote;
 
 	/* Skip leading white space. */
-	while (isspace(*s))
+	while (my_isspace(*s))
 		s++;
 
 	/* If nothing left, EOF. */
@@ -152,14 +154,14 @@ split_dresource(char **st, char **left, char **right)
 		return -1;
 
 	/* Stip white space before the colon. */
-	for (t = s-1; isspace(*t); t--)
+	for (t = s-1; my_isspace(*t); t--)
 		*t = '\0';
 
 	/* Terminate the left-hand side. */
 	*(s++) = '\0';
 
 	/* Skip white space after the colon. */
-	while (*s != '\n' && isspace(*s))
+	while (*s != '\n' && my_isspace(*s))
 		s++;
 
 	/* There must be a right-hand side. */
@@ -186,13 +188,14 @@ split_dresource(char **st, char **left, char **right)
 		t = s-1;
 		*st = s;
 	}
-	while (isspace(*t))
+	while (my_isspace(*t))
 		*t-- = '\0';
 
 	/* Done. */
 	return 1;
 }
 
+#if defined(X3270_DISPLAY) /*[*/
 /*
  * List resource splitter, for lists of elements speparated by newlines.
  *
@@ -207,7 +210,7 @@ split_lresource(char **st, char **value)
 	Boolean quote;
 
 	/* Skip leading white space. */
-	while (isspace(*s))
+	while (my_isspace(*s))
 		s++;
 
 	/* If nothing left, EOF. */
@@ -236,12 +239,13 @@ split_lresource(char **st, char **value)
 		t = s-1;
 		*st = s;
 	}
-	while (isspace(*t))
+	while (my_isspace(*t))
 		*t-- = '\0';
 
 	/* Done. */
 	return 1;
 }
+#endif /*]*/
 
 const char *
 get_message(const char *key)
@@ -466,7 +470,7 @@ ctl_see(int c)
 	char	*p = buf;
 
 	c &= 0xff;
-	if ((c & 0x80) && (c < 0xa0)) {
+	if ((c & 0x80) && (c <= 0xa0)) {
 		*p++ = 'M';
 		*p++ = '-';
 		c &= 0x7f;

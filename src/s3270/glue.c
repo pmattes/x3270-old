@@ -1,5 +1,5 @@
 /*
- * Modifications Copyright 1993, 1994, 1995, 1996, 2000 by Paul Mattes.
+ * Modifications Copyright 1993, 1994, 1995, 1996, 2000, 2001 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *   Permission to use, copy, modify, and distribute this software and its
  *   documentation for any purpose and without fee is hereby granted,
@@ -22,6 +22,7 @@
 #include "globals.h"
 #include <sys/wait.h>
 #include <signal.h>
+#include <errno.h>
 #include "appres.h"
 #include "3270ds.h"
 #include "resources.h"
@@ -80,15 +81,22 @@ struct toggle_name toggle_names[N_TOGGLES] = {
 	{ ResCursorPos,       CURSOR_POS },
 #if defined(X3270_TRACE) /*[*/
 	{ ResDsTrace,         DS_TRACE },
+#else /*][*/
+	{ ResDsTrace,         -1 },
 #endif /*]*/
 	{ ResScrollBar,       SCROLL_BAR },
 #if defined(X3270_ANSI) /*[*/
 	{ ResLineWrap,        LINE_WRAP },
+#else /*][*/
+	{ ResLineWrap,        -1 },
 #endif /*]*/
 	{ ResBlankFill,       BLANK_FILL },
 #if defined(X3270_TRACE) /*[*/
 	{ ResScreenTrace,     SCREEN_TRACE },
 	{ ResEventTrace,      EVENT_TRACE },
+#else /*][*/
+	{ ResScreenTrace,     -1 },
+	{ ResEventTrace,      -1 },
 #endif /*]*/
 	{ ResMarginedPaste,   MARGINED_PASTE },
 	{ ResRectangleSelect, RECTANGLE_SELECT }
@@ -221,6 +229,8 @@ parse_command_line(int argc, char **argv, char **cl_hostname)
 		appres.charset = Apl;
 	if (*cl_hostname == CN)
 		appres.once = False;
+	if (appres.conf_dir == CN)
+		appres.conf_dir = LIBX3270DIR;
 
 	return argc;
 }
@@ -285,10 +295,15 @@ parse_options(int *argcp, char **argv)
 		Boolean flag;
 		void *aoff;
 	} opts[] = {
+#if defined(C3270) /*[*/
+		{ OptAllBold,  OPT_BOOLEAN, True, offset(all_bold) },
+#endif /*]*/
 		{ OptAplMode,  OPT_BOOLEAN, True,  offset(apl_mode) },
 		{ OptCharset,  OPT_STRING,  False, offset(charset) },
 		{ OptClear,    OPT_SKIP2,   False, NULL },
+#if defined(X3270_TRACE) /*[*/
 		{ OptDsTrace,  OPT_BOOLEAN, True,  toggle_offset(DS_TRACE) },
+#endif /*]*/
 		{ OptHostsFile,OPT_STRING,  False, offset(hostsfile) },
 #if defined(C3270) /*[*/
 		{ OptKeymap,   OPT_STRING,  False, offset(key_map) },
@@ -300,7 +315,9 @@ parse_options(int *argcp, char **argv)
 		{ OptPort,     OPT_STRING,  False, offset(port) },
 		{ OptSet,      OPT_SKIP2,   False, NULL },
 		{ OptTermName, OPT_STRING,  False, offset(termname) },
+#if defined(X3270_TRACE) /*[*/
 		{ OptTraceFile,OPT_STRING,  False, offset(trace_file) },
+#endif /*]*/
 		{ "-xrm",      OPT_XRM,     False, NULL },
 		{ LAST_ARG,    OPT_DONE,    False, NULL },
 		{ CN,          OPT_SKIP2,   False, NULL }
@@ -342,9 +359,12 @@ parse_options(int *argcp, char **argv)
 	appres.macros = CN;
 	appres.trace_dir = "/tmp";
 	appres.oversize = CN;
+#if defined(X3270_FT) /*[*/
 	appres.ft_command = "ind$file";
+#endif /*]*/
 
-	appres.icrnl = False;
+#if defined(X3270_ANSI) /*[*/
+	appres.icrnl = True;
 	appres.inlcr = False;
 	appres.erase = "^H";
 	appres.kill = "^U";
@@ -354,6 +374,7 @@ parse_options(int *argcp, char **argv)
 	appres.intr = "^C";
 	appres.quit = "^\\";
 	appres.eof = "^D";
+#endif /*]*/
 
 #if defined(C3270) /*[*/
 	/* Merge in the profile. */
@@ -404,9 +425,11 @@ parse_options(int *argcp, char **argv)
 	    (argc_out + 1) * sizeof(char *));
 	Free(argv_out);
 
+#if defined(X3270_TRACE) /*[*/
 	/* One isn't very useful without the other. */
 	if (appres.toggle[DS_TRACE].value)
 		appres.toggle[EVENT_TRACE].value = True;
+#endif /*]*/
 }
 
 /*
@@ -438,7 +461,8 @@ parse_set_clear(int *argcp, char **argv)
 		i++;
 
 		for (j = 0; j < N_TOGGLES; j++)
-			if (!strcmp(argv[i], toggle_names[j].name)) {
+			if (toggle_names[j].index >= 0 &&
+			    !strcmp(argv[i], toggle_names[j].name)) {
 				appres.toggle[toggle_names[j].index].value =
 				    is_set;
 				break;
@@ -466,20 +490,32 @@ static struct {
 	void *address;
 	enum resource_type { XRM_STRING, XRM_BOOLEAN } type;
 } resources[] = {
+#if defined(C3270) /*[*/
+	{ ResAllBold,	offset(all_bold),	XRM_BOOLEAN },
+#endif /*]*/
 	{ ResCharset,	offset(charset),	XRM_STRING },
+	{ ResConfDir,	offset(conf_dir),	XRM_STRING },
+#if defined(X3270_ANSI) /*[*/
 	{ ResEof,	offset(eof),		XRM_STRING },
 	{ ResErase,	offset(erase),		XRM_STRING },
+#endif /*]*/
 	{ ResExtended,	offset(extended),	XRM_BOOLEAN },
+#if defined(X3270_FT) /*[*/
 	{ ResFtCommand,	offset(ft_command),	XRM_STRING },
+#endif /*]*/
 	{ ResHostsFile,	offset(hostsfile),	XRM_STRING },
+#if defined(X3270_ANSI) /*[*/
 	{ ResIcrnl,	offset(icrnl),		XRM_BOOLEAN },
 	{ ResInlcr,	offset(inlcr),		XRM_BOOLEAN },
 	{ ResIntr,	offset(intr),		XRM_STRING },
+#endif /*]*/
 #if defined(C3270) /*[*/
 	{ ResKeymap,	offset(key_map),	XRM_STRING },
 #endif /*]*/
+#if defined(X3270_ANSI) /*[*/
 	{ ResKill,	offset(kill),		XRM_STRING },
 	{ ResLnext,	offset(lnext),		XRM_STRING },
+#endif /*]*/
 	{ ResM3279,	offset(m3279),		XRM_BOOLEAN },
 	{ ResModel,	offset(model),		XRM_STRING },
 	{ ResModifiedSel, offset(modified_sel),	XRM_BOOLEAN },
@@ -488,14 +524,23 @@ static struct {
 	{ ResOerrLock,	offset(oerr_lock),	XRM_BOOLEAN },
 	{ ResOversize,	offset(oversize),	XRM_STRING },
 	{ ResPort,	offset(port),		XRM_STRING },
+#if defined(C3270) /*[*/
+	{ ResPrintTextCommand,	NULL,		XRM_STRING },
+#endif /*]*/
+#if defined(X3270_ANSI) /*[*/
 	{ ResQuit,	offset(quit),		XRM_STRING },
 	{ ResRprnt,	offset(rprnt),		XRM_STRING },
+#endif /*]*/
 	{ ResSecure,	offset(secure),		XRM_BOOLEAN },
 	{ ResTermName,	offset(termname),	XRM_STRING },
+#if defined(X3270_TRACE) /*[*/
 	{ ResTraceDir,	offset(trace_dir),	XRM_STRING },
 	{ ResTraceFile,	offset(trace_file),	XRM_STRING },
+#endif /*]*/
 	{ ResTypeahead,	offset(typeahead),	XRM_BOOLEAN },
+#if defined(X3270_ANSI) /*[*/
 	{ ResWerase,	offset(werase),		XRM_STRING },
+#endif /*]*/
 
 	{ CN,		0,			XRM_STRING }
 };
@@ -582,12 +627,19 @@ parse_xrm(const char *arg, const char *where)
 		if (!strncapcmp(resources[i].name, arg + match_len, rnlen)) {
 			address = resources[i].address;
 			type = resources[i].type;
+#if defined(C3270) /*[*/
+			if (address == NULL) {
+				add_buf = Malloc(strlen(s) + 1);
+				address = add_buf;
+			}
+#endif /*]*/
 			break;
 		}
 	}
 	if (address == NULL) {
 		for (i = 0; i < N_TOGGLES; i++) {
-			if (!strncapcmp(toggle_names[i].name, arg + match_len,
+			if (toggle_names[i].index >= 0 &&
+			    !strncapcmp(toggle_names[i].name, arg + match_len,
 			    rnlen)) {
 				address =
 				    &appres.toggle[toggle_names[i].index].value;
@@ -602,6 +654,10 @@ parse_xrm(const char *arg, const char *where)
 		                 strlen(ResKeymap ".")) ||
 		    !strncasecmp(ResCharset ".", arg + match_len,
 		                 strlen(ResCharset ".")) ||
+		    !strncasecmp(ResDisplayCharset ".", arg + match_len,
+		                 strlen(ResDisplayCharset ".")) ||
+		    !strncasecmp(ResCodepage ".", arg + match_len,
+		                 strlen(ResCodepage ".")) ||
 		    !strncasecmp("printer.", arg + match_len, 8)) {
 			add_buf = Malloc(strlen(s) + 1);
 			address = add_buf;
@@ -673,12 +729,103 @@ parse_xrm(const char *arg, const char *where)
 	if (add_buf != CN) {
 		char *rsname;
 
-		rsname = Malloc(rnlen);
+		rsname = Malloc(rnlen + 1);
 		(void) strncpy(rsname, arg + match_len, rnlen);
 		rsname[rnlen] = '\0';
 		add_resource(rsname, NewString(s));
 	}
 #endif /*]*/
+}
+
+/* Read resources from a file. */
+int
+read_resource_file(const char *filename, Boolean fatal)
+{
+	FILE *f;
+	int ilen;
+	char buf[4096];
+	char *where;
+	int lno = 0;
+
+	f = fopen(filename, "r");
+	if (f == NULL) {
+		if (fatal)
+			xs_warning("Cannot open '%s': %s", filename,
+			    strerror(errno));
+		return -1;
+	}
+
+	/* Merge in what's in the file into the resource database. */
+	where = Malloc(strlen(filename) + 64);
+
+	ilen = 0;
+	while (fgets(buf + ilen, sizeof(buf) - ilen, f) != CN || ilen) {
+		char *s, *t;
+		unsigned sl;
+		Boolean bsl;
+
+		lno++;
+
+		/* Stip any trailing newline. */
+		sl = strlen(buf + ilen);
+		if (sl && (buf + ilen)[sl-1] == '\n')
+			(buf + ilen)[--sl] = '\0';
+
+		/*
+		 * Translate backslash-n to real newline characters, and
+		 * remember if the last character is a backslash.
+		 */
+		for (bsl = False, s = buf + ilen, t = s; *s; s++) {
+			if (bsl) {
+				if (*s == 'n')
+					*t++ = '\n';
+				else
+					*t++ = *s;
+				bsl = False;
+			} else if (*s == '\\')
+				bsl = True;
+			else {
+				*t++ = *s;
+				bsl = False;
+			}
+		}
+		*t = '\0';
+
+
+		/* If this line is a continuation, try again. */
+		if (bsl) {
+			ilen += strlen(buf + ilen);
+			if (ilen >= sizeof(buf) - 1) {
+				(void) sprintf(where, "%s:%d: Line too long\n",
+				    filename, lno);
+				Warning(where);
+				break;
+			}
+			continue;
+		}
+
+		s = buf;
+		while (isspace(*s))
+			s++;
+		sl = strlen(s);
+		while (sl && isspace(s[sl-1]))
+			s[--sl] = '\0';
+		if (!sl || *s == '!')
+			continue;
+		if (*s == '#') {
+			(void) sprintf(where, "%s:%d: Invalid profile "
+			    "syntax ('#' ignored)", filename, lno);
+			Warning(where);
+			continue;
+		}
+		(void) sprintf(where, "%s:%d", filename, lno);
+		parse_xrm(s, where);
+
+		/* Get ready for the next iteration. */
+		ilen = 0;
+	}
+	Free(where);
+	return 0;
 }
 
 /* Screen globals. */
@@ -707,10 +854,25 @@ void
 popup_an_error(const char *fmt, ...)
 {
 	va_list args;
+	char *s;
+	int sl;
 
 	va_start(args, fmt);
 	(void) vsprintf(vmsgbuf, fmt, args);
 	va_end(args);
+
+	/*
+	 * Multi-line messages are fine for X pop-ups, but they're no fun for
+	 * text applications.
+	 */
+	s = vmsgbuf;
+	while ((s = strchr(s, '\n')) != NULL) {
+		*s++ = ' ';
+	}
+	while ((sl = strlen(vmsgbuf)) > 0 && vmsgbuf[sl-1] == ' ') {
+		vmsgbuf[--sl] = '\0';
+	}
+
 	if (sms_redirect()) {
 		sms_error(vmsgbuf);
 		return;

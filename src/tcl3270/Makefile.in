@@ -1,4 +1,4 @@
-# Copyright 1999, 2000 by Paul Mattes.
+# Copyright 1999, 2000, 2001 by Paul Mattes.
 #  Permission to use, copy, modify, and distribute this software and its
 #  documentation for any purpose and without fee is hereby granted,
 #  provided that the above copyright notice appear in all copies and that
@@ -6,6 +6,7 @@
 #  supporting documentation.
 
 # Makefile for tcl3270 (tcl-based scripted 3270 emulator)
+# @configure_input@
 
 RM = rm -f
 CC = @CC@
@@ -19,17 +20,22 @@ VOBJS = actions.o ansi.o apl.o charset.o ctlr.o ft.o ft_cut.o ft_dft.o glue.o \
 	host.o kybd.o print.o resources.o sf.o tables.o tcl3270.o telnet.o \
 	toggles.o trace_ds.o util.o xio.o XtGlue.o
 OBJS1 = $(VOBJS) version.o
+CHARSETS = charset/brazilian charset/greek charset/russian charset/thai
 
 LIBDIR = @libdir@
-prefix = @prefix@
 exec_prefix = @exec_prefix@
-LIBX3270DIR = $(LIBDIR)/x3270
+prefix = @prefix@
+sysconfdir = @sysconfdir@
+LIBX3270DIR = @LIBX3270DIR@
 MANDIR = @mandir@
 BINDIR = @bindir@
+INSTALL = @INSTALL@
+INSTALL_PROGRAM = @INSTALL_PROGRAM@
+INSTALL_DATA = @INSTALL_DATA@
 
 #CDEBUGFLAGS = -g -Wall
 
-XCPPFLAGS = -I. -DLIBX3270DIR=\"$(LIBX3270DIR)\" @CPPFLAGS@
+XCPPFLAGS = -I. -DLIBX3270DIR=\"$(LIBX3270DIR)\" @CPPFLAGS@ @XANSI@
 CFLAGS = @CFLAGS@ $(XCPPFLAGS) $(CDEBUGFLAGS)
 LDFLAGS = @LDFLAGS@
 LIBS = @LIBS@ -lm
@@ -41,11 +47,15 @@ version.o: $(VOBJS) version.txt mkversion.sh
 tcl3270: $(OBJS1)
 	$(CC) -o $@ $(OBJS1) $(LDFLAGS) $(LIBS)
 
-install: tcl3270 x3270if
-	install tcl3270 $(BINDIR)/tcl3270
+install:: tcl3270
+	$(INSTALL_PROGRAM) tcl3270 $(DESTDIR)$(BINDIR)/tcl3270
+install::
+	[ -d $(DESTDIR)$(LIBX3270DIR)/charset ] || \
+		mkdir -d $(DESTDIR)$(LIBX3270DIR)/charset
+	$(INSTALL_DATA) $(CHARSETS) $(DESTDIR)$(LIBX3270DIR)/charset/
 
 install.man:
-	install tcl3270.man $(MANDIR)/man1/tcl3270.1
+	$(INSTALL_DATA) tcl3270.man $(DESTDIR)$(MANDIR)/man1/tcl3270.1
 
 clean:
 	$(RM) tcl3270 *.o

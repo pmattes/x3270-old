@@ -1,5 +1,5 @@
 /*
- * Modifications Copyright 1993, 1994, 1995, 1996, 1999, 2000 by Paul Mattes.
+ * Modifications Copyright 1993, 1994, 1995, 1996, 1999, 2000, 2001 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -164,7 +164,7 @@ ctlr_reinit(unsigned cmask)
 		    maxROWS * maxCOLS);
 		if (zero_buf)
 			Free((char *)zero_buf);
-		zero_buf = (unsigned char *)Calloc(sizeof(unsigned char),
+		zero_buf = (unsigned char *)Calloc(sizeof(struct ea),
 		    maxROWS * maxCOLS);
 		cursor_addr = 0;
 		buffer_addr = 0;
@@ -193,7 +193,7 @@ set_rows_cols(int mn, int ovc, int ovr)
 	case 4:
 #if defined(RESTRICT_3279) /*[*/
 		if (appres.m3279) {
-			Warning("No 3279 Model 4, defaulting to Model 3");
+			popup_an_error("No 3279 Model 4\nDefaulting to model 3");
 			set_rows_cols("3", ovc, ovr);
 			return;
 		}
@@ -205,7 +205,7 @@ set_rows_cols(int mn, int ovc, int ovr)
 	case 5:
 #if defined(RESTRICT_3279) /*[*/
 		if (appres.m3279) {
-			Warning("No 3279 Model 5, defaulting to Model 3");
+			popup_an_error("No 3279 Model 5\nDefaulting to model 3");
 			set_rows_cols(3, ovc, ovr);
 			return;
 		}
@@ -220,13 +220,8 @@ set_rows_cols(int mn, int ovc, int ovr)
 #else /*][*/
 		defmod = 4;
 #endif
-		{
-			char mnb[2];
-
-			mnb[0] = defmod + '0';
-			mnb[1] = '\0';
-			xs_warning("Unknown model, defaulting to %s", mnb);
-		}
+		popup_an_error("Unknown model: %d\nDefaulting to %d", mn,
+		    defmod);
 		set_rows_cols(defmod, ovc, ovr);
 		return;
 	}
@@ -666,7 +661,7 @@ ctlr_read_modified(unsigned char aid_byte, Boolean all)
 						*obptr++ = cg2ebc[screen_buf[baddr]];
 						if (!any)
 							trace_ds(" '");
-						trace_ds(see_ebc(cg2ebc[screen_buf[baddr]]));
+						trace_ds("%s", see_ebc(cg2ebc[screen_buf[baddr]]));
 						any = True;
 					}
 					INC_BA(baddr);
@@ -847,7 +842,7 @@ ctlr_read_buffer(unsigned char aid_byte)
 			} else {
 				if (!any)
 					trace_ds(" '");
-				trace_ds(see_ebc(cg2ebc[screen_buf[baddr]]));
+				trace_ds("%s", see_ebc(cg2ebc[screen_buf[baddr]]));
 				any = True;
 			}
 		}
@@ -1221,7 +1216,7 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 			previous = ORDER;
 			if (*cp)
 				trace_ds("'");
-			trace_ds(see_ebc(*cp));
+			trace_ds("%s", see_ebc(*cp));
 			if (*cp)
 				trace_ds("'");
 			if (baddr >= COLS * ROWS) {
@@ -1277,7 +1272,7 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 			previous = ORDER;
 			if (*cp)
 				trace_ds("'");
-			trace_ds(see_ebc(*cp));
+			trace_ds("%s", see_ebc(*cp));
 			if (*cp)
 				trace_ds("'");
 			ctlr_add(buffer_addr, ebc2cg0[*cp], CS_GE);
@@ -1296,52 +1291,48 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 			cp++;
 			na = *cp;
 			if (IS_FA(screen_buf[buffer_addr])) {
-				if (na == 0) {
-					INC_BA(buffer_addr);
-				} else {
-					for (i = 0; i < (int)na; i++) {
+				for (i = 0; i < (int)na; i++) {
+					cp++;
+					if (*cp == XA_3270) {
+						trace_ds(" 3270");
 						cp++;
-						if (*cp == XA_3270) {
-							trace_ds(" 3270");
-							cp++;
-							new_attr = ATTR2FA(*cp);
-							ctlr_add(buffer_addr,
-							    new_attr,
-							    0);
-							trace_ds(see_attr(new_attr));
-						} else if (*cp == XA_FOREGROUND) {
-							trace_ds("%s",
-							    see_efa(*cp,
-								*(cp + 1)));
-							cp++;
-							if (appres.m3279)
-								ctlr_add_fg(buffer_addr, *cp);
-						} else if (*cp == XA_HIGHLIGHTING) {
-							trace_ds("%s",
-							    see_efa(*cp,
-								*(cp + 1)));
-							cp++;
-							ctlr_add_gr(buffer_addr, *cp & 0x07);
-						} else if (*cp == XA_CHARSET) {
-							int cs = 0;
+						new_attr = ATTR2FA(*cp);
+						ctlr_add(buffer_addr,
+						    new_attr,
+						    0);
+						trace_ds(see_attr(new_attr));
+					} else if (*cp == XA_FOREGROUND) {
+						trace_ds("%s",
+						    see_efa(*cp,
+							*(cp + 1)));
+						cp++;
+						if (appres.m3279)
+							ctlr_add_fg(buffer_addr, *cp);
+					} else if (*cp == XA_HIGHLIGHTING) {
+						trace_ds("%s",
+						    see_efa(*cp,
+							*(cp + 1)));
+						cp++;
+						ctlr_add_gr(buffer_addr, *cp & 0x07);
+					} else if (*cp == XA_CHARSET) {
+						int cs = 0;
 
-							trace_ds("%s",
-							    see_efa(*cp,
-								*(cp + 1)));
-							cp++;
-							if (*cp == 0xf1)
-								cs = 1;
-							ctlr_add(buffer_addr,
-							    screen_buf[buffer_addr], cs);
-						} else if (*cp == XA_ALL) {
-							trace_ds("%s",
-							    see_efa(*cp,
-								*(cp + 1)));
-							cp++;
-						} else {
-							trace_ds("%s[unsupported]", see_efa(*cp, *(cp + 1)));
-							cp++;
-						}
+						trace_ds("%s",
+						    see_efa(*cp,
+							*(cp + 1)));
+						cp++;
+						if (*cp == 0xf1)
+							cs = 1;
+						ctlr_add(buffer_addr,
+						    screen_buf[buffer_addr], cs);
+					} else if (*cp == XA_ALL) {
+						trace_ds("%s",
+						    see_efa(*cp,
+							*(cp + 1)));
+						cp++;
+					} else {
+						trace_ds("%s[unsupported]", see_efa(*cp, *(cp + 1)));
+						cp++;
 					}
 				}
 				INC_BA(buffer_addr);
@@ -1455,7 +1446,7 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 		default:	/* enter character */
 			if (*cp <= 0x3F) {
 				END_TEXT("ILLEGAL_ORDER");
-				trace_ds(see_ebc(*cp));
+				trace_ds("%s", see_ebc(*cp));
 				last_cmd = True;
 				last_zpt = False;
 				break;
@@ -1463,7 +1454,7 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 			if (previous != TEXT)
 				trace_ds(" '");
 			previous = TEXT;
-			trace_ds(see_ebc(*cp));
+			trace_ds("%s", see_ebc(*cp));
 			ctlr_add(buffer_addr, ebc2cg[*cp], default_cs);
 			ctlr_add_fg(buffer_addr, default_fg);
 			ctlr_add_gr(buffer_addr, default_gr);
@@ -1615,6 +1606,7 @@ ps_process(void)
 		;
 	sms_continue();
 
+#if defined(X3270_FT) /*[*/
 	/* Process file transfers. */
 	if (ft_state != FT_NONE &&      /* transfer in progress */
 	    formatted &&                /* screen is formatted */
@@ -1624,6 +1616,7 @@ ps_process(void)
 	    IS_FA(screen_buf[1919]) && FA_IS_SKIP(screen_buf[1919])) {
 		ft_cut_data();
 	}
+#endif /*]*/
 }
 
 /*

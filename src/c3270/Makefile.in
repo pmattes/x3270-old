@@ -1,4 +1,4 @@
-# Copyright 1999, 2000 by Paul Mattes.
+# Copyright 1999, 2000, 2001 by Paul Mattes.
 #  Permission to use, copy, modify, and distribute this software and its
 #  documentation for any purpose and without fee is hereby granted,
 #  provided that the above copyright notice appear in all copies and that
@@ -11,29 +11,34 @@ RM = rm -f
 CC = @CC@
 
 all:: c3270 x3270if
-all::
-	-cd pr3287 && $(MAKE) $(MFLAGS)
+@PR@all::
+@PR@	-cd pr3287 && $(MAKE)
 
-SRCS = actions.c ansi.c apl.c charset.c ctlr.c ft.c ft_cut.c ft_dft.c glue.c \
-	help.c host.c keymap.c kybd.c macros.c print.c printer.c resources.c \
-	screen.c sf.c tables.c c3270.c telnet.c toggles.c trace_ds.c util.c \
-	xio.c XtGlue.c
-VOBJS = actions.o ansi.o apl.o charset.o ctlr.o ft.o ft_cut.o ft_dft.o glue.o \
-	help.o host.o keymap.o kybd.o macros.o print.o printer.o resources.o \
-	screen.o sf.o tables.o c3270.o telnet.o toggles.o trace_ds.o util.o \
-	xio.o XtGlue.o
+SRCS = actions.c ansi.c apl.c charset.c child.c ctlr.c ft.c ft_cut.c ft_dft.c \
+	glue.c help.c host.c keymap.c kybd.c macros.c print.c printer.c \
+	resources.c screen.c sf.c tables.c c3270.c telnet.c toggles.c \
+	trace_ds.c util.c xio.c XtGlue.c
+VOBJS = actions.o ansi.o apl.o charset.o child.o ctlr.o ft.o ft_cut.o ft_dft.o \
+	glue.o help.o host.o keymap.o kybd.o macros.o print.o printer.o \
+	resources.o screen.o sf.o tables.o c3270.o telnet.o toggles.o \
+	trace_ds.o util.o xio.o XtGlue.o
 OBJS1 = $(VOBJS) version.o
+CHARSETS = charset/brazilian charset/greek charset/russian charset/thai
 
 LIBDIR = @libdir@
 prefix = @prefix@
 exec_prefix = @exec_prefix@
-LIBX3270DIR = $(LIBDIR)/x3270
+sysconfdir = @sysconfdir@
+LIBX3270DIR = @LIBX3270DIR@
 MANDIR = @mandir@
 BINDIR = @bindir@
+INSTALL = @INSTALL@
+INSTALL_PROGRAM = @INSTALL_PROGRAM@
+INSTALL_DATA = @INSTALL_DATA@
 
 #CDEBUGFLAGS = -g -Wall
 
-XCPPFLAGS = -I. -DLIBX3270DIR=\"$(LIBX3270DIR)\" @CPPFLAGS@
+XCPPFLAGS = -I. -DLIBX3270DIR=\"$(LIBX3270DIR)\" @XPOSIX@ @XANSI@ @CPPFLAGS@
 CFLAGS = @CFLAGS@ $(XCPPFLAGS) $(CDEBUGFLAGS)
 LDFLAGS = @LDFLAGS@
 LIBS = @LIBS@
@@ -48,20 +53,29 @@ x3270if: x3270if.o
 	$(CC) -o $@ x3270if.o
 
 install:: c3270 x3270if
-	install c3270 $(BINDIR)/c3270
-	install x3270if $(BINDIR)/x3270if
+	$(INSTALL_PROGRAM) c3270 $(DESTDIR)$(BINDIR)/c3270
+	$(INSTALL_PROGRAM) x3270if $(DESTDIR)$(BINDIR)/x3270if
 install::
-	-cd pr3287 && $(MAKE) $(MFLAGS) install
+	[ -d $(DESTDIR)$(LIBX3270DIR) ] || \
+		mkdir -p $(DESTDIR)$(LIBX3270DIR)
+	[ -r $(DESTDIR)$(LIBX3270DIR)/ibm_hosts ] || \
+		$(INSTALL_DATA) ibm_hosts $(DESTDIR)$(LIBX3270DIR)/ibm_hosts
+	[ -d $(DESTDIR)$(LIBX3270DIR)/charset ] || \
+		mkdir -p $(DESTDIR)$(LIBX3270DIR)/charset
+	$(INSTALL_DATA) $(CHARSETS) $(DESTDIR)$(LIBX3270DIR)/charset/
+@PR@install::
+@PR@	-cd pr3287 && $(MAKE) install
 
 install.man:
-	install c3270.man $(MANDIR)/man1/c3270.1
-	install x3270if.man $(MANDIR)/man1/x3270if.1
-	install x3270-script.man $(MANDIR)/man1/x3270-script.1
-	install ibm_hosts.man $(MANDIR)/man1/ibm_hosts.1
-	-cd pr3287 && $(MAKE) $(MFLAGS) install.man
+	$(INSTALL_DATA) c3270.man $(DESTDIR)$(MANDIR)/man1/c3270.1
+	$(INSTALL_DATA) x3270if.man $(DESTDIR)$(MANDIR)/man1/x3270if.1
+	$(INSTALL_DATA) x3270-script.man $(DESTDIR)$(MANDIR)/man1/x3270-script.1
+	$(INSTALL_DATA) ibm_hosts.man $(DESTDIR)$(MANDIR)/man1/ibm_hosts.1
+@PR@	-cd pr3287 && $(MAKE) install.man
 
 clean:
 	$(RM) c3270 *.o
+@PR@	-cd pr3287 && $(MAKE) clean
 
 depend:
 	gccmakedep $(XCPPFLAGS) -s "# DO NOT DELETE" $(SRCS)

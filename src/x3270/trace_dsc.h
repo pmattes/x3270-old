@@ -1,5 +1,5 @@
 /*
- * Copyright 1995, 1999 by Paul Mattes.
+ * Copyright 1995, 1999, 2001 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -20,7 +20,9 @@ extern Boolean trace_skipping;
 const char *rcba(int baddr);
 const char *see_aid(unsigned char code);
 const char *see_attr(unsigned char fa);
+#if defined(X3270_DISPLAY) /*[*/
 const char *see_color(unsigned char setting);
+#endif /*]*/
 const char *see_ebc(unsigned char ch);
 const char *see_efa(unsigned char efa, unsigned char value);
 const char *see_efa_only(unsigned char efa);
@@ -33,11 +35,22 @@ void trace_char(char c);
 void trace_ds(const char *fmt, ...);
 void trace_event(const char *fmt, ...);
 void trace_screen(void);
-const char *unknown(unsigned char value);
 
 #else /*][*/
 
 #define tracef 0
+#define rcba 0 &&
+#define see_aid 0 &&
+#define see_attr 0 &&
+#define see_color 0 &&
+#define see_ebc 0 &&
+#define see_efa 0 &&
+#define see_efa_only 0 &&
+#define see_qcode 0 &&
+#if defined(__GNUC__) /*[*/
+#define trace_ds(format, args...)
+#define trace_event(formar, args...)
+#else /*][*/
 #define trace_ds 0 &&
 #define trace_event 0 &&
 #define rcba 0 &&
@@ -48,5 +61,6 @@ const char *unknown(unsigned char value);
 #define see_efa 0 &&
 #define see_efa_only 0 &&
 #define see_qcode 0 &&
+#endif /*]*/
 
 #endif /*]*/

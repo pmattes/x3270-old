@@ -1,5 +1,5 @@
 /*
- * Copyright 2000 by Paul Mattes.
+ * Copyright 2000, 2001 by Paul Mattes.
  *   Permission to use, copy, modify, and distribute this software and its
  *   documentation for any purpose and without fee is hereby granted,
  *   provided that the above copyright notice appear in all copies and that
@@ -45,9 +45,9 @@ extern int cCOLS;
 #define KM_CTRL		0x0001
 #define KM_META		0x0002
 
-#define KM_3270_ONLY	0x0020	/* used in non-NVT mode only (nvt map exists) */
-#define KM_NVT_ONLY	0x0040	/* used in NVT mode only */
-#define KM_INACTIVE	0x0080	/* wrong NVT/3270 mode, or overridden */
+#define KM_3270_ONLY	0x0010	/* used in 3270 mode only */
+#define KM_NVT_ONLY	0x0020	/* used in NVT mode only */
+#define KM_INACTIVE	0x0040	/* wrong NVT/3270 mode, or overridden */
 
 #define KM_KEYMAP	0x8000
 #define KM_HINTS	(KM_CTRL|KM_META)
@@ -68,6 +68,7 @@ struct keymap {
 static struct keymap *master_keymap = NULL;
 static struct keymap **nextk = &master_keymap;
 
+static Boolean last_3270 = False;
 static Boolean last_nvt = False;
 
 static int lookup_ccode(const char *s);
@@ -233,8 +234,8 @@ add_keymap_entry(int ncodes, int *codes, int *hints, const char *file,
 	k->action = NewString(action);
 
 	/* See if it's inactive, or supercedes other entries. */
-	if ((last_nvt && (k->hints[0] & KM_3270_ONLY)) ||
-	    (!last_nvt && (k->hints[0] & KM_NVT_ONLY))) {
+	if ((!last_3270 && (k->hints[0] & KM_3270_ONLY)) ||
+	    (!last_nvt  && (k->hints[0] & KM_NVT_ONLY))) {
 		k->hints[0] |= KM_INACTIVE;
 	} else for (j = master_keymap; j != NULL; j = j->next) {
 		/* It may supercede other entries. */
@@ -259,26 +260,36 @@ add_keymap_entry(int ncodes, int *codes, int *hints, const char *file,
 static void
 read_keymap(const char *name)
 {
+	char *name_3270 = xs_buffer("%s.3270", name);
 	char *name_nvt = xs_buffer("%s.nvt", name);
-	int rc, rc_nvt;
-	char *fn, *fn_nvt;
-	char *r0, *r0_nvt;
+	int rc, rc_3270, rc_nvt;
+	char *fn, *fn_3270, *fn_nvt;
+	char *r0, *r0_3270, *r0_nvt;
 
 	rc = locate_keymap(name, &fn, &r0);
+	rc_3270 = locate_keymap(name_3270, &fn_3270, &r0_3270);
 	rc_nvt = locate_keymap(name_nvt, &fn_nvt, &r0_nvt);
-	if (rc < 0 && rc_nvt < 0) {
+	if (rc < 0 && rc_3270 < 0 && rc_nvt < 0) {
 		xs_warning("No such keymap resource or file: %s",
 		    name);
+		Free(name_3270);
 		Free(name_nvt);
 		return;
 	}
 
 	if (rc >= 0) {
-		read_one_keymap(name, fn, r0, (rc_nvt >= 0)? KM_3270_ONLY: 0);
+		read_one_keymap(name, fn, r0, 0);
 		if (fn != CN)
 			Free(fn);
 		if (r0 != CN)
 			Free(r0);
+	}
+	if (rc_3270 >= 0) {
+		read_one_keymap(name_3270, fn_3270, r0_3270, KM_3270_ONLY);
+		if (fn_3270 != CN)
+			Free(fn_3270);
+		if (r0_3270 != CN)
+			Free(r0_3270);
 	}
 	if (rc_nvt >= 0) {
 		read_one_keymap(name_nvt, fn_nvt, r0_nvt, KM_NVT_ONLY);
@@ -287,6 +298,7 @@ read_keymap(const char *name)
 		if (r0_nvt != CN)
 			Free(r0_nvt);
 	}
+	Free(name_3270);
 	Free(name_nvt);
 }
 
@@ -678,7 +690,7 @@ lookup_ccode(const char *s)
 }
 
 /* Look up a curses key code. */
-const char *
+static const char *
 lookup_cname(int ccode)
 {
 	int i;
@@ -721,6 +733,7 @@ keymap_init(void)
 		read_keymap(s);
 	Free(s0);
 
+	last_3270 = IN_3270;
 	last_nvt = IN_ANSI;
 	set_inactive();
 
@@ -764,8 +777,8 @@ set_inactive(void)
 	/* Turn off elements which have the wrong mode. */
 	for (k = master_keymap; k != NULL; k = k->next) {
 		/* If the mode is wrong, turn it off. */
-		if ((last_nvt && (k->hints[0] & KM_3270_ONLY)) ||
-		    (!last_nvt && (k->hints[0] & KM_NVT_ONLY))) {
+		if ((!last_3270 && (k->hints[0] & KM_3270_ONLY)) ||
+		    (!last_nvt  && (k->hints[0] & KM_NVT_ONLY))) {
 			k->hints[0] |= KM_INACTIVE;
 		}
 	}
@@ -797,7 +810,8 @@ set_inactive(void)
 static void
 keymap_3270_mode(Boolean ignored unused)
 {
-	if (last_nvt != IN_ANSI) {
+	if (last_3270 != IN_3270 || last_nvt != IN_ANSI) {
+		last_3270 = IN_3270;
 		last_nvt = IN_ANSI;
 		set_inactive();
 	}

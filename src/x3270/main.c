@@ -1,5 +1,5 @@
 /*
- * Modifications Copyright 1993, 1994, 1995, 1996, 1999, 2000 by Paul Mattes.
+ * Modifications Copyright 1993, 1994, 1995, 1996, 1999, 2000, 2001 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -119,7 +119,8 @@ XrmOptionDescRec options[]= {
 	{ OptScrollBar,	DotScrollBar,	XrmoptionNoArg,		ResTrue },
 	{ OptSet,	".xxx",		XrmoptionSkipArg,	NULL },
 	{ OptTermName,	DotTermName,	XrmoptionSepArg,	NULL },
-	{ OptTraceFile,	DotTraceFile,	XrmoptionSepArg,	NULL }
+	{ OptTraceFile,	DotTraceFile,	XrmoptionSepArg,	NULL },
+	{ "-xrm",	NULL,		XrmoptionResArg,	NULL }
 };
 int num_options = XtNumber(options);
 
@@ -141,15 +142,22 @@ struct toggle_name toggle_names[N_TOGGLES] = {
 	{ ResCursorPos,       CURSOR_POS },
 #if defined(X3270_TRACE) /*[*/
 	{ ResDsTrace,         DS_TRACE },
+#else /*][*/
+	{ ResDsTrace,         -1 },
 #endif /*]*/
 	{ ResScrollBar,       SCROLL_BAR },
 #if defined(X3270_ANSI) /*[*/
 	{ ResLineWrap,        LINE_WRAP },
+#else /*][*/
+	{ ResLineWrap,        -1 },
 #endif /*]*/
 	{ ResBlankFill,       BLANK_FILL },
 #if defined(X3270_TRACE) /*[*/
 	{ ResScreenTrace,     SCREEN_TRACE },
 	{ ResEventTrace,      EVENT_TRACE },
+#else /*][*/
+	{ ResScreenTrace,     -1 },
+	{ ResEventTrace,      -1 },
 #endif /*]*/
 	{ ResMarginedPaste,   MARGINED_PASTE },
 	{ ResRectangleSelect, RECTANGLE_SELECT }
@@ -289,6 +297,14 @@ main(int argc, char *argv[])
 		break;
 	}
 
+	/*
+	 * Before the call to error_init(), errors are generally fatal.
+	 * Afterwards, errors are stored, and popped up when the screen is
+	 * realized.  Should we exit without realizing the screen, they will
+	 * be dumped to stderr.
+	 */
+	error_init();
+
 	default_screen = DefaultScreen(display);
 	root_window = RootWindow(display, default_screen);
 	screen_depth = DefaultDepthOfScreen(XtScreen(toplevel));
@@ -345,6 +361,23 @@ main(int argc, char *argv[])
 
 	XtAppAddActions(appcontext, actions, actioncount);
 
+	keymap_init(appres.key_map);
+
+	if (appres.apl_mode) {
+		appres.compose_map = XtNewString(Apl);
+		appres.charset = XtNewString(Apl);
+	}
+	switch (charset_init(appres.charset)) {
+	    case CS_OKAY:
+		break;
+	    case CS_NOTFOUND:
+		popup_an_error("Cannot find charset \"%s\"", appres.charset);
+		break;
+	    case CS_BAD:
+		popup_an_error("Invalid charset \"%s\"", appres.charset);
+		break;
+	}
+
 	/* Initialize fonts. */
 	font_init();
 
@@ -364,15 +397,6 @@ main(int argc, char *argv[])
 		termtype = full_model_name;
 
 	hostfile_init();
-
-	keymap_init(appres.key_map);
-
-	if (appres.apl_mode) {
-		appres.compose_map = XtNewString(Apl);
-		appres.charset = XtNewString(Apl);
-	}
-	if (!charset_init(appres.charset))
-		xs_warning("Cannot find charset \"%s\"", appres.charset);
 
 	/* Initialize the icon. */
 	icon_init();
@@ -405,8 +429,8 @@ main(int argc, char *argv[])
 	kybd_init();
 	ansi_init();
 	sms_init();
-	error_popup_init();
 	info_popup_init();
+	error_popup_init();
 #if defined(X3270_FT) && !defined(X3270_MENUS) /*[*/
 	ft_init();
 #endif /*]*/
@@ -601,7 +625,8 @@ parse_set_clear(int *argcp, char **argv)
 		i++;
 
 		for (j = 0; j < N_TOGGLES; j++)
-			if (!strcmp(argv[i], toggle_names[j].name)) {
+			if (toggle_names[i].index >= 0 &&
+			    !strcmp(argv[i], toggle_names[j].name)) {
 				appres.toggle[toggle_names[j].index].value =
 				    is_set;
 				break;

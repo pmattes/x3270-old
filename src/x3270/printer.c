@@ -403,7 +403,7 @@ printer_stop(void)
 
 	/* Kill the process. */
 	if (printer_pid != -1) {
-		(void) killpg(printer_pid, SIGTERM);
+		(void) kill(-printer_pid, SIGTERM);
 		printer_pid = -1;
 	}
 

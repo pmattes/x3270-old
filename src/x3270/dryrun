@@ -1,5 +1,5 @@
 #! /bin/sh
-# Copyright 1995, 1999, 2000 by Paul Mattes.
+# Copyright 1995, 1999, 2000, 2001 by Paul Mattes.
 #  Permission to use, copy, modify, and distribute this software and its
 #  documentation for any purpose and without fee is hereby granted,
 #  provided that the above copyright notice appear in all copies and that
@@ -33,9 +33,9 @@ export LD_LIBRARY_PATH
 PATH=$PATH:$d/pr3287
 export PATH
 
-# Run x3270
+# Run x3270, pointing it to the current directory for its configuration files
 set +e
-./x3270 "$@"
+./x3270 -xrm "x3270.confDir: $d" "$@"
 
 # Clean up
 xset -fp $d/

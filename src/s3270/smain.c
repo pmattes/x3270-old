@@ -70,7 +70,7 @@ main(int argc, char *argv[])
 
 	argc = parse_command_line(argc, argv, &cl_hostname);
 
-	if (!charset_init(appres.charset))
+	if (charset_init(appres.charset) != CS_OKAY)
 		xs_warning("Cannot find charset \"%s\"", appres.charset);
 	ctlr_init(-1);
 	ctlr_reinit(-1);

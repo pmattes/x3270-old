@@ -179,18 +179,21 @@ option or the "tcl3270.charset" resource controls the <font size=-1>EBCDIC</font
 national character set used by <b>tcl3270</b>.
 Available sets include:
 <p>
-<table BORDER cols=2 width="75%">
-<tr><td ><center>Charset Name</center></td>	<td ><center>Q121 Code</center></td></tr>
+<table BORDER cols=3 width="75%">
+<tr><td ><center>Charset Name</center></td>	<td ><center>Code Page</center></td>	<td ><center>Font</center></td></tr>	
 
-<tr><td ><center>bracket</center></td>	<td ><center>-</center></td></tr>
-<tr><td ><center>us-intl</center></td>	<td ><center>01</center></td></tr>
-<tr><td ><center>german</center></td>	<td ><center>03</center></td></tr>
-<tr><td ><center>finnish</center></td>	<td ><center>09</center></td></tr>
-<tr><td ><center>uk</center></td>	<td ><center>22</center></td></tr>
-<tr><td ><center>norwegian</center></td>	<td ><center>23</center></td></tr>
-<tr><td ><center>french</center></td>	<td ><center>30</center></td></tr>
-<tr><td ><center>icelandic</center></td>	<td ><center>-</center></td></tr>
-<tr><td ><center>belgian</center></td>	<td ><center>-</center></td></tr>
+<tr><td ><center>belgian</center></td>	<td ><center>500</center></td>	<td ><center>iso8859-1</center></td></tr>
+<tr><td ><center>bracket</center></td>	<td ><center>37</center></td>	<td ><center>iso8859-1</center></td></tr>
+<tr><td ><center>finnish</center></td>	<td ><center>278</center></td>	<td ><center>iso8859-1</center></td></tr>
+<tr><td ><center>french</center></td>	<td ><center>297</center></td>	<td ><center>iso8859-1</center></td></tr>
+<tr><td ><center>german</center></td>	<td ><center>273</center></td>	<td ><center>iso8859-1</center></td></tr>
+<tr><td ><center>icelandic</center></td>	<td ><center>871</center></td>	<td ><center>iso8859-1</center></td></tr>
+<tr><td ><center>iso-hebrew</center></td>	<td ><center>424</center></td>	<td ><center>iso8859-8</center></td></tr>
+<tr><td ><center>iso-turkish</center></td>	<td ><center>1026</center></td>	<td ><center>iso8859-9</center></td></tr>
+<tr><td ><center>italian</center></td>	<td ><center>280</center></td>	<td ><center>iso8859-1</center></td></tr>
+<tr><td ><center>norwegian</center></td>	<td ><center>277</center></td>	<td ><center>iso8859-1</center></td></tr>
+<tr><td ><center>uk</center></td>	<td ><center>285</center></td>	<td ><center>iso8859-1</center></td></tr>
+<tr><td ><center>us-intl</center></td>	<td ><center>37</center></td>	<td ><center>iso8859-1</center></td></tr>
 </table>
 <p>
 The default character set is
@@ -312,18 +315,20 @@ options are as follows:
 <tr><td >PA <i>n</i></td>	<td >Program Attention <font size=-1>AID</font> (<i>n</i> from 1 to 3)</td></tr>
 <tr><td >PF <i>n</i></td>	<td >Program Function <font size=-1>AID</font> (<i>n</i> from 1 to 24)</td></tr>
 <tr><td >PreviousWord</td>	<td >move cursor to previous word</td></tr>
-<tr><td >Quit</td>	<td >exit <b>tcl3270</b></td></tr>
+)<tr><td >Quit</td>	<td >exit <b>tcl3270</b></td></tr>
 <tr><td >Redraw</td>	<td >redraw window</td></tr>
 <tr><td >Reset</td>	<td >reset locked keyboard</td></tr>
 <tr><td >Right</td>	<td >move cursor right</td></tr>
 <tr><td >Right2</td>	<td >move cursor right 2 positions</td></tr>
 <tr><td >Rows</td>	<td >report screen size</td></tr>
-<tr><td >Snap</td>	<td >save screen image</td></tr>
+<tr><td >Snap</td>	<td >same as <b>Snap Save</b></td></tr>
 <tr><td >Snap Ascii</td>	<td >report saved screen data (see <b>Ascii</b>)</td></tr>
 <tr><td >Snap Cols</td>	<td >report saved screen size</td></tr>
 <tr><td >Snap Ebcdic</td>	<td >report saved screen data (see <b>Ebcdic</b>)</td></tr>
 <tr><td >Snap Rows</td>	<td >report saved screen size</td></tr>
+<tr><td >Snap Save</td>	<td >save screen image</td></tr>
 <tr><td >Snap Status</td>	<td >report saved connection status</td></tr>
+<tr><td >Snap Wait [<i>timeout</i>] Output</td>	<td >wait for host output and save screen image</td></tr>
 <tr><td >Status</td>	<td >report connection status</td></tr>
 <tr><td >String <i>string</i></td>	<td >insert string (simple macro facility)</td></tr>
 <tr><td >SysReq</td>	<td >System Request <font size=-1>AID</font></td></tr>
@@ -332,11 +337,11 @@ options are as follows:
 <tr><td >ToggleReverse</td>	<td >toggle reverse-input mode</td></tr>
 <tr><td >Transfer <i>option</i>=<i>value</i>...</td>	<td >file transfer</td></tr>
 <tr><td >Up</td>	<td >move cursor up</td></tr>
-<tr><td >Wait 3270Mode</td>	<td >wait for 3270 mode</td></tr>
-<tr><td >Wait Disconnect</td>	<td >wait for host to disconnect</td></tr>
-<tr><td >Wait InputField</td>	<td >wait for valid input field</td></tr>
-<tr><td >Wait NVTMode</td>	<td >wait for NVT mode</td></tr>
-<tr><td >Wait Output</td>	<td >wait for more host output</td></tr>
+<tr><td >Wait [<i>timeout</i>] 3270Mode</td>	<td >wait for 3270 mode</td></tr>
+<tr><td >Wait [<i>timeout</i>] Disconnect</td>	<td >wait for host to disconnect</td></tr>
+<tr><td >Wait [<i>timeout</i>] InputField</td>	<td >wait for valid input field</td></tr>
+<tr><td >Wait [<i>timeout</i>] NVTMode</td>	<td >wait for NVT mode</td></tr>
+<tr><td >Wait [<i>timeout</i>] Output</td>	<td >wait for more host output</td></tr>
 </table>
 <a NAME="File-Transfer"></a><h2>File Transfer</h2>
 The <b>Transfer</b> command implements <b>IND$FILE</b> file transfer.
@@ -435,10 +440,11 @@ processing the string.)
 <tr><td >\b</td>	<td >Left</td></tr>
 <tr><td >\f</td>	<td >Clear*</td></tr>
 <tr><td >\n</td>	<td >Enter*</td></tr>
-<tr><td >\pa<i>n</i></td>	<td >PA key <i>n</i>*</td></tr>
-<tr><td >\pf<i>nn</i></td>	<td >PF key <i>nn</i>*</td></tr>
+<tr><td >\pa<i>n</i></td>	<td >PA(<i>n</i>)*</td></tr>
+<tr><td >\pf<i>nn</i></td>	<td >PF(<i>nn</i>)*</td></tr>
 <tr><td >\r</td>	<td >Newline</td></tr>
 <tr><td >\t</td>	<td >Tab</td></tr>
+<tr><td >\T</td>	<td >BackTab</td></tr>
 </table>
 <p>
 An example keymap entry would be:
@@ -511,9 +517,7 @@ The resources available in <b>tcl3270</b> are:
 </table>
 <p>
 <blockquote><a NAME="rn1"></a><i>Note 1</i>: <b>m3279</b> defaults to
-<b>True</b>.
-It can be forced to
-<b>False</b> with the <b>-mono</b> option.
+<b>False</b>.  It can be forced to <b>True</b> with the <b>-model</b> option.
 <p>
 <a NAME="rn2"></a><i>Note 2</i>:
 The default terminal type string is constructed from the model number, color
@@ -543,7 +547,7 @@ RFC 1646, TN3270 Extensions for LUname and Printer Selection
 RFC 2355, TN3270 Enhancements
 <a NAME="Copyrights"></a><h2>Copyrights</h2>
 <p>
-Modifications Copyright &copy; 1993, 1994, 1995, 1996, 1997, 1999, 2000 by Paul Mattes.
+Modifications Copyright &copy; 1993, 1994, 1995, 1996, 1997, 1999, 2000, 2001 by Paul Mattes.
 <br>
 Original X11 Port Copyright &copy; 1990 by Jeff Sparkes.
 <blockquote>Permission to use, copy, modify, and distribute this software and its
@@ -557,12 +561,12 @@ Derivative works based on this software must incorporate this copyright
 notice.</blockquote>
 5250 Emulation Code Copyright &copy; Minolta (Schweiz) AG, Beat Rubischon.
 <a NAME="Version"></a><h2>Version</h2>
-tcl3270 3.2.15
+tcl3270 3.2.17b
 <hr>
 <address>
 This HTML document and the accompanying troff document were generated with
 a set of write-only <b>m4</b> macros and the powerful <b>vi</b> editor.
-<br>Last modified 26 December 2000.
+<br>Last modified 15 June 2001.
 </address>
 </body>
 </html>

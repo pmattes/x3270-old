@@ -22,6 +22,8 @@ extern struct macro_def *macro_defs;
 extern Boolean macro_output;
 
 extern void abort_script(void);
+extern void Abort_action(Widget w, XEvent *event, String *params,
+    Cardinal *num_params);
 extern void AnsiText_action(Widget w, XEvent *event, String *params,
     Cardinal *num_params);
 extern void AsciiField_action(Widget w, XEvent *event, String *params,

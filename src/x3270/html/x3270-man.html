@@ -295,32 +295,36 @@ option or the "x3270.charset" resource controls the <font size=-1>EBCDIC</font>
 national character set used by <b>x3270</b>.
 Available sets include:
 <p>
-<table BORDER cols=2 width="75%">
-<tr><td ><center>Charset Name</center></td>	<td ><center>Q121 Code</center></td></tr>
+<table BORDER cols=3 width="75%">
+<tr><td ><center>Charset Name</center></td>	<td ><center>Code Page</center></td>	<td ><center>Font</center></td></tr>	
 
-<tr><td ><center>bracket</center></td>	<td ><center>-</center></td></tr>
-<tr><td ><center>us-intl</center></td>	<td ><center>01</center></td></tr>
-<tr><td ><center>german</center></td>	<td ><center>03</center></td></tr>
-<tr><td ><center>finnish</center></td>	<td ><center>09</center></td></tr>
-<tr><td ><center>uk</center></td>	<td ><center>22</center></td></tr>
-<tr><td ><center>norwegian</center></td>	<td ><center>23</center></td></tr>
-<tr><td ><center>french</center></td>	<td ><center>30</center></td></tr>
-<tr><td ><center>hebrew*</center></td>	<td ><center>-</center></td></tr>
-<tr><td ><center>icelandic</center></td>	<td ><center>-</center></td></tr>
-<tr><td ><center>belgian</center></td>	<td ><center>-</center></td></tr>
-<tr><td ><center>italian</center></td>	<td ><center>-</center></td></tr>
-<tr><td ><center>greek**</center></td>	<td ><center>-</center></td></tr>
+<tr><td ><center>belgian</center></td>	<td ><center>500</center></td>	<td ><center>iso8859-1</center></td></tr>
+<tr><td ><center>bracket</center></td>	<td ><center>37</center></td>	<td ><center>iso8859-1</center></td></tr>
+<tr><td ><center>finnish</center></td>	<td ><center>278</center></td>	<td ><center>iso8859-1</center></td></tr>
+<tr><td ><center>french</center></td>	<td ><center>297</center></td>	<td ><center>iso8859-1</center></td></tr>
+<tr><td ><center>german</center></td>	<td ><center>273</center></td>	<td ><center>iso8859-1</center></td></tr>
+<tr><td ><center>greek</center></td>	<td ><center>423</center></td>	<td ><center>3270gr</center></td></tr>
+<tr><td ><center>hebrew</center></td>	<td ><center>424</center></td>	<td ><center>3270h</center></td></tr>
+<tr><td ><center>icelandic</center></td>	<td ><center>871</center></td>	<td ><center>iso8859-1</center></td></tr>
+<tr><td ><center>iso-hebrew</center></td>	<td ><center>424</center></td>	<td ><center>iso8859-8</center></td></tr>
+<tr><td ><center>iso-turkish</center></td>	<td ><center>1026</center></td>	<td ><center>iso8859-9</center></td></tr>
+<tr><td ><center>italian</center></td>	<td ><center>280</center></td>	<td ><center>iso8859-1</center></td></tr>
+<tr><td ><center>norwegian</center></td>	<td ><center>277</center></td>	<td ><center>iso8859-1</center></td></tr>
+<tr><td ><center>uk</center></td>	<td ><center>285</center></td>	<td ><center>iso8859-1</center></td></tr>
+<tr><td ><center>us-intl</center></td>	<td ><center>37</center></td>	<td ><center>iso8859-1</center></td></tr>
 </table>
-<p>
-(*) requires a special font, <b>3270h</b>
-<br>
-(**) requires a special font, <b>3270gr</b>
 <p>
 The default character set is
 <b>bracket</b>,
 which is useful for common <font size=-1>IBM</font> hosts which use <font size=-1>EBCDIC</font>
 codes 0xAD and 0xBD for the `[' and `]' characters,
 respectively.
+<p>
+Most 3270 fonts (3270, 3270-12, 3270gt8, etc.) implement the ISO 8859-1
+character set.  3270h and 3270gr implement special character sets for Hebrew
+and Greek, respsectively.  Some character sets work only with standard X fonts
+that implement that character set.  These are prefixed with the
+name <b>iso-</b>.
 <p>
 You can also specify national-language translations for your keyboard;
 see <a HREF="#Keymaps"><font size=-1>KEYMAPS</font></a> below.
@@ -430,8 +434,8 @@ defined by resources:
 <tr><td >End of file</td>	<td >x3270.eof</td>	<td >^D</td></tr>
 </table>
 <p>
-A separate keymap can be defined for use only when <b>x3270</b> is in
-<font size=-1>NVT</font> mode.
+Separate keymaps can be defined for use only when <b>x3270</b> is in
+3270 mode or <font size=-1>NVT</font> mode.
 See <a HREF="#Keymaps"><font size=-1>KEYMAPS</font></a> for details.
 <a NAME="Menus"></a><h2>Menus</h2>
 <b>x3270</b> has a menu bar with three pull-down menus (File, Options, and
@@ -721,26 +725,22 @@ override key definitions.
 This keymap is defined by the <b>x3270.keymap.</b><i>name</i><b>.user</b>
 resource.
 <p>
-In addition, a separate keymap may be defined for use in <font size=-1>NVT</font> mode.
-This keymap uses the suffix <b>.nvt</b> in its name.
-If a keymap <b>x3270.keymap.</b><i>name</i><b>.nvt</b> is defined, it
-will replace the keymap <b>x3270.keymap.</b><i>name</i> when <b>x3270</b>
-is in <font size=-1>NVT</font> mode.
-If a keymap <b>x3270.keymap.</b><i>name</i><b>.user.nvt</b> is defined, it
-will replace the keymap <b>x3270.keymap.</b><i>name</i><b>.user</b> when
+In addition, keymaps may be defined for use in 3270 mode or <font size=-1>NVT</font> mode
+only.
+These keymaps use the suffixes <b>.3270</b> and <b>.nvt</b> in their names,
+respectively.
+If a keymap <b>x3270.keymap.</b><i>name</i>.<i>mode</i> is defined, it
+will augment the keymap <b>x3270.keymap.</b><i>name</i> when <b>x3270</b>
+is in the given <i>mode</i>.
+If a keymap <b>x3270.keymap.</b><i>name</i>.<b>user</b>.<i>mode</i> is
+defined, it will augment the
+keymap <b>x3270.keymap</b>.<i>name</i>.<b>user</b> when
 <b>x3270</b>
-is in <font size=-1>NVT</font> mode.
+is in the given <i>mode</i>.
 <p>
-<a NAME="default-keymap"></a>The basic default translation table is:
+<a NAME="default-keymap"></a>The default translation table <b>x3270.keymap.base</b> is:
 <table BORDER cols=2 width="75%">
 <tr><td >&lt;Key>Multi_key</td>	<td >Compose()</td></tr>
-<tr><td >Shift&lt;Key>Return</td>	<td >Newline()</td></tr>
-<tr><td >&lt;Key>Return</td>	<td >Enter()</td></tr>
-<tr><td >&lt;Key>Linefeed</td>	<td >Newline()</td></tr>
-<tr><td >Shift&lt;Key>Tab</td>	<td >BackTab()</td></tr>
-<tr><td >&lt;Key>Tab</td>	<td >Tab()</td></tr>
-<tr><td >&lt;Key>Home</td>	<td >Home()</td></tr>
-<tr><td >Meta&lt;Key>Left</td>	<td >PreviousWord()</td></tr>
 <tr><td >Shift&lt;Key>Left</td>	<td >KybdSelect(Left,PRIMARY)</td></tr>
 <tr><td >&lt;Key>Left</td>	<td >Left()</td></tr>
 <tr><td >Meta&lt;Key>Right</td>	<td >NextWord()</td></tr>
@@ -750,13 +750,9 @@ is in <font size=-1>NVT</font> mode.
 <tr><td >&lt;Key>Up</td>	<td >Up()</td></tr>
 <tr><td >Shift&lt;Key>Down</td>	<td >KybdSelect(Down,PRIMARY)</td></tr>
 <tr><td >&lt;Key>Down</td>	<td >Down()</td></tr>
-<tr><td >&lt;Key>Insert</td>	<td >Insert()</td></tr>
-<tr><td >&lt;Key>Delete</td>	<td >Delete()</td></tr>
-<tr><td >&lt;Key>BackSpace</td>	<td >BackSpace()</td></tr>
 <tr><td >Ctrl&lt;Btn1Down></td>	<td >HandleMenu(quitMenu)</td></tr>
 <tr><td >Ctrl&lt;Btn2Down></td>	<td >HandleMenu(optionsMenu)</td></tr>
 <tr><td >Ctrl&lt;Btn3Down></td>	<td >HandleMenu(hostMenu)</td></tr>
-<tr><td >Ctrl Shift&lt;Btn1Down></td>	<td >MouseSelect()</td></tr>
 <tr><td >Shift&lt;Btn1Down></td>	<td >MoveCursor()</td></tr>
 <tr><td >&lt;Btn1Down></td>	<td >select-start()</td></tr>
 <tr><td >&lt;Btn1Motion></td>	<td >select-extend()</td></tr>
@@ -790,6 +786,26 @@ is in <font size=-1>NVT</font> mode.
 <tr><td >&lt;Key>F10</td>	<td >PF(10)</td></tr>
 <tr><td >&lt;Key>F11</td>	<td >PF(11)</td></tr>
 <tr><td >&lt;Key>F12</td>	<td >PF(12)</td></tr>
+<tr><td >Alt&lt;Key>q</td>	<td >Quit()</td></tr>
+<tr><td >:&lt;Key></td>	<td >Default()</td></tr>
+</table>
+<p>
+The default 3270-mode table <b>x3270.keymap.base.3270</b> adds the
+following definitions:
+<table BORDER cols=2 width="75%">
+<tr><td >Shift&lt;Key>Return</td>	<td >Newline()</td></tr>
+<tr><td >&lt;Key>Return</td>	<td >Enter()</td></tr>
+<tr><td >&lt;Key>Linefeed</td>	<td >Newline()</td></tr>
+<tr><td >Shift&lt;Key>Tab</td>	<td >BackTab()</td></tr>
+<tr><td >&lt;Key>Tab</td>	<td >Tab()</td></tr>
+<tr><td >&lt;Key>Home</td>	<td >Home()</td></tr>
+<tr><td >Meta&lt;Key>Left</td>	<td >PreviousWord()</td></tr>
+<tr><td >Meta&lt;Key>Right</td>	<td >NextWord()</td></tr>
+<tr><td >&lt;Key>Insert</td>	<td >Insert()</td></tr>
+<tr><td >&lt;Key>Delete</td>	<td >Delete()</td></tr>
+<tr><td >&lt;Key>BackSpace</td>	<td >BackSpace()</td></tr>
+<tr><td >Ctrl Shift&lt;Btn1Down></td>	<td >MouseSelect()</td></tr>
+<tr><td >Shift&lt;Btn1Down></td>	<td >MoveCursor()</td></tr>
 <tr><td >Meta&lt;Key>1</td>	<td >PA(1)</td></tr>
 <tr><td >Meta&lt;Key>2</td>	<td >PA(2)</td></tr>
 <tr><td >Meta&lt;Key>3</td>	<td >PA(3)</td></tr>
@@ -801,12 +817,11 @@ is in <font size=-1>NVT</font> mode.
 <tr><td >Meta&lt;Key>i</td>	<td >Insert()</td></tr>
 <tr><td >Meta&lt;Key>l</td>	<td >Redraw()</td></tr>
 <tr><td >Meta&lt;Key>p</td>	<td >PrintText()</td></tr>
-<tr><td >Meta&lt;Key>q</td>	<td >Quit()</td></tr>
 <tr><td >Meta&lt;Key>r</td>	<td >Reset()</td></tr>
+<tr><td >Meta&lt;Key>u</td>	<td >Unselect()</td></tr>
 <tr><td >Ctrl&lt;Key>u</td>	<td >DeleteField()</td></tr>
 <tr><td >Ctrl&lt;Key>w</td>	<td >DeleteWord()</td></tr>
 <tr><td >:Meta&lt;Key>asciicircum</td>	<td >Key(notsign)</td></tr>
-<tr><td >:&lt;Key></td>	<td >Default()</td></tr>
 </table>
 <p>
 Meta is the diamond shaped key on a sun_k4, "Alt" on an <font size=-1>NCD</font>,
@@ -941,10 +956,11 @@ processing the string.)
 <tr><td >\b</td>	<td >Left</td></tr>
 <tr><td >\f</td>	<td >Clear*</td></tr>
 <tr><td >\n</td>	<td >Enter*</td></tr>
-<tr><td >\pa<i>n</i></td>	<td >PA key <i>n</i>*</td></tr>
-<tr><td >\pf<i>nn</i></td>	<td >PF key <i>nn</i>*</td></tr>
+<tr><td >\pa<i>n</i></td>	<td >PA(<i>n</i>)*</td></tr>
+<tr><td >\pf<i>nn</i></td>	<td >PF(<i>nn</i>)*</td></tr>
 <tr><td >\r</td>	<td >Newline</td></tr>
 <tr><td >\t</td>	<td >Tab</td></tr>
+<tr><td >\T</td>	<td >BackTab</td></tr>
 </table>
 <p>
 An example keymap entry would be:
@@ -1282,7 +1298,7 @@ RFC 1646, TN3270 Extensions for LUname and Printer Selection
 RFC 2355, TN3270 Enhancements
 <a NAME="Copyrights"></a><h2>Copyrights</h2>
 <p>
-Modifications Copyright &copy; 1993, 1994, 1995, 1996, 1997, 1999, 2000 by Paul Mattes.
+Modifications Copyright &copy; 1993, 1994, 1995, 1996, 1997, 1999, 2000, 2001 by Paul Mattes.
 <br>
 Original X11 Port Copyright &copy; 1990 by Jeff Sparkes.
 <blockquote>Permission to use, copy, modify, and distribute this software and its
@@ -1296,12 +1312,12 @@ Derivative works based on this software must incorporate this copyright
 notice.</blockquote>
 5250 Emulation Code Copyright &copy; Minolta (Schweiz) AG, Beat Rubischon.
 <a NAME="Version"></a><h2>Version</h2>
-x3270 3.2.16p
+x3270 3.2.17b
 <hr>
 <address>
 This HTML document and the accompanying troff document were generated with
 a set of write-only <b>m4</b> macros and the powerful <b>vi</b> editor.
-<br>Last modified 23 February 2001.
+<br>Last modified 15 June 2001.
 </address>
 </body>
 </html>

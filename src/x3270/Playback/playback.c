@@ -1,5 +1,5 @@
 /*
- * Copyright 1994 by Paul Mattes.
+ * Copyright 1994, 2001 by Paul Mattes.
  *   Permission to use, copy, modify, and distribute this software and its
  *   documentation for any purpose and without fee is hereby granted,
  *   provided that the above copyright notice appear in all copies and that
@@ -44,15 +44,14 @@ extern int optind;
 extern char *optarg;
 
 void
-usage()
+usage(void)
 {
 	(void) fprintf(stderr, "usage: %s [-p port] file\n", me);
 	exit(1);
 }
 
-main(argc, argv)
-int argc;
-char *argv[];
+int
+main(int argc, char *argv[])
 {
 	int c;
 	FILE *f;
@@ -136,10 +135,7 @@ char *argv[];
 }
 
 void
-trace_netdata(direction, buf, len)
-char *direction;
-unsigned char *buf;
-int len;
+trace_netdata(char *direction, unsigned char *buf, int len)
 {
 	int offset;
 
@@ -152,9 +148,8 @@ int len;
 	(void) printf("\n");
 }
 
-process(f, s)
-FILE *f;
-int s;
+int
+process(FILE *f, int s)
 {
 	char buf[BSIZE];
 	int prompt = 1;
@@ -211,6 +206,14 @@ int s;
 			} else if (!strncmp(buf, "r", 1)) {	/* step record */
 				if (!step(f, s, 1))
 					break;
+			} else if (!strncmp(buf, "e", 1)) {	/* to EOF */
+				FD_ZERO(&rfds);
+				while (step(f, s, 1)) {
+					t.tv_sec = 0;
+					t.tv_usec = 1000000 / 4;
+					(void) select(0, NULL, NULL, NULL, &t);
+				}
+				break;
 			} else if (!strncmp(buf, "q", 1)) {	/* quit */
 				exit(0);
 			} else if (!strncmp(buf, "d", 1)) {	/* disconnect */
@@ -219,6 +222,7 @@ int s;
 				(void) printf("\
 s: step line\n\
 r: step record\n\
+e: play to EOF\n\
 q: quit\n\
 d: disconnect\n\
 ?: help\n");
@@ -237,10 +241,7 @@ d: disconnect\n\
 }
 
 int
-step(f, s, to_eor)
-FILE *f;
-int s;
-int to_eor;
+step(FILE *f, int s, int to_eor)
 {
 	int c = 0;
 	static int d1;

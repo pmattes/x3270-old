@@ -1,5 +1,5 @@
 /*
- * Copyright 1993, 1994, 1995, 1996, 1999, 2000 by Paul Mattes.
+ * Copyright 1993, 1994, 1995, 1996, 1999, 2000, 2001 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -45,8 +45,10 @@ Boolean		ever_3270 = False;
 
 char           *current_host = CN;
 char           *full_current_host = CN;
-char	       *reconnect_host = CN;
 unsigned short  current_port;
+#if defined(X3270_DISPLAY) /*[*/
+char	       *reconnect_host = CN;
+#endif /*]*/
 
 struct host *hosts = (struct host *)NULL;
 static struct host *last_host = (struct host *)NULL;
@@ -96,7 +98,7 @@ hostfile_init(void)
 		hostfile_initted = True;
 
 	if (appres.hostsfile == CN)
-		appres.hostsfile = xs_buffer("%s/ibm_hosts", LIBX3270DIR);
+		appres.hostsfile = xs_buffer("%s/ibm_hosts", appres.conf_dir);
 	hf = fopen(appres.hostsfile, "r");
 	if (hf != (FILE *)NULL) {
 		while (fgets(buf, sizeof(buf), hf)) {
@@ -116,7 +118,7 @@ hostfile_init(void)
 			entry_type = stoken(&s);
 			hostname = stoken(&s);
 			if (!name || !entry_type || !hostname) {
-				xs_warning("Bad %s syntax, entry skipped",
+				popup_an_error("Bad %s syntax, entry skipped",
 				    ResHostsFile);
 				continue;
 			}
@@ -205,11 +207,15 @@ parse_localprocess(const char *s)
 /*
  * Strip qualifiers from a hostname.
  * Returns the hostname part in a newly-malloc'd string.
+ * 'needed' is returned True if anything was actually stripped.
+ * Returns NULL if there is a syntax error.
  */
 static char *
 split_host(char *s, Boolean *ansi, Boolean *std_ds, Boolean *passthru,
-	Boolean *non_e, char *xluname, char **port)
+	Boolean *non_e, char *xluname, char **port, Boolean *needed)
 {
+	char *lbracket = CN;
+
 	*ansi = False;
 	*std_ds = False;
 	*passthru = False;
@@ -217,27 +223,46 @@ split_host(char *s, Boolean *ansi, Boolean *std_ds, Boolean *passthru,
 	*xluname = '\0';
 	*port = CN;
 
+	*needed = False;
+
+	/*
+	 * The hostname may be in square brackets, to clearly delimit prefixes
+	 * and suffixes, and to prevent colons in the hostname (IPv6) from
+	 * being interpreted as delimiters.
+	 */
+	lbracket = strchr(s, '[');
+	if (lbracket != CN) {
+		char *rbracket = strchr(lbracket + 1, ']');
+
+		if (rbracket == CN || rbracket == lbracket + 1)
+			return CN;
+	}
+
 	for (;;) {
 		char *at;
 
-		if (!strncmp(s, "a:", 2) || !strncmp(s, "A:", 2)) {
+		if (!strncasecmp(s, "a:", 2)) {
 			*ansi = True;
 			s += 2;
+			*needed = True;
 			continue;
 		}
-		if (!strncmp(s, "s:", 2) || !strncmp(s, "S:", 2)) {
+		if (!strncasecmp(s, "s:", 2)) {
 			*std_ds = True;
 			s += 2;
+			*needed = True;
 			continue;
 		}
-		if (!strncmp(s, "p:", 2) || !strncmp(s, "P:", 2)) {
+		if (!strncasecmp(s, "p:", 2)) {
 			*passthru = True;
 			s += 2;
+			*needed = True;
 			continue;
 		}
-		if (!strncmp(s, "n:", 2) || !strncmp(s, "N:", 2)) {
+		if (!strncasecmp(s, "n:", 2)) {
 			*non_e = True;
 			s += 2;
+			*needed = True;
 			continue;
 		}
 		if ((at = strchr(s, '@')) != NULL) {
@@ -250,6 +275,7 @@ split_host(char *s, Boolean *ansi, Boolean *std_ds, Boolean *passthru,
 				xluname[nc] = '\0';
 			}
 			s = at + 1;
+			*needed = True;
 			continue;
 		}
 
@@ -259,7 +285,46 @@ split_host(char *s, Boolean *ansi, Boolean *std_ds, Boolean *passthru,
 		char *r;
 		char *sep;
 
+		/*
+		 * If the hostname is in square brackets, we had better be
+		 * pointing at it now.
+		 */
+		if (lbracket != CN) {
+			if (s != lbracket)
+				return CN;
+			else
+				s++;
+		}
+
+		/* Allocate a new copy of the hostname. */
 		r = NewString(s);
+
+		/*
+		 * If the hostname is in square brackets, terminate the
+		 * hostname at the ']' and search the suffix after.
+		 */
+		if (lbracket != CN) {
+			sep = strchr(r, ']');
+			*sep++ = '\0';
+			switch (*sep) {
+			case '\0':
+				return r;
+			case ' ':
+			case ':':
+				break;
+			default:
+				Free(r);
+				return CN;
+			}
+			sep++;
+			while (*sep == ' ') {
+				sep++;
+			}
+			*port = sep;
+			return r;
+		}
+
+		/* Search for a delimter. */
 		sep = strrchr(r, ':');
 		if (sep == NULL)
 			sep = strrchr(r, ' ');
@@ -271,6 +336,7 @@ split_host(char *s, Boolean *ansi, Boolean *std_ds, Boolean *passthru,
 			*sep++ = '\0';
 			while (*sep == ' ')
 				sep++;
+			*needed = True;
 		}
 		if (port != (char **) NULL)
 			*port = sep;
@@ -319,10 +385,12 @@ host_connect(const char *n)
 	while (*s == ' ')
 		*s-- = '\0';
 
+#if defined(X3270_DISPLAY) /*[*/
 	/* Remember this hostname, as the last hostname we connected to. */
 	if (reconnect_host != CN)
 		Free(reconnect_host);
 	reconnect_host = NewString(nb);
+#endif /*]*/
 
 	/* Remember this hostname in the recent connection list and file. */
 	save_recent(nb);
@@ -334,13 +402,16 @@ host_connect(const char *n)
 	} else
 #endif /*]*/
 	{
+		Boolean needed;
+
 		/* Strip off and remember leading qualifiers. */
 		if ((s = split_host(nb, &ansi_host, &std_ds_host,
-		    &passthru_host, &non_tn3270e_host, luname, &port)) == CN)
+		    &passthru_host, &non_tn3270e_host, luname, &port,
+		    &needed)) == CN)
 			return -1;
 
 		/* Look up the name in the hosts file. */
-		if (hostfile_lookup(s, &target_name, &ps)) {
+		if (!needed && hostfile_lookup(s, &target_name, &ps)) {
 			/*
 			 * Rescan for qualifiers.
 			 * Qualifiers, LU names, and ports are all overridden
@@ -349,7 +420,7 @@ host_connect(const char *n)
 			Free(s);
 			if (!(s = split_host(target_name, &ansi_host,
 			    &std_ds_host, &passthru_host, &non_tn3270e_host,
-			    luname, &port)))
+			    luname, &port, &needed)))
 				return -1;
 		}
 		chost = s;
@@ -429,19 +500,9 @@ host_connect(const char *n)
 
 #if defined(X3270_DISPLAY) /*[*/
 /*
- * Called from timer to attempt an automatic reconnection.
- */
-static void
-try_reconnect(void)
-{
-	auto_reconnect_inprogress = False;
-	host_reconnect();
-}
-
-/*
  * Reconnect to the last host.
  */
-void
+static void
 host_reconnect(void)
 {
 	if (auto_reconnect_inprogress || current_host == CN ||
@@ -449,6 +510,16 @@ host_reconnect(void)
 		return;
 	if (host_connect(reconnect_host) >= 0)
 		auto_reconnect_inprogress = False;
+}
+
+/*
+ * Called from timer to attempt an automatic reconnection.
+ */
+static void
+try_reconnect(void)
+{
+	auto_reconnect_inprogress = False;
+	host_reconnect();
 }
 #endif /*]*/
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 1993, 1994, 1995, 1999, 2000 by Paul Mattes.
+ * Copyright 1993, 1994, 1995, 1999, 2000, 2001 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -32,6 +32,8 @@
 #include "resources.h"
 #include "ctlr.h"
 
+#include "charsetc.h"
+#include "childc.h"
 #include "ctlrc.h"
 #include "menubarc.h"
 #include "popupsc.h"
@@ -51,7 +53,7 @@ FILE           *tracef = (FILE *) 0;
 struct timeval  ds_ts;
 Boolean         trace_skipping = False;
 
-const char *
+static const char *
 unknown(unsigned char value)
 {
 	static char buf[64];
@@ -256,6 +258,9 @@ see_highlight(unsigned char setting)
 	}
 }
 
+#if !defined(X3270_DISPLAY) /*[*/
+static
+#endif /*]*/
 const char *
 see_color(unsigned char setting)
 {
@@ -473,7 +478,7 @@ trace_ds_s(char *s)
 	int len = strlen(s);
 	Boolean nl = False;
 
-	if (!toggled(DS_TRACE))
+	if (!toggled(DS_TRACE) || !len)
 		return;
 
 	if (s && s[len-1] == '\n') {
@@ -593,7 +598,7 @@ tracefile_callback(Widget w, XtPointer client_data, XtPointer call_data unused)
 	tracecmd = get_resource(ResTraceCommand);
 	if (tracecmd == CN || !strcmp(tracecmd, "none") || tracef == stdout)
 		goto done;
-	switch (tracewindow_pid = fork()) {
+	switch (tracewindow_pid = fork_child()) {
 	    case 0:	/* child process */
 		if (piped) {
 			char cmd[64];
@@ -635,8 +640,7 @@ tracefile_callback(Widget w, XtPointer client_data, XtPointer call_data unused)
 	if (!appres.mono)
 		(void) fprintf(tracef, ", %scolor",
 		    appres.m3279 ? "full " : "pseudo-");
-	if (appres.charset)
-		(void) fprintf(tracef, ", %s charset", appres.charset);
+	(void) fprintf(tracef, ", %s charset", get_charset_name());
 	if (appres.apl_mode)
 		(void) fprintf(tracef, ", APL mode");
 	(void) fprintf(tracef, "\n");

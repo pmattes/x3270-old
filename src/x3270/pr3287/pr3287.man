@@ -1,5 +1,5 @@
 '\" t
-.TH PR3287 1 "26 December 2000"
+.TH PR3287 1 "10 June 2001"
 .SH "NAME"
 pr3287 \-
 \s-1IBM\s+1
@@ -7,7 +7,7 @@ host printing tool
 .SH "SYNOPSIS"
 \fBpr3287\fP
 [ \fIoptions\fP ]       
-[[ \fIprefix\fP :]...[ \fILUname\fP [, \fILUname\fP ...]@] \fIhostname\fP [: \fIport\fP ]] 
+[[ \fILUname\fP [, \fILUname\fP ...]@] \fIhostname\fP [: \fIport\fP ]] 
 .SH "DESCRIPTION"
 \fBpr3287\fP
 opens a telnet connection to an
@@ -38,6 +38,44 @@ understands the following options:
 Causes the session to be associated with the specified
 \fILUname\fP.
 .TP
+\fB\-blanklines\fP
+In LU3 formatted mode, print blank lines even if they are all NULLs or control
+characters.
+(This is a violation of the 3270 printer protocol, but some hosts require it.)
+.TP
+\fB\-charset\fP \fIname\fP
+Specifies an alternate \s-1EBCDIC\s+1-to-\s-1ASCII\s+1 mapping.
+The default maps the EBCDIC U.S. English character set to \s-1ISO\s+1 8859-1.
+Other built-in character sets are \fBbracket\fP, which corresponds to
+many older \s-1IBM\s+1 hosts' mapping of the \fB[\fP and \fB]\fP characters,
+and the non-U.S. character sets \fBgerman\fP, \fBfinnish\fP, \fBuk\fP,
+\fBnorwegian\fP, \fBfrench\fP, \fBicelandic\fP and \fBbelgian\fP.
+These correspond to the \fBx3270\fP character sets of the same names.
+.IP
+If \fIname\fP begins with an \fB@\fP, then the balance is intepreted as
+the name of a file containing character mappings.
+The file contains whitespace-separated tokens.
+Each token is a number specifying an EBCDIC code, an \fB=\fP character,
+and a number specifying the 8-bit ASCII character used to print that code.
+Blank lines and lines beginning with \fB#\fP are ignored.
+.IP
+If \fIname\fP begins with an \fB=\fP, then the balance is intepreted as
+a string containing mapping tokens, as in a file.
+.IP
+For example, a file defining the \fBuk\fP character set would look like
+this:
+.IP
+.RS
+.br
+# UK character set
+.br
+0x4a=0x24 0x5b=0xa3 0xa1=0xaf
+.br
+0xb0=0xa2 0xb1=0x5b 0xba=0x5e
+.br
+0xbc=0x7e
+.RE
+.TP
 \fB\-command\fP \fIcommand\fP
 Specifies the command to run for each print job.
 The default is
@@ -46,7 +84,13 @@ The default is
 \fB\-daemon\fP
 Causes
 \fIpr3287\fP
-to become a daemon process, once the connection to the host is established.
+to become a daemon (background) process.
+.TP
+\fB\-reconnect\fP
+Causes \fIpr3287\fP to reconnect to the host, whenever the connection is
+broken.
+There is a 5-second delay between reconnect attempts, to reduce network
+thrashing for down or misconfigured hosts.
 .TP
 \fB\-trace\fP
 Turns on data stream tracing.
@@ -66,7 +110,7 @@ RFC 1646, TN3270 Extensions for LUname and Printer Selection
 RFC 2355, TN3270 Enhancements
 .SH "COPYRIGHTS"
 .LP
-Modifications Copyright 1993, 1994, 1995, 1996, 1997, 1999, 2000 by Paul Mattes.
+Modifications Copyright 1993, 1994, 1995, 1996, 1997, 1999, 2000, 2001 ,by Paul Mattes.
 .br
 Original X11 Port Copyright 1990 by Jeff Sparkes.
 .RS

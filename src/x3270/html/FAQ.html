@@ -9,7 +9,7 @@
 If you have a problem building, installing, or running <b>x3270</b>, please browse
 through this file first.
 
-<H2>GENERAL QUESTIONS</H2>
+<H2>General Questions</H2>
 
 <H3>Am I allowed to use it?</H3>
 
@@ -29,51 +29,16 @@ through this file first.
 
     Look at the <A HREF="Brackets.html">Brackets</A> document.
 
-<H2>FATAL ERRORS FROM 'make'</H2>
+<H2>Fatal Errors From 'make'</H2>
 
 <H3>Make reports: Fatal error: Don't know how to make target `FontObj(3270)'.</H3>
 
     This generally means that you are running X11R4, rather than X11R5 or
     X11R6.  <b>x3270</b> 3.2 does not run under X11R4.
 
-<H2>FATAL COMPILE ERRORS</H2>
+<h2>Other Problems</h2>
 
-<H3>Undefined symbols on System V, Release 4</H3>
-<PRE>
-    _connect
-    _gethostbyname
-    _getservbyname
-    _setsockopt
-    _shutdown
-    _socket
-</PRE>
-
-    Network calls are in a separate library on SVR4 systems.  You need to
-    umcomment the line in the Imakefile that begins "#EXTRA_LIBRARIES",
-    then try again with xmkmf.
-
-<H2>COMPILER WARNINGS</H2>
-
-<H3>My C compiler says you're calling an X function wrong.</H3>
-
-    For example, on SGI Irix 4.0.1 with X11R4:
-<PRE>
-    ccom: Warning: x3270.c, line nnn: Argument 5 Type Doesn't Match
-     prototype description; prototype: pointer to unsigned int is different
-     from actual: pointer to int
-		0);
-	  -------^
-</PRE>
-
-    The prototype arguments for XtVaAppInitialize in <X11/Intrinsic.h> changed
-    between X11R4 and X11R5.  <b>x3270</b> uses the newer version, but will work just
-    fine with R4.  You can ignore the warning.  Other compiler warnings are
-    indeed of interest and should be reported.
-
-<H2>WARNINGS FROM x3270</H2>
-
-<H3>x3270 reports: "Warning: emulatorFont '3270' doesn't exist, using default
-		font"</H3>
+<H3>x3270 Isn't Using the 3270 Font</H3>
 
     One of the trickier areas; <b>x3270</b> uses its own fonts to replicate a
     life-like IBM 3270.  This is not fatal, however; <b>x3270</b> can use any fixed-
@@ -91,18 +56,13 @@ through this file first.
     Font Path:
       /usr/lib/X11/fonts/misc/,/usr/lib/X11/fonts/Speedo/,/usr/lib/X11/fonts/75dpi/,/usr/lib/X11/fonts/100dpi/
 </PRE>
-    <b>x3270</b>'s fonts are usually installed in /usr/lib/X11/fonts/misc.  If this
+    <b>x3270</b>'s fonts are usually installed in /usr/local/fonts.  If this
     (or some variation on it) does not appear in the "xset q" output, you can
     try:
 <PRE>
-    xset fp+ /usr/lib/X11/fonts/misc/
+    xset fp+ /usr/local/fonts/
     xset fp rehash
 </PRE>
-    (Note that on Sun OpenWindows prior to version 3.3, the only directory in
-    your font path is usually /usr/openwin/lib/fonts, and there is no "misc"
-    directory to add to your path.)
-
-<H2>SUBTLE PROBLEMS</H2>
 
 <H3>x3270 isn't paying any attention to my keymap definition.</H3>
 
@@ -244,7 +204,13 @@ through this file first.
     make
 </PRE>
 
-<H2>GETTING HELP</H2>
+<h3>The PF12 Key Doesn't Work on KDE</h3>
+KDE reserves the F12 key for "Mouse Emulation", so <b>x3270</b> cannot use
+this key.
+To allow <b>x3270</b> to use F12, pull up the KDE Control Center, look under
+"Look & Feel", and under that, "Key Bindings".  Remove the binding for F12.
+
+<H2>Getting Help</H2>
 
     If you are still having a problem with <b>x3270</b>, feel free to send e-mail to
     Paul Mattes, <A HREF="mailto:Paul.Mattes@usa.net"><B>Paul.Mattes@usa.net</B></A>

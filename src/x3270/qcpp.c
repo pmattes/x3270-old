@@ -1,7 +1,5 @@
 /*
- * Quick C preprocessor substitute, for converting X3270.ad to X3270.ad.
- *
- * Copyright 1997, 1999, 2000 by Paul Mattes.
+ * Copyright 1997, 1999, 2000, 2001 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -10,6 +8,8 @@
  */
 
 /*
+ * Quick C preprocessor substitute, for converting X3270.ad to X3270.ad.
+ *
  * Understands #if[n]def COLOR, and does the right thing.  All other #ifdefs
  * are assumed to be true.
  */

@@ -1,5 +1,5 @@
 /*
- * Copyright 2000 by Paul Mattes.
+ * Copyright 2000, 2001 by Paul Mattes.
  *   Permission to use, copy, modify, and distribute this software and its
  *   documentation for any purpose and without fee is hereby granted,
  *   provided that the above copyright notice appear in all copies and that
@@ -45,10 +45,8 @@ extern int cCOLS;
 #include <curses.h>
 #endif /*]*/
 
-static SCREEN *screen;
-static Boolean fully_initted = False;
-int cp[8][8];
-int cmap[16] = {
+static int cp[8][8];
+static int cmap[16] = {
 	COLOR_BLACK,	/* neutral black */
 	COLOR_BLUE,	/* blue */
 	COLOR_RED,	/* red */
@@ -68,9 +66,9 @@ int cmap[16] = {
 	COLOR_WHITE	/* white */
 };
 static int defattr = A_NORMAL;
+static unsigned long input_id;
 
 Boolean escaped = True;
-unsigned long input_id;
 
 static void kybd_input(void);
 static void draw_oia(void);
@@ -89,8 +87,7 @@ screen_init(void)
 	Boolean oversize = False;
 
 	/* Set up ncurses, and see if it's within bounds. */
-	screen = newterm(CN, stdout, stdin);
-	if (screen == (SCREEN *)NULL) {
+	if (initscr() == NULL) {
 		(void) fprintf(stderr, "Can't initialize terminal.\n");
 		exit(1);
 	}
@@ -170,7 +167,6 @@ screen_init2(void)
 	 * Finish initializing ncurses.  This should be the first time that it
 	 * will send anything to the terminal.
 	 */
-	(void) set_term(screen);
 	escaped = False;
 
 	/* Set up the keyboard. */
@@ -216,9 +212,9 @@ color_from_fa(unsigned char fa)
 
 		fg = field_colors[(fa >> 1) & 0x03];
 		return get_color_pair(fg, COLOR_BLACK) |
-		    (FA_IS_HIGH(fa)? A_BOLD: A_NORMAL);
+		    ((appres.all_bold || FA_IS_HIGH(fa))? A_BOLD: A_NORMAL);
 	} else
-		return FA_IS_HIGH(fa)? A_BOLD: A_NORMAL;
+		return (appres.all_bold || FA_IS_HIGH(fa))? A_BOLD: A_NORMAL;
 }
 
 /* Display what's in the buffer. */
@@ -352,88 +348,113 @@ kybd_input(void)
 	}
 	ia_cause = IA_DEFAULT;
 
+	/* These first cases apply to both 3270 and NVT modes. */
 	switch (k) {
 	case 0x1d:
 		action_internal(Escape_action, IA_DEFAULT, CN, CN);
+		return;
+	case KEY_UP:
+		action_internal(Up_action, IA_DEFAULT, CN, CN);
+		return;
+	case KEY_DOWN:
+		action_internal(Down_action, IA_DEFAULT, CN, CN);
+		return;
+	case KEY_LEFT:
+		action_internal(Left_action, IA_DEFAULT, CN, CN);
+		return;
+	case KEY_RIGHT:
+		action_internal(Right_action, IA_DEFAULT, CN, CN);
+		return;
+	case KEY_HOME:
+		action_internal(Home_action, IA_DEFAULT, CN, CN);
+		return;
+	default:
 		break;
+	}
+
+	/* Then look for 3270-only cases. */
+	if (IN_3270) switch(k) {
+	/* These cases apply only to 3270 mode. */
 	case 0x03:
 	case 0x80 + 'c':
 		action_internal(Clear_action, IA_DEFAULT, CN, CN);
-		break;
+		return;
 	case 0x12:
 	case 0x80 + 'r':
 		action_internal(Reset_action, IA_DEFAULT, CN, CN);
-		break;
+		return;
 	case 'L' & 0x1f:
 		action_internal(Redraw_action, IA_DEFAULT, CN, CN);
-		break;
+		return;
 	case 0x80 + 'm':
 		action_internal(Compose_action, IA_DEFAULT, CN, CN);
-		break;
+		return;
 	case '\t':
 		action_internal(Tab_action, IA_DEFAULT, CN, CN);
-		break;
+		return;
 	case 0177:
 	case KEY_DC:
 		action_internal(Delete_action, IA_DEFAULT, CN, CN);
-		break;
+		return;
 	case '\b':
 	case KEY_BACKSPACE:
 		action_internal(BackSpace_action, IA_DEFAULT, CN, CN);
-		break;
+		return;
 	case '\r':
 		action_internal(Enter_action, IA_DEFAULT, CN, CN);
-		break;
+		return;
 	case '\n':
 		action_internal(Newline_action, IA_DEFAULT, CN, CN);
-		break;
-	case KEY_UP:
-		action_internal(Up_action, IA_DEFAULT, CN, CN);
-		break;
-	case KEY_DOWN:
-		action_internal(Down_action, IA_DEFAULT, CN, CN);
-		break;
-	case KEY_LEFT:
-		action_internal(Left_action, IA_DEFAULT, CN, CN);
-		break;
-	case KEY_RIGHT:
-		action_internal(Right_action, IA_DEFAULT, CN, CN);
-		break;
+		return;
 	case KEY_HOME:
 		action_internal(Home_action, IA_DEFAULT, CN, CN);
-		break;
+		return;
 	case 0x80 + '1':
 	case 0x80 + '2':
 	case 0x80 + '3':
 		(void) sprintf(buf, "%d", (k & 0x7f) - '1' + 1);
 		action_internal(PA_action, IA_DEFAULT, buf, CN);
-		break;
+		return;
 	default:
-		if (k >= KEY_F(1) && k <= KEY_F(24)) {
-			(void) sprintf(buf, "%d", k - KEY_F0);
-			action_internal(PF_action, IA_DEFAULT, buf, CN);
-			break;
-		}
-		if (k >= '\001' && k <= '~') {
-			char ks[6];
-			String params[2];
-			Cardinal one;
-
-			if (k >= ' ') {
-				ks[0] = k;
-				ks[1] = '\0';
-			} else {
-				(void) sprintf(ks, "0x%x", k);
-			}
-			params[0] = ks;
-			params[1] = CN;
-			one = 1;
-			Key_action(NULL, NULL, params, &one);
-			break;
-		}
-		trace_event(" dropped (no default)\n");
 		break;
 	}
+
+	/* Do some NVT-only translations. */
+	if (IN_ANSI) switch(k) {
+	case KEY_DC:
+		k = 0x7f;
+		break;
+	case KEY_BACKSPACE:
+		k = '\b';
+		break;
+	}
+
+	/* Catch PF keys. */
+	if (k >= KEY_F(1) && k <= KEY_F(24)) {
+		(void) sprintf(buf, "%d", k - KEY_F0);
+		action_internal(PF_action, IA_DEFAULT, buf, CN);
+		return;
+	}
+
+	/* Then any other 8-bit ASCII character. */
+	if (!(k & ~0xff)) {
+		char ks[6];
+		String params[2];
+		Cardinal one;
+
+		if (k >= ' ') {
+			ks[0] = k;
+			ks[1] = '\0';
+		} else {
+			(void) sprintf(ks, "0x%x", k);
+		}
+		params[0] = ks;
+		params[1] = CN;
+		one = 1;
+		Key_action(NULL, NULL, params, &one);
+		return;
+	}
+	trace_event(" dropped (no default)\n");
 }
 
 void
@@ -455,15 +476,6 @@ screen_suspend(void)
 void
 screen_resume(void)
 {
-	/*
-	 * If this is the first time the screen has been resumed,
-	 * complete the ncurses initialization.
-	 */
-	if (!fully_initted) {
-		screen_init2();
-		fully_initted = True;
-	}
-
 	escaped = False;
 	screen_disp(); /* in case something changed while we were escaped */
 	refresh();

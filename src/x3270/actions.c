@@ -1,5 +1,5 @@
 /*
- * Modifications Copyright 1993, 1994, 1995, 1999, 2000 by Paul Mattes.
+ * Modifications Copyright 1993, 1994, 1995, 1999, 2000, 2001 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -44,34 +44,38 @@
 #include "screenc.h"
 #endif /*]*/
 
-#if defined(X3270_TRACE) && defined(X3270_DISPLAY) /*[*/
+#if defined(X3270_DISPLAY) /*[*/
 #include <X11/keysym.h>
 
 #define MODMAP_SIZE	8
 #define MAP_SIZE	13
 #define MAX_MODS_PER	4
 static struct {
-        char *name[MAX_MODS_PER];
+        const char *name[MAX_MODS_PER];
         unsigned int mask;
+	Boolean is_meta;
 } skeymask[MAP_SIZE] = { 
-	{ { "Shift" }, ShiftMask },
-	{ { (char *)NULL } /* Lock */, LockMask, },
-	{ { "Ctrl" }, ControlMask },
-	{ { (char *)NULL }, Mod1Mask },
-	{ { (char *)NULL }, Mod2Mask },
-	{ { (char *)NULL }, Mod3Mask },
-	{ { (char *)NULL }, Mod4Mask },
-	{ { (char *)NULL }, Mod5Mask },
-	{ { "Button1" }, Button1Mask },
-	{ { "Button2" }, Button2Mask },
-	{ { "Button3" }, Button3Mask },
-	{ { "Button4" }, Button4Mask },
-	{ { "Button5" }, Button5Mask }
+	{ { "Shift" }, ShiftMask, False },
+	{ { (char *)NULL } /* Lock */, LockMask, False },
+	{ { "Ctrl" }, ControlMask, False },
+	{ { (char *)NULL }, Mod1Mask, False },
+	{ { (char *)NULL }, Mod2Mask, False },
+	{ { (char *)NULL }, Mod3Mask, False },
+	{ { (char *)NULL }, Mod4Mask, False },
+	{ { (char *)NULL }, Mod5Mask, False },
+	{ { "Button1" }, Button1Mask, False },
+	{ { "Button2" }, Button2Mask, False },
+	{ { "Button3" }, Button3Mask, False },
+	{ { "Button4" }, Button4Mask, False },
+	{ { "Button5" }, Button5Mask, False }
 };
 static Boolean know_mods = False;
 #endif /*]*/
 
 XtActionsRec actions[] = {
+#if defined(C3270) /*[*/
+	{ "Abort",		Abort_action },
+#endif /*]*/
 #if defined(X3270_DISPLAY) /*[*/
 	{ "AltCursor",  	AltCursor_action },
 #endif /*]*/
@@ -109,10 +113,10 @@ XtActionsRec actions[] = {
 	{ PA_PFX "VisibilityNotify",PA_VisibilityNotify_action },
 	{ PA_PFX "WMProtocols",	PA_WMProtocols_action },
 	{ PA_PFX "confirm",	PA_confirm_action },
-	{ "PrintText",		PrintText_action },
 	{ "PrintWindow",	PrintWindow_action },
 #endif /*]*/
 #if defined(X3270_DISPLAY) || defined(C3270) /*[*/
+	{ "PrintText",		PrintText_action },
 	{ "Flip",		Flip_action },
 	{ "Redraw",		Redraw_action },
 #endif /*]*/
@@ -230,7 +234,7 @@ XtActionsRec actions[] = {
 	{ "Tab",		Tab_action },
 	{ "ToggleInsert",	ToggleInsert_action },
 	{ "ToggleReverse",	ToggleReverse_action },
-#if defined(C3270) /*[*/
+#if defined(C3270) && defined(X3270_TRACE) /*[*/
 	{ "Trace",		Trace_action },
 #endif/*]*/
 #if defined(X3270_FT) /*[*/
@@ -269,7 +273,7 @@ action_name(XtActionProc action)
 	return "(unknown)";
 }
 
-#if defined(X3270_DISPLAY) && defined(X3270_TRACE) /*[*/
+#if defined(X3270_DISPLAY) /*[*/
 /*
  * Search the modifier map to learn the modifier bits for Meta, Alt, Hyper and
  *  Super.
@@ -285,7 +289,8 @@ learn_modifiers(void)
 	for (i = 0; i < MODMAP_SIZE; i++) {
 		for (j = 0; j < mm->max_keypermod; j++) {
 			KeyCode kc;
-			char *name = CN;
+			const char *name = CN;
+			Boolean is_meta = False;
 
 			kc = mm->modifiermap[(i * mm->max_keypermod) + j];
 			if (!kc)
@@ -295,6 +300,7 @@ learn_modifiers(void)
 			    case XK_Meta_L:
 			    case XK_Meta_R:
 				name = "Meta";
+				is_meta = True;
 				break;
 			    case XK_Alt_L:
 			    case XK_Alt_R:
@@ -313,6 +319,8 @@ learn_modifiers(void)
 			}
 			if (name == CN)
 				continue;
+			if (is_meta)
+				skeymask[i].is_meta = True;
 
 			for (k = 0; k < MAX_MODS_PER; k++) {
 				if (skeymask[i].name[k] == CN)
@@ -327,6 +335,7 @@ learn_modifiers(void)
 	}
 }
 
+#if defined(X3270_TRACE) /*[*/
 /*
  * Return the symbolic name for the modifier combination (i.e., "Meta" instead
  * of "Mod2".  Note that because it is possible to map multiple keysyms to the
@@ -396,6 +405,28 @@ key_symbolic_state(unsigned int state, int *iteration)
 		*iteration = 0;
 
 	return rs;
+}
+#endif /*]*/
+
+/* Return whether or not an KeyPress event state includes the Meta key. */
+Boolean
+event_is_meta(int state)
+{
+	int i;
+
+	/* Learn the modifier map. */
+	if (!know_mods) {
+		learn_modifiers();
+		know_mods = True;
+	}
+	for (i = 0; i < MAP_SIZE; i++) {
+		if (skeymask[i].name[0] != CN &&
+		    skeymask[i].is_meta &&
+		    (state & skeymask[i].mask)) {
+			return True;
+		}
+	}
+	return False;
 }
 
 #if defined(VERBOSE_EVENTS) /*[*/

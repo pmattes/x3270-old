@@ -1,27 +1,30 @@
 /*
- * Copyright 1995, 1999, 2000 by Paul Mattes.
+ * Copyright 1995, 1999, 2000, 2001 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
  *  both that copyright notice and this permission notice appear in
  *  supporting documentation.
+ *
+ *  Imake template for x3270.
+ *  @configure_input@
  */
 
        PROGRAMS = x3270 x3270if
 LOCAL_LIBRARIES = $(XAWLIB) $(XMULIB) $(XTOOLLIB) $(XLIB)
           SRCS1 = Cme.c CmeBSB.c CmeLine.c CmplxMenu.c Husk.c about.c \
-		  actions.c ansi.c apl.c charset.c ctlr.c ft.c ft_cut.c \
-		  ft_dft.c host.c keymap.c keypad.c kybd.c macros.c main.c \
-		  menubar.c popups.c printer.c print.c resources.c save.c \
-		  screen.c scroll.c select.c sf.c status.c tables.c toggles.c \
-		  telnet.c trace_ds.c util.c xio.c
+		  actions.c ansi.c apl.c charset.c child.c ctlr.c ft.c \
+		  ft_cut.c ft_dft.c host.c keymap.c keypad.c kybd.c macros.c \
+		  main.c menubar.c popups.c printer.c print.c resources.c \
+		  save.c screen.c scroll.c select.c sf.c status.c tables.c \
+		  toggles.c telnet.c trace_ds.c util.c xio.c
           SRCS2 = x3270if.c
           VOBJS = Cme.o CmeBSB.o CmeLine.o CmplxMenu.o Husk.o about.o \
-		  actions.o ansi.o apl.o charset.o ctlr.o fallbacks.o ft.o \
-		  ft_cut.o ft_dft.o host.o keymap.o keypad.o kybd.o macros.o \
-		  main.o menubar.o popups.o printer.o print.o resources.o \
-		  save.o screen.o scroll.o select.o sf.o status.o tables.o \
-		  telnet.o toggles.o trace_ds.o util.o xio.o
+		  actions.o ansi.o apl.o charset.o child.o ctlr.o fallbacks.o \
+		  ft.o ft_cut.o ft_dft.o host.o keymap.o keypad.o kybd.o \
+		  macros.o main.o menubar.o popups.o printer.o print.o \
+		  resources.o save.o screen.o scroll.o select.o sf.o status.o \
+		  tables.o telnet.o toggles.o trace_ds.o util.o xio.o
           OBJS1 = $(VOBJS) version.o
           OBJS2 = x3270if.o
           FONTS = FontObj(3270)     FontObj(3270b) \
@@ -38,10 +41,18 @@ LOCAL_LIBRARIES = $(XAWLIB) $(XMULIB) $(XTOOLLIB) $(XLIB)
 
     FONTINSTDIR = @IFONTDIR@
 
-    LIBX3270DIR = $(LIBDIR)/x3270
+         prefix = @prefix@
+    exec_prefix = @exec_prefix@
+     sysconfdir = @sysconfdir@
+    LIBX3270DIR = @LIBX3270DIR@
       HOSTSFILE = ibm_hosts
+       CHARSETS = charset/brazilian charset/greek charset/russian charset/thai
 
-        DEFINES = -DLIBX3270DIR=\"$(LIBX3270DIR)\"
+#if @USE_PREFIX_NOT_X_VARS@
+XCOMM Override X11's install directories with autoconf's
+         BINDIR = @bindir@
+         MANDIR = @mandir@
+#endif
 
 #ifdef HPArchitecture
 HP_DEFINE = -D_HPUX_SOURCE
@@ -51,13 +62,13 @@ EXTRA_LIBRARIES = @LIBS@
 CC = @CC@
 INSTALL = @INSTALL@
 
-AllTarget($(FONTS) x3270 x3270if)
+AllTarget($(FONTS) ProgramTargetName(x3270) ProgramTargetName(x3270if))
 
 ComplexProgramTarget_1(x3270,,$(LOCAL_LIBRARIES))
 ComplexProgramTarget_2(x3270if,,)
 
 InstallManPage(x3270-script,$(MANDIR))
-InstallManPage(ibm_hosts,$(MANDIR))
+InstallGenManPage(ibm_hosts,$(FILEMANDIR),$(FILEMANSUFFIX))
 
 FontTarget(3270)
 FontTarget(3270b)
@@ -79,6 +90,7 @@ FontTarget(3270gt32)
 FontTarget(3270gt32b)
 InstallMultipleFlags($(FONTS),$(FONTINSTDIR),$(INSTDATFLAGS))
 MakeDirectories(install,$(LIBX3270DIR))
+MakeDirectories(install,$(LIBX3270DIR)/charset)
 
 version.o: $(VOBJS) version.txt mkversion.sh
 	@chmod +x mkversion.sh version.txt
@@ -88,7 +100,7 @@ fallbacks.c: mkfb X3270.xad
 	$(RM) $@
 	./mkfb X3270.xad $@
 
-mkfb: mkfb.c parts.h
+mkfb: mkfb.c
 	$(CC) $(CDEBUGFLAGS) -o mkfb mkfb.c
 
 @DEFINE_UAD@
@@ -97,7 +109,7 @@ AD_DEFINE = -DUSE_APP_DEFAULTS
 InstallAppDefaults(X3270)
 all:: X3270.ad
 #endif
-EXTRA_DEFINES = $(HP_DEFINE) $(AD_DEFINE) @XANSI@
+EXTRA_DEFINES = $(HP_DEFINE) $(AD_DEFINE) @XANSI@ -DLIBX3270DIR=\"$(LIBX3270DIR)\"
 
 @DEFINE_PR3287@
 #ifdef PR3287
@@ -125,7 +137,11 @@ $(DESTDIR)$(FONTINSTDIR)/fonts.dir::
    no ibm_hosts file installed yet). */
 install:: $(HOSTSFILE)
 	@[ -r $(DESTDIR)$(LIBX3270DIR)/$(HOSTSFILE) ] || \
-	$(INSTALL) -c $(INSTDATFLAGS) $(HOSTSFILE) $(DESTDIR)$(LIBX3270DIR)/$(HOSTSFILE)
+		$(INSTALL) -c $(INSTDATFLAGS) $(HOSTSFILE) $(DESTDIR)$(LIBX3270DIR)/$(HOSTSFILE)
+
+/* Install rule for the file-based character sets. */
+install::
+	$(INSTALL) -c $(INSTDATFLAGS) $(CHARSETS) $(DESTDIR)$(LIBX3270DIR)/charset/
 
 #ifdef PR3287
 /* Rules for installing pr3287. */

@@ -1,5 +1,5 @@
 /*
- * Modifications Copyright 1993, 1994, 1995, 1999, 2000 by Paul Mattes.
+ * Modifications Copyright 1993, 1994, 1995, 1999, 2000, 2001 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -25,11 +25,7 @@
 #include <netinet/in.h>
 #define TELCMDS 1
 #define TELOPTS 1
-#if !defined(LOCAL_TELNET_H) /*[*/
-#include <arpa/telnet.h>
-#else /*][*/
-#include "telnet.h"
-#endif /*]*/
+#include "arpa_telnet.h"
 #include <arpa/inet.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -68,7 +64,6 @@ int             ns_rrcvd;
 int             ns_bsent;
 int             ns_rsent;
 unsigned char  *obuf;		/* 3270 output buffer */
-int             obuf_size = 0;
 unsigned char  *obptr = (unsigned char *) NULL;
 int             linemode = 1;
 #if defined(LOCAL_PROCESS) /*[*/
@@ -88,6 +83,7 @@ static unsigned char *ibuf = (unsigned char *) NULL;
 static unsigned char *ibptr;
 static int      ibuf_size = 0;	/* size of ibuf */
 static unsigned char *obuf_base = (unsigned char *)NULL;
+static int	obuf_size = 0;
 static unsigned char *netrbuf = (unsigned char *)NULL;
 			/* network input buffer */
 static unsigned char *sbbuf = (unsigned char *)NULL;
@@ -141,7 +137,9 @@ static int tn3270e_negotiate(void);
 #endif /*]*/
 static int process_eor(void);
 #if defined(X3270_TN3270E) /*[*/
+#if defined(X3270_TRACE) /*[*/
 static const char *tn3270e_function_names(const unsigned char *, int);
+#endif /*]*/
 static void tn3270e_subneg_send(unsigned char, unsigned long);
 static unsigned long tn3270e_fdecode(const unsigned char *, int);
 static void tn3270e_ack(void);
@@ -170,8 +168,12 @@ static const char *cmd(unsigned char c);
 static const char *opt(unsigned char c);
 static const char *nnn(int c);
 #else /*][*/
-#define trace_str 0 &&
+#define trace_str(s)
+#if defined(__GNUC__) /*[*/
+#define vtrace_str(fmt, args...)
+#else /*][*/
 #define vtrace_str 0 &&
+#endif /*]*/
 #define cmd(x) 0
 #define opt(x) 0
 #define nnn(x) 0
@@ -201,33 +203,38 @@ static unsigned char	functions_req[] = {
 	IAC, SB, TELOPT_TN3270E, TN3270E_OP_FUNCTIONS };
 #endif /*]*/
 
-const char *telquals[2] = { "IS", "SEND" };
+#if defined(X3270_TRACE) /*[*/
+static const char *telquals[2] = { "IS", "SEND" };
+#endif /*]*/
 #if defined(X3270_TN3270E) /*[*/
-const char *reason_code[8] = { "CONN-PARTNER", "DEVICE-IN-USE", "INV-ASSOCIATE",
-	"INV-NAME", "INV-DEVICE-TYPE", "TYPE-NAME-ERROR", "UNKNOWN-ERROR",
-	"UNSUPPORTED-REQ" };
+static const char *reason_code[8] = { "CONN-PARTNER", "DEVICE-IN-USE",
+	"INV-ASSOCIATE", "INV-NAME", "INV-DEVICE-TYPE", "TYPE-NAME-ERROR",
+	"UNKNOWN-ERROR", "UNSUPPORTED-REQ" };
 #define rsn(n)	(((n) <= TN3270E_REASON_UNSUPPORTED_REQ) ? \
 			reason_code[(n)] : "??")
-const char *function_name[5] = { "BIND-IMAGE", "DATA-STREAM-CTL", "RESPONSES",
-	"SCS-CTL-CODES", "SYSREQ" };
+static const char *function_name[5] = { "BIND-IMAGE", "DATA-STREAM-CTL",
+	"RESPONSES", "SCS-CTL-CODES", "SYSREQ" };
 #define fnn(n)	(((n) <= TN3270E_FUNC_SYSREQ) ? \
 			function_name[(n)] : "??")
-const char *data_type[9] = { "3270-DATA", "SCS-DATA", "RESPONSE", "BIND-IMAGE",
-	"UNBIND", "NVT-DATA", "REQUEST", "SSCP-LU-DATA", "PRINT-EOJ" };
+#if defined(X3270_TRACE) /*[*/
+static const char *data_type[9] = { "3270-DATA", "SCS-DATA", "RESPONSE",
+	"BIND-IMAGE", "UNBIND", "NVT-DATA", "REQUEST", "SSCP-LU-DATA",
+	"PRINT-EOJ" };
 #define e_dt(n)	(((n) <= TN3270E_DT_PRINT_EOJ) ? \
 			data_type[(n)] : "??")
-const char *req_flag[1] = { " ERR-COND-CLEARED" };
+static const char *req_flag[1] = { " ERR-COND-CLEARED" };
 #define e_rq(fn, n) (((fn) == TN3270E_DT_REQUEST) ? \
 			(((n) <= TN3270E_RQF_ERR_COND_CLEARED) ? \
 			req_flag[(n)] : " ??") : "")
-const char *hrsp_flag[3] = { "NO-RESPONSE", "ERROR-RESPONSE",
+static const char *hrsp_flag[3] = { "NO-RESPONSE", "ERROR-RESPONSE",
 	"ALWAYS-RESPONSE" };
 #define e_hrsp(n) (((n) <= TN3270E_RSF_ALWAYS_RESPONSE) ? \
 			hrsp_flag[(n)] : "??")
-const char *trsp_flag[2] = { "POSITIVE-RESPONSE", "NEGATIVE-RESPONSE" };
+static const char *trsp_flag[2] = { "POSITIVE-RESPONSE", "NEGATIVE-RESPONSE" };
 #define e_trsp(n) (((n) <= TN3270E_RSF_NEGATIVE_RESPONSE) ? \
 			trsp_flag[(n)] : "??")
 #define e_rsp(fn, n) (((fn) == TN3270E_DT_RESPONSE) ? e_trsp(n) : e_hrsp(n))
+#endif /*]*/
 #endif /*]*/
 
 
@@ -242,12 +249,14 @@ net_connect(const char *host, char *portname, Boolean ls, Boolean *pending)
 {
 	struct servent	*sp;
 	struct hostent	*hp;
+	unsigned long		lport;
 	unsigned short		port;
 	char	        	passthru_haddr[8];
 	int			passthru_len = 0;
 	unsigned short		passthru_port = 0;
 	struct sockaddr_in	haddr;
 	int			on = 1;
+	char			*ptr;
 #if defined(OMTU) /*[*/
 	int			mtu = OMTU;
 #endif /*]*/
@@ -301,19 +310,17 @@ net_connect(const char *host, char *portname, Boolean ls, Boolean *pending)
 	}
 
 	/* get the port number */
-	port = (unsigned short) atoi(portname);
-	if (port)
-		port = htons(port);
-	else {
+	lport = strtoul(portname, &ptr, 0);
+	if (ptr == portname || *ptr != '\0' || lport == 0L || lport & ~0xffff) {
 		if (!(sp = getservbyname(portname, "tcp"))) {
 			popup_an_error("Unknown port number or service: %s",
 			    portname);
 			return -1;
 		}
 		port = sp->s_port;
-	}
+	} else
+		port = htons((unsigned short)lport);
 	current_port = ntohs(port);
-
 
 	/* fill in the socket address of the given host */
 	(void) memset((char *) &haddr, 0, sizeof(haddr));
@@ -727,8 +734,10 @@ next_lu(void)
 static int
 telnet_fsm(unsigned char c)
 {
+#if defined(X3270_ANSI) /*[*/
 	char	*see_chr;
 	int	sl;
+#endif /*]*/
 
 	switch (telnet_state) {
 	    case TNS_DATA:	/* normal data processing */
@@ -1254,6 +1263,7 @@ tn3270e_negotiate(void)
 	return 0;
 }
 
+#if defined(X3270_TRACE) /*[*/
 /* Expand a string of TN3270E function codes into text. */
 static const char *
 tn3270e_function_names(const unsigned char *buf, int len)
@@ -1270,6 +1280,7 @@ tn3270e_function_names(const unsigned char *buf, int len)
 	}
 	return text_buf;
 }
+#endif /*]*/
 
 /* Expand the current TN3270E function codes into text. */
 const char *
@@ -1614,6 +1625,8 @@ net_cookout(const char *buf, int len)
 				do_eof(c);
 			else if (c == vlnext)
 				do_lnext(c);
+			else if (c == 0x08 || c == 0x7f) /* Yes, a hack. */
+				do_cerase(c);
 			else
 				do_data(c);
 		}
@@ -1836,6 +1849,7 @@ static void
 check_in3270(void)
 {
 	enum cstate new_cstate = NOT_CONNECTED;
+#if defined(X3270_TRACE) /*[*/
 	static const char *state_name[] = {
 		"unconnected",
 		"pending",
@@ -1847,6 +1861,7 @@ check_in3270(void)
 		"TN3270E SSCP-LU",
 		"TN3270E 3270"
 	};
+#endif /*]*/
 
 #if defined(X3270_TN3270E) /*[*/
 	if (myopts[TELOPT_TN3270E]) {
@@ -2028,13 +2043,6 @@ nnn(int c)
 	return buf;
 }
 
-#if !defined(TELCMD) || !defined(TELCMD_OK) /*[*/
-#undef TELCMD
-#define TELCMD(x)	telcmds[(x) - SE]
-#undef TELCMD_OK
-#define TELCMD_OK(x)	((x) >= SE && (x) <= IAC)
-#endif /*]*/
-
 /*
  * cmd
  *	Expands a TELNET command into a character string.
@@ -2047,13 +2055,6 @@ cmd(unsigned char c)
 	else
 		return nnn((int)c);
 }
-
-#if !defined(TELOPT) || !defined(TELOPT_OK) /*[*/
-#undef TELOPT
-#define TELOPT(x)	telopts[(x)]
-#undef TELOPT_OK
-#define TELOPT_OK(x)	((x) >= TELOPT_BINARY && (x) <= TELOPT_EOR)
-#endif /*]*/
 
 /*
  * opt
@@ -2102,12 +2103,19 @@ trace_netdata(char direction, unsigned const char *buf, int len)
 
 /*
  * net_output
- *	Send 3270 output over the network, prepending TN3270E headers and
- *	tacking on the necessary telnet end-of-record command.
+ *	Send 3270 output over the network:
+ *	- Prepend TN3270E header
+ *	- Expand IAC to IAC IAC
+ *	- Append IAC EOR
  */
 void
 net_output(void)
 {
+	static unsigned char *xobuf = NULL;
+	static int xobuf_len = 0;
+	int need_resize = 0;
+	unsigned char *balance, *nxoptr, *xoptr;
+
 #if defined(X3270_TN3270E) /*[*/
 #define BSTART	((IN_TN3270E || IN_SSCP) ? obuf_base : obuf)
 #else /*][*/
@@ -2132,51 +2140,39 @@ net_output(void)
 		h->response_flag = 0;
 		h->seq_number[0] = (e_xmit_seq >> 8) & 0xff;
 		h->seq_number[1] = e_xmit_seq & 0xff;
-	}
-#endif /*]*/
 
-	/* Count the number of IACs in the message. */
-	{
-		char *buf = (char *)BSTART;
-		int len = obptr - BSTART;
-		char *iac;
-		int cnt = 0;
-
-		while (len && (iac = memchr(buf, IAC, len)) != CN) {
-			cnt++;
-			len -= iac - buf + 1;
-			buf = iac + 1;
-		}
-		if (cnt) {
-			space3270out(cnt);
-			len = obptr - BSTART;
-			buf = (char *)BSTART;
-
-			/* Now quote them. */
-			while (len && (iac = memchr(buf, IAC, len)) != CN) {
-				int ml = len - (iac - buf);
-
-				(void) memmove(iac + 1, iac, ml);
-				len -= iac - buf + 1;
-				buf = iac + 2;
-				obptr++;
-			}
-		}
-	}
-
-	/* Add IAC EOR to the end and send it. */
-	space3270out(2);
-	*obptr++ = IAC;
-	*obptr++ = EOR;
-#if defined(X3270_TN3270E) /*[*/
-	if (IN_TN3270E || IN_SSCP) {
 		vtrace_str("SENT TN3270E(%s NO-RESPONSE %u)\n",
 			IN_TN3270E ? "3270-DATA" : "SSCP-LU-DATA", e_xmit_seq);
 		if (e_funcs & E_OPT(TN3270E_FUNC_RESPONSES))
 			e_xmit_seq = (e_xmit_seq + 1) & 0x7fff;
 	}
 #endif /*]*/
-	net_rawout(BSTART, obptr - BSTART);
+
+	/* Reallocate the expanded output buffer. */
+	while (xobuf_len <  (obptr - BSTART + 1) * 2) {
+		xobuf_len += BUFSZ;
+		need_resize++;
+	}
+	if (need_resize) {
+		if (xobuf != NULL)
+			Free(xobuf);
+		xobuf = (unsigned char *)Malloc(xobuf_len);
+	}
+
+	/* Copy and expand IACs. */
+	xoptr = xobuf;
+	balance = BSTART;
+	while ((nxoptr = memccpy(xoptr, balance, IAC, obptr-balance)) != NULL) {
+		balance += nxoptr - xoptr;
+		xoptr = nxoptr;
+		*xoptr++ = IAC;
+	}
+	xoptr += obptr - balance;
+
+	/* Append the IAC EOR and transmit. */
+	*xoptr++ = IAC;
+	*xoptr++ = EOR;
+	net_rawout(xobuf, xoptr - xobuf);
 
 	trace_str("SENT EOR\n");
 	ns_rsent++;
@@ -2488,7 +2484,7 @@ parse_ctlchar(char *s)
 }
 #endif /*]*/
 
-#if defined(X3270_MENUS) || defined(C3270) /*[*/
+#if (defined(X3270_MENUS) || defined(C3270)) && defined(X3270_ANSI) /*[*/
 /*
  * net_linemode_chars
  *	Report line-mode characters.

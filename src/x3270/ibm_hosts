@@ -27,4 +27,4 @@
 #			it is unmodified; otherwise the text is used as a
 #			parameter to the String() action.
 #
-localhost primary 127.0.0.1
+#localhost primary 127.0.0.1

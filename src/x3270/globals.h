@@ -1,5 +1,5 @@
 /*
- * Modifications Copyright 1993, 1994, 1995, 1996, 1999, 2000 by Paul Mattes.
+ * Modifications Copyright 1993, 1994, 1995, 1996, 1999, 2000, 2001 by Paul Mattes.
  * Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -13,8 +13,8 @@
  *		Common definitions for x3270.
  */
 
-/* Optional parts. */
-#include "parts.h"
+/* Autoconf settings. */
+#include "conf.h"			/* autoconf settings */
 #if defined(X3270_TN3270E) && !defined(X3270_ANSI) /*[*/
 #define X3270_ANSI	1	/* RFC2355 requires NVT mode */
 #endif /*]*/
@@ -25,8 +25,6 @@
  */
 
 /*
- * LOCAL_TELNET_H
- *   #include a local copy of "telnet.h" rather then <arpa/telnet.h>
  * BLOCKING_CONNECT_ONLY
  *   Use only blocking sockets.
  */
@@ -36,10 +34,6 @@
 
 #if defined(apollo) /*[*/
 #define BLOCKING_CONNECT_ONLY	1
-#endif /*]*/
-
-#if defined(hpux) /*[*/
-#define LOCAL_TELNET_H		1
 #endif /*]*/
 
 /*
@@ -66,7 +60,14 @@
 #include <sys/types.h>			/* Basic system data types */
 #include <sys/time.h>			/* System time-related data types */
 #include "localdefs.h"			/* {s,tcl,c}3270-specific defines */
-#include "conf.h"			/* autoconf settings */
+
+/*
+ * Cancel out contradictory parts.
+ */
+#if !defined(X3270_DISPLAY) /*[*/
+#undef X3270_KEYPAD
+#undef X3270_MENUS
+#endif /*]*/
 
 /* Local process (-e) header files. */
 #if defined(X3270_LOCAL_PROCESS) && defined(HAVE_LIBUTIL) /*[*/
@@ -103,11 +104,11 @@ extern char		*efontname;
 extern Boolean		ever_3270;
 extern Boolean		exiting;
 extern Boolean		*extended_3270font;
+extern Boolean		*font_8bit;
 extern Boolean		flipped;
 extern char		*full_current_host;
 extern char		full_model_name[];
 extern char		*hostname;
-extern Boolean		*latin1_font;
 extern char		luname[];
 #if defined(LOCAL_PROCESS) /*[*/
 extern Boolean		local_process;
@@ -133,7 +134,6 @@ extern Widget		toplevel;
 extern Atom		a_delete_me;
 extern Atom		a_save_yourself;
 extern Atom		a_state;
-extern Pixel		colorbg_pixel;
 extern Display		*display;
 extern Pixmap		gray;
 extern Pixel		keypadbg_pixel;
@@ -266,3 +266,9 @@ enum keytype { KT_STD, KT_GE };
 #if defined(MOTOROLA)
 #define gettimeofday(tp,tz)	gettimeofday(tp)
 #endif
+
+/* DFT file transfer buffer sizes. */
+#if defined(X3270_FT) /*[*/
+#define DFT_INBUF	(16*1024)
+#define DFT_OUTBUF	(31*1024)
+#endif /*]*/
