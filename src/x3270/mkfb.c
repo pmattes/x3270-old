@@ -40,8 +40,9 @@ unsigned n_mono = 0;		/* number of mono definitions */
 #define MODE_KEYPAD	0x00000020
 #define MODE_APL	0x00000040
 #define MODE_PRINTER	0x00000080
+#define MODE_STANDALONE	0x00000100
 
-#define MODEMASK	0x0000007f
+#define MODEMASK	0x000001ff
 
 struct {
 	unsigned long ifdefs;
@@ -61,7 +62,8 @@ struct {
 	{ "X3270_ANSI", MODE_ANSI },
 	{ "X3270_KEYPAD", MODE_KEYPAD },
 	{ "X3270_APL", MODE_APL },
-	{ "X3270_PRINTER", MODE_PRINTER }
+	{ "X3270_PRINTER", MODE_PRINTER },
+	{ "STANDALONE", MODE_STANDALONE }
 };
 #define NPARTS	(sizeof(parts)/sizeof(parts[0]))
 
@@ -132,14 +134,19 @@ main(int argc, char *argv[])
 	int continued = 0;
 	const char *filename = "standard input";
 	FILE *t, *o;
-
-	is_undefined = MODE_COLOR | (~is_defined & MODEMASK);
+	int cmode = 0;
 
 	/* Parse arguments. */
 	if ((me = strrchr(argv[0], '/')) != (char *)NULL)
 		me++;
 	else
 		me = argv[0];
+	if (argc > 1 && !strcmp(argv[1], "-c")) {
+	    cmode = 1;
+	    is_defined |= MODE_STANDALONE;
+	    argc--;
+	    argv++;
+	}
 	switch (argc) {
 	    case 1:
 		break;
@@ -157,6 +164,8 @@ main(int argc, char *argv[])
 		usage();
 	}
 
+	is_undefined = MODE_COLOR | (~is_defined & MODEMASK);
+
 	t = tmpfile();
 	if (t == NULL) {
 		perror("tmpfile");
@@ -167,8 +176,7 @@ main(int argc, char *argv[])
 	fprintf(t, "/* This file was created automatically from %s by mkfb. */\n\n",
 	    filename);
 	fprintf(t, "#if !defined(USE_APP_DEFAULTS) /*[*/\n\n");
-	fprintf(t, "#include <stdio.h>\n");
-	fprintf(t, "#include <X11/Intrinsic.h>\n\n");
+	fprintf(t, "#include \"globals.h\"\n\n");
 	fprintf(t, "static unsigned char fsd[] = {\n");
 
 	/* Scan the file, emitting the fsd array and creating the indices. */
@@ -186,6 +194,10 @@ main(int argc, char *argv[])
 		/* Skip leading white space. */
 		while (isspace(*s))
 			s++;
+		if (cmode &&
+		    (!strncmp(s, "x3270.", 6) || !strncmp(s, "x3270*", 6))) {
+			s += 6;
+		}
 
 		/* Remove trailing white space. */
 		while ((sl = strlen(s)) && isspace(s[sl-1]))
@@ -268,7 +280,7 @@ main(int argc, char *argv[])
 
 		/* Figure out if there's anything to emit. */
 
-		/* First, look for contradictons. */
+		/* First, look for contradictions. */
 		ifdefs = 0;
 		ifndefs = 0;
 		for (i = 0; i < ssp; i++) {
@@ -276,7 +288,7 @@ main(int argc, char *argv[])
 			ifndefs |= ss[i].ifndefs;
 		}
 		if (ifdefs & ifndefs) {
-#if 0
+#ifdef DEBUG_IFDEFS
 			fprintf(stderr, "contradiction, line %d\n", lno);
 #endif
 			continue;
@@ -284,13 +296,13 @@ main(int argc, char *argv[])
 
 		/* Then, apply the actual values. */
 		if (ifdefs && (ifdefs & is_defined) != ifdefs) {
-#if 0
+#ifdef DEBUG_IFDEFS
 			fprintf(stderr, "ifdef failed, line %d\n", lno);
 #endif
 			continue;
 		}
 		if (ifndefs && (ifndefs & is_undefined) != ifndefs) {
-#if 0
+#ifdef DEBUG_IFDEFS
 			fprintf(stderr, "ifndef failed, line %d\n", lno);
 #endif
 			continue;
@@ -345,14 +357,30 @@ main(int argc, char *argv[])
 			    case '\t':
 				break;
 			    case '#':
-				emit(t, '\\');
-				emit(t, '#');
-				cc += 2;
+				if (!cmode) {
+					emit(t, '\\');
+					emit(t, '#');
+					cc += 2;
+				} else {
+					emit(t, c);
+					cc++;
+				}
 				break;
 			    case '\\':
 				if (*s == '\0') {
 					continued = 1;
 					break;
+				} else if (cmode) {
+				    switch ((c = *s++)) {
+				    case 't':
+					c = '\t';
+					break;
+				    case 'n':
+					c = '\n';
+					break;
+				    default:
+					break;
+				    }
 				}
 				/* else fall through */
 			    default:
@@ -385,24 +413,30 @@ main(int argc, char *argv[])
 		    l_color[i]);
 	}
 	fprintf(t, "\t(String)NULL\n};\n\n");
-	fprintf(t, "String mono_fallbacks[%u] = {\n", n_mono + 1);
-	for (i = 0; i < n_mono; i++) {
-		fprintf(t, "\t(String)&fsd[%u], /* line %u */\n", a_mono[i],
-		    l_mono[i]);
+	if (!cmode) {
+		fprintf(t, "String mono_fallbacks[%u] = {\n", n_mono + 1);
+		for (i = 0; i < n_mono; i++) {
+			fprintf(t, "\t(String)&fsd[%u], /* line %u */\n",
+			    a_mono[i], l_mono[i]);
+		}
+		fprintf(t, "\t(String)NULL\n};\n\n");
 	}
-	fprintf(t, "\t(String)NULL\n};\n\n");
 
 	/* Emit some test code. */
 	fprintf(t, "%s", "#if defined(DEBUG) /*[*/\n\
-main()\n\
+int\n\
+main(int argc, char *argv[])\n\
 {\n\
 	int i;\n\
 \n\
 	for (i = 0; color_fallbacks[i]; i++)\n\
-		fprintf(t, \"color %d: %s\\n\", i, color_fallbacks[i]);\n\
+		printf(\"color %d: %s\\n\", i, color_fallbacks[i]);\n");
+	if (!cmode)
+		fprintf(t, "%s", "\
 	for (i = 0; mono_fallbacks[i]; i++)\n\
-		fprintf(t, \"mono %d: %s\\n\", i, mono_fallbacks[i]);\n\
-	exit(0);\n\
+		printf(\"mono %d: %s\\n\", i, mono_fallbacks[i]);\n");
+	fprintf(t, "\
+	return 0;\n\
 }\n");
 	fprintf(t, "#endif /*]*/\n\n");
 	fprintf(t, "#endif /*]*/\n");

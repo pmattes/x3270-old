@@ -4,12 +4,37 @@
    <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
    <meta name="GENERATOR" content="Mozilla/4.5 [en] (WinNT; U) [Netscape]">
    <title>s3270 Version 3.2 -- New Features and Bug Fixes</title>
+   <link HREF="http://www.w3.org/StyleSheets/Core/Steely" TYPE="text/css" REL="stylesheet">
 </head>
 <body>
 
 <h1>
 s3270 Version 3.2 -- New Features and Bug Fixes</h1>
 s3270 is all-new code, based on the scripting functions of x3270 3.2.
+<h2>Changes in s3270 3.2.18, 31. December 2001</h2>
+<ul>
+ <li>Bug Fixes:
+  <ul>
+   <li>Install the x3270if man page in section 1, not 5.</li>
+   <li>Create directories as needed in 'make install'.</li>
+   <li>Added better error detection to full-table character set
+    definitions.</li>
+   <li>Fixed a scripting problem with percent "%" characters on the screen.</li>
+  </ul>
+ </li>
+ <li>Enhancements:
+  <ul>
+   <li>Included the autoconf <tt>configure.in</tt> file, so that users can
+    run a newer or customized <i>autoconf</i> on it.</li>
+   <li>Added a <b>color8</b> resource.  When set to <b>true</b>, <i>s3270</i>
+    will only do a Query Reply report on 8 colors.  The default of 16 seems to
+    confuse some hosts.</li>
+   <li>Added Euro symbol support, using ISO 8859-15 fonts.</li>
+   <li>Added a <b>traceFileSize</b> resource and <b>-tracefilesize</b> option
+    to limit the size of trace files.</li>
+  </ul>
+ </li>
+</ul>
 <h2>Changes in s3270 3.2.17, 25. June 2001</h2>
 <ul>
  <li>Installation Changes:

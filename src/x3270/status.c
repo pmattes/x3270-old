@@ -131,6 +131,7 @@ static Position		status_y;
 /* Status line contents (high-level) */
 
 static void do_disconnected(void);
+static void do_resolving(void);
 static void do_connecting(void);
 static void do_nonspecific(void);
 static void do_inhibit(void);
@@ -152,6 +153,7 @@ static unsigned char oia_compose_char = 0;
 static enum keytype oia_compose_keytype = KT_STD;
 static enum msg {
 	DISCONNECTED,		/* X Not Connected */
+	XRESOLVING,		/* X Resolving */
 	CONNECTING,		/* X Connecting */
 	NONSPECIFIC,		/* X */
 	INHIBIT,		/* X Inhibit */
@@ -168,6 +170,7 @@ static Boolean  msg_is_saved = False;
 static int      n_scrolled = 0;
 static void     (*msg_proc[])(void) = {
 	do_disconnected,
+	do_resolving,
 	do_connecting,
 	do_nonspecific,
 	do_inhibit,
@@ -221,6 +224,12 @@ static unsigned char disc_pfx[] = {
 static unsigned char *disc_msg;
 static int      disc_len = sizeof(disc_pfx);
 
+static unsigned char rslv_pfx[] = {
+	CG_lock, CG_space, CG_commhi, CG_commjag, CG_commlo, CG_space
+};
+static unsigned char *rslv_msg;
+static int      rslv_len = sizeof(rslv_pfx);
+
 static unsigned char cnct_pfx[] = {
 	CG_lock, CG_space, CG_commhi, CG_commjag, CG_commlo, CG_space
 };
@@ -228,6 +237,7 @@ static unsigned char *cnct_msg;
 static int      cnct_len = sizeof(cnct_pfx);
 
 static unsigned char *a_not_connected;
+static unsigned char *a_resolving;
 static unsigned char *a_connecting;
 static unsigned char *a_inhibit;
 static unsigned char *a_twait;
@@ -258,6 +268,7 @@ static void do_cursor(char *buf);
 
 static void status_connect(Boolean connected);
 static void status_3270_mode(Boolean connected);
+static void status_resolving(Boolean ignored);
 static void status_half_connect(Boolean ignored);
 
 
@@ -268,6 +279,8 @@ status_init(void)
 	a_not_connected = make_amsg("statusNotConnected");
 	disc_msg = make_emsg(disc_pfx, "statusNotConnected",
 	    &disc_len);
+	a_resolving = make_amsg("statusResolving");
+	rslv_msg = make_emsg(rslv_pfx, "statusResolving", &rslv_len);
 	a_connecting = make_amsg("statusConnecting");
 	cnct_msg = make_emsg(cnct_pfx, "statusConnecting", &cnct_len);
 	a_inhibit = make_amsg("statusInhibit");
@@ -279,6 +292,7 @@ status_init(void)
 	a_scrolled = make_amsg("statusScrolled");
 	a_minus = make_amsg("statusMinus");
 
+	register_schange(ST_RESOLVING, status_resolving);
 	register_schange(ST_HALF_CONNECT, status_half_connect);
 	register_schange(ST_CONNECT, status_connect);
 	register_schange(ST_3270_MODE, status_3270_mode);
@@ -298,19 +312,15 @@ status_reinit(unsigned cmask)
 			++status_y;
 	}
 	if (cmask & MODEL_CHANGE) {
-		if (status_line)
-			XtFree((char *)status_line);
-		status_line = (struct status_line *)XtCalloc(sizeof(struct status_line), SSZ);
-		if (status_2b != (XChar2b *)NULL)
-			XtFree((char *)status_2b);
-		status_2b = (XChar2b *)XtCalloc(sizeof(XChar2b), maxCOLS);
-		if (status_1b != (unsigned char *)NULL)
-			XtFree((char *)status_1b);
-		status_1b = (unsigned char *)XtCalloc(sizeof(unsigned char),
-		    maxCOLS);
-		if (display_2b != (XChar2b *)NULL)
-			XtFree((XtPointer)display_2b);
-		display_2b = (XChar2b *)XtCalloc(sizeof(XChar2b), maxCOLS);
+		Replace(status_line,
+		    (struct status_line *)XtCalloc(sizeof(struct status_line),
+						   SSZ));
+		Replace(status_2b,
+		    (XChar2b *)XtCalloc(sizeof(XChar2b), maxCOLS));
+		Replace(status_1b,
+		    (unsigned char *)XtCalloc(sizeof(unsigned char), maxCOLS));
+		Replace(display_2b,
+		    (XChar2b *)XtCalloc(sizeof(XChar2b), maxCOLS));
 		offsets[SSZ] = maxCOLS;
 		if (appres.mono)
 			colors[1] = FA_INT_NORM_NSEL;
@@ -417,6 +427,17 @@ status_3270_mode(Boolean connected)
 	oia_boxsolid = IN_3270 && !IN_SSCP;
 	do_ctlr();
 	status_untiming();
+}
+
+/* Resolving */
+static void
+status_resolving(Boolean ignored unused)
+{
+	oia_boxsolid = False;
+	do_ctlr();
+	do_msg(RESOLVING);
+	status_untiming();
+	status_uncursor_pos();
 }
 
 /* Half connected */
@@ -649,11 +670,27 @@ status_render(int region)
 	int	i0 = -1;
 
 	/* The status region may change colors; don't be so clever */
+	if (*funky_font)
+		XFillRectangle(display, *screen_window,
+		    screen_invgc(sl->color),
+		    COL_TO_X(sl->start), status_y - *ascent,
+		    *char_width * sl->len, *char_height);
 	if (region == WAIT_REGION) {
 		XDrawImageString(display, *screen_window, screen_gc(sl->color),
 		    COL_TO_X(sl->start), status_y, (char *) sl->s1b, sl->len);
 	} else {
 		for (i = 0; i < sl->len; i++) {
+			if (*funky_font) {
+				if (!sl->s1b[i])
+					continue;
+				XDrawImageString(display,
+				    *screen_window,
+				    screen_gc(sl->color),
+				    COL_TO_X(sl->start + i),
+				    status_y,
+				    (char *) sl->s1b + i, 1);
+				continue;
+			}
 			if (sl->s2b[i].byte1 == sl->d2b[i].byte1 &&
 			    sl->s2b[i].byte2 == sl->d2b[i].byte2) {
 				if (nd) {
@@ -695,6 +732,20 @@ status_render(int region)
 
 	/* Leftmost region has unusual attributes */
 	if (*standard_font && region == CTLR_REGION) {
+		if (*funky_font) {
+			XFillRectangle(display, *screen_window,
+			    screen_invgc(sl->color),
+			    COL_TO_X(sl->start), status_y - *ascent,
+			    *char_width * 3, *char_height);
+			XFillRectangle(display, *screen_window,
+			    screen_gc(sl->color),
+			    COL_TO_X(sl->start + LBOX), status_y - *ascent,
+			    *char_width, *char_height);
+			XFillRectangle(display, *screen_window,
+			    screen_gc(sl->color),
+			    COL_TO_X(sl->start + RBOX), status_y - *ascent,
+			    *char_width, *char_height);
+		}
 		XDrawImageString(display, *screen_window,
 		    screen_invgc(sl->color),
 		    COL_TO_X(sl->start + LBOX), status_y,
@@ -797,6 +848,15 @@ do_disconnected(void)
 		    strlen((char *)a_not_connected));
 	else
 		status_msg_set(disc_msg, disc_len);
+}
+
+static void
+do_resolving(void)
+{
+	if (*standard_font)
+		status_msg_set(a_resolving, strlen((char *)a_resolving));
+	else
+		status_msg_set(rslv_msg, rslv_len);
 }
 
 static void

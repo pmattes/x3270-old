@@ -225,10 +225,7 @@ macros_init(void)
 		rname = NewString(current_host);
 		if ((space = strchr(rname, ' ')))
 			*space = '\0';
-		s = xs_buffer("%s.%s", ResMacros, rname);
-		Free(rname);
-		rname = s;
-		s = get_resource(rname);
+		s = get_fresource("%s.%s", ResMacros, rname);
 		Free(rname);
 	}
 	if (s == CN) {
@@ -267,11 +264,7 @@ static void
 script_enable(void)
 {
 	if (sms->infd >= 0 && stdin_id == 0) {
-#if defined(X3270_TRACE) /*[*/
-		if (toggled(DS_TRACE))
-			(void) fprintf(tracef, "Enabling input for %s[%d]\n",
-			    ST_NAME, sms_depth);
-#endif /*]*/
+		trace_dsn("Enabling input for %s[%d]\n", ST_NAME, sms_depth);
 		stdin_id = AddInput(sms->infd, script_input);
 	}
 }
@@ -283,11 +276,7 @@ static void
 script_disable(void)
 {
 	if (stdin_id != 0) {
-#if defined(X3270_TRACE) /*[*/
-		if (toggled(DS_TRACE))
-			(void) fprintf(tracef, "Disabling input for %s[%d]\n",
-			    ST_NAME, sms_depth);
-#endif /*]*/
+		trace_dsn("Disabling input for %s[%d]\n", ST_NAME, sms_depth);
 		RemoveInput(stdin_id);
 		stdin_id = 0L;
 	}
@@ -394,11 +383,7 @@ sms_pop(Boolean can_exit)
 {
 	sms_t *s;
 
-#if defined(X3270_TRACE) /*[*/
-	if (toggled(DS_TRACE))
-		(void) fprintf(tracef, "%s[%d] complete\n",
-		    ST_NAME, sms_depth);
-#endif /*]*/
+	trace_dsn("%s[%d] complete\n", ST_NAME, sms_depth);
 
 	/* When you pop the peer script, that's the end of x3270. */
 	if (sms->type == ST_PEER && can_exit)
@@ -422,7 +407,7 @@ sms_pop(Boolean can_exit)
 	/* Release the memory. */
 	s = sms;
 	sms = s->next;
-	Free((char *)s);
+	Free(s);
 	sms_depth--;
 
 	if (sms == SN) {
@@ -432,11 +417,8 @@ sms_pop(Boolean can_exit)
 	} else if (KBWAIT && (int)sms->state < (int)SS_KBWAIT) {
 		/* The child implicitly blocked the parent. */
 		sms->state = SS_KBWAIT;
-#if defined(X3270_TRACE) /*[*/
-		if (toggled(DS_TRACE))
-			(void) fprintf(tracef, "%s[%d] implicitly paused %s\n",
+		trace_dsn("%s[%d] implicitly paused %s\n",
 			    ST_NAME, sms_depth, sms_state_name[sms->state]);
-#endif /*]*/
 	} else if (sms->state == SS_IDLE) {
 		/* The parent needs to be restarted. */
 		script_enable();
@@ -788,31 +770,20 @@ run_string(void)
 	int len;
 	int len_left;
 
-#if defined(X3270_TRACE) /*[*/
-	if (toggled(DS_TRACE))
-		(void) fprintf(tracef, "%s[%d] running\n",
-		    ST_NAME, sms_depth);
-#endif /*]*/
+	trace_dsn("%s[%d] running\n", ST_NAME, sms_depth);
 
 	sms->state = SS_RUNNING;
 	len = strlen(sms->dptr);
-#if defined(X3270_TRACE) /*[*/
-	if (toggled(DS_TRACE))
-		(void) fprintf(tracef, "%sString[%d]: '%s'\n",
+	trace_dsn("%sString[%d]: '%s'\n",
 		    sms->is_hex ? "Hex" : "",
 		    sms_depth, sms->dptr);
-#endif /*]*/
 
 	if (sms->is_hex) {
 		if (KBWAIT) {
 			sms->state = SS_KBWAIT;
-#if defined(X3270_TRACE) /*[*/
-			if (toggled(DS_TRACE))
-				(void) fprintf(tracef,
-				    "%s[%d] paused %s\n",
+			trace_dsn("%s[%d] paused %s\n",
 				    ST_NAME, sms_depth,
 				    sms_state_name[sms->state]);
-#endif /*]*/
 		} else {
 			hex_input(sms->dptr);
 			sms_pop(False);
@@ -822,13 +793,9 @@ run_string(void)
 			sms->dptr += len - len_left;
 			if (KBWAIT) {
 				sms->state = SS_KBWAIT;
-#if defined(X3270_TRACE) /*[*/
-				if (toggled(DS_TRACE))
-					(void) fprintf(tracef,
-					    "%s[%d] paused %s\n",
+				trace_dsn("%s[%d] paused %s\n",
 					    ST_NAME, sms_depth,
 					    sms_state_name[sms->state]);
-#endif /*]*/
 			}
 		} else {
 			sms_pop(False);
@@ -846,11 +813,7 @@ run_macro(void)
 	enum em_stat es;
 	sms_t *s;
 
-#if defined(X3270_TRACE) /*[*/
-	if (toggled(DS_TRACE))
-		(void) fprintf(tracef, "%s[%d] running\n",
-		    ST_NAME, sms_depth);
-#endif /*]*/
+	trace_dsn("%s[%d] running\n", ST_NAME, sms_depth);
 
 	/*
 	 * Keep executing commands off the line until one pauses or
@@ -861,11 +824,8 @@ run_macro(void)
 		 * Check for command failure.
 		 */
 		if (!sms->success) {
-#if defined(X3270_TRACE) /*[*/
-			if (toggled(DS_TRACE))
-				(void) fprintf(tracef, "%s[%d] failed\n",
-				    ST_NAME, sms_depth);
-#endif /*]*/
+			trace_dsn("%s[%d] failed\n", ST_NAME, sms_depth);
+
 			/* Propogate it. */
 			if (sms->next != SN)
 				sms->next->success = False;
@@ -873,11 +833,7 @@ run_macro(void)
 		}
 
 		sms->state = SS_RUNNING;
-#if defined(X3270_TRACE) /*[*/
-		if (toggled(DS_TRACE))
-			(void) fprintf(tracef, "%s[%d]: '%s'\n",
-			    ST_NAME, sms_depth, a);
-#endif /*]*/
+		trace_dsn("%s[%d]: '%s'\n", ST_NAME, sms_depth, a);
 		s = sms;
 		s->success = True;
 		s->executing = True;
@@ -897,11 +853,8 @@ run_macro(void)
 
 		/* Macro could not execute.  Abort it. */
 		if (es == EM_ERROR) {
-#if defined(X3270_TRACE) /*[*/
-			if (toggled(DS_TRACE))
-				(void) fprintf(tracef, "%s[%d] error\n",
-				    ST_NAME, sms_depth);
-#endif /*]*/
+			trace_dsn("%s[%d] error\n", ST_NAME, sms_depth);
+
 			/* Propogate it. */
 			if (sms->next != SN)
 				sms->next->success = False;
@@ -912,12 +865,8 @@ run_macro(void)
 		if (es == EM_PAUSE || (int)sms->state >= (int)SS_KBWAIT) {
 			if (sms->state == SS_RUNNING)
 				sms->state = SS_KBWAIT;
-#if defined(X3270_TRACE) /*[*/
-			if (toggled(DS_TRACE))
-				(void) fprintf(tracef, "%s[%d] paused %s\n",
-				    ST_NAME, sms_depth,
+			trace_dsn("%s[%d] paused %s\n", ST_NAME, sms_depth,
 				    sms_state_name[sms->state]);
-#endif /*]*/
 			sms->dptr = nextm;
 			return;
 		}
@@ -1039,11 +988,7 @@ login_macro(char *s)
 static void
 run_script(void)
 {
-#if defined(X3270_TRACE) /*[*/
-	if (toggled(DS_TRACE))
-		(void) fprintf(tracef, "%s[%d] running\n",
-		    ST_NAME, sms_depth);
-#endif /*]*/
+	trace_dsn("%s[%d] running\n", ST_NAME, sms_depth);
 
 	for (;;) {
 		char *ptr;
@@ -1077,11 +1022,7 @@ run_script(void)
 		/* Execute it. */
 		sms->state = SS_RUNNING;
 		sms->success = True;
-#if defined(X3270_TRACE) /*[*/
-		if (toggled(DS_TRACE))
-			(void) fprintf(tracef, "%s[%d]: '%s'\n", ST_NAME,
-			    sms_depth, cmd);
-#endif /*]*/
+		trace_dsn("%s[%d]: '%s'\n", ST_NAME, sms_depth, cmd);
 		s = sms;
 		s->executing = True;
 		es = execute_command(IA_SCRIPT, cmd, (char **)NULL);
@@ -1114,30 +1055,23 @@ run_script(void)
 			}
 			sms->need_prompt = True;
 		} else if (es == EM_ERROR) {
-#if defined(X3270_TRACE) /*[*/
-			if (toggled(DS_TRACE))
-				(void) fprintf(tracef, "%s[%d] error\n",
-				    ST_NAME, sms_depth);
-#endif /*]*/
+			trace_dsn("%s[%d] error\n", ST_NAME, sms_depth);
 			script_prompt(False);
 		} else
 			script_prompt(sms->success);
 		if (sms->state == SS_RUNNING)
 			sms->state = SS_IDLE;
 		else {
-#if defined(X3270_TRACE) /*[*/
-			if (toggled(DS_TRACE))
-				(void) fprintf(tracef, "%s[%d] paused %s\n",
+			trace_dsn("%s[%d] paused %s\n",
 				    ST_NAME, sms_depth,
 				    sms_state_name[sms->state]);
-#endif /*]*/
 		}
 	}
 }
 
 /* Handle an error generated during the execution of a script or macro. */
 void
-sms_error(char *msg)
+sms_error(const char *msg)
 {
 	/* Print the error message. */
 	(void) fprintf(stderr, "%s\n", msg);
@@ -1198,11 +1132,7 @@ script_input(void)
 	char *ptr;
 	char c;
 
-#if defined(X3270_TRACE) /*[*/
-	if (toggled(DS_TRACE))
-		(void) fprintf(tracef, "Input for %s[%d] %d\n",
-		    ST_NAME, sms_depth, sms->state);
-#endif /*]*/
+	trace_dsn("Input for %s[%d] %d\n", ST_NAME, sms_depth, sms->state);
 
 	/* Read in what you can. */
 	nr = read(sms->infd, buf, sizeof(buf));
@@ -1211,11 +1141,7 @@ script_input(void)
 		return;
 	}
 	if (nr == 0) {	/* end of file */
-#if defined(X3270_TRACE) /*[*/
-		if (toggled(DS_TRACE))
-			(void) fprintf(tracef, "EOF %s[%d]\n",
-			    ST_NAME, sms_depth);
-#endif /*]*/
+		trace_dsn("EOF %s[%d]\n", ST_NAME, sms_depth);
 		sms_pop(True);
 		sms_continue();
 		return;
@@ -1372,7 +1298,7 @@ dump_range(int first, int len, Boolean in_ascii, unsigned char *buf,
 
 		if (i && !((first + i) % rel_cols)) {
 			*s = '\0';
-			action_output(linebuf);
+			action_output("%s", linebuf);
 			s = linebuf;
 			any = False;
 		}
@@ -1389,7 +1315,7 @@ dump_range(int first, int len, Boolean in_ascii, unsigned char *buf,
 	}
 	if (any) {
 		*s = '\0';
-		action_output(linebuf);
+		action_output("%s", linebuf);
 	}
 	Free(linebuf);
 }
@@ -1635,13 +1561,9 @@ static void
 snap_save(void)
 {
 	sms->output_wait_needed = True;
-	if (snap_status != NULL)
-		Free(snap_status);
-	snap_status = status_string();
+	Replace(snap_status, status_string());
 
-	if (snap_buf != NULL)
-		Free(snap_buf);
-	snap_buf = (unsigned char *)Malloc(ROWS*COLS);
+	Replace(snap_buf, (unsigned char *)Malloc(ROWS*COLS));
 	(void) memcpy(snap_buf, screen_buf, ROWS*COLS);
 
 	snap_rows = ROWS;
@@ -2128,7 +2050,7 @@ AnsiText_action(Widget w unused, XEvent *event unused, String *params unused,
 			*s++ = (char)c;
 	}
 	*s = '\0';
-	action_output(linebuf);
+	action_output("%s", linebuf);
 	ansi_save_cnt = 0;
 	ansi_save_ix = 0;
 }

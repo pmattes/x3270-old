@@ -27,16 +27,23 @@
 #include "charsetc.h"
 #include "kybdc.h"
 #include "popupsc.h"
+#if defined(X3270_DISPLAY) /*[*/
+#include "screenc.h"
+#endif /*]*/
 #include "tablesc.h"
 #include "utilc.h"
 
 #include <errno.h>
+
+#define EURO_SUFFIX	"-euro"
+#define ES_SIZE		(sizeof(EURO_SUFFIX) - 1)
 
 /* Globals. */
 Boolean charset_changed = False;
 #define DEFAULT_CGEN	0x02b90000
 #define DEFAULT_CSET	0x00000025
 unsigned long cgcsgid = DEFAULT_CGEN | DEFAULT_CSET;
+char *default_display_charset = "3270cg-1a,3270cg-1,iso8859-1";
 
 /* Statics. */
 static enum cs_result resource_charset(char *csname, char *cs, char *ftcs);
@@ -50,10 +57,8 @@ static enum cs_result check_charset(void);
 static char *char_if_ascii7(unsigned long l);
 #endif /*]*/
 static void set_cgcsgid(char *spec);
-static void set_display_charset(char *r);
 static void set_charset_name(char *csname);
 
-static char *display_charset = CN;	/* display character set */
 static char *charset_name = CN;
 
 static void
@@ -68,66 +73,101 @@ charset_defaults(void)
 	(void) memcpy((char *)asc2ft, (char *)asc2ft0, 256);
 #endif /*]*/
 	clear_xks();
-	set_cgcsgid(CN);
-	set_display_charset(CN);
-	set_charset_name(CN);
+}
+
+static unsigned char save_ebc2cg[256];
+static unsigned char save_cg2ebc[256];
+static unsigned char save_ebc2asc[256];
+#if defined(X3270_FT) /*[*/
+static unsigned char save_ft2asc[256];
+static unsigned char save_asc2ft[256];
+#endif /*]*/
+
+static void
+save_charset(void)
+{
+	(void) memcpy((char *)save_ebc2cg, (char *)ebc2cg, 256);
+	(void) memcpy((char *)save_cg2ebc, (char *)cg2ebc, 256);
+	(void) memcpy((char *)save_ebc2asc, (char *)ebc2asc, 256);
+#if defined(X3270_FT) /*[*/
+	(void) memcpy((char *)save_ft2asc, (char *)ft2asc, 256);
+	(void) memcpy((char *)save_asc2ft, (char *)asc2ft, 256);
+#endif /*]*/
+}
+
+static void
+restore_charset(void)
+{
+	(void) memcpy((char *)ebc2cg, (char *)save_ebc2cg, 256);
+	(void) memcpy((char *)cg2ebc, (char *)save_cg2ebc, 256);
+	(void) memcpy((char *)ebc2asc, (char *)save_ebc2asc, 256);
+#if defined(X3270_FT) /*[*/
+	(void) memcpy((char *)ft2asc, (char *)save_ft2asc, 256);
+	(void) memcpy((char *)asc2ft, (char *)save_asc2ft, 256);
+#endif /*]*/
+}
+
+/* Get a character set definition. */
+static char *
+get_charset_def(const char *csname)
+{
+	return get_fresource("%s.%s", ResCharset, csname);
 }
 
 /*
  * Change character sets.
- * Returns True if the new character set was found, False otherwise.
  */
 enum cs_result
 charset_init(char *csname)
 {
-	char *resname;
 	char *cs, *ftcs;
 	enum cs_result rc;
 	char *ccs, *cftcs;
 
 	/* Do nothing, successfully. */
-	if (csname == CN)
+	if (csname == CN || !strcasecmp(csname, "us")) {
+		charset_defaults();
+		set_cgcsgid(CN);
+		set_charset_name(CN);
+#if defined(X3270_DISPLAY) /*[*/
+		(void) screen_new_display_charset(default_display_charset,
+		    "us");
+#endif /*]*/
 		return CS_OKAY;
-
-	/* Revert to defaults. */
-	charset_defaults();
-
-	/* Figure out if it's already in a resource or in a file. */
-	resname = xs_buffer("%s.%s", ResCharset, csname);
-	cs = get_resource(resname);
-	Free(resname);
-	if (cs == CN) {
-		resname = xs_buffer("%s/charset/%s", appres.conf_dir, csname);
-		if (access(resname, R_OK) < 0)
-			return CS_NOTFOUND;
-		if (read_resource_file(resname, False) < 0) {
-			Free(resname);
-			return CS_NOTFOUND;
-		}
-		Free(resname);
-		resname = xs_buffer("%s.%s", ResCharset, csname);
-		cs = get_resource(resname);
-		Free(resname);
-		if (cs == CN)
-			return CS_NOTFOUND;
 	}
 
+	/* Figure out if it's already in a resource or in a file. */
+	cs = get_charset_def(csname);
+	if (cs == CN &&
+	    strlen(csname) > ES_SIZE &&
+	    !strcasecmp(csname + strlen(csname) - ES_SIZE, EURO_SUFFIX)) {
+		char *basename;
+
+		/* Grab the non-Euro definition. */
+		basename = xs_buffer("%.*s", strlen(csname) - ES_SIZE, csname);
+		cs = get_charset_def(basename);
+		Free(basename);
+	}
+	if (cs == CN)
+		return CS_NOTFOUND;
+
 	/* Grab the File Transfer character set. */
-	resname = xs_buffer("%s.%s", ResFtCharset, csname);
-	ftcs = get_resource(resname);
-	Free(resname);
+	ftcs = get_fresource("%s.%s", ResFtCharset, csname);
 
 	/* Copy strings. */
 	ccs = NewString(cs);
 	cftcs = (ftcs == NULL)? NULL: NewString(ftcs);
+
+	/* Save the current definitions, and start over with the defaults. */
+	save_charset();
+	charset_defaults();
 
 	/* Interpret them. */
 	rc = resource_charset(csname, ccs, cftcs);
 
 	/* Free them. */
 	Free(ccs);
-	if (cftcs != NULL)
-		Free(cftcs);
+	Free(cftcs);
 
 #if defined(DEBUG_CHARSET) /*[*/
 	if (rc == CS_OKAY)
@@ -135,7 +175,7 @@ charset_init(char *csname)
 #endif /*]*/
 
 	if (rc != CS_OKAY)
-		charset_defaults();
+		restore_charset();
 
 	return rc;
 }
@@ -159,38 +199,18 @@ set_cgcsgid(char *spec)
 		cgcsgid = DEFAULT_CGEN | DEFAULT_CSET;
 }
 
-/* Set the global display charset. */
-static void
-set_display_charset(char *r)
-{
-	char *d;
-
-	if (display_charset != CN)
-		Free(display_charset);
-	if (r != CN &&
-	    (d = strchr(r, '-')) != NULL &&
-	    d != r)
-		display_charset = NewString(r);
-	else
-		display_charset = CN;
-}
-
 /* Set the global charset name. */
 static void
 set_charset_name(char *csname)
 {
 	if (csname == CN) {
-		if (charset_name != CN)
-			Free(charset_name);
-		charset_name = NewString("us");
+		Replace(charset_name, NewString("us"));
 		charset_changed = False;
 		return;
 	}
 	if ((charset_name != CN && strcmp(charset_name, csname)) ||
 	    (appres.charset != CN && strcmp(appres.charset, csname))) {
-		if (charset_name != CN)
-			Free(charset_name);
-		charset_name = NewString(csname);
+		Replace(charset_name, NewString(csname));
 		charset_changed = True;
 	}
 }
@@ -200,8 +220,8 @@ static enum cs_result
 resource_charset(char *csname, char *cs, char *ftcs)
 {
 	enum cs_result rc;
-	char *name;
 	int ne = 0;
+	char *rcs = CN;
 
 	/* Interpret the spec. */
 	rc = remap_chars(csname, cs, (ftcs == NULL)? BOTH: CS_ONLY, &ne);
@@ -213,15 +233,16 @@ resource_charset(char *csname, char *cs, char *ftcs)
 			return rc;
 	}
 
-	/* Set up the cgcsgid. */
-	name = xs_buffer("%s.%s", ResCodepage, csname);
-	set_cgcsgid(get_resource(name));
-	Free(name);
+	rcs = get_fresource("%s.%s", ResDisplayCharset, csname);
+#if defined(X3270_DISPLAY) /*[*/
+	if (!screen_new_display_charset(
+		    rcs? rcs: default_display_charset, csname)) {
+		return CS_PREREQ;
+	}
+#endif /*]*/
 
-	/* Set up the display character set. */
-	name = xs_buffer("%s.%s", ResDisplayCharset, csname);
-	set_display_charset(get_resource(name));
-	Free(name);
+	/* Set up the cgcsgid. */
+	set_cgcsgid(get_fresource("%s.%s", ResCodepage, csname));
 
 	/* Set up the character set name. */
 	set_charset_name(csname);
@@ -392,8 +413,13 @@ remap_chars(char *csname, char *spec, remap_scope scope, int *ne)
 		char *tok;
 		char *ptr;
 
-		while (ebc < 256 &&
-		       (tok = strtok(s, " \t\n")) != CN) {
+		while ((tok = strtok(s, " \t\n")) != CN) {
+			if (ebc >= 256) {
+				popup_an_error("Charset has more than 256 "
+				    "entries");
+				rc = CS_BAD;
+				break;
+			}
 			if (tok[0] == '*') {
 				one_way = True;
 				tok++;
@@ -415,6 +441,10 @@ remap_chars(char *csname, char *spec, remap_scope scope, int *ne)
 
 			ebc++;
 			s = CN;
+		}
+		if (ebc != 256) {
+			popup_an_error("Charset has %d entries, need 256", ebc);
+			rc = CS_BAD;
 		}
 	} else {
 		while ((ns = split_dresource(&s, &ebcs, &isos))) {
@@ -494,13 +524,6 @@ check_charset(void)
 	return rc;
 }
 #endif /*]*/
-
-/* Return the display character set name. */
-char *
-get_display_charset(void)
-{
-	return (display_charset != CN)? display_charset: "iso8859-1";
-}
 
 /* Return the current character set name. */
 char *

@@ -20,7 +20,7 @@
 
 extern Boolean charset_changed;
 extern unsigned long cgcsgid;
-enum cs_result { CS_OKAY, CS_NOTFOUND, CS_BAD };
+extern char *default_display_charset;
+enum cs_result { CS_OKAY, CS_NOTFOUND, CS_BAD, CS_PREREQ };
 extern enum cs_result charset_init(char *csname);
-extern char *get_display_charset(void);
 extern char *get_charset_name(void);

@@ -1,0 +1,34 @@
+dnl Copyright 2000, 2001 by Paul Mattes.
+dnl  Permission to use, copy, modify, and distribute this software and its
+dnl  documentation for any purpose and without fee is hereby granted,
+dnl  provided that the above copyright notice appear in all copies and that
+dnl  both that copyright notice and this permission notice appear in
+dnl  supporting documentation.
+
+dnl Process this file with autoconf to produce a configure script.
+AC_INIT(pr3287.c)
+
+dnl Checks for programs.
+AC_PROG_INSTALL
+AC_PROG_CC
+
+dnl Figure out what sort of host this is.
+dnl If it's solaris, then pass the -D__EXTENSIONS__ flag to cc, so that
+dnl all of usual Unix functions are visible to strict ANSI compilers.
+AC_CANONICAL_HOST
+case "$host_os" in
+solaris2*)	XANSI=-D__EXTENSIONS__
+		;;
+*)		XANSI=""
+		;;
+esac
+AC_SUBST(XANSI)
+
+dnl Check for libraries.
+dnl Note that the order here is important.  The last libraries should appear
+dnl first, so that objects in them can be used by subsequent libraries.
+AC_CHECK_LIB(nsl, gethostbyname)
+AC_CHECK_LIB(socket, socket)
+
+dnl Generate the Makefile.
+AC_OUTPUT(Makefile)

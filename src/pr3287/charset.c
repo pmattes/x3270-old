@@ -107,6 +107,11 @@ charset_init(const char *csname)
 	cs_t *c;
 	int i;
 
+	/* Set up ebc2asc. */
+	(void) memcpy(ebc2asc, ebc2asc0, 256);
+	if (csname == NULL)
+		return 0;
+
 	/* If the name begins with an '@', the balance is a file name. */
 	if (csname[0] == '@') {
 		FILE *f;

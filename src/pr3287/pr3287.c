@@ -70,6 +70,7 @@ extern FILE *tracef;
 /* Globals. */
 char *programname = NULL;	/* program name */
 int blanklines = 0;
+int ignoreeoj = 0;
 int reconnect = 0;
 
 /* User options. */
@@ -92,6 +93,7 @@ usage(void)
 "                   specify alternate EBCDIC-to-ASCII mappings\n"
 "  -command \"<cmd>\" use <cmd> for printing (default \"lpr\")\n"
 "  -blanklines      display blank lines even if empty (formatted LU3)\n"
+"  -ignoreeoj       ignore PRINT-EOJ commands\n"
 "  -reconnect       keep trying to reconnect\n"
 "  -trace           trace data stream to /tmp/x3trc.<pid>\n",
 		programname);
@@ -227,6 +229,8 @@ main(int argc, char *argv[])
 			i++;
 		} else if (!strcmp(argv[i], "-blanklines")) {
 			blanklines = 1;
+		} else if (!strcmp(argv[i], "-ignoreeoj")) {
+			ignoreeoj = 1;
 		} else if (!strcmp(argv[i], "-reconnect")) {
 			reconnect = 1;
 		} else if (!strcmp(argv[i], "-v")) {
@@ -287,10 +291,8 @@ main(int argc, char *argv[])
 	}
 
 	/* Remap the character set. */
-	if (charset != NULL) {
-		if (charset_init(charset) < 0)
-			exit(1);
-	}
+	if (charset_init(charset) < 0)
+		exit(1);
 
 	/* Try opening the trace file, if there is one. */
 	if (tracing) {

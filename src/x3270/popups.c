@@ -135,6 +135,7 @@ place_popup(Widget w, XtPointer client_data, XtPointer call_data unused)
 {
 	Dimension width, height;
 	Position x = 0, y = 0;
+	Position xnew, ynew;
 	Dimension win_width, win_height;
 	Dimension popup_width, popup_height;
 	enum placement p = *(enum placement *)client_data;
@@ -171,9 +172,15 @@ place_popup(Widget w, XtPointer client_data, XtPointer call_data unused)
 		    XtNwidth, &popup_width,
 		    XtNheight, &popup_height,
 		    NULL);
+		xnew = x + (win_width-popup_width) / (unsigned) 2;
+		if (xnew < 0)
+			xnew = 0;
+		ynew = y + (win_height-popup_height) / (unsigned) 2;
+		if (ynew < 0)
+			ynew = 0;
 		XtVaSetValues(w,
-		    XtNx, x + (win_width-popup_width) / (unsigned) 2,
-		    XtNy, y + (win_height-popup_height) / (unsigned) 2,
+		    XtNx, xnew,
+		    XtNy, ynew,
 		    NULL);
 		break;
 	    case Bottom:

@@ -627,7 +627,7 @@ Cut_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 		if (target[baddr/ULBS] & (1 << (baddr%ULBS)))
 			ctlr_add(baddr, repl, 0);
 
-	XtFree((XtPointer)target);
+	Free(target);
 }
 
 /*
@@ -1006,9 +1006,8 @@ own_sels(Time t)
 				n_owned++;
 				own_sel[j].atom = want_sel[i];
 			}
-			if (own_sel[j].buffer != CN)
-				XtFree(own_sel[j].buffer);
-			own_sel[j].buffer = XtMalloc(strlen(select_buf) + 1);
+			Replace(own_sel[j].buffer,
+			    XtMalloc(strlen(select_buf) + 1));
 			(void) memmove(own_sel[j].buffer, select_buf,
 			    strlen(select_buf) + 1);
 		} else {
@@ -1141,7 +1140,7 @@ grab_sel(int start, int end, Boolean really, Time t)
 								store_sel('\033');
 							store_sel((char)osc);
 						} else
-							nulls = 0;
+							nulls++;
 					}
 				}
 				nulls = 0;

@@ -69,6 +69,7 @@ extern Pixmap no_diamond;
 static enum { SORT_EVENT, SORT_KEYMAP, SORT_ACTION } sort = SORT_KEYMAP;
 
 static Boolean km_isup = False;
+static Boolean km_exists = False;
 static Widget km_shell, sort_event, sort_keymap, sort_action, text;
 static char km_file[128];
 static void create_text(void);
@@ -117,12 +118,7 @@ keymap_init(const char *km)
 
 	/* Save the name(s) of the last keymap, so we can switch modes later. */
 	if (km != last_keymap) {
-		if (last_keymap != CN) {
-			Free(last_keymap);
-			last_keymap = CN;
-		}
-		if (km != CN)
-			last_keymap = NewString(km);
+		Replace(last_keymap, km? NewString(km): CN);
 	}
 }
 
@@ -166,10 +162,9 @@ setup_keymaps(const char *km, Boolean do_popup)
 	appres.key_map = (char *)NULL;
 	for (t = trans_list; t != (struct trans_list *)NULL; t = next) {
 		next = t->next;
-		XtFree(t->name);
-		if (t->pathname != CN)
-			XtFree(t->pathname);
-		XtFree((char *)t);
+		Free(t->name);
+		Free(t->pathname);
+		Free(t);
 	}
 	trans_list = (struct trans_list *)NULL;
 	last_trans = &trans_list;
@@ -329,12 +324,9 @@ add_keymap(const char *name, Boolean do_popup)
 		if (IN_3270 && translations_3270 != CN)
 			add_trans(buf_3270, translations_3270, path_3270,
 			    is_from_server);
-		if (translations != CN)
-			XtFree(translations);
-		if (translations_nvt != CN)
-			XtFree(translations_nvt);
-		if (translations_3270 != CN)
-			XtFree(translations_3270);
+		XtFree(translations);
+		XtFree(translations_nvt);
+		XtFree(translations_3270);
 		XtFree(buf_nvt);
 		XtFree(buf_3270);
 	} else {
@@ -561,9 +553,8 @@ PA_KeymapTrace_action(Widget w unused, XEvent *event unused, String *params,
 {
 	if (!toggled(EVENT_TRACE) || *num_params != 2)
 		return;
-	if (keymap_trace != CN)
-		XtFree((XtPointer)keymap_trace);
-	keymap_trace = XtMalloc(strlen(params[0]) + 1 + strlen(params[1]) + 1);
+	Replace(keymap_trace, XtMalloc(strlen(params[0]) + 1 +
+				       strlen(params[1]) + 1));
 	(void) sprintf(keymap_trace, "%s:%s", params[0], params[1]);
 }
 #endif /*]*/
@@ -577,9 +568,7 @@ void
 PA_End_action(Widget w unused, XEvent *event unused, String *params unused,
     Cardinal *num_params unused)
 {
-	if (keymap_trace != CN)
-		XtFree((XtPointer)keymap_trace);
-	keymap_trace = CN;
+	Replace(keymap_trace, CN);
 }
 
 /*
@@ -608,7 +597,7 @@ lookup_tt(const char *name, char *table)
 	t->name = XtNewString(name);
 	xtable = expand_table(name, table);
 	t->trans = XtParseTranslationTable(xtable);
-	XtFree((XtPointer)xtable);
+	Free(xtable);
 	t->next = tt_cache;
 	tt_cache = t;
 
@@ -628,7 +617,7 @@ lookup_tt(const char *name, char *table)
 int
 temporary_keymap(char *k)
 {
-	char *kmname, *km;
+	char *km;
 	XtTranslations trans;
 	struct trans_list *t, *prev;
 	char *path = CN;
@@ -639,11 +628,10 @@ temporary_keymap(char *k)
 
 		/* Delete all temporary keymaps. */
 		for (t = temp_keymaps; t != TN; t = next) {
-			XtFree((XtPointer)t->name);
-			if (t->pathname != CN)
-				XtFree((XtPointer)t->pathname);
+			Free(t->name);
+			Free(t->pathname);
 			next = t->next;
-			XtFree((XtPointer)t);
+			Free(t);
 		}
 		tkm_last = temp_keymaps = TN;
 		screen_set_temp_keymap((XtTranslations)NULL);
@@ -666,8 +654,8 @@ temporary_keymap(char *k)
 			temp_keymaps = t->next;
 		if (tkm_last == t)
 			tkm_last = prev;
-		XtFree((XtPointer)t->name);
-		XtFree((XtPointer)t);
+		Free(t->name);
+		Free(t);
 
 		/* Rebuild the translation tables from the remaining ones. */
 		screen_set_temp_keymap((XtTranslations)NULL);
@@ -691,9 +679,7 @@ temporary_keymap(char *k)
 	km = get_file_keymap(k, &path);
 	if (km == CN) {
 		/* Then try a resource. */
-		kmname = xs_buffer("%s.%s", ResKeymap, k);
-		km = get_resource(kmname);
-		XtFree(kmname);
+		km = get_fresource("%s.%s", ResKeymap, k);
 		if (km == CN)
 			return -1;
 	}
@@ -736,6 +722,10 @@ do_keymap_display(Widget w unused, XtPointer userdata unused,
 	/* If it's already up, do nothing. */
 	if (km_isup)
 		return;
+	if (km_exists) {
+		popup_popup(km_shell, XtGrabNone);
+		return;
+	}
 
 	/* Create the popup. */
 	km_shell = XtVaCreatePopupShell(
@@ -800,8 +790,17 @@ do_keymap_display(Widget w unused, XtPointer userdata unused,
 	XtAddCallback(done, XtNcallback, km_done, (XtPointer)NULL);
 
 	/* Pop it up. */
+	km_exists = True;
 	popup_popup(km_shell, XtGrabNone);
 }
+
+/* Called when x3270 is exiting. */
+static void
+remove_keymap_file(Boolean ignored unused)
+{
+	(void) unlink(km_file);
+}
+
 
 /* Format the keymap into a text source. */
 static void
@@ -809,7 +808,7 @@ create_text(void)
 {
 	String s;
 	FILE *f;
-	Widget source, old;
+	static Widget source = NULL;
 
 	/* Ready a file. */
 	(void) sprintf(km_file, "/tmp/km.%d", getpid());
@@ -824,22 +823,26 @@ create_text(void)
 	format_xlations(s, f);
 	XtFree(s);
 	fclose(f);
-	source = XtVaCreateWidget(
-	    "source", asciiSrcObjectClass, text,
-	    XtNtype, XawAsciiFile,
-	    XtNstring, km_file,
-	    XtNeditType, XawtextRead,
-	    NULL);
-	old = XawTextGetSource(text);
-	XawTextSetSource(text, source, (XawTextPosition)0);
-	XtDestroyWidget(old);
+	if (source != NULL) {
+		XtVaSetValues(source, XtNstring, km_file, NULL);
+	} else {
+		source = XtVaCreateWidget(
+		    "source", asciiSrcObjectClass, text,
+		    XtNtype, XawAsciiFile,
+		    XtNstring, km_file,
+		    XtNeditType, XawtextRead,
+		    NULL);
+		XawTextSetSource(text, source, (XawTextPosition)0);
+
+		register_schange(ST_EXITING, remove_keymap_file);
+	}
 }
 
 /* Refresh the keymap display, if it's up. */
 static void
 km_regen(void)
 {
-	if (km_isup)
+	if (km_exists)
 		create_text();
 }
 
@@ -850,14 +853,12 @@ km_up(Widget w unused, XtPointer client_data unused, XtPointer call_data unused)
 	km_isup = True;
 }
 
-/* Popdown callback.  Destroy the widget. */
+/* Popdown callback. */
 static void
 km_down(Widget w unused, XtPointer client_data unused,
     XtPointer call_data unused)
 {
 	km_isup = False;
-	(void) unlink(km_file);
-	XtDestroyWidget(km_shell);
 }
 
 /* Done button callback.  Pop down the widget. */
@@ -1105,11 +1106,11 @@ format_xlations(String s, FILE *f)
 	/* Free it. */
 	for (xs = xl_list; xs != (struct xl *)NULL; xs = xn) {
 		xn = xs->next;
-		XtFree((XtPointer)xs->actions);
-		XtFree((XtPointer)xs->event);
-		XtFree((XtPointer)xs->keymap);
-		XtFree((XtPointer)xs->full_keymap);
-		XtFree((XtPointer)xs);
+		Free(xs->actions);
+		Free(xs->event);
+		Free(xs->keymap);
+		Free(xs->full_keymap);
+		Free(xs);
 	}
 }
 

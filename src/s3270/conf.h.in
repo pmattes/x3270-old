@@ -26,6 +26,7 @@
 
 /* Uncommon functions. */
 #undef HAVE_VASPRINTF
+#undef HAVE_FSEEKO
 
 /* Optional parts. */
 #undef X3270_ANSI

@@ -42,6 +42,7 @@
 #include "telnetc.h"
 
 extern FILE *tracef;
+extern int ignoreeoj;
 
 /*   connection state */
 enum cstate {
@@ -980,7 +981,10 @@ process_eor(void)
 		case TN3270E_DT_NVT_DATA:
 			return 0;
 		case TN3270E_DT_PRINT_EOJ:
-			print_eoj();
+			if (ignoreeoj)
+				vtrace_str("(ignored)\n");
+			else
+				print_eoj();
 			return 0;
 		default:
 			/* Should do something more extraordinary here. */

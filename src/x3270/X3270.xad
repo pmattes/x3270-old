@@ -30,6 +30,7 @@
 ! Many of the resource definitions are commented out, because they are
 ! the defaults defined in x3270 itself.  They are listed here so you can
 ! easily uncomment and change them.
+#ifndef STANDALONE
 !
 !   Fonts
 ! *.emulatorFont:			3270
@@ -103,16 +104,33 @@ x3270.schemeList:			Default 3279: default\n\
 					Reverse: reverse\n\
 					Green Screen: greenScreen
 !   Character sets listed on the Options menu
-x3270.charsetList:			U.S. English: us-intl\n\
-					Bracket: bracket\n\
-					Belgian: belgian\n\
-					Finnish: finnish\n\
-					French: french\n\
-					German: german\n\
-					Icelandic: icelandic\n\
-					Italian: italian\n\
-					Norwegian: norwegian\n\
-					United Kingdom: uk\n
+x3270.charsetList:			U.S. English (CP 37): us-intl\n\
+					Bracket (CP 37, modified): bracket\n\
+					APL (CP 37): apl\n\
+					U.S. English w/Euro (CP 1140): us-euro\n\
+					Belgian (CP 500): belgian\n\
+					Belgian w/Euro (CP 1148): belgian-euro\n\
+					Brazilian (CP 275): brazilian\n\
+					Finnish (CP 278): finnish\n\
+					Finnish w/Euro (CP 1143): finnish-euro\n\
+					French (CP 297): french\n\
+					French w/Euro (CP 1147): french-euro\n\
+					German (CP 273): german\n\
+					German w/Euro (CP 1141): german-euro\n\
+					Greek (CP 875): greek\n\
+					Hebrew (CP 424): hebrew\n\
+					Icelandic (CP 871): icelandic\n\
+					Icelandic w/Euro (CP 1149): icelandic-euro\n\
+					Italian (CP 280): italian\n\
+					Italian w/Euro (CP 1144): italian-euro\n\
+					Norwegian (CP 277): norwegian\n\
+					Norwegian w/Euro (CP 1142): norwegian-euro\n\
+					Russian (CP 880): russian\n\
+					Slovenian (CP 870): slovenian\n\
+					Thai (CP 838): thai\n\
+					Turkish (CP 1026): turkish\n\
+					United Kingdom (CP 285): uk\n\
+					United Kingdom w/Euro (CP 1146): uk-euro\n
 #endif
 !
 !   Pseudo-colors for 3278 mode
@@ -192,26 +210,29 @@ x3270.charsetList:			U.S. English: us-intl\n\
 ! x3270.visualSelect:			false
 ! x3270.visualSelectColor:		6
 !
-! Fonts listed on the Options menu
-x3270.fontMenuList:			3270 Font (14 point): 3270\n\
-					8-point Font: 3270gt8\n\
-					12-point Font: 3270-12\n\
-					16-point Font: 3270gt16\n\
-					20-point Font: 3270-20\n\
-					24-point Font: 3270gt24\n\
-					32-point Font: 3270gt32\n\
-					Debug Font: 3270d
-! 3270 fonts used for screen resizing
-x3270.resizeFontList:			3270\n\
-					3270gt8\n\
-					3270-12\n\
-					3270gt16\n\
-					3270-20\n\
-					3270gt24\n\
-					3270gt32
+! Fonts listed on the Options menu and for screen resizing
+x3270.emulatorFontList.3270cg-1a,3270cg-1,iso8859-1: \
+					3270 Font (14 point): #resize 3270\n\
+					8-point Font: #resize 3270gt8\n\
+					12-point Font: #resize 3270-12\n\
+					16-point Font: #resize 3270gt16\n\
+					20-point Font: #resize 3270-20\n\
+					24-point Font: #resize 3270gt24\n\
+					32-point Font: #resize 3270gt32\n\
+					Debug Font: #noauto 3270d
+x3270.emulatorFontList.3270cg-15a,3270cg-15,iso8859-15: \
+					3270 Font (14 point): #resize 3270e\n\
+					8-point Font: #resize 3270egt8\n\
+					12-point Font: #resize 3270e-12\n\
+					16-point Font: #resize 3270egt16\n\
+					20-point Font: #resize 3270e-20\n\
+					24-point Font: #resize 3270egt24\n\
+					32-point Font: #resize 3270egt32
+#endif
 !
 ! Print commands
 x3270.printTextCommand:			lpr
+#ifndef STANDALONE
 x3270.printWindowCommand:		xwd -id %d | xpr | lpr
 !
 ! System V versions of print commands
@@ -225,17 +246,20 @@ x3270.traceCommand:			tail -f
 ! x3270.ftCommand:			ind$file
 !
 ! Printer session options
+#endif
 x3270.printer.command:			lpr
 x3270.printer.assocCommandLine:		pr3287 -assoc %L% -command "%C%" %H%
 x3270.printer.luCommandLine:		pr3287 -command "%C%" %L%@%H%
+#ifndef STANDALONE
 !
 ! Translation table for the '@server' pseudo-keymap, which is the keymap
 ! you get by default (in addition to the 'base' keymap, below).  Maps server
-| vendor strings to keymap names.
+! vendor strings to keymap names.
 x3270.serverKeymapList: \
 	Sun Microsystems, Inc.: sun_k5\n\
 	Hewlett-Packard Company: hp-k1\n\
-	International Business Machines: alt
+	International Business Machines: alt\n\
+	Silicon Graphics: alt
 !
 ! Keymaps (keyboard and mouse mappings)
 !
@@ -318,7 +342,7 @@ x3270.keymap.base.3270: #override \
 	Meta<Key>p:			PrintText()\n\
 	Meta<Key>r:			Reset()\n\
 	Meta<Key>u:			Unselect()\n\
-	:Meta<Key>asciicircum:		Key(notsign)\n
+	~Meta<Key>asciicircum:		Key(notsign)\n\
 	Ctrl<Key>u:			DeleteField()\n\
 	Ctrl<Key>w:			DeleteWord()\n
 !
@@ -475,7 +499,7 @@ x3270.keymap.hp-k1: \
 	:<Key>KP_Decimal:	PA(1)\n
 ! Keymap for HP-PC101 workstation keyboard, Chris P-E
 x3270.keymap.hp-pc: \
- 	:<Key>KP_Subtract:	Compose()\n\
+	:<Key>KP_Subtract:	Compose()\n\
 	:<Key>KP_Enter:		Enter()\n\
 	:<Key>Return:		Newline()\n\
 	!Shift<Key>F1:		PF(13)\n\
@@ -1065,6 +1089,7 @@ x3270.message.statusScrolled:			Scrolled
 x3270.message.statusMinus:			No Function
 #endif
 x3270.message.statusConnecting:			Connecting
+#endif
 #ifdef X3270_FT
 x3270.message.ftComplete:			Transfer complete, %i bytes transferred\n\
 %.2lg Kbytes/sec in %s mode
@@ -1079,6 +1104,7 @@ x3270.message.ftCutOversize:			Illegal frame length
 x3270.message.ftDisconnected:			Host disconnected, transfer cancelled
 x3270.message.ftNot3270:			Not in 3270 mode, transfer cancelled
 #endif
+#ifndef STANDALONE
 x3270.message.kmEvent:				Event
 x3270.message.kmKeymapLine:			Keymap:Line
 x3270.message.kmActions:			Actions
@@ -1098,7 +1124,7 @@ x3270.message.kmFromServer:			\ (expanded from '@server')
 !=============================================================================
 !
 ! App-defaults file version
-x3270.adVersion:		3.2.17
+x3270.adVersion:		3.2.18
 !
 ! Fonts
 #ifdef X3270_APL
@@ -1245,12 +1271,12 @@ x3270*dialog*foreground:			black
 #endif
 !
 ! Fixed popup sizes
-x3270.errorPopup.width:				400
-x3270.printerErrorPopup.width:			400
-x3270.childErrorPopup.width:			400
-x3270.infoPopup.width:				400
-x3270.printerInfoPopup.width:			400
-x3270.childInfoPopup.width:			400
+x3270.errorPopup.width:				500
+x3270.printerErrorPopup.width:			500
+x3270.childErrorPopup.width:			500
+x3270.infoPopup.width:				500
+x3270.printerInfoPopup.width:			500
+x3270.childInfoPopup.width:			500
 x3270.printerLuPopup.width:			300
 x3270.connectPopup.width:			300
 x3270.fontPopup.width:				300
@@ -1433,6 +1459,7 @@ x3270.ftPopup*value.translations:	#override \n\
 x3270*value.translations:		#override \n\
 	<Key>Return:			PA-confirm()\n\
 	Ctrl<Key>U:			select-all(DUMMY) delete-selection()
+x3270*value.width:			200
 ! Workaround for Xaw MenuButton bug that keeps menu items from highlighting
 ! when CapsLock or NumLock are down.  Technically, this would require
 ! translations for all permutations of all 8 modifiers: shift, lock, control,
@@ -1503,6 +1530,7 @@ x3270*MenuButton.translations:	#override \n\
 	Lock Mod2 Mod3 Mod4 Mod5<BtnDown>:	reset() PopupMenu()\n\
 	Mod1 Mod2 Mod3 Mod4 Mod5<BtnDown>:	reset() PopupMenu()\n\
 	Lock Mod1 Mod2 Mod3 Mod4 Mod5<BtnDown>:	reset() PopupMenu()
+#endif
 ! Default compose-key map.
 ! Each line is of the form "keysym1 + keysym2 = keysym3", meaning "when the
 ! Compose key is pressed, followed by keysym1 and keysym2 (in either order),
@@ -1582,6 +1610,7 @@ x3270.composeMap.latin1: \
 	u + quotedbl	= udiaeresis		\n\
 	y + apostrophe	= yacute		\n\
 	y + quotedbl	= ydiaeresis		\n
+#ifndef STANDALONE
 #ifdef X3270_APL
 !
 ! Compose-key map for APL.
@@ -1652,13 +1681,14 @@ x3270.composeMap.apl: \
 	apl_downtack + apl_jot	= apl_downtackjot	\n\
 	equal + underscore	= apl_equalunderbar	\n\
 	apl_quad + apl_quad	= apl_squad		\n\
-        apl_diaeresis + apl_jot	= apl_diaeresisjot	\n\
-        apl_diaeresis + apl_circle = apl_diaeresiscircle \n\
-        comma + minus		= apl_commabar		\n\
-        c + equal		= apl_euro		\n\
-        C + equal		= apl_euro		\n\
+	apl_diaeresis + apl_jot	= apl_diaeresisjot	\n\
+	apl_diaeresis + apl_circle = apl_diaeresiscircle \n\
+	comma + minus		= apl_commabar		\n\
+	c + equal		= apl_euro		\n\
+	C + equal		= apl_euro		\n\
 	minus + parenleft	= apl_lefttack		\n\
 	minus + parenright	= apl_righttack		\n
+#endif
 #endif
 !
 ! EBCDIC character sets.
@@ -1674,10 +1704,15 @@ x3270.codepage.us-intl:		37
 ! alias for 'us-intl' (backwards compatibility)
 x3270.charset.us:		\n
 x3270.codepage.us:		37
+! U.S. English with Euro symbol
+x3270.codepage.us-euro:		1140
+x3270.displayCharset.us-euro:	3270cg-15a,3270cg-15,iso8859-15
 !
 ! APL character set (same as us-intl, no remapping required)
 x3270.charset.apl:		\n
 x3270.codepage.apl:		37
+x3270.displayCharset.apl:	3270cg-1a
+x3270.emulatorFontList.3270cg-1a:	3270
 !
 ! EBCDIC map for hosts that put '[' and ']' in non-standard positions (X'AD'
 ! and X'BD').  This is the default x3270 character set, because these hosts
@@ -1711,6 +1746,8 @@ x3270.charset.german: \
 	0xe0: Odiaeresis	\n	0xec: backslash		\n\
 	0xfc: ]			\n
 x3270.codepage.german:		273
+x3270.codepage.german-euro:	1141
+x3270.displayCharset.german-euro:	3270cg-15a,3270cg-15,iso8859-15
 ! Finnish (table 09)
 x3270.charset.finnish: \
 	0x43: {			\n	0x47: }			\n\
@@ -1728,6 +1765,8 @@ x3270.charset.finnish: \
 	0xdc: ~			\n	0xe0: Eacute		\n\
 	0xec: @			\n
 x3270.codepage.finnish:		278
+x3270.codepage.finnish-euro:	1143
+x3270.displayCharset.finnish-euro:	3270cg-15a,3270cg-15,iso8859-15
 ! U.K. (table 22)
 x3270.charset.uk: \
 	0x4a: $			\n	0x5b: sterling		\n\
@@ -1735,6 +1774,8 @@ x3270.charset.uk: \
 	0xb1: [			\n	0xba: ^			\n\
 	0xbc: ~			\n
 x3270.codepage.uk:		285
+x3270.codepage.uk-euro:	1146
+x3270.displayCharset.uk-euro:	3270cg-15a,3270cg-15,iso8859-15
 ! Norwegian (table 23)
 x3270.charset.norwegian: \
 	0x47: }			\n	0x4a: #			\n\
@@ -1749,6 +1790,8 @@ x3270.charset.norwegian: \
 	0xbb: bar		\n	0xc0: ae		\n\
 	0xd0: aring		\n	0xdc: ~			\n
 x3270.codepage.norwegian:	277
+x3270.codepage.norwegian-euro:	1142
+x3270.displayCharset.norwegian-euro:	3270cg-15a,3270cg-15,iso8859-15
 ! French (table 30)
 x3270.charset.french: \
 	0x44: @			\n	0x48: backslash		\n\
@@ -1764,26 +1807,8 @@ x3270.charset.french: \
 	0xbd: ~			\n	0xc0: eacute		\n\
 	0xd0: egrave		\n	0xe0: ccedilla		\n
 x3270.codepage.french:		297
-! Hebrew
-! (Assigns non-Latin-1 characters to certain code positions, requiring a
-! special font such as 3270h)
-x3270.charset.hebrew: \
-	0x41: hebrew_aleph	\n	0x42: hebrew_bet	\n\
-	0x43: hebrew_gimel	\n	0x44: hebrew_dalet	\n\
-	0x45: hebrew_he		\n	0x46: hebrew_waw	\n\
-	0x47: hebrew_zain	\n	0x48: hebrew_chet	\n\
-	0x49: hebrew_tet	\n	0x51: hebrew_yod	\n\
-	0x52: hebrew_finalkaph	\n	0x53: hebrew_kaph	\n\
-	0x54: hebrew_lamed	\n	0x55: hebrew_finalmem	\n\
-	0x56: hebrew_mem	\n	0x57: hebrew_finalnun	\n\
-	0x58: hebrew_nun	\n	0x59: hebrew_samech	\n\
-	0x62: hebrew_ayin	\n	0x63: hebrew_finalpe	\n\
-	0x64: hebrew_pe		\n	0x65: hebrew_finalzade	\n\
-	0x66: hebrew_zade	\n	0x67: hebrew_qoph	\n\
-	0x68: hebrew_resh	\n	0x69: hebrew_shin	\n\
-	0x71: hebrew_taw	\n
-x3270.codepage.hebrew: 424
-x3270.requiredFont.hebrew: 3270h
+x3270.codepage.french-euro:	1147
+x3270.displayCharset.french-euro:	3270cg-15a,3270cg-15,iso8859-15
 ! Icelandic, courtesy of Rikhardur Egilsson
 x3270.charset.icelandic: \
 	0xa1: odiaeresis	\n	0x5f: Odiaeresis	\n\
@@ -1797,6 +1822,8 @@ x3270.charset.icelandic: \
 	0x7d: apostrophe	\n	0x8c: `			\n\
 	0x6a: |			\n
 x3270.codepage.icelandic:	871
+x3270.codepage.icelandic-euro:	1149
+x3270.displayCharset.icelandic-euro:	3270cg-15a,3270cg-15,iso8859-15
 ! Belgian, with the help of Peter Govaerts
 x3270.charset.belgian: \
 	0x4a: [			\n	0x4f: !			\n\
@@ -1804,58 +1831,169 @@ x3270.charset.belgian: \
 	0xb0: cent		\n	0xba: notsign		\n\
 	0xbb: bar		\n
 x3270.codepage.belgian: 500
+x3270.codepage.belgian-euro:	1148
+x3270.displayCharset.belgian-euro:	3270cg-15a,3270cg-15,iso8859-15
 ! Italian, courtesy of Claudio Maniscalco and Daniele Patoner
 x3270.charset.italian: \
-	0x44: braceleft		\n\	0x48: backslash		\n\
-	0x4a: degree		\n\	0x4f: exclam		\n\
-	0x51: bracketright	\n\	0x54: braceright	\n\
-	0x58: asciitilde	\n\	0x5a: eacute		\n\
-	0x5f: asciicircum	\n\	0x6a: ograve		\n\
-	0x7b: sterling		\n\	0x7c: section		\n\
-	0x79: ugrave		\n\	0x90: bracketleft	\n\
-	0xa1: igrave		\n\	0xb0: cent		\n\
-	0xb1: numbersign	\n\	0xb5: at		\n\
-	0xba: notsign		\n\	0xbb: bar		\n\
-	0xc0: agrave		\n\	0xcd: brokenbar		\n\
-	0xd0: egrave		\n\	0xdd: grave		\n\
+	0x44: braceleft		\n	0x48: backslash		\n\
+	0x4a: degree		\n	0x4f: exclam		\n\
+	0x51: bracketright	\n	0x54: braceright	\n\
+	0x58: asciitilde	\n	0x5a: eacute		\n\
+	0x5f: asciicircum	\n	0x6a: ograve		\n\
+	0x7b: sterling		\n	0x7c: section		\n\
+	0x79: ugrave		\n	0x90: bracketleft	\n\
+	0xa1: igrave		\n	0xb0: cent		\n\
+	0xb1: numbersign	\n	0xb5: at		\n\
+	0xba: notsign		\n	0xbb: bar		\n\
+	0xc0: agrave		\n	0xcd: brokenbar		\n\
+	0xd0: egrave		\n	0xdd: grave		\n\
 	0xe0: ccedilla		\n
 x3270.codepage.italian: 280
+x3270.codepage.italian-euro:	1144
+x3270.displayCharset.italian-euro:	3270cg-15a,3270cg-15,iso8859-15
 ! Turkish, uses standard ISO 8859-9 fonts
-x3270.charset.iso-turkish: \
-	0x48: {			\n	0x4a: 0xc7		\n\
-	0x4f: !			\n	0x5a: 0xd0		\n\
-	0x5b: 0xdd		\n	0x5f: ^			\n\
-	0x68: [			\n	0x6a: 0xfe		\n\
-	0x79: 0xfd		\n	0x7b: 0xd6		\n\
-	0x7c: 0xde		\n	0x7f: 0xdc		\n\
-	0x8c: }			\n	0x8d: 0x91		\n\
-	0x8e: 0xa6		\n	0xa1: 0xf6		\n\
-	0xac: ]			\n	0xad: $			\n\
-	0xae: @			\n	0xb0: 0xa2		\n\
-	0xba: 0xac		\n	0xbb: |			\n\
-	0xbe: 0x92		\n	0xc0: 0xe7		\n\
-	0xcc: ~			\n	0xd0: 0xf0		\n\
-	0xdc: 0x5c		\n	0xe0: 0xfc		\n\
-	0xec: #			\n	0xfc: "	
-x3270.codepage.iso-turkish: 0x04800402
-x3270.displayCharset.iso-turkish: iso8859-9
+x3270.charset.turkish: \
+ 0x48: {	\n 0x4a: 0xc7	\n 0x4f: !	\n 0x5a: 0xd0	\n\
+ 0x5b: 0xdd	\n 0x5f: ^	\n 0x68: [	\n 0x6a: 0xfe	\n\
+ 0x79: 0xfd	\n 0x7b: 0xd6	\n 0x7c: 0xde	\n 0x7f: 0xdc	\n\
+ 0x8c: }	\n 0x8d: 0x91	\n 0x8e: 0xa6	\n 0xa1: 0xf6	\n\
+ 0xac: ]	\n 0xad: $	\n 0xae: @	\n 0xb0: 0xa2	\n\
+ 0xba: 0xac	\n 0xbb: |	\n 0xbe: 0x92	\n 0xc0: 0xe7	\n\
+ 0xcc: ~	\n 0xd0: 0xf0	\n 0xdc: 0x5c	\n 0xe0: 0xfc	\n\
+ 0xec: #	\n 0xfc: "
+x3270.codepage.turkish: 0x04800402
+x3270.displayCharset.turkish: iso8859-9
 ! Hebrew, uses standard ISO 8859-8 fonts
-x3270.charset.iso-hebrew: \
-	0x41: 0xe0		\n	0x42: 0xe1		\n\
-	0x43: 0xe2		\n	0x44: 0xe3		\n\
-	0x45: 0xe4		\n	0x46: 0xe5		\n\
-	0x47: 0xe6		\n	0x48: 0xe7		\n\
-	0x49: 0xe8		\n	0x51: 0xe9		\n\
-	0x52: 0xea		\n	0x53: 0xea		\n\
-	0x54: 0xec		\n	0x55: 0xec		\n\
-	0x56: 0xee		\n	0x57: 0xef		\n\
-	0x58: 0xf0		\n	0x59: 0xf1		\n\
-	0x62: 0xf2		\n	0x63: 0xf3		\n\
-	0x64: 0xf4		\n	0x65: 0xf5		\n\
-	0x66: 0xf6		\n	0x67: 0xf7		\n\
-	0x68: 0xf8		\n	0x69: 0xf9		\n\
-	0x71: 0xfa
+x3270.charset.hebrew: \
+ 0x41: 0xe0\n 0x42: 0xe1\n 0x43: 0xe2\n 0x44: 0xe3\n\
+ 0x45: 0xe4\n 0x46: 0xe5\n 0x47: 0xe6\n 0x48: 0xe7\n\
+ 0x49: 0xe8\n 0x51: 0xe9\n 0x52: 0xea\n 0x53: 0xea\n\
+ 0x54: 0xec\n 0x55: 0xec\n 0x56: 0xee\n 0x57: 0xef\n\
+ 0x58: 0xf0\n 0x59: 0xf1\n 0x62: 0xf2\n 0x63: 0xf3\n\
+ 0x64: 0xf4\n 0x65: 0xf5\n 0x66: 0xf6\n 0x67: 0xf7\n\
+ 0x68: 0xf8\n 0x69: 0xf9\n 0x71: 0xfa
 ! This value is wrong, but I can't find a reference for the CGCSGID for
 ! Hebrew...
-x3270.codepage.iso-hebrew: 424
-x3270.displayCharset.iso-hebrew: iso8859-8
+x3270.codepage.hebrew: 424
+x3270.displayCharset.hebrew: 3270cg-8,iso8859-8
+x3270.emulatorFontList.3270cg-8,iso8859-8: Hebrew 14-point 3270 Font: 3270h
+! Brazilian character set for x3270.
+! With invaluable help from Ricardo Dias de Pinho - Rio de Janeiro(RJ) BRAZIL.
+x3270.codepage.brazilian: 275
+x3270.displayCharset.brazilian: iso8859-1
+x3270.charset.brazilian: #table\n\
+  0x00  0x00  0x00  0x00  0x00  0x00  0x00  0x00 \
+  0x00  0x00  0x00  0x00  0x00  0x00  0x00  0x00 \
+  0x00  0x00  0x00  0x00  0x00  0x00  0x00  0x00 \
+  0x00  0x00  0x00  0x00  0x00  0x00  0x00  0x00 \
+  0x00  0x00  0x00  0x00  0x00  0x00  0x00  0x00 \
+  0x00  0x00  0x00  0x00  0x00  0x00  0x00  0x00 \
+  0x00  0x00  0x00  0x00  0x00  0x00  0x00  0x00 \
+  0x00  0x00  0x00  0x00  0x00  0x00  0x00  0x00 \
+  0x00  0x5b  0x5d  0xa3  0xa5  0xb6  0xa4  0xdf \
+  0xa7  0xaf  0xc9  0x2e  0x3c  0x28  0x2b  0x21 \
+  0x26  0xb0  0x00  0xac  0xa8  0xb4  0xb8  0xe0 \
+ *0xe8 *0xec  0x24  0xc7  0x2a  0x29  0x3b  0x5e \
+  0x2d  0x2f *0xf2 *0xf9  0x60  0x7b  0xff *0xe0 \
+  0xe8  0xe9  0xe7  0x2c  0x25  0x5f  0x3e  0x3f \
+  0xec  0xf2  0xf9 *0xfc *0xe7  0xe4  0xeb  0xef \
+  0xf6  0xe3  0x3a  0xd5  0xc3  0x27  0x3d  0x22 \
+  0xfc  0x61  0x62  0x63  0x64  0x65  0x66  0x67 \
+  0x68  0x69  0xe2  0xea  0xee  0xf4  0xfb  0xe1 \
+  0x7d  0x6a  0x6b  0x6c  0x6d  0x6e  0x6f  0x70 \
+  0x71  0x72  0xed  0xf3  0xfa  0xf1  0xc0  0xc8 \
+  0xcc  0x7e  0x73  0x74  0x75  0x76  0x77  0x78 \
+  0x79  0x7a  0xd2  0xd9  0x40  0x23 *0x59 *0x41 \
+ *0x45 *0x45 *0x49 *0x4f *0x55 *0x59 *0x43  0xc4 \
+  0xcb  0xcf  0xd6  0xdc  0xc2  0xca  0xce  0xd4 \
+  0xf5  0x41  0x42  0x43  0x44  0x45  0x46  0x47 \
+  0x48  0x49  0xdb  0xc1  0xa2  0xcd  0x00  0x00 \
+ *0xe9  0x4a  0x4b  0x4c  0x4d  0x4e  0x4f  0x50 \
+  0x51  0x52  0xd3  0xda  0xd1  0x00  0x00  0x00 \
+  0x5c  0x00  0x53  0x54  0x55  0x56  0x57  0x58 \
+  0x59  0x5a  0xf8  0xe5  0xa6  0x00  0x00  0x00 \
+  0x30  0x31  0x32  0x33  0x34  0x35  0x36  0x37 \
+  0x38  0x39  0xc6  0xd8  0xc5  0x7c  0x00  0x00
+! Greek, requires the 3270gr font
+! Courtesty of Mantzios Achilleus
+x3270.charset.greek: #table \
+  0   1   2   3 156   9 134 127 151 141 142  11  12  13  14  15 \n\
+ 16  17  18  19 157 133   8 135  24  25 146 143  28  29  30  31 \n\
+128 129 130 131 132  10  23  27 136 137 138 139 140   5   6   7 \n\
+144 145  22 147 148 149 150   4 152 153 154 155  20  21 158  26 \n\
+ 32 193 194 195 196 197 198 199 200 201  91  46  60  40  43  33 \n\
+ 38 202 203 204 205 206 207 208 209 211  93  36  42  41  59  94 \n\
+ 45  47 212 213 214 215 216 217 218 219 174  44  37  95  62  63 \n\
+168 182 184 185 210 186 188 190 191  96  58  35  64  39  61  34 \n\
+181  97  98  99 100 101 102 103 104 105 225 226 227 228 229 230 \n\
+176 106 107 108 109 110 111 112 113 114 231 232 233 234 235 236 \n\
+180 126 115 116 117 118 119 120 121 122 237 238 239 240 241 243 \n\
+163 220 221 222 250 223 252 253 251 254 242 244 245 246 247 248 \n\
+123  65  66  67  68  69  70  71  72  73 173 249 192 224 164 175 \n\
+125  74  75  76  77  78  79  80  81  82 177 189 124 183 162 166 \n\
+ 92 161  83  84  85  86  87  88  89  90 178 167 255 170 171 172 \n\
+ 48  49  50  51  52  53  54  55  56  57 179 169 165 160 187 159
+x3270.codepage.greek: 0x0464036b
+x3270.displayCharset.greek: 3270cg-7,iso8859-7
+x3270.emulatorFontList.3270cg-7,iso8859-7: 3270gr
+! Russian character set for x3270.
+x3270.codepage.russian: 880
+x3270.displayCharset.russian: koi8-r
+x3270.charset.russian: #table\n\
+   0   1   2   3 158   9 170 127 182  96 147  11  12  13  14  15 \
+  16  17  18  19 171 126   8 175  24  25 150 125  28  29  30  31 \
+ 124 174 129 123 160  10  23  27 172 154 184 173 146   5   6   7 \
+ 180 181  22 183 155 156 157   4 178 131 169 148  20  21 149  26 \
+  32 166 167 128 163 139 140 141 142 143  91  46  60  40  43  33 \
+  38 176 177 186 187 188 189 255 191 144  93  36  42  41  59  94 \
+  45  47 130 179 132 133 134 135 136 137 145  44  37  95  62  63 \
+ 151 152 153 162 138 164 192 193 194 168  58  35  64  39  61  34 \
+ 195  97  98  99 100 101 102 103 104 105 196 197 198 199 200 201 \
+ 202 106 107 108 109 110 111 112 113 114 203 204 205 206 207 208 \
+ 209 161 115 116 117 118 119 120 121 122 210 211 212 213 214 215 \
+ 216 217 218 219 220 221 222 223 224 225 226 227 228 229 230 231 \
+ 165  65  66  67  68  69  70  71  72  73 232 233 234 235 236 237 \
+ 159  74  75  76  77  78  79  80  81  82 238 239 240 241 242 243 \
+  92 185  83  84  85  86  87  88  89  90 244 245 246 247 248 249 \
+  48  49  50  51  52  53  54  55  56  57 250 251 252 253 254 190
+! Slovenian character set for x3270, courtesy of Franci Jeric.
+! Also works for Croatian and Serbian (Latin).
+x3270.codepage.slovenian: 0x03bf0366
+x3270.displayCharset.slovenian: iso8859-2
+x3270.charset.slovenian: #table\n\
+   0   1   2   3 156   9 134 127 151 141 142  11  12  13  14  15 \
+  16  17  18  19 157 133   8 135  24  25 146 143  28  29  30  31 \
+ 128 129 130 131 132  10  23  27 136 137 138 139 140   5   6   7 \
+ 144 145  22 147 148 149 150   4 152 153 154 155  20  21 158  26 \
+  32 160 194 228 195 225 227 232 231 230  91  46  60  40  43  33 \
+  38 233 163 235 249 237 222 181 229 223  93  36  42  41  59  94 \
+  45  47 226 196 189 193 202 200 199 198 124  44  37  95  62  63 \
+ 183 201 206 203 217 205 170 165 197  96  58  35  64  39  61  34 \
+ 162  97  98  99 100 101 102 103 104 105 182 242 240 253 248 186 \
+ 176 106 107 108 109 110 111 112 113 114 179 241 185 184 178 164 \
+ 177 126 115 116 117 118 119 120 121 122 166 210 208 221 216 234 \
+ 254 161 191 238 175 167 190 255 174 188 172 209 169 168 180 215 \
+ 123  65  66  67  68  69  70  71  72  73 173 244 246 224 243 245 \
+ 125  74  75  76  77  78  79  80  81  82 204 251 252 187 250 236 \
+  92 247  83  84  85  86  87  88  89  90 239 212 214 192 211 213 \
+  48  49  50  51  52  53  54  55  56  57 207 219 220 171 218 159
+! Thai character set for x3270
+x3270.codepage.thai: 0x03aa0346
+x3270.displayCharset.thai: iso8859-11,tis620.2529-0
+x3270.charset.thai: #table\n\
+  32   1   2   3 156   9 134 127 151 141 142  11  12  13  14  15 \
+  16  17  18  19 157 133   8 135  24  25 146 143  28  29  30  31 \
+ 128 129 130 131 132  10  23  27 136 137 138 139 140   5   6   7 \
+ 144 145  22 147 148 149 150   4 152 153 154 155  20  21 158  26 \
+  32  32 161 162 163 164 165 166 167 168 213  46  60  40  43 124 \
+  38 169 168 169 170 171 172 173 174 177  33  36  42  41  59 126 \
+  45  47 175 176 177 178 179 180 181 185 203  44  37  95  62  63 \
+ 223 238 182 183 184 185 186 187 188  96  58  35  64  39  61  34 \
+ 239  97  98  99 100 101 102 103 104 105 189 190 191 192 193 194 \
+ 250 106 107 108 109 110 111 112 113 114 195 196 197 198 199 200 \
+ 251 229 115 116 117 118 119 120 121 122 201 202 203 204 205 206 \
+ 240 241 242 243 244 245 246 247 248 249 207 208 209 210 211 212 \
+ 123  65  66  67  68  69  70  71  72  73 232 213 214 215 216 217 \
+ 125  74  75  76  77  78  79  80  81  82 218 224 225 226 227 228 \
+  92 159  83  84  85  86  87  88  89  90 229 230 231 232 233 234 \
+  48  49  50  51  52  53  54  55  56  57 235 236 237 253 254 255

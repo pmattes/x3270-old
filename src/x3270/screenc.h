@@ -12,14 +12,14 @@
  *		Global declarations for screen.c.
  */
 
-extern char *efont_charset;
+extern const char *efont_charset;
 extern Boolean efont_matches;
 extern Dimension main_width;
 
 extern void blink_start(void);
 extern void cursor_move(int baddr);
 extern unsigned display_height(void);
-extern char *display_charset(char **dash);
+extern char *display_charset();
 extern unsigned display_heightMM(void);
 extern unsigned display_width(void);
 extern unsigned display_widthMM(void);
@@ -59,6 +59,8 @@ extern GC screen_gc(int color);
 extern void screen_init(void);
 extern GC screen_invgc(int color);
 extern void screen_m3279(Boolean m3279);
+extern Boolean screen_new_display_charset(const char *display_charset,
+    const char *csname);
 extern void screen_newcharset(char *csname);
 extern void screen_newfont(char *fontname, Boolean do_popup, Boolean is_cs);
 extern void screen_newscheme(char *s);

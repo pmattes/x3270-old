@@ -62,8 +62,8 @@ scroll_init(void)
 	if (sbuf != CN) {
 		XtFree(sbuf);
 		XtFree(zbuf);
-		XtFree((char *)buf_save);
-		XtFree((char *)ea_save);
+		Free(buf_save);
+		Free(ea_save);
 	}
 	sa_size = appres.save_lines + maxROWS;
 	buf_save = (unsigned char **)XtCalloc(sizeof(unsigned char *), sa_size);

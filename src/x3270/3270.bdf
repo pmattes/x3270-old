@@ -6,7 +6,7 @@ COMMENT " Page 1: EBCDIC APL/APL2 set, CG order"
 COMMENT " Page 2: (first 16 characters only) DEC line-drawing characters from"
 COMMENT "  fixed-width X fonts"
 COMMENT ""
-COMMENT "Modifications Copyright 1993, 1994, 1995, 2000 by Paul Mattes."
+COMMENT "Modifications Copyright 1993, 1994, 1995, 2000, 2001 by Paul Mattes."
 COMMENT "Original X11 Port Copyright 1990 by Jeff Sparkes."
 COMMENT " Permission to use, copy, modify, and distribute this software and"
 COMMENT " its documentation for any purpose and without fee is hereby"
@@ -22,19 +22,20 @@ COMMENT " notice."
 FONT 3270
 SIZE 14 72 72
 FONTBOUNDINGBOX 9 14 0 -3
-STARTPROPERTIES 16
+STARTPROPERTIES 17
 FONTNAME_REGISTRY ""
 FOUNDRY "Misc"
 FAMILY_NAME "3270"
 WEIGHT_NAME "Medium"
 SLANT "R"
+SETWIDTH_NAME "Normal"
 PIXEL_SIZE 14
 POINT_SIZE 140
 RESOLUTION_X 72
 RESOLUTION_Y 72
 SPACING "C"
-CHARSET_REGISTRY ""
-CHARSET_ENCODING ""
+CHARSET_REGISTRY "3270cg"
+CHARSET_ENCODING "1a"
 AVERAGE_WIDTH 90
 DEFAULT_CHAR 514
 FONT_ASCENT 11

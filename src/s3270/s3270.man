@@ -1,5 +1,5 @@
 '\" t
-.TH s3270 1 "25 June 2001"
+.TH s3270 1 "31 December 2001"
 .SH "NAME"
 s3270 \-
 \s-1IBM\s+1 host access tool
@@ -7,8 +7,10 @@ s3270 \-
 \fBs3270\fP
 [\fIoptions\fP]
 [\fIhost\fP]
+
 .SH "DESCRIPTION"
-\fBs3270\fP opens a telnet connection to an \s-1IBM\s+1
+\fBs3270\fP opens
+a telnet connection to an \s-1IBM\s+1
 host, then allows a script to control the host login session.
 It is derived from
 \fIx3270\fP(1),
@@ -51,12 +53,11 @@ a \fIport\fP to the \fIhostname\fP with a colon
 and with \fItn3270\fP(1), the \fIport\fP
 may also be specified as a second, separate argument.)
 .SH "OPTIONS"
-\fBs3270\fP
-understands
+ \fBs3270\fP understands
 the following options:
 .TP
 \fB\-charset\fP \fIname\fP
-Specifies an \s-1EBCDIC\s+1 national character set.
+Specifies an \s-1EBCDIC\s+1 host character set.
 See \s-1CHARACTER SETS\s+1 below.
 .TP
 \fB\-clear\fP \fItoggle\fP
@@ -82,12 +83,72 @@ Model 4 is the default.
 .TS
 center;
 c c c .
-Model Number	Columns	Rows
+T{
+.na
+.nh
+Model Number
+T}	T{
+.na
+.nh
+Columns
+T}	T{
+.na
+.nh
+Rows
+T}
 _
-2	80	24
-3	80	30
-4	80	43
-5	132	27
+T{
+.na
+.nh
+2
+T}	T{
+.na
+.nh
+80
+T}	T{
+.na
+.nh
+24
+T}
+T{
+.na
+.nh
+3
+T}	T{
+.na
+.nh
+80
+T}	T{
+.na
+.nh
+30
+T}
+T{
+.na
+.nh
+4
+T}	T{
+.na
+.nh
+80
+T}	T{
+.na
+.nh
+43
+T}
+T{
+.na
+.nh
+5
+T}	T{
+.na
+.nh
+132
+T}	T{
+.na
+.nh
+27
+T}
 .TE
 .IP
 Note: Technically, there is no such 3270 display as a 3279-4 or 3279-5, but
@@ -153,6 +214,15 @@ Specifies a file to save data stream and event traces into, overriding the
 default of
 \fB/tmp/x3trc.\fP\fIprocess_id\fP.
 .TP
+\fB\-tracefilesize\fP \fIsize\fP
+Places a limit on the size of a trace file.
+If this option is not specified, or is specified as \fB0\fP or \fBnone\fP,
+the trace file will be unlimited.
+If specified, the trace file cannot already exist, and the (silently enforced)
+minimum size is 64 Kbytes.
+The value of \fIsize\fP can have a \fBK\fP or \fBM\fP suffix, indicating
+kilobytes or megabytes respectively.
+.TP
 \fB\-xrm\fP "s3270.\fIresource\fP: \fIvalue\fP"
 Sets the value of the named \fIresource\fP to \fIvalue\fP.
 Resources control less common \fBs3270\fP
@@ -160,27 +230,248 @@ options, and are defined under \s-1RESOURCES\s+1 below.
 .SH "CHARACTER SETS"
 The \fB\-charset\fP
 option or the "s3270.charset" resource controls the \s-1EBCDIC\s+1
-national character set used by \fBs3270\fP.
+host character set used by \fBs3270\fP.
 Available sets include:
 .PP
 .TS
 center;
 l l l
 lfB l l.
-Charset Name	Code Page	Font	
+T{
+.na
+.nh
+Charset Name
+T}	T{
+.na
+.nh
+Code Page
+T}	T{
+.na
+.nh
+Display Character Sets
+T}
 _
-belgian	500	iso8859-1
-bracket	37	iso8859-1
-finnish	278	iso8859-1
-french	297	iso8859-1
-german	273	iso8859-1
-icelandic	871	iso8859-1
-iso-hebrew	424	iso8859-8
-iso-turkish	1026	iso8859-9
-italian	280	iso8859-1
-norwegian	277	iso8859-1
-uk	285	iso8859-1
-us-intl	37	iso8859-1
+T{
+.na
+.nh
+apl
+T}	T{
+.na
+.nh
+37
+T}	T{
+.na
+.nh
+3270cg-1a
+T}
+T{
+.na
+.nh
+belgian
+T}	T{
+.na
+.nh
+500
+T}	T{
+.na
+.nh
+3270cg-1a 3270-cg1 iso8859-1
+T}
+T{
+.na
+.nh
+bracket
+T}	T{
+.na
+.nh
+37
+T}	T{
+.na
+.nh
+3270cg-1a 3270-cg1 iso8859-1
+T}
+T{
+.na
+.nh
+brazilian
+T}	T{
+.na
+.nh
+275
+T}	T{
+.na
+.nh
+3270cg-1a 3270-cg1 iso8859-1
+T}
+T{
+.na
+.nh
+finnish
+T}	T{
+.na
+.nh
+278
+T}	T{
+.na
+.nh
+3270cg-1a 3270-cg1 iso8859-1
+T}
+T{
+.na
+.nh
+french
+T}	T{
+.na
+.nh
+297
+T}	T{
+.na
+.nh
+3270cg-1a 3270-cg1 iso8859-1
+T}
+T{
+.na
+.nh
+german
+T}	T{
+.na
+.nh
+273
+T}	T{
+.na
+.nh
+3270cg-1a 3270-cg1 iso8859-1
+T}
+T{
+.na
+.nh
+icelandic
+T}	T{
+.na
+.nh
+871
+T}	T{
+.na
+.nh
+3270cg-1a 3270-cg1 iso8859-1
+T}
+T{
+.na
+.nh
+iso-hebrew
+T}	T{
+.na
+.nh
+424
+T}	T{
+.na
+.nh
+iso8859-8
+T}
+T{
+.na
+.nh
+iso-turkish
+T}	T{
+.na
+.nh
+1026
+T}	T{
+.na
+.nh
+iso8859-9
+T}
+T{
+.na
+.nh
+italian
+T}	T{
+.na
+.nh
+280
+T}	T{
+.na
+.nh
+3270cg-1a 3270-cg1 iso8859-1
+T}
+T{
+.na
+.nh
+norwegian
+T}	T{
+.na
+.nh
+277
+T}	T{
+.na
+.nh
+3270cg-1a 3270-cg1 iso8859-1
+T}
+T{
+.na
+.nh
+russian
+T}	T{
+.na
+.nh
+880
+T}	T{
+.na
+.nh
+koi8-r
+T}
+T{
+.na
+.nh
+solvenian
+T}	T{
+.na
+.nh
+870
+T}	T{
+.na
+.nh
+iso8859-2
+T}
+T{
+.na
+.nh
+thai
+T}	T{
+.na
+.nh
+838
+T}	T{
+.na
+.nh
+iso8859-11 tis620.2529-0
+T}
+T{
+.na
+.nh
+uk
+T}	T{
+.na
+.nh
+285
+T}	T{
+.na
+.nh
+3270cg-1a 3270-cg1 iso8859-1
+T}
+T{
+.na
+.nh
+us-intl
+T}	T{
+.na
+.nh
+37
+T}	T{
+.na
+.nh
+3270cg-1a 3270-cg1 iso8859-1
+T}
 .TE
 .PP
 The default character set is
@@ -207,18 +498,150 @@ defined by resources:
 .TS
 center;
 l c c.
-Mode/Character	Resource	Default
+T{
+.na
+.nh
+Mode/Character
+T}	T{
+.na
+.nh
+Resource
+T}	T{
+.na
+.nh
+Default
+T}
 _
-Translate CR to NL	s3270.icrnl	true
-Translate NL to CR	s3270.inlcr	false
-Erase previous character	s3270.erase	^?
-Erase entire line	s3270.kill	^U
-Erase previous word	s3270.werase	^W
-Redisplay line	s3270.rprnt	^R
-Ignore special meaning of next character	s3270.lnext	^V
-Interrupt	s3270.intr	^C
-Quit	s3270.quit	^\e
-End of file	s3270.eof	^D
+T{
+.na
+.nh
+Translate CR to NL
+T}	T{
+.na
+.nh
+s3270.icrnl
+T}	T{
+.na
+.nh
+true
+T}
+T{
+.na
+.nh
+Translate NL to CR
+T}	T{
+.na
+.nh
+s3270.inlcr
+T}	T{
+.na
+.nh
+false
+T}
+T{
+.na
+.nh
+Erase previous character
+T}	T{
+.na
+.nh
+s3270.erase
+T}	T{
+.na
+.nh
+^?
+T}
+T{
+.na
+.nh
+Erase entire line
+T}	T{
+.na
+.nh
+s3270.kill
+T}	T{
+.na
+.nh
+^U
+T}
+T{
+.na
+.nh
+Erase previous word
+T}	T{
+.na
+.nh
+s3270.werase
+T}	T{
+.na
+.nh
+^W
+T}
+T{
+.na
+.nh
+Redisplay line
+T}	T{
+.na
+.nh
+s3270.rprnt
+T}	T{
+.na
+.nh
+^R
+T}
+T{
+.na
+.nh
+Ignore special meaning of next character
+T}	T{
+.na
+.nh
+s3270.lnext
+T}	T{
+.na
+.nh
+^V
+T}
+T{
+.na
+.nh
+Interrupt
+T}	T{
+.na
+.nh
+s3270.intr
+T}	T{
+.na
+.nh
+^C
+T}
+T{
+.na
+.nh
+Quit
+T}	T{
+.na
+.nh
+s3270.quit
+T}	T{
+.na
+.nh
+^\e
+T}
+T{
+.na
+.nh
+End of file
+T}	T{
+.na
+.nh
+s3270.eof
+T}	T{
+.na
+.nh
+^D
+T}
 .TE
 .SH "TOGGLES"
 \fBs3270\fP has a number of configurable modes which may be selected by
@@ -247,15 +670,79 @@ options are as follows:
 .TS
 center;
 l l .
-Option	Name
+T{
+.na
+.nh
+Option
+T}	T{
+.na
+.nh
+Name
+T}
 _
-Monocase	monoCase
-Blank Fill	blankFill
-Track Cursor	cursorPos
-Trace Data Stream	dsTrace
-Trace Events	eventTrace
-Save Screen(s) in File	screenTrace
-Wraparound	lineWrap
+T{
+.na
+.nh
+Monocase
+T}	T{
+.na
+.nh
+monoCase
+T}
+T{
+.na
+.nh
+Blank Fill
+T}	T{
+.na
+.nh
+blankFill
+T}
+T{
+.na
+.nh
+Track Cursor
+T}	T{
+.na
+.nh
+cursorPos
+T}
+T{
+.na
+.nh
+Trace Data Stream
+T}	T{
+.na
+.nh
+dsTrace
+T}
+T{
+.na
+.nh
+Trace Events
+T}	T{
+.na
+.nh
+eventTrace
+T}
+T{
+.na
+.nh
+Save Screen(s) in File
+T}	T{
+.na
+.nh
+screenTrace
+T}
+T{
+.na
+.nh
+Wraparound
+T}	T{
+.na
+.nh
+lineWrap
+T}
 .TE
 .SH "ACTIONS"
 Here is a complete list of basic s3270 actions.
@@ -263,57 +750,546 @@ Script-specific actions are described on the
 \fIx3270-script\fP(1) manual page.
 .PP
 .TS
-l l
-.
-Attn	attention key
-BackSpace	move cursor left (or send \s-1ASCII BS\s+1)
-BackTab	tab to start of previous input field
-CircumNot	input "^" in \s-1NVT\s+1 mode, or "notsign" in 3270 mode
-Clear	clear screen
-Connect(\fIhost\fP)	connect to \fIhost\fP
-CursorSelect	Cursor Select \s-1AID\s+1
-Delete	delete character under cursor (or send \s-1ASCII DEL\s+1)
-DeleteField	delete the entire field
-DeleteWord	delete the current or previous word
-Disconnect	disconnect from host
-Down	move cursor down
-Dup	duplicate field
-Enter	Enter \s-1AID\s+1 (or send \s-1ASCII CR\s+1)
-Erase	erase previous character (or send \s-1ASCII BS\s+1)
-EraseEOF	erase to end of current field
-EraseInput	erase all input fields
-Execute(\fIcmd\fP)	execute a command in a shell
-FieldEnd	move cursor to end of field
-FieldExit	clear to end of field and skip to next (5250 emulation)
-FieldMark	mark field
-HexString(\fIhex_digits\fP)	insert control-character string
-Home	move cursor to first input field
-Insert	set insert mode
-Interrupt	send \s-1TELNET IP\s+1 to host
-Key(\fIkeysym\fP)	insert key \fIkeysym\fP
-Key(0x\fIxx\fP)	insert key with \s-1ASCII\s+1 code \fIxx\fP
-Left	move cursor left
-Left2	move cursor left 2 positions
-MonoCase	toggle uppercase-only mode
-MoveCursor(\fIrow\fP,\fIcol\fP)	move cursor to (\fIrow\fP,\fIcol\fP)
-Newline	move cursor to first field on next line (or send \s-1ASCII LF\s+1)
-NextWord	move cursor to next word
-PA(\fIn\fP)	Program Attention \s-1AID\s+1 (\fIn\fP from 1 to 3)
-PF(\fIn\fP)	Program Function \s-1AID\s+1 (\fIn\fP from 1 to 24)
-PreviousWord	move cursor to previous word
-)Quit	exit \fBs3270\fP
-Redraw	redraw window
-Reset	reset locked keyboard
-Right	move cursor right
-Right2	move cursor right 2 positions
-Script(\fIcommand\fP[,\fIarg\fP...])	run a script
-String(\fIstring\fP)	insert string (simple macro facility)
-SysReq	System Request \s-1AID\s+1
-Tab	move cursor to next input field
-ToggleInsert	toggle insert mode
-ToggleReverse	toggle reverse-input mode
-Transfer(\fIoption\fP=\fIvalue\fP...)	file transfer
-Up	move cursor up
+center; lw(3i) lw(3i).
+T{
+.na
+.nh
+.in +2
+.ti -2
+Attn
+T}	T{
+.na
+.nh
+attention key
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+BackSpace
+T}	T{
+.na
+.nh
+move cursor left (or send \s-1ASCII BS\s+1)
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+BackTab
+T}	T{
+.na
+.nh
+tab to start of previous input field
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+CircumNot
+T}	T{
+.na
+.nh
+input "^" in \s-1NVT\s+1 mode, or "notsign" in 3270 mode
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+Clear
+T}	T{
+.na
+.nh
+clear screen
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+Connect(l3h_t \fIh\fP, \fIhost\fP)
+T}	T{
+.na
+.nh
+connect to \fIhost\fP
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+CursorSelect
+T}	T{
+.na
+.nh
+Cursor Select \s-1AID\s+1
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+Delete
+T}	T{
+.na
+.nh
+delete character under cursor (or send \s-1ASCII DEL\s+1)
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+DeleteField
+T}	T{
+.na
+.nh
+delete the entire field
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+DeleteWord
+T}	T{
+.na
+.nh
+delete the current or previous word
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+Disconnect
+T}	T{
+.na
+.nh
+disconnect from host
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+Down
+T}	T{
+.na
+.nh
+move cursor down
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+Dup
+T}	T{
+.na
+.nh
+duplicate field
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+Enter
+T}	T{
+.na
+.nh
+Enter \s-1AID\s+1 (or send \s-1ASCII CR\s+1)
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+Erase
+T}	T{
+.na
+.nh
+erase previous character (or send \s-1ASCII BS\s+1)
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+EraseEOF
+T}	T{
+.na
+.nh
+erase to end of current field
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+EraseInput
+T}	T{
+.na
+.nh
+erase all input fields
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+Execute(\fIcmd\fP)
+T}	T{
+.na
+.nh
+execute a command in a shell
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+FieldEnd
+T}	T{
+.na
+.nh
+move cursor to end of field
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+FieldExit
+T}	T{
+.na
+.nh
+clear to end of field and skip to next (5250 emulation)
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+FieldMark
+T}	T{
+.na
+.nh
+mark field
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+HexString(l3h_t \fIh\fP, \fIhex_digits\fP)
+T}	T{
+.na
+.nh
+insert control-character string
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+Home
+T}	T{
+.na
+.nh
+move cursor to first input field
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+Insert
+T}	T{
+.na
+.nh
+set insert mode
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+Interrupt
+T}	T{
+.na
+.nh
+send \s-1TELNET IP\s+1 to host
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+Key(l3h_t \fIh\fP, \fIkeysym\fP)
+T}	T{
+.na
+.nh
+insert key \fIkeysym\fP
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+Key(l3h_t \fIh\fP, 0x\fIxx\fP)
+T}	T{
+.na
+.nh
+insert key with \s-1ASCII\s+1 code \fIxx\fP
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+Left
+T}	T{
+.na
+.nh
+move cursor left
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+Left2
+T}	T{
+.na
+.nh
+move cursor left 2 positions
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+MonoCase
+T}	T{
+.na
+.nh
+toggle uppercase-only mode
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+MoveCursor(l3h_t \fIh\fP, \fIrow\fP, \fIcol\fP)
+T}	T{
+.na
+.nh
+move cursor to (\fIrow\fP,\fIcol\fP)
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+Newline
+T}	T{
+.na
+.nh
+move cursor to first field on next line (or send \s-1ASCII LF\s+1)
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+NextWord
+T}	T{
+.na
+.nh
+move cursor to next word
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+PA(l3h_t \fIh\fP, \fIn\fP)
+T}	T{
+.na
+.nh
+Program Attention \s-1AID\s+1 (\fIn\fP from 1 to 3)
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+PF(l3h_t \fIh\fP, \fIn\fP)
+T}	T{
+.na
+.nh
+Program Function \s-1AID\s+1 (\fIn\fP from 1 to 24)
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+PreviousWord
+T}	T{
+.na
+.nh
+move cursor to previous word
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+Quit
+T}	T{
+.na
+.nh
+exit \fBs3270\fP
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+Redraw
+T}	T{
+.na
+.nh
+redraw window
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+Reset
+T}	T{
+.na
+.nh
+reset locked keyboard
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+Right
+T}	T{
+.na
+.nh
+move cursor right
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+Right2
+T}	T{
+.na
+.nh
+move cursor right 2 positions
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+Script(\fIcommand\fP[,\fIarg\fP...])
+T}	T{
+.na
+.nh
+run a script
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+String(l3h_t \fIh\fP, \fIstring\fP)
+T}	T{
+.na
+.nh
+insert string (simple macro facility)
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+SysReq
+T}	T{
+.na
+.nh
+System Request \s-1AID\s+1
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+Tab
+T}	T{
+.na
+.nh
+move cursor to next input field
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+ToggleInsert
+T}	T{
+.na
+.nh
+toggle insert mode
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+ToggleReverse
+T}	T{
+.na
+.nh
+toggle reverse-input mode
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+Transfer(l3h_t \fIh\fP, \fIoption\fP=\fIvalue\fP...)
+T}	T{
+.na
+.nh
+file transfer
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+Up
+T}	T{
+.na
+.nh
+move cursor up
+T}
 .TE
 .SH "FILE TRANSFER"
 The \fBTransfer\fP action implements \fBIND$FILE\fP file transfer.
@@ -328,21 +1304,245 @@ The options are:
 .LP
 .TS
 l c l l.
-Option	Required?	Default	Other Values
+T{
+.na
+.nh
+Option
+T}	T{
+.na
+.nh
+Required?
+T}	T{
+.na
+.nh
+Default
+T}	T{
+.na
+.nh
+Other Values
+T}
 _
-Direction	No	send	receive
-HostFile	Yes	\ 	\ 
-LocalFile	Yes	\ 	\ 
-Host	No	tso	vm
-Mode	No	ascii	binary
-Cr	No	remove	add, keep
-Exist	No	keep	replace, append
-Recfm	No	\ 	fixed, variable, undefined
-Lrecl	No	\ 	\ 
-Blksize	No	\ 	\ 
-Allocation	No	\ 	tracks, cylinders, avblock
-PrimarySpace	No	\ 	\ 
-SecondarySpace	No	\ 	\ 
+T{
+.na
+.nh
+Direction
+T}	T{
+.na
+.nh
+No
+T}	T{
+.na
+.nh
+send
+T}	T{
+.na
+.nh
+receive
+T}
+T{
+.na
+.nh
+HostFile
+T}	T{
+.na
+.nh
+Yes
+T}	T{
+.na
+.nh
+\ 
+T}	T{
+.na
+.nh
+\ 
+T}
+T{
+.na
+.nh
+LocalFile
+T}	T{
+.na
+.nh
+Yes
+T}	T{
+.na
+.nh
+\ 
+T}	T{
+.na
+.nh
+\ 
+T}
+T{
+.na
+.nh
+Host
+T}	T{
+.na
+.nh
+No
+T}	T{
+.na
+.nh
+tso
+T}	T{
+.na
+.nh
+vm
+T}
+T{
+.na
+.nh
+Mode
+T}	T{
+.na
+.nh
+No
+T}	T{
+.na
+.nh
+ascii
+T}	T{
+.na
+.nh
+binary
+T}
+T{
+.na
+.nh
+Cr
+T}	T{
+.na
+.nh
+No
+T}	T{
+.na
+.nh
+remove
+T}	T{
+.na
+.nh
+add, keep
+T}
+T{
+.na
+.nh
+Exist
+T}	T{
+.na
+.nh
+No
+T}	T{
+.na
+.nh
+keep
+T}	T{
+.na
+.nh
+replace, append
+T}
+T{
+.na
+.nh
+Recfm
+T}	T{
+.na
+.nh
+No
+T}	T{
+.na
+.nh
+\ 
+T}	T{
+.na
+.nh
+fixed, variable, undefined
+T}
+T{
+.na
+.nh
+Lrecl
+T}	T{
+.na
+.nh
+No
+T}	T{
+.na
+.nh
+\ 
+T}	T{
+.na
+.nh
+\ 
+T}
+T{
+.na
+.nh
+Blksize
+T}	T{
+.na
+.nh
+No
+T}	T{
+.na
+.nh
+\ 
+T}	T{
+.na
+.nh
+\ 
+T}
+T{
+.na
+.nh
+Allocation
+T}	T{
+.na
+.nh
+No
+T}	T{
+.na
+.nh
+\ 
+T}	T{
+.na
+.nh
+tracks, cylinders, avblock
+T}
+T{
+.na
+.nh
+PrimarySpace
+T}	T{
+.na
+.nh
+No
+T}	T{
+.na
+.nh
+\ 
+T}	T{
+.na
+.nh
+\ 
+T}
+T{
+.na
+.nh
+SecondarySpace
+T}	T{
+.na
+.nh
+No
+T}	T{
+.na
+.nh
+\ 
+T}	T{
+.na
+.nh
+\ 
+T}
 .TE
 .LP
 The option details are as follows.
@@ -426,20 +1626,79 @@ The C backslash conventions are honored as follows.
 processing the string.)
 .TS
 l l.
-\eb	Left
-\ef	Clear*
-\en	Enter*
-\epa\fIn\fP	PA(\fIn\fP)*
-\epf\fInn\fP	PF(\fInn\fP)*
-\er	Newline
-\et	Tab
-\eT	BackTab
+T{
+.na
+.nh
+\eb
+T}	T{
+.na
+.nh
+Left
+T}
+T{
+.na
+.nh
+\ef
+T}	T{
+.na
+.nh
+Clear*
+T}
+T{
+.na
+.nh
+\en
+T}	T{
+.na
+.nh
+Enter*
+T}
+T{
+.na
+.nh
+\epa\fIn\fP
+T}	T{
+.na
+.nh
+PA(\fIn\fP)*
+T}
+T{
+.na
+.nh
+\epf\fInn\fP
+T}	T{
+.na
+.nh
+PF(\fInn\fP)*
+T}
+T{
+.na
+.nh
+\er
+T}	T{
+.na
+.nh
+Newline
+T}
+T{
+.na
+.nh
+\et
+T}	T{
+.na
+.nh
+Tab
+T}
+T{
+.na
+.nh
+\eT
+T}	T{
+.na
+.nh
+BackTab
+T}
 .TE
-.IP
-An example keymap entry would be:
-.RS
-Meta<Key>p: String("probs clearrdr\en")
-.RE
 .IP
 \fBNote:\fP
 The strings are in \s-1ASCII\s+1 and converted to \s-1EBCDIC\s+1,
@@ -483,36 +1742,500 @@ The resources available in \fBs3270\fP are:
 .LP
 .TS
 l l l l.
-Resource	Default	Option	Purpose
+T{
+.na
+.nh
+Resource
+T}	T{
+.na
+.nh
+Default
+T}	T{
+.na
+.nh
+Option
+T}	T{
+.na
+.nh
+Purpose
+T}
 _
-blankFill	False	\-set blankFill	Blank Fill mode
-charset	bracket	\-charset	\s-1EBCDIC\s+1 character set
-charset.\fIfoo\fP	\ 	\ 	Definition of character set \fIfoo\fP
-dsTrace	False	\-trace	Data stream tracing
-eof	^D	\ 	\s-1NVT\s+1-mode \s-1EOF\s+1 character
-erase	^H	\ 	\s-1NVT\s+1-mode erase character
-extended	True	\ 	Use 3270 extended data stream
-eventTrace	False	\-trace	Event tracing
-ftCommand	ind$file	\ 	Host file transfer command
-icrnl	False	\ 	Map \s-1CR\s+1 to \s-1NL\s+1 on \s-1NVT\s+1-mode input
-inlcr	False	\ 	Map \s-1NL\s+1 to \s-1CR\s+1 in \s-1NVT\s+1-mode input
-intr	^C	\ 	\s-1NVT\s+1-mode interrupt character
-kill	^U	\ 	\s-1NVT\s+1-mode kill character
-lineWrap	False	\-set lineWrap	\s-1NVT\s+1 line wrap mode
-lnext	^V	\ 	\s-1NVT\s+1-mode lnext character
-m3279	(note 1)	\-mono	3279 (color) emulation
-monoCase	False	\-set monoCase	Mono-case mode
-numericLock	False	\ 	Lock keyboard for numeric field error
-oerrLock	False	\ 	Lock keyboard for input error
-oversize	\ 	\-oversize	Oversize screen dimensions
-port	telnet	\-port	Non-default TCP port
-quit	^\e	\ 	\s-1NVT\s+1-mode quit character
-rprnt	^R	\ 	\s-1NVT\s+1-mode reprint character
-secure	False	\ 	Disable "dangerous" options
-termName	(note 2)	\-tn	\s-1TELNET\s+1 terminal type string
-traceDir	/tmp	\ 	Directory for trace files
-traceFile	(note 3)	\-tracefile	File for trace output
-werase	^W	\ 	\s-1NVT\s+1-mode word-erase character
+T{
+.na
+.nh
+blankFill
+T}	T{
+.na
+.nh
+False
+T}	T{
+.na
+.nh
+\-set blankFill
+T}	T{
+.na
+.nh
+Blank Fill mode
+T}
+T{
+.na
+.nh
+charset
+T}	T{
+.na
+.nh
+bracket
+T}	T{
+.na
+.nh
+\-charset
+T}	T{
+.na
+.nh
+\s-1EBCDIC\s+1 character set
+T}
+T{
+.na
+.nh
+charset.\fIfoo\fP
+T}	T{
+.na
+.nh
+\ 
+T}	T{
+.na
+.nh
+\ 
+T}	T{
+.na
+.nh
+Definition of character set \fIfoo\fP
+T}
+T{
+.na
+.nh
+dsTrace
+T}	T{
+.na
+.nh
+False
+T}	T{
+.na
+.nh
+\-trace
+T}	T{
+.na
+.nh
+Data stream tracing
+T}
+T{
+.na
+.nh
+eof
+T}	T{
+.na
+.nh
+^D
+T}	T{
+.na
+.nh
+\ 
+T}	T{
+.na
+.nh
+\s-1NVT\s+1-mode \s-1EOF\s+1 character
+T}
+T{
+.na
+.nh
+erase
+T}	T{
+.na
+.nh
+^H
+T}	T{
+.na
+.nh
+\ 
+T}	T{
+.na
+.nh
+\s-1NVT\s+1-mode erase character
+T}
+T{
+.na
+.nh
+extended
+T}	T{
+.na
+.nh
+True
+T}	T{
+.na
+.nh
+\ 
+T}	T{
+.na
+.nh
+Use 3270 extended data stream
+T}
+T{
+.na
+.nh
+eventTrace
+T}	T{
+.na
+.nh
+False
+T}	T{
+.na
+.nh
+\-trace
+T}	T{
+.na
+.nh
+Event tracing
+T}
+T{
+.na
+.nh
+ftCommand
+T}	T{
+.na
+.nh
+ind$file
+T}	T{
+.na
+.nh
+\ 
+T}	T{
+.na
+.nh
+Host file transfer command
+T}
+T{
+.na
+.nh
+icrnl
+T}	T{
+.na
+.nh
+False
+T}	T{
+.na
+.nh
+\ 
+T}	T{
+.na
+.nh
+Map \s-1CR\s+1 to \s-1NL\s+1 on \s-1NVT\s+1-mode input
+T}
+T{
+.na
+.nh
+inlcr
+T}	T{
+.na
+.nh
+False
+T}	T{
+.na
+.nh
+\ 
+T}	T{
+.na
+.nh
+Map \s-1NL\s+1 to \s-1CR\s+1 in \s-1NVT\s+1-mode input
+T}
+T{
+.na
+.nh
+intr
+T}	T{
+.na
+.nh
+^C
+T}	T{
+.na
+.nh
+\ 
+T}	T{
+.na
+.nh
+\s-1NVT\s+1-mode interrupt character
+T}
+T{
+.na
+.nh
+kill
+T}	T{
+.na
+.nh
+^U
+T}	T{
+.na
+.nh
+\ 
+T}	T{
+.na
+.nh
+\s-1NVT\s+1-mode kill character
+T}
+T{
+.na
+.nh
+lineWrap
+T}	T{
+.na
+.nh
+False
+T}	T{
+.na
+.nh
+\-set lineWrap
+T}	T{
+.na
+.nh
+\s-1NVT\s+1 line wrap mode
+T}
+T{
+.na
+.nh
+lnext
+T}	T{
+.na
+.nh
+^V
+T}	T{
+.na
+.nh
+\ 
+T}	T{
+.na
+.nh
+\s-1NVT\s+1-mode lnext character
+T}
+T{
+.na
+.nh
+m3279
+T}	T{
+.na
+.nh
+(note 1)
+T}	T{
+.na
+.nh
+\-mono
+T}	T{
+.na
+.nh
+3279 (color) emulation
+T}
+T{
+.na
+.nh
+monoCase
+T}	T{
+.na
+.nh
+False
+T}	T{
+.na
+.nh
+\-set monoCase
+T}	T{
+.na
+.nh
+Mono-case mode
+T}
+T{
+.na
+.nh
+numericLock
+T}	T{
+.na
+.nh
+False
+T}	T{
+.na
+.nh
+\ 
+T}	T{
+.na
+.nh
+Lock keyboard for numeric field error
+T}
+T{
+.na
+.nh
+oerrLock
+T}	T{
+.na
+.nh
+False
+T}	T{
+.na
+.nh
+\ 
+T}	T{
+.na
+.nh
+Lock keyboard for input error
+T}
+T{
+.na
+.nh
+oversize
+T}	T{
+.na
+.nh
+\ 
+T}	T{
+.na
+.nh
+\-oversize
+T}	T{
+.na
+.nh
+Oversize screen dimensions
+T}
+T{
+.na
+.nh
+port
+T}	T{
+.na
+.nh
+telnet
+T}	T{
+.na
+.nh
+\-port
+T}	T{
+.na
+.nh
+Non-default TCP port
+T}
+T{
+.na
+.nh
+quit
+T}	T{
+.na
+.nh
+^\e
+T}	T{
+.na
+.nh
+\ 
+T}	T{
+.na
+.nh
+\s-1NVT\s+1-mode quit character
+T}
+T{
+.na
+.nh
+rprnt
+T}	T{
+.na
+.nh
+^R
+T}	T{
+.na
+.nh
+\ 
+T}	T{
+.na
+.nh
+\s-1NVT\s+1-mode reprint character
+T}
+T{
+.na
+.nh
+secure
+T}	T{
+.na
+.nh
+False
+T}	T{
+.na
+.nh
+\ 
+T}	T{
+.na
+.nh
+Disable "dangerous" options
+T}
+T{
+.na
+.nh
+termName
+T}	T{
+.na
+.nh
+(note 2)
+T}	T{
+.na
+.nh
+\-tn
+T}	T{
+.na
+.nh
+\s-1TELNET\s+1 terminal type string
+T}
+T{
+.na
+.nh
+traceDir
+T}	T{
+.na
+.nh
+/tmp
+T}	T{
+.na
+.nh
+\ 
+T}	T{
+.na
+.nh
+Directory for trace files
+T}
+T{
+.na
+.nh
+traceFile
+T}	T{
+.na
+.nh
+(note 3)
+T}	T{
+.na
+.nh
+\-tracefile
+T}	T{
+.na
+.nh
+File for trace output
+T}
+T{
+.na
+.nh
+werase
+T}	T{
+.na
+.nh
+^W
+T}	T{
+.na
+.nh
+\ 
+T}	T{
+.na
+.nh
+\s-1NVT\s+1-mode word-erase character
+T}
 .TE
 .LP
 .RS
@@ -570,4 +2293,4 @@ notice.
 .RE
 5250 Emulation Code Copyright Minolta (Schweiz) AG, Beat Rubischon.
 .SH "VERSION"
-s3270 3.2.17
+s3270 3.2.18

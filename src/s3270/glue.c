@@ -55,15 +55,16 @@ extern void merge_profile(void); /* XXX */
 #endif /*]*/
 
 /* Statics */
-static void no_minus(char *arg);
+static void no_minus(const char *arg);
 #if defined(LOCAL_PROCESS) /*[*/
-static void parse_local_process(int *argcp, char **argv, char **cmds);
+static void parse_local_process(int *argcp, const char **argv,
+    const char **cmds);
 #endif /*]*/
-static void parse_options(int *argcp, char **argv);
-static void parse_set_clear(int *argcp, char **argv);
+static void parse_options(int *argcp, const char **argv);
+static void parse_set_clear(int *argcp, const char **argv);
 
 /* Globals */
-char           *programname;
+const char     *programname;
 char		full_model_name[13] = "IBM-";
 char	       *model_name = &full_model_name[4];
 AppRes          appres;
@@ -104,7 +105,7 @@ struct toggle_name toggle_names[N_TOGGLES] = {
 
 
 int
-parse_command_line(int argc, char **argv, char **cl_hostname)
+parse_command_line(int argc, const char **argv, const char **cl_hostname)
 {
 	int cl, i;
 	int ovc, ovr;
@@ -236,7 +237,7 @@ parse_command_line(int argc, char **argv, char **cl_hostname)
 }
 
 static void
-no_minus(char *arg)
+no_minus(const char *arg)
 {
 	if (arg[0] == '-')
 	    usage(xs_buffer("Unknown or incomplete option: %s", arg));
@@ -247,10 +248,11 @@ no_minus(char *arg)
  * Pick out the -e option.
  */
 static void
-parse_local_process(int *argcp, char **argv, char **cmds)
+parse_local_process(int *argcp, const char **argv, const char **cmds)
 {
 	int i, j;
 	int e_len = -1;
+	char *cmds_buf = NULL;
 
 	for (i = 1; i < *argcp; i++) {
 		if (strcmp(argv[i], OptLocalProcess))
@@ -262,10 +264,10 @@ parse_local_process(int *argcp, char **argv, char **cmds)
 			e_len += 1 + strlen(argv[j]);
 		}
 		e_len++;
-		*cmds = Malloc(e_len);
-		(void) strcpy(*cmds, OptLocalProcess);
+		cmds_buf = Malloc(e_len);
+		(void) strcpy(cmds_buf, OptLocalProcess);
 		for (j = i+1; j < *argcp; j++) {
-			(void) strcat(strcat(*cmds, " "), argv[j]);
+			(void) strcat(strcat(cmds_buf, " "), argv[j]);
 		}
 
 		/* Stamp out the remaining args. */
@@ -273,6 +275,7 @@ parse_local_process(int *argcp, char **argv, char **cmds)
 		argv[i] = CN;
 		break;
 	}
+	*cmds = cmds_buf;
 }
 #endif /*]*/
 
@@ -280,11 +283,12 @@ parse_local_process(int *argcp, char **argv, char **cmds)
  * Pick out command-line options and set up appres.
  */
 static void
-parse_options(int *argcp, char **argv)
+parse_options(int *argcp, const char **argv)
 {
 	int i, j;
 	int argc_out = 0;
-	char **argv_out = (char **) Malloc((*argcp + 1) * sizeof(char *));
+	const char **argv_out =
+	    (const char **) Malloc((*argcp + 1) * sizeof(char *));
 #       define offset(n) (void *)&appres.n
 #       define toggle_offset(index) offset(toggle[index].value)
 	static struct {
@@ -296,7 +300,7 @@ parse_options(int *argcp, char **argv)
 		void *aoff;
 	} opts[] = {
 #if defined(C3270) /*[*/
-		{ OptAllBold,  OPT_BOOLEAN, True, offset(all_bold) },
+		{ OptAllBold,  OPT_BOOLEAN, True, offset(all_bold_on) },
 #endif /*]*/
 		{ OptAplMode,  OPT_BOOLEAN, True,  offset(apl_mode) },
 		{ OptCharset,  OPT_STRING,  False, offset(charset) },
@@ -317,6 +321,7 @@ parse_options(int *argcp, char **argv)
 		{ OptTermName, OPT_STRING,  False, offset(termname) },
 #if defined(X3270_TRACE) /*[*/
 		{ OptTraceFile,OPT_STRING,  False, offset(trace_file) },
+		{ OptTraceFileSize,OPT_STRING,False,offset(trace_file_size) },
 #endif /*]*/
 		{ "-xrm",      OPT_XRM,     False, NULL },
 		{ LAST_ARG,    OPT_DONE,    False, NULL },
@@ -362,10 +367,14 @@ parse_options(int *argcp, char **argv)
 #if defined(X3270_FT) /*[*/
 	appres.ft_command = "ind$file";
 #endif /*]*/
+#if defined(C3270) /*[*/
+	appres.meta_escape = "auto";
+#endif /*]*/
 
 #if defined(X3270_ANSI) /*[*/
 	appres.icrnl = True;
 	appres.inlcr = False;
+	appres.onlcr = True;
 	appres.erase = "^H";
 	appres.kill = "^U";
 	appres.werase = "^W";
@@ -401,7 +410,7 @@ parse_options(int *argcp, char **argv)
 		    case OPT_STRING:
 			if (i == *argcp - 1)	/* missing arg */
 				continue;
-			*(char **)opts[j].aoff = argv[++i];
+			*(const char **)opts[j].aoff = argv[++i];
 			break;
 		    case OPT_XRM:
 			if (i == *argcp - 1)	/* missing arg */
@@ -436,11 +445,12 @@ parse_options(int *argcp, char **argv)
  * Pick out -set and -clear toggle options.
  */
 static void
-parse_set_clear(int *argcp, char **argv)
+parse_set_clear(int *argcp, const char **argv)
 {
 	int i, j;
 	int argc_out = 0;
-	char **argv_out = (char **) Malloc((*argcp + 1) * sizeof(char *));
+	const char **argv_out =
+	    (const char **) Malloc((*argcp + 1) * sizeof(char *));
 
 	argv_out[argc_out++] = argv[0];
 
@@ -491,9 +501,10 @@ static struct {
 	enum resource_type { XRM_STRING, XRM_BOOLEAN } type;
 } resources[] = {
 #if defined(C3270) /*[*/
-	{ ResAllBold,	offset(all_bold),	XRM_BOOLEAN },
+	{ ResAllBold,	offset(all_bold),	XRM_STRING },
 #endif /*]*/
 	{ ResCharset,	offset(charset),	XRM_STRING },
+	{ ResColor8,	offset(color8),		XRM_BOOLEAN },
 	{ ResConfDir,	offset(conf_dir),	XRM_STRING },
 #if defined(X3270_ANSI) /*[*/
 	{ ResEof,	offset(eof),		XRM_STRING },
@@ -507,10 +518,12 @@ static struct {
 #if defined(X3270_ANSI) /*[*/
 	{ ResIcrnl,	offset(icrnl),		XRM_BOOLEAN },
 	{ ResInlcr,	offset(inlcr),		XRM_BOOLEAN },
+	{ ResOnlcr,	offset(onlcr),		XRM_BOOLEAN },
 	{ ResIntr,	offset(intr),		XRM_STRING },
 #endif /*]*/
 #if defined(C3270) /*[*/
 	{ ResKeymap,	offset(key_map),	XRM_STRING },
+	{ ResMetaEscape,offset(meta_escape),	XRM_STRING },
 #endif /*]*/
 #if defined(X3270_ANSI) /*[*/
 	{ ResKill,	offset(kill),		XRM_STRING },
@@ -536,6 +549,7 @@ static struct {
 #if defined(X3270_TRACE) /*[*/
 	{ ResTraceDir,	offset(trace_dir),	XRM_STRING },
 	{ ResTraceFile,	offset(trace_file),	XRM_STRING },
+	{ ResTraceFileSize,offset(trace_file_size),XRM_STRING },
 #endif /*]*/
 	{ ResTypeahead,	offset(typeahead),	XRM_BOOLEAN },
 #if defined(X3270_ANSI) /*[*/
@@ -564,12 +578,14 @@ strncapcmp(const char *known, const char *unknown, unsigned unk_len)
 }
 
 
+#if !defined(ME) /*[*/
 #if defined(C3270) /*[*/
 #define ME	"c3270"
 #elif defined(TCL3270) /*][*/
 #define ME	"tcl3270"
 #else /*][*/
 #define ME	"s3270"
+#endif /*]*/
 #endif /*]*/
 
 void
@@ -913,7 +929,7 @@ action_output(const char *fmt, ...)
 	(void) vsprintf(vmsgbuf, fmt, args);
 	va_end(args);
 	if (sms_redirect()) {
-		sms_info(vmsgbuf);
+		sms_info("%s", vmsgbuf);
 		return;
 	} else {
 		FILE *aout;

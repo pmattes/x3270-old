@@ -227,8 +227,7 @@ dft_data_insert(struct data_buffer *data_bufr)
 		} else if (ft_state == FT_ABORT_SENT && abort_string != CN) {
 			Free(msgp);
 			ft_complete(abort_string);
-			Free(abort_string);
-			abort_string = CN;
+			Replace(abort_string, CN);
 		} else {
 			ft_complete((char *)msgp);
 			Free(msgp);
@@ -488,9 +487,7 @@ dft_close_request(void)
 static void
 dft_abort(const char *s, unsigned short code)
 {
-	if (abort_string != CN)
-		Free(abort_string);
-	abort_string = NewString(s);
+	Replace(abort_string, NewString(s));
 
 	trace_ds("> WriteStructuredField FileTransferData Error\n");
 

@@ -1,5 +1,5 @@
 '\" t
-.TH PR3287 1 "25 June 2001"
+.TH PR3287 1 "31 December 2001"
 .SH "NAME"
 pr3287 \-
 \s-1IBM\s+1
@@ -31,7 +31,7 @@ to the
 with a colon
 `\fB:\fP'.
 .SH "OPTIONS"
-\fBpr3287 \fP
+\fBpr3287\fP
 understands the following options:
 .TP
 \fB\-assoc\fP \fILUname\fP
@@ -86,6 +86,10 @@ Causes
 \fIpr3287\fP
 to become a daemon (background) process.
 .TP
+\fB\-ignoreeoj\fP
+Ignore TN3270E PRINT-EOJ commands, relying on UNBIND commands to indicate
+the ends of print jobs.
+.TP
 \fB\-reconnect\fP
 Causes \fIpr3287\fP to reconnect to the host, whenever the connection is
 broken.
@@ -126,3 +130,5 @@ All Rights Reserved.  GTRC hereby grants public use of this software.
 Derivative works based on this software must incorporate this copyright
 notice.
 .RE
+.SH "VERSION"
+pr3287 3.2.18

@@ -20,7 +20,7 @@
 #include <X11/Intrinsic.h>
 
 #define Malloc(n)	XtMalloc(n)
-#define Free(p)		XtFree((XtPointer)p)
+#define Free(p)		XtFree((void *)p)
 #define Calloc(n, s)	XtCalloc(n, s)
 #define Realloc(p, s)	XtRealloc((XtPointer)p, s)
 #define NewString(s)	XtNewString(s)

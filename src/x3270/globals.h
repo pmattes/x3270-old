@@ -89,8 +89,7 @@
 extern int		COLS;
 extern int		ROWS;
 #if defined(X3270_DISPLAY) /*[*/
-extern Atom		a_3270, a_registry, a_iso8859, a_ISO8859, a_encoding,
-				a_1;
+extern Atom		a_3270, a_registry, a_encoding;
 extern XtAppContext	appcontext;
 #endif /*]*/
 extern const char	*build;
@@ -107,7 +106,9 @@ extern Boolean		*extended_3270font;
 extern Boolean		*font_8bit;
 extern Boolean		flipped;
 extern char		*full_current_host;
+extern char		*full_efontname;
 extern char		full_model_name[];
+extern char		*funky_font;
 extern char		*hostname;
 extern char		luname[];
 #if defined(LOCAL_PROCESS) /*[*/
@@ -120,7 +121,7 @@ extern int		model_num;
 extern Boolean		non_tn3270e_host;
 extern int		ov_cols, ov_rows;
 extern Boolean		passthru_host;
-extern char		*programname;
+extern const char	*programname;
 extern char		*reconnect_host;
 extern int		screen_depth;
 extern Boolean		scroll_initted;
@@ -146,6 +147,7 @@ extern Window		root_window;
 /*   connection state */
 enum cstate {
 	NOT_CONNECTED,		/* no socket, unknown mode */
+	RESOLVING,		/* resolving hostname */
 	PENDING,		/* connection pending */
 	CONNECTED_INITIAL,	/* connected, no mode yet */
 	CONNECTED_ANSI,		/* connected in NVT ANSI mode */
@@ -157,8 +159,8 @@ enum cstate {
 };
 extern enum cstate cstate;
 
-#define PCONNECTED	((int)cstate >= (int)PENDING)
-#define HALF_CONNECTED	(cstate == PENDING)
+#define PCONNECTED	((int)cstate >= (int)RESOLVING)
+#define HALF_CONNECTED	(cstate == RESOLVING || cstate == PENDING)
 #define CONNECTED	((int)cstate >= (int)CONNECTED_INITIAL)
 #define IN_NEITHER	(cstate == CONNECTED_INITIAL)
 #define IN_ANSI		(cstate == CONNECTED_ANSI || cstate == CONNECTED_NVT)
@@ -194,14 +196,6 @@ struct ea {
 #define CS_MASK		0x03	/* mask for specific character sets */
 #define CS_GE		0x04	/* cs flag for Graphic Escape */
 
-/*
- * Lightpen select test macro, includes configurable override of selectability
- * of highlighted fields.
- */
-#define FA_IS_SEL(fa) \
-	(FA_IS_SELECTABLE(fa) && \
-	 (appres.highlight_select || !FA_IS_INTENSE(fa)))
-
 /*   translation lists */
 struct trans_list {
 	char			*name;
@@ -225,14 +219,16 @@ extern int font_count;
 enum keytype { KT_STD, KT_GE };
 
 /*   state changes */
-#define ST_HALF_CONNECT	0
-#define ST_CONNECT	1
-#define ST_3270_MODE	2
-#define ST_LINE_MODE	3
-#define ST_REMODEL	4
-#define ST_PRINTER	5
-#define ST_EXITING	6
-#define N_ST		7
+#define ST_RESOLVING	1
+#define ST_HALF_CONNECT	2
+#define ST_CONNECT	3
+#define ST_3270_MODE	4
+#define ST_LINE_MODE	5
+#define ST_REMODEL	6
+#define ST_PRINTER	7
+#define ST_EXITING	8
+#define ST_CHARSET	9
+#define N_ST		10
 
 /* Naming convention for private actions. */
 #define PA_PFX	"PA-"
@@ -241,6 +237,7 @@ enum keytype { KT_STD, KT_GE };
 
 #define CN	((char *) NULL)
 #define PN	((XtPointer) NULL)
+#define Replace(var, value) { Free(var); var = (value); }
 
 /* Configuration change masks. */
 #define NO_CHANGE	0x0000	/* no change */

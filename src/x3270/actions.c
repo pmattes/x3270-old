@@ -506,6 +506,7 @@ action_debug(XtActionProc action, XEvent *event, String *params,
     Cardinal *num_params)
 {
 	Cardinal i;
+	char pbuf[1024];
 #if defined(X3270_DISPLAY) /*[*/
 	XKeyEvent *kevent;
 	KeySym ks;
@@ -527,7 +528,7 @@ action_debug(XtActionProc action, XEvent *event, String *params,
 	if (!toggled(EVENT_TRACE))
 		return;
 	if (event == (XEvent *)NULL) {
-		(void) fprintf(tracef, " %s", ia_name[(int)ia_cause]);
+		trace_event(" %s", ia_name[(int)ia_cause]);
 	}
 #if defined(X3270_DISPLAY) /*[*/
 	else switch (event->type) {
@@ -552,7 +553,7 @@ action_debug(XtActionProc action, XEvent *event, String *params,
 		do {
 			int was_ambiguous = ambiguous;
 
-			(void) fprintf(tracef, "%s ':%s<Key%s>%s'",
+			trace_event("%s ':%s<Key%s>%s'",
 				was_ambiguous? " or": "Event",
 				key_symbolic_state(state, &ambiguous),
 				press,
@@ -567,18 +568,18 @@ action_debug(XtActionProc action, XEvent *event, String *params,
 			do {
 				int was_ambiguous = ambiguous;
 
-				(void) fprintf(tracef, " %s '%s<Key%s>%s'",
+				trace_event(" %s '%s<Key%s>%s'",
 					was_ambiguous? "or":
 					    "(case-insensitive:",
 					key_symbolic_state(state, &ambiguous),
 					press,
 					symname);
 			} while (ambiguous);
-			(void) fprintf(tracef, ")");
+			trace_event(")");
 		}
 #if defined(VERBOSE_EVENTS) /*[*/
-		(void) fprintf(tracef,
-		    "\nKey%s [state %s, keycode %d, keysym 0x%lx \"%s\"]",
+		trace_event("\nKey%s [state %s, keycode %d, keysym "
+			    "0x%lx \"%s\"]",
 			    press, key_state(kevent->state),
 			    kevent->keycode, ks,
 			    symname);
@@ -592,15 +593,14 @@ action_debug(XtActionProc action, XEvent *event, String *params,
 		do {
 			int was_ambiguous = ambiguous;
 
-			(void) fprintf(tracef, "%s '%s<Btn%d%s>'",
+			trace_event("%s '%s<Btn%d%s>'",
 				was_ambiguous? " or": "Event",
 				key_symbolic_state(bevent->state, &ambiguous),
 				bevent->button,
 				direction);
 		} while (ambiguous);
 #if defined(VERBOSE_EVENTS) /*[*/
-		(void) fprintf(tracef,
-		    "\nButton%s [state %s, button %d]",
+		trace_event("\nButton%s [state %s, button %d]",
 		    press, key_state(bevent->state),
 		    bevent->button);
 #endif /*]*/
@@ -610,66 +610,67 @@ action_debug(XtActionProc action, XEvent *event, String *params,
 		do {
 			int was_ambiguous = ambiguous;
 
-			(void) fprintf(tracef, "%s '%s<Motion>'",
+			trace_event("%s '%s<Motion>'",
 				was_ambiguous? " or": "Event",
 				key_symbolic_state(mevent->state, &ambiguous));
 		} while (ambiguous);
 #if defined(VERBOSE_EVENTS) /*[*/
-		(void) fprintf(tracef,
-		    "\nMotionNotify [state %s]", key_state(mevent->state));
+		trace_event("\nMotionNotify [state %s]",
+			    key_state(mevent->state));
 #endif /*]*/
 		break;
 	    case EnterNotify:
-		(void) fprintf(tracef, "EnterNotify");
+		trace_event("EnterNotify");
 		break;
 	    case LeaveNotify:
-		(void) fprintf(tracef, "LeaveNotify");
+		trace_event("LeaveNotify");
 		break;
 	    case FocusIn:
-		(void) fprintf(tracef, "FocusIn");
+		trace_event("FocusIn");
 		break;
 	    case FocusOut:
-		(void) fprintf(tracef, "FocusOut");
+		trace_event("FocusOut");
 		break;
 	    case KeymapNotify:
-		(void) fprintf(tracef, "KeymapNotify");
+		trace_event("KeymapNotify");
 		break;
 	    case Expose:
 		exevent = (XExposeEvent *)event;
-		(void) fprintf(tracef, "Expose [%dx%d+%d+%d]",
+		trace_event("Expose [%dx%d+%d+%d]",
 		    exevent->width, exevent->height, exevent->x, exevent->y);
 		break;
 	    case PropertyNotify:
-		(void) fprintf(tracef, "PropertyNotify");
+		trace_event("PropertyNotify");
 		break;
 	    case ClientMessage:
 		cmevent = (XClientMessageEvent *)event;
 		atom_name = XGetAtomName(display, (Atom)cmevent->data.l[0]);
-		(void) fprintf(tracef, "ClientMessage [%s]",
+		trace_event("ClientMessage [%s]",
 		    (atom_name == CN) ? "(unknown)" : atom_name);
 		break;
 	    case ConfigureNotify:
 		cevent = (XConfigureEvent *)event;
-		(void) fprintf(tracef, "ConfigureNotify [%dx%d+%d+%d]",
+		trace_event("ConfigureNotify [%dx%d+%d+%d]",
 		    cevent->width, cevent->height, cevent->x, cevent->y);
 		break;
 	    default:
-		(void) fprintf(tracef, "Event %d", event->type);
+		trace_event("Event %d", event->type);
 		break;
 	}
 	if (keymap_trace != CN)
-		(void) fprintf(tracef, " via %s -> %s(", keymap_trace,
+		trace_event(" via %s -> %s(", keymap_trace,
 		    action_name(action));
 	else
 #endif /*]*/
-		(void) fprintf(tracef, " -> %s(",
-		    action_name(action));
+		trace_event(" -> %s(", action_name(action));
 	for (i = 0; i < *num_params; i++) {
-		(void) fprintf(tracef, "%s\"", i ? ", " : "");
-		fcatv(tracef, params[i]);
-		fputc('"', tracef);
+		trace_event("%s\"%s\"",
+		    i ? ", " : "",
+		    scatv(params[i], pbuf, sizeof(pbuf)));
 	}
-	(void) fprintf(tracef, ")\n");
+	trace_event(")\n");
+
+	trace_rollover_check();
 }
 
 #endif /*]*/

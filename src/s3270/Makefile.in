@@ -12,17 +12,17 @@ CC = @CC@
 
 all: s3270 x3270if
 
-SRCS = actions.c ansi.c apl.c charset.c ctlr.c ft.c ft_cut.c ft_dft.c glue.c \
-	host.c kybd.c macros.c print.c resources.c sf.c smain.c tables.c \
-	telnet.c toggles.c trace_ds.c util.c xio.c XtGlue.c
-VOBJS = actions.o ansi.o apl.o charset.o ctlr.o ft.o ft_cut.o ft_dft.o glue.o \
-	host.o kybd.o macros.o print.o resources.o sf.o smain.o tables.o \
-	telnet.o toggles.o trace_ds.o util.o xio.o XtGlue.o
+SRCS = actions.c ansi.c apl.c charset.c ctlr.c fallbacks.c ft.c ft_cut.c \
+	ft_dft.c glue.c host.c kybd.c macros.c print.c resources.c see.c sf.c \
+	smain.c tables.c telnet.c toggles.c trace_ds.c util.c xio.c XtGlue.c
+VOBJS = actions.o ansi.o apl.o charset.o ctlr.o fallbacks.o ft.o ft_cut.o \
+	ft_dft.o glue.o host.o kybd.o macros.o print.o resources.o see.o sf.o \
+	smain.o tables.o telnet.o toggles.o trace_ds.o util.o xio.o XtGlue.o
 OBJS1 = $(VOBJS) version.o
-CHARSETS = charset/brazilian charset/greek charset/russian charset/thai
 
 LIBDIR = @libdir@
 prefix = @prefix@
+exec_prefix = @exec_prefix@
 sysconfdir = @sysconfdir@
 LIBX3270DIR = @LIBX3270DIR@
 MANDIR = @mandir@
@@ -42,22 +42,26 @@ version.o: $(VOBJS) version.txt mkversion.sh
 	@chmod +x mkversion.sh version.txt
 	sh ./mkversion.sh $(CC) s3270
 
+fallbacks.c: mkfb X3270.xad
+	$(RM) $@
+	./mkfb -c X3270.xad $@
+
 s3270: $(OBJS1)
 	$(CC) -o $@ $(OBJS1) $(LDFLAGS) $(LIBS)
 x3270if: x3270if.o
 	$(CC) -o $@ x3270if.o
 
 install:: s3270 x3270if
+	[ -d $(DESTDIR)$(BINDIR) ] || \
+		mkdir -p $(DESTDIR)$(BINDIR)
 	$(INSTALL_PROGRAM) s3270 $(DESTDIR)$(BINDIR)/s3270
 	$(INSTALL_PROGRAM) x3270if $(DESTDIR)$(BINDIR)/x3270if
-install::
-	[ -d $(DESTDIR)$(LIBX3270DIR)/charset ] || \
-		mkdir -p $(DESTDIR)$(LIBX3270DIR)/charset
-	$(INSTALL_DATA) $(CHARSETS) $(DESTDIR)$(LIBX3270DIR)/charset/
 
 install.man:
+	[ -d $(DESTDIR)$(MANDIR)/man1 ] || \
+		mkdir -p $(DESTDIR)$(MANDIR)/man1
 	$(INSTALL_DATA) s3270.man $(DESTDIR)$(MANDIR)/man1/s3270.1
-	$(INSTALL_DATA) x3270if.man $(DESTDIR)$(MANDIR)/man5/x3270if.5
+	$(INSTALL_DATA) x3270if.man $(DESTDIR)$(MANDIR)/man1/x3270if.1
 	$(INSTALL_DATA) x3270-script.man $(DESTDIR)$(MANDIR)/man1/x3270-script.1
 
 clean:

@@ -15,6 +15,55 @@ New Features in x3270 3.2
 x3270 3.2 is a reorganization of x3270 3.1, with some significant enhancements.
 It is intended to be the future development platform for x3270, with x3270
 3.1 continued only with bug fixes.
+<h2>Changes in x3270 3.2.18, 31. December 2001</h2>
+<ul>
+ <li>Bug Fixes:
+  <ul>
+   <li>Corrected install rules for manual pages.</li>
+   <li>Corrected crashes associated with the <b>Display Current Keymap</b>
+    pop-up.</li>
+   <li>Corrected a problem with selecting NULL characters (they were suppressed
+    instead of being converted to spaces).</li>
+   <li>Restored the missing definitions for <b>Ctrl-U</b> and <b>Ctrl-W</b> in
+    the base 3270-mode keymap.</li>
+   <li>Added better error detection to full-table character set
+    definitions.</li>
+   <li>Changed Shift-6 back to the <b>notsign</b> (<b>&not;</b>).</li>
+   <li>Fixed a scripting problem with percent "%" characters on the screen.</li>
+  </ul>
+ </li>
+ <li>Enhancements:
+  <ul>
+   <li>Included the autoconf <tt>configure.in</tt> file, so that users can
+    run a newer or customized <i>autoconf</i> on it.</li>
+   <li>Added a <b>color8</b> resource.  When set to <b>true</b>, <i>x3270</i>
+    will only do a Query Reply report on 8 colors.  The default of 16 seems to
+    confuse some hosts.</li>
+   <li>Included test files for file transfer: all.chars and print.chars.</li>
+   <li>Tied character sets to particular fonts.</li>
+   <li>Added Silicon Graphics to the recognized X servers, using the <b>alt</b>
+    keymap.</li>
+   <li>Added Euro symbol support, using ISO 8859-15 fonts and additional
+    3270 fonts.</li>
+   <li>Removed the obsolete <b>highlightSelect</b> resource.</li>
+   <li>Changed <b>visualSelect</b> to apply only to unhighlighted fields.</li>
+   <li>Added an <b>onlcr</b> resource to control Newline-to-CR/LF expansion in
+    NVT line mode.</li>
+   <li>Vastly improved the use of non-Latin-1 character sets, and
+    non-constant-spaced fonts.</li>
+   <li>Got rid of the separate menuFontList and FontList resources, replacing
+    them with a single emulatorFontList resource per display character set.</li>
+   <li>Reordered the Hebrew font (3270h) to make it compatible with ISO
+    Hebrew fonts.</li>
+   <li>Tweaked the Greek font (3270gr) and host character set definition to
+    make it compatible with ISO Greek fonts.</li>
+   <li>Added a <b>traceFileSize</b> resource and <b>-tracefilesize</b> option
+    to limit the size of trace files.  Replaced the obsolete
+    <b>traceCommand</b> resource with a new <b>traceMonitor</b> resource; if
+    set to <b>false</b> it disables creation of the trace monitor window.</li>
+  </ul>
+ </li>
+</ul>
 <h2>Changes in x3270 3.2.17, 25. June 2001</h2>
 <ul>
  <li>Installation Changes:

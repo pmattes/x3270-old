@@ -406,13 +406,13 @@ The optional <i>timeout</i> parameter specifies a number of seconds to wait
 before failing the <b>Wait</b> action.  The default is to wait forever.
 </dl>
 <a NAME="File-Transfer"></a><h2>File Transfer</h2>
-The <b>Transfer</b> action implements <b>IND$FILE</b> file transfer.
+The <b>XX_LA()Transfer</b> action implements <b>IND$FILE</b> file transfer.
 This action requires that the <b>IND$FILE</b>
 program be installed on the <font size=-1>IBM</font> host, and that the 3270 cursor
 be located in a field that will accept a <font size=-1>TSO</font> or <font size=-1>VM/CMS</font> command.
-.LP
+<p>
 Because of the complexity and number of options for file transfer, the
-parameters to the <b>Transfer</b> action take the unique form
+parameters to the <b>XX_LA()Transfer</b> action take the unique form
 of <i>option</i>=<i>value</i>, and can appear in any order.
 The options are:
 <p>
@@ -461,7 +461,7 @@ to the host.
 <dt><b>Exist</b></dt><dd>
 Controls what happens when the destination file already exists.
 <b>keep</b> (the default) preserves the file, causing the
-<b>Transfer</b> action to fail.
+<b>XX_LA()Transfer</b> action to fail.
 <b>replace</b> overwrites the destination file with the source file.
 <b>append</b> appends the source file to the destination file.
 <dt><b>Recfm</b></dt><dd>
@@ -498,12 +498,12 @@ ksh(1)
 <br>
 <a HREF="s3270-man.html">s3270(1)</a>
 <a NAME="Version"></a><h2>Version</h2>
-Version 3.2.17
+Version 3.2.18
 <hr>
 <address>
 This HTML document and the accompanying troff document were generated with
 a set of write-only <b>m4</b> macros and the powerful <b>vi</b> editor.
-<br>Last modified 25 June 2001.
+<br>Last modified 31 December 2001.
 </address>
 </body>
 </html>

@@ -498,9 +498,7 @@ static void
 cut_abort(const char *s, unsigned short reason)
 {
 	/* Save the error message. */
-	if (saved_errmsg != CN)
-		Free(saved_errmsg);
-	saved_errmsg = NewString(s);
+	Replace(saved_errmsg, NewString(s));
 
 	/* Send the abort sequence. */
 	ctlr_add(RO_FRAME_TYPE, ebc2cg[RFT_CONTROL_CODE], 0);

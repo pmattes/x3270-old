@@ -15,6 +15,7 @@
 extern char *command_string;
 extern char *profile_name;
 
+extern void charset_list_changed(char *charset);
 extern void merge_profile(XrmDatabase *d);
 extern void save_args(int argc, char *argv[]);
 extern void save_init(int argc, char *hostname, char *port);

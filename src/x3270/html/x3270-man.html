@@ -42,8 +42,10 @@ x3270 -
 <b>x3270</b>
 [<i>options</i>]
 [<i>host</i>]
+
 <a NAME="Description"></a><h2>Description</h2>
-<b>x3270</b> opens a telnet connection to an <font size=-1>IBM</font>
+<b>x3270</b> opens
+a telnet connection to an <font size=-1>IBM</font>
 host in an X window.
 It implements RFCs 2355 (TN3270E), 1576 (TN3270) and 1646 (LU name selection),
 and supports IND$FILE file transfer.
@@ -85,8 +87,7 @@ a <i>port</i> to the <i>hostname</i> with a colon
 and with <i>tn3270</i>(1), the <i>port</i>
 may also be specified as a second, separate argument.)
 <a NAME="Options"></a><h2>Options</h2>
-<b>x3270</b>
-is a toolkit based program, so it understands standard Xt options and
+<b>x3270</b> is a toolkit based program, so it understands standard Xt options and
 resources.
 It also understands
 the following options:<dl>
@@ -101,7 +102,7 @@ See <a HREF="#APL-Support"><font size=-1>APL SUPPORT</font></a> below.
 Sets character classes.
 See <a HREF="#Character-Classes"><font size=-1>CHARACTER CLASSES</font></a>, below.
 <dt><b>-charset</b> <i>name</i></dt><dd>
-Specifies an <font size=-1>EBCDIC</font> national character set.
+Specifies an <font size=-1>EBCDIC</font> host character set.
 See <a HREF="#Character-Sets"><font size=-1>CHARACTER SETS</font></a> below.
 <dt><b>-clear</b> <i>toggle</i></dt><dd>
 Sets the initial value of <i>toggle</i> to <b>false</b>.
@@ -241,6 +242,14 @@ is given, then traces will be written to standard output.
 If the value <b>none</b>
 is given, then traces will be piped directly to the monitor window, and no
 file will be created.
+<dt><b>-tracefilesize</b> <i>size</i></dt><dd>
+Places a limit on the size of a trace file.
+If this option is not specified, or is specified as <b>0</b> or <b>none</b>,
+the trace file will be unlimited.
+If specified, the trace file cannot already exist, and the (silently enforced)
+minimum size is 64 Kbytes.
+The value of <i>size</i> can have a <b>K</b> or <b>M</b> suffix, indicating
+kilobytes or megabytes respectively.
 </dl>
 <p>
 After reading resource definitions from the X server
@@ -253,29 +262,27 @@ options by the <b>Save Changed Options in File</b> menu option.
 Note that <b>-xrm</b> options override any definitions in
 the <b>.x3270pro</b> file.
 <a NAME="Fonts"></a><h2>Fonts</h2>
-By default, <b>x3270</b> does not use the "*font" resource for its main
+<b>x3270</b> does not use the "*font" resource for its main
 window.
 Instead, it uses a custom 14-point font called
 <b>3270</b>,
 which is a close
 approximation of a real 3270 display and allows <b>x3270</b>
-to display a complete <font size=-1>EBCDIC</font> character set and special status-line
-symbols.
+to display the <font size=-1>ISO</font> 8859-1 (Latin-1)
+character set and special status-line symbols.
 A more compact font, <b>3270-12</b>, is also supported, as are the
 various sized fonts <b>3270gt8</b>, <b>3270gt12</b>, <b>3270gt16</b>,
 <b>3270-20</b>, <b>3270gt24</b>, and <b>3270gt32</b>.
-The font <b>3270h</b> is also included to allow display of Hebrew text.
+The fonts <b>3270h</b> and <b>3270gr</b> are also included to allow display of
+Hebrew and Greek text, respectively.
 <p>
 The font may be specified with the <b>-efont</b>
 option or the "x3270.emulatorFont" resource.
 <p>
-<b>x3270</b> can also use any constant-spaced X font, but unless the font
-implements the
-entire <font size=-1>ISO</font> 8859-1 (Latin-1) character set,
-<b>x3270</b> may not properly display several <font size=-1>EBCDIC</font> graphics that
-do not have <font size=-1>ASCII</font> equivalents.
+<b>x3270</b> can also use any X11 font that implements the
+display character set required by the host <font size=-1>EBCDIC</font> character set.
 <p>
-One additional font,
+An additional font,
 <b>3270d</b>,
 is supplied.
 This font is identical to the default <b>3270</b>
@@ -292,26 +299,31 @@ change to a larger font, and vice-versa.
 <a NAME="Character-Sets"></a><h2>Character Sets</h2>
 The <b>-charset</b>
 option or the "x3270.charset" resource controls the <font size=-1>EBCDIC</font>
-national character set used by <b>x3270</b>.
+host character set used by <b>x3270</b>.
 Available sets include:
 <p>
 <table BORDER cols=3 width="75%">
-<tr><td ><center>Charset Name</center></td>	<td ><center>Code Page</center></td>	<td ><center>Font</center></td></tr>	
+<tr><td ><center>Charset Name</center></td>	<td ><center>Code Page</center></td>	<td ><center>Display Character Sets</center></td></tr>
 
-<tr><td ><center>belgian</center></td>	<td ><center>500</center></td>	<td ><center>iso8859-1</center></td></tr>
-<tr><td ><center>bracket</center></td>	<td ><center>37</center></td>	<td ><center>iso8859-1</center></td></tr>
-<tr><td ><center>finnish</center></td>	<td ><center>278</center></td>	<td ><center>iso8859-1</center></td></tr>
-<tr><td ><center>french</center></td>	<td ><center>297</center></td>	<td ><center>iso8859-1</center></td></tr>
-<tr><td ><center>german</center></td>	<td ><center>273</center></td>	<td ><center>iso8859-1</center></td></tr>
-<tr><td ><center>greek</center></td>	<td ><center>423</center></td>	<td ><center>3270gr</center></td></tr>
-<tr><td ><center>hebrew</center></td>	<td ><center>424</center></td>	<td ><center>3270h</center></td></tr>
-<tr><td ><center>icelandic</center></td>	<td ><center>871</center></td>	<td ><center>iso8859-1</center></td></tr>
+<tr><td ><center>apl</center></td>	<td ><center>37</center></td>	<td ><center>3270cg-1a</center></td></tr>
+<tr><td ><center>belgian</center></td>	<td ><center>500</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
+<tr><td ><center>bracket</center></td>	<td ><center>37</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
+<tr><td ><center>brazilian</center></td>	<td ><center>275</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
+<tr><td ><center>finnish</center></td>	<td ><center>278</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
+<tr><td ><center>french</center></td>	<td ><center>297</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
+<tr><td ><center>german</center></td>	<td ><center>273</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
+<tr><td ><center>greek</center></td>	<td ><center>423</center></td>	<td ><center>3270cg-7</center></td></tr>
+<tr><td ><center>hebrew</center></td>	<td ><center>424</center></td>	<td ><center>3270cg-8</center></td></tr>
+<tr><td ><center>icelandic</center></td>	<td ><center>871</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
 <tr><td ><center>iso-hebrew</center></td>	<td ><center>424</center></td>	<td ><center>iso8859-8</center></td></tr>
 <tr><td ><center>iso-turkish</center></td>	<td ><center>1026</center></td>	<td ><center>iso8859-9</center></td></tr>
-<tr><td ><center>italian</center></td>	<td ><center>280</center></td>	<td ><center>iso8859-1</center></td></tr>
-<tr><td ><center>norwegian</center></td>	<td ><center>277</center></td>	<td ><center>iso8859-1</center></td></tr>
-<tr><td ><center>uk</center></td>	<td ><center>285</center></td>	<td ><center>iso8859-1</center></td></tr>
-<tr><td ><center>us-intl</center></td>	<td ><center>37</center></td>	<td ><center>iso8859-1</center></td></tr>
+<tr><td ><center>italian</center></td>	<td ><center>280</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
+<tr><td ><center>norwegian</center></td>	<td ><center>277</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
+<tr><td ><center>russian</center></td>	<td ><center>880</center></td>	<td ><center>koi8-r</center></td></tr>
+<tr><td ><center>solvenian</center></td>	<td ><center>870</center></td>	<td ><center>iso8859-2</center></td></tr>
+<tr><td ><center>thai</center></td>	<td ><center>838</center></td>	<td ><center>iso8859-11 tis620.2529-0</center></td></tr>
+<tr><td ><center>uk</center></td>	<td ><center>285</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
+<tr><td ><center>us-intl</center></td>	<td ><center>37</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
 </table>
 <p>
 The default character set is
@@ -320,11 +332,13 @@ which is useful for common <font size=-1>IBM</font> hosts which use <font size=-
 codes 0xAD and 0xBD for the `[' and `]' characters,
 respectively.
 <p>
-Most 3270 fonts (3270, 3270-12, 3270gt8, etc.) implement the ISO 8859-1
-character set.  3270h and 3270gr implement special character sets for Hebrew
-and Greek, respsectively.  Some character sets work only with standard X fonts
-that implement that character set.  These are prefixed with the
-name <b>iso-</b>.
+Most 3270 fonts implement the 3270cg-1 display
+character set, which is a reordered version of
+the <font size=-1>ISO</font> 8859-1 character set.
+Some implement the 3270cg-1a display character set, which is a superset
+of 3270cg-1 that includes APL2 characters.
+3270h and 3270gr implement special character sets for Hebrew
+and Greek, respectively.
 <p>
 You can also specify national-language translations for your keyboard;
 see <a HREF="#Keymaps"><font size=-1>KEYMAPS</font></a> below.
@@ -869,7 +883,7 @@ and are not documented here.
 <tr><td >CircumNot</td>	<td >input "^" in <font size=-1>NVT</font> mode, or "&not;" in 3270 mode</tr></td>
 <tr><td >Clear</td>	<td >clear screen</td></tr>
 <tr><td >Compose</td>	<td >next two keys form a special symbol</td></tr>
-<tr><td >Connect(<i>host</i>)</td>	<td >connect to <i>host</i></td></tr>
+<tr><td >Connect(l3h_t <i>h</i>, <i>host</i>)</td>	<td >connect to <i>host</i></td></tr>
 <tr><td >CursorSelect</td>	<td >Cursor Select <font size=-1>AID</font></td></tr>
 <tr><td >Cut</td>	<td >erase selected text</td></tr>
 <tr><td >Default</td>	<td >enter key literally</td></tr>
@@ -888,25 +902,25 @@ and are not documented here.
 <tr><td >FieldExit</td>	<td >clear to end of field and skip to next (5250 emulation)</td></tr>
 <tr><td >FieldMark</td>	<td >mark field</td></tr>
 <tr><td >HandleMenu(<i>name</i>)</td>	<td >pop up a menu</td></tr>
-<tr><td >HexString(<i>hex_digits</i>)</td>	<td >insert control-character string</td></tr>
+<tr><td >HexString(l3h_t <i>h</i>, <i>hex_digits</i>)</td>	<td >insert control-character string</td></tr>
 <tr><td >Home</td>	<td >move cursor to first input field</td></tr>
 <tr><td >Insert</td>	<td >set insert mode</td></tr>
 <tr><td >Interrupt</td>	<td >send <font size=-1>TELNET IP</font> to host</td></tr>
-<tr><td >Key(<i>keysym</i>)</td>	<td >insert key <i>keysym</i></td></tr>
-<tr><td >Key(0x<i>xx</i>)</td>	<td >insert key with <font size=-1>ASCII</font> code <i>xx</i></td></tr>
+<tr><td >Key(l3h_t <i>h</i>, <i>keysym</i>)</td>	<td >insert key <i>keysym</i></td></tr>
+<tr><td >Key(l3h_t <i>h</i>, 0x<i>xx</i>)</td>	<td >insert key with <font size=-1>ASCII</font> code <i>xx</i></td></tr>
 <tr><td >Keymap(<i>keymap</i>)</td>	<td >toggle alternate <i>keymap</i> (or remove with <b>None</b>)</td></tr>
-<tr><td >KybdSelect(<i>direction</i>[,<i>atom</i>...])</td>	<td >Extend selection by one row or column</td></tr>)
+<tr><td >KybdSelect(<i>direction</i>[,<i>atom</i>...])</td>	<td >Extend selection by one row or column</td></tr>
 <tr><td >Left</td>	<td >move cursor left</td></tr>
 <tr><td >Left2</td>	<td >move cursor left 2 positions</td></tr>
 <tr><td >Macro(<i>macro</i>)</td>	<td >run a macro</td></tr>
 <tr><td >MonoCase</td>	<td >toggle uppercase-only mode</td></tr>
 <tr><td >MoveCursor</td>	<td >move cursor to mouse position</td></tr>
-<tr><td >MoveCursor(<i>row</i>,<i>col</i>)</td>	<td >move cursor to (<i>row</i>,<i>col</i>)</td></tr>
+<tr><td >MoveCursor(l3h_t <i>h</i>, <i>row</i>, <i>col</i>)</td>	<td >move cursor to (<i>row</i>,<i>col</i>)</td></tr>
 <tr><td >MoveCursorSelect</td>	<td >move cursor to mouse position, light pen selection</tr></td>
 <tr><td >Newline</td>	<td >move cursor to first field on next line (or send <font size=-1>ASCII LF</font>)</td></tr>
 <tr><td >NextWord</td>	<td >move cursor to next word</td></tr>
-<tr><td >PA(<i>n</i>)</td>	<td >Program Attention <font size=-1>AID</font> (<i>n</i> from 1 to 3)</td></tr>
-<tr><td >PF(<i>n</i>)</td>	<td >Program Function <font size=-1>AID</font> (<i>n</i> from 1 to 24)</td></tr>
+<tr><td >PA(l3h_t <i>h</i>, <i>n</i>)</td>	<td >Program Attention <font size=-1>AID</font> (<i>n</i> from 1 to 3)</td></tr>
+<tr><td >PF(l3h_t <i>h</i>, <i>n</i>)</td>	<td >Program Function <font size=-1>AID</font> (<i>n</i> from 1 to 24)</td></tr>
 <tr><td >PreviousWord</td>	<td >move cursor to previous word</td></tr>
 <tr><td >Printer(Start[,<i>lu</i>]|Stop)</td>	<td >Start or stop printer session</td></tr>
 <tr><td >PrintText(<i>command</i>)</td>	<td >print screen text on printer</td></tr>
@@ -919,12 +933,12 @@ and are not documented here.
 <tr><td >Right2</td>	<td >move cursor right 2 positions</td></tr>
 <tr><td >SetFont(<i>font</i>)</td>	<td >change emulator font</td></tr>
 <tr><td >Script(<i>command</i>[,<i>arg</i>...])</td>	<td >run a script</td></tr>
-<tr><td >String(<i>string</i>)</td>	<td >insert string (simple macro facility)</td></tr>
+<tr><td >String(l3h_t <i>h</i>, <i>string</i>)</td>	<td >insert string (simple macro facility)</td></tr>
 <tr><td >SysReq</td>	<td >System Request <font size=-1>AID</font></td></tr>
 <tr><td >Tab</td>	<td >move cursor to next input field</td></tr>
 <tr><td >ToggleInsert</td>	<td >toggle insert mode</td></tr>
 <tr><td >ToggleReverse</td>	<td >toggle reverse-input mode</td></tr>
-<tr><td >Transfer(<i>option</i>=<i>value</i>...)</td>	<td >file transfer</td></tr>
+<tr><td >Transfer(l3h_t <i>h</i>, <i>option</i>=<i>value</i>...)</td>	<td >file transfer</td></tr>
 <tr><td >Unselect</td>	<td >release selection</td></tr>
 <tr><td >Up</td>	<td >move cursor up</td></tr>
 
@@ -1312,12 +1326,12 @@ Derivative works based on this software must incorporate this copyright
 notice.</blockquote>
 5250 Emulation Code Copyright &copy; Minolta (Schweiz) AG, Beat Rubischon.
 <a NAME="Version"></a><h2>Version</h2>
-x3270 3.2.17
+x3270 3.2.18
 <hr>
 <address>
 This HTML document and the accompanying troff document were generated with
 a set of write-only <b>m4</b> macros and the powerful <b>vi</b> editor.
-<br>Last modified 25 June 2001.
+<br>Last modified 31 December 2001.
 </address>
 </body>
 </html>

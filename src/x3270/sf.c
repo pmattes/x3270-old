@@ -29,6 +29,7 @@
 #endif /*]*/
 #include "kybdc.h"
 #include "screenc.h"
+#include "seec.h"
 #include "sfc.h"
 #include "telnetc.h"
 #include "trace_dsc.h"
@@ -675,10 +676,10 @@ do_query_reply(unsigned char code)
 		trace_ds("> QueryReply(Color)\n");
 		space3270out(4 + 2*15);
 		*obptr++ = 0x00;	/* no options */
-		*obptr++ = 16;		/* report on 16 colors */
+		*obptr++ = appres.color8? 8: 16; /* report on 8 or 16 colors */
 		*obptr++ = 0x00;	/* default color: */
 		*obptr++ = 0xf0 + COLOR_GREEN;	/*  green */
-		for (i = 0xf1; i <= 0xff; i++) {
+		for (i = 0xf1; i <= (appres.color8? 0xf8: 0xff); i++) {
 			*obptr++ = i;
 			if (appres.m3279)
 				*obptr++ = i;

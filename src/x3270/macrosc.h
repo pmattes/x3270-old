@@ -63,7 +63,7 @@ extern void Script_action(Widget w, XEvent *event, String *params,
 extern Boolean sms_active(void);
 extern void sms_connect_wait(void);
 extern void sms_continue(void);
-extern void sms_error(char *msg);
+extern void sms_error(const char *msg);
 extern void sms_host_output(void);
 extern void sms_info(const char *fmt, ...);
 extern void sms_init(void);

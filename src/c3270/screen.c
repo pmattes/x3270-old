@@ -70,13 +70,19 @@ static unsigned long input_id;
 
 Boolean escaped = True;
 
+enum ts { TS_AUTO, TS_ON, TS_OFF };
+enum ts me_mode = TS_AUTO;
+enum ts ab_mode = TS_AUTO;
+
 static void kybd_input(void);
+static void kybd_input2(int k);
 static void draw_oia(void);
 static void status_connect(Boolean ignored);
 static void status_3270_mode(Boolean ignored);
 static int get_color_pair(int fg, int bg);
 static int color_from_fa(unsigned char);
 static void screen_init2(void);
+static Boolean ts_value(const char *s, enum ts *tsp);
 
 /* Initialize the screen. */
 void
@@ -150,6 +156,24 @@ screen_init(void)
 		}
 	}
 
+	/* See about keyboard Meta-key behavior. */
+	if (!ts_value(appres.meta_escape, &me_mode))
+		(void) fprintf(stderr, "invalid %s value: '%s', "
+		    "assuming 'auto'\n", ResMetaEscape, appres.meta_escape);
+	if (me_mode == TS_AUTO)
+		me_mode = tigetflag("km")? TS_OFF: TS_ON;
+
+	/* See about all-bold behavior. */
+	if (appres.all_bold_on)
+		ab_mode = TS_ON;
+	else if (!ts_value(appres.all_bold, &ab_mode))
+		(void) fprintf(stderr, "invalid %s value: '%s', "
+		    "assuming 'auto'\n", ResAllBold, appres.all_bold);
+	if (ab_mode == TS_AUTO)
+		ab_mode = appres.m3279? TS_ON: TS_OFF;
+	if (ab_mode == TS_ON)
+		defattr |= A_BOLD;
+
 	/* Set up the controller. */
 	ctlr_init(-1);
 	ctlr_reinit(-1);
@@ -178,6 +202,28 @@ screen_init2(void)
 	meta(stdscr, TRUE);
 	nodelay(stdscr, TRUE);
 	input_id = AddInput(0, kybd_input);
+}
+
+/*
+ * Parse a tri-state resource value.
+ * Returns True for success, False for failure.
+ */
+static Boolean
+ts_value(const char *s, enum ts *tsp)
+{
+	*tsp = TS_AUTO;
+
+	if (s != CN && s[0]) {
+		int sl = strlen(s);
+
+		if (!strncasecmp(s, "true", sl))
+			*tsp = TS_ON;
+		else if (!strncasecmp(s, "false", sl))
+			*tsp = TS_OFF;
+		else if (strncasecmp(s, "auto", sl))
+			return False;
+	}
+	return True;
 }
 
 /* Allocate a color pair. */
@@ -212,9 +258,9 @@ color_from_fa(unsigned char fa)
 
 		fg = field_colors[(fa >> 1) & 0x03];
 		return get_color_pair(fg, COLOR_BLACK) |
-		    ((appres.all_bold || FA_IS_HIGH(fa))? A_BOLD: A_NORMAL);
+		    (((ab_mode == TS_ON) || FA_IS_HIGH(fa))? A_BOLD: A_NORMAL);
 	} else
-		return (appres.all_bold || FA_IS_HIGH(fa))? A_BOLD: A_NORMAL;
+		return ((ab_mode == TS_ON) || FA_IS_HIGH(fa))? A_BOLD: A_NORMAL;
 }
 
 /* Display what's in the buffer. */
@@ -328,17 +374,52 @@ screen_disp(void)
 	refresh();
 }
 
+/* ESC processing. */
+static unsigned long eto = 0L;
+static Boolean meta_escape = False;
+
+static void
+escape_timeout(void)
+{
+	trace_event("ESC timeout\n");
+	eto = 0;
+	meta_escape = False;
+	kybd_input2(0x1b);
+}
+
 /* Keyboard input. */
 static void
 kybd_input(void)
 {
 	int k;
+
+	for (;;) {
+		k = wgetch(stdscr);
+		if (k == ERR)
+			return;
+		trace_event("Key %s (0x%x)\n", decode_key(k, 0), k);
+
+		/* Handle Meta-Escapes. */
+		if (meta_escape) {
+			RemoveTimeOut(eto);
+			eto = 0L;
+			meta_escape = False;
+			k |= 0x80;
+		} else if (me_mode == TS_ON && k == 0x1b) {
+			eto = AddTimeOut(100L, escape_timeout);
+			meta_escape = True;
+			continue;
+		}
+		kybd_input2(k);
+	}
+}
+
+static void
+kybd_input2(int k)
+{
 	char buf[16];
 	char *action;
 
-	k = wgetch(stdscr);
-	if (k == ERR)
-		return;
 	trace_event("Key %s (0x%x)\n", decode_key(k, 0), k);
 	action = lookup_key(k);
 	if (action != CN) {
@@ -376,18 +457,13 @@ kybd_input(void)
 	if (IN_3270) switch(k) {
 	/* These cases apply only to 3270 mode. */
 	case 0x03:
-	case 0x80 + 'c':
 		action_internal(Clear_action, IA_DEFAULT, CN, CN);
 		return;
 	case 0x12:
-	case 0x80 + 'r':
 		action_internal(Reset_action, IA_DEFAULT, CN, CN);
 		return;
 	case 'L' & 0x1f:
 		action_internal(Redraw_action, IA_DEFAULT, CN, CN);
-		return;
-	case 0x80 + 'm':
-		action_internal(Compose_action, IA_DEFAULT, CN, CN);
 		return;
 	case '\t':
 		action_internal(Tab_action, IA_DEFAULT, CN, CN);
@@ -408,12 +484,6 @@ kybd_input(void)
 		return;
 	case KEY_HOME:
 		action_internal(Home_action, IA_DEFAULT, CN, CN);
-		return;
-	case 0x80 + '1':
-	case 0x80 + '2':
-	case 0x80 + '3':
-		(void) sprintf(buf, "%d", (k & 0x7f) - '1' + 1);
-		action_internal(PA_action, IA_DEFAULT, buf, CN);
 		return;
 	default:
 		break;

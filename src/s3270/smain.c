@@ -66,12 +66,14 @@ main_connect(Boolean ignored)
 int
 main(int argc, char *argv[])
 {
-	char	*cl_hostname = CN;
+	const char	*cl_hostname = CN;
 
-	argc = parse_command_line(argc, argv, &cl_hostname);
+	argc = parse_command_line(argc, (const char **)argv, &cl_hostname);
 
-	if (charset_init(appres.charset) != CS_OKAY)
+	if (charset_init(appres.charset) != CS_OKAY) {
 		xs_warning("Cannot find charset \"%s\"", appres.charset);
+		(void) charset_init(NULL);
+	}
 	ctlr_init(-1);
 	ctlr_reinit(-1);
 	kybd_init();

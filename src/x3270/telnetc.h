@@ -26,7 +26,7 @@ extern Boolean net_add_dummy_tn3270e(void);
 extern void net_add_eor(unsigned char *buf, int len);
 extern void net_break(void);
 extern void net_charmode(void);
-extern int net_connect(const char *, char *, Boolean, Boolean *);
+extern int net_connect(const char *, char *, Boolean, Boolean *, Boolean *);
 extern void net_disconnect(void);
 extern void net_exception(void);
 extern void net_hexansi_out(unsigned char *buf, int len);

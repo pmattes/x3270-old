@@ -117,6 +117,49 @@ fcatv(FILE *f, char *s)
 	}
 }
 
+/* String version of fcatv. */
+char *
+scatv(const char *s, char *buf, size_t len)
+{
+	char c;
+	char *dst = buf;
+
+	while ((c = *s++) && len > 0) {
+		char cbuf[4];
+		char *t = cbuf;
+
+		/* Expand this character. */
+		switch (c) {
+		    case '\n':
+			(void) strcpy(cbuf, "\\n");
+			break;
+		    case '\t':
+			(void) strcpy(cbuf, "\\t");
+			break;
+		    case '\b':
+			(void) strcpy(cbuf, "\\b");
+			break;
+		    default:
+			if ((c & 0x7f) < ' ')
+				(void) sprintf(cbuf, "\\%03o", c & 0xff);
+			else {
+				cbuf[0] = c;
+				cbuf[1] = '\0';
+			}
+			break;
+		}
+		/* Copy as much as will fit. */
+		while ((c = *t++) && len > 0) {
+			*dst++ = c;
+			len--;
+		}
+	}
+	if (len > 0)
+		*dst = '\0';
+
+	return buf;
+}
+
 /*
  * Definition resource splitter, for resources of the repeating form:
  *	left: right\n
@@ -422,8 +465,7 @@ tilde_subst(const char *s)
 		p = getpwnam(name + 1);
 
 	/* Free any temporary copy. */
-	if (mname != CN)
-		Free(mname);
+	Free(mname);
 
 	/* Substitute and return. */
 	if (p == (struct passwd *)NULL)
@@ -489,6 +531,22 @@ ctl_see(int c)
 	return buf;
 }
 
+/* A version of get_resource that accepts sprintf arguments. */
+char *
+get_fresource(const char *fmt, ...)
+{
+	va_list args;
+	char *name;
+	char *r;
+
+	va_start(args, fmt);
+	name = xs_vsprintf(fmt, args);
+	va_end(args);
+	r = get_resource(name);
+	Free(name);
+	return r;
+}
+
 #if defined(X3270_DISPLAY) /*[*/
 
 /* Glue between x3270 and the X libraries. */
@@ -536,6 +594,13 @@ unsigned long
 AddExcept(int sock, voidfn *fn)
 {
 	return XtAppAddInput(appcontext, sock, (XtPointer) XtInputExceptMask,
+		io_fn, (XtPointer)fn);
+}
+
+unsigned long
+AddOutput(int sock, voidfn *fn)
+{
+	return XtAppAddInput(appcontext, sock, (XtPointer) XtInputWriteMask,
 		io_fn, (XtPointer)fn);
 }
 

@@ -17,7 +17,9 @@ extern char *ctl_see(int c);
 extern char *do_subst(const char *s, Boolean do_vars, Boolean do_tilde);
 extern void fcatv(FILE *f, char *s);
 extern const char *get_message(const char *key);
+extern char *get_fresource(const char *fmt, ...);
 extern char *get_resource(const char *name);
+extern char *scatv(const char *s, char *buf, size_t len);
 extern int split_dresource(char **st, char **left, char **right);
 extern int split_lresource(char **st, char **value);
 extern char *xs_buffer(const char *fmt, ...);
@@ -26,6 +28,7 @@ extern void xs_warning(const char *fmt, ...);
 
 extern unsigned long AddInput(int, void (*)(void));
 extern unsigned long AddExcept(int, void (*)(void));
+extern unsigned long AddOutput(int, void (*)(void));
 extern void RemoveInput(unsigned long);
 extern unsigned long AddTimeOut(unsigned long msec, void (*fn)(void));
 extern void RemoveTimeOut(unsigned long cookie);

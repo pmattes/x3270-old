@@ -6,7 +6,7 @@ COMMENT " Page 1: EBCDIC APL/APL2 set, CG order (incomplete)"
 COMMENT " Page 2: (first 16 characters only) DEC line-drawing characters from"
 COMMENT "  fixed-width X fonts"
 COMMENT ""
-COMMENT "Modifications Copyright 1994, 1995, 2000 by Paul Mattes."
+COMMENT "Modifications Copyright 1994, 1995, 2000, 2001 by Paul Mattes."
 COMMENT " Permission to use, copy, modify, and distribute this software and"
 COMMENT " its documentation for any purpose and without fee is hereby granted,"
 COMMENT " provided that the above copyright notice appear in all copies and"
@@ -36,8 +36,8 @@ RESOLUTION_X 72
 RESOLUTION_Y 72
 SPACING "C"
 AVERAGE_WIDTH 50
-CHARSET_REGISTRY "IBM 3270"
-CHARSET_ENCODING "3270"
+CHARSET_REGISTRY "3270cg"
+CHARSET_ENCODING "1"
 MIN_SPACE 5
 NORM_SPACE 5
 MAX_SPACE 5

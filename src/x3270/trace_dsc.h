@@ -14,53 +14,32 @@
 
 #if defined(X3270_TRACE) /*[*/
 
-extern FILE *tracef;
 extern Boolean trace_skipping;
 
 const char *rcba(int baddr);
-const char *see_aid(unsigned char code);
-const char *see_attr(unsigned char fa);
-#if defined(X3270_DISPLAY) /*[*/
-const char *see_color(unsigned char setting);
-#endif /*]*/
-const char *see_ebc(unsigned char ch);
-const char *see_efa(unsigned char efa, unsigned char value);
-const char *see_efa_only(unsigned char efa);
-const char *see_qcode(unsigned char id);
 void toggle_dsTrace(struct toggle *t, enum toggle_type tt);
 void toggle_eventTrace(struct toggle *t, enum toggle_type tt);
 void toggle_screenTrace(struct toggle *t, enum toggle_type tt);
 void trace_ansi_disc(void);
 void trace_char(char c);
 void trace_ds(const char *fmt, ...);
+void trace_dsn(const char *fmt, ...);
 void trace_event(const char *fmt, ...);
 void trace_screen(void);
+void trace_rollover_check(void);
 
 #else /*][*/
 
-#define tracef 0
 #define rcba 0 &&
-#define see_aid 0 &&
-#define see_attr 0 &&
-#define see_color 0 &&
-#define see_ebc 0 &&
-#define see_efa 0 &&
-#define see_efa_only 0 &&
-#define see_qcode 0 &&
 #if defined(__GNUC__) /*[*/
 #define trace_ds(format, args...)
-#define trace_event(formar, args...)
+#define trace_dsn(format, args...)
+#define trace_event(format, args...)
 #else /*][*/
 #define trace_ds 0 &&
+#define trace_dsn 0 &&
 #define trace_event 0 &&
 #define rcba 0 &&
-#define see_aid 0 &&
-#define see_attr 0 &&
-#define see_color 0 &&
-#define see_ebc 0 &&
-#define see_efa 0 &&
-#define see_efa_only 0 &&
-#define see_qcode 0 &&
 #endif /*]*/
 
 #endif /*]*/

@@ -238,7 +238,7 @@ Copyright \251 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.\n\
 	}
 
 	MAKE_LABEL(get_message("emulatorFont"), 4);
-	MAKE_VALUE(efontname);
+	MAKE_VALUE(full_efontname);
 	if (*standard_font) {
 		ftype = get_message("xFont");
 	} else {
@@ -248,23 +248,23 @@ Copyright \251 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.\n\
 	MAKE_LABEL(xbuf, 0);
 	XtFree(xbuf);
 
-	MAKE_LABEL(get_message("characterSet"), 4);
-	xbuf = xs_buffer("%s (base %u, code page %u)",
-	    get_charset_name(), (cgcsgid >> 16) & 0xffff,
-	    cgcsgid & 0xffff);
-	MAKE_VALUE(xbuf);
-	XtFree(xbuf);
-
 	MAKE_LABEL(get_message("displayCharacterSet"), 4);
 	if (!efont_matches) {
 		xbuf = xs_buffer("ascii-7 (%s %s, %s %s)",
-		    get_message("require"), display_charset(NULL),
+		    get_message("require"), display_charset(),
 		    get_message("have"), efont_charset);
 		MAKE_VALUE(xbuf);
 		XtFree(xbuf);
 	} else {
 		MAKE_VALUE(efont_charset);
 	}
+
+	MAKE_LABEL(get_message("characterSet"), 4);
+	xbuf = xs_buffer("%s (base %u, code page %u)",
+	    get_charset_name(), (cgcsgid >> 16) & 0xffff,
+	    cgcsgid & 0xffff);
+	MAKE_VALUE(xbuf);
+	XtFree(xbuf);
 
 	if (trans_list != (struct trans_list *)NULL ||
 	    temp_keymaps != (struct trans_list *)NULL) {

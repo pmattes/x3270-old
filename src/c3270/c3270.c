@@ -67,6 +67,8 @@ static char *base_keymap =
 "Ctrl<Key>a Ctrl<Key>a: Key(0x01)\n"
 "Ctrl<Key>a Ctrl<Key>]: Key(0x1d)\n"
 "Ctrl<Key>a <Key>c: Clear\n"
+"Ctrl<Key>a <Key>e: Escape\n"
+"Ctrl<Key>a <Key>i: Insert\n"
 "Ctrl<Key>a <Key>r: Reset\n"
 "Ctrl<Key>a <Key>l: Redraw\n"
 "Ctrl<Key>a <Key>m: Compose\n"
@@ -148,15 +150,17 @@ main_exiting(Boolean ignored)
 int
 main(int argc, char *argv[])
 {
-	char	*cl_hostname = CN;
+	const char	*cl_hostname = CN;
 
 	add_resource("keymap.base", NewString(base_keymap));
 	add_resource("keymap.base.3270", NewString(base_3270_keymap));
 
-	argc = parse_command_line(argc, argv, &cl_hostname);
+	argc = parse_command_line(argc, (const char **)argv, &cl_hostname);
 
-	if (charset_init(appres.charset) != CS_OKAY)
+	if (charset_init(appres.charset) != CS_OKAY) {
 		xs_warning("Cannot find charset \"%s\"", appres.charset);
+		(void) charset_init(CN);
+	}
 
 #if defined(HAVE_LIBREADLINE) /*[*/
 	/* Set up readline. */

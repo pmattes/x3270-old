@@ -14,16 +14,15 @@ all:: c3270 x3270if
 @PR@all::
 @PR@	-cd pr3287 && $(MAKE)
 
-SRCS = actions.c ansi.c apl.c charset.c child.c ctlr.c ft.c ft_cut.c ft_dft.c \
-	glue.c help.c host.c keymap.c kybd.c macros.c print.c printer.c \
-	resources.c screen.c sf.c tables.c c3270.c telnet.c toggles.c \
-	trace_ds.c util.c xio.c XtGlue.c
-VOBJS = actions.o ansi.o apl.o charset.o child.o ctlr.o ft.o ft_cut.o ft_dft.o \
-	glue.o help.o host.o keymap.o kybd.o macros.o print.o printer.o \
-	resources.o screen.o sf.o tables.o c3270.o telnet.o toggles.o \
-	trace_ds.o util.o xio.o XtGlue.o
+SRCS = actions.c ansi.c apl.c c3270.c charset.c child.c ctlr.c fallbacks.c \
+	ft.c ft_cut.c ft_dft.c glue.c help.c host.c keymap.c kybd.c macros.c \
+	print.c printer.c resources.c screen.c see.c sf.c tables.c telnet.c \
+	toggles.c trace_ds.c util.c xio.c XtGlue.c
+VOBJS = actions.o ansi.o apl.o c3270.o charset.o child.o ctlr.o fallbacks.o \
+	ft.o ft_cut.o ft_dft.o glue.o help.o host.o keymap.o kybd.o macros.o \
+	print.o printer.o resources.o screen.o see.o sf.o tables.o telnet.o \
+	toggles.o trace_ds.o util.o xio.o XtGlue.o
 OBJS1 = $(VOBJS) version.o
-CHARSETS = charset/brazilian charset/greek charset/russian charset/thai
 
 LIBDIR = @libdir@
 prefix = @prefix@
@@ -47,12 +46,18 @@ version.o: $(VOBJS) version.txt mkversion.sh
 	@chmod +x mkversion.sh version.txt
 	sh ./mkversion.sh $(CC) c3270
 
+fallbacks.c: mkfb X3270.xad
+	$(RM) $@
+	./mkfb -c X3270.xad $@
+
 c3270: $(OBJS1)
 	$(CC) -o $@ $(OBJS1) $(LDFLAGS) $(LIBS)
 x3270if: x3270if.o
 	$(CC) -o $@ x3270if.o
 
 install:: c3270 x3270if
+	[ -d $(DESTDIR)$(BINDIR) ] || \
+		mkdir -p $(DESTDIR)$(BINDIR)
 	$(INSTALL_PROGRAM) c3270 $(DESTDIR)$(BINDIR)/c3270
 	$(INSTALL_PROGRAM) x3270if $(DESTDIR)$(BINDIR)/x3270if
 install::
@@ -60,17 +65,18 @@ install::
 		mkdir -p $(DESTDIR)$(LIBX3270DIR)
 	[ -r $(DESTDIR)$(LIBX3270DIR)/ibm_hosts ] || \
 		$(INSTALL_DATA) ibm_hosts $(DESTDIR)$(LIBX3270DIR)/ibm_hosts
-	[ -d $(DESTDIR)$(LIBX3270DIR)/charset ] || \
-		mkdir -p $(DESTDIR)$(LIBX3270DIR)/charset
-	$(INSTALL_DATA) $(CHARSETS) $(DESTDIR)$(LIBX3270DIR)/charset/
 @PR@install::
 @PR@	-cd pr3287 && $(MAKE) install
 
 install.man:
+	[ -d $(DESTDIR)$(MANDIR)/man1 ] || \
+		mkdir -p $(DESTDIR)$(MANDIR)/man1
+	[ -d $(DESTDIR)$(MANDIR)/man5 ] || \
+		mkdir -p $(DESTDIR)$(MANDIR)/man5
 	$(INSTALL_DATA) c3270.man $(DESTDIR)$(MANDIR)/man1/c3270.1
 	$(INSTALL_DATA) x3270if.man $(DESTDIR)$(MANDIR)/man1/x3270if.1
 	$(INSTALL_DATA) x3270-script.man $(DESTDIR)$(MANDIR)/man1/x3270-script.1
-	$(INSTALL_DATA) ibm_hosts.man $(DESTDIR)$(MANDIR)/man1/ibm_hosts.1
+	$(INSTALL_DATA) ibm_hosts.man $(DESTDIR)$(MANDIR)/man5/ibm_hosts.5
 @PR@	-cd pr3287 && $(MAKE) install.man
 
 clean:

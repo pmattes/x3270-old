@@ -461,14 +461,11 @@ keypad_keys_vert(Widget container)
 static Dimension
 get_keypad_dimension(const char *name)
 {
-	char *rname;
 	char *d;
 	long v;
 
-	rname = xs_buffer("%s.%s", ResKeypad, name);
-	if ((d = get_resource(rname)) == CN)
+	if ((d = get_fresource("%s.%s", ResKeypad, name)) == CN)
 		xs_error("Cannot find %s resource", ResKeypad);
-	XtFree(rname);
 	if ((v = strtol(d, (char **)0, 0)) <= 0)
 		xs_error("Illegal %s resource", ResKeypad);
 	return (Dimension)v;

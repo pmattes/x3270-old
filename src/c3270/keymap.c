@@ -175,7 +175,6 @@ static char *pk_errmsg[] = {
 static int
 locate_keymap(const char *name, char **fullname, char **r)
 {
-	char *fn = CN;			/* resource or file name */
 	char *rs;			/* resource value */
 	char *fnx;			/* expanded file name */
 	int a;				/* access(fnx) */
@@ -185,10 +184,7 @@ locate_keymap(const char *name, char **fullname, char **r)
 	*r = CN;
 
 	/* See if it's a resource. */
-	fn = xs_buffer(ResKeymap ".%s", name);
-	rs = get_resource(fn);
-	Free(fn);
-	fn = CN;
+	rs = get_fresource(ResKeymap ".%s", name);
 
 	/* If there's a plain version, return it. */
 	if (rs != CN) {
@@ -279,24 +275,18 @@ read_keymap(const char *name)
 
 	if (rc >= 0) {
 		read_one_keymap(name, fn, r0, 0);
-		if (fn != CN)
-			Free(fn);
-		if (r0 != CN)
-			Free(r0);
+		Free(fn);
+		Free(r0);
 	}
 	if (rc_3270 >= 0) {
 		read_one_keymap(name_3270, fn_3270, r0_3270, KM_3270_ONLY);
-		if (fn_3270 != CN)
-			Free(fn_3270);
-		if (r0_3270 != CN)
-			Free(r0_3270);
+		Free(fn_3270);
+		Free(r0_3270);
 	}
 	if (rc_nvt >= 0) {
 		read_one_keymap(name_nvt, fn_nvt, r0_nvt, KM_NVT_ONLY);
-		if (fn_nvt != CN)
-			Free(fn_nvt);
-		if (r0_nvt != CN)
-			Free(r0_nvt);
+		Free(fn_nvt);
+		Free(r0_nvt);
 	}
 	Free(name_3270);
 	Free(name_nvt);
@@ -395,8 +385,7 @@ read_one_keymap(const char *name, const char *fn, const char *r0, int flags)
 	}
 
     done:
-	if (r_copy != CN)
-		Free(r_copy);
+	Free(r_copy);
 	if (f != NULL)
 		fclose(f);
 }
@@ -483,12 +472,9 @@ ambiguous(struct keymap *k, int nc)
  * Look up an key in the keymap, return the matching action if there is one.
  *
  * This code implements the mutli-key lookup, by returning dummy actions for
- * partial matches.  It does not handle substrings, i.e., if there is a
- * definition for "Ctrl<Key>a" and a definition for "Ctrl<Key>a <Key>F1",
- * the first will either override the second (if it appears first) or
- * be disabled.  I suppose we could implement timeouts, but that would be
- * tremendously ugly, and would be of use only for funky terminals that aren't
- * properly defined in termcap (vs. human multi-key sequences).
+ * partial matches.
+ *
+ * It also handles keyboards that generate ESC for the Meta or Alt key.
  */
 char *
 lookup_key(int code)

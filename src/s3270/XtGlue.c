@@ -28,6 +28,8 @@
 
 #define MILLION		1000000L
 
+void (*Warning_redirect)(const char *) = NULL;
+
 void
 Error(const char *s)
 {
@@ -38,7 +40,10 @@ Error(const char *s)
 void
 Warning(const char *s)
 {
-	fprintf(stderr, "Warning: %s\n", s);
+	if (Warning_redirect != NULL)
+		(*Warning_redirect)(s);
+	else
+		fprintf(stderr, "Warning: %s\n", s);
 }
 
 void *
@@ -75,7 +80,8 @@ Realloc(void *p, size_t len)
 void
 Free(void *p)
 {
-	free(p);
+	if (p != NULL)
+		free(p);
 }
 
 char *
@@ -433,6 +439,21 @@ AddExcept(int source, void (*fn)(void))
 	return (unsigned long)ip;
 }
 
+unsigned long
+AddOutput(int source, void (*fn)(void))
+{
+	input_t *ip;
+
+	ip = (input_t *)Malloc(sizeof(input_t));
+	ip->source = source;
+	ip->condition = InputWriteMask;
+	ip->proc = fn;
+	ip->next = inputs;
+	inputs = ip;
+	inputs_changed = True;
+	return (unsigned long)ip;
+}
+
 void
 RemoveInput(unsigned long id)
 {
@@ -452,6 +473,66 @@ RemoveInput(unsigned long id)
 		inputs = ip->next;
 	Free(ip);
 	inputs_changed = True;
+}
+
+/*
+ * Modify the passed-in parameters so they reflect the values needed for
+ * select().
+ */
+int
+select_setup(int *nfds, fd_set *readfds, fd_set *writefds, 
+    fd_set *exceptfds, struct timeval **timeout, struct timeval *timebuf)
+{
+	input_t *ip;
+	int r = 0;
+
+	for (ip = inputs; ip != (input_t *)NULL; ip = ip->next) {
+		if ((unsigned long)ip->condition & InputReadMask) {
+			FD_SET(ip->source, readfds);
+			if (ip->source >= *nfds)
+				*nfds = ip->source + 1;
+			r = 1;
+		}
+		if ((unsigned long)ip->condition & InputWriteMask) {
+			FD_SET(ip->source, writefds);
+			if (ip->source >= *nfds)
+				*nfds = ip->source + 1;
+			r = 1;
+		}
+		if ((unsigned long)ip->condition & InputExceptMask) {
+			FD_SET(ip->source, exceptfds);
+			if (ip->source >= *nfds)
+				*nfds = ip->source + 1;
+			r = 1;
+		}
+	}
+	if (timeouts != TN) {
+		struct timeval now, twait;
+
+		(void) gettimeofday(&now, (void *)NULL);
+		twait.tv_sec = timeouts->tv.tv_sec - now.tv_sec;
+		twait.tv_usec = timeouts->tv.tv_usec - now.tv_usec;
+		if (twait.tv_usec < 0L) {
+			twait.tv_sec--;
+			twait.tv_usec += MILLION;
+		}
+		if (twait.tv_sec < 0L)
+			twait.tv_sec = twait.tv_usec = 0L;
+
+		if (*timeout == NULL) {
+			/* No timeout yet -- we're it. */
+			*timebuf = twait;
+			*timeout = timebuf;
+			r = 1;
+		} else if (twait.tv_sec < (*timeout)->tv_sec ||
+		           (twait.tv_sec == (*timeout)->tv_sec &&
+		            twait.tv_usec < (*timeout)->tv_usec)) {
+			/* We're sooner than what they're waiting for. */
+			**timeout = twait;
+			r = 1;
+		}
+	}
+	return r;
 }
 
 /* Event dispatcher. */

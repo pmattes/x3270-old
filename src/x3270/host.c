@@ -362,6 +362,7 @@ host_connect(const char *n)
 	char *target_name;
 	char *ps = CN;
 	char *port = CN;
+	Boolean resolving;
 	Boolean pending;
 	static Boolean ansi_host;
 	const char *localprocess_cmd = NULL;
@@ -387,9 +388,7 @@ host_connect(const char *n)
 
 #if defined(X3270_DISPLAY) /*[*/
 	/* Remember this hostname, as the last hostname we connected to. */
-	if (reconnect_host != CN)
-		Free(reconnect_host);
-	reconnect_host = NewString(nb);
+	Replace(reconnect_host, NewString(nb));
 #endif /*]*/
 
 	/* Remember this hostname in the recent connection list and file. */
@@ -438,12 +437,9 @@ host_connect(const char *n)
 	 *  full_current_host is the entire string, for use in reconnecting
 	 */
 	if (n != full_current_host) {
-		if (full_current_host != CN)
-			Free(full_current_host);
-		full_current_host = NewString(n);
+		Replace(full_current_host, NewString(n));
 	}
-	if (current_host != CN)
-		Free(current_host);
+	Replace(current_host, CN);
 	if (localprocess_cmd != CN) {
 		if (full_current_host[strlen(OptLocalProcess)] != '\0')
 		current_host = NewString(full_current_host +
@@ -456,8 +452,9 @@ host_connect(const char *n)
 
 	/* Attempt contact. */
 	ever_3270 = False;
-	net_sock = net_connect(chost, port, localprocess_cmd != CN, &pending);
-	if (net_sock < 0) {
+	net_sock = net_connect(chost, port, localprocess_cmd != CN, &resolving,
+	    &pending);
+	if (net_sock < 0 && !resolving) {
 #if defined(X3270_DISPLAY) /*[*/
 		if (appres.once) {
 			/* Exit when the error pop-up pops down. */
@@ -471,6 +468,13 @@ host_connect(const char *n)
 		/* Redundantly signal a disconnect. */
 		st_changed(ST_CONNECT, False);
 		return -1;
+	}
+
+	/* Still thinking about it? */
+	if (resolving) {
+		cstate = RESOLVING;
+		st_changed(ST_RESOLVING, True);
+		return 0;
 	}
 
 	/* Success. */

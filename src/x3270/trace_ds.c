@@ -44,23 +44,37 @@
 #include "trace_dsc.h"
 #include "utilc.h"
 
+/* Maximum size of a tracefile header. */
+#define MAX_HEADER_SIZE		(10*1024)
+
+/* Minimum size of a trace file. */
+#define MIN_TRACEFILE_SIZE	(64*1024)
+#define MIN_TRACEFILE_SIZE_NAME	"64K"
+
+/* System calls which may not be there. */
+#if !defined(HAVE_FSEEKO) /*[*/
+#define fseeko(s, o, w)	fseek(s, (long)o, w)
+#define ftello(s)	(off_t)ftell(s)
+#endif /*]*/
+
 /* Statics */
 static int      dscnt = 0;
 static int      tracewindow_pid = -1;
+static FILE    *tracef = NULL;
+static FILE    *tracef_pipe = NULL;
+static char    *tracef_bufptr = CN;
+static off_t	tracef_size = 0;
+static off_t	tracef_max = 0;
+static char    *tracef_midpoint_header = CN;
+static off_t	tracef_midpoint = 0;
+static void	vwtrace(const char *fmt, va_list args);
+static void	wtrace(const char *fmt, ...);
+static char    *create_tracefile_header(const char *mode);
+static void	stop_tracing(void);
 
 /* Globals */
-FILE           *tracef = (FILE *) 0;
 struct timeval  ds_ts;
 Boolean         trace_skipping = False;
-
-static const char *
-unknown(unsigned char value)
-{
-	static char buf[64];
-
-	(void) sprintf(buf, "unknown[0x%x]", value);
-	return buf;
-}
 
 /* display a (row,col) */
 const char *
@@ -70,401 +84,6 @@ rcba(int baddr)
 
 	(void) sprintf(buf, "(%d,%d)", baddr/COLS + 1, baddr%COLS + 1);
 	return buf;
-}
-
-const char *
-see_ebc(unsigned char ch)
-{
-	static char buf[8];
-
-	switch (ch) {
-	    case FCORDER_NULL:
-		return "NULL";
-	    case FCORDER_SUB:
-		return "SUB";
-	    case FCORDER_DUP:
-		return "DUP";
-	    case FCORDER_FM:
-		return "FM";
-	    case FCORDER_FF:
-		return "FF";
-	    case FCORDER_CR:
-		return "CR";
-	    case FCORDER_NL:
-		return "NL";
-	    case FCORDER_EM:
-		return "EM";
-	    case FCORDER_EO:
-		return "EO";
-	}
-	if (ebc2asc[ch])
-		(void) sprintf(buf, "%c", ebc2asc[ch]);
-	else
-		(void) sprintf(buf, "\\%o", ch);
-	return buf;
-}
-
-const char *
-see_aid(unsigned char code)
-{
-	switch (code) {
-	case AID_NO: 
-		return "NoAID";
-	case AID_ENTER: 
-		return "Enter";
-	case AID_PF1: 
-		return "PF1";
-	case AID_PF2: 
-		return "PF2";
-	case AID_PF3: 
-		return "PF3";
-	case AID_PF4: 
-		return "PF4";
-	case AID_PF5: 
-		return "PF5";
-	case AID_PF6: 
-		return "PF6";
-	case AID_PF7: 
-		return "PF7";
-	case AID_PF8: 
-		return "PF8";
-	case AID_PF9: 
-		return "PF9";
-	case AID_PF10: 
-		return "PF10";
-	case AID_PF11: 
-		return "PF11";
-	case AID_PF12: 
-		return "PF12";
-	case AID_PF13: 
-		return "PF13";
-	case AID_PF14: 
-		return "PF14";
-	case AID_PF15: 
-		return "PF15";
-	case AID_PF16: 
-		return "PF16";
-	case AID_PF17: 
-		return "PF17";
-	case AID_PF18: 
-		return "PF18";
-	case AID_PF19: 
-		return "PF19";
-	case AID_PF20: 
-		return "PF20";
-	case AID_PF21: 
-		return "PF21";
-	case AID_PF22: 
-		return "PF22";
-	case AID_PF23: 
-		return "PF23";
-	case AID_PF24: 
-		return "PF24";
-	case AID_OICR: 
-		return "OICR";
-	case AID_MSR_MHS: 
-		return "MSR_MHS";
-	case AID_SELECT: 
-		return "Select";
-	case AID_PA1: 
-		return "PA1";
-	case AID_PA2: 
-		return "PA2";
-	case AID_PA3: 
-		return "PA3";
-	case AID_CLEAR: 
-		return "Clear";
-	case AID_SYSREQ: 
-		return "SysReq";
-	case AID_QREPLY:
-		return "QueryReplyAID";
-	default: 
-		return unknown(code);
-	}
-}
-
-const char *
-see_attr(unsigned char fa)
-{
-	static char buf[256];
-	const char *paren = "(";
-
-	buf[0] = '\0';
-
-	if (fa & 0x04) {
-		(void) strcat(buf, paren);
-		(void) strcat(buf, "protected");
-		paren = ",";
-		if (fa & 0x08) {
-			(void) strcat(buf, paren);
-			(void) strcat(buf, "skip");
-			paren = ",";
-		}
-	} else if (fa & 0x08) {
-		(void) strcat(buf, paren);
-		(void) strcat(buf, "numeric");
-		paren = ",";
-	}
-	switch (fa & 0x03) {
-	case 0:
-		break;
-	case 1:
-		(void) strcat(buf, paren);
-		(void) strcat(buf, "detectable");
-		paren = ",";
-		break;
-	case 2:
-		(void) strcat(buf, paren);
-		(void) strcat(buf, "intensified");
-		paren = ",";
-		break;
-	case 3:
-		(void) strcat(buf, paren);
-		(void) strcat(buf, "nondisplay");
-		paren = ",";
-		break;
-	}
-	if (fa & 0x20) {
-		(void) strcat(buf, paren);
-		(void) strcat(buf, "modified");
-		paren = ",";
-	}
-	if (strcmp(paren, "("))
-		(void) strcat(buf, ")");
-	else
-		(void) strcpy(buf, "(default)");
-
-	return buf;
-}
-
-static const char *
-see_highlight(unsigned char setting)
-{
-	switch (setting) {
-	    case XAH_DEFAULT:
-		return "default";
-	    case XAH_NORMAL:
-		return "normal";
-	    case XAH_BLINK:
-		return "blink";
-	    case XAH_REVERSE:
-		return "reverse";
-	    case XAH_UNDERSCORE:
-		return "underscore";
-	    case XAH_INTENSIFY:
-		return "intensify";
-	    default:
-		return unknown(setting);
-	}
-}
-
-#if !defined(X3270_DISPLAY) /*[*/
-static
-#endif /*]*/
-const char *
-see_color(unsigned char setting)
-{
-	static const char *color_name[] = {
-	    "neutralBlack",
-	    "blue",
-	    "red",
-	    "pink",
-	    "green",
-	    "turquoise",
-	    "yellow",
-	    "neutralWhite",
-	    "black",
-	    "deepBlue",
-	    "orange",
-	    "purple",
-	    "paleGreen",
-	    "paleTurquoise",
-	    "grey",
-	    "white"
-	};
-
-	if (setting == XAC_DEFAULT)
-		return "default";
-	else if (setting < 0xf0 || setting > 0xff)
-		return unknown(setting);
-	else
-		return color_name[setting - 0xf0];
-}
-
-static const char *
-see_transparency(unsigned char setting)
-{
-	switch (setting) {
-	    case XAT_DEFAULT:
-		return "default";
-	    case XAT_OR:
-		return "or";
-	    case XAT_XOR:
-		return "xor";
-	    case XAT_OPAQUE:
-		return "opaque";
-	    default:
-		return unknown(setting);
-	}
-}
-
-static const char *
-see_validation(unsigned char setting)
-{
-	static char buf[64];
-	const char *paren = "(";
-
-	(void) strcpy(buf, "");
-	if (setting & XAV_FILL) {
-		(void) strcat(buf, paren);
-		(void) strcat(buf, "fill");
-		paren = ",";
-	}
-	if (setting & XAV_ENTRY) {
-		(void) strcat(buf, paren);
-		(void) strcat(buf, "entry");
-		paren = ",";
-	}
-	if (setting & XAV_TRIGGER) {
-		(void) strcat(buf, paren);
-		(void) strcat(buf, "trigger");
-		paren = ",";
-	}
-	if (strcmp(paren, "("))
-		(void) strcat(buf, ")");
-	else
-		(void) strcpy(buf, "(none)");
-	return buf;
-}
-
-static const char *
-see_outline(unsigned char setting)
-{
-	static char buf[64];
-	const char *paren = "(";
-
-	(void) strcpy(buf, "");
-	if (setting & XAO_UNDERLINE) {
-		(void) strcat(buf, paren);
-		(void) strcat(buf, "underline");
-		paren = ",";
-	}
-	if (setting & XAO_RIGHT) {
-		(void) strcat(buf, paren);
-		(void) strcat(buf, "right");
-		paren = ",";
-	}
-	if (setting & XAO_OVERLINE) {
-		(void) strcat(buf, paren);
-		(void) strcat(buf, "overline");
-		paren = ",";
-	}
-	if (setting & XAO_LEFT) {
-		(void) strcat(buf, paren);
-		(void) strcat(buf, "left");
-		paren = ",";
-	}
-	if (strcmp(paren, "("))
-		(void) strcat(buf, ")");
-	else
-		(void) strcpy(buf, "(none)");
-	return buf;
-}
-
-const char *
-see_efa(unsigned char efa, unsigned char value)
-{
-	static char buf[64];
-
-	switch (efa) {
-	    case XA_ALL:
-		(void) sprintf(buf, " all(%x)", value);
-		break;
-	    case XA_3270:
-		(void) sprintf(buf, " 3270%s", see_attr(value));
-		break;
-	    case XA_VALIDATION:
-		(void) sprintf(buf, " validation%s", see_validation(value));
-		break;
-	    case XA_OUTLINING:
-		(void) sprintf(buf, " outlining(%s)", see_outline(value));
-		break;
-	    case XA_HIGHLIGHTING:
-		(void) sprintf(buf, " highlighting(%s)", see_highlight(value));
-		break;
-	    case XA_FOREGROUND:
-		(void) sprintf(buf, " foreground(%s)", see_color(value));
-		break;
-	    case XA_CHARSET:
-		(void) sprintf(buf, " charset(%x)", value);
-		break;
-	    case XA_BACKGROUND:
-		(void) sprintf(buf, " background(%s)", see_color(value));
-		break;
-	    case XA_TRANSPARENCY:
-		(void) sprintf(buf, " transparency(%s)", see_transparency(value));
-		break;
-	    default:
-		(void) sprintf(buf, " %s[0x%x]", unknown(efa), value);
-	}
-	return buf;
-}
-
-const char *
-see_efa_only(unsigned char efa)
-{
-	switch (efa) {
-	    case XA_ALL:
-		return "all";
-	    case XA_3270:
-		return "3270";
-	    case XA_VALIDATION:
-		return "validation";
-	    case XA_OUTLINING:
-		return "outlining";
-	    case XA_HIGHLIGHTING:
-		return "highlighting";
-	    case XA_FOREGROUND:
-		return "foreground";
-	    case XA_CHARSET:
-		return "charset";
-	    case XA_BACKGROUND:
-		return "background";
-	    case XA_TRANSPARENCY:
-		return "transparency";
-	    default:
-		return unknown(efa);
-	}
-}
-
-const char *
-see_qcode(unsigned char id)
-{
-	static char buf[64];
-
-	switch (id) {
-	    case QR_CHARSETS:
-		return "CharacterSets";
-	    case QR_IMP_PART:
-		return "ImplicitPartition";
-	    case QR_SUMMARY:
-		return "Summary";
-	    case QR_USABLE_AREA:
-		return "UsableArea";
-	    case QR_COLOR:
-		return "Color";
-	    case QR_HIGHLIGHTING:
-		return "Highlighting";
-	    case QR_REPLY_MODES:
-		return "ReplyModes";
-	    case QR_ALPHA_PART:
-		return "AlphanumericPartitions";
-	    case QR_DDM:
-		return "DistributedDataManagement";
-	    default:
-		(void) sprintf(buf, "unknown[0x%x]", id);
-		return buf;
-	}
 }
 
 /* Data Stream trace print, handles line wraps */
@@ -478,7 +97,7 @@ trace_ds_s(char *s)
 	int len = strlen(s);
 	Boolean nl = False;
 
-	if (!toggled(DS_TRACE) || !len)
+	if (!toggled(DS_TRACE) || tracef == NULL || !len)
 		return;
 
 	if (s && s[len-1] == '\n') {
@@ -488,17 +107,17 @@ trace_ds_s(char *s)
 	while (dscnt + len >= 75) {
 		int plen = 75-dscnt;
 
-		(void) fprintf(tracef, "%.*s ...\n... ", plen, s);
+		wtrace("%.*s ...\n... ", plen, s);
 		dscnt = 4;
 		s += plen;
 		len -= plen;
 	}
 	if (len) {
-		(void) fprintf(tracef, "%.*s", len, s);
+		wtrace("%.*s", len, s);
 		dscnt += len;
 	}
 	if (nl) {
-		(void) fprintf(tracef, "\n");
+		wtrace("\n");
 		dscnt = 0;
 	}
 }
@@ -526,14 +145,201 @@ trace_event(const char *fmt, ...)
 {
 	va_list args;
 
-	if (!toggled(EVENT_TRACE) || tracef == (FILE *)NULL)
+	if (!toggled(EVENT_TRACE) || tracef == NULL)
 		return;
 
+	/* print out message */
 	va_start(args, fmt);
+	vwtrace(fmt, args);
+	va_end(args);
+}
+
+/* Conditional data stream trace, without line splitting. */
+void
+trace_dsn(const char *fmt, ...)
+{
+	va_list args;
+
+	if (!toggled(DS_TRACE) || tracef == NULL)
+		return;
 
 	/* print out message */
-	(void) vfprintf(tracef, fmt, args);
+	va_start(args, fmt);
+	vwtrace(fmt, args);
 	va_end(args);
+}
+
+/*
+ * Write to the trace file, varargs style.
+ * This is the only function that actually does output to the trace file --
+ * all others are wrappers around this function.
+ */
+static void
+vwtrace(const char *fmt, va_list args)
+{
+	if (tracef_bufptr != CN) {
+		tracef_bufptr += vsprintf(tracef_bufptr, fmt, args);
+	} else if (tracef != NULL) {
+		int nw;
+
+		nw = vfprintf(tracef, fmt, args);
+		if (nw > 0)
+			tracef_size += nw;
+		else if (nw < 0) {
+			if (errno != EPIPE)
+				popup_an_errno(errno,
+				    "Write to trace file failed");
+			stop_tracing();
+		}
+		if (tracef_pipe != NULL) {
+			nw = vfprintf(tracef_pipe, fmt, args);
+			if (nw < 0) {
+				(void) fclose(tracef_pipe);
+				tracef_pipe = NULL;
+			}
+		}
+	}
+}
+
+/* Write to the trace file. */
+static void
+wtrace(const char *fmt, ...)
+{
+	if (tracef != NULL) {
+		va_list args;
+
+		va_start(args, fmt);
+		vwtrace(fmt, args);
+		va_end(args);
+	}
+}
+
+static void
+stop_tracing(void)
+{
+	if (tracef != NULL && tracef != stdout)
+		(void) fclose(tracef);
+	tracef = NULL;
+	if (tracef_pipe != NULL) {
+		(void) fclose(tracef_pipe);
+		tracef_pipe = NULL;
+	}
+	if (toggled(DS_TRACE)) {
+		toggle_toggle(&appres.toggle[DS_TRACE]);
+		menubar_retoggle(&appres.toggle[DS_TRACE]);
+	}
+	if (toggled(EVENT_TRACE)) {
+		toggle_toggle(&appres.toggle[EVENT_TRACE]);
+		menubar_retoggle(&appres.toggle[EVENT_TRACE]);
+	}
+}
+
+/* Check for a trace file rollover event. */
+void
+trace_rollover_check(void)
+{
+	if (tracef == NULL || tracef_max == 0)
+		return;
+
+	/* See if we've reached the midpoint. */
+	if (!tracef_midpoint) {
+		if (tracef_size >= tracef_max / 2) {
+			tracef_midpoint = ftello(tracef);
+#if defined(ROLLOVER_DEBUG) /*[*/
+			printf("midpoint is %lld\n", tracef_midpoint);
+#endif /*]*/
+			tracef_midpoint_header =
+			    create_tracefile_header("rolled over");
+		}
+		return;
+	}
+
+	/* See if we've reached a rollover point. */
+	if (tracef_size >= tracef_max) {
+		char buf[8*1024];
+		int nr;
+		off_t rpos = tracef_midpoint, wpos = 0;
+
+		if (!tracef_midpoint)
+			Error("Tracefile rollover logic error");
+#if defined(ROLLOVER_DEBUG) /*[*/
+		printf("rolling over at %lld\n", tracef_size);
+#endif /*]*/
+		/*
+		 * Overwrite the file with the midpoint header, and the data
+		 * which follows the midpoint.
+		 */
+		if (fseeko(tracef, 0, SEEK_SET) < 0) {
+			popup_an_errno(errno, "trace file fseeko(0) failed");
+			stop_tracing();
+			return;
+		}
+		wtrace("%s", tracef_midpoint_header);
+		wpos = ftello(tracef);
+		if (wpos < 0) {
+			popup_an_errno(errno, "trace file ftello() failed");
+			stop_tracing();
+			return;
+		}
+		if (fseeko(tracef, rpos, SEEK_SET) < 0) {
+			popup_an_errno(errno, "trace file fseeko(%ld) failed",
+			    (long)rpos);
+			stop_tracing();
+			return;
+		}
+#if defined(ROLLOVER_DEBUG) /*[*/
+		printf("rpos = %lld, wpos = %lld\n", rpos, wpos);
+#endif /*]*/
+		while ((nr = fread(buf, 1, sizeof(buf), tracef)) > 0) {
+			rpos = ftello(tracef);
+			if (fseeko(tracef, wpos, SEEK_SET) < 0) {
+				popup_an_errno(errno, "trace file fseeko(%ld) "
+				    "failed", (long)wpos);
+				stop_tracing();
+				return;
+			}
+			if (fwrite(buf, nr, 1, tracef) < 1)
+				break;
+			wpos = ftello(tracef);
+			if (wpos < 0) {
+				popup_an_errno(errno, "trace file ftello() "
+				    "failed");
+				stop_tracing();
+				return;
+			}
+			if (fseeko(tracef, rpos, SEEK_SET) < 0) {
+				popup_an_errno(errno, "trace file fseeko(%ld)"
+				    "failed", (long)rpos);
+				stop_tracing();
+				return;
+			}
+		}
+		if (ferror(tracef)) {
+			popup_an_errno(errno, "trace file rollover copy "
+			    "failed");
+			stop_tracing();
+			return;
+		}
+#if defined(ROLLOVER_DEBUG) /*[*/
+		printf("final wpos = %lld\n", wpos);
+#endif /*]*/
+		if (ftruncate(fileno(tracef), wpos) < 0) {
+			popup_an_errno(errno, "trace file ftruncate(%ld) "
+			    "failed", (long)wpos);
+			stop_tracing();
+			return;
+		}
+		if (fseeko(tracef, wpos, SEEK_SET) < 0) {
+			popup_an_errno(errno, "trace file fseeko(%ld) failed",
+			    (long)wpos);
+			stop_tracing();
+			return;
+		}
+		tracef_size = wpos;
+		tracef_midpoint = wpos;
+		Replace(tracef_midpoint_header,
+		    create_tracefile_header("rolled over"));
+	}
 }
 
 #if defined(X3270_DISPLAY) /*[*/
@@ -541,127 +347,40 @@ static Widget trace_shell = (Widget)NULL;
 #endif
 static int trace_reason;
 
-/* Callback for "OK" button on trace popup */
-static void
-tracefile_callback(Widget w, XtPointer client_data, XtPointer call_data unused)
+/* Create a trace file header. */
+static char *
+create_tracefile_header(const char *mode)
 {
-	char *tfn;
-	char *tracecmd;
-	char *full_cmd;
+	char *buf;
 	time_t clk;
-	Boolean piped = False;
-	int pipefd[2];
 
-#if defined(X3270_DISPLAY) /*[*/
-	if (w)
-		tfn = XawDialogGetValueString((Widget)client_data);
-	else
-#endif /*]*/
-		tfn = (char *)client_data;
-	tfn = do_subst(tfn, True, True);
-	if (strchr(tfn, '\'') ||
-	    ((int)strlen(tfn) > 0 && tfn[strlen(tfn)-1] == '\\')) {
-		popup_an_error("Illegal file name: %s\n", tfn);
-		Free(tfn);
-		return;
-	}
-	if (!strcmp(tfn, "stdout")) {
-		tracef = stdout;
-	} else if (!strcmp(tfn, "none") || !tfn[0]) {
-
-		if (pipe(pipefd) < 0) {
-			popup_an_errno(errno, "pipe() failed");
-			Free(tfn);
-			return;
-		}
-		tracef = fdopen(pipefd[1], "w");
-		if (tracef == (FILE *)NULL) {
-			popup_an_errno(errno, "fdopen() failed");
-			Free(tfn);
-			return;
-		}
-		(void) SETLINEBUF(tracef);
-		(void) fcntl(pipefd[1], F_SETFD, 1);
-		piped = True;
-	} else {
-		tracef = fopen(tfn, "a");
-		if (tracef == (FILE *)NULL) {
-			popup_an_errno(errno, tfn);
-			Free(tfn);
-			return;
-		}
-		(void) SETLINEBUF(tracef);
-		(void) fcntl(fileno(tracef), F_SETFD, 1);
-	}
-
-	/* Start the monitor window */
-	tracecmd = get_resource(ResTraceCommand);
-	if (tracecmd == CN || !strcmp(tracecmd, "none") || tracef == stdout)
-		goto done;
-	switch (tracewindow_pid = fork_child()) {
-	    case 0:	/* child process */
-		if (piped) {
-			char cmd[64];
-
-			(void) sprintf(cmd, "cat /dev/fd/%d", pipefd[0]);
-			(void) execlp("xterm", "xterm", "-title", "trace",
-			    "-sb", "-e", "/bin/sh", "-c", cmd, CN);
-		} else {
-			full_cmd = xs_buffer("%s <'%s'", tracecmd, tfn);
-			(void) execlp("xterm", "xterm", "-title", tfn,
-			    "-sb", "-e", "/bin/sh", "-c", full_cmd, CN);
-		}
-		(void) perror("exec(xterm)");
-		_exit(1);
-	    default:	/* parent */
-		if (piped)
-			(void) close(pipefd[0]);
-		++children;
-		break;
-	    case -1:	/* error */
-		popup_an_errno(errno, "fork()");
-		break;
-	}
-
-    done:
-	Free(tfn);
+	/* Create a buffer and redirect output. */
+	buf = Malloc(MAX_HEADER_SIZE);
+	tracef_bufptr = buf;
 
 	/* Display current status */
 	clk = time((time_t *)0);
-	(void) fprintf(tracef, "Trace started %s", ctime(&clk));
-	(void) fprintf(tracef, " Version: %s\n", build);
+	wtrace("Trace %s %s", mode, ctime(&clk));
+	wtrace(" Version: %s\n", build);
 	save_yourself();
-	(void) fprintf(tracef, " Command: %s\n", command_string);
-	(void) fprintf(tracef, " Model %s", model_name);
-	(void) fprintf(tracef, ", %s display", 
-	    appres.mono ? "monochrome" : "color");
+	wtrace(" Command: %s\n", command_string);
+	wtrace(" Model %s", model_name);
+	wtrace(", %s display", appres.mono ? "monochrome" : "color");
 	if (appres.extended)
-		(void) fprintf(tracef, ", extended data stream");
+		wtrace(", extended data stream");
 	if (!appres.mono)
-		(void) fprintf(tracef, ", %scolor",
-		    appres.m3279 ? "full " : "pseudo-");
-	(void) fprintf(tracef, ", %s charset", get_charset_name());
+		wtrace(", %scolor", appres.m3279 ? "full " : "pseudo-");
+	wtrace(", %s charset", get_charset_name());
 	if (appres.apl_mode)
-		(void) fprintf(tracef, ", APL mode");
-	(void) fprintf(tracef, "\n");
+		wtrace(", APL mode");
+	wtrace("\n");
 	if (CONNECTED)
-		(void) fprintf(tracef, " Connected to %s, port %u\n",
+		wtrace(" Connected to %s, port %u\n",
 		    current_host, current_port);
-
-
-	/* We're really tracing, turn the flag on. */
-	appres.toggle[trace_reason].value = True;
-	appres.toggle[trace_reason].changed = True;
-	menubar_retoggle(&appres.toggle[trace_reason]);
-
-#if defined(X3270_DISPLAY) /*[*/
-	if (w)
-		XtPopdown(trace_shell);
-#endif /*]*/
 
 	/* Snap the current TELNET options. */
 	if (net_snap_options()) {
-		(void) fprintf(tracef, " TELNET state:\n");
+		wtrace(" TELNET state:\n");
 		trace_netdata('<', obuf, obptr - obuf);
 	}
 
@@ -675,7 +394,7 @@ tracefile_callback(Widget w, XtPointer client_data, XtPointer call_data unused)
 		 * mode.
 		 */
 		if (formatted) {
-			(void) fprintf(tracef, " Screen contents:\n");
+			wtrace(" Screen contents:\n");
 			obptr = obuf;
 #if defined(X3270_TN3270E) /*[*/
 			(void) net_add_dummy_tn3270e();
@@ -691,7 +410,7 @@ tracefile_callback(Widget w, XtPointer client_data, XtPointer call_data unused)
 			(void) net_add_dummy_tn3270e();
 #endif /*]*/
 			if (ctlr_snap_modes()) {
-				(void) fprintf(tracef, " 3270 modes:\n");
+				wtrace(" 3270 modes:\n");
 				space3270out(2);
 				net_add_eor(obuf, obptr - obuf);
 				obptr += 2;
@@ -702,8 +421,7 @@ tracefile_callback(Widget w, XtPointer client_data, XtPointer call_data unused)
 		else if (IN_E) {
 			obptr = obuf;
 			if (net_add_dummy_tn3270e()) {
-				(void) fprintf(tracef,
-					" Screen contents:\n");
+				wtrace(" Screen contents:\n");
 				space3270out(2);
 				net_add_eor(obuf, obptr - obuf);
 				obptr += 2;
@@ -713,7 +431,214 @@ tracefile_callback(Widget w, XtPointer client_data, XtPointer call_data unused)
 #endif /*]*/
 	}
 
-	(void) fprintf(tracef, " Data stream:\n");
+	wtrace(" Data stream:\n");
+
+	/* Return the buffer. */
+	tracef_bufptr = CN;
+	return buf;
+}
+
+/* Calculate the tracefile maximum size. */
+static void
+get_tracef_max(void)
+{
+	static Boolean calculated = False;
+	char *ptr;
+	Boolean bad = False;
+
+	if (calculated)
+		return;
+
+	calculated = True;
+
+	if (appres.trace_file_size == CN ||
+	    !strcmp(appres.trace_file_size, "0") ||
+	    !strncasecmp(appres.trace_file_size, "none",
+			 strlen(appres.trace_file_size))) {
+		tracef_max = 0;
+		return;
+	}
+
+	tracef_max = strtoul(appres.trace_file_size, &ptr, 0);
+	if (tracef_max == 0 || ptr == appres.trace_file_size || *(ptr + 1)) {
+		bad = True;
+	} else switch (*ptr) {
+	case 'k':
+	case 'K':
+		tracef_max *= 1024;
+		break;
+	case 'm':
+	case 'M':
+		tracef_max *= 1024 * 1024;
+		break;
+	case '\0':
+		break;
+	default:
+		bad = True;
+		break;
+	}
+
+	if (bad) {
+		tracef_max = MIN_TRACEFILE_SIZE;
+#if defined(X3270_DISPLAY) /*[*/
+		popup_an_info("Invalid %s '%s', assuming "
+		    MIN_TRACEFILE_SIZE_NAME,
+		    ResTraceFileSize,
+		    appres.trace_file_size);
+#endif /*]*/
+	} else if (tracef_max < MIN_TRACEFILE_SIZE) {
+		tracef_max = MIN_TRACEFILE_SIZE;
+	}
+}
+
+/* Callback for "OK" button on trace popup */
+static void
+tracefile_callback(Widget w, XtPointer client_data, XtPointer call_data unused)
+{
+	char *tfn = CN;
+#if defined(X3270_DISPLAY) /*[*/
+	int pipefd[2];
+	Boolean just_piped = False;
+#endif /*]*/
+	char *buf;
+
+#if defined(X3270_DISPLAY) /*[*/
+	if (w)
+		tfn = XawDialogGetValueString((Widget)client_data);
+	else
+#endif /*]*/
+		tfn = (char *)client_data;
+	tfn = do_subst(tfn, True, True);
+	if (strchr(tfn, '\'') ||
+	    ((int)strlen(tfn) > 0 && tfn[strlen(tfn)-1] == '\\')) {
+		popup_an_error("Illegal file name: %s\n", tfn);
+		Free(tfn);
+		return;
+	}
+
+	tracef_max = 0;
+	tracef_midpoint = 0;
+	Replace(tracef_midpoint_header, CN);
+
+	if (!strcmp(tfn, "stdout")) {
+		tracef = stdout;
+	} else {
+#if defined(X3270_DISPLAY) /*[*/
+		FILE *pipefile;
+
+		if (!strcmp(tfn, "none") || !tfn[0]) {
+			just_piped = True;
+			if (!appres.trace_monitor) {
+				popup_an_error("Must specify a trace file "
+				    "name");
+				free(tfn);
+				return;
+			}
+		}
+
+		if (appres.trace_monitor) {
+			if (pipe(pipefd) < 0) {
+				popup_an_errno(errno, "pipe() failed");
+				Free(tfn);
+				return;
+			}
+			pipefile = fdopen(pipefd[1], "w");
+			if (pipefile == NULL) {
+				popup_an_errno(errno, "fdopen() failed");
+				(void) close(pipefd[0]);
+				(void) close(pipefd[1]);
+				Free(tfn);
+				return;
+			}
+			(void) SETLINEBUF(pipefile);
+			(void) fcntl(pipefd[1], F_SETFD, 1);
+		}
+
+		if (just_piped) {
+			tracef = pipefile;
+		} else
+#endif /*]*/
+		{
+#if defined(X3270_DISPLAY) /*[*/
+			tracef_pipe = pipefile;
+#endif /*]*/
+			/* Get the trace file maximum. */
+			get_tracef_max();
+
+			/* If there's a limit, the file can't exist. */
+			if (tracef_max && !access(tfn, R_OK)) {
+				popup_an_error("Trace file '%s' already exists",
+				    tfn);
+#if defined(X3270_DISPLAY) /*[*/
+				fclose(tracef_pipe);
+				(void) close(pipefd[0]);
+				(void) close(pipefd[1]);
+#endif /*]*/
+				Free(tfn);
+				return;
+			}
+
+			/* Open and configure the file. */
+			tracef = fopen(tfn, tracef_max? "w+": "a");
+			if (tracef == (FILE *)NULL) {
+				popup_an_errno(errno, tfn);
+#if defined(X3270_DISPLAY) /*[*/
+				fclose(tracef_pipe);
+				(void) close(pipefd[0]);
+				(void) close(pipefd[1]);
+#endif /*]*/
+				Free(tfn);
+				return;
+			}
+			(void) SETLINEBUF(tracef);
+			(void) fcntl(fileno(tracef), F_SETFD, 1);
+		}
+	}
+
+#if defined(X3270_DISPLAY) /*[*/
+	/* Start the monitor window */
+	if (tracef != stdout && appres.trace_monitor) {
+		switch (tracewindow_pid = fork_child()) {
+		    case 0:	/* child process */
+			{
+				char cmd[64];
+
+				(void) sprintf(cmd, "cat <&%d", pipefd[0]);
+				(void) execlp("xterm", "xterm",
+				    "-title", just_piped? "trace": tfn,
+				    "-sb", "-e", "/bin/sh", "-c",
+				    cmd, CN);
+			}
+			(void) perror("exec(xterm) failed");
+			_exit(1);
+		    default:	/* parent */
+			(void) close(pipefd[0]);
+			++children;
+			break;
+		    case -1:	/* error */
+			popup_an_errno(errno, "fork() failed");
+			break;
+		}
+	}
+#endif /*]*/
+
+	Free(tfn);
+
+	/* We're really tracing, turn the flag on. */
+	appres.toggle[trace_reason].value = True;
+	appres.toggle[trace_reason].changed = True;
+	menubar_retoggle(&appres.toggle[trace_reason]);
+
+	/* Display current status. */
+	buf = create_tracefile_header("started");
+	wtrace("%s", buf);
+	Free(buf);
+
+#if defined(X3270_DISPLAY) /*[*/
+	if (w)
+		XtPopdown(trace_shell);
+#endif /*]*/
+
 }
 
 #if defined(X3270_DISPLAY) /*[*/
@@ -734,7 +659,7 @@ tracefile_on(int reason, enum toggle_type tt)
 	char tracefile_buf[256];
 	char *tracefile;
 
-	if (tracef)
+	if (tracef != (FILE *)NULL)
 		return;
 
 	trace_reason = reason;
@@ -760,7 +685,9 @@ tracefile_on(int reason, enum toggle_type tt)
 #if defined(X3270_DISPLAY) /*[*/
 	if (trace_shell == NULL) {
 		trace_shell = create_form_popup("trace",
-		    tracefile_callback, no_tracefile_callback, FORM_NO_WHITE);
+		    tracefile_callback,
+		    appres.trace_monitor? no_tracefile_callback: NULL,
+		    FORM_NO_WHITE);
 		XtVaSetValues(XtNameToWidget(trace_shell, ObjDialog),
 		    XtNvalue, tracefile,
 		    NULL);
@@ -781,20 +708,18 @@ tracefile_off(void)
 	time_t clk;
 
 	clk = time((time_t *)0);
-	(void) fprintf(tracef, "Trace stopped %s", ctime(&clk));
+	wtrace("Trace stopped %s", ctime(&clk));
 	if (tracewindow_pid != -1)
 		(void) kill(tracewindow_pid, SIGKILL);
 	tracewindow_pid = -1;
-	if (tracef != stdout)
-		(void) fclose(tracef);
-	tracef = (FILE *) NULL;
+	stop_tracing();
 }
 
 void
 toggle_dsTrace(struct toggle *t unused, enum toggle_type tt)
 {
 	/* If turning on trace and no trace file, open one. */
-	if (toggled(DS_TRACE) && !tracef)
+	if (toggled(DS_TRACE) && tracef == NULL)
 		tracefile_on(DS_TRACE, tt);
 
 	/* If turning off trace and not still tracing events, close the
@@ -810,7 +735,7 @@ void
 toggle_eventTrace(struct toggle *t unused, enum toggle_type tt)
 {
 	/* If turning on event debug, and no trace file, open one. */
-	if (toggled(EVENT_TRACE) && !tracef)
+	if (toggled(EVENT_TRACE) && tracef == NULL)
 		tracefile_on(EVENT_TRACE, tt);
 
 	/* If turning off event debug, and not tracing the data stream,

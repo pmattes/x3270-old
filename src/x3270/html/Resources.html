@@ -62,12 +62,12 @@ x3270.blankFill		Default false		Option Blank Fill
     real 3270 terminals.
 
 x3270.charset		Default bracket		Switch -charset
-    This defines the EBCDIC character set, that is, what glyph (image) is
-    displayed for each EBCDIC code.
+    This defines the host EBCDIC character set, that is, what glyph (image) is
+    displayed for each EBCDIC code sent by the host.
 
-    For each character set <i>x</i>, an additional resource by the name of
+    For each host character set <i>x</i>, an additional resource by the name of
     charset.<i>x</i> must be defined.  Optionally, resources by the name of
-    codepage.<i>x</i>, displayCharset.<i>x</i> and requiredFont.<i>x</i> may also be defined.
+    codepage.<i>x</i> and displayCharset.<i>x</i> may be defined.
 
 x3270.charset.us-intl
 x3270.charset.us
@@ -80,9 +80,9 @@ x3270.charset.uk
 x3270.charset.norwegian
 x3270.charset.french
 x3270.charset.hebrew
-    Individual character set definitions.  These resources consist take one of
-    two forms: a set of exceptions (differences from the U.S. English character
-    set), or a full EBCDIC-to-display-code translation table.
+    Individual host character set definitions.  These resources take one of two
+    forms: a set of exceptions (differences from the U.S. English host
+    character set), or a full EBCDIC-to-display-code translation table.
 
     If the first token in the resouce is "#table", then it is interpreted as
     a full table.  It must consist of 256 whitespace-separated values, each
@@ -111,15 +111,21 @@ x3270.charsetList	Default U.S. International: us-intl
 				Hebrew: hebrew
     Defines the "Character Set" pull-right menu.
 
-x3270.codepage.<i>charset</i>	Default 37
-    Code page definitions for various character sets.  If x3270.charset is <i>x</i>,
-    then x3270.codepage.<i>x</i> defines the IBM code page reported to the host in
-    a Query Reply.  The default code page is 37.  The base character set and
-    the code page are combined into a CGCSGID reported to the host.  If the
-    value of x3270.codepage.<i>x</i> is a 16-bit number (less than 65536), then the
-    code page is combined with the default base character set of 697 to form
-    the CGCSGID.  If the value of x3270.codepage.<i>x</i> is greater than 16 bits,
-    then it specifies the entire CGCSGID reported to the host.
+x3270.codepage.<i>hostCharset</i>	Default 37
+    Code page definitions for various host character sets.  If x3270.charset is
+    <i>x</i>, then x3270.codepage.<i>x</i> defines the IBM code page reported to the
+    host in a Query Reply.  The default code page is 37.  The base character
+    set and the code page are combined into a CGCSGID reported to the host.  If
+    the value of x3270.codepage.<i>x</i> is a 16-bit number (less than 65536), then
+    the code page is combined with the default base character set of 697 to
+    form the CGCSGID.  If the value of x3270.codepage.<i>x</i> is greater than 16
+    bits, then it specifies the entire CGCSGID reported to the host.
+
+x3270.color8		Default False
+    If set to True, x3270 will respond to a Query(Color) with a list of 8
+    supported colors.  If set to False (the default), it will send a list
+    of 16 colors.  The 8-color setting is required for some hosts which
+    abort a session if 16 colors are reported.
 
 x3270.colorBackground	Default black
     The background color for the emulator window.  This resource is used only
@@ -216,12 +222,14 @@ x3270.debugTracing	Default true
 x3270.disconnectClear	Default false
     If set to true, x3270 will clear the screen when a host disconnects.
 
-x3270.displayCharset.<i>charset</i>	Default iso8859-1
-    Defines the character set that the x3270.emulatorFont must implement, in
-    order for x3270 to display all characters that the host can generate.
-    If x3270.charset is <i>x</i>, then x3270.displayCharset.<i>x</i> defines the display
-    character set.  If the x3270.emulatorFont does not implement the specified
-    display character set, then x3270 will display only ASCII-7 characters.
+x3270.displayCharset.<i>hostCharset</i>	Default iso8859-1
+    Defines the display character set that the x3270.emulatorFont must
+    implement, in order for x3270 to display all characters that the host can
+    generate.  If x3270.charset is <i>x</i>, then x3270.displayCharset.<i>x</i> defines
+    the display character set.  If the x3270.emulatorFont does not implement
+    the specified display character set, x3270 will try to use a different
+    font, and if none is available, will reject the host character set
+    definition.
 
 x3270.doConfirms	Default true
     When set to true, x3270 will display a pop-up to report successful
@@ -257,7 +265,36 @@ x3270.emulatorFont	Default 3270 (*)	Switch -efont
     all special symbols on the status line.
 
     (*) Actually, the default for emulatorFont is the value of the first font
-    in the x3270.fontMenuList resource, below.
+    in the x3270.emulatorFontList.<i>displayCharset</i> resource, below.
+
+x3270.emulatorFontList.<i>displayCharset</i>	Default: 3270 Font (14 point): #resize 3270
+				 8-point Font: #resize 3270gt8
+				 12-point Font: #resize 3270-12
+				 16-point Font: #resize 3270gt16
+				 20-point Font: #resize 3270-20
+				 24-point Font: #resize 3270gt24
+				 32-point Font: #resize 3270gt32
+				 Debug Font: #noauto 3270d
+    A list of known fonts for a given <i>displayCharset</i>.  Each line describes
+    a font.  The list serves two purposes: it is presented as the <b>Font</b> menu
+    when the <i>displayCharset</i> is selected, and it is searched when that
+    <i>displayCharset</i> is selected for use.
+
+    On each line, if there is text separated by a ":", that text appears as the
+    menu label.  Otherwise, the font name is displayed.  If the keyword
+    <b>#noauto</b> appears before the font name, the font will not be a
+    candidate for automatic selection when the <i>displayCharset</i> is selected.
+    If the keyword <b>#resize</b> appears before the font name, the font will
+    be used to change the screen size in response to Window Manager requests.
+    Finally, a font name may be preceded by a "!" to override character set
+    checking, in case the font's properties have been improperly defined.
+
+    Each emulatorFontList is implicitly followed by two entries:
+	*-r-*-c-*-<i>displayCharset</i>
+	*-r-*-m-*-<i>displayCharset</i>
+    (Actually, each of those two entries will be expanded for each of the
+    components in the <i>displayCharset</i>).  This will find any
+    constant-spaced fonts implementing that display character set.
 
 x3270.eof		Default ^D
     Used in ANSI mode, when communicating in line-at-a-time mode (when x3270
@@ -297,19 +334,6 @@ x3270.extended		Default false		Switch -extended
 x3270.ftCommand		Default ind$file
     Defines the host command used to transfer files.
 
-x3270.fontMenuList	Default: 3270 Font (14 point): 3270
-				 8-point Font: 3270gt8
-				 12-point Font: 3270-12
-				 16-point Font: 3270gt16
-				 20-point Font: 3270-20
-				 24-point Font: 3270gt24
-				 32-point Font: 3270gt32
-				 Debug Font: 3270d
-    The list of menu labels and font names that appear on the Options menu.
-    The first name on the list is used as the default emulator font.
-    This resource was formerly called "fontList", but this apparently
-    conflicted with other programs' definitions.
-
 x3270.foreground	Default black		Switches: -fg, -rv
     The foreground color for menus, buttons, and on monochrome X displays, the
     emulator display.
@@ -317,11 +341,6 @@ x3270.foreground	Default black		Switches: -fg, -rv
 x3270.highlightBold	Default False
     If true, then highlighted fields are displayed in bold.  If false, then
     highlighted fields are displayed in the usual font.
-
-x3270.highlightSelect	Default True
-    If true, then highlighted fields can be selected by the CursorSelect()
-    and MoveCursorSelect() actions (per the IBM spec).  If false, then only
-    unhighlighted, selectable fields can be selected.
 
 x3270.hostsFile		Default /usr/lib/X11/x3270/ibm_hosts
     The name of a file listing the host names that appear on the "Connect"
@@ -556,6 +575,10 @@ x3270.normalColor	Default green
     normal-intensity text.  On monochrome X displays, normal text uses the
     foreground color.
 
+x3270.onlcr		Default true
+    Used in ANSI line mode; similar to the "stty" parameter of the same name.
+    Controls whether output newlines are mapped to CR/LF sequences.
+
 x3270.oerrLock		Default true
     If set to true, operator errors (typing into protected fields, insert
     overflow, etc.) will cause the keyboard to lock with an error message
@@ -624,18 +647,6 @@ x3270.rectangleSelect	Default false		Switch -set rectangleSelect
     screen.  When false, x3270 will select rectangular areas in 3270 mode, but
     in ANSI mode it will select continuous areas of the screen like xterm.
 
-x3270.requiredFont.<i>charset</i>
-    If this resource is defined for a given <i>charset</i>, then if that character
-    set is selected, the emulator font named by this resource must be used at
-    the same time.  E.g., if the resource x3270.requiredFont.hebrew is defined
-    with the value "3270h", then the character set "hebrew" cannot be used
-    unless the emulator font "3270h" is also in use.
-
-x3270.resizeFontList	Default: 3270 3279-12 3270gt8
-				 3270gt16 3270gt24 3270gt32
-    The list of fonts used to resize the window in response to a mouse
-    (window manager) request.
-
 x3270.rprnt		Default ^R
     Used in ANSI mode, when communicating in line-at-a-time mode (when x3270
     gathers a line of input before forwarding it to the host).  Defines a
@@ -696,12 +707,6 @@ x3270.termName		Default IBM-327x-n	Switch -tn
     TERMINAL-NAME" request.  The default is "IBM-" followed bu the value of
     the "x2370.model" resource.
 
-x3270.traceCommand	Default tail -f
-    The command that is run in the trace monitor window, with its standard
-    input redirected from the trace file.  If given the value 'none', no
-    monitor window will be created (though the trace will still be saved to
-    the file).
-
 x3270.traceDir		Default /tmp
     Defines the directory that data stream traces and screen images are saved
     in.
@@ -712,6 +717,23 @@ x3270.traceFile		No default		Switch -tracefile
     be written to standard output.  If given the value 'none', then the
     traces will be piped directory to the monitor window, and no file will
     be created.
+
+x3270.traceFileSize	No default		Switch -tracefilesize
+    If defined, gives a limit on the size of the file that data stream and
+    event traces will be written to.  If not defined, or defined as '0', there
+    will be no limit on the size of the file.  The value is a number, followed
+    by an optional suffix.  If the suffix is 'K' (e.g., '128K'), the value will
+    be multiplied by 1024.  If the suffix is 'M', the value will be multiplied
+    by (1024*1024).  The size limit enforced at operation boundaries, not per
+    byte, so the actual file may grow slightly larger.  When the file size
+    exceeds the limit, the second half of the file will be written over the
+    first, so that in steady state, the file size will vary between half the
+    traceFileSize and the entire traceFileSize.
+
+x3270.traceMonitor	Default true
+    When true, x3270 will create an xterm to monitor data stream and event
+    traces.  When false, no monitor window will be created (and the value of
+    'none' for x3270.traceFile will be invalid).
 
 x3270.typeahead		Default true
     When true, x3270 will store keystrokes in a buffer when the keyboard is

@@ -6,7 +6,7 @@ COMMENT " Page 1: EBCDIC APL/APL2 set, CG order (incomplete)"
 COMMENT " Page 2: (first 16 characters only) DEC line-drawing characters from"
 COMMENT "  fixed-width X fonts"
 COMMENT ""
-COMMENT "Modifications Copyright 1995, 2000 by Paul Mattes"
+COMMENT "Modifications Copyright 1995, 2000, 2001 by Paul Mattes"
 COMMENT " Permission to use, copy, modify, and distribute this software and"
 COMMENT " its documentation for any purpose and without fee is hereby"
 COMMENT " granted, provided that the above copyright notice appear in all"
@@ -40,7 +40,12 @@ COMMENT "CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE."
 FONT 3270-20bold
 SIZE 20 75 75
 FONTBOUNDINGBOX 10 20 0 -5
-STARTPROPERTIES 9
+STARTPROPERTIES 17
+FOUNDRY "NCD" 
+FAMILY_NAME "3270"
+WEIGHT_NAME "Bold"
+SLANT "R"
+SETWIDTH_NAME "Normal"
 PIXEL_SIZE 20
 POINT_SIZE 200
 RESOLUTION_X 75
@@ -49,6 +54,9 @@ AVERAGE_WIDTH 100
 DEFAULT_CHAR 514
 FONT_DESCENT 5
 FONT_ASCENT 15
+CHARSET_REGISTRY "3270cg"
+CHARSET_ENCODING "1"
+SPACING "C"
 COPYRIGHT "Copyright 1989-1991 Network Computing Devices, Inc."
 ENDPROPERTIES
 CHARS 312

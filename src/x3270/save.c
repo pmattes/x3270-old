@@ -461,10 +461,7 @@ save_yourself(void)
 	char *c, *c2;
 	int len;
 
-	if (command_string != CN) {
-		XtFree(command_string);
-		command_string = CN;
-	}
+	Replace(command_string, CN);
 
 	/* Copy the original command line into tmp_cmd. */
 	tmp_cmd = (char **) XtMalloc(sizeof(char *) * NWORDS);
@@ -509,7 +506,7 @@ save_yourself(void)
 			c2 += strlen(c2) + 1;
 			XtFree(tmp_cmd[i]);
 		}
-	XtFree((XtPointer)tmp_cmd);
+	Free(tmp_cmd);
 
 	/* Change the property. */
 	XChangeProperty(display, XtWindow(toplevel), XA_WM_COMMAND,
@@ -540,6 +537,27 @@ static int xargc;
 static char **xargv;
 
 #if defined(X3270_MENUS) /*[*/
+
+typedef struct scs {
+	struct scs *next;
+	char *name;
+} scs_t;
+scs_t *cc_list = NULL;
+
+void
+charset_list_changed(char *charset)
+{
+	scs_t *c;
+
+	for (c = cc_list; c != NULL; c = c->next) {
+		if (!strcasecmp(c->name, charset))
+			return;
+	}
+	c = (scs_t *)Malloc(sizeof(scs_t));
+	c->name = NewString(charset);
+	c->next = cc_list;
+	cc_list = c;
+}
 
 /* Save one option in the file. */
 static void
@@ -580,9 +598,7 @@ save_options(char *n)
 	}
 
 	/* Save the name. */
-	if (profile_name == CN)
-		XtFree(profile_name);
-	profile_name = n;
+	Replace(profile_name, n);
 
 	/* Print the header. */
 	clk = time((time_t *)0);
@@ -710,8 +726,7 @@ merge_profile(XrmDatabase *d)
 	/* Free the saved command-line options. */
 	XtFree(xcmd);
 	xcmd = CN;
-	XtFree((char *)xargv);
-	xargv = (char **)NULL;
+	Replace(xargv, (char **)NULL);
 }
 
 int

@@ -13,30 +13,29 @@
        PROGRAMS = x3270 x3270if
 LOCAL_LIBRARIES = $(XAWLIB) $(XMULIB) $(XTOOLLIB) $(XLIB)
           SRCS1 = Cme.c CmeBSB.c CmeLine.c CmplxMenu.c Husk.c about.c \
-		  actions.c ansi.c apl.c charset.c child.c ctlr.c ft.c \
-		  ft_cut.c ft_dft.c host.c keymap.c keypad.c kybd.c macros.c \
-		  main.c menubar.c popups.c printer.c print.c resources.c \
-		  save.c screen.c scroll.c select.c sf.c status.c tables.c \
-		  toggles.c telnet.c trace_ds.c util.c xio.c
+		  actions.c ansi.c apl.c charset.c child.c ctlr.c \
+		  ft.c ft_cut.c ft_dft.c host.c keymap.c \
+		  keypad.c kybd.c macros.c main.c menubar.c popups.c \
+		  printer.c print.c resources.c save.c screen.c scroll.c \
+		  see.c select.c sf.c status.c tables.c toggles.c telnet.c \
+		  trace_ds.c util.c xio.c
           VOBJS = Cme.o CmeBSB.o CmeLine.o CmplxMenu.o Husk.o about.o \
 		  actions.o ansi.o apl.o charset.o child.o ctlr.o fallbacks.o \
-		  ft.o ft_cut.o ft_dft.o host.o keymap.o keypad.o kybd.o \
-		  macros.o main.o menubar.o popups.o printer.o print.o \
-		  resources.o save.o screen.o scroll.o select.o sf.o status.o \
-		  tables.o telnet.o toggles.o trace_ds.o util.o xio.o
+		  ft.o ft_cut.o ft_dft.o host.o keymap.o \
+		  keypad.o kybd.o macros.o main.o menubar.o popups.o \
+		  printer.o print.o resources.o save.o screen.o scroll.o \
+		  see.o select.o sf.o status.o tables.o telnet.o toggles.o \
+		  trace_ds.o util.o xio.o
           OBJS1 = $(VOBJS) version.o
-          FONTS = FontObj(3270)     FontObj(3270b) \
-                  FontObj(3270-12)  FontObj(3270-12b) \
-                  FontObj(3270-20)  FontObj(3270-20b) \
-                  FontObj(3270d) \
-                  FontObj(3270gr) \
-                  FontObj(3270h) \
-                  FontObj(3270gt8) \
-                  FontObj(3270gt12) FontObj(3270gt12b) \
-                  FontObj(3270gt16) FontObj(3270gt16b) \
-                  FontObj(3270gt24) FontObj(3270gt24b) \
-                  FontObj(3270gt32) FontObj(3270gt32b)
-       CHARSETS = charset/brazilian charset/greek charset/russian charset/thai
+          FONTS = FontObj(3270-12) FontObj(3270-12b) FontObj(3270-20) \
+		  FontObj(3270-20b) FontObj(3270) FontObj(3270b) \
+		  FontObj(3270d) FontObj(3270e-12) FontObj(3270e-20) \
+		  FontObj(3270e) FontObj(3270egt12) FontObj(3270egt16) \
+		  FontObj(3270egt24) FontObj(3270egt32) FontObj(3270egt8) \
+		  FontObj(3270gr) FontObj(3270gt12) FontObj(3270gt12b) \
+		  FontObj(3270gt16) FontObj(3270gt16b) FontObj(3270gt24) \
+		  FontObj(3270gt24b) FontObj(3270gt32) FontObj(3270gt32b) \
+		  FontObj(3270gt8) FontObj(3270h)
       HOSTSFILE = ibm_hosts
 
 /* Variables set by autoconf. */
@@ -73,20 +72,23 @@ AllTarget($(FONTS) ProgramTargetName(x3270) ProgramTargetName(x3270if))
 /* Build/install/man target for x3720.  Requires extra libraries. */
 ComplexProgramTarget_1(x3270,,$(LOCAL_LIBRARIES))
 
-/* Additional man page for x3270-script. */
-InstallManPage(x3270-script,$(MANDIR))
-
 /* Fonts. */
-FontTarget(3270)
-FontTarget(3270b)
 FontTarget(3270-12)
 FontTarget(3270-12b)
 FontTarget(3270-20)
 FontTarget(3270-20b)
+FontTarget(3270)
+FontTarget(3270b)
 FontTarget(3270d)
+FontTarget(3270e-12)
+FontTarget(3270e-20)
+FontTarget(3270e)
+FontTarget(3270egt12)
+FontTarget(3270egt16)
+FontTarget(3270egt24)
+FontTarget(3270egt32)
+FontTarget(3270egt8)
 FontTarget(3270gr)
-FontTarget(3270h)
-FontTarget(3270gt8)
 FontTarget(3270gt12)
 FontTarget(3270gt12b)
 FontTarget(3270gt16)
@@ -95,16 +97,16 @@ FontTarget(3270gt24)
 FontTarget(3270gt24b)
 FontTarget(3270gt32)
 FontTarget(3270gt32b)
+FontTarget(3270gt8)
+FontTarget(3270h)
 InstallMultipleFlags($(FONTS),$(FONTINSTDIR),$(INSTDATFLAGS))
 
 /* Extra directories. */
 MakeDirectories(install,$(LIBX3270DIR))
-MakeDirectories(install,$(LIBX3270DIR)/charset)
 MakeDirectories(install,$(autoconf_bindir))
 MakeDirectories(install.man,$(autoconf_mandir)/man1)
 MakeDirectories(install.man,$(autoconf_mandir)/man5)
 MakeDirectories(install.byprefix,$(LIBX3270DIR))
-MakeDirectories(install.byprefix,$(LIBX3270DIR)/charset)
 MakeDirectories(install.byprefix,$(autoconf_bindir))
 MakeDirectories(install.byprefix,$(autoconf_mandir)/man1)
 MakeDirectories(install.byprefix,$(autoconf_mandir)/man5)
@@ -173,19 +175,14 @@ install:: $(HOSTSFILE)
 	@[ -r $(DESTDIR)$(LIBX3270DIR)/$(HOSTSFILE) ] || \
 		$(INSTALL) -c $(INSTDATFLAGS) $(HOSTSFILE) $(DESTDIR)$(LIBX3270DIR)/$(HOSTSFILE)
 
-/* Install rule for the file-based character sets. */
-install::
-	@for i in $(CHARSETS); \
-	do	(set -x; $(INSTALL) -c $(INSTDATFLAGS) $$i $(DESTDIR)$(LIBX3270DIR)/charset); \
-	done
-
 /*
- * Install rules for x3270if and ibm_hosts man pages.
+ * Install rules for x3270if, x3270-script and ibm_hosts man pages.
  * These are specified explicitly, instead of using the standard Imake macros,
  * because we may want to install in a directory other than PROJECTROOT.
  */
-install.man:: x3270if.man
+install.man:: x3270if.man x3270-script.man ibm_hosts.man
 	$(INSTALL) -c $(INSTMANFLAGS) x3270if.man $(DESTDIR)$(autoconf_mandir)/man1/x3270if.1
+	$(INSTALL) -c $(INSTMANFLAGS) x3270-script.man $(DESTDIR)$(autoconf_mandir)/man1/x3270-script.1
 	$(INSTALL) -c $(INSTMANFLAGS) ibm_hosts.man $(DESTDIR)$(autoconf_mandir)/man5/ibm_hosts.5
 
 #ifdef PR3287
@@ -214,9 +211,6 @@ install.byprefix::
 	chmod a=r $(DESTDIR)$(autoconf_fontinstdir)/fonts.dir
 	@[ -r $(DESTDIR)$(LIBX3270DIR)/$(HOSTSFILE) ] || \
 		(set -x; $(INSTALL) -c $(INSTDATFLAGS) $(HOSTSFILE) $(DESTDIR)$(LIBX3270DIR)/$(HOSTSFILE))
-	@for i in $(CHARSETS); \
-	do	(set -x; $(INSTALL) -c $(INSTDATFLAGS) $$i $(DESTDIR)$(LIBX3270DIR)/charset); \
-	done
 #ifdef PR3287
 install.byprefix::
 	-cd pr3287 && $(MAKE) install

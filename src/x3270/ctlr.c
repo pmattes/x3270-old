@@ -39,6 +39,7 @@
 #include "popupsc.h"
 #include "screenc.h"
 #include "scrollc.h"
+#include "seec.h"
 #include "selectc.h"
 #include "sfc.h"
 #include "statusc.h"
@@ -146,26 +147,18 @@ ctlr_reinit(unsigned cmask)
 {
 	if (cmask & MODEL_CHANGE) {
 		/* Allocate buffers */
-		if (screen_buf)
-			Free((char *)screen_buf);
-		screen_buf = (unsigned char *)Calloc(sizeof(unsigned char),
-		    maxROWS * maxCOLS);
-		if (ea_buf)
-			Free((char *)ea_buf);
-		ea_buf = (struct ea *)Calloc(sizeof(struct ea),
-		    maxROWS * maxCOLS);
-		if (ascreen_buf)
-			Free((char *)ascreen_buf);
-		ascreen_buf = (unsigned char *)Calloc(sizeof(unsigned char),
-		    maxROWS * maxCOLS);
-		if (aea_buf)
-			Free((char *)aea_buf);
-		aea_buf = (struct ea *)Calloc(sizeof(struct ea),
-		    maxROWS * maxCOLS);
-		if (zero_buf)
-			Free((char *)zero_buf);
-		zero_buf = (unsigned char *)Calloc(sizeof(struct ea),
-		    maxROWS * maxCOLS);
+		Replace(screen_buf,
+		    (unsigned char *)Calloc(sizeof(unsigned char),
+					    maxROWS * maxCOLS));
+		Replace(ea_buf, (struct ea *)Calloc(sizeof(struct ea),
+						    maxROWS * maxCOLS));
+		Replace(ascreen_buf,
+		    (unsigned char *)Calloc(sizeof(unsigned char),
+					    maxROWS * maxCOLS));
+		Replace(aea_buf, (struct ea *)Calloc(sizeof(struct ea),
+						     maxROWS * maxCOLS));
+		Replace(zero_buf, (unsigned char *)Calloc(sizeof(struct ea),
+							  maxROWS * maxCOLS));
 		cursor_addr = 0;
 		buffer_addr = 0;
 	}

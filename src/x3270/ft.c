@@ -1406,7 +1406,7 @@ ft_complete(const char *errmsg)
 		(void) sprintf(buf, get_message("ftComplete"), ft_length,
 		    kbytes_sec, ft_is_cut ? "CUT" : "DFT");
 		if (ft_is_action) {
-			sms_info(buf);
+			sms_info("%s", buf);
 			sms_continue();
 		}
 #if defined(X3270_DISPLAY) && defined(X3270_MENUS) /*[*/
@@ -1825,8 +1825,7 @@ Transfer_action(Widget w unused, XEvent *event, String *params,
 
 	/* Set everything to the default. */
 	for (i = 0; i < N_PARMS; i++) {
-		if (tp[i].value != CN)
-			Free(tp[i].value);
+		Free(tp[i].value);
 		if (tp[i].keyword[0] != CN)
 			tp[i].value =
 				NewString(tp[i].keyword[0]);

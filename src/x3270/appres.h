@@ -87,7 +87,7 @@ typedef struct {
 # endif /*]*/
 #endif /*]*/
 #if defined(C3270) /*[*/
-	Boolean all_bold;
+	Boolean all_bold_on;
 #endif /*]*/
 	Boolean	apl_mode;
 	Boolean scripted;
@@ -98,7 +98,7 @@ typedef struct {
 	Boolean debug_tracing;
 	Boolean disconnect_clear;
 	Boolean highlight_bold;
-	Boolean highlight_select;
+	Boolean color8;
 
 	/* Named resources */
 #if defined(X3270_KEYPAD) /*[*/
@@ -111,7 +111,6 @@ typedef struct {
 #if defined(X3270_DISPLAY) /*[*/
 	char	*efontname;
 	char	*afontname;
-	char	*font_list;
 	char	*debug_font;
 	char	*icon_font;
 	char	*icon_label_font;
@@ -129,6 +128,10 @@ typedef struct {
 	int	modified_sel_color;
 	int	visual_select_color;
 #endif /*]*/
+#if defined(C3270) /*[*/
+	char	*meta_escape;
+	char	*all_bold;
+#endif /*]*/
 	char	*conf_dir;
 	char	*model;
 	char	*hostsfile;
@@ -140,6 +143,10 @@ typedef struct {
 #if defined(X3270_TRACE) /*[*/
 	char	*trace_file;
 	char	*screentrace_file;
+	char	*trace_file_size;
+# if defined(X3270_DISPLAY) /*[*/
+	Boolean	trace_monitor;
+# endif /*]*/
 #endif /*]*/
 	char	*oversize;
 #if defined(X3270_FT) /*[*/
@@ -161,6 +168,7 @@ typedef struct {
 	/* Line-mode TTY parameters */
 	Boolean	icrnl;
 	Boolean	inlcr;
+	Boolean	onlcr;
 	char	*erase;
 	char	*kill;
 	char	*werase;

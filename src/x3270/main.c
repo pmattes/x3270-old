@@ -60,15 +60,15 @@ extern String	mono_fallbacks[];
 #endif /*]*/
 
 /* Globals */
-char           *programname;
+const char     *programname;
 Display        *display;
 int             default_screen;
 Window          root_window;
 int             screen_depth;
 Widget          toplevel;
 XtAppContext    appcontext;
-Atom            a_delete_me, a_save_yourself, a_3270, a_registry, a_iso8859,
-		a_ISO8859, a_encoding, a_1, a_state;
+Atom            a_delete_me, a_save_yourself, a_3270, a_registry, a_encoding,
+		a_state;
 char		full_model_name[13] = "IBM-";
 char	       *model_name = &full_model_name[4];
 Pixmap          gray;
@@ -98,7 +98,9 @@ XrmOptionDescRec options[]= {
 	{ OptCharset,	DotCharset,	XrmoptionSepArg,	NULL },
 	{ OptClear,	".xxx",		XrmoptionSkipArg,	NULL },
 	{ OptColorScheme,DotColorScheme,XrmoptionSepArg,	NULL },
+#if defined(X3270_TRACE) /*[*/
 	{ OptDsTrace,	DotDsTrace,	XrmoptionNoArg,		ResTrue },
+#endif /*]*/
 	{ OptEmulatorFont,DotEmulatorFont,XrmoptionSepArg,	NULL },
 	{ OptExtended,	DotExtended,	XrmoptionNoArg,		ResTrue },
 	{ OptIconName,	".iconName",	XrmoptionSepArg,	NULL },
@@ -119,7 +121,10 @@ XrmOptionDescRec options[]= {
 	{ OptScrollBar,	DotScrollBar,	XrmoptionNoArg,		ResTrue },
 	{ OptSet,	".xxx",		XrmoptionSkipArg,	NULL },
 	{ OptTermName,	DotTermName,	XrmoptionSepArg,	NULL },
+#if defined(X3270_TRACE) /*[*/
 	{ OptTraceFile,	DotTraceFile,	XrmoptionSepArg,	NULL },
+	{ OptTraceFileSize,DotTraceFileSize,XrmoptionSepArg,	NULL },
+#endif /*]*/
 	{ "-xrm",	NULL,		XrmoptionResArg,	NULL }
 };
 int num_options = XtNumber(options);
@@ -353,10 +358,7 @@ main(int argc, char *argv[])
 	a_save_yourself = XInternAtom(display, "WM_SAVE_YOURSELF", False);
 	a_3270 = XInternAtom(display, "3270", False);
 	a_registry = XInternAtom(display, "CHARSET_REGISTRY", False);
-	a_ISO8859 = XInternAtom(display, "ISO8859", False);
-	a_iso8859 = XInternAtom(display, "iso8859", False);
 	a_encoding = XInternAtom(display, "CHARSET_ENCODING", False);
-	a_1 = XInternAtom(display, "1", False);
 	a_state = XInternAtom(display, "WM_STATE", False);
 
 	XtAppAddActions(appcontext, actions, actioncount);
@@ -371,10 +373,19 @@ main(int argc, char *argv[])
 	    case CS_OKAY:
 		break;
 	    case CS_NOTFOUND:
-		popup_an_error("Cannot find charset \"%s\"", appres.charset);
+		popup_an_error("Cannot find definition for host character set "
+		    "\"%s\"", appres.charset);
+		(void) charset_init(CN);
 		break;
 	    case CS_BAD:
-		popup_an_error("Invalid charset \"%s\"", appres.charset);
+		popup_an_error("Invalid definition for host character set "
+		    "\"%s\"", appres.charset);
+		(void) charset_init(CN);
+		break;
+	    case CS_PREREQ:
+		popup_an_error("No fonts for host character set \"%s\"",
+		    appres.charset);
+		(void) charset_init(CN);
 		break;
 	}
 
@@ -639,5 +650,5 @@ parse_set_clear(int *argcp, char **argv)
 	argv_out[argc_out] = CN;
 	(void) memcpy((char *)argv, (char *)argv_out,
 	    (argc_out + 1) * sizeof(char *));
-	XtFree((XtPointer)argv_out);
+	Free(argv_out);
 }

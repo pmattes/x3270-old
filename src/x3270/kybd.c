@@ -194,10 +194,8 @@ run_ta(void)
 	}
 
 	action_internal(ta->fn, IA_TYPEAHEAD, ta->parm1, ta->parm2);
-	if (ta->parm1 != CN)
-		Free(ta->parm1);
-	if (ta->parm2 != CN)
-		Free(ta->parm2);
+	Free(ta->parm1);
+	Free(ta->parm2);
 	Free(ta);
 
 	return True;
@@ -214,10 +212,8 @@ flush_ta(void)
 	Boolean any = False;
 
 	for (ta = ta_head; ta != (struct ta *) NULL; ta = next) {
-		if (ta->parm1)
-			Free(ta->parm1);
-		if (ta->parm2)
-			Free(ta->parm2);
+		Free(ta->parm1);
+		Free(ta->parm2);
 		next = ta->next;
 		Free(ta);
 		any = True;
@@ -1564,7 +1560,7 @@ lightpen_select(int baddr)
 	int designator;
 
 	fa = get_field_attribute(baddr);
-	if (!FA_IS_SEL(*fa)) {
+	if (!FA_IS_SELECTABLE(*fa)) {
 		ring_bell();
 		return;
 	}
@@ -2735,6 +2731,8 @@ MyStringToKeysym(char *s, enum keytype *keytypep)
 		k = StringToKeysym(s);
 		*keytypep = KT_STD;
 	}
+	if (k == NoSymbol && !strcasecmp(s, "euro"))
+		k = 0xa4;
 	if (k == NoSymbol && strlen(s) == 1)
 		k = s[0] & 0xff;
 	if (k < ' ')
@@ -2748,7 +2746,7 @@ MyStringToKeysym(char *s, enum keytype *keytypep)
 				break;
 			}
 		if (k > 0xff)
-			k = NoSymbol;
+			k &= 0xff;
 	}
 
 	/* Allow arbitrary values, e.g., 0x03 for ^C. */
@@ -2905,7 +2903,6 @@ PA_Shift_action(Widget w unused, XEvent *event unused, String *params unused,
 static Boolean
 build_composites(void)
 {
-	char *cname;
 	char *c, *c0, *c1;
 	char *ln;
 	char ksname[3][64];
@@ -2920,14 +2917,13 @@ build_composites(void)
 		    ResComposeMap);
 		return False;
 	}
-	cname = xs_buffer("%s.%s", ResComposeMap, appres.compose_map);
-	if ((c0 = get_resource(cname)) == CN) {
+	c0 = get_fresource("%s.%s", ResComposeMap, appres.compose_map);
+	if (c0 == CN) {
 		popup_an_error("%s: Cannot find %s \"%s\"",
 		    action_name(Compose_action), ResComposeMap,
 		    appres.compose_map);
 		return False;
 	}
-	Free(cname);
 	c1 = c = NewString(c0);	/* will be modified by strtok */
 	while ((ln = strtok(c, "\n"))) {
 		Boolean okay = True;

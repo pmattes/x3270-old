@@ -33,6 +33,7 @@
 
 extern char *command;
 extern int blanklines;	/* display blank lines even if empty (formatted LU3) */
+extern int ignoreeoj;	/* ignore PRINT-EOJ commands */
 
 #define CS_GE 0x04	/* hack */
 
@@ -263,13 +264,24 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 			cp += 2;	/* skip buffer address */
 			xbaddr = DECODE_BADDR(*(cp-1), *cp);
 			END_TEXT("SetBufferAddress");
-			trace_ds("(%d,%d)", 1+(xbaddr/line_length),
-				1+(xbaddr%line_length));
-			baddr = xbaddr;
-			if (baddr >= MAX_BUF) {
+			if (wcc_line_length)
+				trace_ds("(%d,%d)", 1+(xbaddr/line_length),
+					1+(xbaddr%line_length));
+			else
+				trace_ds("(%d[%+d])", xbaddr, xbaddr-baddr);
+			if (xbaddr >= MAX_BUF) {
 				/* Error! */
 				baddr = 0;
 				return;
+			}
+			if (wcc_line_length) {
+				/* Formatted. */
+				baddr = xbaddr;
+			} else if (xbaddr > baddr) {
+				/* Unformatted. */
+				while (baddr < xbaddr) {
+					ctlr_add(' ', default_cs, default_gr);
+				}
 			}
 			previous = SBA;
 			last_cmd = True;
@@ -287,9 +299,14 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 			last_cmd = True;
 			break;
 		case ORDER_RA:	/* repeat to address */
-			END_TEXT("RepeatToAddress");
 			cp += 2;	/* skip buffer address */
 			xbaddr = DECODE_BADDR(*(cp-1), *cp);
+			END_TEXT("RepeatToAddress");
+			if (wcc_line_length)
+				trace_ds("(%d,%d)", 1+(xbaddr/line_length),
+					1+(xbaddr%line_length));
+			else
+				trace_ds("(%d[%+d])", xbaddr, xbaddr-baddr);
 			cp++;		/* skip char to repeat */
 			if (*cp == ORDER_GE){
 				ra_ge = True;
@@ -303,6 +320,14 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 			trace_ds(see_ebc(*cp));
 			if (*cp)
 				trace_ds("'");
+			if (xbaddr > MAX_BUF || xbaddr < baddr) {
+				baddr = 0;
+				return;
+			}
+			while (baddr < xbaddr) {
+				ctlr_add(ebc2asc[*cp], ra_ge? CS_GE: default_cs,
+				    default_gr);
+			}
 			last_cmd = True;
 			last_zpt = False;
 			break;
@@ -477,9 +502,11 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 
 	trace_ds("\n");
 
+#if 0
 	/* If it's formatted, print it out now. */
 	if (wcc_line_length)
 		dump_formatted();
+#endif
 }
 
 #undef START_FIELDx
@@ -971,7 +998,7 @@ stash(unsigned char c)
 void
 ctlr_add(unsigned char c, unsigned char cs, unsigned char gr)
 {
-	/* Map control charactres, according to the write mode. */
+	/* Map control characters, according to the write mode. */
 	if ((c & 0x7f) < ' ') {
 		if (wcc_line_length) {
 			/*
@@ -998,9 +1025,11 @@ ctlr_add(unsigned char c, unsigned char cs, unsigned char gr)
 	baddr = (baddr + 1) % MAX_BUF;
 	any_3270_output = 1;
 
+#if 0
 	/* If this is an EM, dump the unformatted buffer. */
 	if (c == FCORDER_EM)
 		dump_unformatted();
+#endif
 }
 
 /*
@@ -1227,6 +1256,18 @@ print_eoj(void)
 static void
 ctlr_erase(void)
 {
+	/* Dump whatever we've got so far. */
+	/* Dump any pending 3270-mode output. */
+	if (wcc_line_length)
+		dump_formatted();
+	else
+		dump_unformatted();
+
+	/* Dump any pending SCS-mode output. */
+	if (any_scs_output)
+		dump_scs_line(True); /* XXX: True? */
+
+	/* Make sure the buffer is clean. */
 	(void) memset(page_buf, '\0', MAX_BUF);
 	any_3270_output = 0;
 	baddr = 0;

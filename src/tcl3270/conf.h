@@ -27,11 +27,12 @@
 
 /* Uncommon functions. */
 #define HAVE_VASPRINTF 1
+#define HAVE_FSEEKO 1
 
 /* Optional parts. */
-/* #undef X3270_ANSI */
-/* #undef X3270_APL */
-/* #undef X3270_FT */
-/* #undef X3270_LOCAL_PROCESS */
-/* #undef X3270_TN3270E */
-/* #undef X3270_TRACE */
+#define X3270_ANSI 1
+#define X3270_APL 1
+#define X3270_FT 1
+#define X3270_LOCAL_PROCESS 1
+#define X3270_TN3270E 1
+#define X3270_TRACE 1

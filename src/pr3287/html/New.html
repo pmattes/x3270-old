@@ -4,7 +4,7 @@
    <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
    <meta name="Author" content="Paul Mattes">
    <meta name="GENERATOR" content="Mozilla/4.5 [en] (WinNT; U) [Netscape]">
-   <title>x3270 3.2 New Features</title>
+   <title>pr3287 3.2 New Features</title>
    <link HREF="http://www.w3.org/StyleSheets/Core/Steely" TYPE="text/css" REL="stylesheet">
 </head>
 <body>
@@ -12,6 +12,24 @@
 <h1>
 New Features in pr3287 3.2
 <hr WIDTH="100%"></h1>
+<h2>Changes in pr3287 3.2.18, 31. December 2001</h2>
+<ul>
+ <li>Bug Fixes:
+  <ul>
+   <li>Fixed the EBCDIC-to-ASCII conversion problem that pretty much
+    disabled the initial 3.2.17 release.</li>
+   <li>Create directories as needed for <tt>make install</tt>.</li>
+  </ul>
+ </li>
+ <li>Enhancements:
+  <ul>
+   <li>Included the autoconf <tt>configure.in</tt> file, so that users can
+    run a newer or customized <i>autoconf</i> on it.</li>
+   <li>Added an <b>-ignoreeoj</b> option, to optionally ignore PRINT-EOJ
+    commands from hosts that are a little too generous with them.</li>
+  </ul>
+ </li>
+</ul>
 <h2>Changes in pr3287 3.2.17, 25. June 2001</h2>
 <ul>
  <li>Implemented the TN3270 (non-TN3270E) printer ACK/NAK protocol.</li>

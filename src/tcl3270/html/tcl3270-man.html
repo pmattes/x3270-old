@@ -32,8 +32,10 @@ tcl3270 -
 [<i>options</i>]
 [<i>host</i>]
 [-- <i>script-arg</i>...]
+
 <a NAME="Description"></a><h2>Description</h2>
-<b>tcl3270</b> opens a telnet connection to an <font size=-1>IBM</font>
+<b>tcl3270</b> opens
+a telnet connection to an <font size=-1>IBM</font>
 host, then allows a tcl script to control the host login
 session.
 It is derived from
@@ -75,11 +77,10 @@ a <i>port</i> to the <i>hostname</i> with a colon
 and with <i>tn3270</i>(1), the <i>port</i>
 may also be specified as a second, separate argument.)
 <a NAME="Options"></a><h2>Options</h2>
-<b>tcl3270</b>
-understands
+ <b>tcl3270</b> understands
 the following options:<dl>
 <dt><b>-charset</b> <i>name</i></dt><dd>
-Specifies an <font size=-1>EBCDIC</font> national character set.
+Specifies an <font size=-1>EBCDIC</font> host character set.
 See <a HREF="#Character-Sets"><font size=-1>CHARACTER SETS</font></a> below.
 <dt><b>-clear</b> <i>toggle</i></dt><dd>
 Sets the initial value of <i>toggle</i> to <b>false</b>.
@@ -164,6 +165,14 @@ The default trace file name is
 Specifies a file to save data stream and event traces into, overriding the
 default of
 <b>/tmp/x3trc.</b><i>process_id</i>.
+<dt><b>-tracefilesize</b> <i>size</i></dt><dd>
+Places a limit on the size of a trace file.
+If this option is not specified, or is specified as <b>0</b> or <b>none</b>,
+the trace file will be unlimited.
+If specified, the trace file cannot already exist, and the (silently enforced)
+minimum size is 64 Kbytes.
+The value of <i>size</i> can have a <b>K</b> or <b>M</b> suffix, indicating
+kilobytes or megabytes respectively.
 <dt><b>-xrm</b> "tcl3270.<i>resource</i>: <i>value</i>"</dt><dd>
 Sets the value of the named <i>resource</i> to <i>value</i>.
 Resources control less common <b>tcl3270</b>
@@ -176,24 +185,29 @@ tcl variable.
 <a NAME="Character-Sets"></a><h2>Character Sets</h2>
 The <b>-charset</b>
 option or the "tcl3270.charset" resource controls the <font size=-1>EBCDIC</font>
-national character set used by <b>tcl3270</b>.
+host character set used by <b>tcl3270</b>.
 Available sets include:
 <p>
 <table BORDER cols=3 width="75%">
-<tr><td ><center>Charset Name</center></td>	<td ><center>Code Page</center></td>	<td ><center>Font</center></td></tr>	
+<tr><td ><center>Charset Name</center></td>	<td ><center>Code Page</center></td>	<td ><center>Display Character Sets</center></td></tr>
 
-<tr><td ><center>belgian</center></td>	<td ><center>500</center></td>	<td ><center>iso8859-1</center></td></tr>
-<tr><td ><center>bracket</center></td>	<td ><center>37</center></td>	<td ><center>iso8859-1</center></td></tr>
-<tr><td ><center>finnish</center></td>	<td ><center>278</center></td>	<td ><center>iso8859-1</center></td></tr>
-<tr><td ><center>french</center></td>	<td ><center>297</center></td>	<td ><center>iso8859-1</center></td></tr>
-<tr><td ><center>german</center></td>	<td ><center>273</center></td>	<td ><center>iso8859-1</center></td></tr>
-<tr><td ><center>icelandic</center></td>	<td ><center>871</center></td>	<td ><center>iso8859-1</center></td></tr>
+<tr><td ><center>apl</center></td>	<td ><center>37</center></td>	<td ><center>3270cg-1a</center></td></tr>
+<tr><td ><center>belgian</center></td>	<td ><center>500</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
+<tr><td ><center>bracket</center></td>	<td ><center>37</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
+<tr><td ><center>brazilian</center></td>	<td ><center>275</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
+<tr><td ><center>finnish</center></td>	<td ><center>278</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
+<tr><td ><center>french</center></td>	<td ><center>297</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
+<tr><td ><center>german</center></td>	<td ><center>273</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
+<tr><td ><center>icelandic</center></td>	<td ><center>871</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
 <tr><td ><center>iso-hebrew</center></td>	<td ><center>424</center></td>	<td ><center>iso8859-8</center></td></tr>
 <tr><td ><center>iso-turkish</center></td>	<td ><center>1026</center></td>	<td ><center>iso8859-9</center></td></tr>
-<tr><td ><center>italian</center></td>	<td ><center>280</center></td>	<td ><center>iso8859-1</center></td></tr>
-<tr><td ><center>norwegian</center></td>	<td ><center>277</center></td>	<td ><center>iso8859-1</center></td></tr>
-<tr><td ><center>uk</center></td>	<td ><center>285</center></td>	<td ><center>iso8859-1</center></td></tr>
-<tr><td ><center>us-intl</center></td>	<td ><center>37</center></td>	<td ><center>iso8859-1</center></td></tr>
+<tr><td ><center>italian</center></td>	<td ><center>280</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
+<tr><td ><center>norwegian</center></td>	<td ><center>277</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
+<tr><td ><center>russian</center></td>	<td ><center>880</center></td>	<td ><center>koi8-r</center></td></tr>
+<tr><td ><center>solvenian</center></td>	<td ><center>870</center></td>	<td ><center>iso8859-2</center></td></tr>
+<tr><td ><center>thai</center></td>	<td ><center>838</center></td>	<td ><center>iso8859-11 tis620.2529-0</center></td></tr>
+<tr><td ><center>uk</center></td>	<td ><center>285</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
+<tr><td ><center>us-intl</center></td>	<td ><center>37</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
 </table>
 <p>
 The default character set is
@@ -264,7 +278,6 @@ options are as follows:
 <tr><td >Save Screen(s) in File</td>	<td >screenTrace</td></tr>
 <tr><td >Wraparound</td>	<td >lineWrap</td></tr>
 </table>
-</dl>
 <a NAME="actions"></a><a NAME="Commands"></a><h2>Commands</h2>
 <b>tcl3270</b> supports the following additional tcl commands:
 <p>
@@ -315,7 +328,7 @@ options are as follows:
 <tr><td >PA <i>n</i></td>	<td >Program Attention <font size=-1>AID</font> (<i>n</i> from 1 to 3)</td></tr>
 <tr><td >PF <i>n</i></td>	<td >Program Function <font size=-1>AID</font> (<i>n</i> from 1 to 24)</td></tr>
 <tr><td >PreviousWord</td>	<td >move cursor to previous word</td></tr>
-)<tr><td >Quit</td>	<td >exit <b>tcl3270</b></td></tr>
+<tr><td >Quit</td>	<td >exit <b>tcl3270</b></td></tr>
 <tr><td >Redraw</td>	<td >redraw window</td></tr>
 <tr><td >Reset</td>	<td >reset locked keyboard</td></tr>
 <tr><td >Right</td>	<td >move cursor right</td></tr>
@@ -337,7 +350,7 @@ options are as follows:
 <tr><td >ToggleReverse</td>	<td >toggle reverse-input mode</td></tr>
 <tr><td >Transfer <i>option</i>=<i>value</i>...</td>	<td >file transfer</td></tr>
 <tr><td >Up</td>	<td >move cursor up</td></tr>
-<tr><td >Wait [<i>timeout</i>] 3270Mode</td>	<td >wait for 3270 mode</td></tr>
+<tr><td >Wait [<i>timeout</i>] 3270mode</td>	<td >wait for 3270 mode</td></tr>
 <tr><td >Wait [<i>timeout</i>] Disconnect</td>	<td >wait for host to disconnect</td></tr>
 <tr><td >Wait [<i>timeout</i>] InputField</td>	<td >wait for valid input field</td></tr>
 <tr><td >Wait [<i>timeout</i>] NVTMode</td>	<td >wait for NVT mode</td></tr>
@@ -348,7 +361,7 @@ The <b>Transfer</b> command implements <b>IND$FILE</b> file transfer.
 This command requires that the <b>IND$FILE</b>
 program be installed on the <font size=-1>IBM</font> host, and that the 3270 cursor
 be located in a field that will accept a <font size=-1>TSO</font> or <font size=-1>VM/CMS</font> command.
-.LP
+<p>
 Because of the complexity and number of options for file transfer, the
 parameters to the <b>Transfer</b> command take the unique form
 of <i>option</i>=<i>value</i>, and can appear in any order.
@@ -446,9 +459,6 @@ processing the string.)
 <tr><td >\t</td>	<td >Tab</td></tr>
 <tr><td >\T</td>	<td >BackTab</td></tr>
 </table>
-<p>
-An example keymap entry would be:
-<blockquote>Meta&lt;Key>p: String("probs clearrdr\n")</blockquote>
 <p>
 <b>Note:</b>
 The strings are in <font size=-1>ASCII</font> and converted to <font size=-1>EBCDIC</font>,
@@ -561,12 +571,12 @@ Derivative works based on this software must incorporate this copyright
 notice.</blockquote>
 5250 Emulation Code Copyright &copy; Minolta (Schweiz) AG, Beat Rubischon.
 <a NAME="Version"></a><h2>Version</h2>
-tcl3270 3.2.17
+tcl3270 3.2.18
 <hr>
 <address>
 This HTML document and the accompanying troff document were generated with
 a set of write-only <b>m4</b> macros and the powerful <b>vi</b> editor.
-<br>Last modified 25 June 2001.
+<br>Last modified 31 December 2001.
 </address>
 </body>
 </html>

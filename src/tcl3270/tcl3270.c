@@ -26,7 +26,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tcl3270.c,v 1.24 2001/06/12 14:27:07 pdm Exp $
+ * RCS: @(#) $Id: tcl3270.c,v 1.27 2001/12/27 05:17:03 pdm Exp $
  */
 
 /*
@@ -126,7 +126,7 @@ static Boolean interactive = False;
 static void ps_clear(void);
 static int tcl3270_main(int argc, char *argv[]);
 static void negotiate(void);
-static char *scatv(char *s);
+static char *tc_scatv(char *s);
 static void snap_save(void);
 static void wait_timed_out(void);
 
@@ -373,12 +373,14 @@ main_connect(Boolean ignored)
 static int
 tcl3270_main(int argc, char *argv[])
 {
-	char	*cl_hostname = CN;
+	const char	*cl_hostname = CN;
 
-	argc = parse_command_line(argc, argv, &cl_hostname);
+	argc = parse_command_line(argc, (const char **)argv, &cl_hostname);
 
-	if (charset_init(appres.charset) != CS_OKAY)
+	if (charset_init(appres.charset) != CS_OKAY) {
 		xs_warning("Cannot find charset \"%s\"", appres.charset);
+		(void) charset_init(CN);
+	}
 	ctlr_init(-1);
 	ctlr_reinit(-1);
 	kybd_init();
@@ -453,8 +455,7 @@ ps_clear(void)
 {
 	if (pending_string != NULL) {
 		pending_string_ptr = NULL;
-		Free(pending_string);
-		pending_string = NULL;
+		Replace(pending_string, NULL);
 	}
 }
 
@@ -482,9 +483,7 @@ x3270_cmd(ClientData clientData, Tcl_Interp *interp, int objc,
 	}
 
 	/* Look up the action. */
-	if (action != NULL)
-		Free(action);
-	action = NewString(Tcl_GetString(objv[0]));
+	Replace(action, NewString(Tcl_GetString(objv[0])));
 	for (i = 0; i < actioncount; i++) {
 		if (!strcmp(action, actions[i].string))
 			break;
@@ -508,8 +507,9 @@ x3270_cmd(ClientData clientData, Tcl_Interp *interp, int objc,
 	if (toggled(EVENT_TRACE)) {
 		trace_event("Running %s", action);
 		for (j = 0; j < count; j++) {
-			char *s = scatv(argv[j]);
+			char *s;
 
+			s = tc_scatv(argv[j]);
 			trace_event(" %s", s);
 			Free(s);
 		}
@@ -579,11 +579,12 @@ x3270_cmd(ClientData clientData, Tcl_Interp *interp, int objc,
 		trace_event("Completed %s (%s)", action,
 			(cmd_ret == TCL_OK) ? "ok" : "error");
 		if (s != CN && *s) {
+			char buf[1024];
+
 			strncpy(s_trunc, s, TRUNC_LEN);
 			s_trunc[TRUNC_LEN] = '\0';
-			trace_event(" -> \"");
-			fcatv(tracef, s_trunc);
-			trace_event("\"");
+			trace_event(" -> \"%s\"",
+			    scatv(s_trunc, buf, sizeof(buf)));
 			if (strlen(s) > TRUNC_LEN)
 				trace_event("...(%d chars)", strlen(s));
 		}
@@ -615,9 +616,9 @@ sms_redirect(void)
 
 /* Returns an error to tcl. */
 void
-sms_error(char *s)
+sms_error(const char *s)
 {
-	Tcl_SetResult(sms_interp, s, TCL_VOLATILE);
+	Tcl_SetResult(sms_interp, (char *)s, TCL_VOLATILE);
 	cmd_ret = TCL_ERROR;
 }
 
@@ -1017,13 +1018,9 @@ static void
 snap_save(void)
 {
 	output_wait_needed = True;
-	if (snap_status != NULL)
-		Free(snap_status);
-	snap_status = status_string();
+	Replace(snap_status, status_string());
 
-	if (snap_buf != NULL)
-		Free(snap_buf);
-	snap_buf = (unsigned char *)Malloc(ROWS*COLS);
+	Replace(snap_buf, (unsigned char *)Malloc(ROWS*COLS));
 	(void) memcpy(snap_buf, screen_buf, ROWS*COLS);
 
 	snap_rows = ROWS;
@@ -1306,9 +1303,9 @@ sms_info(const char *fmt, ...)
 	Tcl_SetResult(sms_interp, buf, TCL_VOLATILE);
 }
 
-/* Like fcatv, but goes to a buffer. */
+/* Like fcatv, but goes to a dynamically-allocated buffer. */
 static char *
-scatv(char *s)
+tc_scatv(char *s)
 {
 #define ALLOC_INC	1024
 	char *buf;

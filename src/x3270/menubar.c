@@ -51,6 +51,8 @@
 
 #define MACROS_MENU	"macrosMenu"
 
+#define MAX_MENU_OPTIONS	30
+
 extern Widget		keypad_shell;
 extern int		linemode;
 extern Boolean		keypad_popped;
@@ -62,6 +64,23 @@ static struct scheme {
 } *schemes, *last_scheme;
 static int scheme_count;
 static Widget  *scheme_widgets;
+static Widget options_menu;
+static Widget fonts_option;
+static int fm_index = 0;
+static int fm_next_index = 1;
+static struct kdcs {
+	struct kdcs *next;
+	int index;
+	char *charset_name;
+	char *menu_name;
+	int count;
+	int real_count;
+	Widget *fw;	/* font widgets */
+} *known_dcs = NULL;
+static Pixel fm_background;
+static Dimension fm_borderWidth;
+static Pixel fm_borderColor;
+static Dimension fm_leftMargin;
 
 static struct charset {
 	char *label;
@@ -86,6 +105,9 @@ static void menubar_connect(Boolean ignored);
 static void menubar_printer(Boolean printer_on);
 #endif /*]*/
 static void menubar_remodel(Boolean ignored unused);
+static void menubar_charset(Boolean ignored unused);
+
+#define NO_BANG(s)	(((s)[0] == '!')? (s) + 1: (s))
 
 #include "dot.bm"
 #include "arrow.bm"
@@ -211,6 +233,7 @@ menubar_init(Widget container, Dimension overall_width, Dimension current_width)
 		register_schange(ST_PRINTER, menubar_printer);
 #endif /*]*/
 		register_schange(ST_REMODEL, menubar_remodel);
+		register_schange(ST_CHARSET, menubar_charset);
 
 		ever = True;
 	}
@@ -1302,6 +1325,111 @@ menubar_remodel(Boolean ignored unused)
 	    (model_num == 5)? diamond: no_diamond, NULL);
 }
 
+/* Create, or re-create the font menu. */
+static void
+create_font_menu(Boolean regen, Boolean even_if_unknown)
+{
+	const char *efc;
+	Widget t;
+	struct font_list *f;
+	int ix;
+	struct kdcs *k;
+
+	if (regen) {
+		fm_index = 0;
+		while (known_dcs != NULL) {
+			k = known_dcs->next;
+			Free(known_dcs->charset_name);
+			Free(known_dcs->menu_name);
+			Free(known_dcs->fw);
+			Free(known_dcs);
+			known_dcs = k;
+		}
+	}
+
+	if (fm_index == 0 && !even_if_unknown)
+		return;
+
+	/* See if the name matches. */
+	efc = display_charset();
+	for (k = known_dcs; k != NULL; k = k->next) {
+		if (!strcasecmp(k->charset_name, efc))
+			break;
+	}
+	if (k != NULL) {
+		/* See if the list matches. */
+		if (k->count == font_count)
+			for (f = font_list, ix = 0;
+			     f != NULL;
+			     f = f->next, ix++) {
+				if (ix >= k->real_count) {
+					f = NULL;
+					break;
+				}
+				if (strcmp(XtName(k->fw[ix]), f->label))
+					break;
+			}
+		if (k->count != font_count || f != NULL) {
+			free(k->charset_name);
+			k->charset_name = NewString("(invalid)");
+			k = NULL;
+		}
+	}
+	if (k != NULL && k->index == fm_index)
+		return;
+	if (k == NULL) {
+		k = (struct kdcs *)Malloc(sizeof(struct kdcs));
+		k->index = fm_next_index++;
+		k->charset_name = NewString(efc);
+		k->menu_name = xs_buffer("fontsMenu%d", k->index);
+		k->next = known_dcs;
+		known_dcs = k;
+		t = XtVaCreatePopupShell(
+		    k->menu_name, complexMenuWidgetClass, menu_parent,
+		    XtNborderWidth, fm_borderWidth,
+		    XtNborderColor, fm_borderColor,
+		    XtNbackground, fm_background,
+		    NULL);
+		k->count = font_count;
+		k->real_count = font_count;
+		if (k->real_count > MAX_MENU_OPTIONS)
+			k->real_count = MAX_MENU_OPTIONS;
+		if (font_count)
+			k->fw = (Widget *)XtCalloc(k->real_count,
+						   sizeof(Widget));
+		else
+			k->fw = NULL;
+		for (f = font_list, ix = 0; f; f = f->next, ix++) {
+			if (ix >= MAX_MENU_OPTIONS)
+				break;
+			k->fw[ix] = XtVaCreateManagedWidget(
+			    f->label, cmeBSBObjectClass, t,
+			    XtNleftBitmap,
+				!strcmp(efontname, NO_BANG(f->font)) ? diamond : no_diamond,
+			    XtNleftMargin, fm_leftMargin,
+			    NULL);
+			XtAddCallback(k->fw[ix], XtNcallback, do_newfont,
+			    f->font);
+		}
+		if (!appres.no_other) {
+			other_font = XtVaCreateManagedWidget(
+			    "otherFontOption", cmeBSBObjectClass, t,
+			    NULL);
+			XtAddCallback(other_font, XtNcallback, do_otherfont, NULL);
+		}
+	}
+	XtVaSetValues(fonts_option, XtNmenuName, k->menu_name, NULL);
+	fm_index = k->index;
+	font_widgets = k->fw;
+    }
+
+/* Called when the character set changes. */
+static void
+menubar_charset(Boolean ignored unused)
+{
+	create_font_menu(False, False);
+}
+
 /* Called to change emulation modes */
 static void
 toggle_extended(Widget w unused, XtPointer client_data unused,
@@ -1346,21 +1474,28 @@ toggle_m3279(Widget w, XtPointer client_data unused, XtPointer call_data unused)
 static void
 options_menu_init(Boolean regen, Position x, Position y)
 {
-	static Widget options_menu;
 	Widget t, w;
 	struct font_list *f;
 	struct scheme *s;
 	int ix;
+	static Widget options_menu_button = NULL;
+	Widget dummy_font_menu, dummy_font_element;
 
 	if (regen && (options_menu != (Widget)NULL)) {
 		XtDestroyWidget(options_menu);
 		options_menu = (Widget)NULL;
+		if (options_menu_button != NULL) {
+			XtDestroyWidget(options_menu_button);
+			options_menu_button = NULL;
+		}
 	}
 	if (options_menu != (Widget)NULL) {
 		/* Set the current font. */
 		for (f = font_list, ix = 0; f; f = f->next, ix++) {
+			if (ix >= MAX_MENU_OPTIONS)
+				break;
 			XtVaSetValues(font_widgets[ix], XtNleftBitmap,
-				!strcmp(efontname, f->font) ?
+				!strcmp(efontname, NO_BANG(f->font)) ?
 					diamond : no_diamond,
 				NULL);
 		}
@@ -1465,31 +1600,34 @@ options_menu_init(Boolean regen, Position x, Position y)
 	    NULL);
 
 	/* Create the "fonts" pullright */
-	t = XtVaCreatePopupShell(
+
+	/*
+	 * Create a dummy menu with the well-known name, so we can get the
+	 * values of background, borderWidth, borderColor and leftMargin
+	 * from its resources.
+	 */
+	dummy_font_menu = XtVaCreatePopupShell(
 	    "fontsMenu", complexMenuWidgetClass, menu_parent,
 	    NULL);
-	font_widgets = (Widget *)XtCalloc(font_count, sizeof(Widget));
-	for (f = font_list, ix = 0; f; f = f->next, ix++) {
-		font_widgets[ix] = XtVaCreateManagedWidget(
-		    f->label, cmeBSBObjectClass, t,
-		    XtNleftBitmap,
-			!strcmp(efontname, f->font) ? diamond : no_diamond,
-		    NULL);
-		XtAddCallback(font_widgets[ix], XtNcallback, do_newfont,
-		    f->font);
-	}
-	if (!appres.no_other) {
-		other_font = XtVaCreateManagedWidget(
-		    "otherFontOption", cmeBSBObjectClass, t,
-		    NULL);
-		XtAddCallback(other_font, XtNcallback, do_otherfont, NULL);
-	}
-	(void) XtVaCreateManagedWidget(
+	dummy_font_element =  XtVaCreateManagedWidget(
+	    "entry", cmeBSBObjectClass, dummy_font_menu,
+	    XtNleftBitmap, no_diamond,
+	    NULL);
+	XtRealizeWidget(dummy_font_menu);
+	XtVaGetValues(dummy_font_menu,
+	    XtNborderWidth, &fm_borderWidth,
+	    XtNborderColor, &fm_borderColor,
+	    XtNbackground, &fm_background,
+	    NULL);
+	XtVaGetValues(dummy_font_element,
+	    XtNleftMargin, &fm_leftMargin,
+	    NULL);
+
+	fonts_option = XtVaCreateManagedWidget(
 	    "fontsOption", cmeBSBObjectClass, options_menu,
 	    XtNrightBitmap, arrow,
-	    XtNmenuName, "fontsMenu",
-	    XtNsensitive, appres.apl_mode ? False : True,
 	    NULL);
+	create_font_menu(regen, True);
 
 	(void) XtVaCreateManagedWidget(
 	    "space", cmeLineObjectClass, options_menu,
@@ -1624,7 +1762,7 @@ options_menu_init(Boolean regen, Position x, Position y)
 	XtAddCallback(w, XtNcallback, do_keymap_display, NULL);
 
 	if (menubar_buttons) {
-		(void) XtVaCreateManagedWidget(
+		options_menu_button = XtVaCreateManagedWidget(
 		    "optionsMenuButton", menuButtonWidgetClass, menu_parent,
 		    XtNx, x,
 		    XtNy, y,

@@ -1,5 +1,5 @@
 '\" t
-.TH x3270 1 "25 June 2001"
+.TH x3270 1 "31 December 2001"
 .SH "NAME"
 x3270 \-
 \s-1IBM\s+1 host access tool
@@ -7,8 +7,10 @@ x3270 \-
 \fBx3270\fP
 [\fIoptions\fP]
 [\fIhost\fP]
+
 .SH "DESCRIPTION"
-\fBx3270\fP opens a telnet connection to an \s-1IBM\s+1
+\fBx3270\fP opens
+a telnet connection to an \s-1IBM\s+1
 host in an X window.
 It implements RFCs 2355 (TN3270E), 1576 (TN3270) and 1646 (LU name selection),
 and supports IND$FILE file transfer.
@@ -52,8 +54,7 @@ a \fIport\fP to the \fIhostname\fP with a colon
 and with \fItn3270\fP(1), the \fIport\fP
 may also be specified as a second, separate argument.)
 .SH "OPTIONS"
-\fBx3270\fP
-is a toolkit based program, so it understands standard Xt options and
+\fBx3270\fP is a toolkit based program, so it understands standard Xt options and
 resources.
 It also understands
 the following options:
@@ -72,7 +73,7 @@ Sets character classes.
 See \s-1CHARACTER CLASSES\s+1, below.
 .TP
 \fB\-charset\fP \fIname\fP
-Specifies an \s-1EBCDIC\s+1 national character set.
+Specifies an \s-1EBCDIC\s+1 host character set.
 See \s-1CHARACTER SETS\s+1 below.
 .TP
 \fB\-clear\fP \fItoggle\fP
@@ -120,12 +121,72 @@ Model 4 is the default.
 .TS
 center;
 c c c .
-Model Number	Columns	Rows
+T{
+.na
+.nh
+Model Number
+T}	T{
+.na
+.nh
+Columns
+T}	T{
+.na
+.nh
+Rows
+T}
 _
-2	80	24
-3	80	30
-4	80	43
-5	132	27
+T{
+.na
+.nh
+2
+T}	T{
+.na
+.nh
+80
+T}	T{
+.na
+.nh
+24
+T}
+T{
+.na
+.nh
+3
+T}	T{
+.na
+.nh
+80
+T}	T{
+.na
+.nh
+30
+T}
+T{
+.na
+.nh
+4
+T}	T{
+.na
+.nh
+80
+T}	T{
+.na
+.nh
+43
+T}
+T{
+.na
+.nh
+5
+T}	T{
+.na
+.nh
+132
+T}	T{
+.na
+.nh
+27
+T}
 .TE
 .IP
 Note: Technically, there is no such 3270 display as a 3279-4 or 3279-5, but
@@ -236,6 +297,15 @@ is given, then traces will be written to standard output.
 If the value \fBnone\fP
 is given, then traces will be piped directly to the monitor window, and no
 file will be created.
+.TP
+\fB\-tracefilesize\fP \fIsize\fP
+Places a limit on the size of a trace file.
+If this option is not specified, or is specified as \fB0\fP or \fBnone\fP,
+the trace file will be unlimited.
+If specified, the trace file cannot already exist, and the (silently enforced)
+minimum size is 64 Kbytes.
+The value of \fIsize\fP can have a \fBK\fP or \fBM\fP suffix, indicating
+kilobytes or megabytes respectively.
 .LP
 After reading resource definitions from the X server
 and any standandard X11 resource definition files
@@ -247,29 +317,27 @@ options by the \fBSave Changed Options in File\fP menu option.
 Note that \fB\-xrm\fP options override any definitions in
 the \fB.x3270pro\fP file.
 .SH "FONTS"
-By default, \fBx3270\fP does not use the "*font" resource for its main
+\fBx3270\fP does not use the "*font" resource for its main
 window.
 Instead, it uses a custom 14-point font called
 \fB3270\fP,
 which is a close
 approximation of a real 3270 display and allows \fBx3270\fP
-to display a complete \s-1EBCDIC\s+1 character set and special status-line
-symbols.
+to display the \s-1ISO\s+1 8859\-1 (Latin\-1)
+character set and special status-line symbols.
 A more compact font, \fB3270\-12\fP, is also supported, as are the
 various sized fonts \fB3270gt8\fP, \fB3270gt12\fP, \fB3270gt16\fP,
 \fB3270-20\fP, \fB3270gt24\fP, and \fB3270gt32\fP.
-The font \fB3270h\fP is also included to allow display of Hebrew text.
+The fonts \fB3270h\fP and \fB3270gr\fP are also included to allow display of
+Hebrew and Greek text, respectively.
 .LP
 The font may be specified with the \fB\-efont\fP
 option or the "x3270.emulatorFont" resource.
 .LP
-\fBx3270\fP can also use any constant-spaced X font, but unless the font
-implements the
-entire \s-1ISO\s+1 8859\-1 (Latin\-1) character set,
-\fBx3270\fP may not properly display several \s-1EBCDIC\s+1 graphics that
-do not have \s-1ASCII\s+1 equivalents.
+\fBx3270\fP can also use any X11 font that implements the
+display character set required by the host \s-1EBCDIC\s+1 character set.
 .PP
-One additional font,
+An additional font,
 \fB3270d\fP,
 is supplied.
 This font is identical to the default \fB3270\fP
@@ -286,29 +354,274 @@ change to a larger font, and vice-versa.
 .SH "CHARACTER SETS"
 The \fB\-charset\fP
 option or the "x3270.charset" resource controls the \s-1EBCDIC\s+1
-national character set used by \fBx3270\fP.
+host character set used by \fBx3270\fP.
 Available sets include:
 .PP
 .TS
 center;
 l l l
 lfB l l.
-Charset Name	Code Page	Font	
+T{
+.na
+.nh
+Charset Name
+T}	T{
+.na
+.nh
+Code Page
+T}	T{
+.na
+.nh
+Display Character Sets
+T}
 _
-belgian	500	iso8859-1
-bracket	37	iso8859-1
-finnish	278	iso8859-1
-french	297	iso8859-1
-german	273	iso8859-1
-greek	423	3270gr
-hebrew	424	3270h
-icelandic	871	iso8859-1
-iso-hebrew	424	iso8859-8
-iso-turkish	1026	iso8859-9
-italian	280	iso8859-1
-norwegian	277	iso8859-1
-uk	285	iso8859-1
-us-intl	37	iso8859-1
+T{
+.na
+.nh
+apl
+T}	T{
+.na
+.nh
+37
+T}	T{
+.na
+.nh
+3270cg-1a
+T}
+T{
+.na
+.nh
+belgian
+T}	T{
+.na
+.nh
+500
+T}	T{
+.na
+.nh
+3270cg-1a 3270-cg1 iso8859-1
+T}
+T{
+.na
+.nh
+bracket
+T}	T{
+.na
+.nh
+37
+T}	T{
+.na
+.nh
+3270cg-1a 3270-cg1 iso8859-1
+T}
+T{
+.na
+.nh
+brazilian
+T}	T{
+.na
+.nh
+275
+T}	T{
+.na
+.nh
+3270cg-1a 3270-cg1 iso8859-1
+T}
+T{
+.na
+.nh
+finnish
+T}	T{
+.na
+.nh
+278
+T}	T{
+.na
+.nh
+3270cg-1a 3270-cg1 iso8859-1
+T}
+T{
+.na
+.nh
+french
+T}	T{
+.na
+.nh
+297
+T}	T{
+.na
+.nh
+3270cg-1a 3270-cg1 iso8859-1
+T}
+T{
+.na
+.nh
+german
+T}	T{
+.na
+.nh
+273
+T}	T{
+.na
+.nh
+3270cg-1a 3270-cg1 iso8859-1
+T}
+T{
+.na
+.nh
+greek
+T}	T{
+.na
+.nh
+423
+T}	T{
+.na
+.nh
+3270cg-7
+T}
+T{
+.na
+.nh
+hebrew
+T}	T{
+.na
+.nh
+424
+T}	T{
+.na
+.nh
+3270cg-8
+T}
+T{
+.na
+.nh
+icelandic
+T}	T{
+.na
+.nh
+871
+T}	T{
+.na
+.nh
+3270cg-1a 3270-cg1 iso8859-1
+T}
+T{
+.na
+.nh
+iso-hebrew
+T}	T{
+.na
+.nh
+424
+T}	T{
+.na
+.nh
+iso8859-8
+T}
+T{
+.na
+.nh
+iso-turkish
+T}	T{
+.na
+.nh
+1026
+T}	T{
+.na
+.nh
+iso8859-9
+T}
+T{
+.na
+.nh
+italian
+T}	T{
+.na
+.nh
+280
+T}	T{
+.na
+.nh
+3270cg-1a 3270-cg1 iso8859-1
+T}
+T{
+.na
+.nh
+norwegian
+T}	T{
+.na
+.nh
+277
+T}	T{
+.na
+.nh
+3270cg-1a 3270-cg1 iso8859-1
+T}
+T{
+.na
+.nh
+russian
+T}	T{
+.na
+.nh
+880
+T}	T{
+.na
+.nh
+koi8-r
+T}
+T{
+.na
+.nh
+solvenian
+T}	T{
+.na
+.nh
+870
+T}	T{
+.na
+.nh
+iso8859-2
+T}
+T{
+.na
+.nh
+thai
+T}	T{
+.na
+.nh
+838
+T}	T{
+.na
+.nh
+iso8859-11 tis620.2529-0
+T}
+T{
+.na
+.nh
+uk
+T}	T{
+.na
+.nh
+285
+T}	T{
+.na
+.nh
+3270cg-1a 3270-cg1 iso8859-1
+T}
+T{
+.na
+.nh
+us-intl
+T}	T{
+.na
+.nh
+37
+T}	T{
+.na
+.nh
+3270cg-1a 3270-cg1 iso8859-1
+T}
 .TE
 .PP
 The default character set is
@@ -317,11 +630,13 @@ which is useful for common \s-1IBM\s+1 hosts which use \s-1EBCDIC\s+1
 codes 0xAD and 0xBD for the `[' and `]' characters,
 respectively.
 .PP
-Most 3270 fonts (3270, 3270-12, 3270gt8, etc.) implement the ISO 8859-1
-character set.  3270h and 3270gr implement special character sets for Hebrew
-and Greek, respsectively.  Some character sets work only with standard X fonts
-that implement that character set.  These are prefixed with the
-name \fBiso-\fP.
+Most 3270 fonts implement the 3270cg-1 display
+character set, which is a reordered version of
+the \s-1ISO\s+1 8859\-1 character set.
+Some implement the 3270cg-1a display character set, which is a superset
+of 3270cg-1 that includes APL2 characters.
+3270h and 3270gr implement special character sets for Hebrew
+and Greek, respectively.
 .PP
 You can also specify national-language translations for your keyboard;
 see \s-1KEYMAPS\s+1 below.
@@ -355,10 +670,42 @@ Options are:
 .TS
 center;
 l l.
-left	in a separate window, to the left of the screen
-right	in a separate window, to the right of the screen
-bottom	in a separate window, below the screen
-integral	in the same window as the screen, below it
+T{
+.na
+.nh
+left
+T}	T{
+.na
+.nh
+in a separate window, to the left of the screen
+T}
+T{
+.na
+.nh
+right
+T}	T{
+.na
+.nh
+in a separate window, to the right of the screen
+T}
+T{
+.na
+.nh
+bottom
+T}	T{
+.na
+.nh
+in a separate window, below the screen
+T}
+T{
+.na
+.nh
+integral
+T}	T{
+.na
+.nh
+in the same window as the screen, below it
+T}
 .TE
 .PP
 The default is \fBright\fP.
@@ -425,18 +772,150 @@ defined by resources:
 .TS
 center;
 l c c.
-Mode/Character	Resource	Default
+T{
+.na
+.nh
+Mode/Character
+T}	T{
+.na
+.nh
+Resource
+T}	T{
+.na
+.nh
+Default
+T}
 _
-Translate CR to NL	x3270.icrnl	true
-Translate NL to CR	x3270.inlcr	false
-Erase previous character	x3270.erase	^?
-Erase entire line	x3270.kill	^U
-Erase previous word	x3270.werase	^W
-Redisplay line	x3270.rprnt	^R
-Ignore special meaning of next character	x3270.lnext	^V
-Interrupt	x3270.intr	^C
-Quit	x3270.quit	^\e
-End of file	x3270.eof	^D
+T{
+.na
+.nh
+Translate CR to NL
+T}	T{
+.na
+.nh
+x3270.icrnl
+T}	T{
+.na
+.nh
+true
+T}
+T{
+.na
+.nh
+Translate NL to CR
+T}	T{
+.na
+.nh
+x3270.inlcr
+T}	T{
+.na
+.nh
+false
+T}
+T{
+.na
+.nh
+Erase previous character
+T}	T{
+.na
+.nh
+x3270.erase
+T}	T{
+.na
+.nh
+^?
+T}
+T{
+.na
+.nh
+Erase entire line
+T}	T{
+.na
+.nh
+x3270.kill
+T}	T{
+.na
+.nh
+^U
+T}
+T{
+.na
+.nh
+Erase previous word
+T}	T{
+.na
+.nh
+x3270.werase
+T}	T{
+.na
+.nh
+^W
+T}
+T{
+.na
+.nh
+Redisplay line
+T}	T{
+.na
+.nh
+x3270.rprnt
+T}	T{
+.na
+.nh
+^R
+T}
+T{
+.na
+.nh
+Ignore special meaning of next character
+T}	T{
+.na
+.nh
+x3270.lnext
+T}	T{
+.na
+.nh
+^V
+T}
+T{
+.na
+.nh
+Interrupt
+T}	T{
+.na
+.nh
+x3270.intr
+T}	T{
+.na
+.nh
+^C
+T}
+T{
+.na
+.nh
+Quit
+T}	T{
+.na
+.nh
+x3270.quit
+T}	T{
+.na
+.nh
+^\e
+T}
+T{
+.na
+.nh
+End of file
+T}	T{
+.na
+.nh
+x3270.eof
+T}	T{
+.na
+.nh
+^D
+T}
 .TE
 .LP
 Separate keymaps can be defined for use only when \fBx3270\fP is in
@@ -567,20 +1046,124 @@ options are as follows:
 .TS
 center;
 l l .
-Menu Option	Name
+T{
+.na
+.nh
+Menu Option
+T}	T{
+.na
+.nh
+Name
+T}
 _
-Monocase	monoCase
-Blinking Cursor	cursorBlink
-Blank Fill	blankFill
-Show Timing	showTiming
-Track Cursor	cursorPos
-Trace Data Stream	dsTrace
-Trace Keyboard/Mouse Events	eventTrace
-Save Screen(s) in File	screenTrace
-Scrollbar	scrollBar
-Wraparound	lineWrap
-Paste with Left Margin	marginedPaste
-Select by Rectangles	rectangleSelect
+T{
+.na
+.nh
+Monocase
+T}	T{
+.na
+.nh
+monoCase
+T}
+T{
+.na
+.nh
+Blinking Cursor
+T}	T{
+.na
+.nh
+cursorBlink
+T}
+T{
+.na
+.nh
+Blank Fill
+T}	T{
+.na
+.nh
+blankFill
+T}
+T{
+.na
+.nh
+Show Timing
+T}	T{
+.na
+.nh
+showTiming
+T}
+T{
+.na
+.nh
+Track Cursor
+T}	T{
+.na
+.nh
+cursorPos
+T}
+T{
+.na
+.nh
+Trace Data Stream
+T}	T{
+.na
+.nh
+dsTrace
+T}
+T{
+.na
+.nh
+Trace Keyboard/Mouse Events
+T}	T{
+.na
+.nh
+eventTrace
+T}
+T{
+.na
+.nh
+Save Screen(s) in File
+T}	T{
+.na
+.nh
+screenTrace
+T}
+T{
+.na
+.nh
+Scrollbar
+T}	T{
+.na
+.nh
+scrollBar
+T}
+T{
+.na
+.nh
+Wraparound
+T}	T{
+.na
+.nh
+lineWrap
+T}
+T{
+.na
+.nh
+Paste with Left Margin
+T}	T{
+.na
+.nh
+marginedPaste
+T}
+T{
+.na
+.nh
+Select by Rectangles
+T}	T{
+.na
+.nh
+rectangleSelect
+T}
 .TE
 .LP
 In addition, the toggle \fBaltCursor\fP can be used to select the cursor type.
@@ -779,89 +1362,705 @@ is in the given \fImode\fP.
 The default translation table \fBx3270.keymap.base\fP is:
 .TS
 l l .
-<Key>Multi_key	Compose()
-Shift<Key>Left	KybdSelect(Left,PRIMARY)
-<Key>Left	Left()
-Meta<Key>Right	NextWord()
-Shift<Key>Right	KybdSelect(Right,PRIMARY)
-<Key>Right	Right()
-Shift<Key>Up	KybdSelect(Up,PRIMARY)
-<Key>Up	Up()
-Shift<Key>Down	KybdSelect(Down,PRIMARY)
-<Key>Down	Down()
-Ctrl<Btn1Down>	HandleMenu(quitMenu)
-Ctrl<Btn2Down>	HandleMenu(optionsMenu)
-Ctrl<Btn3Down>	HandleMenu(hostMenu)
-Shift<Btn1Down>	MoveCursor()
-<Btn1Down>	select\-start()
-<Btn1Motion>	select\-extend()
-<Btn2Down>	ignore()
-<Btn2Motion>	ignore()
-<Btn2Up>	insert\-selection(PRIMARY)
-<Btn3Down>	start\-extend()
-<Btn3Motion>	select\-extend()
-<BtnUp>	select\-end(PRIMARY)
-Meta<Key>F1	PF(13)
-Meta<Key>F2	PF(14)
-Meta<Key>F3	PF(15)
-Meta<Key>F4	PF(16)
-Meta<Key>F5	PF(17)
-Meta<Key>F6	PF(18)
-Meta<Key>F7	PF(19)
-Meta<Key>F8	PF(20)
-Meta<Key>F9	PF(21)
-Meta<Key>F10	PF(22)
-Meta<Key>F11	PF(23)
-Meta<Key>F12	PF(24)
-<Key>F1	PF(1)
-<Key>F2	PF(2)
-<Key>F3	PF(3)
-<Key>F4	PF(4)
-<Key>F5	PF(5)
-<Key>F6	PF(6)
-<Key>F7	PF(7)
-<Key>F8	PF(8)
-<Key>F9	PF(9)
-<Key>F10	PF(10)
-<Key>F11	PF(11)
-<Key>F12	PF(12)
-Alt<Key>q	Quit()
-:<Key>	Default()
+T{
+.na
+.nh
+<Key>Multi_key
+T}	T{
+.na
+.nh
+Compose()
+T}
+T{
+.na
+.nh
+Shift<Key>Left
+T}	T{
+.na
+.nh
+KybdSelect(Left,PRIMARY)
+T}
+T{
+.na
+.nh
+<Key>Left
+T}	T{
+.na
+.nh
+Left()
+T}
+T{
+.na
+.nh
+Meta<Key>Right
+T}	T{
+.na
+.nh
+NextWord()
+T}
+T{
+.na
+.nh
+Shift<Key>Right
+T}	T{
+.na
+.nh
+KybdSelect(Right,PRIMARY)
+T}
+T{
+.na
+.nh
+<Key>Right
+T}	T{
+.na
+.nh
+Right()
+T}
+T{
+.na
+.nh
+Shift<Key>Up
+T}	T{
+.na
+.nh
+KybdSelect(Up,PRIMARY)
+T}
+T{
+.na
+.nh
+<Key>Up
+T}	T{
+.na
+.nh
+Up()
+T}
+T{
+.na
+.nh
+Shift<Key>Down
+T}	T{
+.na
+.nh
+KybdSelect(Down,PRIMARY)
+T}
+T{
+.na
+.nh
+<Key>Down
+T}	T{
+.na
+.nh
+Down()
+T}
+T{
+.na
+.nh
+Ctrl<Btn1Down>
+T}	T{
+.na
+.nh
+HandleMenu(quitMenu)
+T}
+T{
+.na
+.nh
+Ctrl<Btn2Down>
+T}	T{
+.na
+.nh
+HandleMenu(optionsMenu)
+T}
+T{
+.na
+.nh
+Ctrl<Btn3Down>
+T}	T{
+.na
+.nh
+HandleMenu(hostMenu)
+T}
+T{
+.na
+.nh
+Shift<Btn1Down>
+T}	T{
+.na
+.nh
+MoveCursor()
+T}
+T{
+.na
+.nh
+<Btn1Down>
+T}	T{
+.na
+.nh
+select\-start()
+T}
+T{
+.na
+.nh
+<Btn1Motion>
+T}	T{
+.na
+.nh
+select\-extend()
+T}
+T{
+.na
+.nh
+<Btn2Down>
+T}	T{
+.na
+.nh
+ignore()
+T}
+T{
+.na
+.nh
+<Btn2Motion>
+T}	T{
+.na
+.nh
+ignore()
+T}
+T{
+.na
+.nh
+<Btn2Up>
+T}	T{
+.na
+.nh
+insert\-selection(PRIMARY)
+T}
+T{
+.na
+.nh
+<Btn3Down>
+T}	T{
+.na
+.nh
+start\-extend()
+T}
+T{
+.na
+.nh
+<Btn3Motion>
+T}	T{
+.na
+.nh
+select\-extend()
+T}
+T{
+.na
+.nh
+<BtnUp>
+T}	T{
+.na
+.nh
+select\-end(PRIMARY)
+T}
+T{
+.na
+.nh
+Meta<Key>F1
+T}	T{
+.na
+.nh
+PF(13)
+T}
+T{
+.na
+.nh
+Meta<Key>F2
+T}	T{
+.na
+.nh
+PF(14)
+T}
+T{
+.na
+.nh
+Meta<Key>F3
+T}	T{
+.na
+.nh
+PF(15)
+T}
+T{
+.na
+.nh
+Meta<Key>F4
+T}	T{
+.na
+.nh
+PF(16)
+T}
+T{
+.na
+.nh
+Meta<Key>F5
+T}	T{
+.na
+.nh
+PF(17)
+T}
+T{
+.na
+.nh
+Meta<Key>F6
+T}	T{
+.na
+.nh
+PF(18)
+T}
+T{
+.na
+.nh
+Meta<Key>F7
+T}	T{
+.na
+.nh
+PF(19)
+T}
+T{
+.na
+.nh
+Meta<Key>F8
+T}	T{
+.na
+.nh
+PF(20)
+T}
+T{
+.na
+.nh
+Meta<Key>F9
+T}	T{
+.na
+.nh
+PF(21)
+T}
+T{
+.na
+.nh
+Meta<Key>F10
+T}	T{
+.na
+.nh
+PF(22)
+T}
+T{
+.na
+.nh
+Meta<Key>F11
+T}	T{
+.na
+.nh
+PF(23)
+T}
+T{
+.na
+.nh
+Meta<Key>F12
+T}	T{
+.na
+.nh
+PF(24)
+T}
+T{
+.na
+.nh
+<Key>F1
+T}	T{
+.na
+.nh
+PF(1)
+T}
+T{
+.na
+.nh
+<Key>F2
+T}	T{
+.na
+.nh
+PF(2)
+T}
+T{
+.na
+.nh
+<Key>F3
+T}	T{
+.na
+.nh
+PF(3)
+T}
+T{
+.na
+.nh
+<Key>F4
+T}	T{
+.na
+.nh
+PF(4)
+T}
+T{
+.na
+.nh
+<Key>F5
+T}	T{
+.na
+.nh
+PF(5)
+T}
+T{
+.na
+.nh
+<Key>F6
+T}	T{
+.na
+.nh
+PF(6)
+T}
+T{
+.na
+.nh
+<Key>F7
+T}	T{
+.na
+.nh
+PF(7)
+T}
+T{
+.na
+.nh
+<Key>F8
+T}	T{
+.na
+.nh
+PF(8)
+T}
+T{
+.na
+.nh
+<Key>F9
+T}	T{
+.na
+.nh
+PF(9)
+T}
+T{
+.na
+.nh
+<Key>F10
+T}	T{
+.na
+.nh
+PF(10)
+T}
+T{
+.na
+.nh
+<Key>F11
+T}	T{
+.na
+.nh
+PF(11)
+T}
+T{
+.na
+.nh
+<Key>F12
+T}	T{
+.na
+.nh
+PF(12)
+T}
+T{
+.na
+.nh
+Alt<Key>q
+T}	T{
+.na
+.nh
+Quit()
+T}
+T{
+.na
+.nh
+:<Key>
+T}	T{
+.na
+.nh
+Default()
+T}
 .TE
 .PP
 The default 3270-mode table \fBx3270.keymap.base.3270\fP adds the
 following definitions:
 .TS
 l l .
-Shift<Key>Return	Newline()
-<Key>Return	Enter()
-<Key>Linefeed	Newline()
-Shift<Key>Tab	BackTab()
-<Key>Tab	Tab()
-<Key>Home	Home()
-Meta<Key>Left	PreviousWord()
-Meta<Key>Right	NextWord()
-<Key>Insert	Insert()
-<Key>Delete	Delete()
-<Key>BackSpace	BackSpace()
-Ctrl Shift<Btn1Down>	MouseSelect()
-Shift<Btn1Down>	MoveCursor()
-Meta<Key>1	PA(1)
-Meta<Key>2	PA(2)
-Meta<Key>3	PA(3)
-Meta<Key>a	Attn()
-Meta<Key>b	PrintWindow()
-Meta<Key>c	Clear()
-Meta<Key>d	Delete()
-Meta<Key>h	Home()
-Meta<Key>i	Insert()
-Meta<Key>l	Redraw()
-Meta<Key>p	PrintText()
-Meta<Key>r	Reset()
-Meta<Key>u	Unselect()
-Ctrl<Key>u	DeleteField()
-Ctrl<Key>w	DeleteWord()
-:Meta<Key>asciicircum	Key(notsign)
+T{
+.na
+.nh
+Shift<Key>Return
+T}	T{
+.na
+.nh
+Newline()
+T}
+T{
+.na
+.nh
+<Key>Return
+T}	T{
+.na
+.nh
+Enter()
+T}
+T{
+.na
+.nh
+<Key>Linefeed
+T}	T{
+.na
+.nh
+Newline()
+T}
+T{
+.na
+.nh
+Shift<Key>Tab
+T}	T{
+.na
+.nh
+BackTab()
+T}
+T{
+.na
+.nh
+<Key>Tab
+T}	T{
+.na
+.nh
+Tab()
+T}
+T{
+.na
+.nh
+<Key>Home
+T}	T{
+.na
+.nh
+Home()
+T}
+T{
+.na
+.nh
+Meta<Key>Left
+T}	T{
+.na
+.nh
+PreviousWord()
+T}
+T{
+.na
+.nh
+Meta<Key>Right
+T}	T{
+.na
+.nh
+NextWord()
+T}
+T{
+.na
+.nh
+<Key>Insert
+T}	T{
+.na
+.nh
+Insert()
+T}
+T{
+.na
+.nh
+<Key>Delete
+T}	T{
+.na
+.nh
+Delete()
+T}
+T{
+.na
+.nh
+<Key>BackSpace
+T}	T{
+.na
+.nh
+BackSpace()
+T}
+T{
+.na
+.nh
+Ctrl Shift<Btn1Down>
+T}	T{
+.na
+.nh
+MouseSelect()
+T}
+T{
+.na
+.nh
+Shift<Btn1Down>
+T}	T{
+.na
+.nh
+MoveCursor()
+T}
+T{
+.na
+.nh
+Meta<Key>1
+T}	T{
+.na
+.nh
+PA(1)
+T}
+T{
+.na
+.nh
+Meta<Key>2
+T}	T{
+.na
+.nh
+PA(2)
+T}
+T{
+.na
+.nh
+Meta<Key>3
+T}	T{
+.na
+.nh
+PA(3)
+T}
+T{
+.na
+.nh
+Meta<Key>a
+T}	T{
+.na
+.nh
+Attn()
+T}
+T{
+.na
+.nh
+Meta<Key>b
+T}	T{
+.na
+.nh
+PrintWindow()
+T}
+T{
+.na
+.nh
+Meta<Key>c
+T}	T{
+.na
+.nh
+Clear()
+T}
+T{
+.na
+.nh
+Meta<Key>d
+T}	T{
+.na
+.nh
+Delete()
+T}
+T{
+.na
+.nh
+Meta<Key>h
+T}	T{
+.na
+.nh
+Home()
+T}
+T{
+.na
+.nh
+Meta<Key>i
+T}	T{
+.na
+.nh
+Insert()
+T}
+T{
+.na
+.nh
+Meta<Key>l
+T}	T{
+.na
+.nh
+Redraw()
+T}
+T{
+.na
+.nh
+Meta<Key>p
+T}	T{
+.na
+.nh
+PrintText()
+T}
+T{
+.na
+.nh
+Meta<Key>r
+T}	T{
+.na
+.nh
+Reset()
+T}
+T{
+.na
+.nh
+Meta<Key>u
+T}	T{
+.na
+.nh
+Unselect()
+T}
+T{
+.na
+.nh
+Ctrl<Key>u
+T}	T{
+.na
+.nh
+DeleteField()
+T}
+T{
+.na
+.nh
+Ctrl<Key>w
+T}	T{
+.na
+.nh
+DeleteWord()
+T}
+T{
+.na
+.nh
+:Meta<Key>asciicircum
+T}	T{
+.na
+.nh
+Key(notsign)
+T}
 .TE
 .PP
 Meta is the diamond shaped key on a sun_k4, "Alt" on an \s-1NCD\s+1,
@@ -904,84 +2103,819 @@ still others are defined for internal use by \fBx3270\fP
 and are not documented here.
 .PP
 .TS
-l l
-.
-Attn	attention key
-AltCursor	switch between block and underscore cursor
-BackSpace	move cursor left (or send \s-1ASCII BS\s+1)
-BackTab	tab to start of previous input field
-CircumNot	input "^" in \s-1NVT\s+1 mode, or "notsign" in 3270 mode
-Clear	clear screen
-Compose	next two keys form a special symbol
-Connect(\fIhost\fP)	connect to \fIhost\fP
-CursorSelect	Cursor Select \s-1AID\s+1
-Cut	erase selected text
-Default	enter key literally
-Delete	delete character under cursor (or send \s-1ASCII DEL\s+1)
-DeleteField	delete the entire field
-DeleteWord	delete the current or previous word
-Disconnect	disconnect from host
-Down	move cursor down
-Dup	duplicate field
-Enter	Enter \s-1AID\s+1 (or send \s-1ASCII CR\s+1)
-Erase	erase previous character (or send \s-1ASCII BS\s+1)
-EraseEOF	erase to end of current field
-EraseInput	erase all input fields
-Execute(\fIcmd\fP)	execute a command in a shell
-FieldEnd	move cursor to end of field
-FieldExit	clear to end of field and skip to next (5250 emulation)
-FieldMark	mark field
-HandleMenu(\fIname\fP)	pop up a menu
-HexString(\fIhex_digits\fP)	insert control-character string
-Home	move cursor to first input field
-Insert	set insert mode
-Interrupt	send \s-1TELNET IP\s+1 to host
-Key(\fIkeysym\fP)	insert key \fIkeysym\fP
-Key(0x\fIxx\fP)	insert key with \s-1ASCII\s+1 code \fIxx\fP
-Keymap(\fIkeymap\fP)	toggle alternate \fIkeymap\fP (or remove with \fBNone\fP)
-KybdSelect(\fIdirection\fP[,\fIatom\fP...])	Extend selection by one row or column)
-Left	move cursor left
-Left2	move cursor left 2 positions
-Macro(\fImacro\fP)	run a macro
-MonoCase	toggle uppercase-only mode
-MoveCursor	move cursor to mouse position
-MoveCursor(\fIrow\fP,\fIcol\fP)	move cursor to (\fIrow\fP,\fIcol\fP)
-MoveCursorSelect	move cursor to mouse position, light pen selection
-Newline	move cursor to first field on next line (or send \s-1ASCII LF\s+1)
-NextWord	move cursor to next word
-PA(\fIn\fP)	Program Attention \s-1AID\s+1 (\fIn\fP from 1 to 3)
-PF(\fIn\fP)	Program Function \s-1AID\s+1 (\fIn\fP from 1 to 24)
-PreviousWord	move cursor to previous word
-Printer(Start[,\fIlu\fP]|Stop)	Start or stop printer session
-PrintText(\fIcommand\fP)	print screen text on printer
-PrintWindow(\fIcommand\fP)	print screen image (bitmap) on printer
-Quit	exit \fBx3270\fP
-Reconnect	reconnect to previous host
-Redraw	redraw window
-Reset	reset locked keyboard
-Right	move cursor right
-Right2	move cursor right 2 positions
-SetFont(\fIfont\fP)	change emulator font
-Script(\fIcommand\fP[,\fIarg\fP...])	run a script
-String(\fIstring\fP)	insert string (simple macro facility)
-SysReq	System Request \s-1AID\s+1
-Tab	move cursor to next input field
-ToggleInsert	toggle insert mode
-ToggleReverse	toggle reverse-input mode
-Transfer(\fIoption\fP=\fIvalue\fP...)	file transfer
-Unselect	release selection
-Up	move cursor up
+center; lw(3i) lw(3i).
+T{
+.na
+.nh
+.in +2
+.ti -2
+Attn
+T}	T{
+.na
+.nh
+attention key
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+AltCursor
+T}	T{
+.na
+.nh
+switch between block and underscore cursor
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+BackSpace
+T}	T{
+.na
+.nh
+move cursor left (or send \s-1ASCII BS\s+1)
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+BackTab
+T}	T{
+.na
+.nh
+tab to start of previous input field
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+CircumNot
+T}	T{
+.na
+.nh
+input "^" in \s-1NVT\s+1 mode, or "notsign" in 3270 mode
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+Clear
+T}	T{
+.na
+.nh
+clear screen
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+Compose
+T}	T{
+.na
+.nh
+next two keys form a special symbol
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+Connect(l3h_t \fIh\fP, \fIhost\fP)
+T}	T{
+.na
+.nh
+connect to \fIhost\fP
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+CursorSelect
+T}	T{
+.na
+.nh
+Cursor Select \s-1AID\s+1
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+Cut
+T}	T{
+.na
+.nh
+erase selected text
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+Default
+T}	T{
+.na
+.nh
+enter key literally
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+Delete
+T}	T{
+.na
+.nh
+delete character under cursor (or send \s-1ASCII DEL\s+1)
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+DeleteField
+T}	T{
+.na
+.nh
+delete the entire field
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+DeleteWord
+T}	T{
+.na
+.nh
+delete the current or previous word
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+Disconnect
+T}	T{
+.na
+.nh
+disconnect from host
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+Down
+T}	T{
+.na
+.nh
+move cursor down
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+Dup
+T}	T{
+.na
+.nh
+duplicate field
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+Enter
+T}	T{
+.na
+.nh
+Enter \s-1AID\s+1 (or send \s-1ASCII CR\s+1)
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+Erase
+T}	T{
+.na
+.nh
+erase previous character (or send \s-1ASCII BS\s+1)
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+EraseEOF
+T}	T{
+.na
+.nh
+erase to end of current field
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+EraseInput
+T}	T{
+.na
+.nh
+erase all input fields
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+Execute(\fIcmd\fP)
+T}	T{
+.na
+.nh
+execute a command in a shell
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+FieldEnd
+T}	T{
+.na
+.nh
+move cursor to end of field
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+FieldExit
+T}	T{
+.na
+.nh
+clear to end of field and skip to next (5250 emulation)
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+FieldMark
+T}	T{
+.na
+.nh
+mark field
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+HandleMenu(\fIname\fP)
+T}	T{
+.na
+.nh
+pop up a menu
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+HexString(l3h_t \fIh\fP, \fIhex_digits\fP)
+T}	T{
+.na
+.nh
+insert control-character string
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+Home
+T}	T{
+.na
+.nh
+move cursor to first input field
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+Insert
+T}	T{
+.na
+.nh
+set insert mode
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+Interrupt
+T}	T{
+.na
+.nh
+send \s-1TELNET IP\s+1 to host
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+Key(l3h_t \fIh\fP, \fIkeysym\fP)
+T}	T{
+.na
+.nh
+insert key \fIkeysym\fP
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+Key(l3h_t \fIh\fP, 0x\fIxx\fP)
+T}	T{
+.na
+.nh
+insert key with \s-1ASCII\s+1 code \fIxx\fP
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+Keymap(\fIkeymap\fP)
+T}	T{
+.na
+.nh
+toggle alternate \fIkeymap\fP (or remove with \fBNone\fP)
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+KybdSelect(\fIdirection\fP[,\fIatom\fP...])
+T}	T{
+.na
+.nh
+Extend selection by one row or column
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+Left
+T}	T{
+.na
+.nh
+move cursor left
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+Left2
+T}	T{
+.na
+.nh
+move cursor left 2 positions
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+Macro(\fImacro\fP)
+T}	T{
+.na
+.nh
+run a macro
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+MonoCase
+T}	T{
+.na
+.nh
+toggle uppercase-only mode
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+MoveCursor
+T}	T{
+.na
+.nh
+move cursor to mouse position
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+MoveCursor(l3h_t \fIh\fP, \fIrow\fP, \fIcol\fP)
+T}	T{
+.na
+.nh
+move cursor to (\fIrow\fP,\fIcol\fP)
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+MoveCursorSelect
+T}	T{
+.na
+.nh
+move cursor to mouse position, light pen selection
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+Newline
+T}	T{
+.na
+.nh
+move cursor to first field on next line (or send \s-1ASCII LF\s+1)
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+NextWord
+T}	T{
+.na
+.nh
+move cursor to next word
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+PA(l3h_t \fIh\fP, \fIn\fP)
+T}	T{
+.na
+.nh
+Program Attention \s-1AID\s+1 (\fIn\fP from 1 to 3)
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+PF(l3h_t \fIh\fP, \fIn\fP)
+T}	T{
+.na
+.nh
+Program Function \s-1AID\s+1 (\fIn\fP from 1 to 24)
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+PreviousWord
+T}	T{
+.na
+.nh
+move cursor to previous word
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+Printer(Start[,\fIlu\fP]|Stop)
+T}	T{
+.na
+.nh
+Start or stop printer session
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+PrintText(\fIcommand\fP)
+T}	T{
+.na
+.nh
+print screen text on printer
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+PrintWindow(\fIcommand\fP)
+T}	T{
+.na
+.nh
+print screen image (bitmap) on printer
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+Quit
+T}	T{
+.na
+.nh
+exit \fBx3270\fP
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+Reconnect
+T}	T{
+.na
+.nh
+reconnect to previous host
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+Redraw
+T}	T{
+.na
+.nh
+redraw window
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+Reset
+T}	T{
+.na
+.nh
+reset locked keyboard
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+Right
+T}	T{
+.na
+.nh
+move cursor right
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+Right2
+T}	T{
+.na
+.nh
+move cursor right 2 positions
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+SetFont(\fIfont\fP)
+T}	T{
+.na
+.nh
+change emulator font
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+Script(\fIcommand\fP[,\fIarg\fP...])
+T}	T{
+.na
+.nh
+run a script
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+String(l3h_t \fIh\fP, \fIstring\fP)
+T}	T{
+.na
+.nh
+insert string (simple macro facility)
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+SysReq
+T}	T{
+.na
+.nh
+System Request \s-1AID\s+1
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+Tab
+T}	T{
+.na
+.nh
+move cursor to next input field
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+ToggleInsert
+T}	T{
+.na
+.nh
+toggle insert mode
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+ToggleReverse
+T}	T{
+.na
+.nh
+toggle reverse-input mode
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+Transfer(l3h_t \fIh\fP, \fIoption\fP=\fIvalue\fP...)
+T}	T{
+.na
+.nh
+file transfer
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+Unselect
+T}	T{
+.na
+.nh
+release selection
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+Up
+T}	T{
+.na
+.nh
+move cursor up
+T}
 _
+T{
+.na
+.nh
+.in +2
+.ti -2
 (the following are similar to xterm)
+T}
 _
-ignore	do nothing
-insert-selection([\fIatom\fP[,\fIatom\fP...]])	paste selection
-move-select	a combination of \fBMoveCursor\fP and \fBselect-start\fP
-select-end(\fIatom\fP[,\fIatom\fP...]])	complete selection and assign to atom(s)
-select-extend	move the end of a selection
-select-start	mark the beginning of a selection
-set-select(\fIatom\fP[,\fIatom\fP...]])	assign existing selection to atom(s)
-start-extend	begin marking the end of a selection
+T{
+.na
+.nh
+.in +2
+.ti -2
+ignore
+T}	T{
+.na
+.nh
+do nothing
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+insert-selection([\fIatom\fP[,\fIatom\fP...]])
+T}	T{
+.na
+.nh
+paste selection
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+move-select
+T}	T{
+.na
+.nh
+a combination of \fBMoveCursor\fP and \fBselect-start\fP
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+select-end(\fIatom\fP[,\fIatom\fP...]])
+T}	T{
+.na
+.nh
+complete selection and assign to atom(s)
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+select-extend
+T}	T{
+.na
+.nh
+move the end of a selection
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+select-start
+T}	T{
+.na
+.nh
+mark the beginning of a selection
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+set-select(\fIatom\fP[,\fIatom\fP...]])
+T}	T{
+.na
+.nh
+assign existing selection to atom(s)
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+start-extend
+T}	T{
+.na
+.nh
+begin marking the end of a selection
+T}
 .TE
 .SH "MACROS AND SCRIPTS"
 There are several types of
@@ -999,14 +2933,78 @@ The C backslash conventions are honored as follows.
 processing the string.)
 .TS
 l l.
-\eb	Left
-\ef	Clear*
-\en	Enter*
-\epa\fIn\fP	PA(\fIn\fP)*
-\epf\fInn\fP	PF(\fInn\fP)*
-\er	Newline
-\et	Tab
-\eT	BackTab
+T{
+.na
+.nh
+\eb
+T}	T{
+.na
+.nh
+Left
+T}
+T{
+.na
+.nh
+\ef
+T}	T{
+.na
+.nh
+Clear*
+T}
+T{
+.na
+.nh
+\en
+T}	T{
+.na
+.nh
+Enter*
+T}
+T{
+.na
+.nh
+\epa\fIn\fP
+T}	T{
+.na
+.nh
+PA(\fIn\fP)*
+T}
+T{
+.na
+.nh
+\epf\fInn\fP
+T}	T{
+.na
+.nh
+PF(\fInn\fP)*
+T}
+T{
+.na
+.nh
+\er
+T}	T{
+.na
+.nh
+Newline
+T}
+T{
+.na
+.nh
+\et
+T}	T{
+.na
+.nh
+Tab
+T}
+T{
+.na
+.nh
+\eT
+T}	T{
+.na
+.nh
+BackTab
+T}
 .TE
 .IP
 An example keymap entry would be:
@@ -1155,119 +3153,2359 @@ Entries marked with an (S) represent Sharp APL charatcers.
 .PP
 .TS
 l c l l l.
-APL Symbol	Hex	x3270 Keysym	x3270 Key	x3270 Composed Keys
+T{
+.na
+.nh
+APL Symbol
+T}	T{
+.na
+.nh
+Hex
+T}	T{
+.na
+.nh
+x3270 Keysym
+T}	T{
+.na
+.nh
+x3270 Key
+T}	T{
+.na
+.nh
+x3270 Composed Keys
+T}
 _
-A underbar	41	apl_Aunderbar	Alt-A	A + underbar
-alpha	B0	apl_alpha	Alt-a	\ 
-B underbar	42	apl_Bunderbar	Alt-B	B + underbar
-bar	60*	apl_bar	-	\ 
-brace left	C0	apl_braceleft	Alt-{	\ 
-brace right	D0	apl_braceright	Alt-}	\ 
-C underbar	43	apl_Cunderbar	Alt-C	C + underbar
-circle	9D	apl_circle	Alt-o	\ 
-circle bar	ED	apl_circlebar	\ 	circle + bar
-circle slope	CF	apl_circleslope	\ 	circle + slope
-circle star	FD	apl_circlestar	\ 	circle + star
-circle stile	CD	apl_circlestile	\ 	circle + stile
-colon	7A*	apl_colon	:	\ 
-comma	6B*	apl_comma	,	\ 
-comma bar (S)	E5	apl_commabar	\ 	comma + bar
-D underbar	44	apl_Dunderbar	Alt-D	D + underbar
-del	BA	apl_del	Alt-g	\ 
-del stile	DC	apl_delstile	\ 	del + stile
-del tilde	FB	apl_deltilde	\ 	del + tilde
-delta	BB	apl_delta	Alt-h	\ 
-delta stile	DD	apl_deltastile	\ 	delta + stile
-delta underbar	FC	apl_deltaunderbar	\ 	delta + underbar
-diamond	70	apl_diamond	\ 	up caret + down caret
-dieresis	72	apl_dieresis	Alt-1	\ 
-dieresis circle (S)	E5	apl_dieresiscircle	\ 	dieresis + circle
-dieresis dot	EC	apl_dieresisdot	\ 	dieresis + dot
-dieresis jot (S)	E4	apl_dieresisjot	\ 	dieresis + jot
-divide	B8	apl_divide	Alt-+	\ 
-dot	4B*	apl_dot	.	\ 
-down arrow	8B	apl_downarrow	Alt-u	\ 
-down caret	78	apl_downcaret	Alt-9	\ 
-down caret tilde	CB	apl_downcarettilde	\ 	down caret + tilde
-down shoe	AB	apl_downshoe	Alt-v	\ 
-down stile	8E	apl_downstile	Alt-d	\ 
-down tack	AC	apl_downtack	Alt-b	\ 
-down tack jot	FE	apl_downtackjot	\ 	down tack + jot
-down tack up tack	DA	apl_downtackuptack	\ 	down tack + up tack
-E underbar	45	apl_Eunderbar	Alt-E	E + underbar
-epsilon	B1	apl_epsilon	Alt-e	\ 
-epsilon underbar	75	apl_epsilonunderbar	\ 	epsilon + underbar
-equal	7E*	apl_equal	"="	\ 
-equal underbar	E1	apl_equalunderbar	\ 	equal + underbar
-euro (S)	E7	apl_euro	\ 	C + =
-F underbar	46	apl_Funderbar	Alt-F	F + underbar
-G underbar	47	apl_Gunderbar	Alt-G	G + underbar
-greater	6E*	apl_greater	>	\ 
-H underbar	48	apl_Hunderbar	Alt-H	H + underbar
-I underbar	49	apl_Iunderbar	Alt-I	I + underbar
-iota	B2	apl_iota	Alt-i	\ 
-iota underbar	74	apl_iotaunderbar	\ 	iota + underbar
-J underbar	51	apl_Junderbar	Alt-J	J + underbar
-jot	AF	apl_jot	alt-j	\ 
-K underbar	52	apl_Kunderbar	Alt-K	K + underbar
-L underbar	53	apl_Lunderbar	Alt-L	L + underbar
-left arrow	9F	apl_leftarrow	Alt-[	\ 
-left bracket	AD	apl_leftbracket	[	\ 
-left paren	4D*	apl_leftparen	(	\ 
-left shoe	9B	apl_leftshoe	Alt-z	\ 
-less	4C*	apl_less	<	\ 
-M underbar	54	apl_Munderbar	Alt-M	M + underbar
-N underbar	55	apl_Nunderbar	Alt-N	N + underbar
-not equal	BE	apl_notequal	Alt-8	equal + slash
-not greater	8C	apl_notgreater	Alt-4	less + equal
-not less	AE	apl_notless	Alt-6	greater + equal
-O underbar	56	apl_Ounderbar	Alt-O	O + underbar
-omega	B4	apl_omega	Alt-w	\ 
-overbar	A0	apl_overbar	Alt-2	\ 
-P underbar	57	apl_Punderbar	Alt-P	P + underbar
-plus	4E*	apl_plus	+	\ 
-Q underbar	58	apl_Qunderbar	Alt-Q	Q + underbar
-quad	90	apl_quad	Alt-l	\ 
-quad divide	EE	apl_quaddivide	\ 	quad + divide
-quad jot	73	apl_quadjot	\ 	quad + jot
-quad quote	DE	apl_quadquote	\ 	quad + quote
-quad slope	CE	apl_quadslope	\ 	quad + slope
-query	6F*	apl_query	?	\ 
-quote	7D*	apl_quote	'	\ 
-quote dot	DB	apl_quotedot	\ 	quote + dot
-R underbar	59	apl_Runderbar	Alt-R	R + underbar
-rho	B3	apl_rho	Alt-r	\ 
-right arrow	8F	apl_rightarrow	Alt-]	\ 
-right bracket	BD	apl_rightbracket	]	\ 
-right paren	5D*	apl_rightparen	)	\ 
-right shoe	9A	apl_rightshoe	Alt-x	\ 
-S underbar	62	apl_Sunderbar	Alt-S	S + underbar
-semicolon	5E*	apl_semicolon	;	\ 
-slash	61*	apl_slash	/	\ 
-slash bar	EA	apl_slashbar	\ 	slash + bar
-slope	B7	apl_slope	Alt-\e	\ 
-slope bar	EB	apl_slopebar	\ 	slope + bar
-squad	CC	apl_squad	\ 	quad + quad
-star	5C*	apl_star	*	\ 
-stile	BF	apl_stile	Alt-|	\ 
-T underbar	63	apl_Tunderbar	Alt-T	T + underbar
-tilde	80	apl_tilde	Alt-~	\ 
-times	B6	apl_times	Alt-=	\ 
-U underbar	64	apl_Uunderbar	Alt-U	U + underbar
-underbar	6D*	apl_underbar	"_"	\ 
-up arrow	8A	apl_uparrow	Alt-y	\ 
-up caret	71	apl_upcaret	Alt-0	\ 
-up caret tilde	CA	apl_upcarettilde	\ 	up caret + tilde
-up shoe	AA	apl_upshoe	Alt-c	\ 
-up shoe jot	DF	apl_upshoejot	\ 	up shoe + jot
-up stile	8D	apl_upstile	Alt-s	\ 
-up tack	BC	apl_uptack	Alt-n	\ 
-up tack jot	EF	apl_uptackjot	\ 	up tack + jot
-V underbar	65	apl_Vunderbar	Alt-V	V + underbar
-W underbar	66	apl_Wunderbar	Alt-W	W + underbar
-X underbar	67	apl_Xunderbar	Alt-X	X + underbar
-Y underbar	68	apl_Yunderbar	Alt-Y	Y + underbar
-Z underbar	69	apl_Zunderbar	Alt-Z	Z + underbar
+T{
+.na
+.nh
+A underbar
+T}	T{
+.na
+.nh
+41
+T}	T{
+.na
+.nh
+apl_Aunderbar
+T}	T{
+.na
+.nh
+Alt-A
+T}	T{
+.na
+.nh
+A + underbar
+T}
+T{
+.na
+.nh
+alpha
+T}	T{
+.na
+.nh
+B0
+T}	T{
+.na
+.nh
+apl_alpha
+T}	T{
+.na
+.nh
+Alt-a
+T}	T{
+.na
+.nh
+\ 
+T}
+T{
+.na
+.nh
+B underbar
+T}	T{
+.na
+.nh
+42
+T}	T{
+.na
+.nh
+apl_Bunderbar
+T}	T{
+.na
+.nh
+Alt-B
+T}	T{
+.na
+.nh
+B + underbar
+T}
+T{
+.na
+.nh
+bar
+T}	T{
+.na
+.nh
+60*
+T}	T{
+.na
+.nh
+apl_bar
+T}	T{
+.na
+.nh
+-
+T}	T{
+.na
+.nh
+\ 
+T}
+T{
+.na
+.nh
+brace left
+T}	T{
+.na
+.nh
+C0
+T}	T{
+.na
+.nh
+apl_braceleft
+T}	T{
+.na
+.nh
+Alt-{
+T}	T{
+.na
+.nh
+\ 
+T}
+T{
+.na
+.nh
+brace right
+T}	T{
+.na
+.nh
+D0
+T}	T{
+.na
+.nh
+apl_braceright
+T}	T{
+.na
+.nh
+Alt-}
+T}	T{
+.na
+.nh
+\ 
+T}
+T{
+.na
+.nh
+C underbar
+T}	T{
+.na
+.nh
+43
+T}	T{
+.na
+.nh
+apl_Cunderbar
+T}	T{
+.na
+.nh
+Alt-C
+T}	T{
+.na
+.nh
+C + underbar
+T}
+T{
+.na
+.nh
+circle
+T}	T{
+.na
+.nh
+9D
+T}	T{
+.na
+.nh
+apl_circle
+T}	T{
+.na
+.nh
+Alt-o
+T}	T{
+.na
+.nh
+\ 
+T}
+T{
+.na
+.nh
+circle bar
+T}	T{
+.na
+.nh
+ED
+T}	T{
+.na
+.nh
+apl_circlebar
+T}	T{
+.na
+.nh
+\ 
+T}	T{
+.na
+.nh
+circle + bar
+T}
+T{
+.na
+.nh
+circle slope
+T}	T{
+.na
+.nh
+CF
+T}	T{
+.na
+.nh
+apl_circleslope
+T}	T{
+.na
+.nh
+\ 
+T}	T{
+.na
+.nh
+circle + slope
+T}
+T{
+.na
+.nh
+circle star
+T}	T{
+.na
+.nh
+FD
+T}	T{
+.na
+.nh
+apl_circlestar
+T}	T{
+.na
+.nh
+\ 
+T}	T{
+.na
+.nh
+circle + star
+T}
+T{
+.na
+.nh
+circle stile
+T}	T{
+.na
+.nh
+CD
+T}	T{
+.na
+.nh
+apl_circlestile
+T}	T{
+.na
+.nh
+\ 
+T}	T{
+.na
+.nh
+circle + stile
+T}
+T{
+.na
+.nh
+colon
+T}	T{
+.na
+.nh
+7A*
+T}	T{
+.na
+.nh
+apl_colon
+T}	T{
+.na
+.nh
+:
+T}	T{
+.na
+.nh
+\ 
+T}
+T{
+.na
+.nh
+comma
+T}	T{
+.na
+.nh
+6B*
+T}	T{
+.na
+.nh
+apl_comma
+T}	T{
+.na
+.nh
+,
+T}	T{
+.na
+.nh
+\ 
+T}
+T{
+.na
+.nh
+comma bar (S)
+T}	T{
+.na
+.nh
+E5
+T}	T{
+.na
+.nh
+apl_commabar
+T}	T{
+.na
+.nh
+\ 
+T}	T{
+.na
+.nh
+comma + bar
+T}
+T{
+.na
+.nh
+D underbar
+T}	T{
+.na
+.nh
+44
+T}	T{
+.na
+.nh
+apl_Dunderbar
+T}	T{
+.na
+.nh
+Alt-D
+T}	T{
+.na
+.nh
+D + underbar
+T}
+T{
+.na
+.nh
+del
+T}	T{
+.na
+.nh
+BA
+T}	T{
+.na
+.nh
+apl_del
+T}	T{
+.na
+.nh
+Alt-g
+T}	T{
+.na
+.nh
+\ 
+T}
+T{
+.na
+.nh
+del stile
+T}	T{
+.na
+.nh
+DC
+T}	T{
+.na
+.nh
+apl_delstile
+T}	T{
+.na
+.nh
+\ 
+T}	T{
+.na
+.nh
+del + stile
+T}
+T{
+.na
+.nh
+del tilde
+T}	T{
+.na
+.nh
+FB
+T}	T{
+.na
+.nh
+apl_deltilde
+T}	T{
+.na
+.nh
+\ 
+T}	T{
+.na
+.nh
+del + tilde
+T}
+T{
+.na
+.nh
+delta
+T}	T{
+.na
+.nh
+BB
+T}	T{
+.na
+.nh
+apl_delta
+T}	T{
+.na
+.nh
+Alt-h
+T}	T{
+.na
+.nh
+\ 
+T}
+T{
+.na
+.nh
+delta stile
+T}	T{
+.na
+.nh
+DD
+T}	T{
+.na
+.nh
+apl_deltastile
+T}	T{
+.na
+.nh
+\ 
+T}	T{
+.na
+.nh
+delta + stile
+T}
+T{
+.na
+.nh
+delta underbar
+T}	T{
+.na
+.nh
+FC
+T}	T{
+.na
+.nh
+apl_deltaunderbar
+T}	T{
+.na
+.nh
+\ 
+T}	T{
+.na
+.nh
+delta + underbar
+T}
+T{
+.na
+.nh
+diamond
+T}	T{
+.na
+.nh
+70
+T}	T{
+.na
+.nh
+apl_diamond
+T}	T{
+.na
+.nh
+\ 
+T}	T{
+.na
+.nh
+up caret + down caret
+T}
+T{
+.na
+.nh
+dieresis
+T}	T{
+.na
+.nh
+72
+T}	T{
+.na
+.nh
+apl_dieresis
+T}	T{
+.na
+.nh
+Alt-1
+T}	T{
+.na
+.nh
+\ 
+T}
+T{
+.na
+.nh
+dieresis circle (S)
+T}	T{
+.na
+.nh
+E5
+T}	T{
+.na
+.nh
+apl_dieresiscircle
+T}	T{
+.na
+.nh
+\ 
+T}	T{
+.na
+.nh
+dieresis + circle
+T}
+T{
+.na
+.nh
+dieresis dot
+T}	T{
+.na
+.nh
+EC
+T}	T{
+.na
+.nh
+apl_dieresisdot
+T}	T{
+.na
+.nh
+\ 
+T}	T{
+.na
+.nh
+dieresis + dot
+T}
+T{
+.na
+.nh
+dieresis jot (S)
+T}	T{
+.na
+.nh
+E4
+T}	T{
+.na
+.nh
+apl_dieresisjot
+T}	T{
+.na
+.nh
+\ 
+T}	T{
+.na
+.nh
+dieresis + jot
+T}
+T{
+.na
+.nh
+divide
+T}	T{
+.na
+.nh
+B8
+T}	T{
+.na
+.nh
+apl_divide
+T}	T{
+.na
+.nh
+Alt-+
+T}	T{
+.na
+.nh
+\ 
+T}
+T{
+.na
+.nh
+dot
+T}	T{
+.na
+.nh
+4B*
+T}	T{
+.na
+.nh
+apl_dot
+T}	T{
+.na
+.nh
+.
+T}	T{
+.na
+.nh
+\ 
+T}
+T{
+.na
+.nh
+down arrow
+T}	T{
+.na
+.nh
+8B
+T}	T{
+.na
+.nh
+apl_downarrow
+T}	T{
+.na
+.nh
+Alt-u
+T}	T{
+.na
+.nh
+\ 
+T}
+T{
+.na
+.nh
+down caret
+T}	T{
+.na
+.nh
+78
+T}	T{
+.na
+.nh
+apl_downcaret
+T}	T{
+.na
+.nh
+Alt-9
+T}	T{
+.na
+.nh
+\ 
+T}
+T{
+.na
+.nh
+down caret tilde
+T}	T{
+.na
+.nh
+CB
+T}	T{
+.na
+.nh
+apl_downcarettilde
+T}	T{
+.na
+.nh
+\ 
+T}	T{
+.na
+.nh
+down caret + tilde
+T}
+T{
+.na
+.nh
+down shoe
+T}	T{
+.na
+.nh
+AB
+T}	T{
+.na
+.nh
+apl_downshoe
+T}	T{
+.na
+.nh
+Alt-v
+T}	T{
+.na
+.nh
+\ 
+T}
+T{
+.na
+.nh
+down stile
+T}	T{
+.na
+.nh
+8E
+T}	T{
+.na
+.nh
+apl_downstile
+T}	T{
+.na
+.nh
+Alt-d
+T}	T{
+.na
+.nh
+\ 
+T}
+T{
+.na
+.nh
+down tack
+T}	T{
+.na
+.nh
+AC
+T}	T{
+.na
+.nh
+apl_downtack
+T}	T{
+.na
+.nh
+Alt-b
+T}	T{
+.na
+.nh
+\ 
+T}
+T{
+.na
+.nh
+down tack jot
+T}	T{
+.na
+.nh
+FE
+T}	T{
+.na
+.nh
+apl_downtackjot
+T}	T{
+.na
+.nh
+\ 
+T}	T{
+.na
+.nh
+down tack + jot
+T}
+T{
+.na
+.nh
+down tack up tack
+T}	T{
+.na
+.nh
+DA
+T}	T{
+.na
+.nh
+apl_downtackuptack
+T}	T{
+.na
+.nh
+\ 
+T}	T{
+.na
+.nh
+down tack + up tack
+T}
+T{
+.na
+.nh
+E underbar
+T}	T{
+.na
+.nh
+45
+T}	T{
+.na
+.nh
+apl_Eunderbar
+T}	T{
+.na
+.nh
+Alt-E
+T}	T{
+.na
+.nh
+E + underbar
+T}
+T{
+.na
+.nh
+epsilon
+T}	T{
+.na
+.nh
+B1
+T}	T{
+.na
+.nh
+apl_epsilon
+T}	T{
+.na
+.nh
+Alt-e
+T}	T{
+.na
+.nh
+\ 
+T}
+T{
+.na
+.nh
+epsilon underbar
+T}	T{
+.na
+.nh
+75
+T}	T{
+.na
+.nh
+apl_epsilonunderbar
+T}	T{
+.na
+.nh
+\ 
+T}	T{
+.na
+.nh
+epsilon + underbar
+T}
+T{
+.na
+.nh
+equal
+T}	T{
+.na
+.nh
+7E*
+T}	T{
+.na
+.nh
+apl_equal
+T}	T{
+.na
+.nh
+"="
+T}	T{
+.na
+.nh
+\ 
+T}
+T{
+.na
+.nh
+equal underbar
+T}	T{
+.na
+.nh
+E1
+T}	T{
+.na
+.nh
+apl_equalunderbar
+T}	T{
+.na
+.nh
+\ 
+T}	T{
+.na
+.nh
+equal + underbar
+T}
+T{
+.na
+.nh
+euro (S)
+T}	T{
+.na
+.nh
+E7
+T}	T{
+.na
+.nh
+apl_euro
+T}	T{
+.na
+.nh
+\ 
+T}	T{
+.na
+.nh
+C + =
+T}
+T{
+.na
+.nh
+F underbar
+T}	T{
+.na
+.nh
+46
+T}	T{
+.na
+.nh
+apl_Funderbar
+T}	T{
+.na
+.nh
+Alt-F
+T}	T{
+.na
+.nh
+F + underbar
+T}
+T{
+.na
+.nh
+G underbar
+T}	T{
+.na
+.nh
+47
+T}	T{
+.na
+.nh
+apl_Gunderbar
+T}	T{
+.na
+.nh
+Alt-G
+T}	T{
+.na
+.nh
+G + underbar
+T}
+T{
+.na
+.nh
+greater
+T}	T{
+.na
+.nh
+6E*
+T}	T{
+.na
+.nh
+apl_greater
+T}	T{
+.na
+.nh
+>
+T}	T{
+.na
+.nh
+\ 
+T}
+T{
+.na
+.nh
+H underbar
+T}	T{
+.na
+.nh
+48
+T}	T{
+.na
+.nh
+apl_Hunderbar
+T}	T{
+.na
+.nh
+Alt-H
+T}	T{
+.na
+.nh
+H + underbar
+T}
+T{
+.na
+.nh
+I underbar
+T}	T{
+.na
+.nh
+49
+T}	T{
+.na
+.nh
+apl_Iunderbar
+T}	T{
+.na
+.nh
+Alt-I
+T}	T{
+.na
+.nh
+I + underbar
+T}
+T{
+.na
+.nh
+iota
+T}	T{
+.na
+.nh
+B2
+T}	T{
+.na
+.nh
+apl_iota
+T}	T{
+.na
+.nh
+Alt-i
+T}	T{
+.na
+.nh
+\ 
+T}
+T{
+.na
+.nh
+iota underbar
+T}	T{
+.na
+.nh
+74
+T}	T{
+.na
+.nh
+apl_iotaunderbar
+T}	T{
+.na
+.nh
+\ 
+T}	T{
+.na
+.nh
+iota + underbar
+T}
+T{
+.na
+.nh
+J underbar
+T}	T{
+.na
+.nh
+51
+T}	T{
+.na
+.nh
+apl_Junderbar
+T}	T{
+.na
+.nh
+Alt-J
+T}	T{
+.na
+.nh
+J + underbar
+T}
+T{
+.na
+.nh
+jot
+T}	T{
+.na
+.nh
+AF
+T}	T{
+.na
+.nh
+apl_jot
+T}	T{
+.na
+.nh
+alt-j
+T}	T{
+.na
+.nh
+\ 
+T}
+T{
+.na
+.nh
+K underbar
+T}	T{
+.na
+.nh
+52
+T}	T{
+.na
+.nh
+apl_Kunderbar
+T}	T{
+.na
+.nh
+Alt-K
+T}	T{
+.na
+.nh
+K + underbar
+T}
+T{
+.na
+.nh
+L underbar
+T}	T{
+.na
+.nh
+53
+T}	T{
+.na
+.nh
+apl_Lunderbar
+T}	T{
+.na
+.nh
+Alt-L
+T}	T{
+.na
+.nh
+L + underbar
+T}
+T{
+.na
+.nh
+left arrow
+T}	T{
+.na
+.nh
+9F
+T}	T{
+.na
+.nh
+apl_leftarrow
+T}	T{
+.na
+.nh
+Alt-[
+T}	T{
+.na
+.nh
+\ 
+T}
+T{
+.na
+.nh
+left bracket
+T}	T{
+.na
+.nh
+AD
+T}	T{
+.na
+.nh
+apl_leftbracket
+T}	T{
+.na
+.nh
+[
+T}	T{
+.na
+.nh
+\ 
+T}
+T{
+.na
+.nh
+left paren
+T}	T{
+.na
+.nh
+4D*
+T}	T{
+.na
+.nh
+apl_leftparen
+T}	T{
+.na
+.nh
+(
+T}	T{
+.na
+.nh
+\ 
+T}
+T{
+.na
+.nh
+left shoe
+T}	T{
+.na
+.nh
+9B
+T}	T{
+.na
+.nh
+apl_leftshoe
+T}	T{
+.na
+.nh
+Alt-z
+T}	T{
+.na
+.nh
+\ 
+T}
+T{
+.na
+.nh
+less
+T}	T{
+.na
+.nh
+4C*
+T}	T{
+.na
+.nh
+apl_less
+T}	T{
+.na
+.nh
+<
+T}	T{
+.na
+.nh
+\ 
+T}
+T{
+.na
+.nh
+M underbar
+T}	T{
+.na
+.nh
+54
+T}	T{
+.na
+.nh
+apl_Munderbar
+T}	T{
+.na
+.nh
+Alt-M
+T}	T{
+.na
+.nh
+M + underbar
+T}
+T{
+.na
+.nh
+N underbar
+T}	T{
+.na
+.nh
+55
+T}	T{
+.na
+.nh
+apl_Nunderbar
+T}	T{
+.na
+.nh
+Alt-N
+T}	T{
+.na
+.nh
+N + underbar
+T}
+T{
+.na
+.nh
+not equal
+T}	T{
+.na
+.nh
+BE
+T}	T{
+.na
+.nh
+apl_notequal
+T}	T{
+.na
+.nh
+Alt-8
+T}	T{
+.na
+.nh
+equal + slash
+T}
+T{
+.na
+.nh
+not greater
+T}	T{
+.na
+.nh
+8C
+T}	T{
+.na
+.nh
+apl_notgreater
+T}	T{
+.na
+.nh
+Alt-4
+T}	T{
+.na
+.nh
+less + equal
+T}
+T{
+.na
+.nh
+not less
+T}	T{
+.na
+.nh
+AE
+T}	T{
+.na
+.nh
+apl_notless
+T}	T{
+.na
+.nh
+Alt-6
+T}	T{
+.na
+.nh
+greater + equal
+T}
+T{
+.na
+.nh
+O underbar
+T}	T{
+.na
+.nh
+56
+T}	T{
+.na
+.nh
+apl_Ounderbar
+T}	T{
+.na
+.nh
+Alt-O
+T}	T{
+.na
+.nh
+O + underbar
+T}
+T{
+.na
+.nh
+omega
+T}	T{
+.na
+.nh
+B4
+T}	T{
+.na
+.nh
+apl_omega
+T}	T{
+.na
+.nh
+Alt-w
+T}	T{
+.na
+.nh
+\ 
+T}
+T{
+.na
+.nh
+overbar
+T}	T{
+.na
+.nh
+A0
+T}	T{
+.na
+.nh
+apl_overbar
+T}	T{
+.na
+.nh
+Alt-2
+T}	T{
+.na
+.nh
+\ 
+T}
+T{
+.na
+.nh
+P underbar
+T}	T{
+.na
+.nh
+57
+T}	T{
+.na
+.nh
+apl_Punderbar
+T}	T{
+.na
+.nh
+Alt-P
+T}	T{
+.na
+.nh
+P + underbar
+T}
+T{
+.na
+.nh
+plus
+T}	T{
+.na
+.nh
+4E*
+T}	T{
+.na
+.nh
+apl_plus
+T}	T{
+.na
+.nh
++
+T}	T{
+.na
+.nh
+\ 
+T}
+T{
+.na
+.nh
+Q underbar
+T}	T{
+.na
+.nh
+58
+T}	T{
+.na
+.nh
+apl_Qunderbar
+T}	T{
+.na
+.nh
+Alt-Q
+T}	T{
+.na
+.nh
+Q + underbar
+T}
+T{
+.na
+.nh
+quad
+T}	T{
+.na
+.nh
+90
+T}	T{
+.na
+.nh
+apl_quad
+T}	T{
+.na
+.nh
+Alt-l
+T}	T{
+.na
+.nh
+\ 
+T}
+T{
+.na
+.nh
+quad divide
+T}	T{
+.na
+.nh
+EE
+T}	T{
+.na
+.nh
+apl_quaddivide
+T}	T{
+.na
+.nh
+\ 
+T}	T{
+.na
+.nh
+quad + divide
+T}
+T{
+.na
+.nh
+quad jot
+T}	T{
+.na
+.nh
+73
+T}	T{
+.na
+.nh
+apl_quadjot
+T}	T{
+.na
+.nh
+\ 
+T}	T{
+.na
+.nh
+quad + jot
+T}
+T{
+.na
+.nh
+quad quote
+T}	T{
+.na
+.nh
+DE
+T}	T{
+.na
+.nh
+apl_quadquote
+T}	T{
+.na
+.nh
+\ 
+T}	T{
+.na
+.nh
+quad + quote
+T}
+T{
+.na
+.nh
+quad slope
+T}	T{
+.na
+.nh
+CE
+T}	T{
+.na
+.nh
+apl_quadslope
+T}	T{
+.na
+.nh
+\ 
+T}	T{
+.na
+.nh
+quad + slope
+T}
+T{
+.na
+.nh
+query
+T}	T{
+.na
+.nh
+6F*
+T}	T{
+.na
+.nh
+apl_query
+T}	T{
+.na
+.nh
+?
+T}	T{
+.na
+.nh
+\ 
+T}
+T{
+.na
+.nh
+quote
+T}	T{
+.na
+.nh
+7D*
+T}	T{
+.na
+.nh
+apl_quote
+T}	T{
+.na
+.nh
+'
+T}	T{
+.na
+.nh
+\ 
+T}
+T{
+.na
+.nh
+quote dot
+T}	T{
+.na
+.nh
+DB
+T}	T{
+.na
+.nh
+apl_quotedot
+T}	T{
+.na
+.nh
+\ 
+T}	T{
+.na
+.nh
+quote + dot
+T}
+T{
+.na
+.nh
+R underbar
+T}	T{
+.na
+.nh
+59
+T}	T{
+.na
+.nh
+apl_Runderbar
+T}	T{
+.na
+.nh
+Alt-R
+T}	T{
+.na
+.nh
+R + underbar
+T}
+T{
+.na
+.nh
+rho
+T}	T{
+.na
+.nh
+B3
+T}	T{
+.na
+.nh
+apl_rho
+T}	T{
+.na
+.nh
+Alt-r
+T}	T{
+.na
+.nh
+\ 
+T}
+T{
+.na
+.nh
+right arrow
+T}	T{
+.na
+.nh
+8F
+T}	T{
+.na
+.nh
+apl_rightarrow
+T}	T{
+.na
+.nh
+Alt-]
+T}	T{
+.na
+.nh
+\ 
+T}
+T{
+.na
+.nh
+right bracket
+T}	T{
+.na
+.nh
+BD
+T}	T{
+.na
+.nh
+apl_rightbracket
+T}	T{
+.na
+.nh
+]
+T}	T{
+.na
+.nh
+\ 
+T}
+T{
+.na
+.nh
+right paren
+T}	T{
+.na
+.nh
+5D*
+T}	T{
+.na
+.nh
+apl_rightparen
+T}	T{
+.na
+.nh
+)
+T}	T{
+.na
+.nh
+\ 
+T}
+T{
+.na
+.nh
+right shoe
+T}	T{
+.na
+.nh
+9A
+T}	T{
+.na
+.nh
+apl_rightshoe
+T}	T{
+.na
+.nh
+Alt-x
+T}	T{
+.na
+.nh
+\ 
+T}
+T{
+.na
+.nh
+S underbar
+T}	T{
+.na
+.nh
+62
+T}	T{
+.na
+.nh
+apl_Sunderbar
+T}	T{
+.na
+.nh
+Alt-S
+T}	T{
+.na
+.nh
+S + underbar
+T}
+T{
+.na
+.nh
+semicolon
+T}	T{
+.na
+.nh
+5E*
+T}	T{
+.na
+.nh
+apl_semicolon
+T}	T{
+.na
+.nh
+;
+T}	T{
+.na
+.nh
+\ 
+T}
+T{
+.na
+.nh
+slash
+T}	T{
+.na
+.nh
+61*
+T}	T{
+.na
+.nh
+apl_slash
+T}	T{
+.na
+.nh
+/
+T}	T{
+.na
+.nh
+\ 
+T}
+T{
+.na
+.nh
+slash bar
+T}	T{
+.na
+.nh
+EA
+T}	T{
+.na
+.nh
+apl_slashbar
+T}	T{
+.na
+.nh
+\ 
+T}	T{
+.na
+.nh
+slash + bar
+T}
+T{
+.na
+.nh
+slope
+T}	T{
+.na
+.nh
+B7
+T}	T{
+.na
+.nh
+apl_slope
+T}	T{
+.na
+.nh
+Alt-\e
+T}	T{
+.na
+.nh
+\ 
+T}
+T{
+.na
+.nh
+slope bar
+T}	T{
+.na
+.nh
+EB
+T}	T{
+.na
+.nh
+apl_slopebar
+T}	T{
+.na
+.nh
+\ 
+T}	T{
+.na
+.nh
+slope + bar
+T}
+T{
+.na
+.nh
+squad
+T}	T{
+.na
+.nh
+CC
+T}	T{
+.na
+.nh
+apl_squad
+T}	T{
+.na
+.nh
+\ 
+T}	T{
+.na
+.nh
+quad + quad
+T}
+T{
+.na
+.nh
+star
+T}	T{
+.na
+.nh
+5C*
+T}	T{
+.na
+.nh
+apl_star
+T}	T{
+.na
+.nh
+*
+T}	T{
+.na
+.nh
+\ 
+T}
+T{
+.na
+.nh
+stile
+T}	T{
+.na
+.nh
+BF
+T}	T{
+.na
+.nh
+apl_stile
+T}	T{
+.na
+.nh
+Alt-|
+T}	T{
+.na
+.nh
+\ 
+T}
+T{
+.na
+.nh
+T underbar
+T}	T{
+.na
+.nh
+63
+T}	T{
+.na
+.nh
+apl_Tunderbar
+T}	T{
+.na
+.nh
+Alt-T
+T}	T{
+.na
+.nh
+T + underbar
+T}
+T{
+.na
+.nh
+tilde
+T}	T{
+.na
+.nh
+80
+T}	T{
+.na
+.nh
+apl_tilde
+T}	T{
+.na
+.nh
+Alt-~
+T}	T{
+.na
+.nh
+\ 
+T}
+T{
+.na
+.nh
+times
+T}	T{
+.na
+.nh
+B6
+T}	T{
+.na
+.nh
+apl_times
+T}	T{
+.na
+.nh
+Alt-=
+T}	T{
+.na
+.nh
+\ 
+T}
+T{
+.na
+.nh
+U underbar
+T}	T{
+.na
+.nh
+64
+T}	T{
+.na
+.nh
+apl_Uunderbar
+T}	T{
+.na
+.nh
+Alt-U
+T}	T{
+.na
+.nh
+U + underbar
+T}
+T{
+.na
+.nh
+underbar
+T}	T{
+.na
+.nh
+6D*
+T}	T{
+.na
+.nh
+apl_underbar
+T}	T{
+.na
+.nh
+"_"
+T}	T{
+.na
+.nh
+\ 
+T}
+T{
+.na
+.nh
+up arrow
+T}	T{
+.na
+.nh
+8A
+T}	T{
+.na
+.nh
+apl_uparrow
+T}	T{
+.na
+.nh
+Alt-y
+T}	T{
+.na
+.nh
+\ 
+T}
+T{
+.na
+.nh
+up caret
+T}	T{
+.na
+.nh
+71
+T}	T{
+.na
+.nh
+apl_upcaret
+T}	T{
+.na
+.nh
+Alt-0
+T}	T{
+.na
+.nh
+\ 
+T}
+T{
+.na
+.nh
+up caret tilde
+T}	T{
+.na
+.nh
+CA
+T}	T{
+.na
+.nh
+apl_upcarettilde
+T}	T{
+.na
+.nh
+\ 
+T}	T{
+.na
+.nh
+up caret + tilde
+T}
+T{
+.na
+.nh
+up shoe
+T}	T{
+.na
+.nh
+AA
+T}	T{
+.na
+.nh
+apl_upshoe
+T}	T{
+.na
+.nh
+Alt-c
+T}	T{
+.na
+.nh
+\ 
+T}
+T{
+.na
+.nh
+up shoe jot
+T}	T{
+.na
+.nh
+DF
+T}	T{
+.na
+.nh
+apl_upshoejot
+T}	T{
+.na
+.nh
+\ 
+T}	T{
+.na
+.nh
+up shoe + jot
+T}
+T{
+.na
+.nh
+up stile
+T}	T{
+.na
+.nh
+8D
+T}	T{
+.na
+.nh
+apl_upstile
+T}	T{
+.na
+.nh
+Alt-s
+T}	T{
+.na
+.nh
+\ 
+T}
+T{
+.na
+.nh
+up tack
+T}	T{
+.na
+.nh
+BC
+T}	T{
+.na
+.nh
+apl_uptack
+T}	T{
+.na
+.nh
+Alt-n
+T}	T{
+.na
+.nh
+\ 
+T}
+T{
+.na
+.nh
+up tack jot
+T}	T{
+.na
+.nh
+EF
+T}	T{
+.na
+.nh
+apl_uptackjot
+T}	T{
+.na
+.nh
+\ 
+T}	T{
+.na
+.nh
+up tack + jot
+T}
+T{
+.na
+.nh
+V underbar
+T}	T{
+.na
+.nh
+65
+T}	T{
+.na
+.nh
+apl_Vunderbar
+T}	T{
+.na
+.nh
+Alt-V
+T}	T{
+.na
+.nh
+V + underbar
+T}
+T{
+.na
+.nh
+W underbar
+T}	T{
+.na
+.nh
+66
+T}	T{
+.na
+.nh
+apl_Wunderbar
+T}	T{
+.na
+.nh
+Alt-W
+T}	T{
+.na
+.nh
+W + underbar
+T}
+T{
+.na
+.nh
+X underbar
+T}	T{
+.na
+.nh
+67
+T}	T{
+.na
+.nh
+apl_Xunderbar
+T}	T{
+.na
+.nh
+Alt-X
+T}	T{
+.na
+.nh
+X + underbar
+T}
+T{
+.na
+.nh
+Y underbar
+T}	T{
+.na
+.nh
+68
+T}	T{
+.na
+.nh
+apl_Yunderbar
+T}	T{
+.na
+.nh
+Alt-Y
+T}	T{
+.na
+.nh
+Y + underbar
+T}
+T{
+.na
+.nh
+Z underbar
+T}	T{
+.na
+.nh
+69
+T}	T{
+.na
+.nh
+apl_Zunderbar
+T}	T{
+.na
+.nh
+Alt-Z
+T}	T{
+.na
+.nh
+Z + underbar
+T}
 .TE
 .SH "5250 (AS/400) SUPPORT"
 \fBx3270\fP provides limited support for 5250 (AS/400) emulation.
@@ -1381,4 +5619,4 @@ notice.
 .RE
 5250 Emulation Code Copyright Minolta (Schweiz) AG, Beat Rubischon.
 .SH "VERSION"
-x3270 3.2.17
+x3270 3.2.18
