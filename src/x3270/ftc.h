@@ -28,6 +28,7 @@ enum ft_state {
 	FT_ABORT_SENT	/* Abort sent; awaiting response */
 	};
 extern enum ft_state ft_state;
+extern Boolean remap_flag;
 
 extern void ft_aborting(void);
 extern void ft_complete(const char *errmsg);

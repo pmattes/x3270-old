@@ -237,7 +237,7 @@ dft_data_insert(struct data_buffer *data_bufr)
 		/* Write the data out to the file. */
 		int rv = 1;
 
-		if (ascii_flag) {
+		if (ascii_flag && remap_flag) {
 			/* Filter. */
 			unsigned char *s = (unsigned char *)data_bufr->data;
 			unsigned len = my_length;
@@ -374,6 +374,16 @@ dft_get_request(void)
 					    ft_local_file) != CN) {
 					/* We got a line. */
 
+					/* Filter. */
+					{
+						unsigned char *s = bufptr;
+
+						while (*s) {
+							*s = asc2ft[*s];
+							s++;
+						}
+					}
+
 					/* Decrement left. */
 					numbytes -= (strlen((char *)bufptr)+1);
 
@@ -403,6 +413,16 @@ dft_get_request(void)
 			    	/* Not crlf, do binary read. */
 				numread = fread(bufptr, 1, numbytes,
 				    ft_local_file);
+				if (ascii_flag && remap_flag) {
+					unsigned char *s = bufptr;
+					int i = numread;
+
+					while (i) {
+						*s = asc2ft[*s];
+						s++;
+						i--;
+					}
+				}
 				bufptr += numread;
 				numbytes -= numread;
 			}

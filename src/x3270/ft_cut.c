@@ -175,6 +175,8 @@ upload_convert(unsigned char *buf, int len)
 		c = conv[quadrant].xlate[ix];
 		if (ascii_flag && cr_flag && (c == '\r' || c == 0x1a))
 			continue;
+		if (ascii_flag && remap_flag)
+			c = ft2asc[c];
 		*ob++ = c;
 	}
 
@@ -203,6 +205,10 @@ download_convert(unsigned const char *buf, unsigned len, unsigned char *xobuf)
 			*ob++ = XLATE_NULL;
 			continue;
 		}
+
+		/* Translate. */
+		if (ascii_flag && remap_flag)
+			c = asc2ft[c];
 
 		/* Quadrant already defined. */
 		if (quadrant >= 0) {

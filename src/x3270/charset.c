@@ -62,6 +62,10 @@ charset_init(char *csname)
 	/* Set up the translation tables. */
 	(void) memcpy((char *)ebc2cg, (char *)ebc2cg0, 256);
 	(void) memcpy((char *)cg2ebc, (char *)cg2ebc0, 256);
+#if defined(X3270_FT) /*[*/
+	(void) memcpy((char *)ft2asc, (char *)ft2asc0, 256);
+	(void) memcpy((char *)asc2ft, (char *)asc2ft0, 256);
+#endif /*]*/
 	clear_xks();
 	remap_chars(NewString(cs));
 	return True;
@@ -128,6 +132,10 @@ remap_chars(char *spec)
 			break;
 		}
 		if (iso <= 0xff) {
+#if defined(X3270_FT) /*[*/
+			unsigned char aa;
+#endif /*]*/
+
 			cg = asc2cg[iso];
 			if (cg2asc[cg] == iso) {	/* well-defined */
 				ebc2cg[ebc] = cg;
@@ -135,6 +143,19 @@ remap_chars(char *spec)
 			} else {			/* into a hole */
 				ebc2cg[ebc] = CG_boxsolid;
 			}
+#if defined(X3270_FT) /*[*/
+			/*
+			 * Change the file transfer translation table as well.
+			 * This works properly with the US-English character
+			 * set and the bracket character set (which are the
+			 * same, as far as the host is concerned), but has not
+			 * yet been tried out with hosts that genuinely think
+			 * they are using a non-English character set.
+			 */
+			aa = asc2ft[ebc2asc[ebc]];
+			ft2asc[aa] = iso;
+			asc2ft[iso] = aa;
+#endif /*]*/
 		} else {
 			add_xk(iso, (KeySym)cg2asc[ebc2cg[ebc]]);
 		}

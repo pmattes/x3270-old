@@ -74,6 +74,7 @@ char *ft_host_filename;			/* Host file to transfer to/from */
 FILE *ft_local_file = (FILE *)NULL;	/* File descriptor for local file */
 Boolean ascii_flag = True;		/* Convert to ascii */
 Boolean cr_flag = True;			/* Add crlf to each line */
+Boolean remap_flag = True;		/* Remap ASCII<->EBCDIC */
 unsigned long ft_length = 0;		/* Length of transfer */
 
 /* Statics. */
@@ -85,6 +86,7 @@ static Widget send_toggle, receive_toggle;
 static Widget vm_toggle, tso_toggle;
 static Widget ascii_toggle, binary_toggle;
 static Widget cr_widget;
+static Widget remap_widget;
 #endif /*]*/
 
 static Boolean receive_flag = True;	/* Current transfer is receive */
@@ -197,6 +199,7 @@ static void text_callback(Widget w, XtPointer client_data, XtPointer call_data);
 static void toggle_append(Widget w, XtPointer client_data, XtPointer call_data);
 static void toggle_ascii(Widget w, XtPointer client_data, XtPointer call_data);
 static void toggle_cr(Widget w, XtPointer client_data, XtPointer call_data);
+static void toggle_remap(Widget w, XtPointer client_data, XtPointer call_data);
 static void toggle_receive(Widget w, XtPointer client_data,
     XtPointer call_data);
 static void toggle_vm(Widget w, XtPointer client_data, XtPointer call_data);
@@ -584,6 +587,22 @@ ft_popup_init(void)
 	    BN, False,
 	    BN, False);
 
+	/* Create remap toggle. */
+	remap_widget = XtVaCreateManagedWidget(
+	    "remap", commandWidgetClass, ft_dialog,
+	    XtNfromVert, cr_widget,
+	    XtNfromHoriz, h_ref,
+	    XtNvertDistance, CLOSE_VGAP,
+	    XtNhorizDistance, COLUMN_GAP,
+	    XtNborderWidth, 0,
+	    NULL);
+	apply_bitmap(remap_widget, remap_flag ? dot : null);
+	XtAddCallback(remap_widget, XtNcallback, toggle_remap, NULL);
+	register_sensitivity(remap_widget,
+	    &ascii_flag, True,
+	    BN, False,
+	    BN, False);
+
 	/* Set up the Units group. */
 	units_label = XtVaCreateManagedWidget(
 	    "units", labelWidgetClass, ft_dialog,
@@ -841,7 +860,9 @@ toggle_ascii(Widget w unused, XtPointer client_data, XtPointer call_data unused)
 	mark_toggle(ascii_toggle, ascii_flag ? diamond : no_diamond);
 	mark_toggle(binary_toggle, ascii_flag ? no_diamond : diamond);
 	cr_flag = ascii_flag;
+	remap_flag = ascii_flag;
 	mark_toggle(cr_widget, cr_flag ? dot : null);
+	mark_toggle(remap_widget, remap_flag ? dot : null);
 	check_sensitivity(&ascii_flag);
 }
 
@@ -864,6 +885,17 @@ toggle_append(Widget w, XtPointer client_data unused,
 	append_flag = !append_flag;
 
 	mark_toggle(w, append_flag ? dot : null);
+}
+
+/* Remap option. */
+static void
+toggle_remap(Widget w, XtPointer client_data unused,
+	XtPointer call_data unused)
+{
+	/* Toggle Remap Flag */
+	remap_flag = !remap_flag;
+
+	mark_toggle(w, remap_flag ? dot : null);
 }
 
 /* TSO/VM option. */

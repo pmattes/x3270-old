@@ -40,8 +40,15 @@ It is intended to be the future development platform for x3270, with x3270
   when processing selections, select-pen emulation, and cursor movement.</li>
  <li>Stopped locking the keyboard for invalid select-pen operations.</li>
  <li>Changed the default visualSelect color to 6 (yellow).</li>
- <li>Save the emulator font in response to a WM_SAVE_YOURSELT message.</li>
+ <li>Save the emulator font in response to a WM_SAVE_YOURSELF message.</li>
  <li>Fixed a kybd.c build problem on X11R5.</li>
+ <li>Added translations ASCII file transfers, so square brackets, pipe
+  characters and anything from the upper half of the IOS 8859-1 character set
+  stand a better chance of coming through correctly.</li>
+ <li>Corrected a subtle problem in TN3270E option negotiation.</li>
+ <li>Improved SSCP-LU support.</li>
+ <li>Restored the operation of CUT-mode file transfer. (It had been disabled
+  early in the 3.2 development cycle.)</li>
 </ul>
 <h2>Changes in x3270 3.2.15, 26. December 2000</h2>
 <ul>

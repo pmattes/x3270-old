@@ -31,6 +31,8 @@
 #include "resources.h"
 
 #include "ctlrc.h"
+#include "ftc.h"
+#include "ft_cutc.h"
 #include "hostc.h"
 #include "kybdc.h"
 #include "macrosc.h"
@@ -1508,7 +1510,18 @@ ctlr_write_sscp_lu(unsigned char buf[], int buflen)
 	int i;
 	unsigned char *cp = buf;
 	int s_row;
+	unsigned char c;
+	int baddr;
+	unsigned char fa;
 
+	/*
+	 * The 3174 Functionl Description says that anything but NL, NULL, FM,
+	 * or DUP is to be displayed as a graphic.  However, to deal with
+	 * badly-behaved hosts, we filter out SF, IC and SBA sequences, and
+	 * we display other control codes as spaces.
+	 */
+
+	trace_ds("SSCP-LU data\n");
 	for (i = 0; i < buflen; cp++, i++) {
 		switch (*cp) {
 		case FCORDER_NL:
@@ -1524,16 +1537,57 @@ ctlr_write_sscp_lu(unsigned char buf[], int buflen)
 				INC_BA(buffer_addr);
 			}
 			break;
-#if 0
-		case FCORDER_NULL: /* perhaps redundant */
-			ctlr_add(buffer_addr, ebc2cg[0x40], default_cs);
+
+		case ORDER_SF:	/* some hosts forget their talking SSCP-LU */
+			cp++;
+			i++;
+			fa = ATTR2FA(*cp);
+			trace_ds(" StartField%s %s [translated to space]\n",
+			    rcba(buffer_addr), see_attr(fa));
+			ctlr_add(buffer_addr, CG_space, default_cs);
 			ctlr_add_fg(buffer_addr, default_fg);
 			ctlr_add_gr(buffer_addr, default_gr);
 			INC_BA(buffer_addr);
 			break;
-#endif
+		case ORDER_IC:
+			trace_ds(" InsertCursor%s [ignored]\n",
+			    rcba(buffer_addr));
+			break;
+		case ORDER_SBA:
+			baddr = DECODE_BADDR(*(cp+1), *(cp+2));
+			trace_ds(" SetBufferAddress%s [ignored]\n", rcba(baddr));
+			cp += 2;
+			i += 2;
+			break;
+
+		case ORDER_GE:
+			cp++;
+			if (++i >= buflen)
+				break;
+			if (*cp <= 0x40)
+				c = CG_space;
+			else
+				c = ebc2cg0[*cp];
+			ctlr_add(buffer_addr, c, CS_GE);
+			ctlr_add_fg(buffer_addr, default_fg);
+			ctlr_add_gr(buffer_addr, default_gr);
+			INC_BA(buffer_addr);
+			break;
+
 		default:
-			ctlr_add(buffer_addr, ebc2cg[*cp], default_cs);
+			if (*cp == FCORDER_NULL)
+				c = CG_space;
+			else if (*cp == FCORDER_FM)
+				c = CG_asterisk;
+			else if (*cp == FCORDER_DUP)
+				c = CG_semicolon;
+			else if (*cp < 0x40) {
+				trace_ds(" X'%02x') [translated to space]\n",
+				    *cp);
+				c = CG_space; /* technically not necessary */
+			} else
+				c = ebc2cg[*cp];
+			ctlr_add(buffer_addr, c, default_cs);
 			ctlr_add_fg(buffer_addr, default_fg);
 			ctlr_add_gr(buffer_addr, default_gr);
 			INC_BA(buffer_addr);
@@ -1560,6 +1614,16 @@ ps_process(void)
 	while (run_ta())
 		;
 	sms_continue();
+
+	/* Process file transfers. */
+	if (ft_state != FT_NONE &&      /* transfer in progress */
+	    formatted &&                /* screen is formatted */
+	    !screen_alt &&              /* 24x80 screen */
+	    !kybdlock &&                /* keyboard not locked */
+	    /* magic field */
+	    IS_FA(screen_buf[1919]) && FA_IS_SKIP(screen_buf[1919])) {
+		ft_cut_data();
+	}
 }
 
 /*

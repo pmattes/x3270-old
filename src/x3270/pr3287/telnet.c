@@ -455,6 +455,7 @@ telnet_fsm(unsigned char c)
 			telnet_state = TNS_DATA;
 			break;
 		    case GA:
+		    case NOP:
 			trace_str("\n");
 			telnet_state = TNS_DATA;
 			break;
@@ -790,6 +791,8 @@ tn3270e_negotiate(void)
 				e_funcs = e_rcvd;
 				tn3270e_subneg_send(TN3270E_OP_IS, e_funcs);
 				tn3270e_negotiated = 1;
+				vtrace_str("TN3270E option negotiation "
+				    "complete.\n");
 				check_in3270();
 			} else {
 				/*
@@ -830,6 +833,7 @@ tn3270e_negotiate(void)
 				}
 			}
 			tn3270e_negotiated = 1;
+			vtrace_str("TN3270E option negotiation complete.\n");
 			check_in3270();
 			break;
 
@@ -864,7 +868,7 @@ tn3270e_function_names(const unsigned char *buf, int len)
 	return text_buf;
 }
 
-/* Transmit a TN3270E FUNCTIONS REQUEST message. */
+/* Transmit a TN3270E FUNCTIONS REQUEST or FUNCTIONS IS message. */
 static void
 tn3270e_subneg_send(unsigned char op, unsigned long funcs)
 {
@@ -887,8 +891,9 @@ tn3270e_subneg_send(unsigned char op, unsigned long funcs)
 	net_rawout(proto_buf, proto_len);
 
 	/* Complete and send out the trace text. */
-	vtrace_str("SENT %s %s FUNCTIONS REQUEST %s %s\n",
+	vtrace_str("SENT %s %s FUNCTIONS %s %s %s\n",
 	    cmd(SB), opt(TELOPT_TN3270E),
+	    (op == TN3270E_OP_REQUEST)? "REQUEST": "IS",
 	    tn3270e_function_names(proto_buf + 5, proto_len - 7),
 	    cmd(SE));
 }
