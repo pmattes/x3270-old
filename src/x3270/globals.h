@@ -118,6 +118,7 @@ extern char		*current_host;
 extern unsigned short	current_port;
 #if defined(X3270_DBCS) /*[*/
 extern Boolean		dbcs;
+extern Boolean		no_dbcs;
 #endif /*]*/
 extern Boolean		*debugging_font;
 extern char		*efontname;

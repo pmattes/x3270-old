@@ -26,6 +26,7 @@
 <a HREF="#Macros-and-Scripts">Macros and Scripts</a><br>
 <a HREF="#Composite-Characters">Composite Characters</a><br>
 <a HREF="#APL-Support">APL Support</a><br>
+<a HREF="#XIM-Support">XIM Support</a><br>
 <a HREF="#5250-AS400-Support">5250 (AS/400) Support</a><br>
 <a HREF="#Screen-Printing">Screen Printing</a><br>
 <a HREF="#Bugs">Bugs</a><br>
@@ -117,6 +118,9 @@ Specifies an alternate title for the program icon.
 Specifies the initial x coordinate for the program icon.
 <dt><b>-icony</b> <i>y</i></dt><dd>
 Specifies the initial y coordinate for the program icon.
+<dt><b>-im</b> <i>method</i></dt><dd>
+Specifies the name of the input method to use for multi-byte input.
+(Supported only when x3270 is compiled with DBCS support.)
 <dt><b>-keymap</b> <i>name</i></dt><dd>
 Specifies a keymap name and optional modifiers.
 See <a HREF="#Keymaps"><font size=-1>KEYMAPS</font></a> below.
@@ -183,6 +187,10 @@ If <i>luname</i> is ".", then the printer session will be associated with the
 interactive terminal session (this requires that the host support TN3270E).
 Otherwise, the value is used as the explicit LU name to associate with the
 printer session.
+<dt><b>-pt</b> <i>type</i></dt><dd>
+Specified the preedit type for the multi-byte input method.
+Valid values are <b>OverTheSpot</b>, <b>OffTheSpot</b>, and <b>Root</b>.
+(Supported only when x3270 is compiled with DBCS support.)
 <dt><b>-reconnect</b></dt><dd>
 Causes <b>x3270</b>
 to automatically reconnect to the host if it ever disconnects.
@@ -319,6 +327,7 @@ Available sets include:
 <tr><td ><center>italian</center></td>	<td ><center>280</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
 <tr><td ><center>norwegian</center></td>	<td ><center>277</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
 <tr><td ><center>russian</center></td>	<td ><center>880</center></td>	<td ><center>koi8-r</center></td></tr>
+<tr><td ><center>simplified-chinese</center></td>	<td ><center>836+837</center></td>	<td ><center>3270cg-1a iso8859-1 + gb2312.1980-0</center></td></tr>
 <tr><td ><center>solvenian</center></td>	<td ><center>870</center></td>	<td ><center>iso8859-2</center></td></tr>
 <tr><td ><center>thai</center></td>	<td ><center>838</center></td>	<td ><center>iso8859-11 tis620.2529-0</center></td></tr>
 <tr><td ><center>uk</center></td>	<td ><center>285</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
@@ -1243,6 +1252,16 @@ Entries marked with an (S) represent Sharp APL charatcers.
 <tr><td >Y underbar</td>	<td >68</td>	<td >apl_Yunderbar</td>	<td >Alt-Y</td>	<td >Y + underbar</td></tr>
 <tr><td >Z underbar</td>	<td >69</td>	<td >apl_Zunderbar</td>	<td >Alt-Z</td>	<td >Z + underbar</td></tr>
 </table>
+<a NAME="XIM-Support"></a><h2>XIM Support</h2>
+When compiled with DBCS support, <b>x3270</b> supports multi-byte input methods
+via the XIM protocol.
+<p>
+The input method is selected by the XMODIFIERS environment variable or the
+<b>-im</b> command-line option, or implied by the LC_CTYPE
+category of the locale.
+<p>
+The preedit type is specified by the <b>-pt</b> command-line option,
+with a default of <b>OverTheSpot</b>.
 <a NAME="5250-AS400-Support"></a><h2>5250 (AS/400) Support</h2>
 <b>x3270</b> provides limited support for 5250 (AS/400) emulation.
 This is not native 5250 terminal emulation, but rather for use with hosts
@@ -1347,12 +1366,12 @@ x3270 is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
 <a NAME="Version"></a><h2>Version</h2>
-x3270 3.2.20-dbcs-alpha2
+x3270 3.2.20-dbcs-alpha3
 <hr>
 <address>
 This HTML document and the accompanying troff document were generated with
 a set of write-only <b>m4</b> macros and the powerful <b>vi</b> editor.
-<br>Last modified 04 October 2002.
+<br>Last modified 08 October 2002.
 </address>
 </body>
 </html>

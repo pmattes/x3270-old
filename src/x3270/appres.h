@@ -140,6 +140,10 @@ typedef struct {
 	char	*char_class;
 	int	modified_sel_color;
 	int	visual_select_color;
+#if defined(X3270_DBCS) /*[*/
+	char	*input_method;
+	char	*preedit_type;
+#endif /*]*/
 #endif /*]*/
 #if defined(C3270) /*[*/
 	char	*meta_escape;

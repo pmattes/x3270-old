@@ -52,6 +52,7 @@
 #include "telnetc.h"
 #include "trace_dsc.h"
 #include "utilc.h"
+#include "widec.h"
 
 /* Externals: kybd.c */
 extern unsigned char aid;
@@ -75,6 +76,7 @@ unsigned char   reply_mode = SF_SRM_FIELD;
 int             crm_nattr = 0;
 unsigned char   crm_attr[16];
 Boolean		dbcs = False;
+Boolean		no_dbcs = False;
 
 /* Statics */
 static struct ea *aea_buf;	/* alternate 3270 extended attribute buffer */
@@ -1079,10 +1081,11 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 	enum pds	rv = PDS_OKAY_NO_OUTPUT;
 	int		fa_addr;
 	Boolean		add_dbcs;
-	unsigned char	add_c1, add_c2;
+	unsigned char	add_c1, add_c2 = 0;
 	enum dbcs_state	d;
 	enum dbcs_why	why;
 	Boolean		aborted = False;
+	unsigned char	euc[3];
 
 #define END_TEXT0	{ if (previous == TEXT) trace_ds("'"); }
 #define END_TEXT(cmd)	{ END_TEXT0; trace_ds(" %s", cmd); }
@@ -1250,7 +1253,7 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 					ABORT_WRITE("RA over right half of DBCS character");
 				}
 				if (default_cs == CS_DBCS || d == DBCS_LEFT) {
-					add_dbcs = TRUE;
+					add_dbcs = True;
 				}
 			}
 			if (add_dbcs) {
@@ -1279,7 +1282,10 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 				} else if (add_c1 < 0x40 || add_c1 > 0xfe ||
 					   add_c2 < 0x40 || add_c2 > 0xfe) {
 					ABORT_WRITE("invalid DBCS RA character");
-				   }
+			       }
+			       euc[2] = '\0';
+			       dbcs_to_wchar(add_c1, add_c2, euc);
+			       trace_ds("'%s'", euc);
 			} else {
 				if (*cp == ORDER_GE) {
 					ra_ge = True;
@@ -1627,7 +1633,6 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 			last_zpt = False;
 			break;
 		case FCORDER_NULL:	/* NULL or DBCS control char */
-			END_TEXT("NULL");
 			previous = NULLCH;
 			add_dbcs = False;
 			d = ctlr_lookleft_state(buffer_addr, &why);
@@ -1649,6 +1654,8 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 				case EBC_cr:
 				case EBC_dup:
 				case EBC_fm:
+				    END_TEXT(see_ebc(add_c2));
+				    break;
 					break;
 				default:
 					ABORT_WRITE("invalid DBCS control character");
@@ -1658,6 +1665,7 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 					break;
 				add_dbcs = True;
 			} else {
+				END_TEXT("NULL");
 				add_c1 = *cp;
 			}
 			ctlr_add(buffer_addr, add_c1, default_cs);
@@ -1687,7 +1695,6 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 			if (previous != TEXT)
 				trace_ds(" '");
 			previous = TEXT;
-			trace_ds("%s", see_ebc(*cp));
 			add_dbcs = False;
 			d = ctlr_lookleft_state(buffer_addr, &why);
 			if (d == DBCS_RIGHT) {
@@ -1700,19 +1707,22 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 					ABORT_WRITE("missing second half of DBCS character");
 				}
 				add_c2 = *cp;
-				trace_ds("%s", see_ebc(add_c2));
 				if (add_c1 < 0x40 || add_c1 > 0xfe ||
 				    add_c2 < 0x40 || add_c2 > 0xfe) {
 					ABORT_WRITE("invalid DBCS character");
 			       }
 			       add_dbcs = True;
+			       euc[2] = '\0';
+			       dbcs_to_wchar(add_c1, add_c2, euc);
+			       trace_ds("%s", euc);
 			} else {
 				add_c1 = *cp;
+				trace_ds("%s", see_ebc(*cp));
 			}
 			ctlr_add(buffer_addr, add_c1, default_cs);
 			ctlr_add_fg(buffer_addr, default_fg);
 			ctlr_add_gr(buffer_addr, default_gr);
-			ctlr_add_gr(buffer_addr, default_ic);
+			ctlr_add_ic(buffer_addr, default_ic);
 			INC_BA(buffer_addr);
 			if (add_dbcs) {
 				ctlr_add(buffer_addr, add_c2, default_cs);
@@ -1867,6 +1877,9 @@ ctlr_write_sscp_lu(unsigned char buf[], int buflen)
  *  DBCS character set), DBCS subfield (to the right of an SO within a non-DBCS
  *  field), or DBCS attribute (has the DBCS character set extended attribute
  *  within a non-DBCS field).
+ *
+ * This function should be used only to determine the legality of adding a
+ * DBCS or SBCS character at baddr.
  */
 enum dbcs_state
 ctlr_lookleft_state(int baddr, enum dbcs_why *why)
@@ -1914,13 +1927,10 @@ ctlr_lookleft_state(int baddr, enum dbcs_why *why)
 	}
 
 	/*
-	 * Finally, look for a SO.
-	 * SO and SI are not DBCS themselves, and for lookleft purposes,
-	 * the SO by itself (with or without a matching SI) is sufficient.
+	 * Finally, look for a SO not followed by an SI.
 	 */
-	if (ea_buf[baddr].cc == EBC_so || ea_buf[baddr].cc == EBC_si)
-		return DBCS_NONE;
 	xaddr = baddr;
+	DEC_BA(xaddr);
 	while (!AT_END(faddr, xaddr)) {
 		if (ea_buf[xaddr].cc == EBC_si)
 			si = True;
@@ -2224,7 +2234,7 @@ ctlr_blanks(void)
 void
 ctlr_add(int baddr, unsigned char c, unsigned char cs)
 {
-	unsigned char oc;
+	unsigned char oc = 0;
 
 	if (ea_buf[baddr].fa ||
 	    ((oc = ea_buf[baddr].cc) != c || ea_buf[baddr].cs != cs)) {

@@ -26,6 +26,8 @@
 
 #include "globals.h"
 
+#include <locale.h>
+
 #include "resources.h"
 #include "appres.h"
 #include "cg.h"
@@ -136,6 +138,30 @@ charset_init(char *csname)
 	char *cs, *ftcs;
 	enum cs_result rc;
 	char *ccs, *cftcs;
+#if defined(X3270_DBCS) /*[*/
+	static Boolean locale_initted = False;
+#endif /*]*/
+
+#if defined(X3270_DBCS) /*[*/
+	/* Set up the locale. */
+	if (!locale_initted) {
+		if (setlocale(LC_CTYPE, "") == CN) {
+			popup_an_error("setlocale(LC_CTYPE) failed\n"
+				       "DBCS disabled");
+			no_dbcs = True;
+			dbcs = False;
+		}
+#if defined(X3270_DISPLAY) /*[*/
+		else if (XSupportsLocale() == False) {
+			popup_an_error("XSupportsLocale() failed\n"
+				       "DBCS disabled");
+			no_dbcs = True;
+			dbcs = False;
+		}
+#endif /*]*/
+		locale_initted = True;
+	}
+#endif /*]*/
 
 	/* Do nothing, successfully. */
 	if (csname == CN || !strcasecmp(csname, "us")) {
@@ -291,6 +317,7 @@ resource_charset(char *csname, char *cs, char *ftcs)
 	enum cs_result rc;
 	int ne = 0;
 	char *rcs = CN;
+	int n_rcs = 0;
 
 	/* Interpret the spec. */
 	rc = remap_chars(csname, cs, (ftcs == NULL)? BOTH: CS_ONLY, &ne);
@@ -307,7 +334,6 @@ resource_charset(char *csname, char *cs, char *ftcs)
 	/* Isolate the pieces. */
 	if (rcs != CN) {
 		char *rcs_copy, *buf, *token;
-		int n_rcs = 0;
 
 		buf = rcs_copy = NewString(rcs);
 		while ((token = strtok(buf, "+")) != CN) {
@@ -327,12 +353,25 @@ resource_charset(char *csname, char *cs, char *ftcs)
 		}
 	}
 
+#if defined(X3270_DBCS) /*[*/
+	/* Can't swap DBCS modes while connected. */
+	if (IN_3270 && (n_rcs == 2) != dbcs) {
+		popup_an_error("Can't change DBCS modes while connected");
+		return CS_ILLEGAL;
+	}
+#endif /*]*/
+
 #if defined(X3270_DISPLAY) /*[*/
 	if (!screen_new_display_charsets(
 		    rcs? rcs: default_display_charset,
 		    csname)) {
 		return CS_PREREQ;
 	}
+#else /*][*/
+	if (n_rcs > 1)
+		dbcs = True;
+	else
+		dbcs = False;
 #endif /*]*/
 
 	/* Set up the cgcsgid. */

@@ -420,9 +420,7 @@ key_AID(unsigned char aid_code)
 	aid = aid_code;
 	ctlr_read_modified(aid, False);
 	ticking_start(False);
-	if (!IN_SSCP) {
-		status_ctlr_done();
-	}
+	status_ctlr_done();
 }
 
 void
@@ -1541,7 +1539,6 @@ Erase_action(Widget w unused, XEvent *event, String *params,
     Cardinal *num_params)
 {
 	int	baddr, faddr;
-	unsigned char	fa;
 
 	action_debug(Erase_action, event, params, num_params);
 	if (kybdlock) {
@@ -1556,7 +1553,7 @@ Erase_action(Widget w unused, XEvent *event, String *params,
 #endif /*]*/
 	baddr = cursor_addr;
 	faddr = find_field_attribute(baddr);
-	if (faddr == baddr || FA_IS_PROTECTED(fa)) {
+	if (faddr == baddr || FA_IS_PROTECTED(ea_buf[baddr].fa)) {
 		operator_error(KL_OERR_PROTECTED);
 		return;
 	}
@@ -2597,6 +2594,63 @@ MoveCursor_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 }
 
 
+#if defined(X3270_DBCS) && defined(X3270_DISPLAY) /*[*/
+/*
+ * Run a KeyPress through XIM.
+ * Returns True if there is further processing to do, False otherwise.
+ */
+static Boolean
+xim_lookup(XKeyEvent *event)
+{
+	static char *buf = NULL;
+	static int buf_len, rlen;
+	KeySym k;
+	Status status;
+	extern XIC ic;
+	int i;
+	Boolean rv = False;
+#define BASE_BUFSIZE 50
+
+	if (ic == NULL)
+		return True;
+
+	if (buf == NULL) {
+		buf_len = BASE_BUFSIZE;
+		buf = Malloc(buf_len);
+	}
+
+	memset(buf, '\0', buf_len);
+	rlen = XmbLookupString(ic, event, buf, buf_len, &k, &status);
+	if (status == XBufferOverflow) {
+		buf_len += BASE_BUFSIZE;
+		buf = Realloc(buf, buf_len);
+		memset(buf, '\0', buf_len);
+		rlen = XmbLookupString(ic, event, buf, buf_len, &k, &status);
+	}
+
+	switch (status) {
+	case XLookupNone:
+		rv = False;
+		break;
+	case XLookupKeySym:
+		rv = True;
+		break;
+	case XLookupChars:
+		for (i = 0; i < rlen; i += 2) {
+			unsigned char ebc[2];
+
+			wchar_to_dbcs(buf[i], buf[i+1], ebc);
+			key_WCharacter(ebc);
+		}
+		rv = False;
+		break;
+	case XLookupBoth:
+		rv = True;
+		break;
+	}
+	return rv;
+}
+#endif /*]*/
 
 
 /*
@@ -2610,6 +2664,7 @@ Key_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 	enum keytype keytype;
 
 	action_debug(Key_action, event, params, num_params);
+
 	for (i = 0; i < *num_params; i++) {
 		char *s = params[i];
 
@@ -2822,7 +2877,7 @@ emulate_input(char *s, int len, Boolean pasting)
 	int orig_addr = cursor_addr;
 	int orig_col = BA_TO_COL(cursor_addr);
 #if defined(X3270_DBCS) /*[*/
-	unsigned char dbcs1;
+	unsigned char dbcs1 = 0;
 	unsigned char ebc[2];
 #endif /*]*/
 
@@ -3599,6 +3654,10 @@ Default_action(Widget w unused, XEvent *event, String *params, Cardinal *num_par
 	action_debug(Default_action, event, params, num_params);
 	switch (event->type) {
 	    case KeyPress:
+#if defined(X3270_DBCS) /*[*/
+		if (!xim_lookup((XKeyEvent *)event))
+			return;
+#endif /*]*/
 		ll = XLookupString(kevent, buf, 32, &ks, (XComposeStatus *) 0);
 		if (ll == 1) {
 			/* Add Meta; XLookupString won't. */

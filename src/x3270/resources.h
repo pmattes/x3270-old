@@ -71,6 +71,7 @@
 #define ResIdleTimeout		"idleTimeout"
 #define ResInlcr		"inlcr"
 #define ResInputColor		"inputColor"
+#define ResInputMethod		"inputMethod"
 #define ResIntr			"intr"
 #define ResInvertKeypadShift	"invertKeypadShift"
 #define ResKeymap		"keymap"
@@ -102,6 +103,7 @@
 #define ResOnlcr		"onlcr"
 #define ResOversize		"oversize"
 #define ResPort			"port"
+#define ResPreeditType		"preeditType"
 #define ResPrinterCommand	"printer.command"
 #define ResPrinterLu		"printerLu"
 #define ResQuit			"quit"
@@ -139,6 +141,7 @@
 #define DotDsTrace		"." ResDsTrace
 #define DotEmulatorFont		"." ResEmulatorFont
 #define DotExtended		"." ResExtended
+#define DotInputMethod		"." ResInputMethod
 #define DotKeymap		"." ResKeymap
 #define DotKeypadOn		"." ResKeypadOn
 #define DotM3279		"." ResM3279
@@ -147,6 +150,7 @@
 #define DotOnce			"." ResOnce
 #define DotOversize		"." ResOversize
 #define DotPort			"." ResPort
+#define DotPreeditType		"." ResPreeditType
 #define DotPrinterLu		"." ResPrinterLu
 #define DotReconnect		"." ResReconnect
 #define DotSaveLines		"." ResSaveLines
@@ -201,6 +205,7 @@
 #define ClsIdleTimeout		"IdleTimeout"
 #define ClsInlcr		"Inlcr"
 #define ClsInputColor		"InputColor"
+#define ClsInputMethod		"InputMethod"
 #define ClsIntr			"Intr"
 #define ClsInvertKeypadShift	"InvertKeypadShift"
 #define ClsKeymap		"Keymap"
@@ -231,6 +236,7 @@
 #define ClsOnlcr		"Onlcr"
 #define ClsOversize		"Oversize"
 #define ClsPort			"Port"
+#define ClsPreeditType		"PreeditType"
 #define ClsPrinterLu		"PrinterLu"
 #define ClsQuit			"Quit"
 #define ClsReconnect		"Reconnect"
@@ -274,6 +280,7 @@
 #define OptIconName		"-iconname"
 #define OptIconX		"-iconx"
 #define OptIconY		"-icony"
+#define OptInputMethod		"-im"
 #define OptKeymap		"-keymap"
 #define OptKeypadOn		"-keypad"
 #define OptLocalProcess		"-e"
@@ -284,6 +291,7 @@
 #define OptOnce			"-once"
 #define OptOversize		"-oversize"
 #define OptPort			"-port"
+#define OptPreeditType		"-pt"
 #define OptPrinterLu		"-printerlu"
 #define OptReconnect		"-reconnect"
 #define OptSaveLines		"-sl"

@@ -54,6 +54,7 @@
 #include "trace_dsc.h"
 #include "utilc.h"
 #include "xioc.h"
+#include "widec.h"
 
 #define ANSI_SAVE_SIZE	4096
 
@@ -1326,6 +1327,8 @@ dump_range(int first, int len, Boolean in_ascii, struct ea *buf,
 	Boolean any = False;
 	char *linebuf;
 	char *s;
+	Boolean did_left = False;
+	unsigned char euc[2];
 
 	linebuf = Malloc(maxCOLS * 3 + 1);
 	s = linebuf;
@@ -1340,24 +1343,38 @@ dump_range(int first, int len, Boolean in_ascii, struct ea *buf,
 		sms->output_wait_needed = True;
 
 	for (i = 0; i < len; i++) {
-		unsigned char c;
-
 		if (i && !((first + i) % rel_cols)) {
 			*s = '\0';
 			action_output("%s", linebuf);
 			s = linebuf;
 			any = False;
 		}
-		if (!any)
-			any = True;
 		if (in_ascii) {
-			c = ebc2asc[buf[first + i].cc];
+			unsigned char c;
+
+			if (IS_LEFT(ctlr_dbcs_state(first + i))) {
+				dbcs_to_wchar(buf[first + i].cc,
+					      buf[first + i + 1].cc,
+					      euc);
+				c = euc[0];
+				did_left = True;
+			} else if (IS_RIGHT(ctlr_dbcs_state(first + i))) {
+				if (!did_left)
+					continue;
+				c = euc[1];
+				did_left = False;
+			} else {
+				c = ebc2asc[buf[first + i].cc];
+				did_left = False;
+			}
 			s += sprintf(s, "%c", c ? c : ' ');
 		} else {
 			s += sprintf(s, "%s%02x",
 				i ? " " : "",
 				buf[first + i].cc);
 		}
+		if (!any)
+			any = True;
 	}
 	if (any) {
 		*s = '\0';

@@ -1,5 +1,5 @@
 '\" t
-.TH x3270 1 "04 October 2002"
+.TH x3270 1 "08 October 2002"
 .SH "NAME"
 x3270 \-
 \s-1IBM\s+1 host access tool
@@ -93,6 +93,10 @@ Specifies the initial x coordinate for the program icon.
 .TP
 \fB\-icony\fP \fIy\fP
 Specifies the initial y coordinate for the program icon.
+.TP
+\fB\-im\fP \fImethod\fP
+Specifies the name of the input method to use for multi-byte input.
+(Supported only when x3270 is compiled with DBCS support.)
 .TP
 \fB\-keymap\fP \fIname\fP
 Specifies a keymap name and optional modifiers.
@@ -229,6 +233,11 @@ If \fIluname\fP is ".", then the printer session will be associated with the
 interactive terminal session (this requires that the host support TN3270E).
 Otherwise, the value is used as the explicit LU name to associate with the
 printer session.
+.TP
+\fB\-pt\fP \fItype\fP
+Specified the preedit type for the multi-byte input method.
+Valid values are \fBOverTheSpot\fP, \fBOffTheSpot\fP, and \fBRoot\fP.
+(Supported only when x3270 is compiled with DBCS support.)
 .TP
 \fB\-reconnect\fP
 Causes \fBx3270\fP
@@ -569,6 +578,19 @@ T}	T{
 .na
 .nh
 koi8-r
+T}
+T{
+.na
+.nh
+simplified-chinese
+T}	T{
+.na
+.nh
+836+837
+T}	T{
+.na
+.nh
+3270cg-1a iso8859-1 + gb2312.1980-0
 T}
 T{
 .na
@@ -5547,6 +5569,16 @@ T}	T{
 Z + underbar
 T}
 .TE
+.SH "XIM SUPPORT"
+When compiled with DBCS support, \fBx3270\fP supports multi-byte input methods
+via the XIM protocol.
+.LP
+The input method is selected by the XMODIFIERS environment variable or the
+\fB\-im\fP command-line option, or implied by the LC_CTYPE
+category of the locale.
+.LP
+The preedit type is specified by the \fB\-pt\fP command-line option,
+with a default of \fBOverTheSpot\fP.
 .SH "5250 (AS/400) SUPPORT"
 \fBx3270\fP provides limited support for 5250 (AS/400) emulation.
 This is not native 5250 terminal emulation, but rather for use with hosts
@@ -5663,4 +5695,4 @@ x3270 is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
 .SH "VERSION"
-x3270 3.2.20-dbcs-alpha2
+x3270 3.2.20-dbcs-alpha3

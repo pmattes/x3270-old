@@ -237,6 +237,10 @@ x3270.emulatorFontList.3270cg-15a,3270cg-15,iso8859-15: \
 					20-point Font: #resize 3270e-20\n\
 					24-point Font: #resize 3270egt24\n\
 					32-point Font: #resize 3270egt32
+x3270.emulatorFontList.3270cg-1a,iso8859-1+gb2312.1980-0: \
+					16-point: 8x16+-isas-song ti-medium-r-normal--16-160-72-72-c-160-gb2312.1980-0\n\
+					16-point 3270: 3270c8x16+-isas-song ti-medium-r-normal--16-160-72-72-c-160-gb2312.1980-0\n\
+					24-point: 12x24+-isas-song ti-medium-r-normal--24-240-72-72-c-240-gb2312.1980-0
 #endif
 !
 ! Print commands

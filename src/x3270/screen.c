@@ -179,6 +179,16 @@ static struct font_list *font_last = (struct font_list *) NULL;
 #if defined(X3270_DBCS) /*[*/
 static Font dbcs_font = None;
 static XFontStruct *dbcs_font_struct = NULL;
+static void xim_init(void);
+XIM im;
+XIC ic;
+typedef struct {
+	XIMStyle style;
+	char *description;
+} im_style_t;
+static XIMStyle style;
+char ic_focus;
+static void send_spot_loc(void);
 #endif /*]*/
 
 /* Globals for undoing reconfigurations. */
@@ -586,6 +596,12 @@ screen_reinit(unsigned cmask)
 
 	/* Reinitialize the status line. */
 	status_reinit(cmask);
+
+#if defined(X3270_DBCS) /*[*/
+	/* Initialize the input method. */
+	if ((cmask & CHARSET_CHANGE) && dbcs)
+		xim_init();
+#endif /*]*/
 
 	cursor_changed = True;
 
@@ -1203,7 +1219,6 @@ PA_Expose_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 void
 screen_disp(Boolean erasing)
 {
-
 	/* No point in doing anything if we aren't visible yet. */
 	if (!ss->exposed_yet)
 		return;
@@ -1215,6 +1230,17 @@ screen_disp(Boolean erasing)
 	 */
 	if (cursor_addr != ss->cursor_daddr)
 		cursor_changed = True;
+
+#if defined(X3270_DBCS) /*[*/
+	/* If the cursor has moved, tell the input method. */
+	if (cursor_changed && ic != NULL &&
+			style == (XIMPreeditPosition|XIMStatusNothing)) {
+#if defined(_ST) /*[*/
+		printf("spot_loc%s\n", rcba(cursor_addr));
+#endif /*]*/
+		send_spot_loc();
+	}
+#endif /*]*/
 
 	/*
 	 * If only the cursor has changed (and not the screen image), draw it.
@@ -1809,9 +1835,12 @@ toggle_monocase(struct toggle *t unused, enum toggle_type tt unused)
 void
 screen_flip(void)
 {
+	/* Flip mode is broken in the DBCS version. */
+#if !defined(X3270_DBCS) /*[*/
 	flipped = !flipped;
 
 	action_internal(PA_Expose_action, IA_REDRAW, CN, CN);
+#endif /*]*/
 }
 
 /*
@@ -3925,6 +3954,11 @@ screen_newcharset(char *csname)
 		Free(old_charset);
 		popup_an_error("No fonts for host character set \"%s\"", csname);
 		break;
+	    case CS_ILLEGAL:
+		/* Error already popped up. */
+		Free(old_charset);
+		break;
+
 	}
 }
 #endif /*]*/
@@ -4875,5 +4909,193 @@ xlate_dbcs(unsigned char c0, unsigned char c1, XChar2b *r)
 	printf("EBC %02x%02x -> EUC X11 %02x%02x\n",
 		c0, c1, r->byte1, r->byte2);
 #endif /*]*/
+}
+
+static void
+destroy_callback_func(XIM current_ic, XPointer client_data, XPointer call_data)
+{
+	ic = NULL;
+	im = NULL;
+	ic_focus = 0;
+
+#if defined(_ST) /*[*/
+	printf("destroy_callback_func\n");
+#endif /*]*/
+}
+
+static void
+im_callback(Display *display, XPointer client_data, XPointer call_data)
+{
+	XIMStyles *xim_styles = NULL;
+	XIMCallback destroy;
+	int i, j;
+	XVaNestedList preedit_attr = NULL;
+	XPoint spot;
+	XRectangle local_win_rect;
+	static im_style_t im_styles[] = {
+		{ XIMPreeditNothing  | XIMStatusNothing,    "Root" },
+		{ XIMPreeditPosition | XIMStatusNothing,    "OverTheSpot" },
+		{ XIMPreeditArea     | XIMStatusArea,       "OffTheSpot" },
+		{ XIMPreeditCallbacks| XIMStatusCallbacks,  "OnTheSpot" },
+		{ (XIMStyle)0,                              NULL }
+	};
+	char *im_style = (appres.preedit_type != CN)?
+	    appres.preedit_type: "OverTheSpot";
+
+#if defined(_ST) /*[*/
+	printf("im_callback\n");
+#endif /*]*/
+
+	/* Open connection to IM server. */
+	if ((im = XOpenIM(display, NULL, NULL, NULL)) == NULL) {
+		popup_an_error("XOpenIM failed\nDBCS disabled");
+		goto error_return;
+	}
+
+	destroy.callback = (XIMProc)destroy_callback_func;
+	destroy.client_data = NULL;
+	XSetIMValues(im, XNDestroyCallback, &destroy, NULL);
+
+	/* Detect the input style supported by XIM server. */
+	if (XGetIMValues(im, XNQueryInputStyle, &xim_styles, NULL) != NULL ||
+			xim_styles == NULL) {
+		popup_an_error("Input method doesn't support any styles\n"
+			       "DBCS disabled");
+		goto error_return;
+	}
+	for (i = 0; i < xim_styles->count_styles; i++) {
+		for (j = 0; im_styles[j].description != NULL; j++) {
+			if (im_styles[j].style ==
+					xim_styles->supported_styles[i]) {
+#if defined(_ST) /*[*/
+				printf("XIM server supports input_style %s\n",
+						im_styles[j].description);
+#endif /*]*/
+				break;
+			}
+		}
+#if defined(_ST) /*[*/
+		if (im_styles[j].description == NULL)
+			printf("XIM server supports unknown input style %x\n",
+				(unsigned)(xim_styles->supported_styles[i]));
+#endif /*]*/
+	}
+
+	/* Set my preferred style. */
+	for (j = 0; im_styles[j].description != NULL; j++) {
+		if (!strcmp(im_styles[j].description, im_style)) {
+			style = im_styles[j].style;
+			break;
+		}
+	}
+	if (im_styles[j].description == NULL) {
+		popup_an_error("Input style '%s' not supported\n"
+			       "DBCS disabled", im_style);
+		goto error_return;
+	}
+
+	if (style == (XIMPreeditPosition | XIMStatusNothing)) {
+		char *fsname;
+		XFontSet fontset;
+		char **charset_list;
+		int charset_count;
+		char *def_string;
+
+		fsname = xs_buffer("-*-%s,-*-iso8859-1", efont_charset_dbcs),
+		fontset = XCreateFontSet(display, fsname, &charset_list,
+				&charset_count, &def_string);
+		if (charset_count || fontset == NULL) {
+			popup_an_error("Cannot create fontset '%s' for input "
+			    "context\nDBCS disabled", fsname);
+			goto error_return;
+		}
+
+		spot.x = 5;
+		spot.y = 2*(nss.ascent + nss.descent) + 3*(nss.ascent+5);
+		local_win_rect.x = 1;
+		local_win_rect.y = 1;
+		local_win_rect.width  = main_width;
+		local_win_rect.height = main_height;
+		preedit_attr = XVaCreateNestedList(0,
+					XNArea, &local_win_rect,
+					XNSpotLocation, &spot,
+					XNFontSet, fontset,
+					NULL);
+	}
+
+	/* Create IC. */
+	ic = XCreateIC(im, XNInputStyle, style,
+			XNClientWindow, nss.window,
+			XNFocusWindow, nss.window,
+			(preedit_attr) ? XNPreeditAttributes : NULL,
+			preedit_attr,
+			NULL);
+	if (ic == NULL) {
+		popup_an_error("Cannot create input context\nDBCS disabled");
+		goto error_return;
+	}
+	return;
+
+    error_return:
+	if (im != NULL) {
+		XCloseIM(im);
+		im = NULL;
+	}
+	dbcs = False;
+	no_dbcs = True;
+}
+
+static void
+cleanup_xim(Boolean b unused)
+{
+	if (ic != NULL)
+		XDestroyIC(ic);
+	if (im != NULL)
+		XCloseIM(im);
+}
+
+static void
+xim_init(void)
+{
+	char buf[1024];
+	static Boolean xim_initted = False;
+
+	if (xim_initted)
+		return;
+	else
+		xim_initted = True;
+
+	if (!dbcs || no_dbcs)
+		return;
+
+	(void) memset(buf, '\0', sizeof(buf));
+	if (appres.input_method != CN)
+		(void) sprintf(buf, "@im=%s", appres.input_method);
+	if (XSetLocaleModifiers(buf) == CN) {
+		popup_an_error("XSetLocaleModifiers failed\nDBCS disabled");
+		dbcs = False;
+		no_dbcs = True;
+	} else if (XRegisterIMInstantiateCallback(display, NULL, NULL, NULL,
+				im_callback, NULL) != True) {
+		popup_an_error("XRegisterIMInstantiateCallback failed\n"
+			       "DBCS disabled");
+		dbcs = False;
+		no_dbcs = True;
+	}
+	register_schange(ST_EXITING, cleanup_xim);
+	return;
+}
+
+static void
+send_spot_loc(void)
+{
+	XPoint spot;
+	XVaNestedList preedit_attr;
+
+	spot.x = (cursor_addr % COLS) * nss.char_width;
+	spot.y = ((cursor_addr / COLS) + 2) * nss.char_height;
+	preedit_attr = XVaCreateNestedList(0, XNSpotLocation, &spot, NULL);
+	XSetICValues(ic, XNPreeditAttributes, preedit_attr, NULL);
+	XFree(preedit_attr);
 }
 #endif /*]*/
