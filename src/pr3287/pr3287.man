@@ -1,5 +1,5 @@
 '\" t
-.TH PR3287 1 "26 December 2000"
+.TH PR3287 1 "11 April 2001"
 .SH "NAME"
 pr3287 \-
 \s-1IBM\s+1
@@ -7,7 +7,7 @@ host printing tool
 .SH "SYNOPSIS"
 \fBpr3287\fP
 [ \fIoptions\fP ]       
-[[ \fIprefix\fP :]...[ \fILUname\fP [, \fILUname\fP ...]@] \fIhostname\fP [: \fIport\fP ]] 
+[[ \fILUname\fP [, \fILUname\fP ...]@] \fIhostname\fP [: \fIport\fP ]] 
 .SH "DESCRIPTION"
 \fBpr3287\fP
 opens a telnet connection to an
@@ -37,6 +37,11 @@ understands the following options:
 \fB\-assoc\fP \fILUname\fP
 Causes the session to be associated with the specified
 \fILUname\fP.
+.TP
+\fB\-blanklines\fP
+In LU3 formatted mode, print blank lines even if they are all NULLs or control
+characters.
+(This is a violation of the 3270 printer protocol, but some hosts require it.)
 .TP
 \fB\-command\fP \fIcommand\fP
 Specifies the command to run for each print job.

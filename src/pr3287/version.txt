@@ -1,1 +1,2 @@
-../x3270/version.txt
+version="3.2.17a"
+adversion="3.2.14"

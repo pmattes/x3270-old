@@ -1,5 +1,5 @@
 /*
- * Copyright 2000 by Paul Mattes.
+ * Copyright 2000, 2001 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -18,8 +18,12 @@
  *		associate with a session (TN3270E only)
  *	    -command "string"
  *		command to use to print (default "lpr")
+ *          -blanklines
+ *		display blank lines even if they're empty (formatted LU3)
  *	    -trace
  *		trace data stream to a file
+ *          -v
+ *		verbose output about negotiation
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -51,17 +55,18 @@
 
 /* External functions. */
 extern int negotiate(int s, const char *lu, const char *assoc);
-extern void process(int s, char *command);
+extern void process(int s);
 extern char *build;
 extern FILE *tracef;
 
 /* Globals. */
 char *programname = NULL;	/* program name */
+int blanklines = 0;
 
 /* User options. */
 static enum { NOT_DAEMON, WILL_DAEMON, AM_DAEMON } bdaemon = NOT_DAEMON;
 static char *assoc = NULL;	/* TN3270 session to associate with */
-char *command = "lpr";		/* command to run for printing */
+const char *command = "lpr";	/* command to run for printing */
 static int tracing = 0;		/* are we tracing? */
 
 /* Print a usage message and exit. */
@@ -73,6 +78,7 @@ usage(void)
 "  -daemon          become a daemon after connecting\n"
 "  -assoc <session> associate with a session (TN3270E only)\n"
 "  -command \"<cmd>\" use <cmd> for printing (default \"lpr\")\n"
+"  -blanklines      display blank lines even if empty (formatted LU3)\n"
 "  -trace           trace data stream to /tmp/x3trc.<pid>\n",
 		programname);
 	exit(1);
@@ -88,7 +94,7 @@ errmsg(const char *fmt, ...)
 	va_start(args, fmt);
 	(void) vsprintf(buf, fmt, args);
 	if (bdaemon == AM_DAEMON)
-		syslog(LOG_ERR, "%s: %s", programname, buf);
+		syslog(LOG_ERR, "%s", buf);
 	else
 		(void) fprintf(stderr, "%s: %s\n", programname, buf);
 	va_end(args);
@@ -96,7 +102,7 @@ errmsg(const char *fmt, ...)
 
 /* Memory allocation. */
 void *
-Malloc(unsigned len)
+Malloc(size_t len)
 {
 	void *p = malloc(len);
 
@@ -114,7 +120,7 @@ Free(void *p)
 }
 
 void *
-Realloc(void *p, unsigned len)
+Realloc(void *p, size_t len)
 {
 	void *pn;
 
@@ -155,7 +161,7 @@ main(int argc, char *argv[])
 	int len;
 	char *lu = NULL;
 	char *host = NULL;
-	char *port = "telnet";
+	const char *port = "telnet";
 	int verbose = 0;
 	struct hostent *he;
 	struct in_addr ha;
@@ -173,7 +179,7 @@ main(int argc, char *argv[])
 	/* Gather the options. */
 	for (i = 1; i < argc && argv[i][0] == '-'; i++) {
 		if (!strcmp(argv[i], "-daemon"))
-			bdaemon = 1;
+			bdaemon = WILL_DAEMON;
 		else if (!strcmp(argv[i], "-assoc")) {
 			if (argc <= i + 1 || !argv[i + 1][0]) {
 				(void) fprintf(stderr,
@@ -190,6 +196,8 @@ main(int argc, char *argv[])
 			}
 			command = argv[i + 1];
 			i++;
+		} else if (!strcmp(argv[i], "-blanklines")) {
+			blanklines = 1;
 		} else if (!strcmp(argv[i], "-v")) {
 			verbose = 1;
 		} else if (!strcmp(argv[i], "-trace")) {
@@ -308,7 +316,7 @@ main(int argc, char *argv[])
 		exit(1);
 
 	/* Become a daemon. */
-	if (bdaemon) {
+	if (bdaemon != NOT_DAEMON) {
 		switch (fork()) {
 			case -1:
 				perror("fork");
@@ -318,6 +326,7 @@ main(int argc, char *argv[])
 				/* Child: Break away from the TTY. */
 				if (setsid() < 0)
 					exit(1);
+				bdaemon = AM_DAEMON;
 				break;
 			default:
 				/* Parent: We're all done. */
@@ -334,7 +343,7 @@ main(int argc, char *argv[])
 	(void) signal(SIGPIPE, SIG_IGN);
 
 	/* Process what we're told to process. */
-	process(s, command);
+	process(s);
 
 	/* Flush any pending data and exit. */
 	print_eoj();

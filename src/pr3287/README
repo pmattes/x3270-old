@@ -3,6 +3,7 @@ using TN3270 or TN3270E.  It supports SCS (SNA Character Stream).
 
 To build pr3287, type:
 
+    ./configure
     make
 
 To install pr3287 in /usr/local/bin, type (as root):

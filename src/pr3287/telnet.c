@@ -1,5 +1,5 @@
 /*
- * Modifications Copyright 1993, 1994, 1995, 1999, 2000 by Paul Mattes.
+ * Modifications Copyright 1993, 1994, 1995, 1999, 2000, 2001 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -28,11 +28,7 @@
 #include <netinet/in.h>
 #define TELCMDS 1
 #define TELOPTS 1
-#if !defined(LOCAL_TELNET_H) /*[*/
-#include <arpa/telnet.h>
-#else /*][*/
-#include "telnet.h"
-#endif /*]*/
+#include "arpa_telnet.h"
 #include <errno.h>
 #include <fcntl.h>
 #include <netdb.h>
@@ -90,7 +86,7 @@ unsigned char  *obuf;		/* 3270 output buffer */
 int             obuf_size = 0;
 unsigned char  *obptr = (unsigned char *) NULL;
 int             linemode = 1;
-char           *termtype = "IBM-3287-1";
+const char     *termtype = "IBM-3287-1";
 
 /* Externals */
 extern unsigned long inet_addr(const char *);
@@ -136,6 +132,8 @@ static int process_eor(void);
 static const char *tn3270e_function_names(const unsigned char *, int);
 static void tn3270e_subneg_send(unsigned char, unsigned long);
 static unsigned long tn3270e_fdecode(const unsigned char *, int);
+static void tn3270_ack(void);
+static void tn3270_nak(enum pds);
 static void tn3270e_ack(void);
 static void tn3270e_nak(enum pds);
 
@@ -205,12 +203,12 @@ negotiate(int s, char *lu, char *assoc)
 	/* Set options for inline out-of-band data and keepalives. */
 	if (setsockopt(s, SOL_SOCKET, SO_OOBINLINE, (char *)&on,
 		    sizeof(on)) < 0) {
-		perror("setsockopt(SO_OOBINLINE)");
+		errmsg("setsockopt(SO_OOBINLINE): %s", strerror(errno));
 		return -1;
 	}
 	if (setsockopt(s, SOL_SOCKET, SO_KEEPALIVE, (char *)&on,
 		    sizeof(on)) < 0) {
-		perror("setsockopt(SO_KEEPALIVE)");
+		errmsg("setsockopt(SO_KEEPALIVE): %s", strerror(errno));
 		return -1;
 	}
 
@@ -265,7 +263,7 @@ negotiate(int s, char *lu, char *assoc)
 }
 
 void
-process(int s, char *command)
+process(int s)
 {
 	while (cstate != NOT_CONNECTED) {
 		if (net_input(s) < 0)
@@ -349,8 +347,8 @@ net_input(int s)
 
 	nr = read(s, (char *)netrbuf, BUFSZ);
 	if (nr < 0) {
-		vtrace_str("RCVD socket error %d\n", errno);
-		perror("Socket read");
+		vtrace_str("RCVD socket error %s\n", strerror(errno));
+		errmsg("Socket read: %s", strerror(errno));
 		cstate = NOT_CONNECTED;
 		return -1;
 	} else if (nr == 0) {
@@ -417,14 +415,14 @@ telnet_fsm(unsigned char c)
 			telnet_state = TNS_DATA;
 			break;
 		    case EOR:	/* eor, process accumulated input */
+			trace_str("RCVD EOR");
 			if (IN_3270 || (IN_E && tn3270e_negotiated)) {
+				trace_str("\n");
 				ns_rrcvd++;
 				if (process_eor())
 					return -1;
 			} else
-				errmsg("EOR received when not in 3270 mode, "
-				    "ignored.");
-			trace_str("RCVD EOR\n");
+				trace_str(" (ignored -- not in 3270 mode)\n");
 			ibptr = ibuf;
 			telnet_state = TNS_DATA;
 			break;
@@ -454,12 +452,23 @@ telnet_fsm(unsigned char c)
 			}
 			telnet_state = TNS_DATA;
 			break;
+		    case AO:
+			if (IN_3270 && !IN_E) {
+				trace_str("\n");
+				print_eoj();
+			} else {
+				trace_str(" (ignored -- not in TN3270 mode)\n");
+			}
+			ibptr = ibuf;
+			telnet_state = TNS_DATA;
+			break;
 		    case GA:
+		    case NOP:
 			trace_str("\n");
 			telnet_state = TNS_DATA;
 			break;
 		    default:
-			trace_str("???\n");
+			trace_str(" (ignored -- unsupported)\n");
 			telnet_state = TNS_DATA;
 			break;
 		}
@@ -569,8 +578,8 @@ telnet_fsm(unsigned char c)
                                     try_assoc == NULL &&
 				    try_lu == NULL) {
 					/* None of the LUs worked. */
-					fprintf(stderr, "Cannot connect to "
-						 "specified LU\n");
+					errmsg("Cannot connect to specified "
+						"LU");
 					return -1;
 				}
 				tt_len = strlen(termtype);
@@ -744,8 +753,7 @@ tn3270e_negotiate(void)
 			vtrace_str("REJECT REASON %s SE\n", rsn(sbbuf[4]));
 
 			if (try_assoc != NULL) {
-				fprintf(stderr, "Cannot associate with "
-					"specified LU: %s\n",
+				errmsg("Cannot associate with specified LU: %s",
 					 rsn(sbbuf[4]));
 				return -1;
 			}
@@ -755,12 +763,12 @@ tn3270e_negotiate(void)
 				tn3270e_request();
 			} else if (lus != NULL) {
 				/* No more LUs to try.  Give up. */
-				fprintf(stderr, "Cannot connect to "
-					"specified LU: %s\n", rsn(sbbuf[4]));
+				errmsg("Cannot connect to specified LU: %s",
+					rsn(sbbuf[4]));
 				return -1;
 			} else {
-				fprintf(stderr, "Device type rejected, cannot "
-					"connect: %s\n", rsn(sbbuf[4]));
+				errmsg("Device type rejected, cannot connect: "
+					"%s", rsn(sbbuf[4]));
 				return -1;
 			}
 
@@ -785,24 +793,20 @@ tn3270e_negotiate(void)
 			    tn3270e_function_names(sbbuf+3, sblen-3));
 
 			e_rcvd = tn3270e_fdecode(sbbuf+3, sblen-3);
-			if (e_rcvd == e_funcs) {
-				/* Perfect.  Tell them so. */
+			if ((e_rcvd == e_funcs) || (e_funcs & ~e_rcvd)) {
+				/* They want what we want, or less.  Done. */
+				e_funcs = e_rcvd;
 				tn3270e_subneg_send(TN3270E_OP_IS, e_funcs);
-
 				tn3270e_negotiated = 1;
+				vtrace_str("TN3270E option negotiation "
+				    "complete.\n");
 				check_in3270();
 			} else {
-				/* Not quite perfect. */
-				if (e_funcs & ~e_rcvd) {
-					/* They've removed something. */
-					e_funcs &= e_rcvd;
-				}
 				/*
-				 * Otherwise, they've added something, and
-				 * we can't do that.  Just retransmit.
+				 * They want us to do something we can't.
+				 * Request the common subset.
 				 */
-
-				/* Tell them what we can do now. */
+				e_funcs &= e_rcvd;
 				tn3270e_subneg_send(TN3270E_OP_REQUEST,
 				    e_funcs);
 			}
@@ -816,10 +820,8 @@ tn3270e_negotiate(void)
 			e_rcvd = tn3270e_fdecode(sbbuf+3, sblen-3);
 			if (e_rcvd != e_funcs) {
 				if (e_funcs & ~e_rcvd) {
-					/* They've removed something. */
+					/* They've removed something.  Fine. */
 					e_funcs &= e_rcvd;
-					vtrace_str("Host illegally removed "
-						"function(s), continuing\n");
 				} else {
 					/*
 					 * They've added something.  Abandon
@@ -838,6 +840,7 @@ tn3270e_negotiate(void)
 				}
 			}
 			tn3270e_negotiated = 1;
+			vtrace_str("TN3270E option negotiation complete.\n");
 			check_in3270();
 			break;
 
@@ -872,7 +875,7 @@ tn3270e_function_names(const unsigned char *buf, int len)
 	return text_buf;
 }
 
-/* Transmit a TN3270E FUNCTIONS REQUEST message. */
+/* Transmit a TN3270E FUNCTIONS REQUEST or FUNCTIONS IS message. */
 static void
 tn3270e_subneg_send(unsigned char op, unsigned long funcs)
 {
@@ -895,8 +898,9 @@ tn3270e_subneg_send(unsigned char op, unsigned long funcs)
 	net_rawout(proto_buf, proto_len);
 
 	/* Complete and send out the trace text. */
-	vtrace_str("SENT %s %s FUNCTIONS REQUEST %s %s\n",
+	vtrace_str("SENT %s %s FUNCTIONS %s %s %s\n",
 	    cmd(SB), opt(TELOPT_TN3270E),
+	    (op == TN3270E_OP_REQUEST)? "REQUEST": "IS",
 	    tn3270e_function_names(proto_buf + 5, proto_len - 7),
 	    cmd(SE));
 }
@@ -982,9 +986,13 @@ process_eor(void)
 			return 0;
 		}
 	} else {
-		return process_ds(ibuf, ibptr - ibuf) < 0;
+		rv = process_ds(ibuf, ibptr - ibuf);
+		if (rv < 0)
+			tn3270_nak(rv);
+		else
+			tn3270_ack();
+		return 0;
 	}
-	return 0;
 }
 
 
@@ -1045,14 +1053,14 @@ net_rawout(unsigned const char *buf, int len)
 #endif
 		nw = write(sock, (const char *) buf, n2w);
 		if (nw < 0) {
-			vtrace_str("RCVD socket error %d\n", errno);
+			vtrace_str("RCVD socket error %s\n", strerror(errno));
 			if (errno == EPIPE || errno == ECONNRESET) {
 				cstate = NOT_CONNECTED;
 				return;
 			} else if (errno == EINTR) {
 				goto bot;
 			} else {
-				perror("socket write");
+				errmsg("Socket write: %s", strerror(errno));
 				cstate = NOT_CONNECTED;
 				return;
 			}
@@ -1133,8 +1141,8 @@ check_in3270(void)
 		 * give up.
 		 */
 		if (try_assoc != NULL && !IN_E) {
-			fprintf(stderr, "Host does not support TN3270E, "
-				"cannot associate with specified LU\n");
+			errmsg("Host does not support TN3270E, cannot "
+				"associate with specified LU");
 			/* No return value, gotta abort here. */
 			exit(1);
 		}
@@ -1224,13 +1232,6 @@ nnn(int c)
 	return buf;
 }
 
-#if !defined(TELCMD) || !defined(TELCMD_OK) /*[*/
-#undef TELCMD
-#define TELCMD(x)	telcmds[(x) - SE]
-#undef TELCMD_OK
-#define TELCMD_OK(x)	((x) >= SE && (x) <= IAC)
-#endif /*]*/
-
 /*
  * cmd
  *	Expands a TELNET command into a character string.
@@ -1243,13 +1244,6 @@ cmd(unsigned char c)
 	else
 		return nnn((int)c);
 }
-
-#if !defined(TELOPT) || !defined(TELOPT_OK) /*[*/
-#undef TELOPT
-#define TELOPT(x)	telopts[(x)]
-#undef TELOPT_OK
-#define TELOPT_OK(x)	((x) >= TELOPT_BINARY && (x) <= TELOPT_EOR)
-#endif /*]*/
 
 /*
  * opt
@@ -1368,6 +1362,52 @@ net_output(void)
 	trace_str("SENT EOR\n");
 	ns_rsent++;
 #undef BSTART
+}
+
+/* Send a TN3270 positive response to the server. */
+static void
+tn3270_ack(void)
+{
+	unsigned char rsp_buf[7];
+	int rsp_len = sizeof(rsp_buf);
+
+	rsp_buf[0] = 0x01; /* SOH */
+	rsp_buf[1] = 0x6c; /*  %  */
+	rsp_buf[2] = 0xd9; /*  R  */
+	rsp_buf[3] = 0x02; /* Device End - No Error */
+	rsp_buf[4] = 0x00; /* No error */
+	rsp_buf[5] = IAC;
+	rsp_buf[6] = EOR;
+	vtrace_str("SENT TN3270 PRINTER STATUS(OKAY)\n");
+	net_rawout(rsp_buf, rsp_len);
+}
+
+/* Send a TN3270 negative response to the server. */
+static void
+tn3270_nak(enum pds rv)
+{
+	unsigned char rsp_buf[7];
+	int rsp_len = sizeof(rsp_buf);
+
+	rsp_buf[0] = 0x01; /* SOH */
+	rsp_buf[1] = 0x6c; /*  %  */
+	rsp_buf[2] = 0xd9; /*  R  */
+	rsp_buf[3] = 0x04; /* Error */
+	switch (rv) {
+	case PDS_BAD_CMD:
+		rsp_buf[4] = 0x20; /* Command Rejected (CR) */
+		break;
+	case PDS_BAD_ADDR:
+		rsp_buf[4] = 0x04; /* Data check - invalid print data */
+		break;
+	default:
+		rsp_buf[4] = 0x20; /* Command Rejected - shouldn't happen */
+		break;
+	}
+	rsp_buf[5] = IAC;
+	rsp_buf[6] = EOR;
+	vtrace_str("SENT TN3270 PRINTER STATUS(ERROR)\n");
+	net_rawout(rsp_buf, rsp_len);
 }
 
 /* Send a TN3270E positive response to the server. */

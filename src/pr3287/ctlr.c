@@ -1,5 +1,5 @@
 /*
- * Modifications Copyright 1993, 1994, 1995, 1996, 1999, 2000 by Paul Mattes.
+ * Modifications Copyright 1993, 1994, 1995, 1996, 1999, 2000, 2001 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -32,8 +32,9 @@
 #include "tablesc.h"
 
 extern char *command;
+extern int blanklines;	/* display blank lines even if empty (formatted LU3) */
 
-#define CS_GE 0x04	 /* hack */
+#define CS_GE 0x04	/* hack */
 
 #define WCC_LINE_LENGTH(c)		((c) & 0x30)
 #define WCC_132				0x00
@@ -44,7 +45,10 @@ extern char *command;
 #define MAX_LL				132
 #define MAX_BUF				(MAX_LL * MAX_LL)
 
-static char *ll_name[] = { "(none) 132", "40", "64", "80" };
+#define VISIBLE		0x01	/* visible field */
+#define INVISIBLE	0x02	/* invisible field */
+
+static const char *ll_name[] = { "unformatted132", "formatted40", "formatted64", "formatted80" };
 static int ll_len[] = { 132, 40, 64, 80 };
 
 /* 3270 (formatted mode) data */
@@ -56,9 +60,11 @@ static int baddr = 0;
 static Boolean page_buf_initted = False;
 static int any_3270_output = 0;
 static FILE *prfile = NULL;
+static unsigned char wcc_line_length;
 
 static void ctlr_erase(void);
-static void dump_3270_page(void);
+static void dump_formatted(void);
+static void dump_unformatted(void);
 static void stash(unsigned char c);
 
 #define DECODE_BADDR(c1, c2) \
@@ -149,8 +155,6 @@ process_ds(unsigned char *buf, int buflen)
 		errmsg("Unknown 3270 Data Stream command: 0x%X", buf[0]);
 		return PDS_BAD_CMD;
 	}
-
-	return 0;
 }
 
 /*
@@ -164,7 +168,7 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 	Boolean		last_cmd;
 	Boolean		last_zpt;
 	Boolean		wcc_keyboard_restore, wcc_sound_alarm;
-	unsigned char	wcc_line_length;
+	Boolean		wcc_start_printer;
 	Boolean		ra_ge;
 	int		i;
 	unsigned char	na;
@@ -186,7 +190,7 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 	 (((attr) & 0x01) ? FA_MODIFY : 0) | \
 	 (((attr) >> 2) & FA_INTENSITY))
 #define START_FIELDx(fa) { \
-			ctlr_add(' ', 0, default_gr); \
+			ctlr_add(FA_IS_ZERO(fa)?INVISIBLE:VISIBLE, 0, default_gr); \
 			trace_ds(see_attr(fa)); \
 		}
 #define START_FIELD0	{ START_FIELDx(FA_BASE); }
@@ -199,7 +203,7 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 		return;
 
 	if (!page_buf_initted) {
-		(void) memset(page_buf, ' ', MAX_BUF);
+		(void) memset(page_buf, '\0', MAX_BUF);
 		page_buf_initted = True;
 		baddr = 0;
 	}
@@ -214,6 +218,9 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 	wcc_line_length = WCC_LINE_LENGTH(buf[1]);
 	if (wcc_line_length) {
 		trace_ds("%s%s", paren, ll_name[wcc_line_length >> 4]);
+		paren = ",";
+	} else {
+		trace_ds("%sunformatted", paren);
 		paren = ",";
 	}
 	line_length = ll_len[wcc_line_length >> 4];
@@ -230,6 +237,11 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 
 	if (WCC_RESET_MDT(buf[1])) {
 		trace_ds("%sresetMDT", paren);
+		paren = ",";
+	}
+	wcc_start_printer = WCC_START_PRINTER(buf[1]);
+	if (wcc_start_printer) {
+		trace_ds("%sstartprinter", paren);
 		paren = ",";
 	}
 	if (strcmp(paren, "("))
@@ -253,8 +265,7 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 			END_TEXT("SetBufferAddress");
 			trace_ds("(%d,%d)", 1+(xbaddr/line_length),
 				1+(xbaddr%line_length));
-			baddr = ((xbaddr/line_length) * MAX_LL) +
-				(xbaddr%line_length);
+			baddr = xbaddr;
 			if (baddr >= MAX_BUF) {
 				/* Error! */
 				baddr = 0;
@@ -365,7 +376,7 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 			}
 			if (!any_fa)
 				START_FIELD0;
-			ctlr_add(' ', 0, default_gr);
+			ctlr_add('\0', 0, default_gr);
 			last_cmd = True;
 			last_zpt = False;
 			break;
@@ -395,57 +406,51 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 		case FCORDER_FF:	/* Form Feed */
 			END_TEXT("FF");
 			previous = ORDER;
-			if (wcc_line_length)
-				ctlr_add(' ', default_cs, default_gr);
-			else
-				ctlr_add('\f', default_cs, default_gr);
+			ctlr_add(FCORDER_FF, default_cs, default_gr);
 			last_cmd = True;
 			last_zpt = False;
 			break;
 		case FCORDER_CR:	/* Carriage Return */
 			END_TEXT("CR");
 			previous = ORDER;
-			if (wcc_line_length)
-				ctlr_add(' ', default_cs, default_gr);
-			else
-				ctlr_add('\r', default_cs, default_gr);
+			ctlr_add(FCORDER_CR, default_cs, default_gr);
 			last_cmd = True;
 			last_zpt = False;
 			break;
 		case FCORDER_NL:	/* New Line */
 			END_TEXT("NL");
 			previous = ORDER;
-			if (wcc_line_length)
-				ctlr_add(' ', default_cs, default_gr);
-			else
-				ctlr_add('\n', default_cs, default_gr);
+			ctlr_add(FCORDER_NL, default_cs, default_gr);
 			last_cmd = True;
 			last_zpt = False;
 			break;
 		case FCORDER_EM:	/* End of Media */
 			END_TEXT("EM");
 			previous = ORDER;
-			if (wcc_line_length)
-				ctlr_add(' ', default_cs, default_gr);
-			else
-				print_eoj();
+			ctlr_add(FCORDER_EM, default_cs, default_gr);
+			last_cmd = True;
+			last_zpt = False;
+			break;
+		case FCORDER_DUP:	/* Visible control characters */
+		case FCORDER_FM:
+			END_TEXT(see_ebc(*cp));
+			previous = ORDER;
+			ctlr_add(ebc2asc[*cp], default_cs, default_gr);
 			last_cmd = True;
 			last_zpt = False;
 			break;
 		case FCORDER_SUB:	/* misc format control orders */
-		case FCORDER_DUP:
-		case FCORDER_FM:
 		case FCORDER_EO:
 			END_TEXT(see_ebc(*cp));
 			previous = ORDER;
-			ctlr_add(ebc2cg[*cp], default_cs, default_gr);
+			ctlr_add('\0', default_cs, default_gr);
 			last_cmd = True;
 			last_zpt = False;
 			break;
 		case FCORDER_NULL:
 			END_TEXT("NULL");
 			previous = NULLCH;
-			ctlr_add(' ', default_cs, default_gr);
+			ctlr_add('\0', default_cs, default_gr);
 			last_cmd = False;
 			last_zpt = False;
 			break;
@@ -453,7 +458,7 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 			if (*cp <= 0x3F) {
 				END_TEXT("ILLEGAL_ORDER");
 				previous = ORDER;
-				ctlr_add(' ', default_cs, default_gr);
+				ctlr_add('\0', default_cs, default_gr);
 				trace_ds(see_ebc(*cp));
 				last_cmd = True;
 				last_zpt = False;
@@ -470,14 +475,11 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 		}
 	}
 
-#if 0
-	/* Do the implied trailing newline, unless we just processed an EM. */
-	if (previous != ORDER || *cp != FCORDER_EM || wcc_line_length ||
-			any_3270_output) {
-		ctlr_add('\n', default_cs, default_gr);
-	}
-#endif
 	trace_ds("\n");
+
+	/* If it's formatted, print it out now. */
+	if (wcc_line_length)
+		dump_formatted();
 }
 
 #undef START_FIELDx
@@ -969,64 +971,222 @@ stash(unsigned char c)
 void
 ctlr_add(unsigned char c, unsigned char cs, unsigned char gr)
 {
-	switch (c) {
-		case '\r':
-			baddr -= baddr % MAX_LL;
-			break;
-		case '\n':
-			baddr = (baddr - (baddr % MAX_LL) + MAX_LL) % MAX_BUF;
-			break;
-		case '\f':
-			dump_3270_page();
-			break;
-		default:
-			if ((c & 0x7f) < ' ')	/* just in case */
+	/* Map control charactres, according to the write mode. */
+	if ((c & 0x7f) < ' ') {
+		if (wcc_line_length) {
+			/*
+			 * When formatted, all control characters but FFs and
+			 * the funky VISIBLE/INVISIBLE controls are translated
+			 * to NULLs, so they don't display, and don't
+			 * contribute to empty lines.
+			 */
+			if (c != FCORDER_FF && c != VISIBLE && c != INVISIBLE)
+				c = '\0';
+		} else {
+			/*
+			 * Unformatted, all control characters but CR/NL/FF/EM
+			 * are displayed as spaces.
+			 */
+			if (c != FCORDER_CR && c != FCORDER_NL &&
+			    c != FCORDER_FF && c != FCORDER_EM)
 				c = ' ';
-			page_buf[baddr] = c;
-			baddr = (baddr + 1) % MAX_BUF;
-			if (baddr % MAX_LL >= line_length)
-				baddr -= baddr % MAX_LL;
-			break;
+		}
 	}
+
+	/* Add the character. */
+	page_buf[baddr] = c;
+	baddr = (baddr + 1) % MAX_BUF;
 	any_3270_output = 1;
+
+	/* If this is an EM, dump the unformatted buffer. */
+	if (c == FCORDER_EM)
+		dump_unformatted();
 }
 
+/*
+ * Unformatted output function.  Processes one character of output data.
+ *
+ * This function will buffer up to MAX_LL characters of output, until it is
+ * passed a '\n' or '\f' character.
+ *
+ * It will process '\r' characters like a printer, i.e., it will not overwrite
+ * a buffered non-space character with a space character.  This is how
+ * an output line can span multiple 3270 unformatted write commands.
+ */
 static void
-dump_3270_page(void)
+uoutput(char c)
 {
-	int i, j;
-	int blanks = 0;
-	int blank_lines = 0;
+	static char buf[MAX_LL];
+	static int col = 0;
+	static int maxcol = 0;
+	int i;
+
+	switch (c) {
+	case '\r':
+		col = 0;
+		break;
+	case '\n':
+	case '\f':
+		for (i = 0; i < maxcol; i++) {
+			stash(buf[i]);
+		}
+		stash(c);
+		col = maxcol = 0;
+		break;
+	default:
+		/* Don't overwrite with spaces. */
+		if (c == ' ') {
+			if (col >= maxcol)
+				buf[col++] = c;
+			else
+				col++;
+		} else {
+			buf[col++] = c;
+		}
+		if (col > maxcol)
+			maxcol = col;
+		break;
+	}
+}
+
+/*
+ * Dump an unformatted output buffer.
+ *
+ * The buffer is treated as a sequence of characters, with control characters
+ * for new line, carriage return, form feed and end of media.
+ *
+ * By definition, the "print position" is 0 when this function begins and ends.
+ */
+static void
+dump_unformatted(void)
+{
+	int i;
+	int prcol = 0;
+	char c;
+	int done = 0;
+
+	if (!any_3270_output)
+		return;
+
+	for (i = 0; i < MAX_BUF && !done; i++) {
+		switch (c = page_buf[i]) {
+		case '\0':
+			break;
+		case FCORDER_CR:
+			uoutput('\r');
+			prcol = 0;
+			break;
+		case FCORDER_NL:
+			uoutput('\n');
+			prcol = 0;
+			break;
+		case FCORDER_FF:
+			uoutput('\f');
+			prcol = 0;
+			break;
+		case FCORDER_EM:
+			if (prcol != 0)
+				uoutput('\n');
+			done = 1;
+			break;
+		default:	/* printable */
+			uoutput(c);
+
+			/* Handle implied newlines. */
+			if (++prcol >= MAX_LL) {
+				uoutput('\n');
+				prcol = 0;
+			}
+			break;
+		}
+	}
+
+	/* If the buffer didn't end with an EM, flush any pending line. */
+	if (!done)
+		uoutput('\n');
+
+	/* Clear out the buffer. */
+	(void) memset(page_buf, '\0', MAX_BUF);
+
+	/* Flush buffered data. */
+	fflush(prfile);
+	any_3270_output = 0;
+}
+
+/*
+ * Dump a formatted output buffer.
+ *
+ * The buffer is treated as a sequence of lines, with the length specified by
+ * the write control character.  
+ *
+ * Each line is terminated by a newline, with trailing spaces and nulls
+ * suppressed.
+ * Nulls are displayed as spaces, except when they constitute an entire line,
+ * in which case the line is suppressed.
+ * Formfeeds are passed through, and otherwise treated like nulls.
+ */
+static void
+dump_formatted(void)
+{
+	int i;
+	char *cp = page_buf;
+	int visible = 1;
+	int newlines = 0;
 
 	if (!any_3270_output)
 		return;
 	for (i = 0; i < MAX_LL; i++) {
-		for (j = 0; j < MAX_LL; j++) {
-			char c;
+		int blanks = 0;
+		int any_data = 0;
+		int j;
 
-			c = page_buf[i*MAX_LL + j];
-			if (c == ' ') {
+		for (j = 0;
+		     j < line_length && ((i * line_length) + j) < MAX_BUF;
+		     j++) {
+			char c = *cp++;
+
+			switch (c) {
+			case VISIBLE:	/* visible field */
+				visible = 1;
 				blanks++;
-				continue;
+				break;
+			case INVISIBLE:	/* invisible field */
+				visible = 0;
+				blanks++;
+				break;
+			case '\f':
+				while (newlines) {
+					stash('\n');
+					newlines--;
+				}
+				stash('\f');
+				blanks++;
+				break;
+			case '\0':
+				blanks++;
+				break;
+			case ' ':
+				blanks++;
+				any_data++;
+				break;
+			default:
+				while (newlines) {
+					stash('\n');
+					newlines--;
+				}
+				while (blanks) {
+					stash(' ');
+					blanks--;
+				}
+				any_data++;
+				stash(visible? c: ' ');
+				break;
 			}
-			while (blank_lines) {
-				stash('\n');
-				blank_lines--;
-			}
-			while (blanks) {
-				stash(' ');
-				blanks--;
-			}
-			stash(c);
 		}
-		if (blanks >= MAX_LL)
-			blank_lines++;
-		else
-			stash('\n');
-		blanks = 0;
+		if (any_data || blanklines)
+			newlines++;
 	}
-	stash('\f');
-	(void) memset(page_buf, ' ', MAX_BUF);
+	(void) memset(page_buf, '\0', MAX_BUF);
 	fflush(prfile);
 	any_3270_output = 0;
 }
@@ -1035,7 +1195,10 @@ void
 print_eoj(void)
 {
 	/* Dump any pending 3270-mode output. */
-	dump_3270_page();
+	if (wcc_line_length)
+		dump_formatted();
+	else
+		dump_unformatted();
 
 	/* Dump any pending SCS-mode output. */
 	if (any_scs_output)
@@ -1064,5 +1227,7 @@ print_eoj(void)
 static void
 ctlr_erase(void)
 {
-	/*(void) memset(page_buf, ' ', MAX_BUF);*/
+	(void) memset(page_buf, '\0', MAX_BUF);
+	any_3270_output = 0;
+	baddr = 0;
 }
