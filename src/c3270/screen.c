@@ -78,6 +78,7 @@ static void status_connect(Boolean ignored);
 static void status_3270_mode(Boolean ignored);
 static int get_color_pair(int fg, int bg);
 static int color_from_fa(unsigned char);
+static void screen_init2(void);
 
 /* Initialize the screen. */
 void
@@ -152,6 +153,10 @@ screen_init(void)
 	/* Set up the controller. */
 	ctlr_init(-1);
 	ctlr_reinit(-1);
+
+	/* Finish screen initialization. */
+	screen_init2();
+	screen_suspend();
 }
 
 /* Secondary screen initialization. */
