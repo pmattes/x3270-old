@@ -1,4 +1,4 @@
-x3270 3.2 Alpha Test Release
+x3270 3.2 General Release
 
 x3270 is an IBM 3278/3279 terminal emulator for X windows.
 
@@ -41,7 +41,7 @@ http://www.geocities.com/SiliconValley/Peaks/7814.
 Updates are also available on ftp.x.org and several X11R6 mirror sites,
 usually in the /contrib/applications/x3270 directory. Fixes are often
 distributed as patch files (you will need gnu patch to apply them) under the
-name fix.nn, e.g., the next fix to version 3.2 will be x3270-3.2.fix01.
+name fix.nn, e.g., the next fix to version 3.2 will be x3270-3.2.fix05.
 
 Feel free to send comments, criticism, suggestions, complaints, etc., to
 Paul Mattes, Paul.Mattes@usa.net. Requests will be addressed as time and

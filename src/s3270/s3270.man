@@ -1,5 +1,5 @@
 '\" t
-.TH S3270 1 "12 March 1999"
+.TH S3270 1 "8 May 2000"
 .SH NAME
 s3270 \-
 .SM IBM
@@ -587,7 +587,7 @@ RFC 1576, TN3270 Current Practices
 RFC 1646, TN3270 Extensions for LUname and Printer Selection
 .SH COPYRIGHTS
 .LP
-Modifications Copyright 1993, 1994, 1995, 1996, 1997, 1999 by Paul Mattes.
+Modifications Copyright 1993, 1994, 1995, 1996, 1997, 2000 by Paul Mattes.
 .br
 Original X11 Port Copyright 1990 by Jeff Sparkes.
 .RS
@@ -605,4 +605,4 @@ notice.
 .RE
 5250 Emulation Code copyright Minolta (Schweiz) AG, Beat Rubischon.
 .SH VERSION
-s3270 3.2A1
+s3270 3.2.4
