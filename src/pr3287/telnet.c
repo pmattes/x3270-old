@@ -1077,7 +1077,7 @@ net_rawout(unsigned const char *buf, int len)
 static void
 check_in3270(void)
 {
-	enum cstate new_cstate;
+	enum cstate new_cstate = NOT_CONNECTED;
 	static const char *state_name[] = {
 		"unconnected",
 		"pending",

@@ -29,7 +29,8 @@ int color = 0;
 void
 usage()
 {
-	fprintf(stderr, "usage: %s [-DCOLOR] [-UCOLOR] file\n", me);
+	fprintf(stderr, "usage: %s [-DCOLOR] [-UCOLOR] [infile [outfile]]\n",
+	    me);
 	exit(1);
 }
 
@@ -40,7 +41,7 @@ char *argv[];
 {
 	int c;
 	char buf[1024];
-	FILE *f;
+	FILE *f, *t, *o;
 	int nest = 0;
 	int ln = 0;
 	int pass[MAX_NEST];
@@ -77,15 +78,25 @@ char *argv[];
 		f = stdin;
 		break;
 	    case 1:
-		f = fopen(argv[optind], "r");
-		if (f == (FILE *)NULL) {
-			perror(argv[optind]);
-			exit(1);
-		}
+	    case 2:
+		if (strcmp(argv[optind], "-")) {
+			f = fopen(argv[optind], "r");
+			if (f == (FILE *)NULL) {
+				perror(argv[optind]);
+				exit(1);
+			}
+		} else
+			f = stdin;
 		break;
 	    default:
 		usage();
 		break;
+	}
+
+	t = tmpfile();
+	if (t == NULL) {
+		perror("tmpfile");
+		exit(1);
 	}
 
 	pass[nest] = 1;
@@ -94,7 +105,7 @@ char *argv[];
 		ln++;
 		if (buf[0] != '#') {
 			if (pass[nest])
-				printf("%s", buf);
+				fprintf(t, "%s", buf);
 			continue;
 		}
 		if (!strcmp(buf, "#ifdef COLOR\n")) {
@@ -141,7 +152,7 @@ char *argv[];
 			exit(1);
 		}
 #if 0
-		printf("! line %d nest %d pass[nest] %d\n",
+		fprintf(t, "! line %d nest %d pass[nest] %d\n",
 		    ln, nest, pass[nest]);
 #endif
 	}
@@ -150,7 +161,29 @@ char *argv[];
 		exit(1);
 	}
 
+	/* Close the input file, if there was one. */
 	if (f != stdin)
 		fclose(f);
+
+	/* Open the output file, if there is one. */
+	if (argc - optind == 2) {
+		o = fopen(argv[optind + 1], "w");
+		if (o == NULL) {
+			perror(argv[optind + 1]);
+			exit(1);
+		}
+	} else {
+		o = stdout;
+	}
+
+	/* Copy the temp file to the output file. */
+	rewind(t);
+	while (fgets(buf, sizeof(buf), t) != NULL) {
+		fprintf(o, "%s", buf);
+	}
+	fclose(t);
+	if (o != stdout)
+		fclose(o);
+
 	exit(0);
 }

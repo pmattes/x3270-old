@@ -1,5 +1,5 @@
 /*
- * Copyright 1999 by Paul Mattes.
+ * Copyright 1999, 2000 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -9,6 +9,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include "localdefs.h"
 
 /* s3270 substitute Xt resource database. */
 
@@ -125,6 +126,85 @@ static struct {
 0xb0: cent		\n	0xba: notsign		\n\
 0xbb: bar		\n" },
 	{ "codepage.belgian", "500" },
+#if defined(C3270) /*[*/
+	{ "composeMap.latin1", "c + bar		= cent			\n\
+c + slash	= cent			\n\
+L + minus	= sterling		\n\
+Y + equal	= yen			\n\
+S + S		= section		\n\
+C + O		= copyright		\n\
+a + underscore	= ordfeminine		\n\
+less + less	= guillemotleft		\n\
+R + O		= registered		\n\
+plus + minus	= plusminus		\n\
+o + underscore	= masculine		\n\
+greater + greater = guillemotright	\n\
+1 + 4		= onequarter		\n\
+1 + 2		= onehalf		\n\
+3 + 4		= threequarters		\n\
+bar + bar	= brokenbar		\n\
+A + grave	= Agrave		\n\
+A + apostrophe	= Aacute		\n\
+A + asciicircum	= Acircumflex		\n\
+A + asciitilde	= Atilde		\n\
+A + quotedbl	= Adiaeresis		\n\
+A + asterisk	= Aring			\n\
+A + E		= AE			\n\
+C + comma	= Ccedilla		\n\
+E + grave	= Egrave		\n\
+E + apostrophe	= Eacute		\n\
+E + asciicircum	= Ecircumflex		\n\
+E + quotedbl	= Ediaeresis		\n\
+I + grave	= Igrave		\n\
+I + apostrophe	= Iacute		\n\
+I + asciicircum	= Icircumflex		\n\
+I + quotedbl	= Idiaeresis		\n\
+N + asciitilde	= Ntilde		\n\
+O + grave	= Ograve		\n\
+O + apostrophe	= Oacute		\n\
+O + asciicircum	= Ocircumflex		\n\
+O + asciitilde	= Otilde		\n\
+O + quotedbl	= Odiaeresis		\n\
+O + slash	= Ooblique		\n\
+U + grave	= Ugrave		\n\
+U + apostrophe	= Uacute		\n\
+U + asciicircum	= Ucircumflex		\n\
+U + quotedbl	= Udiaeresis		\n\
+Y + apostrophe	= Yacute		\n\
+s + s		= ssharp		\n\
+a + grave	= agrave		\n\
+a + apostrophe	= aacute		\n\
+a + asciicircum	= acircumflex		\n\
+a + asciitilde	= atilde		\n\
+a + quotedbl	= adiaeresis		\n\
+a + asterisk	= aring			\n\
+a + e		= ae			\n\
+c + comma	= ccedilla		\n\
+e + grave	= egrave		\n\
+e + apostrophe	= eacute		\n\
+e + asciicircum	= ecircumflex		\n\
+e + quotedbl	= ediaeresis		\n\
+i + grave	= igrave		\n\
+i + apostrophe	= iacute		\n\
+i + asciicircum	= icircumflex		\n\
+i + quotedbl	= idiaeresis		\n\
+n + asciitilde	= ntilde		\n\
+o + grave	= ograve		\n\
+o + apostrophe	= oacute		\n\
+o + asciicircum	= ocircumflex		\n\
+o + asciitilde	= otilde		\n\
+o + quotedbl	= odiaeresis		\n\
+o + slash	= oslash		\n\
+u + grave	= ugrave		\n\
+u + apostrophe	= uacute		\n\
+u + asciicircum	= ucircumflex		\n\
+u + quotedbl	= udiaeresis		\n\
+y + apostrophe	= yacute		\n\
+y + quotedbl	= ydiaeresis		\n" },
+	{ "printer.command",	"lpr" },
+	{ "printer.assocCommandLine", "pr3287 -assoc %L% -command \"%C%\" %H%" },
+	{ "printer.luCommandLine", "pr3287 -command \"%C%\" %L%@%H%" },
+#endif /*]*/
 	{ "message.ftComplete",
 "Transfer complete, %i bytes transferred\n\
 %.2lg Kbytes/sec in %s mode" },
@@ -138,13 +218,84 @@ static struct {
 	{ "message.ftCutOversize",	"Illegal frame length" },
 	{ "message.ftDisconnected",	"Host disconnected, transfer cancelled" },
 	{ "message.ftNot3270",	"Not in 3270 mode, transfer cancelled" },
+#if defined(C3270) /*[*/
+	{ "message.hour",	"hour" },
+	{ "message.hours",	"hours" },
+	{ "message.minute",	"minute" },
+	{ "message.byte",	"byte" },
+	{ "message.bytes",	"bytes" },
+	{ "message.characterSet",	"EBCDIC character set:" },
+	{ "message.charMode",	"NVT character mode" },
+	{ "message.columns",	"columns" },
+	{ "message.connectedTo",	"Connected to:" },
+	{ "message.connectionPending",	"Connection pending to:" },
+	{ "message.defaultCharacterSet",	"Default (us) EBCDIC character set" },
+	{ "message.dsMode",	"3270 mode" },
+	{ "message.extendedDs",	"extended data stream" },
+	{ "message.fullColor",	"color" },
+	{ "message.keyboardMap",	"Keyboard map:" },
+	{ "message.lineMode",	"NVT line mode" },
+	{ "message.luName",	"LU name:" },
+	{ "message.minute",	"minute" },
+	{ "message.minutes",	"minutes" },
+	{ "message.model",	"Model" },
+	{ "message.mono",	"monochrome" },
+	{ "message.notConnected",	"Not connected" },
+	{ "message.port",	"Port:" },
+	{ "message.pseudoColor",	"pseudo-color" },
+	{ "message.Received",	"Received" },
+	{ "message.received",	"received" },
+	{ "message.record",	"record" },
+	{ "message.records",	"records" },
+	{ "message.rows",	"rows" },
+	{ "message.second",	"second" },
+	{ "message.seconds",	"seconds" },
+	{ "message.sent",	"Sent" },
+	{ "message.specialCharacters",	"Special characters:" },
+	{ "message.sscpMode",	"SSCP-LU mode" },
+	{ "message.standardDs",	"standard data stream" },
+	{ "message.terminalName",	"Terminal name:" },
+	{ "message.tn3270eNoOpts",	"No TN3270E options" },
+	{ "message.tn3270eOpts",	"TN3270E options:" },
+#endif /*]*/
 	{ (char *)NULL, (char *)NULL }
 };
+
+struct dresource {
+	struct dresource *next;
+	const char *name;
+	char *value;
+} *drdb = NULL, **drdb_next = &drdb;
+
+void
+add_resource(const char *name, char *value)
+{
+	struct dresource *d;
+
+	for (d = drdb; d != NULL; d = d->next) {
+		if (!strcmp(d->name, name)) {
+			d->value = value;
+			return;
+		}
+	}
+	d = Malloc(sizeof(struct dresource));
+	d->next = NULL;
+	d->name = name;
+	d->value = value;
+	*drdb_next = d;
+	drdb_next = &d->next;
+}
 
 char *
 get_resource(const char *name)
 {
+	struct dresource *d;
 	int i;
+
+	for (d = drdb; d != NULL; d = d->next) {
+		if (!strcmp(d->name, name))
+			return d->value;
+	}
 
 	for (i = 0; rdb[i].name != (char *)NULL; i++) {
 		if (!strcmp(rdb[i].name, name)) {

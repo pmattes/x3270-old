@@ -1,5 +1,5 @@
 '\" t
-.TH x3270 1 "15 November 2000"
+.TH x3270 1 "16 November 2000"
 .SH "NAME"
 x3270 \-
 \s-1IBM\s+1 host access tool
@@ -1344,4 +1344,4 @@ notice.
 .RE
 5250 Emulation Code Copyright Minolta (Schweiz) AG, Beat Rubischon.
 .SH "VERSION"
-x3270 3.2.14b
+x3270 3.2.14

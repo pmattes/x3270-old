@@ -1,0 +1,99 @@
+<html>
+<head>
+<title>pr3287 Manual Page</title>
+<link HREF="http://www.w3.org/StyleSheets/Core/Steely" TYPE="text/css" REL="stylesheet">
+</head>
+<body>
+<h1>pr3287 Manual Page</h1>
+<h2>Contents</h2>
+<blockquote>
+<a HREF="#Name">Name</a><br>
+<a HREF="#Synopsis">Synopsis</a><br>
+<a HREF="#Description">Description</a><br>
+<a HREF="#Options">Options</a><br>
+<a HREF="#See-Also">See Also</a><br>
+<a HREF="#Copyrights">Copyrights</a><br>
+</blockquote>
+<a NAME="Name"></a><h2>Name</h2>
+pr3287 -
+<font size=-1>IBM</font>
+host printing tool
+<a NAME="Synopsis"></a><h2>Synopsis</h2>
+<b>pr3287</b>
+[ <i>options</i> ]       
+[[ <i>prefix</i> :]...[ <i>LUname</i> [, <i>LUname</i> ...]@] <i>hostname</i> [: <i>port</i> ]] 
+<a NAME="Description"></a><h2>Description</h2>
+<b>pr3287</b>
+opens a telnet connection to an
+<font size=-1>IBM</font>
+host, and emulates an <font size=-1>IBM</font> 3287 printer.
+It implements RFCs 2355 (TN3270E), 1576 (TN3270) and 1646 (LU name selection).
+<p>
+A specific LU name to use may be specified by prepending it to the
+<i>hostname</i>
+with an
+`<b>@</b>'.
+Multiple LU names to try can be separated by commas.
+An empty LU can be placed in the list with an extra comma.
+<p>
+The port to connect to defaults to
+<b>telnet</b>.
+This can be overridden by appending a
+<i>port</i>
+to the
+<i>hostname</i>
+with a colon
+`<b>:</b>'.
+<a NAME="Options"></a><h2>Options</h2>
+<b>pr3287 </b>
+understands the following options:
+<dl><dt><b>-assoc</b> <i>LUname</i></dt><dd>
+Causes the session to be associated with the specified
+<i>LUname</i>.
+<dt><b>-command</b> <i>command</i></dt><dd>
+Specifies the command to run for each print job.
+The default is
+<b>lpr</b>.
+<dt><b>-daemon</b></dt><dd>
+Causes
+<i>pr3287</i>
+to become a daemon process, once the connection to the host is established.
+<dt><b>-trace</b></dt><dd>
+Turns on data stream tracing.
+Trace information is saved in the file
+<b>/tmp/x3trc.</b><i>pid</i>.
+</dl>
+<a NAME="See-Also"></a><h2>See Also</h2>
+x3270(1), telnet(1), tn3270(1)
+<br>
+Data Stream Programmer's Reference, IBM GA23-0059
+<br>
+Character Set Reference, IBM GA27-3831
+<br>
+RFC 1576, TN3270 Current Practices
+<br>
+RFC 1646, TN3270 Extensions for LUname and Printer Selection
+<br>
+RFC 2355, TN3270 Enhancements
+<a NAME="Copyrights"></a><h2>Copyrights</h2>
+<p>
+Modifications Copyright &copy; 1993, 1994, 1995, 1996, 1997, 1999, 2000 by Paul Mattes.
+<br>
+Original X11 Port Copyright &copy; 1990 by Jeff Sparkes.
+<blockquote>Permission to use, copy, modify, and distribute this software and its
+documentation for any purpose and without fee is hereby granted,
+provided that the above copyright notice appear in all copies and that
+both that copyright notice and this permission notice appear in
+supporting documentation.</blockquote>
+Copyright &copy; 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.
+<blockquote>All Rights Reserved.  GTRC hereby grants public use of this software.
+Derivative works based on this software must incorporate this copyright
+notice.</blockquote>
+<hr>
+<address>
+This HTML document and the accompanying troff document were generated with
+a set of write-only <b>m4</b> macros and the powerful <b>vi</b> editor.
+<br>Last modified 16 November 2000.
+</address>
+</body>
+</html>

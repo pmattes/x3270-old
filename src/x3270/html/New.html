@@ -16,7 +16,8 @@ It is intended to be the future development platform for x3270, with x3270
 3.1 continued only with bug fixes.
 <h2>
 <b>Changes in x3270 3.2.14, 15. November 2000</b></h2>
-Fixed a crash when <b>-reconnect</b> is used and <b>x3270.menuBar</b> is
+Use GNU autoconf now.
+<br>Fixed a crash when <b>-reconnect</b> is used and <b>x3270.menuBar</b> is
 <b>False</b>.
 <br>Added documentation on how to get square brackets to display properly.
 <br>Added recent-connect list and connectFileName resource to control it.
@@ -25,6 +26,7 @@ Fixed a crash when <b>-reconnect</b> is used and <b>x3270.menuBar</b> is
 <br>Added NVT-mode keymaps via <b>x3270.keymap.</b><i>name</i><b>.nvt</b>.
 <br>Fixed a memory corruption problem associated with printer session termination.
 <br>Improved the behavior of the <b>-reconnect</b> option, when a host connection fails.
+<br>Allow separate app-defaults file to be built again, via <tt>configure --enable-app-defaults</tt>.
 <h2>
 <b>Changes in x3270 3.2.13, 24. September 2000</b></h2>
 Integrated <b>pr3287</b> into the x3270 release.

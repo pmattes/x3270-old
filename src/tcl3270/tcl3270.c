@@ -26,7 +26,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tcl3270.c,v 1.8 2000/08/03 00:38:26 pdm Exp $
+ * RCS: @(#) $Id: tcl3270.c,v 1.12 2000/11/13 16:09:35 pdm Exp $
  */
 
 /*
@@ -41,6 +41,7 @@
 #include <sys/wait.h>
 #include <signal.h>
 #include <errno.h>
+#include <stdarg.h>
 #include "appres.h"
 #include "3270ds.h"
 #include "resources.h"
@@ -51,6 +52,7 @@
 #include "charsetc.h"
 #include "ctlrc.h"
 #include "ftc.h"
+#include "gluec.h"
 #include "hostc.h"
 #include "keymapc.h"
 #include "kybdc.h"
@@ -64,9 +66,6 @@
 #include "togglesc.h"
 #include "trace_dsc.h"
 #include "utilc.h"
-
-extern Boolean process_events(Boolean block);
-extern int parse_command_line(int argc, char **argv, char **cl_hostname);
 
 /*
  * The following variable is a special hack that is needed in order for
@@ -127,6 +126,7 @@ static Boolean output_wait_needed = False;
 static char *pending_string = NULL;
 static char *pending_string_ptr = NULL;
 static Boolean pending_hex = False;
+Boolean macro_output = False;
 
 /* Is the keyboard is locked due to user input? */
 #define KBWAIT	(kybdlock & (KL_OIA_LOCKED|KL_OIA_TWAIT|KL_DEFERRED_UNLOCK))
@@ -561,7 +561,7 @@ negotiate(void)
 {
 	while (KBWAIT || (waiting == AWAITING_CONNECT && !CONNECT_DONE)) {
 		(void) process_events(True);
-		if (!CONNECTED)
+		if (!PCONNECTED)
 			exit(1);
 	}
 }
@@ -1068,9 +1068,15 @@ Cols_cmd(ClientData clientData, Tcl_Interp *interp, int objc,
 
 /* Generate a response to a script command. */
 void
-sms_info(char *msg)
+sms_info(const char *fmt, ...)
 {
-	Tcl_SetResult(sms_interp, msg, TCL_VOLATILE);
+	va_list args;
+	char buf[4096];
+
+	va_start(args, fmt);
+	(void) vsprintf(buf, fmt, args);
+	va_end(args);
+	Tcl_SetResult(sms_interp, buf, TCL_VOLATILE);
 }
 
 /* Like fcatv, but goes to a buffer. */

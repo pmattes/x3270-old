@@ -39,10 +39,10 @@ extern int cCOLS;
 #undef COLOR_YELLOW
 #undef COLOR_BLUE
 #undef COLOR_WHITE
-#if defined(USE_CURSES) /*[*/
-#include <curses.h>
-#else /*][*/ 
+#if defined(HAVE_NCURSES_H) /*[*/
 #include <ncurses.h>
+#else /*][*/ 
+#include <curses.h>
 #endif /*]*/
 
 static SCREEN *screen;
@@ -340,10 +340,11 @@ kybd_input(void)
 	k = wgetch(stdscr);
 	if (k == ERR)
 		return;
-	trace_event("Key 0x%x (%s)\n", k, decode_key(k));
+	trace_event("Key %s (0x%x)\n", decode_key(k, 0), k);
 	action = lookup_key(k);
 	if (action != CN) {
-		push_keymap_action(action);
+		if (strcmp(action, "[ignore]"))
+			push_keymap_action(action);
 		return;
 	}
 	ia_cause = IA_DEFAULT;

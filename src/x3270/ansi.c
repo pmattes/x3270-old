@@ -1465,12 +1465,23 @@ void
 ansi_send_pf(int nn)
 {
 	static char fn_buf[6];
-	static int code[20] = {
+	static int code[] = {
+		/*
+		 * F1 through F12 are VT220 codes. (Note the discontinuity --
+		 * \E[16~ is missing)
+		 */
 		11, 12, 13, 14, 15, 17, 18, 19, 20, 21, 23, 24,
-		25, 26, 28, 29, 31, 32, 33, 34
+		/*
+		 * F13 through F20 are defined for xterm.
+		 */
+		25, 26, 28, 29, 31, 32, 33, 34,
+		/*
+		 * F21 through F24 are x3270 extensions.
+		 */
+		35, 36, 37, 38
 	};
 
-	if (nn < 1 || nn > 20)
+	if (nn < 1 || nn > sizeof(code)/sizeof(code[0]))
 		return;
 	(void) sprintf(fn_buf, "\033[%d~", code[nn-1]);
 	net_sends(fn_buf);

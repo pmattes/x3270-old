@@ -113,12 +113,12 @@ unsigned long is_undefined;
 
 char *me;
 
-void emit(char c);
+void emit(FILE *t, char c);
 
 void
 usage(void)
 {
-	fprintf(stderr, "usage: %s [infile]\n", me);
+	fprintf(stderr, "usage: %s [infile [outfile]]\n", me);
 	exit(1);
 }
 
@@ -131,6 +131,7 @@ main(int argc, char *argv[])
 	int i;
 	int continued = 0;
 	char *filename = "standard input";
+	FILE *t, *o;
 
 	is_undefined = MODE_COLOR | (~is_defined & MODEMASK);
 
@@ -143,23 +144,32 @@ main(int argc, char *argv[])
 	    case 1:
 		break;
 	    case 2:
-		if (freopen(argv[1], "r", stdin) == (FILE *)NULL) {
-			perror(argv[1]);
-			exit(1);
+	    case 3:
+		if (strcmp(argv[1], "-")) {
+			if (freopen(argv[1], "r", stdin) == (FILE *)NULL) {
+				perror(argv[1]);
+				exit(1);
+			}
+			filename = argv[1];
 		}
-		filename = argv[1];
 		break;
 	    default:
 		usage();
 	}
 
+	t = tmpfile();
+	if (t == NULL) {
+		perror("tmpfile");
+		exit(1);
+	}
+
 	/* Emit the initial boilerplate. */
-	printf("/* This file was created automatically from %s by mkfb. */\n\n",
+	fprintf(t, "/* This file was created automatically from %s by mkfb. */\n\n",
 	    filename);
-	printf("#if !defined(USE_APP_DEFAULTS) /*[*/\n\n");
-	printf("#include <stdio.h>\n");
-	printf("#include <X11/Intrinsic.h>\n\n");
-	printf("static unsigned char fsd[] = {\n");
+	fprintf(t, "#if !defined(USE_APP_DEFAULTS) /*[*/\n\n");
+	fprintf(t, "#include <stdio.h>\n");
+	fprintf(t, "#include <X11/Intrinsic.h>\n\n");
+	fprintf(t, "static unsigned char fsd[] = {\n");
 
 	/* Scan the file, emitting the fsd array and creating the indices. */
 	while (fgets(buf, BUFSZ, stdin) != (char *)NULL) {
@@ -326,7 +336,7 @@ main(int argc, char *argv[])
 			if (c == ' ' || c == '\t')
 				white++;
 			else if (white) {
-				emit(' ');
+				emit(t, ' ');
 				cc++;
 				white = 0;
 			}
@@ -335,8 +345,8 @@ main(int argc, char *argv[])
 			    case '\t':
 				break;
 			    case '#':
-				emit('\\');
-				emit('#');
+				emit(t, '\\');
+				emit(t, '#');
 				cc += 2;
 				break;
 			    case '\\':
@@ -346,18 +356,18 @@ main(int argc, char *argv[])
 				}
 				/* else fall through */
 			    default:
-				emit(c);
+				emit(t, c);
 				cc++;
 				break;
 			}
 		}
 		if (white) {
-			emit(' ');
+			emit(t, ' ');
 			cc++;
 			white = 0;
 		}
 		if (!continued) {
-			emit(0);
+			emit(t, 0);
 			cc++;
 		}
 	}
@@ -366,34 +376,55 @@ main(int argc, char *argv[])
 		fprintf(stderr, "last #ifdef was at line %u\n", ss[ssp-1].lno);
 		exit(1);
 	}
-	printf("};\n\n");
+	fprintf(t, "};\n\n");
 
 	/* Emit the fallback arrays themselves. */
-	printf("String color_fallbacks[%u] = {\n", n_color + 1);
-	for (i = 0; i < n_color; i++)
-		printf("\t(String)&fsd[%u], /* line %u */\n", a_color[i],
+	fprintf(t, "String color_fallbacks[%u] = {\n", n_color + 1);
+	for (i = 0; i < n_color; i++) {
+		fprintf(t, "\t(String)&fsd[%u], /* line %u */\n", a_color[i],
 		    l_color[i]);
-	printf("\t(String)NULL\n};\n\n");
-	printf("String mono_fallbacks[%u] = {\n", n_mono + 1);
-	for (i = 0; i < n_mono; i++)
-		printf("\t(String)&fsd[%u], /* line %u */\n", a_mono[i],
+	}
+	fprintf(t, "\t(String)NULL\n};\n\n");
+	fprintf(t, "String mono_fallbacks[%u] = {\n", n_mono + 1);
+	for (i = 0; i < n_mono; i++) {
+		fprintf(t, "\t(String)&fsd[%u], /* line %u */\n", a_mono[i],
 		    l_mono[i]);
-	printf("\t(String)NULL\n};\n\n");
+	}
+	fprintf(t, "\t(String)NULL\n};\n\n");
 
 	/* Emit some test code. */
-	printf("%s", "#if defined(DEBUG) /*[*/\n\
+	fprintf(t, "%s", "#if defined(DEBUG) /*[*/\n\
 main()\n\
 {\n\
 	int i;\n\
 \n\
 	for (i = 0; color_fallbacks[i]; i++)\n\
-		printf(\"color %d: %s\\n\", i, color_fallbacks[i]);\n\
+		fprintf(t, \"color %d: %s\\n\", i, color_fallbacks[i]);\n\
 	for (i = 0; mono_fallbacks[i]; i++)\n\
-		printf(\"mono %d: %s\\n\", i, mono_fallbacks[i]);\n\
+		fprintf(t, \"mono %d: %s\\n\", i, mono_fallbacks[i]);\n\
 	exit(0);\n\
 }\n");
-	printf("#endif /*]*/\n\n");
-	printf("#endif /*]*/\n");
+	fprintf(t, "#endif /*]*/\n\n");
+	fprintf(t, "#endif /*]*/\n");
+
+	/* Open the output file. */
+	if (argc == 3) {
+		o = fopen(argv[2], "w");
+		if (o == NULL) {
+			perror(argv[2]);
+			exit(1);
+		}
+	} else
+		o = stdout;
+
+	/* Copy tmp to output. */
+	rewind(t);
+	while (fgets(buf, sizeof(buf), t) != NULL) {
+		fprintf(o, "%s", buf);
+	}
+	if (o != stdout)
+		fclose(o);
+	fclose(t);
 
 	return 0;
 }
@@ -401,12 +432,12 @@ main()\n\
 int n_out = 0;
 
 void
-emit(char c)
+emit(FILE *t, char c)
 {
 	if (n_out >= 19) {
-		printf("\n");
+		fprintf(t, "\n");
 		n_out = 0;
 	}
-	printf("%3d,", (unsigned char)c);
+	fprintf(t, "%3d,", (unsigned char)c);
 	n_out++;
 }

@@ -2,8 +2,7 @@ s3270 3.2 Release
 
 s3270 is a scripted IBM 3278/3279 terminal emulator.
 
-Documentation is in the Docs directory (plain text) and the html directory
-(hypertext). The files are:
+Documentation is in the html directory.  The files are:
 
 Intro
      What s3270 is

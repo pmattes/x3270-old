@@ -13,4 +13,4 @@ extern void keymap_init(void);
 extern const char *lookup_cname(int);
 extern char *lookup_key(int k);
 extern void keymap_dump(void);
-extern const char *decode_key(int k);
+extern const char *decode_key(int k, int hint);

@@ -85,7 +85,8 @@ version.o: $(VOBJS) version.txt mkversion.sh
 	sh ./mkversion.sh $(CC)
 
 fallbacks.c: mkfb X3270.xad
-	./mkfb X3270.xad >fallbacks.c
+	$(RM) $@
+	./mkfb X3270.xad $@
 
 mkfb: mkfb.c parts.h
 	$(CC) -o mkfb mkfb.c
@@ -102,16 +103,10 @@ EXTRA_DEFINES = $(HP_DEFINE) $(AD_DEFINE)
 all::
 	-cd pr3287 && $(MAKE) $(MFLAGS)
 
-/*
- * Rule for building the separate app-defaults file.  By default it builds
- * color app-defaults; to change to monochrome app-defaults, uncomment
- * the second "AD_OPTS=" line below.
- */
-AD_OPTS=-DCOLOR
-/* AD_OPTS=-UCOLOR */
+/* Rule for building the separate app-defaults file. */
 X3270.ad: X3270.xad qcpp
 	$(RM) $@
-	./qcpp $(AD_OPTS) X3270.xad >$@
+	./qcpp @UAD_FLAGS@ X3270.xad $@
 qcpp: qcpp.c
 	$(CC) -o $@ qcpp.c
 

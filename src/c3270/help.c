@@ -89,6 +89,7 @@ struct {
 	{ "PauseScript", CN, P_SCRIPTING, "Pause script until ResumeScript" },
 	{ "PF", "<n>", P_3270, "Send 3270 PF AID" },
 	{ "PreviousWord", CN, P_3270, "Move cursor to previous word" },
+	{ "Printer", "Start[,lu]|Stop", P_3270|P_SCRIPTING|P_INTERACTIVE, "Start or stop pr3287 printer session" },
 	{ "Quit", CN, P_INTERACTIVE, "Exit c3270" },
 	{ "Redraw", CN, P_INTERACTIVE|P_3270, "Redraw screen" },
 	{ "Reset", CN, P_3270, "Clear keyboard lock" },

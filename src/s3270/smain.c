@@ -1,5 +1,5 @@
 /*
- * Modifications Copyright 1993, 1994, 1995, 1996 by Paul Mattes.
+ * Modifications Copyright 1993, 1994, 1995, 1996, 2000 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *   Permission to use, copy, modify, and distribute this software and its
  *   documentation for any purpose and without fee is hereby granted,
@@ -32,6 +32,7 @@
 #include "charsetc.h"
 #include "ctlrc.h"
 #include "ftc.h"
+#include "gluec.h"
 #include "hostc.h"
 #include "keymapc.h"
 #include "kybdc.h"
@@ -45,9 +46,6 @@
 #include "togglesc.h"
 #include "trace_dsc.h"
 #include "utilc.h"
-
-extern Boolean	process_events(Boolean block);
-extern int parse_command_line(int argc, char **argv, char **cl_hostname);
 
 void
 usage(char *msg)
@@ -104,7 +102,7 @@ main(int argc, char *argv[])
 		/* Wait for negotiations to complete or fail. */
 		while (!IN_ANSI && !IN_3270) {
 			(void) process_events(True);
-			if (!CONNECTED)
+			if (!PCONNECTED)
 				exit(1);
 		}
 	}

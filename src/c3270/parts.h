@@ -16,6 +16,7 @@
 #define X3270_APL	1	/* APL keysym support */
 #define X3270_FT	1	/* file transfer */
 #define X3270_LOCAL_PROCESS 1	/* local process support */
+#define X3270_PRINTER	1	/* pr3287 support */
 #define X3270_SCRIPT	1	/* scripting */
 #define X3270_TN3270E	1	/* TN3270E support */
 #define X3270_TRACE	1	/* data stream and event tracing */

@@ -21,6 +21,7 @@
 <a HREF="#File-Transfer">File Transfer</a><br>
 <a HREF="#Scripts">Scripts</a><br>
 <a HREF="#Composite-Characters">Composite Characters</a><br>
+<a HREF="#Printer-Support">Printer Support</a><br>
 <a HREF="#Passthru">Passthru</a><br>
 <a HREF="#Resources">Resources</a><br>
 <a HREF="#Files">Files</a><br>
@@ -243,6 +244,10 @@ defined by resources:
 <tr><td >Quit</td>	<td >c3270.quit</td>	<td >^\</td></tr>
 <tr><td >End of file</td>	<td >c3270.eof</td>	<td >^D</td></tr>
 </table>
+<p>
+A separate keymap can be defined for use only when <b>c3270</b> is in
+<font size=-1>NVT</font> mode.
+See <a HREF="#Keymaps"><font size=-1>KEYMAPS</font></a> for details.
 <a NAME="Toggles"></a><h2>Toggles</h2>
 <b>c3270</b> has a number of configurable modes which may be selected by
 the <b>-set</b> and <b>-clear</b> options.
@@ -343,6 +348,9 @@ Script-specific actions are described on the
 <tr><td >PA(<i>n</i>)</td>	<td >Program Attention <font size=-1>AID</font> (<i>n</i> from 1 to 3)</td></tr>
 <tr><td >PF(<i>n</i>)</td>	<td >Program Function <font size=-1>AID</font> (<i>n</i> from 1 to 24)</td></tr>
 <tr><td >PreviousWord</td>	<td >move cursor to previous word</td></tr>
+<tr><td >Printer(Start[,<i>lu</i>]|Stop)</td>	<td >Start or stop printer session</td></tr>
+<tr><td >PrintText(<i>command</i>)</td>	<td >print screen text on printer</td></tr>
+<tr><td >PrintWindow(<i>command</i>)</td>	<td >print screen image (bitmap) on printer</td></tr>
 <tr><td >Quit</td>	<td >exit <b>c3270</b></td></tr>
 <tr><td >Redraw</td>	<td >redraw window</td></tr>
 <tr><td >Reset</td>	<td >reset locked keyboard</td></tr>
@@ -393,16 +401,29 @@ if that is not found, then it will look for a file named <i>xxx</i>.
 Multiple keymaps may be specified be separating their names with commas.
 Definitions in later keymaps supercede those in earlier keymaps.
 <p>
-Keymaps specify actions to perform when a particular key is pressed.
+In addition, separate keymaps may be defined that apply only in <font size=-1>NVT</font>
+mode.
+For example, the resource definition
+<b>c3270.keymap.</b><i>xxx</i><b>.nvt</b> will override the definition
+of <b>c3270.keymap.</b><i>xxx</i>, when <b>c3270</b> is in <font size=-1>NVT</font>
+mode.
+Similarly, the keymap in the file <b>xxx.nvt</b> will override the keymap
+in the file <b>xxx</b>, when <b>c3270</b> is in <font size=-1>NVT</font> mode.
+<p>
+Keymaps specify actions to perform when a particular sequence of keys is
+pressed.
 Each line in a keymap has the following syntax:
 <p>
-<blockquote>[<b>Meta</b>][<b>Ctrl</b>]<b>&lt;Key></b><i>key</i>: <i>Action</i>[(<i>param</i>[,...])] ...</blockquote>
+<blockquote>[<b>Meta</b>][<b>Ctrl</b>]<b>&lt;Key></b><i>key</i>...: <i>Action</i>[(<i>param</i>[,...])] ...</blockquote>
 <p>
 For example:
 <p>
 <blockquote>Meta&lt;Key>c: Clear()
 <br>
-&lt;Key>PPAGE: PF(7)</blockquote>
+&lt;Key>PPAGE: PF(7)
+<br>
+Ctrl&lt;Key>A &lt;Key>F1: PF(13)</blockquote>
+<br>
 <p>
 The optional <b>Meta</b> or <b>Ctrl</b> qualifiers specify that
 the <b>Meta</b> and <b>Ctrl</b> keys are pressed along with the
@@ -415,38 +436,53 @@ The <i>Action</i> is an action from the <font size=-1>ACTIONS</font> list, above
 More than one action may be specified.
 <p>
 Keymap entries are case-sensitive and modifier-specific.
-This means that a keymap for the <b>a</b> key will match only a
-lowercase <b>a</b>.
-Actions for uppercase <b>A</b>, or for <b>Meta-a</b> or <b>Control-A</b>,
+This means that a keymap for the <b>b</b> key will match only a
+lowercase <b>b</b>.
+Actions for uppercase <b>B</b>, or for <b>Meta-b</b> or <b>Control-B</b>,
 must be specified separately.
 <p>
-The default keymap is:
+The base keymap is:
 <p>
 <table BORDER cols=2 width="75%">
 <tr><td >Key</td>	<td >Action</td></tr>
 
-<tr><td >Ctrl&lt;Key>]</td>	<td >Escape</td></tr>
-<tr><td >Ctrl&lt;Key>C</td>	<td >Clear</td></tr>
+<tr><td >&lt;Key>Escape</td>	<td >Escape</td></tr>
 <tr><td >Meta&lt;Key>c</td>	<td >Clear</td></tr>
+<tr><td >Ctrl&lt;Key>a &lt;Key>c</td>	<td >Clear</td></tr>
 <tr><td >Meta&lt;Key>r</td>	<td >Reset</td></tr>
-<tr><td >Ctrl&lt;Key>R</td>	<td >Reset</td></tr>
-<tr><td >Ctrl&lt;Key>L</td>	<td >Redraw</td></tr>
+<tr><td >Ctrl&lt;Key>a &lt;Key>r</td>	<td >Reset</td></tr>
+<tr><td >Meta&lt;Key>l</td>	<td >Redraw</td></tr>
+<tr><td >Ctrl&lt;Key>a &lt;Key>l</td>	<td >Redraw</td></tr>
 <tr><td >Meta&lt;Key>m</td>	<td >Compose</td></tr>
-<tr><td >Ctrl&lt;Key>I</td>	<td >Tab</td></tr>
+<tr><td >Ctrl&lt;Key>a &lt;Key>m</td>	<td >Compose</td></tr>
+<tr><td >&lt;Key>Tab</td>	<td >Tab</td></tr>
+<tr><td >Ctrl&lt;Key>a &lt;Key>Tab</td>	<td >BackTab</td></tr>
 <tr><td >&lt;Key>DC</td>	<td >Delete</td></tr>
 <tr><td >&lt;Key>BACKSPACE</td>	<td >BackSpace</td></tr>
-<tr><td >Ctrl&lt;Key>H</td>	<td >BackSpace</td></tr>
-<tr><td >Ctrl&lt;Key>M</td>	<td >Enter</td></tr>
-<tr><td >Ctrl&lt;Key>J</td>	<td >Newline</td></tr>
+<tr><td >&lt;Key>BackSpace</td>	<td >BackSpace</td></tr>
+<tr><td >&lt;Key>Return</td>	<td >Enter</td></tr>
+<tr><td >&lt;Key>Linefeed</td>	<td >Newline</td></tr>
 <tr><td >&lt;Key>UP</td>	<td >Up</td></tr>
 <tr><td >&lt;Key>DOWN</td>	<td >Down</td></tr>
 <tr><td >&lt;Key>LEFT</td>	<td >Left</td></tr>
 <tr><td >&lt;Key>RIGHT</td>	<td >Right</td></tr>
 <tr><td >&lt;Key>F(<i>n</i>)</td>	<td >PF(<i>n</i>)</td></tr>
+<tr><td >Ctrl&lt;Key>a &lt;Key>F(<i>n</i>)</td>	<td >PF(<i>n</i>+12)</td></tr>
 <tr><td >Meta&lt;Key>1</td>	<td >PA(1)</td></tr>
+<tr><td >Ctrl&lt;Key>a &lt;Key>1</td>	<td >PA(1)</td></tr>
 <tr><td >Meta&lt;Key>2</td>	<td >PA(2)</td></tr>
+<tr><td >Ctrl&lt;Key>a &lt;Key>2</td>	<td >PA(2)</td></tr>
 <tr><td >Meta&lt;Key>3</td>	<td >PA(3)</td></tr>
+<tr><td >Ctrl&lt;Key>a &lt;Key>3</td>	<td >PA(3)</td></tr>
 </table>
+<p>
+For keyboards which do not have a <b>Meta</b> key, there is an additional
+keymap defined, called <b>nometa</b>.
+(On some systems, this is added by default.)
+The <b>nometa</b> keymap uses the <b>Escape</b> key as a substitute for
+the <b>Meta</b> key.
+So, for example, the 3270 <b>PA1</b> action would be invoked by pressing the
+<b>Escape</b> key, then the <b>1</b> key.
 <a NAME="File-Transfer"></a><h2>File Transfer</h2>
 The <b>Transfer</b> action implements <b>IND$FILE</b> file transfer.
 This action requires that the <b>IND$FILE</b>
@@ -601,6 +637,41 @@ as the "Compose" key.
 You
 may set up your own "Compose" key with
 a keymap that maps some other keysym onto the <b>Compose</b> action.
+<a NAME="Printer-Support"></a><h2>Printer Support</h2>
+c3270 supports associated printer sessions via the <i>pr3287</i>(1)
+program.
+The <b>Printer</b> action is used to start or stop a <i>pr3287</i> session.
+<p>
+The action <b>Printer Start</b> starts a printer session, associated with the
+current LU.  (This works only if the host supports TN3270E.)
+<p>
+The action <b>Printer Start</b> <i>lu</i> starts a printer session, associated
+with a specific <i>lu</i>.
+<p>
+The action <b>Printer Stop</b> stops a printer session.
+<p>
+The resource <b>c3270.printer.command</b> specifies the command used to print
+each job; it defaults to <b>lpr</b>.
+The resource <b>c3270.printer.assocCommandLine</b> specifies the command
+used to start an associated printer session.  It defaults to:
+<p>
+<blockquote>pr3287 -assoc %L% -command "%C%" %H%</blockquote>
+<p>
+The resource <b>c3270.printer.luCommandLine</b> specifies the command used
+to start a specific-LU printer session.  It defaults to:
+<p>
+<blockquote>pr3287 -command "%C%" %L%@%H%</blockquote>
+<p>
+When the printer session command is run, the following substitutions are made:
+<p>
+<table BORDER cols=2 width="75%">
+<tr><td >Token</td>	<td >Substitition</td></tr>
+<tr><td >%C%</td>	<td >Command (value of <b>c3270.printer.command</b>)</td></tr>
+<tr><td >%H%</td>	<td >Host IP address</td></tr>
+<tr><td >%L%</td>	<td >Current or specified LU</td></tr>
+</table>
+<p>
+See <i>pr3287</i>(1) for further details.
 <a NAME="Passthru"></a><h2>Passthru</h2>
 <b>c3270</b> supports the Sun <i>telnet-passthru</i>
 service provided by the <i>in.telnet-gw</i> server.
@@ -627,6 +698,7 @@ The resources available in <b>c3270</b> are:
 
 <tr><td >blankFill</td>	<td >False</td>	<td >-set blankFill</td>	<td >Blank Fill mode</td></tr>
 <tr><td >charset</td>	<td >bracket</td>	<td >-charset</td>	<td ><font size=-1>EBCDIC</font> character set</td></tr>
+<tr><td >charset.<i>foo</i></td>	<td >&nbsp;</td>	<td >&nbsp;</td>	<td >Definition of character set <i>foo</i></td></tr>
 <tr><td >composeMap</td>	<td >latin1</td>	<td >&nbsp;</td>	<td >Name of composed-character map</td></tr>
 <tr><td >dsTrace</td>	<td >False</td>	<td >-trace</td>	<td >Data stream tracing</td></tr>
 <tr><td >eof</td>	<td >^D</td>	<td >&nbsp;</td>	<td ><font size=-1>NVT</font>-mode <font size=-1>EOF</font> character</td></tr>
@@ -649,6 +721,7 @@ The resources available in <b>c3270</b> are:
 <tr><td >oerrLock</td>	<td >True</td>	<td >&nbsp;</td>	<td >Lock keyboard for input error</td></tr>
 <tr><td >oversize</td>	<td >&nbsp;</td>	<td >-oversize</td>	<td >Oversize screen dimensions</td></tr>
 <tr><td >port</td>	<td >telnet</td>	<td >-port</td>	<td >Non-default TCP port</td></tr>
+<tr><td >printer.*</td>	<td ><a HREF="#rn4">(note 4)</a></td>	<td >&nbsp;</td>	<td >Printer session config</td></tr>
 <tr><td >quit</td>	<td >^\</td>	<td >&nbsp;</td>	<td ><font size=-1>NVT</font>-mode quit character</td></tr>
 <tr><td >rprnt</td>	<td >^R</td>	<td >&nbsp;</td>	<td ><font size=-1>NVT</font>-mode reprint character</td></tr>
 <tr><td >secure</td>	<td >False</td>	<td >&nbsp;</td>	<td >Disable "dangerous" options</td></tr>
@@ -674,7 +747,9 @@ Note also that when <font size=-1>TN3270E</font>
 mode is used, the terminal type is always sent as some type of 3278.
 <p>
 <a NAME="rn3"></a><i>Note 3</i>: The default trace file is <b>x3trc.</b><i>pid</i>
-in the directory specified by the <b>traceDir</b> resource.</blockquote>
+in the directory specified by the <b>traceDir</b> resource.
+<p>
+<a NAME="rn4"></a><i>Note 4</i>: See <a HREF="#Printer-Support"><font size=-1>PRINTER SUPPORT</font></a> for details.</blockquote>
 <p>
 In <b>.c3270pro</b>, lines are continued with a
 backslash character.
@@ -685,8 +760,7 @@ the last one on the command line is used.
 <a NAME="Files"></a><h2>Files</h2>
 /usr/local/lib/x3270/ibm_hosts
 <a NAME="See-Also"></a><h2>See Also</h2>
-telnet(1), tn3270(1),
-<a HREF="x3270-man.html">x3270(1)</a>, <a HREF="s3270-man.html">s3270(1)</a>, <a HREF="tcl3270-man.html">tcl3270(1)</a>, <a HREF="x3270-script.html">x3270-script(1)</a>, pr3287(1)
+<a HREF="x3270-man.html">x3270(1)</a>, <a HREF="s3270-man.html">s3270(1)</a>, <a HREF="tcl3270-man.html">tcl3270(1)</a>, <a HREF="ibm_hosts.html">ibm_hosts(5)</a>, <a HREF="x3270-script.html">x3270-script(1)</a>, <a HREF="pr3287-man.html">pr3287(1)</a>, telnet(1), tn3270(1)
 <br>
 Data Stream Programmer's Reference, IBM GA23-0059
 <br>
@@ -713,12 +787,12 @@ Derivative works based on this software must incorporate this copyright
 notice.</blockquote>
 5250 Emulation Code Copyright &copy; Minolta (Schweiz) AG, Beat Rubischon.
 <a NAME="Version"></a><h2>Version</h2>
-c3270 3.2.13y
+c3270 3.2.14
 <hr>
 <address>
 This HTML document and the accompanying troff document were generated with
 a set of write-only <b>m4</b> macros and the powerful <b>vi</b> editor.
-<br>Last modified 01 November 2000.
+<br>Last modified 16 November 2000.
 </address>
 </body>
 </html>

@@ -51,8 +51,8 @@ IBM RS/6000, AIX 3.2, X11R5</h2>
 AIX X11R5 does not include does not include <i>xmkmf</i> or <i>imake</i>,
 but it includes the source code for them. If these have not been built
 and installed on your system (<i>e.g.</i>, if there is no such file as
-<tt>/usr/bin/X11/imake</tt>), you must first build and install them by
-following the instructions in
+<tt>/usr/bin/X11/imake</tt>),
+you must first build and install them by following the instructions in
 <tt>/usr/lpp/X11/Xamples/README</tt>.
 <p>Once these have been installed, you can use the standard X11R5 build
 procedure above.
@@ -77,8 +77,10 @@ build under it. Unfortunately, if you have installed Sun's unbundled C
 compiler, and have
 <tt>/usr/ucb</tt> in your $PATH ahead of <tt>/usr/ccs/bin</tt>,
 then you will get <tt>/usr/ucb/cc</tt> by default. The fix is to install
-<tt>gcc</tt> (much preferred) or to have <tt>/usr/ccs/bin</tt> ahead of
-<tt>/usr/ucb</tt> in your $PATH.
+<tt>gcc</tt>
+(much preferred) or to have <tt>/usr/ccs/bin</tt> ahead of
+<tt>/usr/ucb</tt>
+in your $PATH.
 <p>If you are using <i>gcc</i>, then Sun's <i>xmkmf</i> configuration puts
 some compiler flags in the <tt>Makefile</tt> that are specific to Sun's
 unbundled C compiler, and you may get a number of harmless, but annoying
@@ -139,15 +141,14 @@ app-defaults file. Instead, the file is compiled into <i>x3270</i> itself.
 If however, you prefer to have a separate app-defaults file, you can compile
 <i>x3270</i> to use it.
 <p>First, you must decide whether you want app-defaults for a color display
-or a monochrome display. The default is color; if you want monochrome app-defaults
-you must edit <tt>Imakefile</tt> and un-comment the line under the comment
-"<tt>Rule for building a separate app-defaults file...</tt>".
-<p>Then you need to edit <tt>Imakefile.in</tt>, and un-comment the lines
-under the comment "<tt>To use a separate app-defaults file...</tt>". Then
-do the following:
-<pre>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ./configure
+or a monochrome display. For a color display, the commands are:
+<pre>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ./configure --enable-app-defaults
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; xmkmf
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; make depend
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; make clean
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; make</pre>
+For a monochrome display, the commands are:
+<pre>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ./configure --enable-app-defaults=-UCOLOR
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; xmkmf
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; make clean
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; make</pre>
 

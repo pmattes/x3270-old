@@ -22,9 +22,11 @@
 #include <sys/select.h>
 #endif /*]*/
 
-#define InputReadMask         0x1
-#define InputExceptMask       0x2
-#define InputWriteMask        0x4
+#define InputReadMask	0x1
+#define InputExceptMask	0x2
+#define InputWriteMask	0x4
+
+#define MILLION		1000000L
 
 void
 Error(const char *s)
@@ -83,7 +85,7 @@ NewString(const char *s)
 }
 
 static struct {
-	const char *name;
+	/*const*/ char *name;	/* not const because of ancient X11 API */
 	KeySym keysym;
 } latin1[] = {
 	{ "space", XK_space },
@@ -281,6 +283,18 @@ static struct {
 	{ "yacute", XK_yacute },
 	{ "thorn", XK_thorn },
 	{ "ydiaeresis", XK_ydiaeresis },
+
+	/*
+	 * The following are, umm, hacks to allow symbolic names for
+	 * control codes.
+	 */
+	{ "BackSpace", 0x08 },
+	{ "Tab", 0x09 },
+	{ "Linefeed", 0x0a },
+	{ "Return", 0x0d },
+	{ "Escape", 0x1b },
+	{ "Delete", 0xff },
+
 	{ (char *)NULL, NoSymbol }
 };
 
@@ -298,45 +312,61 @@ StringToKeysym(char *s)
 	return NoSymbol;
 }
 
+char *
+KeysymToString(KeySym k)
+{
+	int i;
+
+	for (i = 0; latin1[i].name != (char *)NULL; i++) {
+		if (latin1[i].keysym == k)
+			return latin1[i].name;
+	}
+	return (char *)NULL;
+}
+
 /* Timeouts. */
 typedef struct timeout {
 	struct timeout *next;
-	long interval;
+	struct timeval tv;
 	void (*proc)(void);
 } timeout_t;
-timeout_t *timeouts = (timeout_t *)NULL;
+#define TN	(timeout_t *)NULL
+timeout_t *timeouts = TN;
 
 unsigned long
 AddTimeOut(unsigned long interval, void (*proc)(void))
 {
 	timeout_t *t_new;
 	timeout_t *t;
-	timeout_t *prev = (timeout_t *)NULL;
-	unsigned long accum = 0L;
+	timeout_t *prev = TN;
 
 	t_new = (timeout_t *)Malloc(sizeof(timeout_t));
 	t_new->proc = proc;
+	(void) gettimeofday(&t_new->tv, NULL);
+	t_new->tv.tv_sec += interval / 1000L;
+	t_new->tv.tv_usec += (interval % 1000L) * 1000L;
+	if (t_new->tv.tv_usec > MILLION) {
+		t_new->tv.tv_sec += t_new->tv.tv_usec / MILLION;
+		t_new->tv.tv_usec %= MILLION;
+	}
 
 	/* Find where to insert this item. */
-	for (t = timeouts; t != (timeout_t *)NULL; t = t->next) {
-		if (accum + t->interval > interval)
+	for (t = timeouts; t != TN; t = t->next) {
+		if (t->tv.tv_sec > t_new->tv.tv_sec ||
+		    (t->tv.tv_sec == t_new->tv.tv_sec &&
+		     t->tv.tv_usec > t_new->tv.tv_usec))
 			break;
-		accum += t->interval;
 		prev = t;
 	}
 
 	/* Insert it. */
-	t_new->interval = interval - accum;
-	if (prev == (timeout_t *)NULL) {	/* Front. */
+	if (prev == TN) {	/* Front. */
 		t_new->next = timeouts;
-		if (timeouts != (timeout_t *)NULL)
-			timeouts->interval -= interval;
 		timeouts = t_new;
-	} else if (t == (timeout_t *)NULL) {	/* Rear. */
-		t_new->next = (timeout_t *)NULL;
+	} else if (t == TN) {	/* Rear. */
+		t_new->next = TN;
 		prev->next = t_new;
 	} else {				/* Middle. */
-		t->interval -= t->interval;
 		t_new->next = t;
 		prev->next = t_new;
 	}
@@ -348,13 +378,11 @@ void
 RemoveTimeOut(unsigned long timer)
 {
 	timeout_t *t;
-	timeout_t *prev = (timeout_t *)NULL;
+	timeout_t *prev = TN;
 
-	for (t = timeouts; t != (timeout_t *)NULL; t = t->next) {
+	for (t = timeouts; t != TN; t = t->next) {
 		if (t == (timeout_t *)timer) {
-			if (t->next != (timeout_t *)NULL)
-				t->next->interval += t->interval;
-			if (prev != (timeout_t *)NULL)
+			if (prev != TN)
 				prev->next = t->next;
 			else
 				timeouts = t->next;
@@ -433,12 +461,16 @@ process_events(Boolean block)
 	input_t *ip;
 	fd_set rfds, wfds, xfds;
 	int ns;
-	struct timeval t0, t1, twait, *tp;
+	struct timeval now, twait, *tp;
+	struct timeout *t;
 	Boolean any_events;
 	Boolean processed_any = False;
 
 	processed_any = False;
     retry:
+	/* If we've processed any input, then don't block again. */
+	if (processed_any)
+		block = False;
 	any_events = False;
 	FD_ZERO(&rfds);
 	FD_ZERO(&wfds);
@@ -457,20 +489,27 @@ process_events(Boolean block)
 			any_events = True;
 		}
 	}
-	if (timeouts != (struct timeout *)NULL) {
-		(void) gettimeofday(&t0, (void *)NULL);
-		twait.tv_sec = timeouts->interval / 1000L;
-		twait.tv_usec = (timeouts->interval % 1000L) * 1000L;
-		tp = &twait;
-		any_events = True;
-	} else {
-		if (block)
-			tp = (struct timeval *)NULL;
-		else {
-			twait.tv_sec = twait.tv_usec = 0L;
+	if (block) {
+		if (timeouts != TN) {
+			(void) gettimeofday(&now, (void *)NULL);
+			twait.tv_sec = timeouts->tv.tv_sec - now.tv_sec;
+			twait.tv_usec = timeouts->tv.tv_usec - now.tv_usec;
+			if (twait.tv_usec < 0L) {
+				twait.tv_sec--;
+				twait.tv_usec += MILLION;
+			}
+			if (twait.tv_sec < 0L)
+				twait.tv_sec = twait.tv_usec = 0L;
 			tp = &twait;
+			any_events = True;
+		} else {
+			tp = (struct timeval *)NULL;
 		}
+	} else {
+		twait.tv_sec = twait.tv_usec = 0L;
+		tp = &twait;
 	}
+
 	if (!any_events)
 		return processed_any;
 	ns = select(FD_SETSIZE, &rfds, &wfds, &xfds, tp);
@@ -502,22 +541,24 @@ process_events(Boolean block)
 				goto retry;
 		}
 	}
-	if (timeouts) {
-		/* Subtract the elapsed time from the lead element(s). */
-		long msec;
-		timeout_t *t;
 
-		(void) gettimeofday(&t1, (void *)NULL);
-		msec = ((t1.tv_sec - t0.tv_sec)) * 1000L + 
-		       ((t1.tv_usec / 1000L) - (t0.tv_usec / 1000L));
-		while ((t = timeouts) != (timeout_t *)NULL &&
-		       msec >= t->interval) {
-			msec -= t->interval;
-			timeouts = t->next;
-			(*t->proc)();
-			processed_any = True;
-			Free(t);
+	/* See what's expired. */
+	if (timeouts != TN) {
+		(void) gettimeofday(&now, (void *)NULL);
+		while ((t = timeouts) != TN) {
+			if (t->tv.tv_sec < now.tv_sec ||
+			    (t->tv.tv_sec == now.tv_sec &&
+			     t->tv.tv_usec < now.tv_usec)) {
+				timeouts = t->next;
+				(*t->proc)();
+				processed_any = True;
+				Free(t);
+			} else
+				break;
 		}
 	}
+	if (inputs_changed)
+		goto retry;
+
 	return processed_any;
 }

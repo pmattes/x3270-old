@@ -43,25 +43,86 @@
 #include "togglesc.h"
 #include "utilc.h"
 
-#if defined(USE_READLINE) /*[*/
+#if defined(HAVE_LIBREADLINE) /*[*/
 #include <readline/readline.h>
+#if defined(HAVE_READLINE_HISTORY_H) /*[*/
 #include <readline/history.h>
+#endif /*]*/
 #endif /*]*/
 
 static void interact(void);
-static int open_pager(pid_t *pid);
 static void stop_pager(void);
 
-#if defined(USE_READLINE) /*[*/
+#if defined(HAVE_LIBREADLINE) /*[*/
 static CPPFunction attempted_completion;
 static char *completion_entry(char *, int);
 #endif /*]*/
 
 /* Pager state. */
-static struct {
-	pid_t pid;
-	int save_stdout;
-} pager = { -1, -1 };
+static FILE *pager = NULL;
+
+/* Base keymap. */
+static char *base_keymap =
+"Ctrl<Key>]: Escape\n"
+"Meta<Key>c: Clear\n"
+"Ctrl<Key>a <Key>c: Clear\n"
+"Meta<Key>r: Reset\n"
+"Ctrl<Key>a <Key>r: Reset\n"
+"Meta<Key>l: Redraw\n"
+"Ctrl<Key>a <Key>l: Redraw\n"
+"Meta<Key>m: Compose\n"
+"Ctrl<Key>a <Key>m: Compose\n"
+"Ctrl<Key>i: Tab\n"
+"Ctrl<Key>a Ctrl<Key>i: BackTab\n"
+"<Key>DC: Delete\n"
+"Ctrl<Key>h: BackSpace\n"
+"<Key>BACKSPACE: BackSpace\n"
+"Ctrl<Key>j: Return\n"
+"Ctrl<Key>m: Enter\n"
+"<Key>UP: Up\n"
+"<Key>DOWN: Down\n"
+"<Key>LEFT: Left\n"
+"<Key>RIGHT: Right\n"
+"<Key>HOME: Home\n"
+"Meta<Key>1: PA(1)\n"
+"Ctrl<Key>a <Key>1: PA(1)\n"
+"Meta<Key>2: PA(2)\n"
+"Ctrl<Key>a <Key>2: PA(2)\n"
+"Meta<Key>3: PA(3)\n"
+"Ctrl<Key>a <Key>3: PA(3)\n"
+"<Key>F1: PF(1)\n"
+"Ctrl<Key>a <Key>F1: PF(13)\n"
+"<Key>F2: PF(2)\n"
+"Ctrl<Key>a <Key>F2: PF(14)\n"
+"<Key>F3: PF(3)\n"
+"Ctrl<Key>a <Key>F3: PF(15)\n"
+"<Key>F4: PF(4)\n"
+"Ctrl<Key>a <Key>F4: PF(16)\n"
+"<Key>F5: PF(5)\n"
+"Ctrl<Key>a <Key>F5: PF(17)\n"
+"<Key>F6: PF(6)\n"
+"Ctrl<Key>a <Key>F6: PF(18)\n"
+"<Key>F7: PF(7)\n"
+"Ctrl<Key>a <Key>F7: PF(19)\n"
+"<Key>F8: PF(8)\n"
+"Ctrl<Key>a <Key>F8: PF(20)\n"
+"<Key>F9: PF(9)\n"
+"Ctrl<Key>a <Key>F9: PF(21)\n"
+"<Key>F10: PF(10)\n"
+"Ctrl<Key>a <Key>F10: PF(22)\n"
+"<Key>F11: PF(11)\n"
+"Ctrl<Key>a <Key>F11: PF(23)\n"
+"<Key>F12: PF(12)\n"
+"Ctrl<Key>a <Key>F12: PF(24)\n";
+
+static char *nometa_keymap =
+"<Key>Escape <Key>c: Clear\n"
+"<Key>Escape <Key>r: Reset\n"
+"<Key>Escape <Key>l: Redraw\n"
+"<Key>Escape <Key>m: Compose\n"
+"<Key>Escape <Key>1: PA(1)\n"
+"<Key>Escape <Key>2: PA(2)\n"
+"<Key>Escape <Key>3: PA(3)\n";
 
 void
 usage(char *msg)
@@ -95,6 +156,12 @@ main(int argc, char *argv[])
 {
 	char	*cl_hostname = CN;
 
+	add_resource("keymap.base", NewString(base_keymap));
+	add_resource("keymap.nometa", NewString(nometa_keymap));
+#if defined(__CYGWIN__) /*[*/
+	appres.key_map = NewString("nometa");
+#endif /*]*/
+
 	argc = parse_command_line(argc, argv, &cl_hostname);
 
 	if (!charset_init(appres.charset))
@@ -127,7 +194,7 @@ main(int argc, char *argv[])
 #endif /*]*/
 	initialize_toggles();
 
-#if defined(USE_READLINE) /*[*/
+#if defined(HAVE_LIBREADLINE) /*[*/
 	/* Set up readline. */
 	rl_readline_name = "c3270";
 	rl_initialize();
@@ -144,7 +211,7 @@ main(int argc, char *argv[])
 		/* Wait for negotiations to complete or fail. */
 		while (!IN_ANSI && !IN_3270) {
 			(void) process_events(True);
-			if (!CONNECTED)
+			if (!PCONNECTED)
 				exit(1);
 		}
 	} else {
@@ -179,16 +246,19 @@ main(int argc, char *argv[])
 static void
 interact(void)
 {
+	/* In case we got here because a command output, stop the pager. */
+	stop_pager();
+
 	for (;;) {
 		int sl;
 		char *s;
-#if defined(USE_READLINE) /*[*/
+#if defined(HAVE_LIBREADLINE) /*[*/
 		char *rl_s;
 #else /*][*/
 		char buf[1024];
 #endif /*]*/
 
-#if defined(USE_READLINE) /*[*/
+#if defined(HAVE_LIBREADLINE) /*[*/
 		s = rl_s = readline("c3270> ");
 		if (s == CN) {
 			printf("\n");
@@ -220,7 +290,7 @@ interact(void)
 				continue;
 		}
 
-#if defined(USE_READLINE) /*[*/
+#if defined(HAVE_LIBREADLINE) /*[*/
 		/* Save this command in the history buffer. */
 		add_history(s);
 #endif /*]*/
@@ -241,7 +311,7 @@ interact(void)
 		/* Close the pager. */
 		stop_pager();
 
-#if defined(USE_READLINE) /*[*/
+#if defined(HAVE_LIBREADLINE) /*[*/
 		/* Give back readline's buffer. */
 		free(rl_s);
 #endif /*]*/
@@ -253,70 +323,52 @@ interact(void)
 }
 
 /* A command is about to produce output.  Start the pager. */
-void
+FILE *
 start_pager(void)
 {
-	int pipe_fd;
+	static char *lesspath = LESSPATH;
+	static char *lesscmd = LESSPATH " -EX";
+	static char *morepath = MOREPATH;
+	static char *or_cat = " || cat";
+	char *pager_env;
+	char *pager_cmd = CN;
 
-	if (pager.pid != -1)
-		return;
+	if (pager != NULL)
+		return pager;
 
-	/* Open the pager. */
-	pager.save_stdout = dup(fileno(stdout));
-	pipe_fd = open_pager(&pager.pid);
-	(void) dup2(pipe_fd, fileno(stdout));
-	(void) close(pipe_fd);
+	if ((pager_env = getenv("PAGER")) != CN)
+		pager_cmd = pager_env;
+	else if (strlen(lesspath))
+		pager_cmd = lesscmd;
+	else if (strlen(morepath))
+		pager_cmd = morepath;
+	if (pager_cmd != CN) {
+		char *s;
+
+		s = Malloc(strlen(pager_cmd) + strlen(or_cat) + 1);
+		(void) sprintf(s, "%s%s", pager_cmd, or_cat);
+		pager = popen(s, "w");
+		Free(s);
+		if (pager == NULL)
+			(void) perror(pager_cmd);
+	}
+	if (pager == NULL)
+		pager = stdout;
+	return pager;
 }
 
 /* Stop the pager. */
 static void
 stop_pager(void)
 {
-	if (pager.pid != -1) {
-		int status;
-
-		(void) dup2(pager.save_stdout, fileno(stdout));
-		(void) close(pager.save_stdout);
-		(void) waitpid(pager.pid, &status, 0);
-		pager.pid = -1;
+	if (pager != NULL) {
+		if (pager != stdout)
+			pclose(pager);
+		pager = NULL;
 	}
 }
 
-/* Open a pipe to the pager. */
-int
-open_pager(pid_t *pid)
-{
-	int fd[2];
-	char *pager;
-
-	if (pipe(fd) < 0) {
-		perror("pipe");
-		return -1;
-	}
-
-	switch (*pid = fork()) {
-	case -1:
-		perror("fork()");
-		return -1;
-	case 0:		/* child */
-		(void) close(fd[1]);
-		(void) close(fileno(stdin));
-		(void) dup2(fd[0], fileno(stdin));
-		pager = getenv("PAGER");
-		if (pager == CN)
-			pager = "more";
-		execlp("/bin/sh", "sh", "-c", pager, CN);
-		perror(pager);
-		exit(1);
-		break;
-	default:	/* parent */
-		(void) close(fd[0]);
-		return fd[1];
-		break;
-	}
-}
-
-#if defined(USE_READLINE) /*[*/
+#if defined(HAVE_LIBREADLINE) /*[*/
 
 static char **matches = (char **)NULL;
 static char **next_match;
@@ -640,9 +692,9 @@ void
 Trace_action(Widget w unused, XEvent *event unused, String *params,
     Cardinal *num_params)
 {
-	int tg;
+	int tg = 0;
 	Boolean both = False;
-	Boolean on;
+	Boolean on = False;
 
 	action_debug(Trace_action, event, params, num_params);
 	if (*num_params == 0) {

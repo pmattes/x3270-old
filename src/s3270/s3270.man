@@ -1,120 +1,84 @@
 '\" t
-.TH S3270 1 "2 October 2000"
-.SH NAME
+.TH s3270 1 "16 November 2000"
+.SH "NAME"
 s3270 \-
-.SM IBM
-host access tool
-.SH SYNOPSIS
-.B s3270
-.RI [ options ]
-.RI [ host ]
-.SH DESCRIPTION
-.B s3270
-opens a telnet connection to an
-.SM IBM
-host, then allows a script to run the host login session.  It
-is derived from
-.IR x3270 ,
+\s-1IBM\s+1 host access tool
+.SH "SYNOPSIS"
+\fBs3270\fP
+[\fIoptions\fP]
+[\fIhost\fP]
+.SH "DESCRIPTION"
+\fBs3270\fP opens a telnet connection to an \s-1IBM\s+1
+host, then allows a script to control the host login session.
+It is derived from
+\fIx3270\fP(1),
 an X-windows IBM 3270 emulator.
-It supports both the "standard" 3270 TELNET protocol and the TN3270E protocol,
-except for printers, and supports IND$FILE file transfer.
+It implements RFCs 2355 (TN3270E), 1576 (TN3270) and 1646 (LU name selection),
+and supports IND$FILE file transfer.
 .LP
-The full syntax for
-.I host
-is:
+The full syntax for \fIhost\fP is:
 .RS
-.RI [[ prefix :]...[ LUname @] hostname [: port ]]
+[\fIprefix\fP:]...[\fILUname\fP@]\fIhostname\fP[:\fIport\fP]
 .RE
-Prepending a
-.B p:
-onto
-.I hostname
-causes the connection to go through the
-.I telnet-passthru
-service rather than directly to the host.
-See PASSTHRU below.
 .LP
-Prepending an
-.B s:
-onto
-.I hostname
-removes the "extended data stream" option reported to the host.
-See
-.B \-tn
-below for further information.
+Prepending a \fBp:\fP onto \fIhostname\fP causes the connection to go
+through the \fItelnet-passthru\fP service rather than directly to the host.
+See \s-1PASSTHRU\s+1 below.
+.LP
+Prepending an \fBs:\fP onto \fIhostname\fP removes the "extended data
+stream" option reported to the host.
+See \fB\-tn\fP below for further information.
+.LP
+Prepending an \fBn:\fP onto \fIhostname\fP
+turns off TN3270E support for the session.
 .LP
 A specific LU name to use may be specified by prepending it to the
-.I hostname
-with an
-.RB `` @ ''.
+\fIhostname\fP with an `\fB@\fP'.
+Multiple LU names to try can be separated by commas.
+An empty LU can be placed in the list with an extra comma.
+.LP
+On systems that support the \fIforkpty\fP library call, the
+\fIhostname\fP may be replaced with \fB\-e\fP and a command string.
+This will cause \fBs3270\fP to connect to a local child process, such as
+a shell.
 .LP
 The port to connect to defaults to
-.BR telnet .
-This can be overridden with the
-.RI \- port
-option, or by appending a
-.I port
-to the
-.I hostname
-with a colon
-.RB `` : ''.
-(For compatability with previous versions of
-.I x3270
-and with
-.IR tn3270 ,
-the
-.I port
+\fBtelnet\fP.
+This can be overridden with the \fB\-port\fP option, or by appending
+a \fIport\fP to the \fIhostname\fP with a colon
+`\fB:\fP'.
+(For compatability with previous versions of \fBs3270\fP
+and with \fItn3270\fP(1), the \fIport\fP
 may also be specified as a second, separate argument.)
-.SH OPTIONS
-.B s3270
-understands the following options:
+.SH "OPTIONS"
+\fBs3270\fP
+understands
+the following options:
 .TP
-.B \-apl
-Sets up
-.SM APL
-mode.
-Also see
-.SM "APL SUPPORT"
+\fB\-charset\fP \fIname\fP
+Specifies an \s-1EBCDIC\s+1 national character set.
+See \s-1CHARACTER SETS\s+1 below.
+.TP
+\fB\-clear\fP \fItoggle\fP
+Sets the initial value of \fItoggle\fP to \fBfalse\fP.
+The list of toggle names is under \s-1TOGGLES\s+1
 below.
 .TP
-.BI \-charset " name"
-Specifies an
-.SM EBCDIC
-national character set.
-See
-.SM CHARACTER SETS
-below.
-.TP
-.BI \-clear " toggle"
-Sets the initial value of
-.I toggle
-to
-.B false.
-The list of toggle names is under
-.SM TOGGLES
-below.
-.TP
-.BI \-model " name"
+\fB\-model\fP \fIname\fP
 The model of 3270 display to be emulated.
 The model name is in three parts, any of which may be omitted:
 .IP
 The first part is the
-.BR "base model" ,
-which is either
-.B 3278
-or
-.BR 3279 .
-.B 3278
-specifies a monochrome 3270 display;
-.B 3279
-specifies a color 3270 display.
+\fBbase model\fP,
+which is either \fB3278\fP or \fB3279\fP.
+\fB3278\fP specifies a monochrome 3270 display;
+\fB3279\fP specifies a color 3270 display.
 .IP
 The second part is the
-.BR "model number" ,
+\fBmodel number\fP,
 which specifies the number of rows and columns.
 Model 4 is the default.
 .PP
-.RS
 .TS
 center;
 c c c .
@@ -125,77 +89,81 @@ _
 4	80	43
 5	132	27
 .TE
-.RE
 .IP
 Note: Technically, there is no such 3270 display as a 3279-4 or 3279-5, but
 most hosts seem to work with them anyway.
 .IP
 The third part specifies the Extended 3270 Data Stream, and is given as
-.B \-E.
+\fB\-E\fP.
 It signals the host that the 3270 display is capable of displaying
 extended field attributes, and supports structured fields and query replies.
-A 3279 always uses the Extended Data Stream (whether or not
-.B \-E
+A 3279 always uses the Extended Data Stream (whether or not \fB\-E\fP
 is specified); for a 3278 it is optional.
 .IP
-The default model is
-.B 3279\-4\-E.
+The default model
+is
+\fB3279\-4\-E\fP.
 .TP
-.BI \-oversize " cols" x rows
+\fB\-mono\fP
+Forces 3278 emulation.
+.TP
+\fB\-oversize\fP \fIcols\fP\fBx\fP\fIrows\fP
 Makes the screen larger than the default for the chosen model number.
 This option has effect only in combination with extended data stream support
 (the
-.B \-E
+\fB\-E\fP
 suffix on the model), and only if the host supports the Query Reply structured
 field.
 The number of columns multiplied by the number of rows must not exceed
 16383 (3fff hex), the limit of 14-bit 3270 buffer addressing.
 .TP
-.BI \-port " n"
-Specifies a different
-.SM TCP
-port to connect to.
-.I n
-can be a name from
-.B /etc/services
-like
-.BR telnet ,
-or a number.
+\fB\-port\fP \fIn\fP
+Specifies a different \s-1TCP\s+1 port to connect to.
+\fIn\fP can be a name from \fB/etc/services\fP like \fBtelnet\fP, or a
+number.
 This option changes the default port number used for all connections.
 (The positional parameter affects only the initial connection.)
 .TP
-.BI \-set " toggle"
-Sets the initial value of
-.I toggle
-to
-.B true.
-The list of toggle names is under
-.SM MENUS
+\fB\-set\fP \fItoggle\fP
+Sets the initial value of \fItoggle\fP to \fBtrue\fP.
+The list of toggle names is under \s-1TOGGLES\s+1
 below.
 .TP
-.BI \-tn " name"
+\fB\-tn\fP \fIname\fP
 Specifies the terminal name to be transmitted over the telnet connection.
 The default name is
-.BI IBM\- model_name,
-for example,
-.BR IBM\-3279\-4\-E .
+\fBIBM\-\fP\fImodel_name\fP,
+for example, \fBIBM\-3279\-4\-E\fP
+for a color display, or
+\fBIBM\-3278\-4\-E\fP
+for a monochrome display.
 .IP
-Some hosts are confused by the
-.B \-E
+Some hosts are confused by the \fB\-E\fP
 suffix on the terminal name, and will ignore the extra screen area on
 models 3, 4 and 5.
-Prepending an
-.B :s
-on the hostname removes the
-.B \-E
+Prepending an \fB:s\fP on the hostname removes the \fB\-E\fP
 from the terminal name when connecting to such hosts.
+.IP
+The name can also be specified with the "s3270.termName" resource.
+.TP
+\fB\-trace\fP
+Turns on data stream and event tracing at startup.
+The default trace file name is
+\fB/tmp/x3trc.\fP\fIprocess_id\fP.
+.TP
+\fB\-tracefile\fP \fIfile\fP
+Specifies a file to save data stream and event traces into, overriding the
+default of
+\fB/tmp/x3trc.\fP\fIprocess_id\fP.
+.TP
+\fB\-xrm\fP "s3270.\fIresource\fP: \fIvalue\fP"
+Sets the value of the named \fIresource\fP to \fIvalue\fP.
+Resources control less common \fBs3270\fP
+options, and are defined under \s-1RESOURCES\s+1 below.
 .SH "CHARACTER SETS"
-The
-.B \-charset
-option controls the
-.SM EBCDIC
-national character set used by
-.B s3270.
+The \fB\-charset\fP
+option or the "s3270.charset" resource controls the \s-1EBCDIC\s+1
+national character set used by \fBs3270\fP.
 Available sets include:
 .PP
 .TS
@@ -211,112 +179,107 @@ finnish	09
 uk	22
 norwegian	23
 french	30
-hebrew	\-
 icelandic	\-
 belgian	\-
 .TE
 .PP
 The default character set is
-.BR bracket ,
-which is useful for common
-.SM IBM
-hosts which use
-.SM EBCDIC
-codes 0xAD and 0xBD for the `[' and `]' characters, respectively.
-.SH "ANSI MODE"
-Some hosts use an
-.SM ASCII
-front-end to do initial login negotiation, then later switch to 3270 mode.
-.B s3270
-will emulate an
-.SM ANSI
-X.64 terminal until the host places it in 3270 mode (telnet
-.SM BINARY
-and
-.SM "SEND EOR"
-modes).
-This allows
-.B s3270
-to be used to script standard TELNET sessions as well.
+\fBbracket\fP,
+which is useful for common \s-1IBM\s+1 hosts which use \s-1EBCDIC\s+1
+codes 0xAD and 0xBD for the `[' and `]' characters,
+respectively.
+.SH "NVT (ANSI) MODE"
+Some hosts use an \s-1ASCII\s+1 front-end to do initial login negotiation,
+then later switch to 3270 mode.
+\fBs3270\fP will emulate an \s-1ANSI\s+1 X.64 terminal until the host
+places it in 3270 mode (telnet \s-1BINARY\s+1 and \s-1SEND EOR\s+1 modes, or
+\s-1TN3270E\s+1 mode negotiation).
 .PP
 If the host later negotiates to stop functioning in 3270 mode,
-.B s3270
-will return to
-.SM ANSI
-emulation.
+\fBs3270\fP will return to \s-1ANSI\s+1 emulation.
 .PP
-When emulating an
-.SM ANSI
-terminal,
-.B s3270
+In \s-1NVT\s+1 mode, \fBs3270\fP
 supports both character-at-a-time mode and line mode operation.
+You may select the mode with a menu option.
 When in line mode, the special characters and operational characteristics are
-defined as follows:
+defined by resources:
 .PP
 .TS
 center;
-l c.
-Mode/Character	Setting
+l c c.
+Mode/Character	Resource	Default
 _
-Translate CR to NL	true
-Translate NL to CR	false
-Erase previous character	^?
-Erase entire line	^U
-Erase previous word	^W
-Redisplay line	^R
-Ignore special meaning of next character	^V
-Interrupt	^C
-Quit	^\\\\ 
-End of file	^D
+Translate CR to NL	s3270.icrnl	true
+Translate NL to CR	s3270.inlcr	false
+Erase previous character	s3270.erase	^?
+Erase entire line	s3270.kill	^U
+Erase previous word	s3270.werase	^W
+Redisplay line	s3270.rprnt	^R
+Ignore special meaning of next character	s3270.lnext	^V
+Interrupt	s3270.intr	^C
+Quit	s3270.quit	^\e
+End of file	s3270.eof	^D
 .TE
-.SH TOGGLES
-.B s3270
-has a number of configurable modes which may be selected by the -set and -clear options.
+.SH "TOGGLES"
+\fBs3270\fP has a number of configurable modes which may be selected by
+the \fB\-set\fP and \fB\-clear\fP options.
 .TP
-.B monoCase
-If set,
-.B s3270
-operates in uppercase-only mode.
+\fBmonoCase\fP
+If set, \fBs3270\fP operates in uppercase-only mode.
 .TP
-.B blankFill
-If set,
-.B s3270
-behaves in some un-3270-like ways.
+\fBblankFill\fP
+If set, \fBs3270\fP behaves in some un-3270-like ways.
 First, when a character is typed into a field, all nulls in the field to the
 left of that character are changed to blanks.
 This eliminates a common 3270 data-entry surprise.
 Second, in insert mode, trailing blanks in a field are treated like nulls,
-eliminating the annoying ``lock-up'' that often occurs when inserting into an
-field with (apparent) space at the end.
+eliminating the annoying `lock-up' that often occurs when inserting
+into an field with (apparent) space at the end.
 .TP
-.B lineWrap
-If set, the
-.SM ANSI
-terminal emulator automatically assumes a
-.SM NEWLINE
-character when it reaches the end of a line.
-.SH ACTIONS
-.B s3270
-supports the following basic actions:
+\fBlineWrap\fP
+If set, the \s-1ANSI\s+1 terminal emulator automatically assumes
+a \s-1NEWLINE\s+1 character when it reaches the end of a line.
+.LP
+The names of the toggles for use with the \fB\-set\fP
+and \fB\-clear\fP
+options are as follows:
+.LP
+.TS
+center;
+l l .
+Option	Name
+_
+Monocase	monoCase
+Blank Fill	blankFill
+Track Cursor	cursorPos
+Trace Data Stream	dsTrace
+Trace Events	eventTrace
+Save Screen(s) in File	screenTrace
+Wraparound	lineWrap
+.TE
+.SH "ACTIONS"
+Here is a complete list of basic s3270 actions.
+Script-specific actions are described on the
+\fIx3270-script\fP(1) manual page.
 .PP
-.RS
 .TS
 l l
 .
 Attn	attention key
-BackSpace	move cursor left (or send ASCII BS)
+BackSpace	move cursor left (or send \s-1ASCII BS\s+1)
 BackTab	tab to start of previous input field
-CircumNot	input "^" in ANSI mode, or "notsign" in 3270 mode
+CircumNot	input "^" in \s-1NVT\s+1 mode, or "notsign" in 3270 mode
 Clear	clear screen
-CursorSelect	Cursor Select AID
-Cut	erase selected text
-Delete	delete character under cursor (or send ASCII DEL)
+Connect(\fIhost\fP)	connect to \fIhost\fP
+CursorSelect	Cursor Select \s-1AID\s+1
+Delete	delete character under cursor (or send \s-1ASCII DEL\s+1)
 DeleteField	delete the entire field
 DeleteWord	delete the current or previous word
+Disconnect	disconnect from host
 Down	move cursor down
 Dup	duplicate field
-Enter	Enter AID (or send ASCII CR)
-Erase	erase previous character (or send ASCII BS)
+Enter	Enter \s-1AID\s+1 (or send \s-1ASCII CR\s+1)
+Erase	erase previous character (or send \s-1ASCII BS\s+1)
 EraseEOF	erase to end of current field
 EraseInput	erase all input fields
 Execute(\fIcmd\fP)	execute a command in a shell
@@ -326,252 +289,270 @@ FieldMark	mark field
 HexString(\fIhex_digits\fP)	insert control-character string
 Home	move cursor to first input field
 Insert	set insert mode
+Interrupt	send \s-1TELNET IP\s+1 to host
 Key(\fIkeysym\fP)	insert key \fIkeysym\fP
+Key(0x\fIxx\fP)	insert key with \s-1ASCII\s+1 code \fIxx\fP
 Left	move cursor left
 Left2	move cursor left 2 positions
-MoveCursor	move cursor to mouse position
 MonoCase	toggle uppercase-only mode
-Newline	move cursor to first field on next line (or send ASCII LF)
+MoveCursor(\fIrow\fP,\fIcol\fP)	move cursor to (\fIrow\fP,\fIcol\fP)
+Newline	move cursor to first field on next line (or send \s-1ASCII LF\s+1)
 NextWord	move cursor to next word
-PA(\fIn\fP)	Program Attention AID (\fIn\fP from 1 to 3)
-PF(\fIn\fP)	Program Function AID (\fIn\fP from 1 to 24)
+PA(\fIn\fP)	Program Attention \s-1AID\s+1 (\fIn\fP from 1 to 3)
+PF(\fIn\fP)	Program Function \s-1AID\s+1 (\fIn\fP from 1 to 24)
 PreviousWord	move cursor to previous word
 Quit	exit \fBs3270\fP
+Redraw	redraw window
 Reset	reset locked keyboard
 Right	move cursor right
 Right2	move cursor right 2 positions
 Script(\fIcommand\fP[,\fIarg\fP...])	run a script
 String(\fIstring\fP)	insert string (simple macro facility)
-SysReq	System Request AID
+SysReq	System Request \s-1AID\s+1
 Tab	move cursor to next input field
 ToggleInsert	toggle insert mode
-Transfer \fIoption\fP=\fIvalue\fP...	file transfer
+ToggleReverse	toggle reverse-input mode
+Transfer(\fIoption\fP=\fIvalue\fP...)	file transfer
 Up	move cursor up
 .TE
-.RE
-.SH "SCRIPTS"
-There are several types of nested scripting functions available.
+.SH "FILE TRANSFER"
+The \fBTransfer\fP action implements \fBIND$FILE\fP file transfer.
+This action requires that the \fBIND$FILE\fP
+program be installed on the \s-1IBM\s+1 host, and that the 3270 cursor
+be located in a field that will accept a \s-1TSO\s+1 or \s-1VM/CMS\s+1 command.
+.LP
+Because of the complexity and number of options for file transfer, the
+parameters to the \fBTransfer\fP action take the unique form
+of \fIoption\fP=\fIvalue\fP, and can appear in any order.
+The options are:
+.LP
+.TS
+l c l l.
+Option	Required?	Default	Other Values
+_
+Direction	No	send	receive
+HostFile	Yes	\ 	\ 
+LocalFile	Yes	\ 	\ 
+Host	No	tso	vm
+Mode	No	ascii	binary
+Cr	No	remove	add, keep
+Exist	No	keep	replace, append
+Recfm	No	\ 	fixed, variable, undefined
+Lrecl	No	\ 	\ 
+Blksize	No	\ 	\ 
+Allocation	No	\ 	tracks, cylinders, avblock
+PrimarySpace	No	\ 	\ 
+SecondarySpace	No	\ 	\ 
+.TE
+.LP
+The option details are as follows.
 .TP
-.B The String() Action
-The simplest method for macros is provided via the String action.
-The arguments to String() are one or more double-quoted strings which are
+\fBDirection\fP
+\fBsend\fP (the default) to send a file to the host,
+\fBreceive\fP to receive a file from the host.
+.TP
+\fBHostFile\fP
+The name of the file on the host.
+.TP
+\fBLocalFile\fP
+The name of the file on the local workstation.
+.TP
+\fBHost\fP
+The type of host (which dictates the form of the \fBIND$FILE\fP command):
+\fBtso\fP (the default) or \fBvm\fP.
+.TP
+\fBMode\fP
+Use \fBascii\fP (the default) for a text file, which will be translated
+between \s-1EBCDIC\s+1 and \s-1ASCII\s+1 as necessary.
+Use \fBbinary\fP for non-text files.
+.TP
+\fBCr\fP
+Controls how \fBNewline\fP characters are handled when transferring
+\fBMode=ascii\fP files.
+\fBremove\fP (the default) strips \fBNewline\fP characters in local files
+before transferring them to the host.
+\fBadd\fP adds \fBNewline\fP characters to each host file record before
+transferring it to the local workstation.
+\fBkeep\fP preserves \fBNewline\fP characters when transferring a local file
+to the host.
+.TP
+\fBExist\fP
+Controls what happens when the destination file already exists.
+\fBkeep\fP (the default) preserves the file, causing the
+\fBTransfer\fP action to fail.
+\fBreplace\fP overwrites the destination file with the source file.
+\fBappend\fP appends the source file to the destination file.
+.TP
+\fBRecfm\fP
+Controls the record format of files created on the host.
+\fBfixed\fP creates a file with fixed-length records.
+\fBvariable\fP creates a file with variable-length records.
+\fBundefined\fP creates a file with undefined-length records (\s-1TSO\s+1 hosts only).
+The \fBLrecl\fP option controls the record length or maximum record length for
+\fBRecfm=fixed\fP and \fBRecfm=variable\fP files, respectively.
+.TP
+\fBLrecl\fP
+Specifies the record length (or maximum record length) for files created on
+the host.
+.TP
+\fBBlksize\fP
+Specifies the block size for files created on the host.  (\s-1TSO\s+1 hosts only.)
+.TP
+\fBAllocation\fP
+Specifies the units for the \s-1TSO\s+1 host \fBPrimarySpace\fP and
+\fBSecondarySpace\fP options: \fBtracks\fP, \fBcylinders\fP or
+\fBavblock\fP.
+.TP
+\fBPrimarySpace\fP
+Primary allocation for a file created on a \s-1TSO\s+1 host.
+The units are given by the \fBAllocation\fP option.
+.TP
+\fBSecondarySpace\fP
+Secondary allocation for a file created on a \s-1TSO\s+1 host.
+The units are given by the \fBAllocation\fP option.
+.SH "NESTED SCRIPTS"
+There are several types of
+nested script functions available.
+.TP
+\fBThe String Action\fP
+The simplest method for
+nested scripts is provided via the \fBString\fP
+action.
+The arguments to \fBString\fP are one or more double-quoted strings which are
 inserted directly as if typed.
 The C backslash conventions are honored as follows.
-(Entries marked * mean that after sending the
-.SM AID
-code to the host,
-.B s3270
-will wait for the host to unlock the keyboard before further processing the
-string.)
-.RS 1i
+(Entries marked * mean that after sending the \s-1AID\s+1 code to the host,
+\fBs3270\fP will wait for the host to unlock the keyboard before further
+processing the string.)
 .TS
 l l.
 \eb	Left
 \ef	Clear*
 \en	Enter*
-\e\epa\fIn\fP	PA key \fIn\fP*
-\e\epf\fInn\fP	PF key \fInn\fP*
+\epa\fIn\fP	PA key \fIn\fP*
+\epf\fInn\fP	PF key \fInn\fP*
 \er	Newline
 \et	Tab
 .TE
+.IP
+An example keymap entry would be:
+.RS
+Meta<Key>p: String("probs clearrdr\en")
 .RE
 .IP
-.B Note:
-The strings are in
-.SM ASCII
-and converted to
-.SM EBCDIC,
+\fBNote:\fP
+The strings are in \s-1ASCII\s+1 and converted to \s-1EBCDIC\s+1,
 so beware of inserting
 control codes.
 .IP
-There is also an alternate form of the String action, HexString, which is
-used to enter non-printing data.
-The argument to HexString is a string of hexadecimal digits, two per
+There is also an alternate form of the \fBString\fP action, \fBHexString\fP,
+which is used to enter non-printing data.
+The argument to \fBHexString\fP is a string of hexadecimal digits, two per
 character.  A leading 0x or 0X is optional.
-In 3270 mode, the hexadecimal data represent EBCDIC characters, which are
-entered into the current field.
-In ANSI mode, the hexadecimal data represent ASCII characters, which are sent
-directly to the host.
+In 3270 mode, the hexadecimal data represent \s-1EBCDIC\s+1 characters, which
+are entered into the current field.
+In \s-1NVT\s+1 mode, the hexadecimal data represent \s-1ASCII\s+1 characters,
+which are sent directly to the host.
 .TP
-The Script() Action
-This facility causes
-.B s3270
-to start a child process which can execute
-.B s3270
-actions.
-The child process' standard input and output are piped back to
-.BR s3270 .
-The
-.B Script()
-action is fully documented in
-.IR x3270-script (1).
-.SH "APL SUPPORT"
-.B s3270
-supports the full
-.SM APL2
-character set and the entry of
-.SM APL
-characters with the Key() action.
-.PP
-The complete list of special
-.SM APL
-keysyms is as follows.  Entries marked with an asterisk (*) represent
-simple aliases for standard \s-1EBCDIC\s+1 characters.
-.PP
-.RS
-.TS
-l c l.
-\s-1APL\s+1 Symbol	Hex	s3270 Keysym
-_
-A underbar	41	apl_Aunderbar
-alpha	B0	apl_alpha
-B underbar	42	apl_Bunderbar
-bar	60*	apl_bar
-C underbar	43	apl_Cunderbar
-circle	9D	apl_circle
-circle bar	ED	apl_circlebar
-circle slope	CF	apl_circleslope
-circle star	FD	apl_circlestar
-circle stile	CD	apl_circlestile
-colon	7A*	apl_colon
-comma	6B*	apl_comma
-D underbar	44	apl_Dunderbar
-del	BA	apl_del
-del stile	DC	apl_delstile
-del tilde	FB	apl_deltilde
-delta	BB	apl_delta
-delta stile	DD	apl_deltastile
-delta underbar	FC	apl_deltaunderbar
-diamond	70	apl_diamond
-dieresis	72	apl_dieresis
-dieresis dot	EC	apl_dieresisdot
-divide	B8	apl_divide
-dot	4B*	apl_dot
-down arrow	8B	apl_downarrow
-down caret	78	apl_downcaret
-down caret tilde	CB	apl_downcarettilde
-down shoe	AB	apl_downshoe
-down stile	8E	apl_downstile
-down tack	AC	apl_downtack
-down tack jot	FE	apl_downtackjot
-down tack up tack	DA	apl_downtackuptack
-E underbar	45	apl_Eunderbar
-epsilon	B1	apl_epsilon
-epsilon underbar	75	apl_epsilonunderbar
-equal	7E*	apl_equal
-equal underbar	E1	apl_equalunderbar
-F underbar	46	apl_Funderbar
-G underbar	47	apl_Gunderbar
-greater	6E*	apl_greater
-H underbar	48	apl_Hunderbar
-I underbar	49	apl_Iunderbar
-iota	B2	apl_iota
-iota underbar	74	apl_iotaunderbar
-J underbar	51	apl_Junderbar
-jot	AF	apl_jot
-K underbar	52	apl_Kunderbar
-L underbar	53	apl_Lunderbar
-left arrow	9F	apl_leftarrow
-left bracket	AD	apl_leftbracket
-left paren	4D*	apl_leftparen
-left shoe	9B	apl_leftshoe
-less	4C*	apl_less
-M underbar	54	apl_Munderbar
-N underbar	55	apl_Nunderbar
-not equal	BE	apl_notequal
-not greater	8C	apl_notgreater
-not less	AE	apl_notless
-O underbar	56	apl_Ounderbar
-omega	B4	apl_omega
-overbar	A0	apl_overbar
-P underbar	57	apl_Punderbar
-plus	4E*	apl_plus
-Q underbar	58	apl_Qunderbar
-quad	90	apl_quad
-quad divide	EE	apl_quaddivide
-quad jot	73	apl_quadjot
-quad quote	DE	apl_quadquote
-quad slope	CE	apl_quadslope
-query	6F*	apl_query
-quote	7D*	apl_quote
-quote dot	DB	apl_quotedot
-R underbar	59	apl_Runderbar
-rho	B3	apl_rho
-right arrow	8F	apl_rightarrow
-right bracket	BD	apl_rightbracket
-right paren	5D*	apl_rightparen
-right shoe	9A	apl_rightshoe
-S underbar	62	apl_Sunderbar
-semicolon	5E*	apl_semicolon
-slash	61*	apl_slash
-slash bar	EA	apl_slashbar
-slope	B7	apl_slope
-slope bar	EB	apl_slopebar
-squad	CC	apl_squad
-star	5C*	apl_star
-stile	BF	apl_stile
-T underbar	63	apl_Tunderbar
-tilde	80	apl_tilde
-times	B6	apl_times
-U underbar	64	apl_Uunderbar
-underbar	6D*	apl_underbar
-up arrow	8A	apl_uparrow
-up caret	71	apl_upcaret
-up caret tilde	CA	apl_upcarettilde
-up shoe	AA	apl_upshoe
-up shoe jot	DF	apl_upshoejot
-up stile	8D	apl_upstile
-up tack	BC	apl_uptack
-up tack jot	EF	apl_uptackjot
-V underbar	65	apl_Vunderbar
-W underbar	66	apl_Wunderbar
-X underbar	67	apl_Xunderbar
-Y underbar	68	apl_Yunderbar
-Z underbar	69	apl_Zunderbar
-.TE
-.RE
-.SH PASSTHRU
-.B s3270
-supports the Sun
-.I telnet-passthru
-service provided by the
-.I in.telnet-gw
-server.
+\fBThe Script Action\fP
+This action causes \fBs3270\fP to start a child process which can
+execute \fBs3270\fP actions.
+Standard input and output from the child process are piped back to
+\fBs3270\fP.
+The \fBScript\fP action is fully documented in
+\fIx3270-script\fP(1).
+.SH "PASSTHRU"
+\fBs3270\fP supports the Sun \fItelnet-passthru\fP
+service provided by the \fIin.telnet-gw\fP server.
 This allows outbound telnet connections through a firewall machine.
-When a
-.B p:
-is prepended to a hostname,
-.B s3270
-acts much like the
-.IR itelnet(1)
-command.
-It contacts the machine named
-.B internet-gateway
-at the port defined in
-.B /etc/services
-as
-.B telnet-passthru
+When a \fBp:\fP is prepended to a hostname, \fBs3270\fP
+acts much like the \fIitelnet\fP(1) command.
+It contacts the machine named \fBinternet-gateway\fP at the port defined in
+\fB/etc/services\fP as \fBtelnet-passthru\fP
 (which defaults to 3514).
 It then passes the requested hostname and port to the
-.B in.telnet-gw
-server.
+\fBin.telnet-gw\fP server.
+.SH "RESOURCES"
+Certain \fBs3270\fP
+options can be configured via resources.
+Resources are defined
+by \fB\-xrm\fP options.
+The definitions are similar to X11 resources, and use a similar syntax.
+The resources available in \fBs3270\fP are:
+.LP
+.TS
+l l l l.
+Resource	Default	Option	Purpose
+_
+blankFill	False	\-set blankFill	Blank Fill mode
+charset	bracket	\-charset	\s-1EBCDIC\s+1 character set
+charset.\fIfoo\fP	\ 	\ 	Definition of character set \fIfoo\fP
+dsTrace	False	\-trace	Data stream tracing
+eof	^D	\ 	\s-1NVT\s+1-mode \s-1EOF\s+1 character
+erase	^H	\ 	\s-1NVT\s+1-mode erase character
+extended	True	\ 	Use 3270 extended data stream
+eventTrace	False	\-trace	Event tracing
+ftCommand	ind$file	\ 	Host file transfer command
+icrnl	False	\ 	Map \s-1CR\s+1 to \s-1NL\s+1 on \s-1NVT\s+1-mode input
+inlcr	False	\ 	Map \s-1NL\s+1 to \s-1CR\s+1 in \s-1NVT\s+1-mode input
+intr	^C	\ 	\s-1NVT\s+1-mode interrupt character
+kill	^U	\ 	\s-1NVT\s+1-mode kill character
+lineWrap	False	\-set lineWrap	\s-1NVT\s+1 line wrap mode
+lnext	^V	\ 	\s-1NVT\s+1-mode lnext character
+m3279	(note 1)	\-mono	3279 (color) emulation
+monoCase	False	\-set monoCase	Mono-case mode
+numericLock	False	\ 	Lock keyboard for numeric field error
+oerrLock	False	\ 	Lock keyboard for input error
+oversize	\ 	\-oversize	Oversize screen dimensions
+port	telnet	\-port	Non-default TCP port
+quit	^\e	\ 	\s-1NVT\s+1-mode quit character
+rprnt	^R	\ 	\s-1NVT\s+1-mode reprint character
+secure	False	\ 	Disable "dangerous" options
+termName	(note 2)	\-tn	\s-1TELNET\s+1 terminal type string
+traceDir	/tmp	\ 	Directory for trace files
+traceFile	(note 3)	\-tracefile	File for trace output
+werase	^W	\ 	\s-1NVT\s+1-mode word-erase character
+.TE
+.LP
+.RS
+\fINote 1\fP: \fBm3279\fP defaults to
+\fBTrue\fP.
+It can be forced to
+\fBFalse\fP with the \fB\-mono\fP option.
+.LP
+\fINote 2\fP:
+The default terminal type string is constructed from the model number, color
+emulation, and extended data stream modes.
+E.g., a model 2 with color emulation and the extended data stream option
+would be sent as \fBIBM-3279-2-E\fP.
+Note also that when \s-1TN3270E\s+1
+mode is used, the terminal type is always sent as some type of 3278.
+.LP
+\fINote 3\fP: The default trace file is \fBx3trc.\fP\fIpid\fP
+in the directory specified by the \fBtraceDir\fP resource.
+
+.RE
+.LP
+If more than one \fB\-xrm\fP option is given for the same resource,
+the last one on the command line is used.
+.SH "FILES"
+/usr/local/lib/x3270/ibm_hosts
 .SH "SEE ALSO"
-telnet(1), tn3270(1), ibm_hosts(5), x3270(1), x3270-script(1)
+telnet(1), tn3270(1),
+x3270(1), c3270(1), tcl3270(1), x3270-script(1), pr3287(1)
 .br
-X Toolkit Intrinsics
+Data Stream Programmer's Reference, IBM GA23-0059
 .br
-Data Stream Programmer's Reference, IBM GA23\-0059
-.br
-Character Set Reference, IBM GA27\-3831
+Character Set Reference, IBM GA27-3831
 .br
 RFC 1576, TN3270 Current Practices
 .br
 RFC 1646, TN3270 Extensions for LUname and Printer Selection
 .br
 RFC 2355, TN3270 Enhancements
-.SH COPYRIGHTS
+.SH "COPYRIGHTS"
 .LP
-Modifications Copyright 1993, 1994, 1995, 1996, 1997, 2000 by Paul Mattes.
+Modifications Copyright 1993, 1994, 1995, 1996, 1997, 1999, 2000 by Paul Mattes.
 .br
 Original X11 Port Copyright 1990 by Jeff Sparkes.
 .RS
@@ -587,6 +568,6 @@ All Rights Reserved.  GTRC hereby grants public use of this software.
 Derivative works based on this software must incorporate this copyright
 notice.
 .RE
-5250 Emulation Code copyright Minolta (Schweiz) AG, Beat Rubischon.
-.SH VERSION
-s3270 3.2.13g
+5250 Emulation Code Copyright Minolta (Schweiz) AG, Beat Rubischon.
+.SH "VERSION"
+s3270 3.2.14

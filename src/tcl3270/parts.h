@@ -1,5 +1,5 @@
 /*
- * Copyright 1996, 1999 by Paul Mattes.
+ * Copyright 1996, 1999, 2000 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -9,7 +9,7 @@
 
 /*
  *	parts.h
- *		#defines for the optional parts of x3270.
+ *		#defines for the optional parts of tcl3270.
  */
 
 #define X3270_TRACE	1	/* data stream and X event tracing */
@@ -17,8 +17,3 @@
 #define X3270_APL	1	/* APL keysym support */
 #define X3270_FT	1	/* file transfer */
 #define X3270_TN3270E   1       /* TN3270E support */
-
-#if defined(X3270_TN3270E) && !defined(X3270_ANSI) /*[*/
-#define X3270_ANSI	1	/* RFC2355 requires NVT mode */
-#endif /*]*/
-

@@ -27,7 +27,7 @@ extern void screen_init(void);
 extern void screen_flip(void);
 extern void screen_resume(void);
 extern void screen_suspend(void);
-extern void start_pager(void);
+extern FILE *start_pager(void);
 extern void toggle_monocase(struct toggle *t, enum toggle_type tt);
 
 extern Boolean escaped;

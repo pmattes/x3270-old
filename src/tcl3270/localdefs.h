@@ -16,6 +16,9 @@
  *		and timers.
  */
 
+/* Identify ourselves. */
+#define TCL3270 1
+
 /* These first definitions were cribbed from X11 -- but no X code is used. */
 #define False 0
 #define True 1

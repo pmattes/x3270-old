@@ -1,2 +1,1 @@
-version="3.2.13y"
-adversion="3.2.12"
+../x3270/version.txt
