@@ -1698,10 +1698,10 @@ render_text(union sp *buffer, int baddr, int len, Boolean block_cursor,
 				if (visible_control) {
 					if (buffer[i].bits.cc == EBC_so)
 						rt_buf[j].byte2 =
-						    xfmap[asc2ebc[0xab]];
+						    xfmap[asc2ebc['<']];
 					else if (buffer[i].bits.cc == EBC_si)
 						rt_buf[j].byte2 =
-						    xfmap[asc2ebc[0xbb]];
+						    xfmap[asc2ebc['>']];
 					else
 						rt_buf[j].byte2 =
 						    xfmap[buffer[i].bits.cc];
@@ -2053,15 +2053,17 @@ draw_fields(union sp *buffer, int first, int last)
 				field_color = fa_color(fa);
 			if (visible_control) {
 				if (FA_IS_PROTECTED(fa))
-					b.bits.cc = asc2ebc[0xba];
+					b.bits.cc = asc2ebc['P'];
 				else if (FA_IS_MODIFIED(fa))
-					b.bits.cc = asc2ebc[0xb9];
+					b.bits.cc = asc2ebc['M'];
 				else
-					b.bits.cc = asc2ebc[0xb0];
+					b.bits.cc = asc2ebc['U'];
+				b.bits.gr = GR_UNDERLINE;
 			}
 		} else {
 			unsigned short gr;
 			int e_color;
+			Boolean is_vc = False;
 
 			/* Find the right graphic rendition. */
 			gr = sbp->gr;
@@ -2109,9 +2111,16 @@ draw_fields(union sp *buffer, int first, int last)
 				else {
 					enum dbcs_state d;
 
-					if (visible_control && c == EBC_null)
-						b.bits.cc = asc2ebc[0xb7];
-					else
+					if (visible_control && c == EBC_null) {
+						b.bits.cc = asc2ebc['.'];
+						is_vc = True;
+					} else if (visible_control &&
+					    (c == EBC_so || c == EBC_si)) {
+						b.bits.cc = (c == EBC_so)?
+						    asc2ebc['<']:
+						    asc2ebc['>'];
+						is_vc = True;
+					} else
 						b.bits.cc = c;
 					if (sbp->cs)
 						b.bits.cs = sbp->cs;
@@ -2129,7 +2138,12 @@ draw_fields(union sp *buffer, int first, int last)
 
 			} /* otherwise, EBC_null */
 
-			b.bits.gr = gr & (GR_UNDERLINE | GR_INTENSIFY);
+			if (visible_control) {
+				if (is_vc)
+					b.bits.gr = GR_UNDERLINE;
+			} else {
+				b.bits.gr = gr & (GR_UNDERLINE | GR_INTENSIFY);
+			}
 
 			/* Check for SI/SO. */
 			if (d == DBCS_LEFT || d == DBCS_RIGHT)

@@ -96,7 +96,7 @@ static char *tdsbuf = CN;
 #define TDS_LEN	75
 
 static void
-trace_ds_s(char *s)
+trace_ds_s(char *s, Boolean can_break)
 {
 	int len = strlen(s);
 	Boolean nl = False;
@@ -107,6 +107,10 @@ trace_ds_s(char *s)
 	if (s && s[len-1] == '\n') {
 		len--;
 		nl = True;
+	}
+	if (!can_break && dscnt + len >= 75) {
+		wtrace("...\n... ");
+		dscnt = 0;
 	}
 	while (dscnt + len >= 75) {
 		int plen = 75-dscnt;
@@ -139,7 +143,24 @@ trace_ds(const char *fmt, ...)
 
 	/* print out remainder of message */
 	(void) vsprintf(tdsbuf, fmt, args);
-	trace_ds_s(tdsbuf);
+	trace_ds_s(tdsbuf, TRUE);
+	va_end(args);
+}
+
+void
+trace_ds_nb(const char *fmt, ...)
+{
+	va_list args;
+
+	va_start(args, fmt);
+
+	/* allocate buffer */
+	if (tdsbuf == CN)
+		tdsbuf = Malloc(4096);
+
+	/* print out remainder of message */
+	(void) vsprintf(tdsbuf, fmt, args);
+	trace_ds_s(tdsbuf, FALSE);
 	va_end(args);
 }
 
@@ -190,10 +211,17 @@ vwtrace(const char *fmt, va_list args)
 		if (nw > 0)
 			tracef_size += nw;
 		else if (nw < 0) {
-			if (errno != EPIPE)
+			if (errno != EPIPE
+#if defined(EILSEQ) /*[*/
+					   && errno != EILSEQ
+#endif /*]*/
+					                     )
 				popup_an_errno(errno,
 				    "Write to trace file failed");
-			stop_tracing();
+#if defined(EILSEQ) /*[*/
+			if (errno != EILSEQ)
+#endif /*]*/
+				stop_tracing();
 		}
 		if (tracef_pipe != NULL) {
 			nw = vfprintf(tracef_pipe, fmt, args);

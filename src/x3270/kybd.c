@@ -833,7 +833,7 @@ key_Character(int code, Boolean with_ge, Boolean pasting)
 	 */
 	if (pasting || (code != EBC_dup)) {
 		while (ea_buf[baddr].fa) {
-			if (FA_IS_SKIP(ea_buf[baddr].cc))
+			if (FA_IS_SKIP(ea_buf[baddr].fa))
 				baddr = next_unprotected(baddr);
 			else
 				INC_BA(baddr);
@@ -1037,7 +1037,7 @@ key_WCharacter(unsigned char code[])
 		mdt_set(cursor_addr);
 		/* Implement auto-skip. */
 		while (ea_buf[baddr].fa) {
-			if (FA_IS_SKIP(ea_buf[baddr].cc))
+			if (FA_IS_SKIP(ea_buf[baddr].fa))
 				baddr = next_unprotected(baddr);
 			else
 				INC_BA(baddr);
@@ -1538,6 +1538,7 @@ Erase_action(Widget w unused, XEvent *event, String *params,
     Cardinal *num_params)
 {
 	int	baddr, faddr;
+	enum dbcs_state d;
 
 	action_debug(Erase_action, event, params, num_params);
 	if (kybdlock) {
@@ -1559,7 +1560,43 @@ Erase_action(Widget w unused, XEvent *event, String *params,
 	if (baddr && faddr == baddr - 1)
 		return;
 	do_left();
-	(void) do_delete();
+
+	/*
+	 * If we are now on an SI, move left again.
+	 */
+	if (ea_buf[cursor_addr].cc == EBC_si) {
+		baddr = cursor_addr;
+		DEC_BA(baddr);
+		cursor_move(baddr);
+	}
+
+	/*
+	 * If we landed on the right-hand side of a DBCS character, move to the left-hand side.
+	 * This ensures that if this is the end of a DBCS subfield, we will land on the SI, instead
+	 * of on the character following.
+	 */
+	d = ctlr_dbcs_state(cursor_addr);
+	if (IS_RIGHT(d)) {
+		baddr = cursor_addr;
+		DEC_BA(baddr);
+		cursor_move(baddr);
+	}
+
+	/*
+	 * Try to delete this character.
+	 */
+	if (!do_delete())
+		return;
+
+	/*
+	 * If we've just erased the last character of a DBCS subfield, erase the SO/SI pair as well.
+	 */
+	baddr = cursor_addr;
+	DEC_BA(baddr);
+	if (ea_buf[baddr].cc == EBC_so && ea_buf[cursor_addr].cc == EBC_si) {
+		cursor_move(baddr);
+		(void) do_delete();
+	}
 }
 
 
@@ -3713,7 +3750,7 @@ Default_action(Widget w unused, XEvent *event, String *params, Cardinal *num_par
 				    CN);
 				break;
 			    case '\b':
-				action_internal(BackSpace_action, IA_DEFAULT,
+				action_internal(Erase_action, IA_DEFAULT,
 				    CN, CN);
 				break;
 			    case '\r':

@@ -909,7 +909,7 @@ ctlr_snap_buffer(void)
 			attr_count = obptr - obuf;
 			*obptr++ = 1; /* for now */
 			*obptr++ = XA_3270;
-			*obptr++ = code_table[calc_fa(ea_buf[baddr].cc)];
+			*obptr++ = code_table[calc_fa(ea_buf[baddr].fa)];
 			if (ea_buf[baddr].fg) {
 				space3270out(2);
 				*obptr++ = XA_FOREGROUND;
@@ -1153,11 +1153,14 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 	last_zpt = False;
 	current_fa = get_field_attribute(buffer_addr);
 
-#define ABORT_WRITE(s) { \
-	trace_ds(" [" s "; write aborted]\n"); \
+#define ABORT_WRITEx { \
 	rv = PDS_BAD_ADDR; \
 	aborted = True; \
 	break; \
+}
+#define ABORT_WRITE(s) { \
+	trace_ds(" [" s "; write aborted]\n"); \
+	ABORT_WRITEx; \
 } \
 
 	for (cp = &buf[2]; !aborted && cp < (buf + buflen); cp++) {
@@ -1279,14 +1282,18 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 					case EBC_fm:
 						break;
 					default:
-						ABORT_WRITE("DBCS RA control character");
+						trace_ds(" [invalid DBCS RA control character X'%02x%02x'; write aborted]",
+							add_c1, add_c2);
+						ABORT_WRITEx;
 					}
 				} else if (add_c1 < 0x40 || add_c1 > 0xfe ||
 					   add_c2 < 0x40 || add_c2 > 0xfe) {
-					ABORT_WRITE("invalid DBCS RA character");
+					trace_ds(" [invalid DBCS RA character X'%02x%02x'; write aborted]",
+						add_c1, add_c2);
+					ABORT_WRITEx;
 			       }
 			       dbcs_to_mb(add_c1, add_c2, mb);
-			       trace_ds("'%s'", mb);
+			       trace_ds_nb("'%s'", mb);
 			} else
 #endif /*]*/
 			{
@@ -1658,16 +1665,24 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 				case EBC_cr:
 				case EBC_dup:
 				case EBC_fm:
-				    END_TEXT(see_ebc(add_c2));
-				    break;
+					/* DBCS control code */
+					END_TEXT(see_ebc(add_c2));
+					add_dbcs = True;
+					break;
+				case ORDER_SF:
+				case ORDER_SFE:
+					/* Dead position */
+					END_TEXT("DeadNULL");
+					cp--;
 					break;
 				default:
-					ABORT_WRITE("invalid DBCS control character");
+					trace_ds(" [invalid DBCS control character X'%02x%02x'; write aborted]",
+						add_c1, add_c2);
+					ABORT_WRITEx;
 					break;
 				}
 				if (aborted)
 					break;
-				add_dbcs = True;
 			} else {
 				END_TEXT("NULL");
 				add_c1 = *cp;
@@ -1714,11 +1729,13 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 				add_c2 = *cp;
 				if (add_c1 < 0x40 || add_c1 > 0xfe ||
 				    add_c2 < 0x40 || add_c2 > 0xfe) {
-					ABORT_WRITE("invalid DBCS character");
+					trace_ds(" [invalid DBCS character X'%02x%02x'; write aborted]",
+						add_c1, add_c2);
+					ABORT_WRITEx;
 			       }
 			       add_dbcs = True;
 			       dbcs_to_mb(add_c1, add_c2, mb);
-			       trace_ds("%s", mb);
+			       trace_ds_nb("%s", mb);
 			} else {
 #endif /*]*/
 				add_c1 = *cp;
@@ -1778,6 +1795,7 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 #undef START_FIELD
 #undef END_TEXT0
 #undef END_TEXT
+#undef ABORT_WRITEx
 #undef ABORT_WRITE
 
 /*

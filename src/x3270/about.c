@@ -200,17 +200,15 @@ popup_about_copyright(void)
   2000, 2001, 2002 by Paul Mattes.\n\
 Original X11 Port Copyright \251 1990 by Jeff Sparkes.\n\
 File transfer code Copyright \251 1995 by Dick Altenbern.\n\
-Includes IAC IP patch by Carey Evans, 1998.\n\
- Permission to use, copy, modify, and distribute this software and its documentation\n\
+Includes IAC IP patch by Carey Evans, 1998.", 4);
+	MAKE_SMALL(" Permission to use, copy, modify, and distribute this software and its documentation\n\
  for any purpose and without fee is hereby granted, provided that the above copyright\n\
  notice appear in all copies and that both that copyright notice and this permission\n\
- notice appear in supporting documentation.\n\
-\n\
-Copyright \251 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.\n\
+ notice appear in supporting documentation.", 0);
+	MAKE_SMALL("Copyright \251 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.\n\
  All Rights Reserved.  GTRC hereby grants public use of this software.  Derivative\n\
- works based on this software must incorporate this copyright notice.\n\
-\n\
-x3270 is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;\n\
+ works based on this software must incorporate this copyright notice.", 4);
+	MAKE_SMALL("x3270 is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;\n\
 without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR\n\
 PURPOSE.  See the file LICENSE for more details.", 4);
 

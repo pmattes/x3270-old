@@ -28,6 +28,7 @@ void toggle_screenTrace(struct toggle *t, enum toggle_type tt);
 void trace_ansi_disc(void);
 void trace_char(char c);
 void trace_ds(const char *fmt, ...);
+void trace_ds_nb(const char *fmt, ...);
 void trace_dsn(const char *fmt, ...);
 void trace_event(const char *fmt, ...);
 void trace_screen(void);
@@ -42,6 +43,7 @@ void trace_rollover_check(void);
 #define trace_event(format, args...)
 #else /*][*/
 #define trace_ds 0 &&
+#define trace_ds_nb 0 &&
 #define trace_dsn 0 &&
 #define trace_event 0 &&
 #define rcba 0 &&

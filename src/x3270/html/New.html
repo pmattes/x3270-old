@@ -1,58 +1,90 @@
-<!doctype html public "-//w3c//dtd html 4.0 transitional//en">
+<!DOCTYPE doctype PUBLIC "-//w3c//dtd html 4.0 transitional//en">
 <html>
 <head>
-   <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
-   <meta name="Author" content="Paul Mattes">
-   <meta name="GENERATOR" content="Mozilla/4.5 [en] (WinNT; U) [Netscape]">
-   <title>x3270 3.3 New Features</title>
-   <link HREF="http://www.w3.org/StyleSheets/Core/Steely" TYPE="text/css" REL="stylesheet">
+   
+  <meta http-equiv="Content-Type"
+ content="text/html; charset=iso-8859-1">
+   
+  <meta name="Author" content="Paul Mattes">
+   
+  <meta name="GENERATOR"
+ content="Mozilla/4.5 [en] (WinNT; U) [Netscape]">
+  <title>x3270 3.3 New Features</title>
+       
+  <link href="http://www.w3.org/StyleSheets/Core/Steely" type="text/css"
+ rel="stylesheet">
 </head>
 <body>
-
-<h1>
-New Features in x3270 3.3
-<hr WIDTH="100%"></h1>
-x3270 3.3 is the future development line for x3270.
-It is functionally equivalent to x3270 3.2.20, with the addition of SSL (Secure
-Sockets Layer) support and DBCS (Double Byte Character Set) support for East
-Asian languages -- Chinese, Japanese and Korean.
-<p>
-The DBCS work required a significant change in the internal workings of
-x3270.
-For those familiar with the source code, the change was to store EBCDIC codes
-internally, and to dispense with the confusing CG-code representation of the
-3270 display.
-This required changing all of the logic that manipulates field attributes,
-as well as the logic that translates the host output, keyboard input, and
-X11 display output.
-<p>
-A few eggs were broken in that process:
+<h1>New Features in x3270 3.3
+<hr width="100%"></h1>
+x3270 3.3 is the future development line for x3270. It is functionally equivalent
+to x3270 3.2.20, with the addition of SSL (Secure Sockets Layer) support
+and DBCS (Double Byte Character Set) support for East Asian languages --
+Chinese, Japanese and Korean.
+<p>The DBCS work required a significant change in the internal workings of
+x3270. For those familiar with the source code, the change was to store EBCDIC
+codes internally, and to dispense with the confusing CG-code representation
+of the 3270 display. This required changing all of the logic that manipulates
+field attributes, as well as the logic that translates the host output, keyboard
+input, and X11 display output.</p>
+<p>A few eggs were broken in that process:</p>
 <ul>
  <li>'Flipped' mode (for right-to-left languages) is disabled.</li>
  <li>pr3287 does not support DBCS.</li>
  <li>File Transfer does not handle DBCS characters properly.</li>
 </ul>
 And other bugs may yet lurk.
-<p>
-However, once x3270 3.3 is stable enough and the broken features have been
-corrected, it will replace x3270 3.2.
+<p>However, once x3270 3.3 is stable enough and the broken features have
+been corrected, it will replace x3270 3.2.</p>
+<h2>Changes in x3270 3.3.1alpha8, 15. April 2003</h2>
+<ul>
+  <li>Bug Fixes:</li>
+  <ul>
+    <li>Builds cleanly on Linux with <tt>-Wall -ansi -pedantic</tt>.</li>
+    <li>Builds without OpenSSL libraries being present.</li>
+    <li>Correctly records Field Attributes in the initial screen snapshot
+in a Data Stream Trace file.</li>
+    <li>Auto-Skip fields work properly.</li>
+    <li>"Dead" positions in DBCS fields are handled correctly.</li>
+    <li>Invalid host DBCS characters are handled better and are displayed
+in the Data Stream Trace file.</li>
+    <li>The <b>Erase</b> action now works properly with DBCS characters.</li>
+    <li>The <b>Visible Control Characters</b> toggle now works properly.<br>
+    </li>
+  </ul>
+</ul>
+<ul>
+  <li>New Features:</li>
+  <ul>
+    <li>The <b>Erase</b> action is now the default for the <b>BackSpace</b>
+key.</li>
+    <li>Four more Japanese host code pages have been added: 930, 939, 1390
+and 1399. This uses new support for combined SBCS/DBCS code pages.<br>
+    </li>
+  </ul>
+</ul>
 <h2>Changes in x3270 3.3.1, 14. February 2003</h2>
 <ul>
- <li>Bug Fixes:
-  <ul>
+ <li>Bug Fixes:   
+    <ul>
    <li>(Same as x3270 3.2.20)</li>
-  </ul>
+  
+    </ul>
  </li>
- <li>New Features:
-  <ul>
+ <li>New Features:   
+    <ul>
    <li>DBCS support for Simplfied Chinese and Japanese, including integration
     with XIM.</li>
    <li>Tunneled SSL support added (entire Telnet session inside of an SSL
-    tunnel).  Uses the OpenSSL library.  Toggled with an 'l:' (ell) prefix on
-    the hostname.</li>
+    tunnel).  Uses the OpenSSL library.  Toggled with an 'l:' (ell) prefix
+on     the hostname.</li>
    <li>A <i>Visible Control Characters</i> toggle replaces the 3270d Debug
     Font.</li>
    <li><b>About x3270</b> pop-up split into three smaller pieces.</li>
-  </ul>
+  
+    </ul>
  </li>
 </ul>
+<br>
+</body>
+</html>

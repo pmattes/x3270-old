@@ -98,7 +98,9 @@ static Widget  *charset_widgets;
 static void scheme_init(void);
 static void charsets_init(void);
 static void options_menu_init(Boolean regen, Position x, Position y);
+#if defined(X3270_KEYPAD) /*[*/
 static void keypad_button_init(Position x, Position y);
+#endif /*]*/
 #if defined(HAVE_LIBSSL) /*[*/
 static void ssl_icon_init(Position x, Position y);
 #endif /*]*/
@@ -122,7 +124,9 @@ static void menubar_charset(Boolean ignored unused);
 #include "arrow.bm"
 #include "diamond.bm"
 #include "no_diamond.bm"
+#if defined(X3270_KEYPAD) /*[*/
 #include "ky.bm"
+#endif /*]*/
 #if defined(HAVE_LIBSSL) /*[*/
 #include "ssl.bm"
 #endif /*]*/
@@ -135,7 +139,9 @@ static void menubar_charset(Boolean ignored unused);
 
 static Widget	menu_parent;
 static Boolean  menubar_buttons;
+#if !defined(X3270_NO_DISCONNECT) /*[*/
 static Widget   disconnect_button;
+#endif /*]*/
 static Widget   exit_button;
 static Widget   exit_menu;
 static Widget   macros_button;
@@ -150,7 +156,9 @@ static Widget   connect_button;
 #if defined(HAVE_LIBSSL) /*[*/
 static Widget   ssl_icon;
 #endif /*]*/
+#if defined(X3270_KEYPAD) /*[*/
 static Widget   keypad_button;
+#endif /*]*/
 static Widget   linemode_button;
 static Widget   charmode_button;
 static Widget   models_option;
@@ -163,10 +171,10 @@ static Widget	extended_button;
 static Widget	m3278_button;
 static Widget	m3279_button;
 static Widget   keypad_option_button;
-static Widget	script_abort_button;
 static Widget	scheme_button;
 static Widget   connect_menu;
 #if defined(X3270_SCRIPT) /*[*/
+static Widget	script_abort_button;
 static Widget	idle_button;
 #endif /*]*/
 
@@ -194,8 +202,14 @@ static void	toggle_init(Widget, int, const char *, const char *);
 
 #define MENU_BORDER	2
 
+#if defined(X3270_KEYPAD) /*[*/
+#define KY_WIDTH	(ky_width + 8)
+#else /*][*/
+#define KY_WIDTH	0
+#endif /*]*/
+
 #define	MENU_MIN_WIDTH	(LEFT_MARGIN + 3*(KEY_WIDTH+2*BORDER+SPACING) + \
-			 LEFT_MARGIN + (ky_width+8) + 2*BORDER + SPACING + \
+			 LEFT_MARGIN + KY_WIDTH + 2*BORDER + SPACING + \
 			 2*MENU_BORDER)
 
 /*
@@ -296,18 +310,19 @@ menubar_init(Widget container, Dimension overall_width, Dimension current_width)
 	options_menu_init(mb_old != menubar_buttons,
 	    LEFT_MARGIN + MO_OFFSET*(KEY_WIDTH+2*BORDER+SPACING),
 	    TOP_MARGIN);
+#define CM_BUTTON_X	(LEFT_MARGIN + CN_OFFSET*(KEY_WIDTH+2*BORDER+SPACING))
 
 	/* "Connect..." menu */
 
 	if (!appres.reconnect)
 		connect_menu_init(mb_old != menubar_buttons,
-		    LEFT_MARGIN + CN_OFFSET*(KEY_WIDTH+2*BORDER+SPACING),
+		    CM_BUTTON_X,
 		    TOP_MARGIN);
 
 	/* "Macros..." menu */
 
 	macros_menu_init(mb_old != menubar_buttons,
-	    LEFT_MARGIN + CN_OFFSET*(KEY_WIDTH+2*BORDER+SPACING),
+	    CM_BUTTON_X,
 	    TOP_MARGIN);
 
 #if defined(HAVE_LIBSSL) /*[*/
@@ -342,11 +357,13 @@ menubar_init(Widget container, Dimension overall_width, Dimension current_width)
 static void
 menubar_connect(Boolean ignored unused)
 {
+#if !defined(X3270_NO_DISCONNECT) /*[*/
 	/* Set the disconnect button sensitivity. */
 	if (disconnect_button != (Widget)NULL)
 		XtVaSetValues(disconnect_button,
 		    XtNsensitive, PCONNECTED,
 		    NULL);
+#endif /*]*/
 
 	/* Set up the exit button, either with a pullright or a callback. */
 	if (exit_button != (Widget)NULL) {
@@ -561,6 +578,7 @@ Bye(Widget w unused, XtPointer client_data unused, XtPointer call_data unused)
 	x3270_exit(0);
 }
 
+#if !defined(X3270_NO_DISCONNECT) /*[*/
 /* Called from the "Disconnect" button on the "File..." menu */
 static void
 disconnect(Widget w unused, XtPointer client_data unused,
@@ -568,6 +586,7 @@ disconnect(Widget w unused, XtPointer client_data unused,
 {
 	host_disconnect(False);
 }
+#endif /*]*/
 
 /* Called from the "Abort Script" button on the "File..." menu */
 static void
@@ -754,11 +773,13 @@ file_menu_init(Boolean regen, Dimension x, Dimension y)
 	    NULL);
 	XtAddCallback(w, XtNcallback, print_text_option, NULL);
 
+#if !defined(X3270_NO_PRINT_WINDOW) /*[*/
 	/* Print Window Bitmap */
 	w = XtVaCreateManagedWidget(
 	    "printWindowOption", cmeBSBObjectClass, file_menu,
 	    NULL);
 	XtAddCallback(w, XtNcallback, print_window_option, NULL);
+#endif /*]*/
 
 	if (!appres.secure) {
 
@@ -792,6 +813,7 @@ file_menu_init(Boolean regen, Dimension x, Dimension y)
 	XtAddCallback(script_abort_button, XtNcallback, script_abort_callback,
 	    0);
 
+#if !defined(X3270_NO_DISCONNECT) /*[*/
 	/* Disconnect */
 	(void) XtVaCreateManagedWidget(
 	    "space", cmeLineObjectClass, file_menu,
@@ -801,6 +823,7 @@ file_menu_init(Boolean regen, Dimension x, Dimension y)
 	    XtNsensitive, PCONNECTED,
 	    NULL);
 	XtAddCallback(disconnect_button, XtNcallback, disconnect, 0);
+#endif /*]*/
 
 	/* Exit x3270 */
 	if (exit_menu != (Widget)NULL)
@@ -1888,6 +1911,7 @@ options_menu_init(Boolean regen, Position x, Position y)
 		XtAddCallback(w, XtNcallback, do_keymap, NULL);
 	}
 
+#if !defined(X3270_NO_KEYMAP_DISPLAY) /*[*/
 	/* Create the "display keymap" option */
 	(void) XtVaCreateManagedWidget("space", cmeLineObjectClass,
 	    options_menu,
@@ -1896,17 +1920,20 @@ options_menu_init(Boolean regen, Position x, Position y)
 	    "keymapDisplayOption", cmeBSBObjectClass, options_menu,
 	    NULL);
 	XtAddCallback(w, XtNcallback, do_keymap_display, NULL);
+#endif /*]*/
 
 #if defined(X3270_SCRIPT) /*[*/
 	/* Create the "Idle Command" option */
-	(void) XtVaCreateManagedWidget("space", cmeLineObjectClass,
-	    options_menu,
-	    NULL);
-	idle_button = XtVaCreateManagedWidget(
-	    "idleCommandOption", cmeBSBObjectClass, options_menu,
-	    XtNsensitive, IN_3270,
-	    NULL);
-	XtAddCallback(idle_button, XtNcallback, do_idle_command, NULL);
+	if (!appres.secure) {
+		(void) XtVaCreateManagedWidget("space", cmeLineObjectClass,
+		    options_menu,
+		    NULL);
+		idle_button = XtVaCreateManagedWidget(
+		    "idleCommandOption", cmeBSBObjectClass, options_menu,
+		    XtNsensitive, IN_3270,
+		    NULL);
+		XtAddCallback(idle_button, XtNcallback, do_idle_command, NULL);
+	}
 #endif /*]*/
 
 	if (menubar_buttons) {

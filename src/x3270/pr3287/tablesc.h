@@ -19,7 +19,6 @@
 
 extern unsigned char asc2cg[256];
 extern unsigned char cg2asc[256];
-extern unsigned char cg2asc7[256];
 extern unsigned char ebc2cg[256];
 extern unsigned char ebc2cg0[256];
 extern unsigned char cg2ebc[256];

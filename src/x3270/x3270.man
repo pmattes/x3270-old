@@ -1,5 +1,5 @@
 '\" t
-.TH x3270 1 "14 February 2003"
+.TH x3270 1 "11 April 2003"
 .SH "NAME"
 x3270 \-
 \s-1IBM\s+1 host access tool
@@ -3130,7 +3130,7 @@ x3270.macros: \e
 	alt printer: PrintText("lpr -Plw2")
 .RE
 .IP
-You can also  a different set of macros for each host.
+You can also define a different set of macros for each host.
 If there is a resource named
 `x3270.\fImacros\fP.\fIsomehost\fP',
 it defines the macros menu for when \fBx3270\fP
@@ -3188,7 +3188,7 @@ A special composite map,
 is provided for this purpose.
 .PP
 \fBNote:\fP
-Some keyboards do not  the "Alt" key as a modifier, so keymaps that use
+Some keyboards do not define the "Alt" key as a modifier, so keymaps that use
 the "Alt" key will not function.
 On a Sun for example, this can be remedied with the command:
 .IP
@@ -5703,4 +5703,4 @@ x3270 is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
 .SH "VERSION"
-x3270 3.3.1-alpha7
+x3270 3.3.1-alpha8

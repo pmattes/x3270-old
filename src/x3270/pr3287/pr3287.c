@@ -99,22 +99,21 @@ static void
 usage(void)
 {
 	(void) fprintf(stderr, "usage: %s [options] [lu[,lu...]@]host[:port]\n"
-"Options:\n"
+"Options:\n%s\n%s\n%s\n", programname,
 "  -daemon          become a daemon after connecting\n"
 "  -assoc <session> associate with a session (TN3270E only)\n"
 "  -charset <name>  use built-in alternate EBCDIC-to-ASCII mappings\n"
 "  -charset @<file> use alternate EBCDIC-to-ASCII mappings from file\n"
 "  -charset =\"<ebc>=<asc> ...\"\n"
-"                   specify alternate EBCDIC-to-ASCII mappings\n"
+"                   specify alternate EBCDIC-to-ASCII mappings",
 "  -command \"<cmd>\" use <cmd> for printing (default \"lpr\")\n"
 "  -blanklines      display blank lines even if empty (formatted LU3)\n"
 "  -crlf            expand newlines to CR/LF\n"
 "  -ffthru          pass through SCS FF orders\n"
-"  -ffskip          skip FF orders at top of page\n"
+"  -ffskip          skip FF orders at top of page",
 "  -ignoreeoj       ignore PRINT-EOJ commands\n"
 "  -reconnect       keep trying to reconnect\n"
-"  -trace           trace data stream to /tmp/x3trc.<pid>\n",
-		programname);
+"  -trace           trace data stream to /tmp/x3trc.<pid>");
 	exit(1);
 }
 
@@ -214,7 +213,9 @@ main(int argc, char *argv[])
 	int s = -1;
 	int rc = 0;
 	int report_success = 0;
+#if defined(HAVE_LIBSSL) /*[*/
 	int any_prefixes = False;
+#endif /*]*/
 
 	/* Learn our name. */
 	if ((programname = strrchr(argv[0], '/')) != NULL)
@@ -275,17 +276,16 @@ main(int argc, char *argv[])
 		usage();
 
 	/* Pick apart the hostname, LUs and port. */
-	do {
 #if defined(HAVE_LIBSSL) /*[*/
+	do {
 		if (!strncasecmp(argv[i], "l:", 2)) {
 			ssl_host = True;
 			argv[i] += 2;
 			any_prefixes = True;
-		}
-#endif /*]*/
-		else
+		} else
 			any_prefixes = False;
 	} while (any_prefixes);
+#endif /*]*/
 	if ((at = strchr(argv[i], '@')) != NULL) {
 		len = at - argv[i];
 		if (!len)

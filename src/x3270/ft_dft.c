@@ -323,6 +323,7 @@ dft_get_request(void)
 	size_t numread;
 	unsigned char *bufptr;
 	struct upload_buffer *upbufp;
+	unsigned short data_len;
 
 	trace_ds(" Get\n");
 
@@ -424,7 +425,8 @@ dft_get_request(void)
 		}
 
 		/* Set data length. */
-		SET16(obptr, bufptr-obptr+4);
+		data_len = bufptr-obptr+4;
+		SET16(obptr, data_len);
 
 		/* Accumulate length written. */
 		ft_length += bufptr-obptr;

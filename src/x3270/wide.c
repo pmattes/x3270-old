@@ -20,6 +20,7 @@
 #include "globals.h"
 #include <errno.h>
 
+#include "3270ds.h"
 #include "appres.h"
 #include "resources.h"
 
@@ -35,11 +36,14 @@
 char *local_encoding = CN;
 
 static UConverter *dbcs_converter = NULL;
+static char *dbcs_converter_name = CN;
 static UConverter *sbcs_converter = NULL;
+static char *sbcs_converter_name = CN;
 static UConverter *local_converter = NULL;
 #if defined(X3270_DISPLAY) /*[*/
 static UConverter *wdisplay_converter = NULL;
 #endif /*]*/
+static Boolean same_converter = False;
 
 /* Initialize, or reinitialize the EBCDIC DBCS converters. */
 int
@@ -67,16 +71,19 @@ wide_init(const char *csname)
 		ucnv_close(sbcs_converter);
 		sbcs_converter = NULL;
 	}
+	Replace(sbcs_converter_name, CN);
 	if (dbcs_converter != NULL) {
 		ucnv_close(dbcs_converter);
 		dbcs_converter = NULL;
 	}
+	Replace(dbcs_converter_name, CN);
 #if defined(X3270_DISPLAY) /*[*/
 	if (wdisplay_converter != NULL) {
 		ucnv_close(wdisplay_converter);
 		wdisplay_converter = NULL;
 	}
 #endif /*]*/
+	same_converter = False;
 
 	/* Make sure that $ICU_DATA has LIBX3270DIR and . in it. */
 	cur_path = getenv(ICU_DATA);
@@ -181,6 +188,7 @@ wide_init(const char *csname)
 				    Free(cn_copy);
 				    return -1;
 			    }
+			    Replace(sbcs_converter_name, NewString(token));
 			    break;
 			default: /* extra */
 			    popup_an_error("Extra converter name '%s' ignored",
@@ -206,6 +214,7 @@ wide_init(const char *csname)
 				    Free(cn_copy);
 				    return -1;
 			    }
+			    Replace(dbcs_converter_name, NewString(token));
 			    break;
 			case 1: /* display */
 #if defined(X3270_DISPLAY) /*[*/
@@ -234,6 +243,11 @@ wide_init(const char *csname)
 		popup_an_error("Missing %s value", ResDbcsConverters);
 		return -1;
 	}
+	if (dbcs_converter_name != CN &&
+	    sbcs_converter_name != CN &&
+	    !strcmp(dbcs_converter_name, sbcs_converter_name)) {
+		same_converter = True;
+	}
 
 	return 0;
 }
@@ -245,7 +259,8 @@ xlate1(unsigned char from0, unsigned char from1, unsigned char to_buf[],
 {
 	UErrorCode err = U_ZERO_ERROR;
 	UChar Ubuf[2];
-	char from_buf[2];
+	char from_buf[4];
+	int from_len;
 	char tmp_to_buf[3];
 	int32_t len;
 #if defined(WIDE_DEBUG) /*[*/
@@ -256,12 +271,27 @@ xlate1(unsigned char from0, unsigned char from1, unsigned char to_buf[],
 	to_buf[0] = to_buf[1] = 0;
 
 	/* Convert string from source to Unicode. */
-	from_buf[0] = from0;
-	from_buf[1] = from1;
-	len = ucnv_toUChars(from_cnv, Ubuf, 2, from_buf, 2, &err);
+	if (same_converter) {
+		from_buf[0] = EBC_so;
+		from_buf[1] = from0;
+		from_buf[2] = from1;
+		from_buf[3] = EBC_si;
+		from_len = 4;
+	} else {
+		from_buf[0] = from0;
+		from_buf[1] = from1;
+		from_len = 2;
+	}
+	len = ucnv_toUChars(from_cnv, Ubuf, 2, from_buf, from_len, &err);
 	if (err != U_ZERO_ERROR) {
 		trace_ds("[%s toUnicode of DBCS X'%02x%02x' failed, ICU "
 		    "error %d]\n", from_name, from0, from1, (int)err);
+		return;
+	}
+	if (Ubuf[0] == 0xfffd) {
+		/* No translation. */
+		trace_ds("[%s toUnicode of DBCS X'%02x%02x' failed]\n",
+		    from_name, from0, from1);
 		return;
 	}
 #if defined(WIDE_DEBUG) /*[*/
