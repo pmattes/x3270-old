@@ -59,7 +59,7 @@
  */
 union sp {
 	struct {
-		unsigned cc  : 8;	/* character code */
+		unsigned cg  : 8;	/* character code */
 		unsigned sel : 1;	/* selection status */
 		unsigned fg  : 6;	/* foreground color (flag/inv/0-15) */
 		unsigned gr  : 4;	/* graphic rendition */

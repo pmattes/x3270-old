@@ -150,7 +150,6 @@ static void do_syswait(void);
 static void do_protected(void);
 static void do_numeric(void);
 static void do_overflow(void);
-static void do_dbcs(void);
 static void do_scrolled(void);
 static void do_minus(void);
 
@@ -173,7 +172,6 @@ static enum msg {
 	PROTECTED,		/* X Protected */
 	NUMERIC,		/* X Numeric */
 	OVERFLOW,		/* X Overflow */
-	DBCS,			/* X DBCS */
 	SCROLLED,		/* X Scrolled */
 	MINUS			/* X -f */
 }               oia_msg = DISCONNECTED, saved_msg;
@@ -192,7 +190,6 @@ static void     (*msg_proc[])(void) = {
 	do_protected,
 	do_numeric,
 	do_overflow,
-	do_dbcs,
 	do_scrolled,
 	do_minus
 };
@@ -208,7 +205,6 @@ static int      msg_color[] = {
 	FA_INT_NORM_SEL,
 	FA_INT_NORM_SEL,
 	FA_INT_NORM_SEL,
-	FA_INT_NORM_SEL,
 	FA_INT_NORM_SEL
 };
 static int      msg_color3279[] = {
@@ -219,7 +215,6 @@ static int      msg_color3279[] = {
 	COLOR_BLUE,
 	COLOR_WHITE,
 	COLOR_WHITE,
-	COLOR_RED,
 	COLOR_RED,
 	COLOR_RED,
 	COLOR_RED,
@@ -261,7 +256,6 @@ static unsigned char *a_syswait;
 static unsigned char *a_protected;
 static unsigned char *a_numeric;
 static unsigned char *a_overflow;
-static unsigned char *a_dbcs;
 static unsigned char *a_scrolled;
 static unsigned char *a_minus;
 
@@ -309,7 +303,6 @@ status_init(void)
 	a_protected = make_amsg("statusProtected");
 	a_numeric = make_amsg("statusNumeric");
 	a_overflow = make_amsg("statusOverflow");
-	a_dbcs = make_amsg("statusDbcs");
 	a_scrolled = make_amsg("statusScrolled");
 	a_minus = make_amsg("statusMinus");
 
@@ -519,9 +512,6 @@ status_oerr(int error_type)
 		break;
 	    case KL_OERR_OVERFLOW:
 		do_msg(OVERFLOW);
-		break;
-	    case KL_OERR_DBCS:
-		do_msg(DBCS);
 		break;
 	}
 }
@@ -1003,19 +993,6 @@ do_overflow(void)
 		status_msg_set(a_overflow, strlen((char *)a_overflow));
 	else
 		status_msg_set(overflow, sizeof(overflow));
-}
-
-static void
-do_dbcs(void)
-{
-	static unsigned char dbcs[] = {
-		CG_lock, CG_space, CG_less, CG_S, CG_greater
-	};
-
-	if (*standard_font)
-		status_msg_set(a_dbcs, strlen((char *)a_dbcs));
-	else
-		status_msg_set(dbcs, sizeof(dbcs));
 }
 
 static void

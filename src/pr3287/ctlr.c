@@ -1,5 +1,6 @@
 /*
- * Modifications Copyright 1993, 1994, 1995, 1996, 1999, 2000, 2001 by Paul Mattes.
+ * Modifications Copyright 1993, 1994, 1995, 1996, 1999,
+ *  2000, 2001, 2002 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -11,6 +12,10 @@
  *  All Rights Reserved.  GTRC hereby grants public use of this software.
  *  Derivative works based on this software must incorporate this copyright
  *  notice.
+ *
+ * pr3287 is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
  */
 
 /*
@@ -24,6 +29,8 @@
 #include <stdio.h>
 #include <errno.h>
 #include <string.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 #include "localdefs.h"
 #include "3270ds.h"
 #include "ctlrc.h"
@@ -67,10 +74,11 @@ static int any_3270_output = 0;
 static FILE *prfile = NULL;
 static unsigned char wcc_line_length;
 
-static void ctlr_erase(void);
-static void dump_formatted(void);
-static void dump_unformatted(void);
-static void stash(unsigned char c);
+static int ctlr_erase(void);
+static int dump_formatted(void);
+static int dump_unformatted(void);
+static int stash(unsigned char c);
+static int prflush(void);
 
 #define DECODE_BADDR(c1, c2) \
 	((((c1) & 0xC0) == 0x00) ? \
@@ -111,13 +119,15 @@ process_ds(unsigned char *buf, int buflen)
 	case CMD_EAU:	/* erase all unprotected */
 	case SNA_CMD_EAU:
 		trace_ds("EraseAllUnprotected\n");
-		ctlr_erase();
+		if (ctlr_erase() < 0 || prflush() < 0)
+			return PDS_FAILED;
 		return PDS_OKAY_NO_OUTPUT;
 		break;
 	case CMD_EWA:	/* erase/write alternate */
 	case SNA_CMD_EWA:
 		trace_ds("EraseWriteAlternate");
-		ctlr_erase();
+		if (ctlr_erase() < 0 || prflush() < 0)
+			return PDS_FAILED;
 		baddr = 0;
 		ctlr_write(buf, buflen, True);
 		return PDS_OKAY_NO_OUTPUT;
@@ -125,7 +135,8 @@ process_ds(unsigned char *buf, int buflen)
 	case CMD_EW:	/* erase/write */
 	case SNA_CMD_EW:
 		trace_ds("EraseWrite");
-		ctlr_erase();
+		if (ctlr_erase() < 0 || prflush() < 0)
+			return PDS_FAILED;
 		baddr = 0;
 		ctlr_write(buf, buflen, True);
 		return PDS_OKAY_NO_OUTPUT;
@@ -523,12 +534,6 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 	}
 
 	trace_ds("\n");
-
-#if 0
-	/* If it's formatted, print it out now. */
-	if (wcc_line_length)
-		dump_formatted();
-#endif
 }
 
 #undef START_FIELDx
@@ -600,7 +605,7 @@ init_scs(void)
  * pointing past the bottom margin.  The 'pp' variable is set to the left
  * margin.
  */
-static void
+static int
 dump_scs_line(Boolean reset_pp, Boolean always_nl)
 {
 	int i;
@@ -632,7 +637,8 @@ dump_scs_line(Boolean reset_pp, Boolean always_nl)
 
 				n_trn += trnbuf[j].data_len;
 				for (k = 0; k < trnbuf[j].data_len; k++) {
-					stash(trnbuf[j].buf[k]);
+					if (stash(trnbuf[j].buf[k]) < 0)
+						return -1;
 				}
 				trnbuf[j].data_len = 0;
 			}
@@ -640,7 +646,8 @@ dump_scs_line(Boolean reset_pp, Boolean always_nl)
 				n_data++;
 				any_data = True;
 				scs_any = True;
-				stash(linebuf[j]);
+				if (stash(linebuf[j]) < 0)
+					return -1;
 			}
 		}
 #if defined(DEBUG_FF) /*[*/
@@ -649,9 +656,12 @@ dump_scs_line(Boolean reset_pp, Boolean always_nl)
 		(void) memset(linebuf, ' ', MAX_MPP+1);
 	}
 	if (any_data || always_nl) {
-		if (crlf)
-			stash('\r');
-		stash('\n');
+		if (crlf) {
+			if (stash('\r') < 0)
+				return -1;
+		}
+		if (stash('\n') < 0)
+		    return -1;
 		line++;
 	}
 #if defined(DEBUG_FF) /*[*/
@@ -660,10 +670,11 @@ dump_scs_line(Boolean reset_pp, Boolean always_nl)
 	if (reset_pp)
 		pp = lm;
 	any_scs_output = False;
+	return 0;
 }
 
 /* SCS formfeed. */
-static void
+static int
 scs_formfeed(Boolean explicit)
 {
 	int nls = 0;
@@ -673,18 +684,19 @@ scs_formfeed(Boolean explicit)
 	 * printed any non-transparent data, do nothing.
 	 */
 	if (ffskip && explicit && !scs_any)
-		return;
+		return 0;
 
 	/*
 	 * In ffthru mode, pass through a \f, but only if it's explicit.
 	 */
 	if (ffthru) {
 		if (explicit) {
-			stash('\f');
+			if (stash('\f') < 0)
+				return -1;
 			scs_any = 0;
 		}
 		line = 1;
-		return;
+		return 0;
 	}
 
 	if (explicit)
@@ -692,9 +704,12 @@ scs_formfeed(Boolean explicit)
 
 	/* Skip to the end of the physical page. */
 	while (line < mpl) {
-		if (crlf)
-			stash('\r');
-		stash('\n');
+		if (crlf) {
+			if (stash('\r') < 0)
+				return -1;
+		}
+		if (stash('\n') < 0)
+			return -1;
 		nls++;
 		line++;
 	}
@@ -702,9 +717,12 @@ scs_formfeed(Boolean explicit)
 
 	/* Skip the top margin. */
 	while (line < tm) {
-		if (crlf)
-			stash('\r');
-		stash('\n');
+		if (crlf) {
+			if (stash('\r') < 0)
+				return -1;
+		}
+		if (stash('\n') < 0)
+			return -1;
 		nls++;
 		line++;
 	}
@@ -713,6 +731,7 @@ scs_formfeed(Boolean explicit)
 		trace_ds(" [formfeed %s %d]", explicit? "explicit": "implicit",
 			nls);
 #endif /*]*/
+	return 0;
 }
 
 /*
@@ -721,7 +740,7 @@ scs_formfeed(Boolean explicit)
  * the next page.  If the character position is past the MPP, we will skip to
  * the left margin of the next line.
  */
-static void
+static int
 add_scs(char c)
 {
 	/*
@@ -729,15 +748,19 @@ add_scs(char c)
 	 * If the line is past the bottom margin, we need to skip to the
 	 * MPL, and then past the top margin.
 	 */
-	if (line > bm)
-		scs_formfeed(False);
+	if (line > bm) {
+		if (scs_formfeed(False) < 0)
+			return -1;
+	}
 
 	/*
 	 * If this character would overflow the line, then dump the current
 	 * line and start over at the left margin.
 	 */
-	if (pp > mpp)
-		dump_scs_line(True, True);
+	if (pp > mpp) {
+		if (dump_scs_line(True, True) < 0)
+			return -1;
+	}
 
 	/*
 	 * Store this character in the line buffer and advance the print
@@ -745,6 +768,7 @@ add_scs(char c)
 	 */
 	linebuf[pp++] = c;
 	any_scs_output = True;
+	return 0;
 }
 
 /*
@@ -808,12 +832,14 @@ process_scs(unsigned char *buf, int buflen)
 		case SCS_FF:	/* form feed */
 			END_TEXT("FF");
 			/* Dump any pending data, and go to the next line. */
-			dump_scs_line(True, False);
+			if (dump_scs_line(True, False) < 0)
+				return PDS_FAILED;
 			/*
 			 * If there is a max page length, skip to the next
 			 * page.
 			 */
-			scs_formfeed(True);
+			if (scs_formfeed(True) < 0)
+				return PDS_FAILED;
 			break;
 		case SCS_HT:	/* horizontal tab */
 			END_TEXT("HT");
@@ -823,8 +849,10 @@ process_scs(unsigned char *buf, int buflen)
 			}
 			if (i <= mpp)
 				i = mpp;
-			else
-				add_scs(' ');
+			else {
+				if (add_scs(' ') < 0)
+					return PDS_FAILED;
+			}
 			break;
 		case SCS_INP:	/* inhibit presentation */
 			END_TEXT("INP");
@@ -835,7 +863,8 @@ process_scs(unsigned char *buf, int buflen)
 		case SCS_NL:	/* new line */
 			if (*cp == SCS_NL)
 				END_TEXT("NL");
-			dump_scs_line(True, True);
+			if (dump_scs_line(True, True) < 0)
+				return PDS_FAILED;
 			break;
 		case SCS_VT:	/* vertical tab */
 			END_TEXT("VT");
@@ -844,11 +873,15 @@ process_scs(unsigned char *buf, int buflen)
 					break;
 			}
 			if (i <= MAX_MPL) {
-				dump_scs_line(False, True);
+				if (dump_scs_line(False, True) < 0)
+					return PDS_FAILED;
 				while (line < i) {
-					if (crlf)
-						stash('\r');
-					stash('\n');
+					if (crlf) {
+						if (stash('\r') < 0)
+							return PDS_FAILED;
+					}
+					if (stash('\n') < 0)
+						return PDS_FAILED;
 					line++;
 				}
 				break;
@@ -861,7 +894,8 @@ process_scs(unsigned char *buf, int buflen)
 		case SCS_LF:	/* line feed */
 			if (*cp == SCS_LF)
 				END_TEXT("LF");
-			dump_scs_line(False, True);
+			if (dump_scs_line(False, True) < 0)
+				return PDS_FAILED;
 			break;
 		case SCS_GE:	/* graphic escape */
 			END_TEXT("GE");
@@ -871,7 +905,8 @@ process_scs(unsigned char *buf, int buflen)
 				break;	/* be gentle */
 			/* No support, so all characters are spaces. */
 			trace_ds(" %02x", *cp);
-			add_scs(' ');
+			if (add_scs(' ') < 0)
+				return PDS_FAILED;
 			break;
 		case SCS_SA:	/* set attribute */
 			END_TEXT("SA");
@@ -1063,14 +1098,16 @@ process_scs(unsigned char *buf, int buflen)
 			if (*cp <= 0x3f) {
 				END_TEXT("?");
 				trace_ds("%02x", *cp);
-				add_scs(' ');
+				if (add_scs(' ') < 0)
+					return PDS_FAILED;
 			} else {
 				if (last == NONE)
 					trace_ds("'");
 				else if (last == ORDER)
 					trace_ds(" '");
 				trace_ds("%c", ebc2asc[*cp]);
-				add_scs(ebc2asc[*cp]);
+				if (add_scs(ebc2asc[*cp]) < 0)
+					return PDS_FAILED;
 				last = DATA;
 			}
 			break;
@@ -1080,6 +1117,8 @@ process_scs(unsigned char *buf, int buflen)
 	if (last == DATA)
 		trace_ds("'");
 	trace_ds("\n");
+	if (prflush() < 0)
+		return PDS_FAILED;
 	return PDS_OKAY_NO_OUTPUT;
 }
 
@@ -1087,21 +1126,42 @@ process_scs(unsigned char *buf, int buflen)
 /*
  * Send a character to the printer.
  */
-static void
+static int
 stash(unsigned char c)
 {
 	if (prfile == NULL) {
 		prfile = popen(command, "w");
 		if (prfile == NULL) {
 			errmsg("%s: %s", command, strerror(errno));
-			exit(1);
+			return -1;
 		}
 	}
-	(void) fputc(c, prfile);
-	if (ferror(prfile)) {
-		errmsg("Write error to '%s'", command);
-		exit(1);
+	if (fputc(c, prfile) == EOF) {
+		errmsg("Write error to '%s': %s", command, strerror(errno));
+		(void) pclose(prfile);
+		prfile = NULL;
+		return -1;
 	}
+	return 0;
+}
+
+/*
+ * Flush the pipe going to the printer process, to try to flush out any
+ * pending errors.
+ */
+static int
+prflush(void)
+{
+	if (prfile != NULL) {
+		if (fflush(prfile) < 0) {
+			errmsg("Flush error to '%s': %s", command,
+			    strerror(errno));
+			(void) pclose(prfile);
+			prfile = NULL;
+			return -1;
+		}
+	}
+	return 0;
 }
 
 /*
@@ -1136,12 +1196,6 @@ ctlr_add(unsigned char c, unsigned char cs, unsigned char gr)
 	page_buf[baddr] = c;
 	baddr = (baddr + 1) % MAX_BUF;
 	any_3270_output = 1;
-
-#if 0
-	/* If this is an EM, dump the unformatted buffer. */
-	if (c == FCORDER_EM)
-		dump_unformatted();
-#endif
 }
 
 /*
@@ -1154,7 +1208,7 @@ ctlr_add(unsigned char c, unsigned char cs, unsigned char gr)
  * a buffered non-space character with a space character.  This is how
  * an output line can span multiple 3270 unformatted write commands.
  */
-static void
+static int
 uoutput(char c)
 {
 	static char buf[MAX_LL];
@@ -1168,19 +1222,25 @@ uoutput(char c)
 		break;
 	case '\n':
 		for (i = 0; i < maxcol; i++) {
-			stash(buf[i]);
+			if (stash(buf[i]) < 0)
+				return -1;
 		}
-		if (crlf)
-		    stash('\r');
-		stash(c);
+		if (crlf) {
+		    if (stash('\r') < 0)
+			    return -1;
+		}
+		if (stash(c) < 0)
+			return -1;
 		col = maxcol = 0;
 		break;
 	case '\f':
 		if (any_3270_printable || !ffskip) {
 			for (i = 0; i < maxcol; i++) {
-				stash(buf[i]);
+				if (stash(buf[i]) < 0)
+					return -1;
 			}
-			stash(c);
+			if (stash(c) < 0)
+				return -1;
 		}
 		col = maxcol = 0;
 		break;
@@ -1199,6 +1259,7 @@ uoutput(char c)
 			maxcol = col;
 		break;
 	}
+	return 0;
 }
 
 /*
@@ -1209,7 +1270,7 @@ uoutput(char c)
  *
  * By definition, the "print position" is 0 when this function begins and ends.
  */
-static void
+static int
 dump_unformatted(void)
 {
 	int i;
@@ -1218,35 +1279,41 @@ dump_unformatted(void)
 	int done = 0;
 
 	if (!any_3270_output)
-		return;
+		return 0;
 
 	for (i = 0; i < MAX_BUF && !done; i++) {
 		switch (c = page_buf[i]) {
 		case '\0':
 			break;
 		case FCORDER_CR:
-			uoutput('\r');
+			if (uoutput('\r') < 0)
+				return -1;
 			prcol = 0;
 			break;
 		case FCORDER_NL:
-			uoutput('\n');
+			if (uoutput('\n') < 0)
+				return -1;
 			prcol = 0;
 			break;
 		case FCORDER_FF:
-			uoutput('\f');
+			if (uoutput('\f') < 0)
+				return -1;
 			prcol = 0;
 			break;
 		case FCORDER_EM:
 			if (prcol != 0)
-				uoutput('\n');
+				if (uoutput('\n') < 0)
+					return -1;
 			done = 1;
 			break;
 		default:	/* printable */
-			uoutput(c);
+			if (uoutput(c) < 0)
+				return -1;
 
 			/* Handle implied newlines. */
 			if (++prcol >= MAX_LL) {
-				uoutput('\n');
+				if (uoutput('\n') < 0)
+					return -1;
 				prcol = 0;
 			}
 			break;
@@ -1254,8 +1321,10 @@ dump_unformatted(void)
 	}
 
 	/* If the buffer didn't end with an EM, flush any pending line. */
-	if (!done)
-		uoutput('\n');
+	if (!done) {
+		if (uoutput('\n') < 0)
+			return -1;
+	}
 
 	/* Clear out the buffer. */
 	(void) memset(page_buf, '\0', MAX_BUF);
@@ -1263,6 +1332,8 @@ dump_unformatted(void)
 	/* Flush buffered data. */
 	fflush(prfile);
 	any_3270_output = 0;
+
+	return 0;
 }
 
 /*
@@ -1277,7 +1348,7 @@ dump_unformatted(void)
  * in which case the line is suppressed.
  * Formfeeds are passed through, and otherwise treated like nulls.
  */
-static void
+static int
 dump_formatted(void)
 {
 	int i;
@@ -1286,7 +1357,7 @@ dump_formatted(void)
 	int newlines = 0;
 
 	if (!any_3270_output)
-		return;
+		return 0;
 	for (i = 0; i < MAX_LL; i++) {
 		int blanks = 0;
 		int any_data = 0;
@@ -1308,13 +1379,17 @@ dump_formatted(void)
 				break;
 			case '\f':
 				while (newlines) {
-					if (crlf)
-						stash('\r');
-					stash('\n');
+					if (crlf) {
+						if (stash('\r') < 0)
+							return -1;
+					}
+					if (stash('\n') < 0)
+						return -1;
 					newlines--;
 				}
 				if (any_3270_printable || !ffskip)
-					stash('\f');
+					if (stash('\f') < 0)
+						return -1;
 				blanks++;
 				break;
 			case '\0':
@@ -1326,17 +1401,22 @@ dump_formatted(void)
 				break;
 			default:
 				while (newlines) {
-					if (crlf)
-						stash('\r');
-					stash('\n');
+					if (crlf) {
+						if (stash('\r') < 0)
+							return -1;
+					}
+					if (stash('\n') < 0)
+						return -1;
 					newlines--;
 				}
 				while (blanks) {
-					stash(' ');
+					if (stash(' ') < 0)
+						return -1;
 					blanks--;
 				}
 				any_data++;
-				stash(visible? c: ' ');
+				if (stash(visible? c: ' ') < 0)
+					return -1;
 				if (visible)
 					any_3270_printable = True;
 				break;
@@ -1348,27 +1428,52 @@ dump_formatted(void)
 	(void) memset(page_buf, '\0', MAX_BUF);
 	fflush(prfile);
 	any_3270_output = 0;
+
+	return 0;
 }
 
-void
+int
 print_eoj(void)
 {
+	int rc = 0;
+
 	/* Dump any pending 3270-mode output. */
-	if (wcc_line_length)
-		dump_formatted();
-	else
-		dump_unformatted();
+	if (wcc_line_length) {
+		if (dump_formatted() < 0)
+			rc = -1;
+	} else {
+		if (dump_unformatted() < 0)
+			rc = -1;
+	}
 
 	/* Dump any pending SCS-mode output. */
-	if (any_scs_output)
-		dump_scs_line(True, False);
+	if (any_scs_output) {
+		if (dump_scs_line(True, False) < 0)
+			rc = -1;
+	}
 
 	/* Close the stream to the print process. */
 	if (prfile != NULL) {
-		if (pclose(prfile) < 0)
-			errmsg("Close error on '%s'", command);
-		prfile = NULL;
+		int rc;
+
 		trace_ds("End of print job.\n");
+		rc = pclose(prfile);
+		if (rc) {
+			if (rc < 0)
+				errmsg("Close error on '%s': %s", command,
+				    strerror(errno));
+			else if (WIFEXITED(rc))
+				errmsg("'%s' exited with status %d",
+				    command, WEXITSTATUS(rc));
+			else if (WIFSIGNALED(rc))
+				errmsg("'%s' terminated by signal %d",
+				    command, WTERMSIG(rc));
+			else
+				errmsg("'%s' returned status %d",
+				    command, rc);
+			rc = -1;
+		}
+		prfile = NULL;
 	}
 
 	/* Make sure the next 3270 job starts with clean conditions. */
@@ -1386,24 +1491,32 @@ print_eoj(void)
 	 * Reset the FF suprpession logic.
 	 */
 	any_3270_printable = False;
+
+	return rc;
 }
 
-static void
+static int
 ctlr_erase(void)
 {
 	/* Dump whatever we've got so far. */
 	/* Dump any pending 3270-mode output. */
-	if (wcc_line_length)
-		dump_formatted();
-	else
-		dump_unformatted();
+	if (wcc_line_length) {
+		if (dump_formatted() < 0)
+			return -1;
+	} else {
+		if (dump_unformatted() < 0)
+			return -1;
+	}
 
 	/* Dump any pending SCS-mode output. */
-	if (any_scs_output)
-		dump_scs_line(True, False); /* XXX: 1st True? */
+	if (any_scs_output) {
+		if (dump_scs_line(True, False) < 0) /* XXX: 1st True? */
+			return -1;
+	}
 
 	/* Make sure the buffer is clean. */
 	(void) memset(page_buf, '\0', MAX_BUF);
 	any_3270_output = 0;
 	baddr = 0;
+	return 0;
 }

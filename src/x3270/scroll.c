@@ -31,6 +31,7 @@
 Boolean	scroll_initted = False;
 
 /* Statics */
+static unsigned char **buf_save = (unsigned char **) NULL;
 static struct ea **ea_save = (struct ea **) NULL;
 static int      n_saved = 0;
 static int      scroll_next = 0;
@@ -65,15 +66,19 @@ scroll_init(void)
 	if (sbuf != CN) {
 		XtFree(sbuf);
 		XtFree(zbuf);
+		Free(buf_save);
 		Free(ea_save);
 	}
 	sa_size = appres.save_lines + maxROWS;
+	buf_save = (unsigned char **)XtCalloc(sizeof(unsigned char *), sa_size);
 	ea_save = (struct ea **)XtCalloc(sizeof(struct ea *), sa_size);
 	sa_bufsize = (sa_size * (sizeof(unsigned char) + sizeof(struct ea))) * maxCOLS;
 	sbuf = XtMalloc(sa_bufsize);
 	zbuf = XtMalloc(maxCOLS);
 	(void) memset(zbuf, '\0', maxCOLS);
 	s = (unsigned char *)sbuf;
+	for (i = 0; i < sa_size; s += maxCOLS, i++)
+		buf_save[i] = s;
 	for (i = 0; i < sa_size; s += (maxCOLS * sizeof(struct ea)), i++)
 		ea_save[i] = (struct ea *)s;
 	scroll_reset();
@@ -108,13 +113,8 @@ scroll_save(int n, Boolean trim_blanks)
 	/* Trim trailing blank lines from 'n', if requested */
 	if (trim_blanks) {
 		while (n) {
-			int i;
-
-			for (i = 0; i < COLS; i++) {
-				if (ea_buf[(n-1)*COLS + i].cc)
-					break;
-			}
-			if (i < COLS)
+			if (memcmp((char *)(screen_buf+((n-1)*COLS)),
+				   zbuf, COLS))
 				break;
 			else
 				n--;
@@ -130,14 +130,21 @@ scroll_save(int n, Boolean trim_blanks)
 	/* Save the screen contents. */
 	for (i = 0; i < n; i++) {
 		if (i < COLS) {
+			(void) memmove(buf_save[scroll_next],
+			    screen_buf+(i*COLS),
+			    COLS);
 			(void) memmove(ea_save[scroll_next],
 			    (ea_buf+(i*COLS)),
 			    COLS*sizeof(struct ea));
 			if (COLS < maxCOLS) {
+				(void) memset((char *)(buf_save[scroll_next] + COLS), '\0',
+				    maxCOLS - COLS);
 				(void) memset((char *)(ea_save[scroll_next] + COLS), '\0',
 				    (maxCOLS - COLS)*sizeof(struct ea));
 			}
 		} else {
+			(void) memset((char *)buf_save[scroll_next], '\0',
+			    maxCOLS);
 			(void) memset((char *)ea_save[scroll_next], '\0',
 			    maxCOLS*sizeof(struct ea));
 		}
@@ -168,6 +175,7 @@ scroll_round(void)
 
 	/* Zero the scroll buffer. */
 	for (n = maxROWS - (n_saved % maxROWS); n; n--) {
+		(void) memset((char *)buf_save[scroll_next], '\0', maxCOLS);
 		(void) memset((char *)ea_save[scroll_next], '\0',
 			    maxCOLS*sizeof(struct ea));
 		scroll_next = (scroll_next + 1) % appres.save_lines;
@@ -207,6 +215,9 @@ save_image(void)
 	if (!need_saving)
 		return;
 	for (i = 0; i < maxROWS; i++) {
+		(void) memmove(buf_save[appres.save_lines+i],
+		            screen_buf + (i*COLS),
+		            COLS);
 		(void) memmove(ea_save[appres.save_lines+i],
 		            (ea_buf + (i*COLS)),
 		            COLS*sizeof(struct ea));
@@ -267,10 +278,16 @@ sync_scroll(int sb)
 	/* Update the screen. */
 	for (i = 0; i < maxROWS; i++)
 		if (i < sb) {
+			(void) memmove(screen_buf + (i*COLS),
+				    buf_save[(scroll_first+i) % appres.save_lines],
+				    COLS);
 			(void) memmove((ea_buf + (i*COLS)),
 				    ea_save[(scroll_first+i) % appres.save_lines],
 				    COLS*sizeof(struct ea));
 		} else {
+			(void) memmove(screen_buf + (i*COLS),
+				    buf_save[appres.save_lines+i-sb],
+				    COLS);
 			(void) memmove((ea_buf + (i*COLS)),
 				    ea_save[appres.save_lines+i-sb],
 				    COLS*sizeof(struct ea));

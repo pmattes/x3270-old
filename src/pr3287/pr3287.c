@@ -1,10 +1,14 @@
 /*
- * Copyright 2000, 2001 by Paul Mattes.
+ * Copyright 2000, 2001, 2002 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
  *  both that copyright notice and this permission notice appear in
  *  supporting documentation.
+ *
+ * pr3287 is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
  */
 
 /*
@@ -125,6 +129,7 @@ errmsg(const char *fmt, ...)
 	va_start(args, fmt);
 	(void) vsprintf(buf[ix], fmt, args);
 	va_end(args);
+	trace_ds("Error: %s\n", buf[ix]);
 	if (!strcmp(buf[ix], buf[!ix])) {
 		if (verbose)
 			(void) fprintf(stderr, "Suppressed error '%s'\n",
@@ -132,7 +137,7 @@ errmsg(const char *fmt, ...)
 		return;
 	}
 	if (bdaemon == AM_DAEMON)
-		syslog(LOG_ERR, "%s", buf[ix]);
+		syslog(LOG_ERR, "%s: %s", programname, buf[ix]);
 	else
 		(void) fprintf(stderr, "%s: %s\n", programname, buf[ix]);
 }
@@ -185,7 +190,7 @@ fatal_signal(int sig)
 {
 	/* Flush any pending data and exit. */
 	trace_ds("Fatal signal %d\n", sig);
-	print_eoj();
+	(void) print_eoj();
 	errmsg("Exiting on signal %d", sig);
 	exit(0);
 }
@@ -437,7 +442,7 @@ main(int argc, char *argv[])
 
 	    retry:
 		/* Flush any pending data. */
-		print_eoj();
+		(void) print_eoj();
 
 		/* Close the socket. */
 		if (s >= 0) {

@@ -11,6 +11,10 @@
  *   All Rights Reserved.  GTRC hereby grants public use of this software.
  *   Derivative works based on this software must incorporate this copyright
  *   notice.
+ *
+ * tcl3270 is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
  */
 
 /* 
@@ -26,7 +30,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tcl3270.c,v 1.27 2001/12/27 05:17:03 pdm Exp $
+ * RCS: @(#) $Id: tcl3270.c,v 1.30 2003/01/28 19:34:14 pdm Exp $
  */
 
 /*
@@ -467,14 +471,17 @@ x3270_cmd(ClientData clientData, Tcl_Interp *interp, int objc,
 	int i, j;
 	unsigned count;
 	char **argv = NULL;
+	int old_mode;
 
 	/* Set up ugly global variables. */
 	in_cmd = True;
 	sms_interp = interp;
 
 	/* Synchronously run any pending I/O's and timeouts.  Ugly. */
+	old_mode = Tcl_SetServiceMode(TCL_SERVICE_ALL);
 	while (process_events(False))
 		;
+	(void) Tcl_SetServiceMode(old_mode);
 
 	/* Verify minimal command syntax. */
 	if (objc < 1) {
@@ -539,6 +546,7 @@ x3270_cmd(ClientData clientData, Tcl_Interp *interp, int objc,
 	 * we can proceed.
 	 */
 	process_pending_string();
+	old_mode = Tcl_SetServiceMode(TCL_SERVICE_ALL);
 	while (waiting != NOT_WAITING) {
 
 		/* Process pending file I/O. */
@@ -591,6 +599,7 @@ x3270_cmd(ClientData clientData, Tcl_Interp *interp, int objc,
 		trace_event("\n");
 	}
 #endif /*]*/
+	(void) Tcl_SetServiceMode(old_mode);
 	in_cmd = False;
 	sms_interp = NULL;
 	return cmd_ret;
@@ -600,11 +609,15 @@ x3270_cmd(ClientData clientData, Tcl_Interp *interp, int objc,
 void
 negotiate(void)
 {
+	int old_mode;
+
+	old_mode = Tcl_SetServiceMode(TCL_SERVICE_ALL);
 	while (KBWAIT || (waiting == AWAITING_CONNECT && !CONNECT_DONE)) {
 		(void) process_events(True);
 		if (!PCONNECTED)
 			exit(1);
 	}
+	(void) Tcl_SetServiceMode(old_mode);
 }
 
 /* Indicates whether errors should go to stderr, or be returned to tcl. */
@@ -720,7 +733,7 @@ dump_range(int first, int len, Boolean in_ascii, unsigned char *buf,
 			(void) sprintf(s, "0x%02x",
 				cg2ebc[buf[first + i]]);
 			Tcl_ListObjAppendElement(sms_interp, row,
-				Tcl_NewStringObj(s, 5));
+				Tcl_NewStringObj(s, -1));
 		}
 	}
 
@@ -781,7 +794,7 @@ dump_rectangle(int start_row, int start_col, int rows, int cols,
 				(void) sprintf(s, "0x%02x",
 					cg2ebc[buf[loc]]);
 				Tcl_ListObjAppendElement(sms_interp, row,
-					Tcl_NewStringObj(s, 5));
+					Tcl_NewStringObj(s, -1));
 			}
 
 		}
@@ -1256,7 +1269,7 @@ Wait_action(Widget w unused, XEvent *event unused, String *params,
 		return;
 	}
 
-	if (tmo)
+	if (waiting != NOT_WAITING && tmo)
 		wait_id = AddTimeOut(tmo * 1000L, wait_timed_out);
 }
 

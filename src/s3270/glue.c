@@ -1,5 +1,6 @@
 /*
- * Modifications Copyright 1993, 1994, 1995, 1996, 2000, 2001 by Paul Mattes.
+ * Modifications Copyright 1993, 1994, 1995, 1996,
+ *   2000, 2001, 200 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *   Permission to use, copy, modify, and distribute this software and its
  *   documentation for any purpose and without fee is hereby granted,
@@ -11,6 +12,11 @@
  *   All Rights Reserved.  GTRC hereby grants public use of this software.
  *   Derivative works based on this software must incorporate this copyright
  *   notice.
+ *
+ * x3270, c3270, s3270 and tcl3270 are distributed in the hope that they will
+ * be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the file LICENSE
+ * for more details.
  */
 
 /*
@@ -52,6 +58,7 @@ extern void usage(char *);
 
 #if defined(C3270) /*[*/
 extern void merge_profile(void); /* XXX */
+extern Boolean any_error_output;
 #endif /*]*/
 
 /* Statics */
@@ -286,42 +293,53 @@ parse_options(int *argcp, const char **argv)
 		    OPT_DONE
 		} type;
 		Boolean flag;
+		const char *res_name;
 		void *aoff;
 	} opts[] = {
 #if defined(C3270) /*[*/
-		{ OptAllBold,  OPT_BOOLEAN, True, offset(all_bold_on) },
+    { OptAllBold,  OPT_BOOLEAN, True,  ResAllBold,   offset(all_bold_on) },
+    { OptAltScreen,OPT_STRING,  False, ResAltScreen, offset(altscreen) },
 #endif /*]*/
-		{ OptAplMode,  OPT_BOOLEAN, True,  offset(apl_mode) },
-		{ OptCharset,  OPT_STRING,  False, offset(charset) },
-		{ OptClear,    OPT_SKIP2,   False, NULL },
+    { OptAplMode,  OPT_BOOLEAN, True,  ResAplMode,   offset(apl_mode) },
+#if defined(C3270) /*[*/
+    { OptCbreak,   OPT_BOOLEAN, True,  ResCbreak,    offset(cbreak_mode) },
+#endif /*]*/
+    { OptCharset,  OPT_STRING,  False, ResCharset,   offset(charset) },
+    { OptClear,    OPT_SKIP2,   False, NULL,         NULL },
+#if defined(C3270) /*[*/
+    { OptDefScreen,OPT_STRING,  False, ResDefScreen, offset(defscreen) },
+#endif /*]*/
 #if defined(X3270_TRACE) /*[*/
-		{ OptDsTrace,  OPT_BOOLEAN, True,  toggle_offset(DS_TRACE) },
+    { OptDsTrace,  OPT_BOOLEAN, True,  ResDsTrace,   toggle_offset(DS_TRACE) },
 #endif /*]*/
-		{ OptHostsFile,OPT_STRING,  False, offset(hostsfile) },
+    { OptHostsFile,OPT_STRING,  False, ResHostsFile, offset(hostsfile) },
 #if defined(C3270) /*[*/
-		{ OptKeymap,   OPT_STRING,  False, offset(key_map) },
+    { OptKeymap,   OPT_STRING,  False, ResKeymap,    offset(key_map) },
 #endif /*]*/
-		{ OptModel,    OPT_STRING,  False, offset(model) },
-		{ OptMono,     OPT_BOOLEAN, True,  offset(mono) },
-		{ OptOnce,     OPT_BOOLEAN, True,  offset(once) },
-		{ OptOversize, OPT_STRING,  False, offset(oversize) },
-		{ OptPort,     OPT_STRING,  False, offset(port) },
+    { OptModel,    OPT_STRING,  False, ResKeymap,    offset(model) },
+    { OptMono,     OPT_BOOLEAN, True,  ResMono,      offset(mono) },
+    { OptOnce,     OPT_BOOLEAN, True,  ResOnce,      offset(once) },
+    { OptOversize, OPT_STRING,  False, ResOversize,  offset(oversize) },
+    { OptPort,     OPT_STRING,  False, ResPort,      offset(port) },
 #if defined(C3270) /*[*/
-		{ OptPrinterLu,OPT_STRING,  False, offset(printer_lu) },
+    { OptPrinterLu,OPT_STRING,  False, ResPrinterLu, offset(printer_lu) },
 #endif /*]*/
 #if defined(S3270) /*[*/
-		{ OptScripted, OPT_NOP,     False, NULL },
+    { OptScripted, OPT_NOP,     False, ResScripted,  NULL },
 #endif /*]*/
-		{ OptSet,      OPT_SKIP2,   False, NULL },
-		{ OptTermName, OPT_STRING,  False, offset(termname) },
+#if defined(C3270) /*[*/
+    { OptSecure,   OPT_BOOLEAN, True,  ResSecure,    offset(secure) },
+#endif /*]*/
+    { OptSet,      OPT_SKIP2,   False, NULL,         NULL },
+    { OptTermName, OPT_STRING,  False, ResTermName,  offset(termname) },
 #if defined(X3270_TRACE) /*[*/
-		{ OptTraceFile,OPT_STRING,  False, offset(trace_file) },
-		{ OptTraceFileSize,OPT_STRING,False,offset(trace_file_size) },
+    { OptTraceFile,OPT_STRING,  False, ResTraceFile, offset(trace_file) },
+    { OptTraceFileSize,OPT_STRING,False,ResTraceFileSize,offset(trace_file_size) },
 #endif /*]*/
-		{ "-xrm",      OPT_XRM,     False, NULL },
-		{ LAST_ARG,    OPT_DONE,    False, NULL },
-		{ CN,          OPT_SKIP2,   False, NULL }
-	};
+    { "-xrm",      OPT_XRM,     False, NULL,         NULL },
+    { LAST_ARG,    OPT_DONE,    False, NULL,         NULL },
+    { CN,          OPT_SKIP2,   False, NULL,         NULL }
+};
 
 	/* Set the defaults. */
 	appres.mono = False;
@@ -365,6 +383,7 @@ parse_options(int *argcp, const char **argv)
 #if defined(C3270) /*[*/
 	appres.meta_escape = "auto";
 	appres.curses_keypad = True;
+	appres.cbreak_mode = False;
 #endif /*]*/
 
 #if defined(X3270_ANSI) /*[*/
@@ -402,11 +421,17 @@ parse_options(int *argcp, const char **argv)
 		switch (opts[j].type) {
 		    case OPT_BOOLEAN:
 			*(Boolean *)opts[j].aoff = opts[j].flag;
+			if (opts[j].res_name != CN)
+				add_resource(NewString(opts[j].name),
+					     opts[j].flag? "True": "False");
 			break;
 		    case OPT_STRING:
 			if (i == *argcp - 1)	/* missing arg */
 				continue;
 			*(const char **)opts[j].aoff = argv[++i];
+			if (opts[j].res_name != CN)
+				add_resource(NewString(opts[j].name),
+					     NewString(argv[i]));
 			break;
 		    case OPT_XRM:
 			if (i == *argcp - 1)	/* missing arg */
@@ -568,10 +593,14 @@ static struct {
 } resources[] = {
 #if defined(C3270) /*[*/
 	{ ResAllBold,	offset(all_bold),	XRM_STRING },
+	{ ResAltScreen,	offset(altscreen),	XRM_STRING },
 #endif /*]*/
 	{ ResCharset,	offset(charset),	XRM_STRING },
 	{ ResColor8,	offset(color8),		XRM_BOOLEAN },
 	{ ResConfDir,	offset(conf_dir),	XRM_STRING },
+#if defined(C3270) /*[*/
+	{ ResDefScreen,	offset(defscreen),	XRM_STRING },
+#endif /*]*/
 #if defined(X3270_ANSI) /*[*/
 	{ ResEof,	offset(eof),		XRM_STRING },
 	{ ResErase,	offset(erase),		XRM_STRING },
@@ -587,10 +616,16 @@ static struct {
 	{ ResOnlcr,	offset(onlcr),		XRM_BOOLEAN },
 	{ ResIntr,	offset(intr),		XRM_STRING },
 #endif /*]*/
+#if defined(C3270) && defined(X3270_SCRIPT) /*[*/
+	{ ResIdleCommand,offset(idle_command),	XRM_STRING },
+	{ ResIdleCommandEnabled,offset(idle_command_enabled),	XRM_BOOLEAN },
+	{ ResIdleTimeout,offset(idle_timeout),	XRM_STRING },
+#endif /*]*/
 #if defined(C3270) /*[*/
 	{ ResKeymap,	offset(key_map),	XRM_STRING },
 	{ ResMetaEscape,offset(meta_escape),	XRM_STRING },
 	{ ResCursesKeypad,offset(curses_keypad),XRM_BOOLEAN },
+	{ ResCbreak,	offset(cbreak_mode),	XRM_BOOLEAN },
 #endif /*]*/
 #if defined(X3270_ANSI) /*[*/
 	{ ResKill,	offset(kill),		XRM_STRING },
@@ -742,6 +777,7 @@ parse_xrm(const char *arg, const char *where)
 		                 strlen(ResDisplayCharset ".")) ||
 		    !strncasecmp(ResCodepage ".", arg + match_len,
 		                 strlen(ResCodepage ".")) ||
+		    !strncasecmp("host.", arg + match_len, 5) ||
 		    !strncasecmp("printer.", arg + match_len, 8)) {
 			add_buf = Malloc(strlen(s) + 1);
 			address = add_buf;
@@ -810,7 +846,7 @@ parse_xrm(const char *arg, const char *where)
 
 #if defined(C3270) /*[*/
 	/* Add a new, arbitrarily-named resource. */
-	if (add_buf != CN) {
+	{
 		char *rsname;
 
 		rsname = Malloc(rnlen + 1);
@@ -976,6 +1012,7 @@ popup_an_error(const char *fmt, ...)
 	} else {
 #if defined(C3270) /*[*/
 		screen_suspend();
+		any_error_output = True;
 #endif /*]*/
 		(void) fprintf(stderr, "%s\n", vmsgbuf);
 		macro_output = True;
@@ -1018,6 +1055,7 @@ action_output(const char *fmt, ...)
 #if defined(C3270) /*[*/
 		screen_suspend();
 		aout = start_pager();
+		any_error_output = True;
 #else /*][*/
 		aout = stdout;
 #endif /*]*/

@@ -1,5 +1,5 @@
 /*
- * Modifications Copyright 1993, 1994, 1995, 1999, 2000, 2002 by Paul Mattes.
+ * Modifications Copyright 1993, 1994, 1995, 1999, 2000 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -61,8 +61,6 @@
 #define FCORDER_NULL	0x00	/* format control: null */
 #define FCORDER_FF	0x0c	/*		   form feed */
 #define FCORDER_CR	0x0d	/*		   carriage return */
-#define FCORDER_SO	0x0e	/*                 shift out (DBCS subfield) */
-#define FCORDER_SI	0x0f	/*                 shift in (DBCS end) */
 #define FCORDER_NL	0x15	/*		   new line */
 #define FCORDER_EM	0x19	/*		   end of medium */
 #define FCORDER_DUP	0x1c	/*		   duplicate */
@@ -120,7 +118,6 @@
 #define QR_COLOR	0x86	/* color */
 #define QR_HIGHLIGHTING	0x87	/* highlighting */
 #define QR_REPLY_MODES	0x88	/* reply modes */
-#define QR_DBCS_ASIA	0x91	/* DBCS-Asia */
 #define QR_PC3270	0x93    /* PC3270 */
 #define QR_DDM    	0x95    /* distributed data management */
 #define QR_IMP_PART	0xa6	/* implicit partition */
@@ -132,26 +129,41 @@
 #define INC_BA(ba)		{ (ba) = ((ba) + 1) % (COLS * ROWS); }
 #define DEC_BA(ba)		{ (ba) = (ba) ? (ba - 1) : ((COLS*ROWS) - 1); }
 
-/* Field attributes. */
-#define FA_PRINTABLE	0xc0	/* these make the character "printable" */
-#define FA_PROTECT	0x20	/* unprotected (0) / protected (1) */
-#define FA_NUMERIC	0x10	/* alphanumeric (0) /numeric (1) */
-#define FA_INTENSITY	0x0c	/* display/selector pen detectable: */
-#define FA_INT_NORM_NSEL 0x00	/*  00 normal, non-detect */
-#define FA_INT_NORM_SEL	 0x04	/*  01 normal, detectable */
-#define FA_INT_HIGH_SEL	 0x08	/*  10 intensified, detectable */
-#define FA_INT_ZERO_NSEL 0x0c	/*  11 nondisplay, non-detect */
-#define FA_RESERVED	0x02	/* must be 0 */
-#define FA_MODIFY	0x01	/* modified (1) */
+/* field attribute definitions
+ * 	The 3270 fonts are based on the 3270 character generator font found on
+ *	page 12-2 in the IBM 3270 Information Display System Character Set
+ *	Reference.  Characters 0xC0 through 0xCF and 0xE0 through 0xEF
+ *	(inclusive) are purposely left blank and are used to represent field
+ *	attributes as follows:
+ *
+ *		11x0xxxx
+ *		  | ||||
+ *		  | ||++--- 00 normal intensity/non-selectable
+ *		  | ||      01 normal intensity/selectable
+ *		  | ||      10 high intensity/selectable
+ *		  | ||	    11 zero intensity/non-selectable
+ *		  | |+----- unprotected(0)/protected(1)
+ *		  | +------ alphanumeric(0)/numeric(1)
+ *		  +-------- unmodified(0)/modified(1)
+ */
+#define FA_BASE			0xc0
+#define FA_MASK			0xd0
+#define FA_MODIFY		0x20
+#define FA_NUMERIC		0x08
+#define FA_PROTECT		0x04
+#define FA_INTENSITY		0x03
 
-/* Bits in the field attribute that are stored. */
-#define FA_MASK		(FA_PROTECT | FA_NUMERIC | FA_INTENSITY | FA_MODIFY)
+#define FA_INT_NORM_NSEL	0x00
+#define FA_INT_NORM_SEL		0x01
+#define FA_INT_HIGH_SEL		0x02
+#define FA_INT_ZERO_NSEL	0x03
 
-/* Tests for various attribute properties. */
+#define IS_FA(c)		(((c) & FA_MASK) == FA_BASE)
+
 #define FA_IS_MODIFIED(c)	((c) & FA_MODIFY)
 #define FA_IS_NUMERIC(c)	((c) & FA_NUMERIC)
 #define FA_IS_PROTECTED(c)	((c) & FA_PROTECT)
-#define FA_IS_SKIP(c)		(((c) & FA_PROTECT) && ((c) & FA_NUMERIC))
+#define FA_IS_SKIP(c)		(FA_IS_NUMERIC(c) && FA_IS_PROTECTED(c))
 
 #define FA_IS_ZERO(c)					\
 	(((c) & FA_INTENSITY) == FA_INT_ZERO_NSEL)
@@ -200,9 +212,6 @@
 #define  XAT_OR		0xf0
 #define  XAT_XOR	0xf1
 #define  XAT_OPAQUE	0xff
-#define XA_INPUT_CONTROL 0xfe
-#define  XAI_DISABLED	0x00
-#define  XAI_ENABLED	0x01
 
 /* WCC definitions */
 #define WCC_RESET(c)		((c) & 0x40)
@@ -292,26 +301,3 @@
 }
 #define HIGH8(s)        (((s) >> 8) & 0xff)
 #define LOW8(s)         ((s) & 0xff)
-
-/* Other EBCDIC control codes. */
-#define EBC_null	0x00
-#define EBC_ff		0x0c
-#define EBC_cr		0x0d
-#define EBC_so		0x0e
-#define EBC_si		0x0f
-#define EBC_nl		0x15
-#define EBC_em		0x19
-#define EBC_dup		0x1c
-#define EBC_fm		0x1e
-#define EBC_space	0x40
-#define EBC_nobreakspace 0x41   
-#define EBC_period	0x4b    
-#define EBC_ampersand	0x50    
-#define EBC_greater	0x6e    
-#define EBC_question	0x6f    
-#define EBC_Yacute	0xad
-#define EBC_diaeresis	0xbd
-#define EBC_minus	0xca
-#define EBC_0		0xf0    
-#define EBC_9		0xf9    
-#define EBC_eo		0xff

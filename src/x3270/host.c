@@ -52,6 +52,7 @@ char           *current_host = CN;
 char           *full_current_host = CN;
 unsigned short  current_port;
 char	       *reconnect_host = CN;
+char	       *qualified_host = CN;
 
 struct host *hosts = (struct host *)NULL;
 static struct host *last_host = (struct host *)NULL;
@@ -450,6 +451,8 @@ host_connect(const char *n)
 	} else {
 		current_host = s;
 	}
+
+	Replace(qualified_host, xs_buffer("%s:%s", chost, port));
 
 	/* Attempt contact. */
 	ever_3270 = False;

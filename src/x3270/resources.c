@@ -261,13 +261,6 @@ XtResource resources[] = {
 	  offset(printer_lu), XtRString, 0 },
 #endif /*]*/
 
-#if defined(X3270_DBCS) /*[*/
-	{ ResInputMethod, ClsInputMethod, XtRString, sizeof(char *),
-	  offset(input_method), XtRString, 0 },
-	{ ResPreeditType, ClsPreeditType, XtRString, sizeof(char *),
-	  offset(preedit_type), XtRString, "OverTheSpot" },
-#endif /*]*/
-
 #if defined(USE_APP_DEFAULTS) /*[*/
 	{ ResAdVersion, ClsAdVersion, XtRString, sizeof(char *),
 	  offset(ad_version), XtRString, 0 },

@@ -1,2 +1,2 @@
-version="3.2.20-dbcs-alpha3"
+version="3.2.20"
 adversion="3.2.18"

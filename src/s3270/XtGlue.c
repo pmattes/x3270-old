@@ -5,15 +5,21 @@
  *  provided that the above copyright notice appear in all copies and that
  *  both that copyright notice and this permission notice appear in
  *  supporting documentation.
+ *
+ * c3270, s3270 and tcl3270 are distributed in the hope that they will
+ * be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the file LICENSE
+ * for more details.
  */
 
-/* s3270 glue for missing Xt code */
+/* glue for missing Xt code */
 
 #include "globals.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 #include <X11/keysym.h>
 
 #include <sys/time.h>
@@ -40,10 +46,17 @@ Error(const char *s)
 void
 Warning(const char *s)
 {
+#if defined(C3270) /*[*/
+	extern Boolean any_error_output;
+#endif /*]*/
+
 	if (Warning_redirect != NULL)
 		(*Warning_redirect)(s);
 	else
 		fprintf(stderr, "Warning: %s\n", s);
+#if defined(C3270) /*[*/
+	any_error_output = True;
+#endif /*]*/
 }
 
 void *
@@ -600,7 +613,8 @@ process_events(Boolean block)
 		return processed_any;
 	ns = select(FD_SETSIZE, &rfds, &wfds, &xfds, tp);
 	if (ns < 0) {
-		Warning("process_events: select() failed");
+		if (errno != EINTR)
+			Warning("process_events: select() failed");
 		return processed_any;
 	}
 	inputs_changed = False;

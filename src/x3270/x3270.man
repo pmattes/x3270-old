@@ -1,5 +1,5 @@
 '\" t
-.TH x3270 1 "08 October 2002"
+.TH x3270 1 "07 February 2003"
 .SH "NAME"
 x3270 \-
 \s-1IBM\s+1 host access tool
@@ -235,8 +235,13 @@ Otherwise, the value is used as the explicit LU name to associate with the
 printer session.
 .TP
 \fB\-pt\fP \fItype\fP
-Specified the preedit type for the multi-byte input method.
-Valid values are \fBOverTheSpot\fP, \fBOffTheSpot\fP, and \fBRoot\fP.
+Specifies the preedit type for the multi-byte input method.
+Valid values are \fBOverTheSpot\fP, \fBOffTheSpot\fP, \fBRoot\fP and
+\fBOnTheSpot\fP.
+The value for \fBOverTheSpot\fP can include an optional suffix, a signed
+number indicating the vertical distance in rows of the preedit window from the
+cursor position, e.g. \fBOverTheSpot+1\fP or \fBOverTheSpot-2\fP.
+The default value is \fBOverTheSpot+1\fP.
 (Supported only when x3270 is compiled with DBCS support.)
 .TP
 \fB\-reconnect\fP
@@ -285,7 +290,7 @@ for a monochrome X display.
 Some hosts are confused by the \fB\-E\fP
 suffix on the terminal name, and will ignore the extra screen area on
 models 3, 4 and 5.
-Prepending an \fB:s\fP on the hostname, or setting the "x3270.extended"
+Prepending an \fBs:\fP on the hostname, or setting the "x3270.extended"
 resource to "false", removes the \fB\-E\fP
 from the terminal name when connecting to such hosts.
 .IP
@@ -744,6 +749,12 @@ See \fIibm_hosts\fP(5) for details.
 .LP
 You may specify a different \fIibm_hosts\fP
 database with the "x3270.hostsFile" resource.
+.LP
+\fBx3270\fP saves a list of recently-accessed hosts in the file
+$HOME/.x3270connect.
+The name of this file can be changed with the x3270.connectFileName resource.
+To suppress this functionality, set the value of x3270.connectFileName to
+\fBnone\fP.
 .SH "COLOR SCHEMES"
 When emulating a 3279 display, the X colors used to draw the display
 are selected by two resources: the "x3270.colorScheme" resource, which gives
@@ -5569,16 +5580,6 @@ T}	T{
 Z + underbar
 T}
 .TE
-.SH "XIM SUPPORT"
-When compiled with DBCS support, \fBx3270\fP supports multi-byte input methods
-via the XIM protocol.
-.LP
-The input method is selected by the XMODIFIERS environment variable or the
-\fB\-im\fP command-line option, or implied by the LC_CTYPE
-category of the locale.
-.LP
-The preedit type is specified by the \fB\-pt\fP command-line option,
-with a default of \fBOverTheSpot\fP.
 .SH "5250 (AS/400) SUPPORT"
 \fBx3270\fP provides limited support for 5250 (AS/400) emulation.
 This is not native 5250 terminal emulation, but rather for use with hosts
@@ -5656,7 +5657,8 @@ It then passes the requested hostname and port to the
 /usr/lib/X11/x3270/ibm_hosts
 .br
 $HOME/.x3270pro
-
+.br
+$HOME/.x3270connect
 .SH "SEE ALSO"
 s3270(1), c3270(1), tcl3270(1), ibm_hosts(5), x3270-script(1), pr3287(1), telnet(1), tn3270(1)
 .br
@@ -5695,4 +5697,4 @@ x3270 is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
 .SH "VERSION"
-x3270 3.2.20-dbcs-alpha3
+x3270 3.2.20

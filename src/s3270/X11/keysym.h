@@ -5,9 +5,14 @@
  *  provided that the above copyright notice appear in all copies and that
  *  both that copyright notice and this permission notice appear in
  *  supporting documentation.
+ *
+ * c3270, s3270 and tcl3270 are distributed in the hope that they will
+ * be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the file LICENSE
+ * for more details.
  */
 
-/* X11 keysyms used by s3270 */
+/* X11 keysyms used by c3270, s3270 and tcl3270 */
 
 #if !defined(_x11_keysym_h) /*[*/
 #define _x11_keysym_h 1

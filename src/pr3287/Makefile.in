@@ -1,9 +1,13 @@
-# Copyright 1999, 2000, 2001 by Paul Mattes.
+# Copyright 1999, 2000, 2001, 2002 by Paul Mattes.
 #  Permission to use, copy, modify, and distribute this software and its
 #  documentation for any purpose and without fee is hereby granted,
 #  provided that the above copyright notice appear in all copies and that
 #  both that copyright notice and this permission notice appear in
 #  supporting documentation.
+#
+# pr3287 is distributed in the hope that it will be useful, but WITHOUT ANY
+# WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
 
 # Makefile for pr3287
 
@@ -25,6 +29,7 @@ LDFLAGS = @LDFLAGS@
 LIBS = @LIBS@
 INSTALL = @INSTALL@
 
+SRCS = pr3287.c ctlr.c trace_ds.c tables.c telnet.c sf.c charset.c see.c
 OBJECTS = pr3287.o ctlr.o trace_ds.o tables.o telnet.o sf.o charset.o see.o
 
 version.o: version.txt mkversion.sh

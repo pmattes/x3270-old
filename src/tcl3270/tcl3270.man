@@ -1,5 +1,5 @@
 '\" t
-.TH tcl3270 1 "01 May 2002"
+.TH tcl3270 1 "07 February 2003"
 .SH "NAME"
 tcl3270 \-
 \s-1IBM\s+1 host access tool
@@ -193,7 +193,7 @@ for example,
 Some hosts are confused by the \fB\-E\fP
 suffix on the terminal name, and will ignore the extra screen area on
 models 3, 4 and 5.
-Prepending an \fB:s\fP on the hostname, or setting the "tcl3270.extended"
+Prepending an \fBs:\fP on the hostname, or setting the "tcl3270.extended"
 resource to "false", removes the \fB\-E\fP
 from the terminal name when connecting to such hosts.
 .IP
@@ -419,6 +419,19 @@ T}	T{
 .na
 .nh
 koi8-r
+T}
+T{
+.na
+.nh
+simplified-chinese
+T}	T{
+.na
+.nh
+836+837
+T}	T{
+.na
+.nh
+3270cg-1a iso8859-1 + gb2312.1980-0
 T}
 T{
 .na
@@ -2540,7 +2553,7 @@ RFC 1646, TN3270 Extensions for LUname and Printer Selection
 RFC 2355, TN3270 Enhancements
 .SH "COPYRIGHTS"
 .LP
-Modifications Copyright 1993, 1994, 1995, 1996, 1997, 1999, 2000, 2001 by Paul Mattes.
+Modifications Copyright 1993, 1994, 1995, 1996, 1997, 1999, 2000, 2001, 2002 by Paul Mattes.
 .br
 Original X11 Port Copyright 1990 by Jeff Sparkes.
 .RS
@@ -2557,5 +2570,9 @@ Derivative works based on this software must incorporate this copyright
 notice.
 .RE
 5250 Emulation Code Copyright Minolta (Schweiz) AG, Beat Rubischon.
+.br
+tcl3270 is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
 .SH "VERSION"
-tcl3270 3.2.19
+tcl3270 3.2.20

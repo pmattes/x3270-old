@@ -221,7 +221,7 @@ download_convert(unsigned const char *buf, unsigned len, unsigned char *xobuf)
 							NE);
 			if (ixp != (unsigned char *)NULL) {
 				ix = ixp - conv[quadrant].xlate;
-				*ob++ = asc2ebc[(int)alphas[ix]];
+				*ob++ = cg2ebc[asc2cg[(int)alphas[ix]]];
 				continue;
 			}
 		}
@@ -237,7 +237,7 @@ download_convert(unsigned const char *buf, unsigned len, unsigned char *xobuf)
 				continue;
 			ix = ixp - conv[quadrant].xlate;
 			*ob++ = conv[quadrant].selector;
-			*ob++ = asc2ebc[(int)alphas[ix]];
+			*ob++ = cg2ebc[asc2cg[(int)alphas[ix]]];
 			break;
 		}
 		if (quadrant >= NQ) {
@@ -256,7 +256,7 @@ download_convert(unsigned const char *buf, unsigned len, unsigned char *xobuf)
 void
 ft_cut_data(void)
 {
-	switch (ea_buf[O_FRAME_TYPE].cc) {
+	switch (cg2ebc[screen_buf[O_FRAME_TYPE]]) {
 	    case FT_CONTROL_CODE:
 		cut_control_code();
 		break;
@@ -270,7 +270,8 @@ ft_cut_data(void)
 		cut_data();
 		break;
 	    default:
-		trace_ds("< FT unknown 0x%02x\n", ea_buf[O_FRAME_TYPE].cc);
+		trace_ds("< FT unknown 0x%02x\n",
+		    cg2ebc[screen_buf[O_FRAME_TYPE]]);
 		cut_abort(get_message("ftCutUnknownFrame"), SC_ABORT_XMIT);
 		break;
 	}
@@ -288,8 +289,8 @@ cut_control_code(void)
 	int i;
 
 	trace_ds("< FT CONTROL_CODE ");
-	code = (ea_buf[O_CC_STATUS_CODE].cc << 8) |
-		ea_buf[O_CC_STATUS_CODE + 1].cc;
+	code = (cg2ebc[screen_buf[O_CC_STATUS_CODE]] << 8) |
+		cg2ebc[screen_buf[O_CC_STATUS_CODE + 1]];
 	switch (code) {
 	    case SC_HOST_ACK:
 		trace_ds("HOST_ACK\n");
@@ -317,7 +318,7 @@ cut_control_code(void)
 		} else {
 			bp = buf = Malloc(81);
 			for (i = 0; i < 80; i++)
-				*bp++ = ebc2asc[ea_buf[O_CC_MESSAGE + i].cc];
+				*bp++ = cg2asc[screen_buf[O_CC_MESSAGE + i]];
 			*bp-- = '\0';
 			while (bp >= buf && *bp == ' ')
 				*bp-- = '\0';
@@ -344,7 +345,7 @@ cut_control_code(void)
 static void
 cut_data_request(void)
 {
-	unsigned char seq = ea_buf[O_DR_FRAME_SEQ].cc;
+	unsigned char seq = screen_buf[O_DR_FRAME_SEQ];
 	int count;
 	unsigned char cs;
 	int c;
@@ -360,7 +361,7 @@ cut_data_request(void)
 	/* Copy data into the screen buffer. */
 	count = 0;
 	while (count < O_UP_MAX && (c = xlate_getc()) != EOF) {
-		ctlr_add(O_UP_DATA + count, c, 0);
+		ctlr_add(O_UP_DATA + count, ebc2cg[c], 0);
 		count++;
 	}
 
@@ -383,8 +384,8 @@ cut_data_request(void)
 
 	/* Send special data for EOF. */
 	if (!count && feof(ft_local_file)) {
-		ctlr_add(O_UP_DATA, EOF_DATA1, 0);
-		ctlr_add(O_UP_DATA+1, EOF_DATA2, 0);
+		ctlr_add(O_UP_DATA, ebc2cg[EOF_DATA1], 0);
+		ctlr_add(O_UP_DATA+1, ebc2cg[EOF_DATA2], 0);
 		count = 2;
 	}
 
@@ -392,15 +393,15 @@ cut_data_request(void)
 	ctlr_add(O_UP_FRAME_SEQ, seq, 0);
 	cs = 0;
 	for (i = 0; i < count; i++)
-		cs ^= ea_buf[O_UP_DATA + i].cc;
-	ctlr_add(O_UP_CSUM, asc2ebc[(int)table6[cs & 0x3f]], 0);
-	ctlr_add(O_UP_LEN, asc2ebc[(int)table6[(count >> 6) & 0x3f]], 0);
-	ctlr_add(O_UP_LEN+1, asc2ebc[(int)table6[count & 0x3f]], 0);
+		cs ^= cg2ebc[screen_buf[O_UP_DATA + i]];
+	ctlr_add(O_UP_CSUM, asc2cg[(int)table6[cs & 0x3f]], 0);
+	ctlr_add(O_UP_LEN, asc2cg[(int)table6[(count >> 6) & 0x3f]], 0);
+	ctlr_add(O_UP_LEN+1, asc2cg[(int)table6[count & 0x3f]], 0);
 
 	/* XXX: Change the data field attribute so it doesn't display. */
-	attr = ea_buf[O_DR_SF].fa;
+	attr = screen_buf[O_DR_SF];
 	attr = (attr & ~FA_INTENSITY) | FA_INT_ZERO_NSEL;
-	ctlr_add_fa(O_DR_SF, attr);
+	ctlr_add(O_DR_SF, attr, 0);
 
 	/* Send it up to the host. */
 	trace_ds("> FT DATA %u\n", from6(seq));
@@ -427,7 +428,7 @@ from6(unsigned char c)
 {
 	char *p;
 
-	c = ebc2asc[c];
+	c = cg2asc[c];
 	p = strchr(table6, c);
 	if (p == CN)
 		return 0;
@@ -452,14 +453,14 @@ cut_data(void)
 	}
 
 	/* Copy and convert the data. */
-	raw_length = from6(ea_buf[O_DT_LEN].cc) << 6 |
-		     from6(ea_buf[O_DT_LEN + 1].cc);
+	raw_length = from6(screen_buf[O_DT_LEN]) << 6 |
+		     from6(screen_buf[O_DT_LEN + 1]);
 	if ((int)raw_length > O_RESPONSE - O_DT_DATA) {
 		cut_abort(get_message("ftCutOversize"), SC_ABORT_XMIT);
 		return;
 	}
 	for (i = 0; i < (int)raw_length; i++)
-		cvbuf[i] = ea_buf[O_DT_DATA + i].cc;
+		cvbuf[i] = cg2ebc[screen_buf[O_DT_DATA + i]];
 
 	if (raw_length == 2 && cvbuf[0] == EOF_DATA1 && cvbuf[1] == EOF_DATA2) {
 		trace_ds("< FT EOF\n");
@@ -505,10 +506,10 @@ cut_abort(const char *s, unsigned short reason)
 	Replace(saved_errmsg, NewString(s));
 
 	/* Send the abort sequence. */
-	ctlr_add(RO_FRAME_TYPE, RFT_CONTROL_CODE, 0);
-	ctlr_add(RO_FRAME_SEQ, ea_buf[O_DT_FRAME_SEQ].cc, 0);
-	ctlr_add(RO_REASON_CODE, HIGH8(reason), 0);
-	ctlr_add(RO_REASON_CODE+1, LOW8(reason), 0);
+	ctlr_add(RO_FRAME_TYPE, ebc2cg[RFT_CONTROL_CODE], 0);
+	ctlr_add(RO_FRAME_SEQ, screen_buf[O_DT_FRAME_SEQ], 0);
+	ctlr_add(RO_REASON_CODE, ebc2cg[HIGH8(reason)], 0);
+	ctlr_add(RO_REASON_CODE+1, ebc2cg[LOW8(reason)], 0);
 	trace_ds("> FT CONTROL_CODE ABORT\n");
 	action_internal(PF_action, IA_FT, "2", CN);
 

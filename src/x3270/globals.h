@@ -116,10 +116,6 @@ extern char		*connected_lu;
 extern char		*connected_type;
 extern char		*current_host;
 extern unsigned short	current_port;
-#if defined(X3270_DBCS) /*[*/
-extern Boolean		dbcs;
-extern Boolean		no_dbcs;
-#endif /*]*/
 extern Boolean		*debugging_font;
 extern char		*efontname;
 extern Boolean		ever_3270;
@@ -129,9 +125,6 @@ extern Boolean		*font_8bit;
 extern Boolean		flipped;
 extern char		*full_current_host;
 extern char		*full_efontname;
-#if defined(X3270_DBCS) /*[*/
-extern char		*full_efontname_dbcs;
-#endif /*]*/
 extern char		full_model_name[];
 extern char		*funky_font;
 extern char		*hostname;
@@ -147,6 +140,7 @@ extern Boolean		non_tn3270e_host;
 extern int		ov_cols, ov_rows;
 extern Boolean		passthru_host;
 extern const char	*programname;
+extern char		*qualified_host;
 extern char		*reconnect_host;
 extern int		screen_depth;
 extern Boolean		scroll_initted;
@@ -208,14 +202,10 @@ extern struct toggle_name toggle_names[];
 
 /*   extended attributes */
 struct ea {
-	unsigned char cc;	/* EBCDIC or ASCII character code */
-	unsigned char fa;	/* field attribute, it nonzero */
 	unsigned char fg;	/* foreground color (0x00 or 0xf<n>) */
 	unsigned char bg;	/* background color (0x00 or 0xf<n>) */
 	unsigned char gr;	/* ANSI graphics rendition bits */
 	unsigned char cs;	/* character set (GE flag, or 0..2) */
-	unsigned char ic;	/* input control (DBCS) */
-	unsigned char db;	/* DBCS state */
 };
 #define GR_BLINK	0x01
 #define GR_REVERSE	0x02
@@ -223,10 +213,6 @@ struct ea {
 #define GR_INTENSIFY	0x08
 
 #define CS_MASK		0x03	/* mask for specific character sets */
-#define CS_BASE		0x00	/*  base character set (X'00') */
-#define CS_APL		0x01	/*  APL character set (X'01' or GE) */
-#define CS_LINEDRAW	0x02	/*  DEC line-drawing character set (ANSI) */
-#define CS_DBCS		0x03	/*  DBCS character set (X'F8') */
 #define CS_GE		0x04	/* cs flag for Graphic Escape */
 
 /*   translation lists */

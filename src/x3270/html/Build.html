@@ -116,10 +116,9 @@ There is a bug in the <tt>X11.tmpl</tt> file in the X11 config directory,
 which causes the <tt>Makefile</tt> produced by <i>imake</i> to have an
 extra <tt>@</tt> character in it.
 <p>After running <i>configure</i>, edit the <tt>Makefile</tt> and change:
-<blockquote><tt>@@for</tt></blockquote>
-to:
 <blockquote><tt>@for</tt></blockquote>
-(there's only one).
+to:
+<blockquote><tt>for</tt></blockquote>.
 <h2>
 IBM RS/6000, AIX 3.2, X11R5</h2>
 AIX X11R5 does not include does not include <i>xmkmf</i> or <i>imake</i>,

@@ -257,13 +257,6 @@ PURPOSE.  See the file LICENSE for more details.", 4);
 	MAKE_LABEL(xbuf, 0);
 	XtFree(xbuf);
 
-#if defined(X3270_DBCS) /*[*/
-	if (dbcs) {
-		MAKE_LABEL(get_message("emulatorFontDbcs"), 4);
-		MAKE_VALUE(full_efontname_dbcs);
-	}
-#endif /*]*/
-
 	MAKE_LABEL(get_message("displayCharacterSet"), 4);
 	if (!efont_matches) {
 		xbuf = xs_buffer("ascii-7 (%s %s, %s %s)",
@@ -274,12 +267,6 @@ PURPOSE.  See the file LICENSE for more details.", 4);
 	} else {
 		MAKE_VALUE(efont_charset);
 	}
-#if defined(X3270_DBCS) /*[*/
-	if (dbcs) {
-		MAKE_LABEL(get_message("displayCharacterSetDbcs"), 4);
-		MAKE_VALUE(efont_charset_dbcs);
-	}
-#endif /*]*/
 
 	MAKE_LABEL(get_message("characterSet"), 4);
 	xbuf = xs_buffer("%s (base %u, code page %u)",
@@ -287,16 +274,6 @@ PURPOSE.  See the file LICENSE for more details.", 4);
 	    cgcsgid & 0xffff);
 	MAKE_VALUE(xbuf);
 	XtFree(xbuf);
-#if defined(X3270_DBCS) /*[*/
-	if (dbcs) {
-		MAKE_LABEL(get_message("characterSetDbcs"), 4);
-		xbuf = xs_buffer("base %u, code page %u",
-		    (cgcsgid_dbcs >> 16) & 0xffff,
-		    cgcsgid_dbcs & 0xffff);
-		MAKE_VALUE(xbuf);
-		XtFree(xbuf);
-	}
-#endif /*]*/
 
 	if (trans_list != (struct trans_list *)NULL ||
 	    temp_keymaps != (struct trans_list *)NULL) {

@@ -1,5 +1,6 @@
 /*
- * Modifications Copyright 1993, 1994, 1995, 1999, 2000, 2001 by Paul Mattes.
+ * Modifications Copyright 1993, 1994, 1995, 1999,
+ *  2000, 2001, 2002 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -11,6 +12,10 @@
  *  All Rights Reserved.  GTRC hereby grants public use of this software.
  *  Derivative works based on this software must incorporate this copyright
  *  notice.
+ *
+ * pr3287 is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
  */
 
 /*
@@ -36,6 +41,8 @@
 #include <string.h>
 #include <sys/time.h>
 #include <unistd.h>
+#include <stdlib.h>
+#include <time.h>
 #include "tn3270e.h"
 
 #include "ctlrc.h"
@@ -137,6 +144,7 @@ static void tn3270_ack(void);
 static void tn3270_nak(enum pds);
 static void tn3270e_ack(void);
 static void tn3270e_nak(enum pds);
+static void tn3270e_cleared(void);
 
 extern void trace_str(const char *s);
 static void vtrace_str(const char *fmt, ...);
@@ -192,6 +200,10 @@ const char *trsp_flag[2] = { "POSITIVE-RESPONSE", "NEGATIVE-RESPONSE" };
 #define e_trsp(n) (((n) <= TN3270E_RSF_NEGATIVE_RESPONSE) ? \
 			trsp_flag[(n)] : "??")
 #define e_rsp(fn, n) (((fn) == TN3270E_DT_RESPONSE) ? e_trsp(n) : e_hrsp(n))
+const char *neg_type[4] = { "COMMAND-REJECT", "INTERVENTION-REQUIRED",
+	"OPERATION-CHECK", "COMPONENT-DISCONNECTED" };
+#define e_neg_type(n)	(((n) <= TN3270E_NEG_COMPONENT_DISCONNECTED) ? \
+			    neg_type[n]: "??")
 
 
 /*
@@ -457,7 +469,8 @@ telnet_fsm(unsigned char c)
 		    case AO:
 			if (IN_3270 && !IN_E) {
 				trace_str("\n");
-				print_eoj();
+				if (print_eoj() < 0)
+					tn3270_nak(PDS_FAILED);
 			} else {
 				trace_str(" (ignored -- not in TN3270 mode)\n");
 			}
@@ -967,6 +980,8 @@ process_eor(void)
 				return 0;
 			tn3270e_bound = 1;
 			check_in3270();
+			if (h->response_flag)
+				tn3270e_ack();
 			return 0;
 		case TN3270E_DT_UNBIND:
 			if (!(e_funcs & E_OPT(TN3270E_FUNC_BIND_IMAGE)))
@@ -975,22 +990,40 @@ process_eor(void)
 			if (tn3270e_submode == E_3270)
 				tn3270e_submode = E_NONE;
 			check_in3270();
-			print_eoj();
+			if (print_eoj() == 0)
+				rv = PDS_OKAY_NO_OUTPUT;
+			else
+				rv = PDS_FAILED;
+			if (h->response_flag) {
+				if (rv >= 0)
+					tn3270e_ack();
+				else
+					tn3270e_nak(rv);
+			}
 			return 0;
 		case TN3270E_DT_SSCP_LU_DATA:
 		case TN3270E_DT_NVT_DATA:
+			if (h->response_flag)
+				tn3270e_nak(PDS_BAD_CMD);
 			return 0;
 		case TN3270E_DT_PRINT_EOJ:
+			rv = PDS_OKAY_NO_OUTPUT;
 			if (ignoreeoj)
 				vtrace_str("(ignored)\n");
-			else
-				print_eoj();
+			else if (print_eoj() < 0)
+				rv = PDS_FAILED;
+			if (h->response_flag) {
+				if (rv >= 0)
+					tn3270e_ack();
+				else
+					tn3270e_nak(rv);
+			}
 			return 0;
 		default:
-			/* Should do something more extraordinary here. */
 			return 0;
 		}
 	} else {
+		/* Plain old 3270 mode. */
 		rv = process_ds(ibuf, ibptr - ibuf);
 		if (rv < 0)
 			tn3270_nak(rv);
@@ -1405,6 +1438,9 @@ tn3270_nak(enum pds rv)
 	case PDS_BAD_ADDR:
 		rsp_buf[4] = 0x04; /* Data check - invalid print data */
 		break;
+	case PDS_FAILED:
+		rsp_buf[4] = 0x10; /* Printer not ready */
+		break;
 	default:
 		rsp_buf[4] = 0x20; /* Command Rejected - shouldn't happen */
 		break;
@@ -1413,6 +1449,13 @@ tn3270_nak(enum pds rv)
 	rsp_buf[6] = EOR;
 	vtrace_str("SENT TN3270 PRINTER STATUS(ERROR)\n");
 	net_rawout(rsp_buf, rsp_len);
+
+	/*
+	 * If we just told the host 'intervention required', tell it
+	 * everything's okay now.
+	 */
+	if (rv == PDS_FAILED)
+		tn3270_ack();
 }
 
 /* Send a TN3270E positive response to the server. */
@@ -1446,7 +1489,7 @@ tn3270e_ack(void)
 static void
 tn3270e_nak(enum pds rv)
 {
-	unsigned char rsp_buf[9];
+	unsigned char rsp_buf[9], r;
 	tn3270e_header *h, *h_in;
 	int rsp_len = EH_SIZE;
 
@@ -1460,13 +1503,57 @@ tn3270e_nak(enum pds rv)
 	h->seq_number[1] = h_in->seq_number[1];
 	if (h->seq_number[1] == IAC)
 		rsp_buf[rsp_len++] = IAC;
-	rsp_buf[rsp_len++] = TN3270E_NEG_COMMAND_REJECT;
+	switch (rv) {
+	default:
+	case PDS_BAD_CMD:
+	    rsp_buf[rsp_len++] = r = TN3270E_NEG_COMMAND_REJECT;
+	    break;
+	case PDS_BAD_ADDR:
+	    rsp_buf[rsp_len++] = r = TN3270E_NEG_OPERATION_CHECK;
+	    break;
+	case PDS_FAILED:
+	    rsp_buf[rsp_len++] = r = TN3270E_NEG_INTERVENTION_REQUIRED;
+	    break;
+	}
 	rsp_buf[rsp_len++] = IAC;
 	rsp_buf[rsp_len++] = EOR;
-	vtrace_str("SENT TN3270E(RESPONSE NEGATIVE-RESPONSE %u) "
-		"COMMAND-REJECT\n",
-		h_in->seq_number[0] << 8 | h_in->seq_number[1]);
+	vtrace_str("SENT TN3270E(RESPONSE NEGATIVE-RESPONSE %u) %s\n",
+		h_in->seq_number[0] << 8 | h_in->seq_number[1],
+		e_neg_type(r));
 	net_rawout(rsp_buf, rsp_len);
+
+	/*
+	 * If we just told the host 'intervention required', tell it
+	 * everything's okay now.
+	 */
+	if (r == TN3270E_NEG_INTERVENTION_REQUIRED)
+	    tn3270e_cleared();
+}
+
+/* Send a TN3270E error cleared indication to the host. */
+static void
+tn3270e_cleared(void)
+{
+	unsigned char rsp_buf[9];
+	tn3270e_header *h;
+	int rsp_len = EH_SIZE;
+
+	h = (tn3270e_header *)rsp_buf;
+
+	h->data_type = TN3270E_OP_REQUEST;
+	h->request_flag = TN3270E_RQF_ERR_COND_CLEARED;
+	h->response_flag = 0;
+	h->seq_number[0] = (e_xmit_seq >> 8) & 0xff;
+	h->seq_number[1] = e_xmit_seq & 0xff;
+
+	if (h->seq_number[1] == IAC)
+		rsp_buf[rsp_len++] = IAC;
+	rsp_buf[rsp_len++] = IAC;
+	rsp_buf[rsp_len++] = EOR;
+	vtrace_str("SENT TN3270E(REQUEST ERR-COND-CLEARED %u)\n", e_xmit_seq);
+	net_rawout(rsp_buf, rsp_len);
+
+	e_xmit_seq = (e_xmit_seq + 1) & 0x7fff;
 }
 
 /* Add a dummy TN3270E header to the output buffer. */

@@ -1,2 +1,1 @@
-version="3.2.20alpha5"
-adversion="3.2.18"
+../x3270/pr3287/version.txt

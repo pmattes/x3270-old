@@ -26,8 +26,6 @@ extern char *get_fresource(const char *fmt, ...);
 extern char *get_host_fresource(const char *fmt, ...);
 extern char *get_resource(const char *name);
 extern char *scatv(const char *s, char *buf, size_t len);
-extern int split_dbcs_resource(const char *value, char sep, char **part1,
-    char **part2);
 extern int split_dresource(char **st, char **left, char **right);
 extern int split_lresource(char **st, char **value);
 extern char *xs_buffer(const char *fmt, ...);

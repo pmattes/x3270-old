@@ -105,6 +105,7 @@ static void status_printer(Boolean on);
 static int get_color_pair(int fg, int bg);
 static int color_from_fa(unsigned char);
 static void screen_init2(void);
+static void set_status_row(int screen_rows, int emulator_rows);
 static Boolean ts_value(const char *s, enum ts *tsp);
 
 /* Initialize the screen. */
@@ -234,14 +235,15 @@ screen_init(void)
 	}
 
 	/* Figure out where the status line goes, if it fits. */
-	if (LINES < maxROWS + 1) {
-		status_row = status_skip = 0;
-	} else if (LINES == maxROWS + 1) {
-		status_skip = 0;
-		status_row = LINES - 1;
-	} else {
-		status_skip = LINES - 2;
-		status_row = LINES - 1;
+#if defined(C3270_80_132) /*[*/
+	if (def_screen != NULL) {
+		/* Start out in defscreen mode. */
+		set_status_row(defscreen_spec.rows, 24);
+	} else
+#endif /*]*/
+	{
+		/* Start out in altscreen mode. */
+		set_status_row(LINES, maxROWS);
 	}
 
 	/* Set up callbacks for state changes. */
@@ -351,6 +353,21 @@ screen_init2(void)
 #endif /*]*/
 }
 
+/* Calculate where the status line goes now. */
+static void
+set_status_row(int screen_rows, int emulator_rows)
+{
+	if (screen_rows < emulator_rows + 1) {
+		status_row = status_skip = 0;
+	} else if (screen_rows == emulator_rows + 1) {
+		status_skip = 0;
+		status_row = emulator_rows;
+	} else {
+		status_skip = screen_rows - 2;
+		status_row = screen_rows - 1;
+	}
+}
+
 /*
  * Parse a tri-state resource value.
  * Returns True for success, False for failure.
@@ -444,15 +461,7 @@ screen_disp(Boolean erasing unused)
 		}
 
 		/* Figure out where the status line goes now, if it fits. */
-		if (cur_spec->rows < ROWS + 1) {
-			status_row = status_skip = 0;
-		} else if (cur_spec->rows == ROWS + 1) {
-			status_skip = 0;
-			status_row = ROWS;
-		} else {
-			status_skip = cur_spec->rows - 2;
-			status_row = cur_spec->rows - 1;
-		}
+		set_status_row(cur_spec->rows, ROWS);
 
 		curses_alt = screen_alt;
 

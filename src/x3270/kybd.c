@@ -39,6 +39,7 @@
 #include "3270ds.h"
 #include "appres.h"
 #include "ctlr.h"
+#include "cg.h"
 #include "resources.h"
 
 #include "actionsc.h"
@@ -64,9 +65,6 @@
 #include "togglesc.h"
 #include "trace_dsc.h"
 #include "utilc.h"
-#if defined(X3270_DBCS) /*[*/
-#include "widec.h"
-#endif /*]*/
 
 /* Statics */
 static enum	{ NONE, COMPOSE, FIRST } composing = NONE;
@@ -83,15 +81,11 @@ static unsigned char pa_xlate[] = {
 #define PA_SZ	(sizeof(pa_xlate)/sizeof(pa_xlate[0]))
 static unsigned long unlock_id;
 #define UNLOCK_MS	350
-static Boolean key_Character(int code, Boolean with_ge, Boolean pasting);
+static Boolean key_Character(int cgcode, Boolean with_ge, Boolean pasting);
 static Boolean flush_ta(void);
 static void key_AID(unsigned char aid_code);
 static void kybdlock_set(unsigned int bits, const char *cause);
 static KeySym MyStringToKeysym(char *s, enum keytype *keytypep);
-
-#if defined(X3270_DBCS) /*[*/
-static Boolean key_WCharacter(unsigned char code[]);
-#endif /*]*/
 
 static int nxk = 0;
 static struct xks {
@@ -134,8 +128,6 @@ static char dxl[] = "0123456789abcdef";
 #define FROM_HEX(c)	(strchr(dxl, tolower(c)) - dxl)
 
 extern Widget *screen;
-
-#define KYBDLOCK_IS_OERR	(kybdlock && !(kybdlock & ~KL_OERR_MASK))
 
 
 /*
@@ -420,7 +412,9 @@ key_AID(unsigned char aid_code)
 	aid = aid_code;
 	ctlr_read_modified(aid, False);
 	ticking_start(False);
-	status_ctlr_done();
+	if (!IN_SSCP) {
+		status_ctlr_done();
+	}
 }
 
 void
@@ -499,100 +493,6 @@ Interrupt_action(Widget w unused, XEvent *event, String *params,
 
 
 
-/*
- * Prepare for an insert of 'count' bytes.
- * Returns True if the insert is legal, False otherwise.
- */
-static Boolean
-ins_prep(int faddr, int baddr, int count)
-{
-	int next_faddr;
-	int xaddr;
-	int need;
-	int ntb;
-	int tb_start = -1;
-	int copy_len;
-
-	/* Find the end of the field. */
-	if (faddr == -1) {
-		/* Unformatted.  Use the end of the line. */
-		next_faddr = (((baddr / COLS) + 1) * COLS) % (ROWS*COLS);
-	} else {
-		next_faddr = faddr;
-		INC_BA(next_faddr);
-		while (next_faddr != faddr && !ea_buf[next_faddr].fa) {
-			INC_BA(next_faddr);
-		}
-	}
-
-	/* Are there enough NULLs or trailing blanks available? */
-	xaddr = baddr;
-	need = count;
-	ntb = 0;
-	while (need && (xaddr != next_faddr)) {
-		if (ea_buf[xaddr].cc == EBC_null)
-			need--;
-		else if (toggled(BLANK_FILL) &&
-			 (ea_buf[xaddr].cc == EBC_space)) {
-			if (tb_start == -1)
-				tb_start = xaddr;
-			ntb++;
-		} else {
-			tb_start = -1;
-			ntb = 0;
-		}
-		INC_BA(xaddr);
-	}
-#if defined(_ST) /*[*/
-	printf("need %d at %d, tb_start at %d\n", count, baddr, tb_start);
-#endif /*]*/
-	if (need - ntb > 0) {
-		operator_error(KL_OERR_OVERFLOW);
-		return False;
-	}
-
-	/*
-	 * Shift the buffer to the right until we've consumed the available
-	 * (and needed) NULLs.
-	 */
-	need = count;
-	xaddr = baddr;
-	while (need && (xaddr != next_faddr)) {
-		int n_nulls = 0;
-		int first_null = -1;
-
-		while (need &&
-		       ((ea_buf[xaddr].cc == EBC_null) ||
-		        (tb_start >= 0 && xaddr >= tb_start))) {
-			need--;
-			n_nulls++;
-			if (first_null == -1)
-				first_null = xaddr;
-			INC_BA(xaddr);
-		}
-		if (n_nulls) {
-			int to;
-
-			/* Shift right n_nulls worth. */
-			copy_len = first_null - baddr;
-			if (copy_len < 0)
-				copy_len += ROWS*COLS;
-			to = (baddr + n_nulls) % (ROWS*COLS);
-#if defined(_ST) /*[*/
-			printf("found %d NULLs at %d\n", n_nulls, first_null);
-			printf("copying %d from %d to %d\n", copy_len, to,
-			    first_null);
-#endif /*]*/
-			if (copy_len)
-				ctlr_wrapping_memmove(to, baddr, copy_len);
-		}
-		INC_BA(xaddr);
-	}
-
-	return True;
-
-}
-
 #define GE_WFLAG	0x100
 #define PASTE_WFLAG	0x200
 
@@ -600,24 +500,24 @@ static void
 key_Character_wrapper(Widget w unused, XEvent *event unused, String *params,
     Cardinal *num_params unused)
 {
-	int code;
+	int cgcode;
 	Boolean with_ge = False;
 	Boolean pasting = False;
 
-	code = atoi(params[0]);
-	if (code & GE_WFLAG) {
+	cgcode = atoi(params[0]);
+	if (cgcode & GE_WFLAG) {
 		with_ge = True;
-		code &= ~GE_WFLAG;
+		cgcode &= ~GE_WFLAG;
 	}
-	if (code & PASTE_WFLAG) {
+	if (cgcode & PASTE_WFLAG) {
 		pasting = True;
-		code &= ~PASTE_WFLAG;
+		cgcode &= ~PASTE_WFLAG;
 	}
 	trace_event(" %s -> Key(%s\"%s\")\n",
 	    ia_name[(int) ia_cause],
 	    with_ge ? "GE " : "",
-	    ctl_see((int) ebc2asc[code]));
-	(void) key_Character(code, with_ge, pasting);
+	    ctl_see((int) cg2asc[cgcode]));
+	(void) key_Character(cgcode, with_ge, pasting);
 }
 
 /*
@@ -625,176 +525,90 @@ key_Character_wrapper(Widget w unused, XEvent *event unused, String *params,
  * insert-mode, protected fields and etc.
  */
 static Boolean
-key_Character(int code, Boolean with_ge, Boolean pasting)
+key_Character(int cgcode, Boolean with_ge, Boolean pasting)
 {
-	register int	baddr, faddr, xaddr;
-	register unsigned char	fa;
-	enum dbcs_why why;
+	register int	baddr, end_baddr;
+	register unsigned char	*fa;
+	Boolean no_room = False;
 
 	if (kybdlock) {
-		char codename[64];
+		char code[64];
 
-		(void) sprintf(codename, "%d", code |
+		(void) sprintf(code, "%d", cgcode |
 			(with_ge ? GE_WFLAG : 0) |
 			(pasting ? PASTE_WFLAG : 0));
-		enq_ta(key_Character_wrapper, codename, CN);
+		enq_ta(key_Character_wrapper, code, CN);
 		return False;
 	}
 	baddr = cursor_addr;
-	faddr = find_field_attribute(baddr);
 	fa = get_field_attribute(baddr);
-	if (ea_buf[baddr].fa || FA_IS_PROTECTED(fa)) {
+	if (IS_FA(screen_buf[baddr]) || FA_IS_PROTECTED(*fa)) {
 		operator_error(KL_OERR_PROTECTED);
 		return False;
 	}
-	if (appres.numeric_lock && FA_IS_NUMERIC(fa) &&
-	    !((code >= EBC_0 && code <= EBC_9) ||
-	      code == EBC_minus || code == EBC_period)) {
+	if (appres.numeric_lock && FA_IS_NUMERIC(*fa) &&
+	    !((cgcode >= CG_0 && cgcode <= CG_9) ||
+	      cgcode == CG_minus || cgcode == CG_period)) {
 		operator_error(KL_OERR_NUMERIC);
 		return False;
 	}
+	if (reverse || (insert && screen_buf[baddr])) {
+		int last_blank = -1;
 
-	/* Can't put an SBCS in a DBCS field. */
-	if (ea_buf[faddr].cs == CS_DBCS) {
-		operator_error(KL_OERR_DBCS);
-		return False;
-	}
+		/* Find next null, next fa, or last blank */
+		end_baddr = baddr;
+		if (screen_buf[end_baddr] == CG_space)
+			last_blank = end_baddr;
+		do {
+			INC_BA(end_baddr);
+			if (screen_buf[end_baddr] == CG_space)
+				last_blank = end_baddr;
+			if (screen_buf[end_baddr] == CG_null
+			    ||  IS_FA(screen_buf[end_baddr]))
+				break;
+		} while (end_baddr != baddr);
 
-	/* If it's an SI (end of DBCS subfield), move over one position. */
-	if (ea_buf[baddr].cc == EBC_si) {
-		INC_BA(baddr);
-		if (baddr == faddr) {
-			operator_error(KL_OERR_OVERFLOW);
-			return False;
+		/* Pretend a trailing blank is a null, if desired. */
+		if (toggled(BLANK_FILL) && last_blank != -1) {
+			INC_BA(last_blank);
+			if (last_blank == end_baddr) {
+				DEC_BA(end_baddr);
+				ctlr_add(end_baddr, CG_null, 0);
+			}
 		}
-	}
 
-	/* Add the character. */
-	if (ea_buf[baddr].cc == EBC_so) {
-
-		if (insert) {
-			if (!ins_prep(faddr, baddr, 1))
+		/* Check for field overflow. */
+		if (screen_buf[end_baddr] != CG_null) {
+			if (insert) {
+				operator_error(KL_OERR_OVERFLOW);
 				return False;
+			} else {	/* reverse */
+				no_room = True;
+			}
 		} else {
-			Boolean was_si = False;
-
-			/*
-			 * Overwriting an SO (start of DBCS subfield).
-			 * If it's followed by an SI, replace the SO/SI
-			 * pair with x/space.  If not, replace it and
-			 * the following DBCS character with
-			 * x/space/SO.
-			 */
-			xaddr = baddr;
-			INC_BA(xaddr);
-			was_si = (ea_buf[xaddr].cc == EBC_si);
-			ctlr_add(xaddr, EBC_space, CS_BASE);
-			ctlr_add_fg(xaddr, 0);
-			ctlr_add_bg(xaddr, 0);
-			if (!was_si) {
-				INC_BA(xaddr);
-				ctlr_add(xaddr, EBC_so, CS_BASE);
-				ctlr_add_fg(xaddr, 0);
-				ctlr_add_bg(xaddr, 0);
+			/* Shift data over. */
+			if (end_baddr > baddr) {
+				/* At least one byte to copy, no wrap. */
+				ctlr_bcopy(baddr, baddr+1, end_baddr - baddr,
+				    0);
+			} else if (end_baddr < baddr) {
+				/* At least one byte to copy, wraps to top. */
+				ctlr_bcopy(0, 1, end_baddr, 0);
+				ctlr_add(0, screen_buf[(ROWS * COLS) - 1], 0);
+				ctlr_bcopy(baddr, baddr+1,
+				    ((ROWS * COLS) - 1) - baddr, 0);
 			}
 		}
 
-	} else switch (ctlr_lookleft_state(baddr, &why)) {
-	case DBCS_RIGHT:
-		DEC_BA(baddr);
-		/* fall through... */
-	case DBCS_LEFT:
-		if (why == DBCS_ATTRIBUTE) {
-			if (insert) {
-				if (!ins_prep(faddr, baddr, 1))
-					return False;
-			} else {
-				/*
-				 * Replace single DBCS char with
-				 * x/space.
-				 */
-				xaddr = baddr;
-				INC_BA(xaddr);
-				ctlr_add(xaddr, EBC_space, CS_BASE);
-				ctlr_add_fg(xaddr, 0);
-				ctlr_add_gr(xaddr, 0);
-			}
-		} else {
-			Boolean was_si;
-
-			if (insert) {
-				/*
-				 * Inserting SBCS into a DBCS subfield.
-				 * If this is the first position, we
-				 * can just insert one character in
-				 * front of the SO.  Otherwise, we'll
-				 * need room for SI (to end subfield),
-				 * the character, and SO (to begin the
-				 * subfield again).
-				 */
-				xaddr = baddr;
-				DEC_BA(xaddr);
-				if (ea_buf[xaddr].cc == EBC_so) {
-					DEC_BA(baddr);
-					if (!ins_prep(faddr, baddr, 1))
-						return False;
-				} else {
-					if (!ins_prep(faddr, baddr, 3))
-						return False;
-					xaddr = baddr;
-					ctlr_add(xaddr, EBC_si,
-					    CS_BASE);
-					ctlr_add_fg(xaddr, 0);
-					ctlr_add_gr(xaddr, 0);
-					INC_BA(xaddr);
-					INC_BA(baddr);
-					INC_BA(xaddr);
-					ctlr_add(xaddr, EBC_so,
-					    CS_BASE);
-					ctlr_add_fg(xaddr, 0);
-					ctlr_add_gr(xaddr, 0);
-				}
-			} else {
-				/* Overwriting part of a subfield. */
-				xaddr = baddr;
-				ctlr_add(xaddr, EBC_si, CS_BASE);
-				ctlr_add_fg(xaddr, 0);
-				ctlr_add_gr(xaddr, 0);
-				INC_BA(xaddr);
-				INC_BA(baddr);
-				INC_BA(xaddr);
-				was_si = (ea_buf[xaddr].cc == EBC_si);
-				ctlr_add(xaddr, EBC_space, CS_BASE);
-				ctlr_add_fg(xaddr, 0);
-				ctlr_add_gr(xaddr, 0);
-				if (!was_si) {
-					INC_BA(xaddr);
-					ctlr_add(xaddr, EBC_so,
-					    CS_BASE);
-					ctlr_add_fg(xaddr, 0);
-					ctlr_add_gr(xaddr, 0);
-				}
-			}
-		}
-		break;
-	default:
-	case DBCS_NONE:
-		if (insert && !ins_prep(faddr, baddr, 1))
-			return False;
-		break;
 	}
-	ctlr_add(baddr, (unsigned char)code,
-	    (unsigned char)(with_ge ? CS_GE : 0));
-	ctlr_add_fg(baddr, 0);
-	ctlr_add_gr(baddr, 0);
-	INC_BA(baddr);
 
 	/* Replace leading nulls with blanks, if desired. */
 	if (formatted && toggled(BLANK_FILL)) {
+		int		baddr_sof = fa - screen_buf;
 		register int	baddr_fill = baddr;
 
 		DEC_BA(baddr_fill);
-		while (baddr_fill != faddr) {
+		while (baddr_fill != baddr_sof) {
 
 			/* Check for backward line wrap. */
 			if ((baddr_fill % COLS) == COLS - 1) {
@@ -805,8 +619,8 @@ key_Character(int code, Boolean with_ge, Boolean pasting)
 				 * Check the field within the preceeding line
 				 * for NULLs.
 				 */
-				while (baddr_scan != faddr) {
-					if (ea_buf[baddr_scan].cc != EBC_null) {
+				while (baddr_scan != baddr_sof) {
+					if (screen_buf[baddr_scan] != CG_null) {
 						aborted = False;
 						break;
 					}
@@ -818,22 +632,34 @@ key_Character(int code, Boolean with_ge, Boolean pasting)
 					break;
 			}
 
-			if (ea_buf[baddr_fill].cc == EBC_null)
-				ctlr_add(baddr_fill, EBC_space, 0);
+			if (screen_buf[baddr_fill] == CG_null)
+				ctlr_add(baddr_fill, CG_space, 0);
 			DEC_BA(baddr_fill);
 		}
 	}
 
-	mdt_set(cursor_addr);
+	/* Add the character. */
+	if (no_room) {
+		do {
+			INC_BA(baddr);
+		} while (!IS_FA(screen_buf[baddr]));
+	} else {
+		ctlr_add(baddr, (unsigned char)cgcode,
+		    (unsigned char)(with_ge ? CS_GE : 0));
+		ctlr_add_fg(baddr, 0);
+		ctlr_add_gr(baddr, 0);
+		if (!reverse)
+			INC_BA(baddr);
+	}
 
 	/*
 	 * Implement auto-skip, and don't land on attribute bytes.
 	 * This happens for all pasted data (even DUP), and for all
 	 * keyboard-generated data except DUP.
 	 */
-	if (pasting || (code != EBC_dup)) {
-		while (ea_buf[baddr].fa) {
-			if (FA_IS_SKIP(ea_buf[baddr].cc))
+	if (pasting || (cgcode != CG_dup)) {
+		while (IS_FA(screen_buf[baddr])) {
+			if (FA_IS_SKIP(screen_buf[baddr]))
 				baddr = next_unprotected(baddr);
 			else
 				INC_BA(baddr);
@@ -841,217 +667,9 @@ key_Character(int code, Boolean with_ge, Boolean pasting)
 		cursor_move(baddr);
 	}
 
-	(void) ctlr_dbcs_postprocess();
+	mdt_set(fa);
 	return True;
 }
-
-#if defined(X3270_DBCS) /*[*/
-static void
-key_WCharacter_wrapper(Widget w unused, XEvent *event unused, String *params,
-    Cardinal *num_params unused)
-{
-	int code;
-	unsigned char codebuf[2];
-
-	code = atoi(params[0]);
-	trace_event(" %s -> Key(0x%04x)\n",
-	    ia_name[(int) ia_cause], code);
-	codebuf[0] = (code >> 8) & 0xff;
-	codebuf[1] = code & 0xff;
-	(void) key_WCharacter(codebuf);
-}
-
-/*
- * Handle a DBCS character.
- */
-static Boolean
-key_WCharacter(unsigned char code[])
-{
-	int baddr;
-	register unsigned char fa;
-	int faddr;
-	enum dbcs_state d;
-	int xaddr;
-	Boolean done = False;
-	extern unsigned char reply_mode; /* XXX */
-
-	if (kybdlock) {
-		char codename[64];
-
-		(void) sprintf(codename, "%d", (code[0] << 8) | code[1]);
-		enq_ta(key_WCharacter_wrapper, codename, CN);
-		return False;
-	}
-
-	/* In DBCS mode? */
-	if (!dbcs) {
-		trace_event("DBCS character received when not in DBCS mode, "
-		    "ignoring.\n");
-		return True;
-	}
-
-	/* In ANSI mode? */
-	if (IN_ANSI) {
-	    unsigned char wc[2];
-
-	    dbcs_to_wchar(code[0], code[1], wc);
-	    net_sendc((char)wc[0]);
-	    net_sendc((char)wc[1]);
-	    return True;
-	}
-
-	baddr = cursor_addr;
-	fa = get_field_attribute(baddr);
-	faddr = find_field_attribute(baddr);
-
-	/* Protected? */
-	if (ea_buf[baddr].fa || FA_IS_PROTECTED(fa)) {
-		operator_error(KL_OERR_PROTECTED);
-		return False;
-	}
-
-	/* Numeric? */
-	if (appres.numeric_lock && FA_IS_NUMERIC(fa)) {
-		operator_error(KL_OERR_NUMERIC);
-		return False;
-	}
-
-	/* Check for insert mode. */
-
-	/*
-	 * Figure our what to do based on the DBCS state of the buffer.
-	 * Leaves baddr pointing to the next unmodified position.
-	 */
-	switch (d = ctlr_dbcs_state(baddr)) {
-	case DBCS_RIGHT:
-	case DBCS_RIGHT_WRAP:
-		/* Back up one position and process it as a LEFT. */
-		DEC_BA(baddr);
-		/* fall through... */
-	case DBCS_LEFT:
-	case DBCS_LEFT_WRAP:
-		/* Overwrite the existing character. */
-		if (insert) {
-			if (!ins_prep(faddr, baddr, 2)) {
-				return False;
-			}
-		}
-		ctlr_add(baddr, code[0], ea_buf[baddr].cs);
-		INC_BA(baddr);
-		ctlr_add(baddr, code[1], ea_buf[baddr].cs);
-		INC_BA(baddr);
-		done = True;
-		break;
-	case DBCS_SB:
-		/* Back up one position and process it as an SI. */
-		DEC_BA(baddr);
-		/* fall through... */
-	case DBCS_SI:
-		/* Make sure there's room to extend the subfield. */
-		/* XXX: Make sure we don't create SI, SI. */
-		if (insert) {
-			if (!ins_prep(faddr, baddr, 2)) {
-				return False;
-			}
-		} else {
-			xaddr = baddr;
-			INC_BA(xaddr);
-			if (ea_buf[xaddr].fa)
-				break;
-			INC_BA(xaddr);
-			if (ea_buf[xaddr].fa)
-				break;
-		}
-		ctlr_add(baddr, code[0], ea_buf[baddr].cs);
-		INC_BA(baddr);
-		ctlr_add(baddr, code[1], ea_buf[baddr].cs);
-		INC_BA(baddr);
-		ctlr_add(baddr, EBC_si, ea_buf[baddr].cs);
-		done = True;
-		break;
-	case DBCS_DEAD:
-		break;
-	case DBCS_NONE:
-		/* Can we add SO/SI to this field? */
-		if (ea_buf[faddr].ic) {
-			/* Is there room? */
-			if (insert) {
-				if (!ins_prep(faddr, baddr, 4)) {
-					return False;
-				}
-			} else {
-				xaddr = baddr;
-				INC_BA(xaddr); /* C0 */
-				if (ea_buf[xaddr].fa)
-					break;
-				INC_BA(xaddr); /* C1 */
-				if (ea_buf[xaddr].fa)
-					break;
-				INC_BA(xaddr); /* SI */
-				if (ea_buf[xaddr].fa)
-					break;
-			}
-			/* Yes, add it. */
-			ctlr_add(baddr, EBC_so, ea_buf[baddr].cs);
-			INC_BA(baddr);
-			ctlr_add(baddr, code[0], ea_buf[baddr].cs);
-			INC_BA(baddr);
-			ctlr_add(baddr, code[1], ea_buf[baddr].cs);
-			INC_BA(baddr);
-			ctlr_add(baddr, EBC_si, ea_buf[baddr].cs);
-			done = True;
-		} else if (reply_mode == SF_SRM_CHAR) {
-			/* Use the character attribute. */
-			if (insert) {
-				if (!ins_prep(faddr, baddr, 2)) {
-					return False;
-				}
-			} else {
-				xaddr = baddr;
-				INC_BA(xaddr);
-				if (ea_buf[xaddr].fa)
-					break;
-			}
-			ctlr_add(baddr, code[0], CS_DBCS);
-			INC_BA(baddr);
-			ctlr_add(baddr, code[1], CS_DBCS);
-			INC_BA(baddr);
-			done = True;
-		}
-		break;
-	}
-
-	if (done) {
-		/* Implement blank fill mode. */
-		if (toggled(BLANK_FILL)) {
-			xaddr = faddr;
-			INC_BA(xaddr);
-			while (xaddr != baddr) {
-				if (ea_buf[xaddr].cc == EBC_null)
-					ctlr_add(xaddr, EBC_space, CS_BASE);
-				else
-					break;
-				INC_BA(xaddr);
-			}
-		}
-
-		mdt_set(cursor_addr);
-		/* Implement auto-skip. */
-		while (ea_buf[baddr].fa) {
-			if (FA_IS_SKIP(ea_buf[baddr].cc))
-				baddr = next_unprotected(baddr);
-			else
-				INC_BA(baddr);
-		}
-		cursor_move(baddr);
-		(void) ctlr_dbcs_postprocess();
-		return True;
-	} else {
-		operator_error(KL_OERR_DBCS);
-		return False;
-	}
-}
-#endif /*]*/
 
 /*
  * Handle an ordinary character key, given an ASCII code.
@@ -1110,7 +728,7 @@ key_ACharacter(unsigned char c, enum keytype keytype, enum iaction cause)
 			trace_event("  dropped (control char)\n");
 			return;
 		}
-		(void) key_Character((int) asc2ebc[c], keytype == KT_GE, False);
+		(void) key_Character((int) asc2cg[c], keytype == KT_GE, False);
 	}
 #if defined(X3270_ANSI) /*[*/
 	else if (IN_ANSI) {
@@ -1165,13 +783,8 @@ Tab_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
 	action_debug(Tab_action, event, params, num_params);
 	if (kybdlock) {
-		if (KYBDLOCK_IS_OERR) {
-			kybdlock_clr(KL_OERR_MASK, "Tab");
-			status_reset();
-		} else {
-			enq_ta(Tab_action, CN, CN);
-			return;
-		}
+		enq_ta(Tab_action, CN, CN);
+		return;
 	}
 #if defined(X3270_ANSI) /*[*/
 	if (IN_ANSI) {
@@ -1195,27 +808,22 @@ BackTab_action(Widget w unused, XEvent *event, String *params,
 
 	action_debug(BackTab_action, event, params, num_params);
 	if (kybdlock) {
-		if (KYBDLOCK_IS_OERR) {
-			kybdlock_clr(KL_OERR_MASK, "BackTab");
-			status_reset();
-		} else {
-			enq_ta(BackTab_action, CN, CN);
-			return;
-		}
+		enq_ta(BackTab_action, CN, CN);
+		return;
 	}
 	if (!IN_3270)
 		return;
 	baddr = cursor_addr;
 	DEC_BA(baddr);
-	if (ea_buf[baddr].fa)	/* at bof */
+	if (IS_FA(screen_buf[baddr]))	/* at bof */
 		DEC_BA(baddr);
 	sbaddr = baddr;
 	while (True) {
 		nbaddr = baddr;
 		INC_BA(nbaddr);
-		if (ea_buf[baddr].fa
-		    &&  !FA_IS_PROTECTED(ea_buf[baddr].cc)
-		    &&  !ea_buf[nbaddr].fa)
+		if (IS_FA(screen_buf[baddr])
+		    &&  !FA_IS_PROTECTED(screen_buf[baddr])
+		    &&  !IS_FA(screen_buf[nbaddr]))
 			break;
 		DEC_BA(baddr);
 		if (baddr == sbaddr) {
@@ -1349,13 +957,9 @@ static void
 do_left(void)
 {
 	register int	baddr;
-	enum dbcs_state d;
 
 	baddr = cursor_addr;
 	DEC_BA(baddr);
-	d = ctlr_dbcs_state(baddr);
-	if (IS_LEFT(d))
-		DEC_BA(baddr);
 	cursor_move(baddr);
 }
 
@@ -1365,13 +969,8 @@ Left_action(Widget w unused, XEvent *event, String *params,
 {
 	action_debug(Left_action, event, params, num_params);
 	if (kybdlock) {
-		if (KYBDLOCK_IS_OERR) {
-			kybdlock_clr(KL_OERR_MASK, "Left");
-			status_reset();
-		} else {
-			enq_ta(Left_action, CN, CN);
-			return;
-		}
+		enq_ta(Left_action, CN, CN);
+		return;
 	}
 #if defined(X3270_ANSI) /*[*/
 	if (IN_ANSI) {
@@ -1386,7 +985,6 @@ Left_action(Widget w unused, XEvent *event, String *params,
 
 		baddr = cursor_addr;
 		INC_BA(baddr);
-		/* XXX: DBCS? */
 		cursor_move(baddr);
 	}
 }
@@ -1400,75 +998,37 @@ static Boolean
 do_delete(void)
 {
 	register int	baddr, end_baddr;
-	int xaddr;
-	register unsigned char	fa;
-	int ndel;
-	register int i;
+	register unsigned char	*fa;
 
 	baddr = cursor_addr;
-
-	/* Can't delete a field attribute. */
 	fa = get_field_attribute(baddr);
-	if (FA_IS_PROTECTED(fa) || ea_buf[baddr].fa) {
+	if (FA_IS_PROTECTED(*fa) || IS_FA(screen_buf[baddr])) {
 		operator_error(KL_OERR_PROTECTED);
 		return False;
 	}
-	if (ea_buf[baddr].cc == EBC_so || ea_buf[baddr].cc == EBC_si) {
-		/*
-		 * Can't delete SO or SI, unless it's adjacent to its
-		 * opposite.
-		 */
-		xaddr = baddr;
-		INC_BA(xaddr);
-		if (ea_buf[xaddr].cc == SOSI(ea_buf[baddr].cc)) {
-			ndel = 2;
-		} else {
-			operator_error(KL_OERR_PROTECTED);
-			return False;
-		}
-	} else if (IS_DBCS(ea_buf[baddr].db)) {
-		if (IS_RIGHT(ea_buf[baddr].db))
-			DEC_BA(baddr);
-		ndel = 2;
-	} else
-		ndel = 1;
-
 	/* find next fa */
 	if (formatted) {
 		end_baddr = baddr;
 		do {
 			INC_BA(end_baddr);
-			if (ea_buf[end_baddr].fa)
+			if (IS_FA(screen_buf[end_baddr]))
 				break;
 		} while (end_baddr != baddr);
 		DEC_BA(end_baddr);
 	} else {
-		if ((baddr % COLS) == COLS - ndel)
+		if ((baddr % COLS) == COLS - 1)
 			return True;
 		end_baddr = baddr + (COLS - (baddr % COLS)) - 1;
 	}
-
-	/* Shift the remainder of the field left. */
 	if (end_baddr > baddr) {
-		ctlr_bcopy(baddr + ndel, baddr, end_baddr - (baddr + ndel) + 1,
-		    0);
+		ctlr_bcopy(baddr+1, baddr, end_baddr - baddr, 0);
 	} else if (end_baddr != baddr) {
-		/* XXX: Need to verify this. */
-		ctlr_bcopy(baddr + ndel, baddr,
-		    ((ROWS * COLS) - 1) - (baddr + ndel) + 1, 0);
-		ctlr_bcopy(0, (ROWS * COLS) - ndel, ndel, 0);
-		ctlr_bcopy(ndel, 0, end_baddr - ndel + 1, 0);
+		ctlr_bcopy(baddr+1, baddr, ((ROWS * COLS) - 1) - baddr, 0);
+		ctlr_add((ROWS * COLS) - 1, screen_buf[0], 0);
+		ctlr_bcopy(1, 0, end_baddr, 0);
 	}
-
-	/* NULL fill at the end. */
-	for (i = 0; i < ndel; i++)
-		ctlr_add(end_baddr - i, EBC_null, 0);
-
-	/* Set the MDT for this field. */
-	mdt_set(cursor_addr);
-
-	/* Patch up the DBCS state for display. */
-	(void) ctlr_dbcs_postprocess();
+	ctlr_add(end_baddr, CG_null, 0);
+	mdt_set(fa);
 	return True;
 }
 
@@ -1493,7 +1053,7 @@ Delete_action(Widget w unused, XEvent *event, String *params,
 		int baddr = cursor_addr;
 
 		DEC_BA(baddr);
-		if (!ea_buf[baddr].fa)
+		if (!IS_FA(screen_buf[baddr]))
 			cursor_move(baddr);
 	}
 }
@@ -1538,7 +1098,8 @@ void
 Erase_action(Widget w unused, XEvent *event, String *params,
     Cardinal *num_params)
 {
-	int	baddr, faddr;
+	int	baddr;
+	unsigned char	*fa;
 
 	action_debug(Erase_action, event, params, num_params);
 	if (kybdlock) {
@@ -1552,12 +1113,12 @@ Erase_action(Widget w unused, XEvent *event, String *params,
 	}
 #endif /*]*/
 	baddr = cursor_addr;
-	faddr = find_field_attribute(baddr);
-	if (faddr == baddr || FA_IS_PROTECTED(ea_buf[baddr].fa)) {
+	fa = get_field_attribute(baddr);
+	if (fa == &screen_buf[baddr] || FA_IS_PROTECTED(*fa)) {
 		operator_error(KL_OERR_PROTECTED);
 		return;
 	}
-	if (baddr && faddr == baddr - 1)
+	if (baddr && fa == &screen_buf[baddr - 1])
 		return;
 	do_left();
 	(void) do_delete();
@@ -1572,17 +1133,11 @@ Right_action(Widget w unused, XEvent *event, String *params,
     Cardinal *num_params)
 {
 	register int	baddr;
-	enum dbcs_state d;
 
 	action_debug(Right_action, event, params, num_params);
 	if (kybdlock) {
-		if (KYBDLOCK_IS_OERR) {
-			kybdlock_clr(KL_OERR_MASK, "Right");
-			status_reset();
-		} else {
-			enq_ta(Right_action, CN, CN);
-			return;
-		}
+		enq_ta(Right_action, CN, CN);
+		return;
 	}
 #if defined(X3270_ANSI) /*[*/
 	if (IN_ANSI) {
@@ -1593,9 +1148,6 @@ Right_action(Widget w unused, XEvent *event, String *params,
 	if (!flipped) {
 		baddr = cursor_addr;
 		INC_BA(baddr);
-		d = ctlr_dbcs_state(baddr);
-		if (IS_RIGHT(d))
-			INC_BA(baddr);
 		cursor_move(baddr);
 	} else
 		do_left();
@@ -1610,17 +1162,11 @@ Left2_action(Widget w unused, XEvent *event, String *params,
     Cardinal *num_params)
 {
 	register int	baddr;
-	enum dbcs_state d;
 
 	action_debug(Left2_action, event, params, num_params);
 	if (kybdlock) {
-		if (KYBDLOCK_IS_OERR) {
-			kybdlock_clr(KL_OERR_MASK, "Left2");
-			status_reset();
-		} else {
-			enq_ta(Left2_action, CN, CN);
-			return;
-		}
+		enq_ta(Left2_action, CN, CN);
+		return;
 	}
 #if defined(X3270_ANSI) /*[*/
 	if (IN_ANSI)
@@ -1628,13 +1174,7 @@ Left2_action(Widget w unused, XEvent *event, String *params,
 #endif /*]*/
 	baddr = cursor_addr;
 	DEC_BA(baddr);
-	d = ctlr_dbcs_state(baddr);
-	if (IS_LEFT(d))
-		DEC_BA(baddr);
 	DEC_BA(baddr);
-	d = ctlr_dbcs_state(baddr);
-	if (IS_LEFT(d))
-		DEC_BA(baddr);
 	cursor_move(baddr);
 }
 
@@ -1664,29 +1204,29 @@ PreviousWord_action(Widget w unused, XEvent *event, String *params,
 		return;
 
 	baddr = cursor_addr;
-	prot = FA_IS_PROTECTED(get_field_attribute(baddr));
+	prot = FA_IS_PROTECTED(*get_field_attribute(baddr));
 
 	/* Skip to before this word, if in one now. */
 	if (!prot) {
-		c = ea_buf[baddr].cc;
-		while (!ea_buf[baddr].fa && c != EBC_space && c != EBC_null) {
+		c = screen_buf[baddr];
+		while (!IS_FA(c) && c != CG_space && c != CG_null) {
 			DEC_BA(baddr);
 			if (baddr == cursor_addr)
 				return;
-			c = ea_buf[baddr].cc;
+			c = screen_buf[baddr];
 		}
 	}
 	baddr0 = baddr;
 
 	/* Find the end of the preceding word. */
 	do {
-		c = ea_buf[baddr].cc;
-		if (ea_buf[baddr].fa) {
+		c = screen_buf[baddr];
+		if (IS_FA(c)) {
 			DEC_BA(baddr);
-			prot = FA_IS_PROTECTED(get_field_attribute(baddr));
+			prot = FA_IS_PROTECTED(*get_field_attribute(baddr));
 			continue;
 		}
-		if (!prot && c != EBC_space && c != EBC_null)
+		if (!prot && c != CG_space && c != CG_null)
 			break;
 		DEC_BA(baddr);
 	} while (baddr != baddr0);
@@ -1697,8 +1237,8 @@ PreviousWord_action(Widget w unused, XEvent *event, String *params,
 	/* Go it its front. */
 	for (;;) {
 		DEC_BA(baddr);
-		c = ea_buf[baddr].cc;
-		if (ea_buf[baddr].fa || c == EBC_space || c == EBC_null) {
+		c = screen_buf[baddr];
+		if (IS_FA(c) || c == CG_space || c == CG_null) {
 			break;
 		}
 	}
@@ -1715,17 +1255,11 @@ Right2_action(Widget w unused, XEvent *event, String *params,
     Cardinal *num_params)
 {
 	register int	baddr;
-	enum dbcs_state d;
 
 	action_debug(Right2_action, event, params, num_params);
 	if (kybdlock) {
-		if (KYBDLOCK_IS_OERR) {
-			kybdlock_clr(KL_OERR_MASK, "Right2");
-			status_reset();
-		} else {
-			enq_ta(Right2_action, CN, CN);
-			return;
-		}
+		enq_ta(Right2_action, CN, CN);
+		return;
 	}
 #if defined(X3270_ANSI) /*[*/
 	if (IN_ANSI)
@@ -1733,13 +1267,7 @@ Right2_action(Widget w unused, XEvent *event, String *params,
 #endif /*]*/
 	baddr = cursor_addr;
 	INC_BA(baddr);
-	d = ctlr_dbcs_state(baddr);
-	if (IS_RIGHT(d))
-		INC_BA(baddr);
 	INC_BA(baddr);
-	d = ctlr_dbcs_state(baddr);
-	if (IS_RIGHT(d))
-		INC_BA(baddr);
 	cursor_move(baddr);
 }
 
@@ -1752,13 +1280,13 @@ nu_word(int baddr)
 	unsigned char c;
 	Boolean prot;
 
-	prot = FA_IS_PROTECTED(get_field_attribute(baddr));
+	prot = FA_IS_PROTECTED(*get_field_attribute(baddr));
 
 	do {
-		c = ea_buf[baddr].cc;
-		if (ea_buf[baddr].fa)
-			prot = FA_IS_PROTECTED(ea_buf[baddr].fa);
-		else if (!prot && c != EBC_space && c != EBC_null)
+		c = screen_buf[baddr];
+		if (IS_FA(c))
+			prot = FA_IS_PROTECTED(c);
+		else if (!prot && c != CG_space && c != CG_null)
 			return baddr;
 		INC_BA(baddr);
 	} while (baddr != baddr0);
@@ -1775,14 +1303,14 @@ nt_word(int baddr)
 	Boolean in_word = True;
 
 	do {
-		c = ea_buf[baddr].cc;
-		if (ea_buf[baddr].fa)
+		c = screen_buf[baddr];
+		if (IS_FA(c))
 			return -1;
 		if (in_word) {
-			if (c == EBC_space || c == EBC_null)
+			if (c == CG_space || c == CG_null)
 				in_word = False;
 		} else {
-			if (c != EBC_space && c != EBC_null)
+			if (c != CG_space && c != CG_null)
 				return baddr;
 		}
 		INC_BA(baddr);
@@ -1814,8 +1342,8 @@ NextWord_action(Widget w unused, XEvent *event, String *params, Cardinal *num_pa
 		return;
 
 	/* If not in an unprotected field, go to the next unprotected word. */
-	if (ea_buf[cursor_addr].fa ||
-	    FA_IS_PROTECTED(get_field_attribute(cursor_addr))) {
+	if (IS_FA(screen_buf[cursor_addr]) ||
+	    FA_IS_PROTECTED(*get_field_attribute(cursor_addr))) {
 		baddr = nu_word(cursor_addr);
 		if (baddr != -1)
 			cursor_move(baddr);
@@ -1830,15 +1358,15 @@ NextWord_action(Widget w unused, XEvent *event, String *params, Cardinal *num_pa
 	}
 
 	/* If in a word, go to just after its end. */
-	c = ea_buf[cursor_addr].cc;
-	if (c != EBC_space && c != EBC_null) {
+	c = screen_buf[cursor_addr];
+	if (c != CG_space && c != CG_null) {
 		baddr = cursor_addr;
 		do {
-			c = ea_buf[baddr].cc;
-			if (c == EBC_space || c == EBC_null) {
+			c = screen_buf[baddr];
+			if (c == CG_space || c == CG_null) {
 				cursor_move(baddr);
 				return;
-			} else if (ea_buf[baddr].fa) {
+			} else if (IS_FA(c)) {
 				baddr = nu_word(baddr);
 				if (baddr != -1)
 					cursor_move(baddr);
@@ -1866,13 +1394,8 @@ Up_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 
 	action_debug(Up_action, event, params, num_params);
 	if (kybdlock) {
-		if (KYBDLOCK_IS_OERR) {
-			kybdlock_clr(KL_OERR_MASK, "Up");
-			status_reset();
-		} else {
-			enq_ta(Up_action, CN, CN);
-			return;
-		}
+		enq_ta(Up_action, CN, CN);
+		return;
 	}
 #if defined(X3270_ANSI) /*[*/
 	if (IN_ANSI) {
@@ -1897,13 +1420,8 @@ Down_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params
 
 	action_debug(Down_action, event, params, num_params);
 	if (kybdlock) {
-		if (KYBDLOCK_IS_OERR) {
-			kybdlock_clr(KL_OERR_MASK, "Down");
-			status_reset();
-		} else {
-			enq_ta(Down_action, CN, CN);
-			return;
-		}
+		enq_ta(Down_action, CN, CN);
+		return;
 	}
 #if defined(X3270_ANSI) /*[*/
 	if (IN_ANSI) {
@@ -1922,8 +1440,8 @@ Down_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params
 void
 Newline_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
-	register int	baddr, faddr;
-	register unsigned char	fa;
+	register int	baddr;
+	register unsigned char	*fa;
 
 	action_debug(Newline_action, event, params, num_params);
 	if (kybdlock) {
@@ -1938,9 +1456,8 @@ Newline_action(Widget w unused, XEvent *event, String *params, Cardinal *num_par
 #endif /*]*/
 	baddr = (cursor_addr + COLS) % (COLS * ROWS);	/* down */
 	baddr = (baddr / COLS) * COLS;			/* 1st col */
-	faddr = find_field_attribute(baddr);
-	fa = ea_buf[faddr].fa;
-	if (faddr != baddr && !FA_IS_PROTECTED(fa))
+	fa = get_field_attribute(baddr);
+	if (fa != (&screen_buf[baddr]) && !FA_IS_PROTECTED(*fa))
 		cursor_move(baddr);
 	else
 		cursor_move(next_unprotected(baddr));
@@ -1962,7 +1479,7 @@ Dup_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 	if (IN_ANSI)
 		return;
 #endif /*]*/
-	if (key_Character(EBC_dup, False, False))
+	if (key_Character(CG_dup, False, False))
 		cursor_move(next_unprotected(cursor_addr));
 }
 
@@ -1982,7 +1499,7 @@ FieldMark_action(Widget w unused, XEvent *event, String *params, Cardinal *num_p
 	if (IN_ANSI)
 		return;
 #endif /*]*/
-	(void) key_Character(EBC_fm, False, False);
+	(void) key_Character(CG_fm, False, False);
 }
 
 
@@ -2057,77 +1574,32 @@ Clear_action(Widget w unused, XEvent *event, String *params, Cardinal *num_param
 static void
 lightpen_select(int baddr)
 {
-	int faddr;
-	register unsigned char	fa;
+	register unsigned char	*fa, *sel;
 	int designator;
-#if defined(X3270_DBCS) /*[*/
-	int designator2;
-#endif /*]*/
 
-	faddr = find_field_attribute(baddr);
-	fa = ea_buf[faddr].fa;
-	if (!FA_IS_SELECTABLE(fa)) {
+	fa = get_field_attribute(baddr);
+	if (!FA_IS_SELECTABLE(*fa)) {
 		ring_bell();
 		return;
 	}
-	designator = faddr;
-	INC_BA(designator);
-
-#if defined(X3270_DBCS) /*[*/
-	if (dbcs) {
-		if (ea_buf[baddr].cs == CS_DBCS) {
-			designator2 = designator;
-			INC_BA(designator2);
-			if ((ea_buf[designator].db != DBCS_LEFT &&
-			     ea_buf[designator].db != DBCS_LEFT_WRAP) &&
-			    (ea_buf[designator2].db != DBCS_RIGHT &&
-			     ea_buf[designator2].db != DBCS_RIGHT_WRAP)) {
-				ring_bell();
-				return;
-			}
-			if (ea_buf[designator].cc == 0x42 &&
-			    ea_buf[designator2].cc == EBC_greater) {
-				ctlr_add(designator2, EBC_question, CS_DBCS);
-				mdt_clear(faddr);
-			} else if (ea_buf[designator].cc == 0x42 &&
-				   ea_buf[designator2].cc == EBC_question) {
-				ctlr_add(designator2, EBC_greater, CS_DBCS);
-				mdt_clear(faddr);
-			} else if ((ea_buf[designator].cc == EBC_space &&
-				    ea_buf[designator2].cc == EBC_space) ||
-			           (ea_buf[designator].cc == EBC_null &&
-				    ea_buf[designator2].cc == EBC_null)) {
-				ctlr_add(designator2, EBC_greater, CS_DBCS);
-				mdt_set(faddr);
-				key_AID(AID_SELECT);
-			} else if (ea_buf[designator].cc == 0x42 &&
-				   ea_buf[designator2].cc == EBC_ampersand) {
-				mdt_set(faddr);
-				key_AID(AID_ENTER);
-			} else {
-				ring_bell();
-			}
-			return;
-		}
-	} 
-#endif /*]*/
-
-	switch (ea_buf[designator].cc) {
-	    case EBC_greater:		/* > */
-		ctlr_add(designator, EBC_question, 0); /* change to ? */
-		mdt_clear(faddr);
+	sel = fa + 1;
+	designator = sel - screen_buf;
+	switch (*sel) {
+	    case CG_greater:		/* > */
+		ctlr_add(designator, CG_question, 0); /* change to ? */
+		mdt_clear(fa);
 		break;
-	    case EBC_question:		/* ? */
-		ctlr_add(designator, EBC_greater, 0);	/* change to > */
-		mdt_set(faddr);
+	    case CG_question:		/* ? */
+		ctlr_add(designator, CG_greater, 0);	/* change to > */
+		mdt_set(fa);
 		break;
-	    case EBC_space:		/* space */
-	    case EBC_null:		/* null */
-		mdt_set(faddr);
+	    case CG_space:		/* space */
+	    case CG_null:		/* null */
+		mdt_set(fa);
 		key_AID(AID_SELECT);
 		break;
-	    case EBC_ampersand:		/* & */
-		mdt_set(faddr);
+	    case CG_ampersand:		/* & */
+		mdt_set(fa);
 		key_AID(AID_ENTER);
 		break;
 	    default:
@@ -2185,9 +1657,7 @@ void
 EraseEOF_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
 	register int	baddr;
-	register unsigned char	fa;
-	enum dbcs_state d;
-	enum dbcs_why why;
+	register unsigned char	*fa;
 
 	action_debug(EraseEOF_action, event, params, num_params);
 	if (kybdlock) {
@@ -2200,34 +1670,22 @@ EraseEOF_action(Widget w unused, XEvent *event, String *params, Cardinal *num_pa
 #endif /*]*/
 	baddr = cursor_addr;
 	fa = get_field_attribute(baddr);
-	if (FA_IS_PROTECTED(fa) || ea_buf[baddr].fa) {
+	if (FA_IS_PROTECTED(*fa) || IS_FA(screen_buf[baddr])) {
 		operator_error(KL_OERR_PROTECTED);
 		return;
 	}
 	if (formatted) {	/* erase to next field attribute */
 		do {
-			ctlr_add(baddr, EBC_null, 0);
+			ctlr_add(baddr, CG_null, 0);
 			INC_BA(baddr);
-		} while (!ea_buf[baddr].fa);
-		mdt_set(cursor_addr);
+		} while (!IS_FA(screen_buf[baddr]));
+		mdt_set(fa);
 	} else {	/* erase to end of screen */
 		do {
-			ctlr_add(baddr, EBC_null, 0);
+			ctlr_add(baddr, CG_null, 0);
 			INC_BA(baddr);
 		} while (baddr != 0);
 	}
-
-	/* If the cursor was in a DBCS subfield, re-create the SI. */
-	d = ctlr_lookleft_state(cursor_addr, &why);
-	if (IS_DBCS(d) && why == DBCS_SUBFIELD) {
-		if (d == DBCS_RIGHT) {
-			baddr = cursor_addr;
-			DEC_BA(baddr);
-			ea_buf[baddr].cc = EBC_si;
-		} else
-			ea_buf[cursor_addr].cc = EBC_si;
-	}
-	(void) ctlr_dbcs_postprocess();
 }
 
 
@@ -2254,30 +1712,30 @@ EraseInput_action(Widget w unused, XEvent *event, String *params, Cardinal *num_
 		/* find first field attribute */
 		baddr = 0;
 		do {
-			if (ea_buf[baddr].fa)
+			if (IS_FA(screen_buf[baddr]))
 				break;
 			INC_BA(baddr);
 		} while (baddr != 0);
 		sbaddr = baddr;
 		f = False;
 		do {
-			fa = ea_buf[baddr].fa;
+			fa = screen_buf[baddr];
 			if (!FA_IS_PROTECTED(fa)) {
-				mdt_clear(baddr);
+				mdt_clear(&screen_buf[baddr]);
 				do {
 					INC_BA(baddr);
 					if (!f) {
 						cursor_move(baddr);
 						f = True;
 					}
-					if (!ea_buf[baddr].fa) {
-						ctlr_add(baddr, EBC_null, 0);
+					if (!IS_FA(screen_buf[baddr])) {
+						ctlr_add(baddr, CG_null, 0);
 					}
-				} while (!ea_buf[baddr].fa);
+				}		while (!IS_FA(screen_buf[baddr]));
 			} else {	/* skip protected */
 				do {
 					INC_BA(baddr);
-				} while (!ea_buf[baddr].fa);
+				} while (!IS_FA(screen_buf[baddr]));
 			}
 		} while (baddr != sbaddr);
 		if (!f)
@@ -2301,7 +1759,7 @@ void
 DeleteWord_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
 	register int	baddr, baddr2, front_baddr, back_baddr, end_baddr;
-	register unsigned char	fa;
+	register unsigned char	*fa;
 
 	action_debug(DeleteWord_action, event, params, num_params);
 	if (kybdlock) {
@@ -2321,20 +1779,20 @@ DeleteWord_action(Widget w unused, XEvent *event, String *params, Cardinal *num_
 	fa = get_field_attribute(baddr);
 
 	/* Make sure we're on a modifiable field. */
-	if (FA_IS_PROTECTED(fa) || ea_buf[baddr].fa) {
+	if (FA_IS_PROTECTED(*fa) || IS_FA(screen_buf[baddr])) {
 		operator_error(KL_OERR_PROTECTED);
 		return;
 	}
 
 	/* Search backwards for a non-blank character. */
 	front_baddr = baddr;
-	while (ea_buf[front_baddr].cc == EBC_space ||
-	       ea_buf[front_baddr].cc == EBC_null)
+	while (screen_buf[front_baddr] == CG_space ||
+	       screen_buf[front_baddr] == CG_null)
 		DEC_BA(front_baddr);
 
 	/* If we ran into the edge of the field without seeing any non-blanks,
 	   there isn't any word to delete; just move the cursor. */
-	if (ea_buf[front_baddr].fa) {
+	if (IS_FA(screen_buf[front_baddr])) {
 		cursor_move(front_baddr+1);
 		return;
 	}
@@ -2342,49 +1800,49 @@ DeleteWord_action(Widget w unused, XEvent *event, String *params, Cardinal *num_
 	/* front_baddr is now pointing at a non-blank character.  Now search
 	   for the first blank to the left of that (or the edge of the field),
 	   leaving front_baddr pointing at the the beginning of the word. */
-	while (!ea_buf[front_baddr].fa &&
-	       ea_buf[front_baddr].cc != EBC_space &&
-	       ea_buf[front_baddr].cc != EBC_null)
+	while (!IS_FA(screen_buf[front_baddr]) &&
+	       screen_buf[front_baddr] != CG_space &&
+	       screen_buf[front_baddr] != CG_null)
 		DEC_BA(front_baddr);
 	INC_BA(front_baddr);
 
 	/* Find the end of the word, searching forward for the edge of the
 	   field or a non-blank. */
 	back_baddr = front_baddr;
-	while (!ea_buf[back_baddr].fa &&
-	       ea_buf[back_baddr].cc != EBC_space &&
-	       ea_buf[back_baddr].cc != EBC_null)
+	while (!IS_FA(screen_buf[back_baddr]) &&
+	       screen_buf[back_baddr] != CG_space &&
+	       screen_buf[back_baddr] != CG_null)
 		INC_BA(back_baddr);
 
 	/* Find the start of the next word, leaving back_baddr pointing at it
 	   or at the end of the field. */
-	while (ea_buf[back_baddr].cc == EBC_space ||
-	       ea_buf[back_baddr].cc == EBC_null)
+	while (screen_buf[back_baddr] == CG_space ||
+	       screen_buf[back_baddr] == CG_null)
 		INC_BA(back_baddr);
 
 	/* Find the end of the field, leaving end_baddr pointing at the field
 	   attribute of the start of the next field. */
 	end_baddr = back_baddr;
-	while (!ea_buf[end_baddr].fa)
+	while (!IS_FA(screen_buf[end_baddr]))
 		INC_BA(end_baddr);
 
 	/* Copy any text to the right of the word we are deleting. */
 	baddr = front_baddr;
 	baddr2 = back_baddr;
 	while (baddr2 != end_baddr) {
-		ctlr_add(baddr, ea_buf[baddr2].cc, 0);
+		ctlr_add(baddr, screen_buf[baddr2], 0);
 		INC_BA(baddr);
 		INC_BA(baddr2);
 	}
 
 	/* Insert nulls to pad out the end of the field. */
 	while (baddr != end_baddr) {
-		ctlr_add(baddr, EBC_null, 0);
+		ctlr_add(baddr, CG_null, 0);
 		INC_BA(baddr);
 	}
 
 	/* Set the MDT and move the cursor. */
-	mdt_set(cursor_addr);
+	mdt_set(fa);
 	cursor_move(front_baddr);
 }
 
@@ -2401,7 +1859,7 @@ void
 DeleteField_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
 	register int	baddr;
-	register unsigned char	fa;
+	register unsigned char	*fa;
 
 	action_debug(DeleteField_action, event, params, num_params);
 	if (kybdlock) {
@@ -2419,19 +1877,19 @@ DeleteField_action(Widget w unused, XEvent *event, String *params, Cardinal *num
 
 	baddr = cursor_addr;
 	fa = get_field_attribute(baddr);
-	if (FA_IS_PROTECTED(fa) || ea_buf[baddr].fa) {
+	if (FA_IS_PROTECTED(*fa) || IS_FA(screen_buf[baddr])) {
 		operator_error(KL_OERR_PROTECTED);
 		return;
 	}
-	while (!ea_buf[baddr].fa)
+	while (!IS_FA(screen_buf[baddr]))
 		DEC_BA(baddr);
 	INC_BA(baddr);
-	mdt_set(cursor_addr);
 	cursor_move(baddr);
-	while (!ea_buf[baddr].fa) {
-		ctlr_add(baddr, EBC_null, 0);
+	while (!IS_FA(screen_buf[baddr])) {
+		ctlr_add(baddr, CG_null, 0);
 		INC_BA(baddr);
 	}
+	mdt_set(fa);
 }
 
 
@@ -2503,8 +1961,8 @@ ToggleReverse_action(Widget w unused, XEvent *event, String *params, Cardinal *n
 void
 FieldEnd_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
-	int	baddr, faddr;
-	unsigned char	fa, c;
+	int	baddr;
+	unsigned char	*fa, c;
 	int	last_nonblank = -1;
 
 	action_debug(FieldEnd_action, event, params, num_params);
@@ -2519,28 +1977,27 @@ FieldEnd_action(Widget w unused, XEvent *event, String *params, Cardinal *num_pa
 	if (!formatted)
 		return;
 	baddr = cursor_addr;
-	faddr = find_field_attribute(baddr);
-	fa = ea_buf[faddr].fa;
-	if (faddr == baddr || FA_IS_PROTECTED(fa))
+	fa = get_field_attribute(baddr);
+	if (fa == &screen_buf[baddr] || FA_IS_PROTECTED(*fa))
 		return;
 
-	baddr = faddr;
+	baddr = fa - screen_buf;
 	while (True) {
 		INC_BA(baddr);
-		c = ea_buf[baddr].cc;
-		if (ea_buf[baddr].fa)
+		c = screen_buf[baddr];
+		if (IS_FA(c))
 			break;
-		if (c != EBC_null && c != EBC_space)
+		if (c != CG_null && c != CG_space)
 			last_nonblank = baddr;
 	}
 
 	if (last_nonblank == -1) {
-		baddr = faddr;
+		baddr = fa - screen_buf;
 		INC_BA(baddr);
 	} else {
 		baddr = last_nonblank;
 		INC_BA(baddr);
-		if (ea_buf[baddr].fa)
+		if (IS_FA(screen_buf[baddr]))
 			baddr = last_nonblank;
 	}
 	cursor_move(baddr);
@@ -2594,63 +2051,6 @@ MoveCursor_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 }
 
 
-#if defined(X3270_DBCS) && defined(X3270_DISPLAY) /*[*/
-/*
- * Run a KeyPress through XIM.
- * Returns True if there is further processing to do, False otherwise.
- */
-static Boolean
-xim_lookup(XKeyEvent *event)
-{
-	static char *buf = NULL;
-	static int buf_len, rlen;
-	KeySym k;
-	Status status;
-	extern XIC ic;
-	int i;
-	Boolean rv = False;
-#define BASE_BUFSIZE 50
-
-	if (ic == NULL)
-		return True;
-
-	if (buf == NULL) {
-		buf_len = BASE_BUFSIZE;
-		buf = Malloc(buf_len);
-	}
-
-	memset(buf, '\0', buf_len);
-	rlen = XmbLookupString(ic, event, buf, buf_len, &k, &status);
-	if (status == XBufferOverflow) {
-		buf_len += BASE_BUFSIZE;
-		buf = Realloc(buf, buf_len);
-		memset(buf, '\0', buf_len);
-		rlen = XmbLookupString(ic, event, buf, buf_len, &k, &status);
-	}
-
-	switch (status) {
-	case XLookupNone:
-		rv = False;
-		break;
-	case XLookupKeySym:
-		rv = True;
-		break;
-	case XLookupChars:
-		for (i = 0; i < rlen; i += 2) {
-			unsigned char ebc[2];
-
-			wchar_to_dbcs(buf[i], buf[i+1], ebc);
-			key_WCharacter(ebc);
-		}
-		rv = False;
-		break;
-	case XLookupBoth:
-		rv = True;
-		break;
-	}
-	return rv;
-}
-#endif /*]*/
 
 
 /*
@@ -2664,7 +2064,6 @@ Key_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 	enum keytype keytype;
 
 	action_debug(Key_action, event, params, num_params);
-
 	for (i = 0; i < *num_params; i++) {
 		char *s = params[i];
 
@@ -2823,8 +2222,7 @@ remargin(int lmargin)
 {
 	Boolean ever = False;
 	int baddr, b0 = 0;
-	int faddr;
-	unsigned char fa;
+	unsigned char *fa;
 
 	baddr = cursor_addr;
 	while (BA_TO_COL(baddr) < lmargin) {
@@ -2833,9 +2231,8 @@ remargin(int lmargin)
 			b0 = baddr;
 			ever = True;
 		}
-		faddr = find_field_attribute(baddr);
-		fa = ea_buf[faddr].fa;
-		if (faddr == baddr || FA_IS_PROTECTED(fa)) {
+		fa = get_field_attribute(baddr);
+		if (fa == &screen_buf[baddr] || FA_IS_PROTECTED(*fa)) {
 			baddr = next_unprotected(baddr);
 			if (baddr <= b0)
 				return False;
@@ -2865,21 +2262,13 @@ int
 emulate_input(char *s, int len, Boolean pasting)
 {
 	char c;
-	enum { BASE,
-#if defined(X3270_DBCS) /*[*/
-	       DBCS1,
-#endif /*]*/
-	       BACKSLASH, BACKX, BACKP, BACKPA, BACKPF, OCTAL, HEX, XGE
-	} state = BASE;
+	enum { BASE, BACKSLASH, BACKX, BACKP, BACKPA, BACKPF, OCTAL, HEX,
+	       XGE } state = BASE;
 	int literal = 0;
 	int nc = 0;
 	enum iaction ia = pasting ? IA_PASTE : IA_STRING;
 	int orig_addr = cursor_addr;
 	int orig_col = BA_TO_COL(cursor_addr);
-#if defined(X3270_DBCS) /*[*/
-	unsigned char dbcs1 = 0;
-	unsigned char ebc[2];
-#endif /*]*/
 
 	/*
 	 * In the switch statements below, "break" generally means "consume
@@ -2972,29 +2361,11 @@ emulate_input(char *s, int len, Boolean pasting)
 					    KT_STD, ia);
 				break;
 			default:
-#if defined(X3270_DBCS) /*[*/
-				if (dbcs && (c & 0x80)) {
-					dbcs1 = c;
-					state = DBCS1;
-					break;
-				}
-#endif /*]*/
 				key_ACharacter((unsigned char) c, KT_STD,
 				    ia);
 				break;
 			}
 			break;
-#if defined(X3270_DBCS) /*[*/
-		    case DBCS1:
-			if (!(c & 0x80)) {
-				state = BASE;
-				break;
-			}
-			wchar_to_dbcs(dbcs1, c, ebc);
-			key_WCharacter(ebc);
-			state = BASE;
-			break;
-#endif /*]*/
 		    case BACKSLASH:	/* last character was a backslash */
 			switch (c) {
 			    case 'a':
@@ -3152,10 +2523,10 @@ emulate_input(char *s, int len, Boolean pasting)
 		    case XGE:	/* have seen ESC */
 			switch (c) {
 			    case ';':	/* FM */
-				key_Character(EBC_fm, False, True);
+				key_Character(CG_fm, False, True);
 				break;
 			    case '*':	/* DUP */
-				key_Character(EBC_dup, False, True);
+				key_Character(CG_dup, False, True);
 				break;
 			    default:
 				key_ACharacter((unsigned char) c, KT_GE, ia);
@@ -3169,8 +2540,6 @@ emulate_input(char *s, int len, Boolean pasting)
 	}
 
 	switch (state) {
-	    case BASE:
-		break;
 	    case OCTAL:
 	    case HEX:
 		key_ACharacter((unsigned char) literal, KT_STD, ia);
@@ -3188,16 +2557,13 @@ emulate_input(char *s, int len, Boolean pasting)
 			state = BASE;
 		}
 		break;
-#if defined(X3270_DBCS) /*[*/
-	    case DBCS1:
-		/* We could say something here, but we won't. */
-		break;
-#endif /*]*/
 	    default:
-		popup_an_error("%s: Missing data after \\",
-		    action_name(String_action));
 		break;
 	}
+
+	if (state != BASE)
+		popup_an_error("%s: Missing data after \\",
+		    action_name(String_action));
 
 	return len;
 }
@@ -3275,7 +2641,7 @@ hex_input(char *s)
 
 			c = (FROM_HEX(*t) * 16) + FROM_HEX(*(t + 1));
 			if (IN_3270)
-				key_Character(c, escaped, True);
+				key_Character(ebc2cg[c], escaped, True);
 #if defined(X3270_ANSI) /*[*/
 			else
 				*tbuf++ = (unsigned char)c;
@@ -3310,7 +2676,7 @@ int
 kybd_prime(void)
 {
 	int baddr;
-	register unsigned char fa;
+	register unsigned char *fa;
 	int len = 0;
 
 	/*
@@ -3321,7 +2687,7 @@ kybd_prime(void)
 		return 0;
 
 	fa = get_field_attribute(cursor_addr);
-	if (ea_buf[cursor_addr].fa || FA_IS_PROTECTED(fa)) {
+	if (IS_FA(screen_buf[cursor_addr]) || FA_IS_PROTECTED(*fa)) {
 		/*
 		 * The cursor is not in an unprotected field.  Find the
 		 * next one.
@@ -3336,7 +2702,7 @@ kybd_prime(void)
 	} else {
 		/* Already in an unprotected field.  Find its start. */
 		baddr = cursor_addr;
-		while (!ea_buf[baddr].fa) {
+		while (!IS_FA(screen_buf[baddr])) {
 			DEC_BA(baddr);
 		}
 		INC_BA(baddr);
@@ -3346,7 +2712,7 @@ kybd_prime(void)
 	cursor_move(baddr);
 
 	/* Erase it. */
-	while (!ea_buf[baddr].fa) {
+	while (!IS_FA(screen_buf[baddr])) {
 		ctlr_add(baddr, 0, 0);
 		len++;
 		INC_BA(baddr);
@@ -3452,7 +2818,7 @@ FieldExit_action(Widget w unused, XEvent *event, String *params,
     Cardinal *num_params)
 {
 	register int    baddr;
-	register unsigned char  fa;
+	register unsigned char  *fa;
 
 	action_debug(FieldExit_action, event, params, num_params);
 #if defined(X3270_ANSI) /*[*/
@@ -3467,20 +2833,20 @@ FieldExit_action(Widget w unused, XEvent *event, String *params,
 	}
 	baddr = cursor_addr;
 	fa = get_field_attribute(baddr);
-	if (FA_IS_PROTECTED(fa) || ea_buf[baddr].fa) {
+	if (FA_IS_PROTECTED(*fa) || IS_FA(screen_buf[baddr])) {
 		operator_error(KL_OERR_PROTECTED);
 		return;
 	}
 	if (formatted) {        /* erase to next field attribute */
 		do {
-			ctlr_add(baddr, EBC_null, 0);
+			ctlr_add(baddr, CG_null, 0);
 			INC_BA(baddr);
-		} while (!ea_buf[baddr].fa);
-		mdt_set(cursor_addr);
+		} while (!IS_FA(screen_buf[baddr]));
+		mdt_set(fa);
 		cursor_move(next_unprotected(cursor_addr));
 	} else {        /* erase to end of screen */
 		do {
-			ctlr_add(baddr, EBC_null, 0);
+			ctlr_add(baddr, CG_null, 0);
 			INC_BA(baddr);
 		} while (baddr != 0);
 	}
@@ -3654,10 +3020,6 @@ Default_action(Widget w unused, XEvent *event, String *params, Cardinal *num_par
 	action_debug(Default_action, event, params, num_params);
 	switch (event->type) {
 	    case KeyPress:
-#if defined(X3270_DBCS) /*[*/
-		if (!xim_lookup((XKeyEvent *)event))
-			return;
-#endif /*]*/
 		ll = XLookupString(kevent, buf, 32, &ks, (XComposeStatus *) 0);
 		if (ll == 1) {
 			/* Add Meta; XLookupString won't. */

@@ -208,11 +208,13 @@ static unsigned char	functions_req[] = {
 static const char *telquals[2] = { "IS", "SEND" };
 #endif /*]*/
 #if defined(X3270_TN3270E) /*[*/
+#if defined(X3270_TRACE) /*[*/
 static const char *reason_code[8] = { "CONN-PARTNER", "DEVICE-IN-USE",
 	"INV-ASSOCIATE", "INV-NAME", "INV-DEVICE-TYPE", "TYPE-NAME-ERROR",
 	"UNKNOWN-ERROR", "UNSUPPORTED-REQ" };
 #define rsn(n)	(((n) <= TN3270E_REASON_UNSUPPORTED_REQ) ? \
 			reason_code[(n)] : "??")
+#endif /*]*/
 static const char *function_name[5] = { "BIND-IMAGE", "DATA-STREAM-CTL",
 	"RESPONSES", "SCS-CTL-CODES", "SYSREQ" };
 #define fnn(n)	(((n) <= TN3270E_FUNC_SYSREQ) ? \
@@ -236,6 +238,14 @@ static const char *trsp_flag[2] = { "POSITIVE-RESPONSE", "NEGATIVE-RESPONSE" };
 			trsp_flag[(n)] : "??")
 #define e_rsp(fn, n) (((fn) == TN3270E_DT_RESPONSE) ? e_trsp(n) : e_hrsp(n))
 #endif /*]*/
+#endif /*]*/
+
+#if defined(C3270) && defined(C3270_80_132) /*[*/
+#define XMIT_ROWS	((appres.altscreen != CN)? 24: maxROWS)
+#define XMIT_COLS	((appres.altscreen != CN)? 80: maxCOLS)
+#else /*][*/
+#define XMIT_ROWS	maxROWS
+#define XMIT_COLS	maxCOLS
 #endif /*]*/
 
 
@@ -363,8 +373,8 @@ net_connect(const char *host, char *portname, Boolean ls, Boolean *resolving,
 		int amaster;
 		struct winsize w;
 
-		w.ws_row = maxROWS;
-		w.ws_col = maxCOLS;
+		w.ws_row = XMIT_ROWS;
+		w.ws_col = XMIT_COLS;
 		w.ws_xpixel = 0;
 		w.ws_ypixel = 0;
 
@@ -659,7 +669,6 @@ net_input(void)
 		} else {
 #endif /*]*/
 			if (telnet_fsm(*cp)) {
-				(void) ctlr_dbcs_postprocess();
 				host_disconnect(True);
 				return;
 			}
@@ -669,9 +678,6 @@ net_input(void)
 	}
 
 #if defined(X3270_ANSI) /*[*/
-	if (IN_ANSI) {
-		(void) ctlr_dbcs_postprocess();
-	}
 	if (ansi_data) {
 		trace_dsn("\n");
 		ansi_data = 0;
@@ -718,13 +724,13 @@ send_naws(void)
 
 	(void) sprintf(naws_msg, "%c%c%c", IAC, SB, TELOPT_NAWS);
 	naws_len += 3;
-	naws_len += set16(naws_msg + naws_len, maxCOLS);
-	naws_len += set16(naws_msg + naws_len, maxROWS);
+	naws_len += set16(naws_msg + naws_len, XMIT_COLS);
+	naws_len += set16(naws_msg + naws_len, XMIT_ROWS);
 	(void) sprintf(naws_msg + naws_len, "%c%c", IAC, SE);
 	naws_len += 2;
 	net_rawout((unsigned char *)naws_msg, naws_len);
-	trace_dsn("SENT %s NAWS %d %d %s\n", cmd(SB), maxCOLS,
-	    maxROWS, cmd(SE));
+	trace_dsn("SENT %s NAWS %d %d %s\n", cmd(SB), XMIT_COLS,
+	    XMIT_ROWS, cmd(SE));
 }
 
 
@@ -2247,7 +2253,7 @@ tn3270e_ack(void)
 
 /* Send a TN3270E negative response to the server. */
 static void
-tn3270e_nak(enum pds rv)
+tn3270e_nak(enum pds rv unused)
 {
 	unsigned char rsp_buf[9];
 	tn3270e_header *h, *h_in;
@@ -2263,15 +2269,7 @@ tn3270e_nak(enum pds rv)
 	h->seq_number[1] = h_in->seq_number[1];
 	if (h->seq_number[1] == IAC)
 		rsp_buf[rsp_len++] = IAC;
-	switch (rv) {
-	default:
-	case PDS_BAD_CMD:
-		rsp_buf[rsp_len++] = TN3270E_NEG_COMMAND_REJECT;
-		break;
-	case PDS_BAD_ADDR:
-		rsp_buf[rsp_len++] = TN3270E_NEG_OPERATION_CHECK;
-		break;
-	}
+	rsp_buf[rsp_len++] = TN3270E_NEG_COMMAND_REJECT;
 	rsp_buf[rsp_len++] = IAC;
 	rsp_buf[rsp_len++] = EOR;
 	trace_dsn("SENT TN3270E(RESPONSE NEGATIVE-RESPONSE %u) "

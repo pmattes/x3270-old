@@ -833,7 +833,6 @@ Optional Features:
   --enable-app-defaults   use a separate app-defaults file
   --disable-ansi          leave out NVT (ANSI) support
   --disable-apl           leave out APL character support
-  --enable-dbcs           include DBCS support
   --disable-ft            leave out file transfer support
   --disable-keypad        leave out pop-up keypad support
   --disable-local-process leave out local process support
@@ -2651,25 +2650,6 @@ _ACEOF
 
 	;;
 esac
-# Check whether --enable-dbcs or --disable-dbcs was given.
-if test "${enable_dbcs+set}" = set; then
-  enableval="$enable_dbcs"
-
-fi;
-case "$enable_dbcs" in
-yes)	cat >>confdefs.h <<\_ACEOF
-#define X3270_DBCS 1
-_ACEOF
-
-	WIDE_C=wide.c
-	WIDE_O=wide.o
-	INSTALL_CNV="#define INSTALL_CNV 1";
-	;;
-*)	INSTALL_CNV="#undef INSTALL_CNV";
-esac
-
-
-
 # Check whether --enable-ft or --disable-ft was given.
 if test "${enable_ft+set}" = set; then
   enableval="$enable_ft"
@@ -4099,79 +4079,6 @@ _ACEOF
 fi
 
 
-if test "$enable_dbcs" = "yes"
-then
-echo "$as_me:$LINENO: checking for ucnv_open_2_2 in -licui18n" >&5
-echo $ECHO_N "checking for ucnv_open_2_2 in -licui18n... $ECHO_C" >&6
-if test "${ac_cv_lib_icui18n_ucnv_open_2_2+set}" = set; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-licui18n $HACK_LIBS $LIBS"
-cat >conftest.$ac_ext <<_ACEOF
-#line $LINENO "configure"
-#include "confdefs.h"
-
-/* Override any gcc2 internal prototype to avoid an error.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-/* We use char because int might match the return type of a gcc2
-   builtin and then its argument prototype would still apply.  */
-char ucnv_open_2_2 ();
-#ifdef F77_DUMMY_MAIN
-#  ifdef __cplusplus
-     extern "C"
-#  endif
-   int F77_DUMMY_MAIN() { return 1; }
-#endif
-int
-main ()
-{
-ucnv_open_2_2 ();
-  ;
-  return 0;
-}
-_ACEOF
-rm -f conftest.$ac_objext conftest$ac_exeext
-if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
-  (eval $ac_link) 2>&5
-  ac_status=$?
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); } &&
-         { ac_try='test -s conftest$ac_exeext'
-  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
-  (eval $ac_try) 2>&5
-  ac_status=$?
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); }; }; then
-  ac_cv_lib_icui18n_ucnv_open_2_2=yes
-else
-  echo "$as_me: failed program was:" >&5
-cat conftest.$ac_ext >&5
-ac_cv_lib_icui18n_ucnv_open_2_2=no
-fi
-rm -f conftest.$ac_objext conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-echo "$as_me:$LINENO: result: $ac_cv_lib_icui18n_ucnv_open_2_2" >&5
-echo "${ECHO_T}$ac_cv_lib_icui18n_ucnv_open_2_2" >&6
-if test $ac_cv_lib_icui18n_ucnv_open_2_2 = yes; then
-  cat >>confdefs.h <<_ACEOF
-#define HAVE_LIBICUI18N 1
-_ACEOF
-
-  LIBS="-licui18n $LIBS"
-
-else
-  { { echo "$as_me:$LINENO: error: Can't find libicui18n" >&5
-echo "$as_me: error: Can't find libicui18n" >&2;}
-   { (exit 1); exit 1; }; }
-fi
-
-fi
-
-
 # Extract the first word of "xmkmf", so it can be a program name with args.
 set dummy xmkmf; ac_word=$2
 echo "$as_me:$LINENO: checking for $ac_word" >&5
@@ -4802,11 +4709,7 @@ s,@DEFINE_PR3287@,$DEFINE_PR3287,;t t
 s,@IFONTDIR@,$IFONTDIR,;t t
 s,@CIFONTDIR@,$CIFONTDIR,;t t
 s,@LIBX3270DIR@,$LIBX3270DIR,;t t
-s,@WIDE_C@,$WIDE_C,;t t
-s,@WIDE_O@,$WIDE_O,;t t
-s,@INSTALL_CNV@,$INSTALL_CNV,;t t
 s,@LIBOBJS@,$LIBOBJS,;t t
-s,@HACK_LIBS@,$HACK_LIBS,;t t
 s,@xmkmf_found@,$xmkmf_found,;t t
 CEOF
 
