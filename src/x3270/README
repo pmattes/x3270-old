@@ -1,0 +1,39 @@
+x3270 Version 3.0.2
+
+x3270 is an IBM 3278 terminal emulator for X windows.
+
+Documentation is in the Docs directory.  The files are:
+
+    Intro	What x3270 is
+
+    Lineage	Where x3270 came from (copyright stuff)
+
+    Build	How to build and install x3270
+
+    FAQ		Frequently Asked Questions (what to do when something goes
+		 wrong)
+
+    Attributes	A translation table for 3270 field attributes
+
+    Resources	Voluminous documentation of all the X resources used by
+		x3270
+
+    Charset	An explanation of x3270's use of fonts and character sets
+
+    New.*	What's new in this release
+
+    Bugs	What's borken in this release
+
+    Wishlist	What isn't in this release
+
+Please read "Build" before going ahead and building the program.  Also, if you
+have a problem, scan through "FAQ"; there are lots of interesting answers
+there.
+
+Updates to x3270 are avaliable on ftp.x.org (export.lcs.mit.edu).  Fixes are
+distributed as patch files (you will need gnu patch to apply them) under the
+name fix.nn, e.g., the first fix to version 3.0.2 will be x3270-3.0.2.fix01.
+
+Feel free to send comments, criticism, suggestions, complaints, etc., to Paul
+Mattes (x3270@cnt.com).  Problems will be addressed as time and resources
+permit.

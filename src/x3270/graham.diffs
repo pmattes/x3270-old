@@ -1,0 +1,320 @@
+From pdm  Fri Jun 10 17:15:53 1994
+Received: from virginia.cnt.com by cnt.com id AA29964
+  (4.1/Ultra-1.4-10-10-91 for /usr/local/bin/filter -o/h/x3270/.elm/filter-errors); Mon, 13 Jun 94 09:22:54 CDT
+Return-Path: <graham@simgr.enet.dec.com>
+Received: from mpls.cnt.com by cnt.com id AA21004
+  (4.1/Ultra-1.4-10-10-91 for pdm); Fri, 10 Jun 94 17:15:51 CDT
+Received: from inet-gw-2.pa.dec.com by mpls.cnt.com (4.1/CNT-gateway-1.1)
+	id AA20604; Fri, 10 Jun 94 17:18:00 CDT
+Received: from us1rmc.bb.dec.com by inet-gw-2.pa.dec.com (5.65/27May94)
+	id AA28931; Fri, 10 Jun 94 15:14:28 -0700
+Received: from simgr.enet by us1rmc.bb.dec.com (5.65/rmc-22feb94)
+	id AA23995; Fri, 10 Jun 94 18:14:10 -0400
+Message-Id: <9406102214.AA23995@us1rmc.bb.dec.com>
+Received: from simgr.enet; by us1rmc.enet; Fri, 10 Jun 94 18:14:10 EDT
+Date: Fri, 10 Jun 94 18:14:10 EDT
+From: "I am, therefore I ache  10-Jun-1994 1814 -0400" <graham@simgr.enet.dec.com>
+To: pdm@cnt.com
+Cc: graham@simgr.enet.dec.com
+Apparently-To: pdm@cnt.com
+Subject: RE: x3270 3.0.2.3
+Sender: pdm
+Status: RO
+
+Hi Paul,
+
+I just copied the latest and built it on my OSF/1 system. There were a
+couple of compiler wanrings that I fixed (one of which is probably
+important, since you were calling a routine that was defined with one
+parameter but specifying none!). I also put in a couple of changes that
+I needed for my environment which you might want to consider:
+
+1. I added simple minded support for write structured fields (basically,
+	just the 3270DS WSF and the Set Reply Mode WSF). I need this to
+	get it to work with our AS/400.
+
+2. I added a keymap for DEC keyboards; this is actually based on the
+	keymap for other 3270 products we already have.
+
+3. I modified the ibm_hosts file format to allow the port number to be
+	specified for each destination; typically, I use x3270 with a
+	tn3270-to-sna server that is part of our SNA product, and the
+	actual host appl you connect to is defined by the port number
+	you connect to on our server. I added an optional new field in 
+	the file that can be specified as a service name, a port number
+	or "-", which means use the default as specified on the command
+	line or in the resource file.
+
+Anyway, attached are diffs for the various files for you to do with what
+you will.
+
+Regards,
+Simon Graham
+
+----------------------------------------------------------------------------
+
+Differences for x3270/3270ds.h:
+
+38,51d37
+< #define SNA_CMD_WSF	0x11
+< 
+< /* 3270 Outbound WSF types */
+< #define WSF_READ_PART   0x01
+< #define WSF_ERASE_RESET 0x03
+< #define WSF_LPS         0x06
+< #define WSF_SET_REPLY   0x09
+< #define WSF_CREATE_PART 0x0c
+< #define WSF_SET         0x0f
+< #define WSF_3270DS      0x40
+< #define WSF_SCS         0x41
+< #define WSF_SELECT_FMT  0x4a
+< #define WSF_PRESENT_ABS 0x4b
+< #define WSF_PRESENT_REL 0x4c
+
+===============================================
+
+Differences for x3270/X3270.ad:
+
+497,577d496
+< !
+< ! Digital, LK200/LK400 keyboard map, based on mapping used by Digital
+< ! SNA 3270 Terminal Emulator products
+< x3270.keymap.dec: \
+<         <Key>Return:            Newline()\n\
+<         <KeyPress>Shift_L:      Shift()\n\
+<         <KeyRelease>Shift_L:    Shift()\n\
+<         <KeyPress>Shift_R:      Shift()\n\
+<         <KeyRelease>Shift_R:    Shift()\n\
+<         Shift<Key>Tab:          BackTab()\n\
+<         <Key>Tab:               Tab()\n\
+<         <Key>Home:              Home()\n\
+<         <Key>Left:              Left()\n\
+<         Meta<Key>Left:          Left2()\n\
+<         <Key>Right:             Right()\n\
+<         Meta<Key>Right:         Right2()\n\
+<         <Key>Up:                Up()\n\
+<         <Key>Down:              Down()\n\
+<         <Key>Delete:            Delete()\n\
+<         <Key>BackSpace:         BackSpace()\n\
+<         Ctrl<Btn1Down>:         HandleMenu(quitMenu)\n\
+<         Ctrl<Btn2Down>:         HandleMenu(optionsMenu)\n\
+<         Ctrl<Btn3Down>:         HandleMenu(hostMenu)\n\
+<         <Btn1Down>:             select-start()\n\
+<         <Btn1Motion>:           select-extend()\n\
+<         <Btn2Down>:             ignore()\n\
+<         <Btn2Motion>:           ignore()\n\
+<         <Btn2Up>:               insert-selection(PRIMARY,CUT_BUFFER0)\n\
+<         <Btn3Down>:             start-extend()\n\
+<         <Btn3Motion>:           select-extend()\n\
+<         <BtnUp>:                select-end(PRIMARY,CUT_BUFFER0)\n\
+<         <Key>F10:               Quit()\n\
+<         Shift<Key>F12:          Dup()\n\
+<         <Key>F12:               BackTab()\n\
+<         Shift<Key>F13:          FieldMark()\n\
+<         <Key>F13:               Home()\n\
+<         <Key>F14:               Insert()\n\
+<         <Key>Execute:           Enter()\n\
+<         <Key>Select:            CursorSelect()\n\
+<         Shift<Key>F18:          EraseInput()\n\
+<         <Key>F18:               EraseEOF()\n\
+<         Shift<Key>F19:          SysReq()\n\
+<         <Key>F19:               Attn()\n\
+<         Shift<Key>F20:          Clear()\n\
+<         <Key>F20:               Redraw()\n\
+<         Shift<Key>KP_F1:        PF13()\n\
+<         Shift<Key>KP_F2:        PF14()\n\
+<         Shift<Key>KP_F3:        PF15()\n\
+<         Shift<Key>KP_F4:        Insert()\n\
+<         Shift<Key>KP_7:                PF16()\n\
+<         Shift<Key>KP_8:                PF17()\n\
+<         Shift<Key>KP_9:                PF18()\n\
+<         Shift<Key>KP_Subtract: EraseInput()\n\
+<         Shift<Key>KP_4:                PF19()\n\
+<         Shift<Key>KP_5:                PF20()\n\
+<         Shift<Key>KP_6:                PF21()\n\
+<         Shift<Key>KP_Separator:        EraseEOF()\n\
+<         Shift<Key>KP_1:                PF22()\n\
+<         Shift<Key>KP_2:                PF23()\n\
+<         Shift<Key>KP_3:                PF24()\n\
+<         Shift<Key>KP_0:                Reset()\n\
+<         <Key>KP_F1:             PF1()\n\
+<         <Key>KP_F2:             PF2()\n\
+<         <Key>KP_F3:             PF3()\n\
+<         <Key>KP_F4:             PA1()\n\
+<         <Key>KP_7:              PF4()\n\
+<         <Key>KP_8:              PF5()\n\
+<         <Key>KP_9:              PF6()\n\
+<         <Key>KP_Subtract:       PA2()\n\
+<         <Key>KP_4:              PF7()\n\
+<         <Key>KP_5:              PF8()\n\
+<         <Key>KP_6:              PF9()\n\
+<         <Key>KP_Separator:      PA3()\n\
+<         <Key>KP_1:              PF10()\n\
+<         <Key>KP_2:              PF11()\n\
+<         <Key>KP_3:              PF12()\n\
+<         <Key>KP_0:              Reset()\n\
+<         Shift<Key>KP_Enter:     Clear()\n\
+<         <Key>KP_Enter:          Enter()\n\
+<         Ctrl<Key>w:             Redraw()\n\
+<         <Key>:                  Default()
+
+===============================================
+
+Differences for x3270/ctlr.c:
+
+72d71
+< static void     do_wsf();
+299,303d297
+<         case SNA_CMD_WSF:
+<                         /* write structured field command */
+<                 trace_ds("WSF\n");
+< 		do_wsf(buf,buflen);
+< 		break;
+558,611d551
+< }
+< 
+< 
+< static void
+< do_wsf(buf, buflen)
+< unsigned char buf[];
+< int     buflen;
+< {
+< 	register unsigned char *cp = buf+1;
+< 	register int wsf_len;
+< 
+< 	/*
+< 	 * Loop round processing each WSF field...
+< 	 */
+< 	buflen--;
+< 	while (buflen) {
+< 		/*
+< 		 * Fetch out length of current field
+< 		 */
+< 		wsf_len = (*cp++) << 8;
+< 		wsf_len += *cp++;
+< 
+< 		if (wsf_len == 0) {
+< 			buflen = 0;
+< 			break;
+< 		}
+< 
+< 		switch (*cp) {
+< 
+< 		case WSF_3270DS:
+< 			trace_ds("WSF 3270 Data Stream field:\n");
+< 			process_ds(cp+2,wsf_len-4);
+< 			break;
+< 
+< 		case WSF_SET_REPLY:
+< 			trace_ds("WSF Set Reply Mode field\n");
+< 			break;
+< 
+< 		default:
+< 			{
+< 			/* unsupported 3270 wsf command */
+< 			char errmsg[48];
+< 			unsigned int wsf_type = *cp;
+< 
+< 			(void) sprintf(errmsg, "Unknown 3270 Write Structured Field: 0x%X\n",
+< 			    wsf_type);
+< 			popup_an_error(errmsg);
+< 			break;
+< 		        }
+< 		}
+< 
+< 		cp += wsf_len-2;
+< 		buflen -= wsf_len;
+< 	}
+
+===============================================
+
+Differences for x3270/macros.c:
+
+466c466
+< 	    (XtPointer)XtInputReadMask, (XtPointer)script_input,
+---
+> 	    (XtPointer)XtInputReadMask, script_input,
+
+===============================================
+
+Differences for x3270/menubar.c:
+
+35d34
+< 	char *port;
+994c993
+< 		char *name, *entry_type, *hostname, *port;
+---
+> 		char *name, *entry_type, *hostname;
+1006d1004
+< 		port = stoken(&s);
+1018,1021d1015
+< 		if (!port || (strcmp(port,"-") == 0))
+< 			h->port = appres.port;
+< 		else
+< 			h->port = XtNewString(port);
+1041c1035
+< hostfile_lookup(name, hostname, port, loginstring)
+---
+> hostfile_lookup(name, hostname, loginstring)
+1044d1037
+< char **port;
+1052d1044
+< 			*port = h->port;
+
+===============================================
+
+Differences for x3270/screen.c:
+
+542c542
+< 		create_scrollbar(FALSE);
+---
+> 		create_scrollbar();
+
+===============================================
+
+Differences for x3270/x3270.c:
+
+549d548
+< 	char *real_port;
+568c567
+< 	if (hostfile_lookup(pseudonym, &real_name, &real_port, &ps)) {
+---
+> 	if (hostfile_lookup(pseudonym, &real_name, &ps)) {
+572d570
+< 		real_port = appres.port;
+596c594
+< 		net_sock = net_connect(real_name, real_port, &pending);
+---
+> 		net_sock = net_connect(real_name, appres.port, &pending);
+
+===============================================
+
+Differences for x3270/ibm_hosts.man
+
+22c22
+< 	\fIname	type	hostname	port	loginstring\fP
+---
+> 	\fIname	type	hostname	loginstring\fP
+56,62d55
+< The optional 
+< .I port
+< field is the Internet service name or numeric port number to connect to at the 
+< host. If this field is not included or is specified as
+< .B "-"
+< , then the default port number is used.
+< .LP
+72,76d64
+< You must provide the
+< .I port 
+< field if this option is to be used. Use the service name 
+< .B "-"
+< if you want to use the default in this case.
+85c73
+< 	vm	primary	vtam\\t-\\t3\\n
+---
+> 	vm	primary	vtam\\t3\\n
+
+===============================================
+
+
+

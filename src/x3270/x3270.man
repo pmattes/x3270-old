@@ -1,5 +1,5 @@
 '\" t
-.TH X3270 1 "28 October 1993"
+.TH X3270 1 "27 July 1994"
 .SH NAME
 x3270 \-
 .SM IBM
@@ -13,6 +13,12 @@ host access tool
 ]
 .I hostname
 ]
+.br
+.B x3270
+[
+.I options
+]
+.BI p: filename
 .SH DESCRIPTION
 .B x3270
 opens a telnet connection to an
@@ -40,6 +46,17 @@ X3.64 emulation mode.
 See
 .SM "ANSI MODE"
 below for further information.
+.LP
+Prepending a
+.B p:
+causes
+.B x3270
+to play back the host commands contained in
+.IR filename,
+rather than connecting to a host.
+See
+.SM "PLAYBACK FILES"
+below for further information.
 .SH OPTIONS
 .B x3270 
 is a toolkit based program, so it understands standard options and resources.
@@ -60,24 +77,27 @@ See
 .SM "APL SUPPORT"
 below.
 .TP
-.BI \-efont " name"
-Specifies a font for the emulator window.
-See
-.SM FONTS
-below.
-.TP
-.BI \-keymap " name"
-Specifies a keymap name and optional modifiers.
-See
-.SM KEYMAPS
-below.
-.TP
 .BI \-charset " name"
 Specifies an
 .SM EBCDIC
 national character set.
 See
 .SM CHARACTER SETS
+below.
+.TP
+.BI \-efont " name"
+Specifies a font for the emulator window.
+See
+.SM FONTS
+below.
+.TP
+.BI \-iconname " name"
+Specifies an alternate title for the program icon.
+.TP
+.BI \-keymap " name"
+Specifies a keymap name and optional modifiers.
+See
+.SM KEYMAPS
 below.
 .TP
 .BI \-model " n"
@@ -116,6 +136,27 @@ like
 .BR telnet ,
 or a number.
 .TP
+.B \-sb
+Turns on the scrollbar.
+The scrollbar functions only in
+.SM ANSI
+mode.
+.B +sb turns the scrollbar off.
+.TP
+.B \-script
+Causes
+.B x3270
+to read commands from standard input, with the results written to standard
+output.
+The protocol for these commands is documented in
+.IR x3270-script (1).
+.TP
+.BI \-sl " n"
+Specifies that
+.I n
+lines should be saved for scrolling back.
+The default is 64.
+.TP
 .BI \-tn " name"
 Specifies the terminal name to be transmitted over the telnet connection.
 The default name is
@@ -124,6 +165,12 @@ where
 .I n
 is the model number.
 The name can also be specified with the "x3270.termName" resource.
+.TP
+.B \-trace
+Turns on data stream tracing at startup.
+Unlike turning it on from a menu option, there is no pop-up to confirm the
+file name, which defaults to
+.BI /usr/tmp/x3trc. process_id.
 .SH FONTS
 By default,
 .B x3270
@@ -175,6 +222,19 @@ slower method of overstriking each bold character.
 The bold font may be specified explicitly with the
 .B \-bfont
 option or the "x3270.boldFont" resource.
+.PP
+One additional font,
+.BR 3270d ,
+is supplied.
+This font is identical to the default
+.B 3270
+font, except that it has bitmaps defined for field attribute characters.
+This means that field attributes, which are normally displayed as blanks,
+are now visible on the screen.
+The characters displayed are hexadecimal codes, which can be translated
+using a document provided with the
+.B x3270
+sources.
 .SH "CHARACTER SETS"
 The
 .B \-charset
@@ -291,7 +351,9 @@ a replacement for
 .PP
 If the host later negotiates to stop functioning in 3270 mode,
 .B x3270
-will disconnect.
+will return to
+.SM ANSI
+emulation.
 .PP
 When emulating an
 .SM ANSI
@@ -327,6 +389,65 @@ key and the left, middle and right mouse buttons, respectively.
 .PP
 The menu bar can be turned off by setting the "x3270.menuBar" resource to
 .B false.
+.PP
+The top section of the Options menu is a series of toggles, options that may be
+either on or off.
+These toggles and their effects are as follows:
+.TP
+.B Monocase
+If set,
+.B x3270
+operates in uppercase-only mode.
+.TP
+.B Blinking Cursor
+If set, the cursor blinks once per second.
+.TP
+.B Blank Fill
+If set,
+.B x3270
+behaves in some un-3270-like ways.
+First, when a character is typed into a field, all nulls in the field to the
+left of that character are changed to blanks.
+This eliminates a common 3270 data-entry surprise.
+Second, in insert mode, trailing blanks in a field are treated like nulls,
+eliminating the annoying ``lock-up'' that often occurs when inserting into an
+field with (apparent) space at the end.
+.TP
+.B Show Timing
+If set, the time taken by the host to process an
+.SM AID
+is displayed on the status line.
+.TP
+.B Track Cursor
+If set, the cursor position is displayed on the status line.
+.TP
+.B Trace Data Stream
+If set, network traffic (both a hexadecimal representation and its
+interpretation) are logged to the file
+.BI /usr/tmp/x3trc. process_id,
+and a window is popped up to monitor the data.
+The file name is confirmed with a pop-up; the default directory name for the
+trace file can be changed with the "x3270.traceDir" resource.
+.TP
+.B Save Screen(s) in File
+If set, saves an
+.SM ASCII
+representation of the current screen image in the file
+.BI /usr/tmp/x3scr. process_id.
+A pop-up allows the file name to be changed; the default directory name can be
+changed with the "x3270.traceDir" resource.
+The pop-up also has buttons to choose between saving just the current image,
+or continuously saving it as it is redrawn.
+.TP
+.B Scrollbar
+If set, the scrollbar appears.
+.TP
+.B Wraparound
+If set, the
+.SM ANSI
+terminal emulator automatically assumes a
+.SM NEWLINE
+character when it reaches the end of a line.
 .SH ICONS
 If the
 .B \-activeicon
@@ -375,11 +496,13 @@ or
 .SM KEYBD
 environment variables.
 The types of supported keyboards include
-.BR hp\-k1 ,
-.BR ncd ,
+.BR sun\-k3 ,
 .BR sun\-k4 ,
+.BR sun\-k5 ,
+.BR hp\-k1 ,
+.B hp\-pc
 and
-.BR sun\-k3 \.
+.BR ncd .
 .PP
 The keymap may also be specified as a comma-separated list of names.
 Later definitions override earlier ones.
@@ -388,12 +511,13 @@ The modifiers defined include:
 .TP
 .B ow
 (OpenWindows) Swaps the middle and right mouse button definitions, so the
-middle button performs the "Paste" function.
+middle button performs the "Extend" function and the right-hand button
+performs the "Paste" function.
 Also changes the cut and paste actions to use the OpenWindows
 .SM CLIPBOARD.
 .TP
 .B alt
-Replaces all of the "Meta" key definitions with "Alt" definitions,
+Replaces the default "Meta" key definitions with "Alt" definitions,
 for keyboards which do not have a "Meta" key.
 .TP
 .B apl
@@ -456,68 +580,75 @@ The basic default translation table is:
 .RS
 .TS
 l l .
-<Key>Return:	Enter()
-<Key>Linefeed:	Newline()
-!Shift<Key>Tab:	BackTab()
-<Key>Tab:	Tab()
-<Key>Home:  	Home()
-<Key>Left:	Left()
-!Meta<Key>Left:	Left2()
-<Key>Right: 	Right()
-!Meta<Key>Right:	Right2()
-<Key>Up:	Up()
-<Key>Down:	Down()
-<Key>Delete: 	Delete()
-<Key>BackSpace: 	BackSpace()
-<Btn1Down>:	select\-start()
-<Btn1Motion>:	select\-extend()
-<Btn2Down>:	ignore()
-<Btn2Motion>:	ignore()
-<Btn2Up>:	insert\-selection(PRIMARY)
-<Btn3Down>:	start\-extend()
-<Btn3Motion>:	select\-extend()
-<BtnUp>:	select\-end(PRIMARY)
-Shift<Btn1Down>:	MoveCursor()
-!Meta<Key>F1:	PF13()
-!Meta<Key>F2:	PF14()
-!Meta<Key>F3:	PF15()
-!Meta<Key>F4:	PF16()
-!Meta<Key>F5:	PF17()
-!Meta<Key>F6:	PF18()
-!Meta<Key>F7:	PF19()
-!Meta<Key>F8:	PF20()
-!Meta<Key>F9:	PF21()
-!Meta<Key>F10:	PF22()
-!Meta<Key>F11:	PF23()
-!Meta<Key>F12:	PF24()
-<Key>F1:	PF1()
-<Key>F2:	PF2()
-<Key>F3:	PF3()
-<Key>F4:	PF4()
-<Key>F5:	PF5()
-<Key>F6:	PF6()
-<Key>F7:	PF7()
-<Key>F8:	PF8()
-<Key>F9:	PF9()
-<Key>F10:	PF10()
-<Key>F11:	PF11()
-<Key>F12:	PF12()
-Meta<Key>1:	PA1()
-Meta<Key>2:	PA2()
-Meta<Key>3:	PA3()
-Meta<Key>a:	Attn()
-Meta<Key>b:	PrintWindow()
-Meta<Key>c:	Clear()
-Meta<Key>d:	Delete()
-Meta<Key>h:	Home()
-Meta<Key>i:	Insert()
-Meta<Key>l:	Redraw()
-Meta<Key>p:	PrintText()
-Meta<Key>q:	Quit()
-Meta<Key>r:	Reset()
-Ctrl<Key>u:	DeleteField()
-Ctrl<Key>w:	DeleteWord()
-:<Key>:	Default()
+<Key>Multi_key	Compose()
+Shift<Key>Return	Newline()
+<Key>Return	Enter()
+<Key>Linefeed	Newline()
+Shift<Key>Tab	BackTab()
+<Key>Tab	Tab()
+<Key>Home	Home()
+Meta<Key>Left	Left2()
+<Key>Left	Left()
+Meta<Key>Right	Right2()
+<Key>Right	Right()
+<Key>Up	Up()
+<Key>Down	Down()
+<Key>Insert	Insert()
+<Key>Delete	Delete()
+<Key>BackSpace	BackSpace()
+Ctrl<Btn1Down>	HandleMenu(quitMenu)
+Ctrl<Btn2Down>	HandleMenu(optionsMenu)
+Ctrl<Btn3Down>	HandleMenu(hostMenu)
+Shift<Btn1Down>	MoveCursor()
+<Btn1Down>	select\-start()
+<Btn1Motion>	select\-extend()
+<Btn2Down>	ignore()
+<Btn2Motion>	ignore()
+<Btn2Up>	insert\-selection(PRIMARY)
+<Btn3Down>	start\-extend()
+<Btn3Motion>	select\-extend()
+<BtnUp>	select\-end(PRIMARY)
+Meta<Key>F1	PF(13)
+Meta<Key>F2	PF(14)
+Meta<Key>F3	PF(15)
+Meta<Key>F4	PF(16)
+Meta<Key>F5	PF(17)
+Meta<Key>F6	PF(18)
+Meta<Key>F7	PF(19)
+Meta<Key>F8	PF(20)
+Meta<Key>F9	PF(21)
+Meta<Key>F10	PF(22)
+Meta<Key>F11	PF(23)
+Meta<Key>F12	PF(24)
+<Key>F1	PF(1)
+<Key>F2	PF(2)
+<Key>F3	PF(3)
+<Key>F4	PF(4)
+<Key>F5	PF(5)
+<Key>F6	PF(6)
+<Key>F7	PF(7)
+<Key>F8	PF(8)
+<Key>F9	PF(9)
+<Key>F10	PF(10)
+<Key>F11	PF(11)
+<Key>F12	PF(12)
+Meta<Key>1	PA(1)
+Meta<Key>2	PA(2)
+Meta<Key>3	PA(3)
+Meta<Key>a	Attn()
+Meta<Key>b	PrintWindow()
+Meta<Key>c	Clear()
+Meta<Key>d	Delete()
+Meta<Key>h	Home()
+Meta<Key>i	Insert()
+Meta<Key>l	Redraw()
+Meta<Key>p	PrintText()
+Meta<Key>q	Quit()
+Meta<Key>r	Reset()
+Meta<Key>s	PlaybackStep()
+Ctrl<Key>u	DeleteField()
+Ctrl<Key>w	DeleteWord()
+:<Key>	Default()
 .TE
 .RE
 .PP
@@ -558,7 +689,12 @@ slightly less than an entire character position on the screen.)
 The left mouse button, when pressed with the "Shift" key held down, moves the
 3270 cursor to the where the mouse cursor is pointing.
 .PP
-This is the complete list of actions:
+This is the complete list of keymap-callable actions.
+Other actions are defined for use by scripts and are documented in
+.IR x3270-script (1);
+still others actions are defined for internal use by
+.B x3270
+and are not documented here.
 .PP
 .RS
 .TS
@@ -581,8 +717,10 @@ Enter	Enter AID (or send ASCII CR)
 Erase	erase previous character (or send ASCII BS)
 EraseEOF	erase to end of current field
 EraseInput	erase all input fields
+Execute(\fIcmd\fP)	execute a command in a shell
 FieldEnd	move cursor to end of field
 FieldMark	mark field
+HandleMenu(\fIname\fP)	pop up a menu
 Home	move cursor to first input field
 Insert	set insert mode
 Key(\fIkeysym\fP)	insert key \fIkeysym\fP
@@ -591,8 +729,11 @@ Left2	move cursor left 2 positions
 MoveCursor	move cursor to mouse position
 MonoCase	toggle uppercase-only mode
 Newline	move cursor to first field on next line (or send ASCII LF)
+PA(n)	Program Attention AID
 PA1-PA3	Program Attention AID
+PF(n)	Program Function AID
 PF1-PF24	Program Function AID
+PlaybackStep	step through a trace file
 PrintText(\fIcommand\fP)	print screen text on printer
 PrintWindow(\fIcommand\fP)	print screen image (bitmap) on printer
 Quit	exit \fBx3270\fP
@@ -601,7 +742,7 @@ Reset	reset locked keyboard
 Right	move cursor right
 Right2	move cursor right 2 positions
 SetFont(\fIfont\fP)	change emulator font
-String(\fIstring\fP)	insert string (macro facility)
+String(\fIstring\fP)	insert string (simple macro facility)
 SysReq	System Request AID
 Tab	move cursor to next input field
 ToggleInsert	toggle insert mode
@@ -611,34 +752,46 @@ _
 _
 ignore	do nothing
 insert\-selection([\fIatom\fP[\fI,atom...\fP]])	paste selection
-move-select	a combination of \fBMoveCursor\fP and \fBselect\-start\fP
+move\-select	a combination of \fBMoveCursor\fP and \fBselect\-start\fP
 select\-extend	move the end of a selection
 select\-start	mark the beginning of a selection
 start\-extend	begin marking the end of a selection
 .TE
 .RE
-.SH MACROS
-A simple macro facility is provided via the String action.
+.SH "MACROS AND SCRIPTS"
+There are several levels of macros and script functions available.
+.TP
+.B The String() Action
+The simplest method for macros is provided via the String action, which can
+be bound to any key in a keymap.
 The arguments to String() are one or more double-quoted strings which are
 inserted directly as if typed.
 Hex constants may be entered in the form 0xff, and the C backslash conventions
-are honored as follows:
-.RS
+are honored as follows.
+(Entries marked * mean that after sending the
+.SM AID
+code to the host,
+.B x3270
+will wait for the host to unlock the keyboard before further processing the
+string.)
+.RS 1i
 .TS
 l l.
 \eb	Left
-\ef	Clear
-\en	Enter
+\ef	Clear*
+\en	Enter*
+\e\epa\fIn\fP	PA key \fIn\fP*
+\e\epf\fInn\fP	PF key \fInn\fP*
 \er	Newline
 \et	Tab
 .TE
 .RE
-.PP
+.IP
 An example action would be:
-.RS
+.RS 1i
 Meta<Key>p: String("probs clearrdr\en")
 .RE
-.PP
+.IP
 .B Note:
 The strings are in
 .SM ASCII
@@ -646,6 +799,41 @@ and converted to
 .SM EBCDIC,
 so beware of inserting
 control codes.
+Also, a backslash before a
+.B p
+must be doubled so it will not be removed when resource files are read.
+.TP
+.B The macros Resource
+An alternate method of defining macros is the "x3270.macros" resource.
+This resource is similar to a keymap, but instead of defining keyboard
+mappings, it associates a list of X actions with a name.
+These names are displayed on a Macros menu that appears when
+.B x3270
+is connected to a host.
+Selecting one of the names on the menu executes the X actions associated with
+it.
+Typically the actions are String() calls, but any action may be specified.
+Here is a sample macros resource definition, which would result in a four-entry
+Macros menu:
+.RS 1i
+x3270.macros: \\
+.br
+	log off: String("logout\\n")\\n\\
+.br
+	vtam: String("dial vtam\\n")\\n\\
+.br
+	pa1: PA(1)\\n\\
+.br
+	alt printer: PrintText("lpr -Plw2")
+.RE
+.TP
+.B The \-script Switch
+This facility allows
+.B x3270
+to operate under the control of a script.
+It is covered in
+.IR x3270-script (1).
+.B
 .SH "COMPOSITE CHARACTERS"
 If your keyboard has a "Compose" key,
 .B x3270
@@ -843,7 +1031,9 @@ apl_uptackjot	ef
 .TE
 .RE
 .SH "SCREEN PRINTING"
-Screen printing is handled through the PrintText and PrintWindow actions.
+Screen printing is handled through menu options or by the PrintText and
+PrintWindow keyboard actions.
+Each results in a pop-up to confirm the print command.
 .PP
 The PrintText action (usually assigned to the key <Meta>p) sends the current
 screen image to the printer as 
@@ -866,7 +1056,7 @@ screen image to the printer as a bitmap.
 The default command used to print the data is controlled by
 the "x3270.printWindowCommand" resource; the default is
 .IP
-.BR "xwd -id %d | xpr | lpr" .
+.BR "xwd \-id %d | xpr | lpr" .
 .PP
 You may also use a keymap definition to pass a print command to the
 PrintWindow action itself.
@@ -876,7 +1066,18 @@ will be substituted before it is run.
 For example, the following keymap will pop up a duplicate of the current
 screen image:
 .IP
-Meta<Key>g: PrintWindow("xwd -id %d | xwud &")
+Meta<Key>g: PrintWindow("xwd \-id %d | xwud &")
+.SH "PLAYBACK FILES"
+.B x3270
+has the ability to trace the network traffic to and from a host, selected
+from a menu option.
+These network trace files can also be played back into
+.BR x3270 ,
+allowing applications (and x3270 itself) to be debugged.
+To connect x3270 to a trace file rather than a host, specify the file name
+prefixed with a
+.BR p: \.
+To step through each inbound message, press Meta-s.
 .SH BUGS
 Cursor highlighting will not work with if you use the
 .B NoTitleFocus
@@ -884,18 +1085,30 @@ option in your .twmrc file.
 .SH FILES
 .nf
 /usr/lib/X11/app\-defaults/X3270
-/usr/local/pub/ibm_hosts
+/usr/lib/X11/x3270/ibm_hosts
 .SH "SEE ALSO"
-telnet(1), tn3270(1), ibm_hosts(5)
+telnet(1), tn3270(1), ibm_hosts(5), x3270-script(1)
 .br
 X Toolkit Intrinsics (R5 version)
 .br
 Data Stream Programmer's Reference, IBM GA23\-0059
 .br
 Character Set Reference, IBM GA27\-3831
-.SH AUTHORS
-Robert Viduya \- SunView based 3270tool
+.SH COPYRIGHTS
+Copyright 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.
+.RS
+All Rights Reserved.  GTRC hereby grants public use of this software.
+Derivative works based on this software must incorporate this copyright
+notice.
+.RE
+.LP
+X11 Port Copyright 1990 by Jeff Sparkes.
 .br
-Jeff Sparkes \- X11 port
-.br
-Paul Mattes \- X enhancements and fixes
+Additional X11 Modifications Copyright 1993, 1994 by Paul Mattes.
+.RS
+Permission to use, copy, modify, and distribute this software and its
+documentation for any purpose and without fee is hereby granted,
+provided that the above copyright notice appear in all copies and that
+both that copyright notice and this permission notice appear in
+supporting documentation.
+.RE

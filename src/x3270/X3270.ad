@@ -2,7 +2,7 @@
 ! piece of text but error and trace messages is defined here.
 !
 ! Basics
-x3270.adVersion:	3.0.1.2
+x3270.adVersion:	3.0.2.1
 !
 ! The following resource definitions are commented out, because they are
 ! the defaults defined in x3270 itself.  They are listed here so you can
@@ -36,37 +36,55 @@ x3270.adVersion:	3.0.1.2
 ! x3270.eof:			^D
 !
 !   Miscellaneous configuration parameters
+! x3270.activeIcon:		false
+! x3270.altCursor:		false
+! x3270.autoWrap:		true
+! x3270.blankFill:		false
+! x3270.blink:			false
 ! x3270.charset:		us
 ! x3270.composeMap:		latin1
+! x3270.cursorPos:		true
+! x3270.hostsFile:		/usr/lib/X11/x3270/ibm_hosts
+! x3270.invertKeypadShift:	false
+! x3270.keymap:
 ! x3270.keypad:			right
 ! x3270.keypadOn:		false
-! x3270.menuBar:		true
-! x3270.activeIcon:		false
 ! x3270.labelIcon:		false
-! x3270.visualBell:		false
+! x3270.macros:
+! x3270.menuBar:		true
 ! x3270.model:			4
-! x3270.hostsFile:		/usr/local/pub/ibm_hosts
-! x3270.port:			telnet
+! x3270.mono:			false
 ! x3270.monoCase:		false
-! x3270.altCursor:		false
-! x3270.blink:			false
+! x3270.once:			false
+! x3270.port:			telnet
+! x3270.saveLines:		64
+! x3270.screenTrace:		false
+! x3270.scripted:		false
+! x3270.scrollBar:		false
+! x3270.termName:
+! x3270.traceDir:		/usr/tmp
 ! x3270.timing:			false
-! x3270.cursorPos:		true
-! x3270.trace3270:		false
-! x3270.traceTelnet:		false
+! x3270.trace:			false
+! x3270.visualBell:		false
+!
 !
 ! Start of live resource definitions
 !
 !
 ! Fonts
-x3270.largeFont:	3270
-x3270.smallFont:	3270-12
+x3270.fontList: \
+	3270 Font: 3270\n\
+	3270-12 Font: 3270-12\n\
+	Debug Font: 3270d
 x3270.aplFont:		3270-apl
+x3270.debugFont:	3270d
 x3270.iconFont:		nil2
 !or if you are missing the "nil2" font alias:
 !x3270.iconFont:	-misc-nil-medium-r-normal--2-20-75-75-c-10-misc-fontspecific
 x3270.iconLabelFont:	8x13
-x3270*keyPad*font:	fixed
+x3270*keyPad*large*font: fixed
+!x3270*keyPad*small*font: -*-helvetica-medium-r-normal--10-*-*-*-*-*-*-*
+x3270*keyPad*small*font: -*-fixed-medium-r-semicondensed-*-12-*-*-*-*-*-*-*
 x3270*value*font:	fixed
 x3270*dataLabel.font:	-*-terminal-medium-r-normal--14-*-*-*-*-*-iso8859-1
 x3270*font:		-*-helvetica-bold-r-normal--12-*-*-*-*-*-*-*
@@ -74,18 +92,49 @@ x3270*font:		-*-helvetica-bold-r-normal--12-*-*-*-*-*-*-*
 ! Popup miscellany
 x3270.errorPopup.width:		400
 x3270.errorPopup*foreground:	red
+x3270.infoPopup.width:		400
 x3270.connectPopup.width:	300
 x3270.fontPopup.width:		300
+x3270.printTextPopup.width:	300
+x3270.printWindowPopup.width:	300
+x3270.tracePopup.width:		300
+x3270.screentracePopup.width:	300
+x3270*dialog.Background:	mistyrose2
+x3270*dialog.label.Background:	mistyrose2
+x3270*dialog.value*Background:	mistyrose2
+x3270.optionsPopup*background:	mistyrose2
+x3270.infoPopup*background:	mistyrose2
+x3270.infoPopup*okayButton.background:	white
 x3270*cancelButton.foreground:	red
-x3270.optionsPopup*icon.foreground:	forest green
+x3270*cancelButton.background:	white
+x3270*confirmButton.background:	white
+x3270.optionsPopup*icon.foreground:	maroon
+x3270.optionsPopup*okayButton.background:	white
+!
+! Other configuration
+x3270*optionsMenu*leftMargin:	20
 !
 ! Titles and Labels
 x3270.errorPopup.title:				x3270 Error
+x3270.infoPopup.title:				x3270 Information
 x3270.connectPopup.title:			x3270 Connect
 x3270.connectPopup.dialog.label:		Enter Hostname
 x3270.fontPopup.title:				x3270 Font
 x3270.fontPopup.dialog.label:			Enter Font Name
 x3270.keypadPopup.title:			x3270 Keypad
+x3270.printTextPopup.title:			x3270 Screen Print
+x3270.printTextPopup.dialog.label:		Enter Print Command
+x3270.printTextPopup*confirmButton.label:	Print
+x3270.printWindowPopup.title:			x3270 Window Print
+x3270.printWindowPopup.dialog.label:		Enter Print Command
+x3270.printWindowPopup*confirmButton.label:	Print
+x3270.tracePopup.title:				x3270 Tracing
+x3270.tracePopup.dialog.label:			Enter Trace File Name
+x3270.tracePopup*confirmButton.label:		Trace
+x3270.screentracePopup.title:			x3270 Screen Image Tracing
+x3270.screentracePopup.dialog.label:		Enter File Name
+x3270.screentracePopup*confirmButton.label:	Continuously
+x3270.screentracePopup*confirm2Button.label:	Once
 x3270.optionsPopup.title:			About x3270
 x3270.connectPopup*confirmButton.label: 	Connect
 x3270.fontPopup*confirmButton.label:		Select Font
@@ -98,6 +147,7 @@ x3270*quitMenu.label:				Quit
 x3270*optionsMenuButton.label:			Options...
 x3270*optionsMenu.label:			Options
 x3270*connectMenuButton.label:			Connect...
+x3270*macrosMenuButton.label:			Macros...
 x3270*hostMenu.label:				Connect
 x3270*otherHostOption.label:			Other...
 x3270*optionsMenu.aboutOption.label:		About x3270...
@@ -106,15 +156,18 @@ x3270*optionsMenu.monocaseOption.label:		Monocase
 x3270*optionsMenu.blinkOption.label:		Blinking Cursor
 x3270*optionsMenu.timingOption.label:		Show Timing
 x3270*optionsMenu.trackOption.label:		Track Cursor
-x3270*optionsMenu.traceDsOption.label:		Trace 3270 DS
-x3270*optionsMenu.traceTelnetOption.label:	Trace TELNET
+x3270*optionsMenu.traceOption.label:		Trace Data Stream
+x3270*optionsMenu.screentraceOption.label:	Save Screen(s) in File
+x3270*optionsMenu.scrollbarOption.label:	Scrollbar
+x3270*optionsMenu.wrapOption.label:		Wraparound
+x3270*optionsMenu.fillOption.label:		Blank Fill
 x3270*optionsMenu.underlineOption.label:	Underline Cursor
 x3270*optionsMenu.blockOption.label:		Block Cursor
-x3270*optionsMenu.largeFontOption.label:	3270 Font
-x3270*optionsMenu.smallFontOption.label:	3270-12 Font
 x3270*optionsMenu.otherFontOption.label:	Other Font...
 x3270*optionsMenu.lineModeOption.label:		Line Mode
 x3270*optionsMenu.characterModeOption.label:	Character Mode
+x3270*optionsMenu.printTextOption.label:	Print Screen Text
+x3270*optionsMenu.printWindowOption.label:	Print Window Bitmap
 x3270*optionsMenu.model2Option.label:		Model 2 (24x80)
 x3270*optionsMenu.model3Option.label:		Model 3 (32x80)
 x3270*optionsMenu.model4Option.label:		Model 4 (43x80)
@@ -123,6 +176,16 @@ x3270*optionsMenu.model5Option.label:		Model 5 (27x132)
 ! Print commands
 x3270.printTextCommand:		lpr
 x3270.printWindowCommand:	xwd -id %d | xpr | lpr
+!
+! System V versions of print commands
+! x3270.printTextCommand:	lp
+! x3270.printWindowCommand:	xwd -id %d | xpr | lp
+!
+! X11R4 version of print command (no -id parameter)
+! x3270.printWindowCommand:	xwd | xpr | lp
+!
+! Trace window command
+x3270.traceCommand:		tail -f
 !
 ! Messages
 x3270.message.reconnect:			Reconnect to
@@ -174,9 +237,16 @@ x3270.message.statusProtected:			Protected
 x3270.message.statusNumeric:			Numeric
 x3270.message.statusOverflow:			Overflow
 !
+! Keypad key dimensions, in pixels
+x3270.keypad.keyHeight:				24
+x3270.keypad.keyWidth:				48
+x3270.keypad.pfWidth:				32
+x3270.keypad.paWidth:				36
+x3270.keypad.largeKeyWidth:			56
+!
 ! Basic translations -- these should NEVER be changed without code changes
 x3270.translations: \
-	<Message>WM_PROTOCOLS:		DeleteWindow()\n\
+	<Message>WM_PROTOCOLS:		WMProtocols()\n\
 	<KeymapNotify>:			KeymapEvent()\n\
 	<PropertyNotify>WM_STATE:	StateChanged()\n\
 	<FocusIn>:			FocusEvent()\n\
@@ -186,25 +256,38 @@ x3270*screen.translations:	#override \n\
 x3270icon.translations:		#override \n\
 	<Expose>:			Redraw()
 x3270.keypadPopup.translations: \
-	<Message>WM_PROTOCOLS:		DeleteWindow()\n\
+	<Message>WM_PROTOCOLS:		WMProtocols()\n\
 	<KeymapNotify>:			KeymapEvent()\n\
 	<Enter>:			EnterLeave()\n\
 	<Leave>:			EnterLeave()
 x3270.errorPopup.translations: \
-	<Message>WM_PROTOCOLS:		DeleteWindow()
+	<Message>WM_PROTOCOLS:		WMProtocols()
+x3270.infoPopup.translations: \
+	<Message>WM_PROTOCOLS:		WMProtocols()
 x3270.connectPopup.translations: \
-	<Message>WM_PROTOCOLS:		DeleteWindow()
+	<Message>WM_PROTOCOLS:		WMProtocols()
 x3270.fontPopup.translations: \
-	<Message>WM_PROTOCOLS:		DeleteWindow()
+	<Message>WM_PROTOCOLS:		WMProtocols()
+x3270.keypadPopup.translations: \
+	<Message>WM_PROTOCOLS:		WMProtocols()
+x3270.printTextPopup.translations: \
+	<Message>WM_PROTOCOLS:		WMProtocols()
+x3270.printWindowPopup.translations: \
+	<Message>WM_PROTOCOLS:		WMProtocols()
+x3270.tracePopup.translations: \
+	<Message>WM_PROTOCOLS:		WMProtocols()
+x3270.screentracePopup.translations: \
+	<Message>WM_PROTOCOLS:		WMProtocols()
 x3270.optionsPopup.translations: \
-	<Message>WM_PROTOCOLS:		DeleteWindow()
+	<Message>WM_PROTOCOLS:		WMProtocols()
 x3270*value.translations:	#override \n\
 	<Key>Return:			confirm()\n\
-	Ctrl<Key>U:			beginning-of-file() delete-next-word()
+	Ctrl<Key>U:			select-all(DUMMY) delete-selection()
 !
 ! Default translations -- these should be changed only with great caution
 x3270.defaultTranslations: \
 	<Key>Multi_key:		Compose()\n\
+	Shift<Key>Return:	Newline()\n\
 	<Key>Return:		Enter()\n\
 	<Key>Linefeed:		Newline()\n\
 	<KeyPress>Shift_L:	Shift()\n\
@@ -228,6 +311,7 @@ x3270.defaultTranslations: \
 	<Key>Right: 		Right()\n\
 	<Key>Up:		Up()\n\
 	<Key>Down:		Down()\n\
+	<Key>Insert:		Insert()\n\
 	<Key>Delete: 		Delete()\n\
 	<Key>BackSpace: 	BackSpace()\n\
 	Ctrl<Btn1Down>:		HandleMenu(quitMenu)\n\
@@ -235,50 +319,52 @@ x3270.defaultTranslations: \
 	Ctrl<Btn3Down>:		HandleMenu(hostMenu)\n\
 	Shift<Btn1Down>:	MoveCursor()\n\
 	<Btn1Down>:		select-start()\n\
-	<Btn1Motion>:		select-extend()\n\
+	~Shift<Btn1Motion>:	select-extend()\n\
 	<Btn2Down>:		ignore()\n\
 	<Btn2Motion>:		ignore()\n\
 	<Btn2Up>:		insert-selection(PRIMARY)\n\
 	<Btn3Down>:		start-extend()\n\
 	<Btn3Motion>:		select-extend()\n\
 	<BtnUp>:		select-end(PRIMARY)\n\
-	Meta<Key>F1:		PF13()\n\
-	Meta<Key>F2:		PF14()\n\
-	Meta<Key>F3:		PF15()\n\
-	Meta<Key>F4:		PF16()\n\
-	Meta<Key>F5:		PF17()\n\
-	Meta<Key>F6:		PF18()\n\
-	Meta<Key>F7:		PF19()\n\
-	Meta<Key>F8:		PF20()\n\
-	Meta<Key>F9:		PF21()\n\
-	Meta<Key>F10:		PF22()\n\
-	Meta<Key>F11:		PF23()\n\
-	Meta<Key>F12:		PF24()\n\
-	<Key>F1:		PF1()\n\
-	<Key>F2:		PF2()\n\
-	<Key>F3:		PF3()\n\
-	<Key>F4:		PF4()\n\
-	<Key>F5:		PF5()\n\
-	<Key>F6:		PF6()\n\
-	<Key>F7:		PF7()\n\
-	<Key>F8:		PF8()\n\
-	<Key>F9:		PF9()\n\
-	<Key>F10:		PF10()\n\
-	<Key>F11:		PF11()\n\
-	<Key>F12:		PF12()\n\
+	Meta<Key>F1:		PF(13)\n\
+	Meta<Key>F2:		PF(14)\n\
+	Meta<Key>F3:		PF(15)\n\
+	Meta<Key>F4:		PF(16)\n\
+	Meta<Key>F5:		PF(17)\n\
+	Meta<Key>F6:		PF(18)\n\
+	Meta<Key>F7:		PF(19)\n\
+	Meta<Key>F8:		PF(20)\n\
+	Meta<Key>F9:		PF(21)\n\
+	Meta<Key>F10:		PF(22)\n\
+	Meta<Key>F11:		PF(23)\n\
+	Meta<Key>F12:		PF(24)\n\
+	<Key>F1:		PF(1)\n\
+	<Key>F2:		PF(2)\n\
+	<Key>F3:		PF(3)\n\
+	<Key>F4:		PF(4)\n\
+	<Key>F5:		PF(5)\n\
+	<Key>F6:		PF(6)\n\
+	<Key>F7:		PF(7)\n\
+	<Key>F8:		PF(8)\n\
+	<Key>F9:		PF(9)\n\
+	<Key>F10:		PF(10)\n\
+	<Key>F11:		PF(11)\n\
+	<Key>F12:		PF(12)\n\
+	Meta<Key>1:		PA(1)\n\
+	Meta<Key>2:		PA(2)\n\
+	Meta<Key>3:		PA(3)\n\
+	Meta<Key>a:		Attn()\n\
 	Meta<Key>b:		PrintWindow()\n\
 	Meta<Key>c:		Clear()\n\
-	Meta<Key>r:		Reset()\n\
-	Meta<Key>1:		PA1()\n\
-	Meta<Key>2:		PA2()\n\
-	Meta<Key>3:		PA3()\n\
-	Meta<Key>a:		Attn()\n\
-	Meta<Key>i:		Insert()\n\
 	Meta<Key>d:		Delete()\n\
+	Meta<Key>e:		EraseEOF()\n\
 	Meta<Key>h:		Home()\n\
+	Meta<Key>i:		Insert()\n\
 	Meta<Key>l:		Redraw()\n\
 	Meta<Key>p:		PrintText()\n\
 	Meta<Key>q:		Quit()\n\
+	Meta<Key>r:		Reset()\n\
+	Meta<Key>s:		PlaybackStep()\n\
 	Ctrl<Key>u:		DeleteField()\n\
 	Ctrl<Key>w:		DeleteWord()\n\
 	:<Key>:			Default()
@@ -303,12 +389,13 @@ x3270.composeMap.latin1: \
 	1 + 4		= onequarter		\n\
 	1 + 2		= onehalf		\n\
 	3 + 4		= threequarters		\n\
+	bar + bar	= brokenbar		\n\
 	A + grave	= Agrave		\n\
 	A + apostrophe	= Aacute		\n\
 	A + asciicircum	= Acircumflex		\n\
 	A + asciitilde	= Atilde		\n\
 	A + quotedbl	= Adiaeresis		\n\
-	A + period	= Aring			\n\
+	A + asterisk	= Aring			\n\
 	A + E		= AE			\n\
 	C + comma	= Ccedilla		\n\
 	E + grave	= Egrave		\n\
@@ -337,7 +424,7 @@ x3270.composeMap.latin1: \
 	a + asciicircum	= acircumflex		\n\
 	a + asciitilde	= atilde		\n\
 	a + quotedbl	= adiaeresis		\n\
-	a + period	= aring			\n\
+	a + asterisk	= aring			\n\
 	a + e		= ae			\n\
 	c + comma	= ccedilla		\n\
 	e + grave	= egrave		\n\
@@ -421,56 +508,132 @@ x3270.composeMap.apl: \
 	apl_downtack + apl_jot	= apl_downtackjot	\n
 !
 ! Keymaps (keyboard-specific key mappings)
+!
+! Sun Type 5 keyboard map.  Not compatible with earlier Type 3 and Type 4
+! keymaps, but does a better job of mapping intuitive functions to the
+! existing key labels, and has fewer surprises.
+!
+! The group of "Mod3" definitions at the beginning are for the numeric
+! keypad with the NumLock key down.  This only works with Sun X servers
+! (but not MIT X servers) but it is otherwise harmless.
+x3270.keymap.sun-k5: \
+	Mod3<Key>F25:		Key(/)\n\
+	Mod3<Key>F26:		Key(*)\n\
+	Mod3<Key>F24:		Key(-)\n\
+	Mod3<Key>F27:		Key(7)\n\
+	Mod3<Key>Up:		Key(8)\n\
+	Mod3<Key>F29:		Key(9)\n\
+	Mod3<Key>Left:		Key(4)\n\
+	Mod3<Key>F31:		Key(5)\n\
+	Mod3<Key>Right:		Key(6)\n\
+	Mod3<Key>R13:		Key(1)\n\
+	Mod3<Key>Down:		Key(2)\n\
+	Mod3<Key>F35:		Key(3)\n\
+	Mod3<Key>Insert:	Key(0)\n\
+	Mod3<Key>Delete:	Key(.)\n\
+	Shift<Key>0x1005ff10:	PF(23)\n\
+	Shift<Key>0x1005ff11:	PF(24)\n\
+	<Key>0x1005ff10:	PF(11)\n\
+	<Key>0x1005ff11:	PF(12)\n\
+	Shift<Key>F1:		PF(13)\n\
+	Shift<Key>F2:		PF(14)\n\
+	Shift<Key>F3:		PF(15)\n\
+	Shift<Key>F4:		PF(16)\n\
+	Shift<Key>F5:		PF(17)\n\
+	Shift<Key>F6:		PF(18)\n\
+	Shift<Key>F7:		PF(19)\n\
+	Shift<Key>F8:		PF(20)\n\
+	Shift<Key>F9:		PF(21)\n\
+	Shift<Key>F10:		PF(22)\n\
+	Shift<Key>F11:		PF(23)\n\
+	Shift<Key>F12:		PF(24)\n\
+	<Key>F27:		Home()\n\
+	<Key>F33:		FieldEnd()\n\
+	:<Key>KP_Divide:	Key(/)\n\
+	:<Key>KP_Multiply:	Key(*)\n\
+	:<Key>KP_Subtract:	Key(-)\n\
+	:<Key>KP_Add:		Key(+)\n\
+	:<Key>KP_Equal:		Key(=)\n\
+	<Key>KP_Enter:		Newline()\n\
+	:<Key>KP_7:		Key(7)\n\
+	:<Key>KP_8:		Key(8)\n\
+	:<Key>KP_9:		Key(9)\n\
+	:<Key>KP_4:		Key(4)\n\
+	:<Key>KP_5:		Key(5)\n\
+	:<Key>KP_6:		Key(6)\n\
+	:<Key>KP_1:		Key(1)\n\
+	:<Key>KP_2:		Key(2)\n\
+	:<Key>KP_3:		Key(3)\n\
+	:<Key>KP_0:		Key(0)\n\
+	:<Key>KP_Decimal:	Key(.)\n\
+	<Key>F18:		insert-selection(PRIMARY)\n\
+	<Key>F22:		PrintText()\n\
+	Shift<Key>F22:		SysReq()\n
+! Sun Type 4 keyboard map, backwards-compatible with earlier versions of x3270.
 x3270.keymap.sun-k4: \
-	Shift<Key>F1:		PF13()\n\
-	Shift<Key>F2:		PF14()\n\
-	Shift<Key>F3:		PF15()\n\
-	Shift<Key>F4:		PF16()\n\
-	Shift<Key>F5:		PF17()\n\
-	Shift<Key>F6:		PF18()\n\
-	Shift<Key>F7:		PF19()\n\
-	Shift<Key>F8:		PF20()\n\
-	Shift<Key>F9:		PF21()\n\
-	Shift<Key>F10:		PF22()\n\
-	Shift<Key>F11:		PF23()\n\
-	Shift<Key>F12:		PF24()\n\
+	Shift<Key>0x1005ff10:	PF(23)\n\
+	Shift<Key>0x1005ff11:	PF(24)\n\
+	<Key>0x1005ff10:	PF(11)\n\
+	<Key>0x1005ff11:	PF(12)\n\
+	Shift<Key>F1:		PF(13)\n\
+	Shift<Key>F2:		PF(14)\n\
+	Shift<Key>F3:		PF(15)\n\
+	Shift<Key>F4:		PF(16)\n\
+	Shift<Key>F5:		PF(17)\n\
+	Shift<Key>F6:		PF(18)\n\
+	Shift<Key>F7:		PF(19)\n\
+	Shift<Key>F8:		PF(20)\n\
+	Shift<Key>F9:		PF(21)\n\
+	Shift<Key>F10:		PF(22)\n\
+	Shift<Key>F11:		PF(23)\n\
+	Shift<Key>F12:		PF(24)\n\
+	:<Key>KP_1:		Key(1)\n\
+	:<Key>KP_2:		Key(2)\n\
+	:<Key>KP_3:		Key(3)\n\
+	:<Key>KP_4:		Key(4)\n\
+	:<Key>KP_5:		Key(5)\n\
+	:<Key>KP_6:		Key(6)\n\
+	:<Key>KP_7:		Key(7)\n\
+	:<Key>KP_8:		Key(8)\n\
+	:<Key>KP_9:		Key(9)\n\
+	:<Key>KP_0:		Key(0)\n\
+	:<Key>KP_Decimal:	Key(.)\n\
 	<Key>F18:		insert-selection(PRIMARY)\n\
 	<Key>F19:		SysReq()\n\
-	<Key>0x0:		FieldMark()\n\
-	<Key>F21:		PA1()\n\
-	<Key>F22:		PA2()\n\
+	<Key>F20:		FieldMark()\n\
+	<Key>F21:		PA(1)\n\
+	<Key>F22:		PA(2)\n\
 	<Key>F23:		Dup()\n\
 	<Key>F24:		Reset()\n\
 	<Key>F25:		EraseEOF()\n\
 	<Key>F26:		EraseInput()\n\
 	<Key>F27:		Clear()\n\
-	<Key>F31:		Home()\n\
 	<Key>F29:		Redraw()\n\
+	<Key>F31:		Home()\n\
 	<Key>KP_Enter:		Newline()\n\
-	<Key>Insert:		Insert()\n\
-	<Key>F35:		Delete()\n\
-	<Key>Delete:		Delete()
+	<Key>F35:		Delete()\n
+! Sun Type 3 keyboard.
 x3270.keymap.sun-k3: \
-	Shift<Key>F1:		PF13()\n\
-	Shift<Key>F2:		PF14()\n\
-	Shift<Key>F3:		PF15()\n\
-	Shift<Key>F4:		PF16()\n\
-	Shift<Key>F5:		PF17()\n\
-	Shift<Key>F6:		PF18()\n\
-	Shift<Key>F7:		PF19()\n\
-	Shift<Key>F8:		PF20()\n\
-	Shift<Key>F9:		PF21()\n\
-	Shift<Key>F21:		PF22()\n\
-	Shift<Key>F22:		PF23()\n\
-	Shift<Key>F23:		PF24()\n\
-	Meta<Key>F21:		PA1()\n\
-	Meta<Key>F22:		PA2()\n\
+	Shift<Key>F1:		PF(13)\n\
+	Shift<Key>F2:		PF(14)\n\
+	Shift<Key>F3:		PF(15)\n\
+	Shift<Key>F4:		PF(16)\n\
+	Shift<Key>F5:		PF(17)\n\
+	Shift<Key>F6:		PF(18)\n\
+	Shift<Key>F7:		PF(19)\n\
+	Shift<Key>F8:		PF(20)\n\
+	Shift<Key>F9:		PF(21)\n\
+	Shift<Key>F21:		PF(22)\n\
+	Shift<Key>F22:		PF(23)\n\
+	Shift<Key>F23:		PF(24)\n\
+	Meta<Key>F21:		PA(1)\n\
+	Meta<Key>F22:		PA(2)\n\
 	Meta<Key>F23:		Dup()\n\
 	<Key>F19:		SysReq()\n\
 	<Key>0x0:		FieldMark()\n\
-	<Key>F21:		PF10()\n\
-	<Key>F22:		PF11()\n\
-	<Key>F23:		PF12()\n\
+	<Key>F21:		PF(10)\n\
+	<Key>F22:		PF(11)\n\
+	<Key>F23:		PF(12)\n\
 	<Key>F24:		Reset()\n\
 	<Key>F25:		EraseEOF()\n\
 	<Key>F26:		EraseInput()\n\
@@ -478,15 +641,12 @@ x3270.keymap.sun-k3: \
 	<Key>F31:		Home()\n\
 	<Key>F29:		Redraw()\n\
 	<Key>KP_Enter:		Newline()\n\
-	<Key>Insert:		Insert()\n\
-	<Key>F35:		Delete()\n\
-	<Key>Delete:		Delete()
+	<Key>F35:		Delete()\n
 x3270.keymap.ncd: \
 	<Key>F13:		Dup()\n\
 	<Key>Linefeed:		Dup()\n\
 	<Key>F14:		FieldMark()\n\
 	<Key>Break:		FieldMark()\n\
-	<Key>Insert:		Insert()\n\
 	<Key>Home:		Home()\n\
 	<Key>F17:		Home()\n\
 	<Key>End:		EraseEOF()\n\
@@ -495,22 +655,22 @@ x3270.keymap.ncd: \
 	<Key>F16:		Newline()\n\
 	<Key>Next:		Newline()\n\
 	<Key>KP_Add:		EraseInput()\n\
-	<Key>Num_Lock:		PF13()\n\
-	<Key>KP_Space:		PF13()\n\
-	<Key>KP_Divide:		PF14()\n\
-	<Key>KP_Multiply:	PF15()\n\
-	<Key>KP_7:		PF16()\n\
-	<Key>KP_8:		PF17()\n\
-	<Key>KP_9:		PF18()\n\
-	<Key>KP_4:		PF19()\n\
-	<Key>KP_5:		PF20()\n\
-	<Key>KP_6:		PF21()\n\
-	<Key>KP_1:		PF22()\n\
-	<Key>KP_2:		PF23()\n\
-	<Key>KP_3:		PF24()\n\
+	<Key>Num_Lock:		PF(13)\n\
+	<Key>KP_Space:		PF(13)\n\
+	<Key>KP_Divide:		PF(14)\n\
+	<Key>KP_Multiply:	PF(15)\n\
+	<Key>KP_7:		PF(16)\n\
+	<Key>KP_8:		PF(17)\n\
+	<Key>KP_9:		PF(18)\n\
+	<Key>KP_4:		PF(19)\n\
+	<Key>KP_5:		PF(20)\n\
+	<Key>KP_6:		PF(21)\n\
+	<Key>KP_1:		PF(22)\n\
+	<Key>KP_2:		PF(23)\n\
+	<Key>KP_3:		PF(24)\n\
 	<Key>KP_Subtract:	SysReq()\n\
-	<Key>KP_0:		PA2()\n\
-	<Key>KP_Decimal:	PA1()\n\
+	<Key>KP_0:		PA(2)\n\
+	<Key>KP_Decimal:	PA(1)\n\
 	<Key>KP_Enter:		Clear()\n
 x3270.keymap.hp-k1: \
 	<Key>KP_Tab:		BackTab()\n\
@@ -518,20 +678,117 @@ x3270.keymap.hp-k1: \
 	<Key>KP_Separator:	Delete()\n\
 	Shift<Key>Delete:	Delete()\n\
 	<Key>Menu:		EraseEOF()\n\
-	<Key>KP_Multiply:	PF13()\n\
-	<Key>KP_Divide:		PF14()\n\
-	<Key>KP_Add:		PF15()\n\
-	<Key>KP_7:		PF16()\n\
-	<Key>KP_8:		PF17()\n\
-	<Key>KP_9:		PF18()\n\
-	<Key>KP_4:		PF19()\n\
-	<Key>KP_5:		PF20()\n\
-	<Key>KP_6:		PF21()\n\
-	<Key>KP_1:		PF22()\n\
-	<Key>KP_2:		PF23()\n\
-	<Key>KP_3:		PF24()\n\
-	<Key>KP_0:		PA2()\n\
-	<Key>KP_Decimal:	PA1()\n
+	<Key>KP_Multiply:	PF(13)\n\
+	<Key>KP_Divide:		PF(14)\n\
+	<Key>KP_Add:		PF(15)\n\
+	<Key>KP_7:		PF(16)\n\
+	<Key>KP_8:		PF(17)\n\
+	<Key>KP_9:		PF(18)\n\
+	<Key>KP_4:		PF(19)\n\
+	<Key>KP_5:		PF(20)\n\
+	<Key>KP_6:		PF(21)\n\
+	<Key>KP_1:		PF(22)\n\
+	<Key>KP_2:		PF(23)\n\
+	<Key>KP_3:		PF(24)\n\
+	<Key>KP_0:		PA(2)\n\
+	<Key>KP_Decimal:	PA(1)\n
+! Keymap for HP-PC101 workstation keyboard, Chris P-E
+x3270.keymap.hp-pc: \
+	<Key>KP_Subtract:	Compose()\n\
+	<Key>KP_Enter:		Enter()\n\
+	<Key>Return:		Newline()\n\
+	!<Key>F1:		PF(13)\n\
+	!<Key>F2:		PF(14)\n\
+	!<Key>F3:		PF(15)\n\
+	!<Key>F4:		PF(16)\n\
+	!<Key>F5:		PF(17)\n\
+	!<Key>F6:		PF(18)\n\
+	!<Key>F7:		PF(19)\n\
+	!<Key>F8:		PF(20)\n\
+	!<Key>F9:		PF(21)\n\
+	!<Key>F10:		PF(22)\n\
+	!<Key>F11:		PF(23)\n\
+	!<Key>F12:		PF(24)\n\
+	!Shift<Key>F1:		PF(1)\n\
+	!Shift<Key>F2:		PF(2)\n\
+	!Shift<Key>F3:		PF(3)\n\
+	!Shift<Key>F4:		PF(4)\n\
+	!Shift<Key>F5:		PF(5)\n\
+	!Shift<Key>F6:		PF(6)\n\
+	!Shift<Key>F7:		PF(7)\n\
+	!Shift<Key>F8:		PF(8)\n\
+	!Shift<Key>F9:		PF(9)\n\
+	!Shift<Key>F10:		PF(10)\n\
+	!Shift<Key>F11:		PF(11)\n\
+	!Shift<Key>F12:		PF(12)\n\
+	!<Key>hpSystem:		PF(13)\n\
+	!<Key>KP_Divide:	PF(14)\n\
+	!<Key>KP_Multiply:	PF(15)\n\
+	!<Key>KP_7:		PF(16)\n\
+	!<Key>KP_8:		PF(17)\n\
+	!<Key>KP_9:		PF(18)\n\
+	!<Key>KP_4:		PF(19)\n\
+	!<Key>KP_5:		PF(20)\n\
+	!<Key>KP_6:		PF(21)\n\
+	!<Key>KP_1:		PF(22)\n\
+	!<Key>KP_2:		PF(23)\n\
+	!<Key>KP_3:		PF(24)\n\
+	!Shift<Key>hpSystem:	PF(1)\n\
+	!Shift<Key>KP_Divide:	PF(2)\n\
+	!Shift<Key>KP_Multiply:	PF(3)\n\
+	!Shift<Key>KP_7:	PF(4)\n\
+	!Shift<Key>KP_8:	PF(5)\n\
+	!Shift<Key>KP_9:	PF(6)\n\
+	!Shift<Key>KP_4:	PF(7)\n\
+	!Shift<Key>KP_5:	PF(8)\n\
+	!Shift<Key>KP_6:	PF(9)\n\
+	!Shift<Key>KP_1:	PF(10)\n\
+	!Shift<Key>KP_2:	PF(11)\n\
+	!Shift<Key>KP_3:	PF(12)\n\
+	!<Key>Break:		Reset()\n\
+	!Shift<Key>Break:	Attn()\n\
+	!Meta<Key>Break:	SysReq()\n\
+        !<Key>Prior:		Dup()\n\
+	!<Key>Next:		FieldMark()\n\
+        !<Key>Select:		EraseEOF()\n\
+	!Meta<Key>hpInsertChar:	PA(1)\n\
+	!Meta<Key>Home:		PA(2)\n\
+	!Meta<Key>Prior:	PA(3)\n\
+	!<Key>hpInsertChar:	Insert()\n\
+	!<Key>hpDeleteChar:	Delete()\n\
+        !Shift<Key>Menu:	PrintWindow()\n\
+        !<Key>Menu:		PrintText()\n
+! Keymap for IBM X Terminal, Allan L. Bazinet
+x3270.keymap.ibm-xterm: \
+        <Key>Execute:           Enter()\n\
+        !Alt<Key>c:             Clear()\n\
+        !Alt<Key>Print:         SysReq()\n\
+        !Ctrl<Key>Home:         EraseInput()\n\
+        !Ctrl<Key>End:          EraseEOF()\n\
+        !Shift<Key>Tab:         BackTab()\n\
+        !Shift<Key>F1:          PF(13)\n\
+        !Shift<Key>F2:          PF(14)\n\
+        !Shift<Key>F3:          PF(15)\n\
+        !Shift<Key>F4:          PF(16)\n\
+        !Shift<Key>F5:          PF(17)\n\
+        !Shift<Key>F6:          PF(18)\n\
+        !Shift<Key>F7:          PF(19)\n\
+        !Shift<Key>F8:          PF(20)\n\
+        !Shift<Key>F9:          PF(21)\n\
+        !Shift<Key>F10:         PF(21)\n\
+        !Shift<Key>F11:         PF(23)\n\
+        !Shift<Key>F12:         PF(24)\n\
+        <Key>KP_Subtract:       PA(1)\n\
+        <Key>KP_Add:            PA(2)\n\
+        <Key>KP_Enter:          Enter()\n\
+        <Key>Prior:             PA(1)\n\
+        <Key>Next:              PA(2)\n\
+        <Key>Escape:            Reset()\n\
+        <Key>Pause:             Clear()\n\
+        <Key>Insert:            Insert()\n\
+        <Key>Control_L:         Reset()\n\
+        !Shift<Key>Right:       Right2()\n\
+        !Shift<Key>Left:        Left2()\n
 ! Keymap modifier for OpenWindows (makes button 2 the extend key; defines the
 ! Paste key; uses CLIPBOARD).
 x3270.keymap.ow:	#override \
@@ -544,24 +801,6 @@ x3270.keymap.ow:	#override \
 	<Btn3Up>:		insert-selection(CLIPBOARD,PRIMARY)\n\
 	<BtnUp>:		select-end(CLIPBOARD,PRIMARY)\n\
 	<Key>F18:		insert-selection(CLIPBOARD,PRIMARY)\n
-! Additional OpenWindows keymap modifier.  Defines F11 and F12 keys on the Sun
-! Type 4 keyboard.  For use only with X11R4-based libraries such as OpenWindows
-! 3.  (If you are an OpenWindows-only site, you might as well just glue these
-! modifiers onto the end of the sun-k4 keymap.)
-x3270.keymap.r4k4: \
-	Shift<Key>SunXK_F36:	PF23()\n\
-	Shift<Key>SunXK_F37:	PF24()\n\
-	<Key>SunXK_F36:		PF11()\n\
-	<Key>SunXK_F37:		PF12()\n
-! Truly obscure modifer, also for defining F11 and F12 on a Sun Type 4
-! keyboard.  For use with a client linked with X11R5 libraries, communicating
-! with a Sun XNeWS server.  (The MIT X11R5 server reports these keys as F11 and
-! F12, so there is no need for extra definitions.)
-x3270.keymap.r5k4: \
-	Shift<Key>SunF36:	PF23()\n\
-	Shift<Key>SunF37:	PF24()\n\
-	<Key>SunF36:		PF11()\n\
-	<Key>SunF37:		PF12()\n
 ! APL keymap modifier.
 x3270.keymap.apl:	#override \
 	!:Alt<Key>bracketleft:	Key(apl_leftarrow)\n\
@@ -635,33 +874,40 @@ x3270.keymap.apl:	#override \
 	:Alt<Key>X:		Key(apl_Xunderbar)\n\
 	:Alt<Key>Y:		Key(apl_Yunderbar)\n\
 	:Alt<Key>Z:		Key(apl_Zunderbar)\n
-! Keymap modifier for keyboards which lack a Meta key.
+! Keymap modifier for keyboards which lack a Meta key, such as the RS/6000.
 x3270.keymap.alt: \
-	!Alt<Key>Left:		Left2()\n\
-	!Alt<Key>Right:		Right2()\n\
-	!Alt<Key>F1:		PF13()\n\
-	!Alt<Key>F2:		PF14()\n\
-	!Alt<Key>F3:		PF15()\n\
-	!Alt<Key>F4:		PF16()\n\
-	!Alt<Key>F5:		PF17()\n\
-	!Alt<Key>F6:		PF18()\n\
-	!Alt<Key>F7:		PF19()\n\
-	!Alt<Key>F8:		PF20()\n\
-	!Alt<Key>F9:		PF21()\n\
-	!Alt<Key>F10:		PF22()\n\
-	!Alt<Key>F11:		PF23()\n\
-	!Alt<Key>F12:		PF24()\n\
-	Alt<Key>c:		Clear()\n\
-	Alt<Key>r:		Reset()\n\
-	Alt<Key>1:		PA1()\n\
-	Alt<Key>2:		PA2()\n\
-	Alt<Key>3:		PA3()\n\
+	Alt<Key>Left:		Left2()\n\
+	Alt<Key>Right:		Right2()\n\
+	Alt<Key>F1:		PF(13)\n\
+	Alt<Key>F2:		PF(14)\n\
+	Alt<Key>F3:		PF(15)\n\
+	Alt<Key>F4:		PF(16)\n\
+	Alt<Key>F5:		PF(17)\n\
+	Alt<Key>F6:		PF(18)\n\
+	Alt<Key>F7:		PF(19)\n\
+	Alt<Key>F8:		PF(20)\n\
+	Alt<Key>F9:		PF(21)\n\
+	Alt<Key>F10:		PF(22)\n\
+	Alt<Key>F11:		PF(23)\n\
+	Alt<Key>F12:		PF(24)\n\
+	Alt<Key>1:		PA(1)\n\
+	Alt<Key>2:		PA(2)\n\
+	Alt<Key>3:		PA(3)\n\
 	Alt<Key>a:		Attn()\n\
-	Alt<Key>i:		Insert()\n\
+	Alt<Key>b:		PrintWindow()\n\
+	Alt<Key>c:		Clear()\n\
 	Alt<Key>d:		Delete()\n\
+	Alt<Key>e:		EraseEOF()\n\
 	Alt<Key>h:		Home()\n\
+	Alt<Key>i:		Insert()\n\
 	Alt<Key>l:		Redraw()\n\
-	Alt<Key>q:		Quit()\n
+	Alt<Key>p:		PrintText()\n\
+	Alt<Key>q:		Quit()\n\
+	Alt<Key>r:		Reset()\n\
+	Alt<Key>s:		PlaybackStep()\n
+! Helpful modifier to disply the translation table.
+x3270.keymap.t:
+	Meta<Key>t:		XtDisplayTranslations()\n
 ! International keymap modifiers.
 x3270.keymap.finnish7:	\
 	:<Key>bracketleft:	Key("Adiaeresis")\n\
@@ -669,8 +915,19 @@ x3270.keymap.finnish7:	\
 	:<Key>backslash:	Key("Odiaeresis")\n
 	:<Key>braceleft:	Key("adiaeresis")\n\
 	:<Key>braceright:	Key("aring")\n\
-	:<Key>bar:		Key("odiaeresis")\n\
+	:<Key>bar:		Key("odiaeresis")\n
 x3270.keymap.norwegian7:	\
+	:<Key>bracketleft:	Key("ae")\n\
+	:<Key>backslash:	Key("oslash")\n\
+	:<Key>bracketright:	Key("aring")\n\
+	:<Key>braceleft:	Key("AE")\n\
+	:<Key>bar:		Key("Ooblique")\n\
+	:<Key>braceright:	Key("Aring")\n\
+	:!Meta<Key>u:		Key("udiaeresis")\n\
+	:<Key>dollar:		Key("currency")\n\
+	:<Key>at:		Key("backslash")\n
+! "Old" Norwegian keymap, compatible with older versions of x3270.
+x3270.keymap.oldnorwegian7:	\
 	:<Key>bracketleft:	Key("AE")\n\
 	:<Key>bracketright:	Key("Aring")\n\
 	:<Key>backslash:	Key("Ooblique")\n\
@@ -689,7 +946,7 @@ x3270.keymap.norwegian7:	\
 x3270.charset.us:		\n
 ! APL character set (same as U.S., no remapping required)
 x3270.charset.apl:		\n
-! EBCDIC map for hosts hosts that put [ and ] in non-standard positions.
+! EBCDIC map for hosts that put [ and ] in non-standard positions.
 x3270.charset.bracket: \
 	0xad: [			\n	0xba: Yacute		\n\
 	0xbd: ]			\n	0xbb: diaeresis		\n

@@ -1,10 +1,16 @@
 /*
- * Copyright 1989 by Georgia Tech Research Corporation, Atlanta, GA.
- * Copyright 1988, 1989 by Robert Viduya.
- * Copyright 1990 Jeff Sparkes.
- * Copyright 1993 Paul Mattes.
+ * Copyright 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.
+ *  All Rights Reserved.  GTRC hereby grants public use of this software.
+ *  Derivative works based on this software must incorporate this copyright
+ *  notice.
  *
- *                         All Rights Reserved
+ * X11 Port Copyright 1990 by Jeff Sparkes.
+ * Additional X11 Modifications Copyright 1993, 1994 by Paul Mattes.
+ *  Permission to use, copy, modify, and distribute this software and its
+ *  documentation for any purpose and without fee is hereby granted,
+ *  provided that the above copyright notice appear in all copies and that
+ *  both that copyright notice and this permission notice appear in
+ *  supporting documentation.
  */
 
 /*
@@ -20,8 +26,11 @@
 #include <stdio.h>
 #include <X11/Intrinsic.h>
 #include "globals.h"
-#include "3270.h"
-#include "3270_enc.h"
+#include "3270ds.h"
+#include "screen.h"
+#include "cg.h"
+
+#define IsBlank(c)	(IS_FA(c) || (c == CG_null) || (c == CG_space))
 
 /* Externals: x3270.c */
 extern char	*pending_string;
@@ -61,7 +70,10 @@ static void	set_formatted();
 static void	do_read_buffer();
 static void	do_erase_all_unprotected();
 static void	do_write();
-static void	trace_ds();
+static void	ctlr_blanks();
+static unsigned char	fake_fa;
+static Boolean	ps_is_loginstring = False;
+static Boolean	trace_primed = False;
 
 /* code_table is used to translate buffer addresses and attributes to the 3270
  * datastream representation
@@ -150,50 +162,6 @@ char *mn;
 }
 
 
-/* display a (row,col) */
-char *
-rcba(baddr)
-int baddr;
-{
-	static char buf[16];
-
-	(void) sprintf(buf, "(%d,%d)", baddr/COLS, baddr%COLS);
-	return buf;
-}
-
-static char *
-see_ebc(ch)
-unsigned char ch;
-{
-	static char buf[8];
-
-	switch (ch) {
-	    case FCORDER_NULL:
-		return "NULL";
-	    case FCORDER_SUB:
-		return "SUB";
-	    case FCORDER_DUP:
-		return "DUP";
-	    case FCORDER_FM:
-		return "FM";
-	    case FCORDER_FF:
-		return "FF";
-	    case FCORDER_CR:
-		return "CR";
-	    case FCORDER_NL:
-		return "NL";
-	    case FCORDER_EM:
-		return "EM";
-	    case FCORDER_EO:
-		return "EO";
-	}
-	if (ebc2asc[ch])
-		(void) sprintf(buf, "%c", ebc2asc[ch]);
-	else
-		(void) sprintf(buf, "\\%o", ch);
-	return buf;
-}
-
 /*
  * Set the formatted screen flag.  A formatted screen is a screen that
  * has at least one field somewhere on it.
@@ -214,6 +182,18 @@ set_formatted()
 	} while (baddr != 0);
 }
 
+/*
+ * Called when a host connects, disconnects, or changes ANSI/3270 modes.
+ */
+void
+ctlr_connect()
+{
+	if (ever_3270)
+		fake_fa = 0xE0;
+	else
+		fake_fa = 0xC4;
+}
+
 
 /*
  * Find the field attribute for the given buffer address.  Return its address
@@ -223,7 +203,6 @@ unsigned char *
 get_field_attribute(baddr)
 register int	baddr;
 {
-	static unsigned char	fake_fa;
 	int	sbaddr;
 
 	sbaddr = baddr;
@@ -232,10 +211,6 @@ register int	baddr;
 			return &(screen_buf[baddr]);
 		DEC_BA(baddr);
 	} while (baddr != sbaddr);
-	if (ansi_host)
-		fake_fa = 0xC4;
-	else
-		fake_fa = 0xE0;
 	return &fake_fa;
 }
 
@@ -282,24 +257,27 @@ ctlr_erase(alt)
 Boolean alt;
 {
 	ctlr_clear();
+
 	if (alt == screen_alt)
 		return;
 
-	/*
-	 * Before changing the screen dimensions, synchronize the screen image.
-	 */
 	screen_disp();
 
 	if (alt) {
 		/* Going from 24x80 to maximum. */
+		screen_disp();
 		ROWS = maxROWS;
 		COLS = maxCOLS;
 	} else {
 		/* Going from maximum to 24x80. */
-		if (maxROWS > 24)
+		if (maxROWS > 24 || maxCOLS > 80) {
+			if (*debugging_font) {
+				ctlr_blanks();
+				screen_disp();
+			}
 			ROWS = 24;
-		if (maxCOLS > 80)
 			COLS = 80;
+		}
 	}
 
 	screen_alt = alt;
@@ -314,6 +292,9 @@ process_ds(buf, buflen)
 unsigned char	*buf;
 int	buflen;
 {
+	if (!buflen)
+		return;
+
 	trace_ds("< ");
 
 	switch (buf[0]) {	/* 3270 command */
@@ -366,84 +347,6 @@ int	buflen;
 	return 0;
 }
 
-
-static char *
-see_aid(code)
-unsigned char code;
-{
-	switch (code) {
-	case AID_NO: 
-		return "NoAID";
-	case AID_ENTER: 
-		return "Enter";
-	case AID_PF1: 
-		return "PF1";
-	case AID_PF2: 
-		return "PF2";
-	case AID_PF3: 
-		return "PF3";
-	case AID_PF4: 
-		return "PF4";
-	case AID_PF5: 
-		return "PF5";
-	case AID_PF6: 
-		return "PF6";
-	case AID_PF7: 
-		return "PF7";
-	case AID_PF8: 
-		return "PF8";
-	case AID_PF9: 
-		return "PF9";
-	case AID_PF10: 
-		return "PF10";
-	case AID_PF11: 
-		return "PF11";
-	case AID_PF12: 
-		return "PF12";
-	case AID_PF13: 
-		return "PF13";
-	case AID_PF14: 
-		return "PF14";
-	case AID_PF15: 
-		return "PF15";
-	case AID_PF16: 
-		return "PF16";
-	case AID_PF17: 
-		return "PF17";
-	case AID_PF18: 
-		return "PF18";
-	case AID_PF19: 
-		return "PF19";
-	case AID_PF20: 
-		return "PF20";
-	case AID_PF21: 
-		return "PF21";
-	case AID_PF22: 
-		return "PF22";
-	case AID_PF23: 
-		return "PF23";
-	case AID_PF24: 
-		return "PF24";
-	case AID_OICR: 
-		return "OICR";
-	case AID_MSR_MHS: 
-		return "MSR_MHS";
-	case AID_SELECT: 
-		return "Select";
-	case AID_PA1: 
-		return "PA1";
-	case AID_PA2: 
-		return "PA2";
-	case AID_PA3: 
-		return "PA3";
-	case AID_CLEAR: 
-		return "Clear";
-	case AID_SYSREQ: 
-		return "SysReq";
-	default: 
-		return "???";
-	}
-}
 
 /*
  * Process a 3270 Read-Modified command and transmit the data back to the
@@ -534,60 +437,6 @@ ctlr_read_modified()
 	}
 	trace_ds("\n");
 	net_output(obuf, obptr - obuf);
-}
-
-
-static char *
-see_attr(fa)
-unsigned char fa;
-{
-	static char buf[256];
-	char *paren = "(";
-
-	buf[0] = '\0';
-
-	if (fa & 0x04) {
-		(void) strcat(buf, paren);
-		(void) strcat(buf, "protected");
-		paren = ",";
-		if (fa & 0x08) {
-			(void) strcat(buf, paren);
-			(void) strcat(buf, "skip");
-			paren = ",";
-		}
-	} else if (fa & 0x08) {
-		(void) strcat(buf, paren);
-		(void) strcat(buf, "numeric");
-		paren = ",";
-	}
-	switch (fa & 0x03) {
-	case 0:
-		break;
-	case 1:
-		(void) strcat(buf, paren);
-		(void) strcat(buf, "detectable");
-		paren = ",";
-		break;
-	case 2:
-		(void) strcat(buf, paren);
-		(void) strcat(buf, "intensified");
-		paren = ",";
-		break;
-	case 3:
-		(void) strcat(buf, paren);
-		(void) strcat(buf, "nondisplay");
-		paren = ",";
-		break;
-	}
-	if (fa & 0x20) {
-		(void) strcat(buf, paren);
-		(void) strcat(buf, "modified");
-		paren = ",";
-	}
-	if (strcmp(paren, "("))
-		(void) strcat(buf, ")");
-
-	return buf;
 }
 
 /*
@@ -685,7 +534,7 @@ do_erase_all_unprotected()
 						f = True;
 					}
 					if (!IS_FA(screen_buf[baddr])) {
-						ctlr_add(baddr, CG_NULLBLANK);
+						ctlr_add(baddr, CG_null);
 					}
 				} while (!IS_FA(screen_buf[baddr]));
 			}
@@ -723,12 +572,39 @@ int	buflen;
 	Boolean		last_zpt;
 	Boolean		wcc_keyboard_restore, wcc_sound_alarm;
 	unsigned char	temp_aid2;
+	int		i;
+	unsigned char	na;
+	int		any_fa;
 	char		*paren = "(";
+	enum { NONE, ORDER, SBA, TEXT, NULLCH } previous = NONE;
 
-#define START_TEXT	{ if (last_cmd) trace_ds(" '"); }
-#define END_TEXT(cmd)	{ if (!last_cmd) trace_ds("'"); \
-			  if (cmd) { trace_ds(" "); trace_ds(cmd); } }
+#define END_TEXT(cmd)	{ if (previous == TEXT) trace_ds("'"); \
+			  if (cmd != (char *) NULL) { \
+			    trace_ds(" "); \
+			    trace_ds(cmd); } }
 
+#define START_FIELD(attr) { \
+			new_attr = FA_BASE; \
+			if ((attr) & 0x20) \
+				new_attr |= FA_PROTECT; \
+			if ((attr) & 0x10) \
+				new_attr |= FA_NUMERIC; \
+			if ((attr) & 0x01) \
+				new_attr |= FA_MODIFY; \
+			new_attr |= ((attr) >> 2) & FA_INTENSITY; \
+			current_fa = &(screen_buf[buffer_addr]); \
+			ctlr_add(buffer_addr, new_attr); \
+			trace_ds(see_attr(new_attr)); \
+			formatted = True; \
+		}
+
+	if (buflen < 2) {
+		trace_ds(" [short buffer, ignored]\n");
+		return;
+	}
+
+	if (toggled(SCREENTRACE))
+		trace_primed = True;
 	buffer_addr = cursor_addr;
 	wcc_sound_alarm = WCC_SOUND_ALARM(buf[1]);
 	if (wcc_sound_alarm) {
@@ -768,20 +644,11 @@ int	buflen;
 		switch (*cp) {
 		case ORDER_SF:	/* start field */
 			END_TEXT("SF");
-			trace_ds(rcba(buffer_addr));
+			if (previous != SBA)
+				trace_ds(rcba(buffer_addr));
+			previous = ORDER;
 			cp++;		/* skip field attribute */
-			new_attr = FA_BASE;
-			if (*cp & 0x20)
-				new_attr |= FA_PROTECT;
-			if (*cp & 0x10)
-				new_attr |= FA_NUMERIC;
-			if (*cp & 0x01)
-				new_attr |= FA_MODIFY;
-			new_attr |= (*cp >> 2) & FA_INTENSITY;
-			current_fa = &(screen_buf[buffer_addr]);
-			ctlr_add(buffer_addr, new_attr);
-			trace_ds(see_attr(new_attr));
-			formatted = True;
+			START_FIELD(*cp);
 			INC_BA(buffer_addr);
 			last_cmd = True;
 			last_zpt = False;
@@ -793,6 +660,7 @@ int	buflen;
 			else	/* 12-bit coded */
 				buffer_addr = ((*(cp-1) & 0x3F) << 6) | (*cp & 0x3F);
 			END_TEXT("SBA");
+			previous = SBA;
 			trace_ds(rcba(buffer_addr));
 			if (buffer_addr >= COLS * ROWS) {
 				trace_ds(" [invalid address, write command terminated]\n");
@@ -804,12 +672,14 @@ int	buflen;
 			break;
 		case ORDER_IC:	/* insert cursor */
 			END_TEXT("IC");
+			previous = ORDER;
 			cursor_move(buffer_addr);
 			last_cmd = True;
 			last_zpt = False;
 			break;
 		case ORDER_PT:	/* program tab */
 			END_TEXT("PT");
+			previous = ORDER;
 			baddr = next_unprotected(buffer_addr);
 			if (baddr < buffer_addr)
 				baddr = 0;
@@ -823,7 +693,7 @@ int	buflen;
 				trace_ds("(nulling)");
 				while ((buffer_addr != baddr) &&
 				       (!IS_FA(screen_buf[buffer_addr]))) {
-					ctlr_add(buffer_addr, CG_NULLBLANK);
+					ctlr_add(buffer_addr, CG_null);
 					INC_BA(buffer_addr);
 				}
 				if (baddr == 0)
@@ -834,19 +704,24 @@ int	buflen;
 			last_cmd = True;
 			break;
 		case ORDER_RA:	/* repeat to address */
+			END_TEXT("RA");
 			cp += 2;	/* skip buffer address */
 			if ((*(cp-1) & 0xC0) == 0x00) /* 14-bit binary */
 				baddr = ((*(cp-1) & 0x3F) << 8) | *cp;
 			else	/* 12-bit coded */
 				baddr = ((*(cp-1) & 0x3F) << 6) | (*cp & 0x3F);
-			cp++;		/* skip char to repeat */
-			if (*cp == ORDER_GE)
-				cp++;
-			END_TEXT("RA");
 			trace_ds(rcba(baddr));
-			trace_ds("'");
+			cp++;		/* skip char to repeat */
+			if (*cp == ORDER_GE) {	/* ignore it */
+				trace_ds("GE");
+				cp++;
+			}
+			previous = ORDER;
+			if (*cp)
+				trace_ds("'");
 			trace_ds(see_ebc(*cp));
-			trace_ds("'");
+			if (*cp)
+				trace_ds("'");
 			if (baddr >= COLS * ROWS) {
 				trace_ds(" [invalid address, write command terminated]\n");
 				return;
@@ -866,7 +741,9 @@ int	buflen;
 			else	/* 12-bit coded */
 				baddr = ((*(cp-1) & 0x3F) << 6) | (*cp & 0x3F);
 			END_TEXT("EUA");
-			trace_ds(rcba(baddr));
+			if (previous != SBA)
+				trace_ds(rcba(baddr));
+			previous = ORDER;
 			if (baddr >= COLS * ROWS) {
 				trace_ds(" [invalid address, write command terminated]\n");
 				return;
@@ -875,7 +752,7 @@ int	buflen;
 				if (IS_FA(screen_buf[buffer_addr]))
 					current_fa = &(screen_buf[buffer_addr]);
 				else if (!FA_IS_PROTECTED(*current_fa)) {
-					ctlr_add(buffer_addr, CG_NULLBLANK);
+					ctlr_add(buffer_addr, CG_null);
 				}
 				INC_BA(buffer_addr);
 			} while (buffer_addr != baddr);
@@ -883,32 +760,78 @@ int	buflen;
 			last_cmd = True;
 			last_zpt = False;
 			break;
-		case ORDER_GE:	/* graphic escape */
-			END_TEXT("GE[unsupported]");
-			cp++;
+		case ORDER_GE:	/* graphic escape, ignored */
+			END_TEXT("GE");
+			previous = ORDER;
 			last_cmd = True;
 			last_zpt = False;
 			break;
 		case ORDER_MF:	/* modify field */
-			END_TEXT("MF[unsupported]");
-			cp += *(cp + 1) * 2;
+			END_TEXT("MF");
+			if (previous != SBA)
+				trace_ds(rcba(buffer_addr));
+			previous = ORDER;
+			cp++;
+			na = *cp;
+			if (IS_FA(screen_buf[buffer_addr])) {
+				if (na == 0) {
+					INC_BA(buffer_addr);
+				} else {
+					for (i = 0; i < (int)na; i++) {
+						cp++;
+						if (*cp == XA_3270) {
+							trace_ds(" 3270");
+							cp++;
+							START_FIELD(*cp);
+						} else {
+							trace_ds(see_efa(*cp, *(cp + 1)));
+							trace_ds("[unsupported]");
+							cp++;
+						}
+					}
+				}
+			} else
+				cp += na * 2;
 			last_cmd = True;
 			last_zpt = False;
 			break;
 		case ORDER_SFE:	/* start field extended */
-			END_TEXT("SFE[unsupported]");
-			cp += *(cp + 1) * 2;
+			END_TEXT("SFE");
+			if (previous != SBA)
+				trace_ds(rcba(buffer_addr));
+			previous = ORDER;
+			cp++;	/* skip order */
+			na = *cp;
+			any_fa = 0;
+			for (i = 0; i < (int)na; i++) {
+				cp++;
+				if (*cp == XA_3270) {
+					trace_ds(" 3270");
+					cp++;
+					START_FIELD(*cp);
+					any_fa++;
+				} else {
+					trace_ds(see_efa(*cp, *(cp + 1)));
+					trace_ds("[unsupported]");
+					cp++;
+				}
+			}
+			if (!any_fa)
+				START_FIELD(0);
+			INC_BA(buffer_addr);
 			last_cmd = True;
 			last_zpt = False;
 			break;
 		case ORDER_SA:	/* set attribute */
-			END_TEXT("SA[unsupported]");
+			END_TEXT("SA");
+			previous = ORDER;
+			trace_ds(see_efa(*(cp + 1), *(cp + 2)));
+			trace_ds("[unsupported]");
 			cp += 2;
 			last_cmd = True;
 			last_zpt = False;
 			break;
-		case FCORDER_NULL:	/* format control orders */
-		case FCORDER_SUB:
+		case FCORDER_SUB:	/* format control orders */
 		case FCORDER_DUP:
 		case FCORDER_FM:
 		case FCORDER_FF:
@@ -917,9 +840,18 @@ int	buflen;
 		case FCORDER_EM:
 		case FCORDER_EO:
 			END_TEXT(see_ebc(*cp));
+			previous = ORDER;
 			ctlr_add(buffer_addr, ebc2cg[*cp]);
 			INC_BA(buffer_addr);
 			last_cmd = True;
+			last_zpt = False;
+			break;
+		case FCORDER_NULL:
+			END_TEXT("NULL");
+			previous = NULLCH;
+			ctlr_add(buffer_addr, ebc2cg[*cp]);
+			INC_BA(buffer_addr);
+			last_cmd = False;
 			last_zpt = False;
 			break;
 		default:	/* enter character */
@@ -930,7 +862,9 @@ int	buflen;
 				last_zpt = False;
 				break;
 			}
-			START_TEXT;
+			if (previous != TEXT)
+				trace_ds(" '");
+			previous = TEXT;
 			trace_ds(see_ebc(*cp));
 			ctlr_add(buffer_addr, ebc2cg[*cp]);
 			INC_BA(buffer_addr);
@@ -959,6 +893,8 @@ int	buflen;
 	if (wcc_sound_alarm)
 		ring_bell();
 
+	trace_primed = False;
+
 	ps_process();
 }
 
@@ -969,8 +905,9 @@ int	buflen;
  * Set the pending string.  's' must be NULL or point to XtMalloc'd memory.
  */
 void
-ps_set(s)
+ps_set(s, is_loginstring)
 char *s;
+Boolean is_loginstring;
 {
 	static char *ps_source = (char *) NULL;
 
@@ -978,6 +915,7 @@ char *s;
 	ps_source = (char *) NULL;
 	ps_source = s;
 	pending_string = s;
+	ps_is_loginstring = is_loginstring;
 }
 
 /*
@@ -989,9 +927,13 @@ ps_process()
 	int	len;
 	int	len_left;
 
-	if (!pending_string)
+	if (!pending_string) {
+		script_continue();
 		return;
-	if (IN_3270) {	/* Add keystrokes only if unlocked on a data field */
+	}
+
+	/* Add keystrokes only if unlocked on a data field */
+	if (IN_3270 && ps_is_loginstring) {
 		unsigned char	fa;
 
 		if (!formatted || oia_twait || oia_locked || !cursor_addr)
@@ -1003,8 +945,28 @@ ps_process()
 	len = strlen(pending_string);
 	if (len_left = emulate_input(pending_string, len, False))
 		pending_string += len - len_left;
-	else
-		ps_set((char *) 0);
+	else {
+		ps_set((char *) 0, False);
+		script_continue();
+	}
+}
+
+/*
+ * Tell me if there is any data on the screen.
+ */
+Boolean
+ctlr_any_data()
+{
+	register unsigned char *c = screen_buf;
+	register int i;
+	register unsigned char oc;
+
+	for (i = 0; i < ROWS*COLS; i++) {
+		oc = *c++;
+		if (!IsBlank(oc))
+			return True;
+	}
+	return False;
 }
 
 /*
@@ -1014,8 +976,27 @@ ps_process()
 void
 ctlr_clear()
 {
+	/* Snap any data that is about to be lost into the trace file. */
+	if (toggled(SCREENTRACE) && ctlr_any_data())
+		trace_screen();
+
+	/* Clear the screen. */
 	(void) memset((char *)screen_buf, 0, ROWS*COLS);
 	(void) memset((char *)ea_buf, 0, ROWS*COLS);
+	screen_changed = True;
+	cursor_move(0);
+	buffer_addr = 0;
+	(void) unselect(0, ROWS*COLS);
+	formatted = False;
+}
+
+/*
+ * Fill the screen buffer with blanks.
+ */
+static void
+ctlr_blanks()
+{
+	(void) memset((char *)screen_buf, CG_space, ROWS*COLS);
 	screen_changed = True;
 	cursor_move(0);
 	buffer_addr = 0;
@@ -1032,7 +1013,13 @@ ctlr_add(baddr, c)
 int	baddr;
 unsigned char	c;
 {
-	if (screen_buf[baddr] != c) {
+	unsigned char oc;
+
+	if ((oc = screen_buf[baddr]) != c) {
+		if (trace_primed && !IsBlank(oc)) {
+			trace_screen();
+			trace_primed = False;
+		}
 		if (SELECTED(baddr))
 			(void) unselect(baddr, 1);
 		screen_changed = True;
@@ -1166,7 +1153,7 @@ unsigned char *fa;
  * to an accuracy of 0.1 seconds.  If we don't repaint the screen before we see
  * the unlock, the time should be fairly accurate.
  */
-static struct timeval t0;
+static struct timeval t_start;
 static Boolean ticking = False;
 static XtIntervalId tick_id;
 static struct timeval t_want;
@@ -1195,7 +1182,7 @@ XtIntervalId *id;
 		msec = delta_msec(&t_want, &t1);
 	} while (msec <= 0);
 	tick_id = XtAppAddTimeOut(appcontext, msec, keep_ticking, 0);
-	status_timing(&t0, &t1);
+	status_timing(&t_start, &t1);
 }
 
 void
@@ -1208,9 +1195,9 @@ Boolean anyway;
 	if (ticking)
 		XtRemoveTimeOut(tick_id);
 	ticking = True;
-	(void) gettimeofday(&t0, (struct timezone *) 0);
+	(void) gettimeofday(&t_start, (struct timezone *) 0);
 	tick_id = XtAppAddTimeOut(appcontext, 1000, keep_ticking, 0);
-	t_want = t0;
+	t_want = t_start;
 }
 
 void
@@ -1223,11 +1210,14 @@ ticking_stop()
 	XtRemoveTimeOut(tick_id);
 	(void) gettimeofday(&t1, (struct timezone *) 0);
 	ticking = False;
-	status_timing(&t0, &t1);
+	status_timing(&t_start, &t1);
 }
 
+/*ARGSUSED*/
 void
-toggle_timing()
+toggle_timing(t, tt)
+struct toggle *t;
+enum toggle_type tt;
 {
 	if (!toggled(TIMING))
 		status_untiming();
@@ -1235,55 +1225,12 @@ toggle_timing()
 
 
 /*
- * Toggle TELNET tracing
+ * No-op toggle.
  */
+/*ARGSUSED*/
 void
-toggle_tracetn()
+toggle_nop(t, tt)
+struct toggle *t;
+enum toggle_type tt;
 {
-}
-
-/*
- * Placeholder for no-op toggle.
- */
-void
-toggle_nop()
-{
-}
-
-
-/*
- * 3270 Data Stream Tracing
- */
-static int dscnt = 0;
-
-static void
-trace_ds(s)
-char *s;
-{
-	int len = strlen(s);
-	Boolean nl = False;
-
-	if (!toggled(TRACE3270))
-		return;
-
-	if (s && s[len-1] == '\n') {
-		len--;
-		nl = True;
-	}
-	while (dscnt + len >= 72) {
-		int plen = 72-dscnt;
-
-		(void) printf("%.*s ...\n... ", plen, s);
-		dscnt = 4;
-		s += plen;
-		len -= plen;
-	}
-	if (len) {
-		(void) printf("%.*s", len, s);
-		dscnt += len;
-	}
-	if (nl) {
-		(void) printf("\n");
-		dscnt = 0;
-	}
 }

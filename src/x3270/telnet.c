@@ -1,10 +1,16 @@
 /*
- * Copyright 1989 by Georgia Tech Research Corporation, Atlanta, GA.
- * Copyright 1988, 1989 by Robert Viduya.
- * Copyright 1990 Jeff Sparkes.
- * Copyright 1993 Paul Mattes.
+ * Copyright 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.
+ *  All Rights Reserved.  GTRC hereby grants public use of this software.
+ *  Derivative works based on this software must incorporate this copyright
+ *  notice.
  *
- *                         All Rights Reserved
+ * X11 Port Copyright 1990 by Jeff Sparkes.
+ * Additional X11 Modifications Copyright 1993, 1994 by Paul Mattes.
+ *  Permission to use, copy, modify, and distribute this software and its
+ *  documentation for any purpose and without fee is hereby granted,
+ *  provided that the above copyright notice appear in all copies and that
+ *  both that copyright notice and this permission notice appear in
+ *  supporting documentation.
  */
 
 /*
@@ -20,11 +26,11 @@
 #include <netinet/in.h>
 #define TELCMDS 1
 #define TELOPTS 1
-#ifndef hpux
+#if !defined(hpux) /*[*/
 #include <arpa/telnet.h>
-#else
+#else /*][*/
 #include "telnet.h"
-#endif
+#endif /*]*/
 #include <netdb.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -34,7 +40,8 @@
 #include <X11/Intrinsic.h>
 #include "globals.h"
 
-#define BUFSZ	4096
+#define BUFSZ		4096
+#define TRACELINE	72
 
 /* Globals */
 int		n_read = 0;			/* number of characters read */
@@ -50,15 +57,22 @@ char		*ttype_model = &ttype_val[9];
 
 /* Externals */
 extern unsigned long	inet_addr();
+extern FILE		*tracef;
 
 /* Statics */
 static int	sock = -1;			/* active socket */
+static FILE	*playbackf = (FILE *)0;		/* playback file */
+static enum {
+	NONE, WRONG, BASE,
+	LESS, SPACE, ZERO, X, N, SPACE2, D1, D2
+} pstate = NONE;
 static char	*hostname = (char *) NULL;
 static unsigned char	myopts[256], hisopts[256];	/* telnet option flags */
 static unsigned char	ibuf[4*BUFSZ], *ibptr;		/* 3270 input buffer */
 static unsigned char	netrbuf[BUFSZ];			/* network input buffer */
 static unsigned char	sbbuf[1024], *sbptr;		/* telnet sub-option buffer */
 static unsigned char	telnet_state;
+static char	trace_msg[256];
 static int	ansi_data = 0;
 static int	syncing;
 static int	lnext = 0;
@@ -94,6 +108,8 @@ static void	trace_netdata();
 static char	parse_ctlchar();
 static void	net_interrupt();
 static int	non_blocking();
+static void	net_connected();
+static void	trace_str();
 
 /* telnet states */
 #define TNS_DATA	0	/* receiving data */
@@ -119,9 +135,18 @@ static unsigned char	ttype_opt[]	= {
 static unsigned char	ttype_end[]	= {
 	IAC, SE };
 
-#define trace	if (toggled(TRACETN)) (void) printf
+#if defined(TELCMD) && defined(TELCMD_OK)
+#define cmd(c)	(TELCMD_OK(c) ? TELCMD(c) : nnn((int)c))
+#else
 #define cmd(c)	(((c) >= SE && (c) <= IAC) ? telcmds[(c) - SE] : nnn((int)c))
+#endif
+
+#if defined(TELOPT) && defined(TELOPT_OK)
+#define opt(c)	(TELOPT_OK(c) ? TELOPT(c) : nnn((int)c))
+#else
 #define opt(c)	(((c) <= TELOPT_EOR) ? telopts[c] : nnn((int)c))
+#endif
+
 char *telquals[2] = { "IS", "SEND" };
 
 
@@ -139,10 +164,12 @@ Boolean	*pending;
 {
 	struct servent	*sp;
 	struct hostent	*hp;
-	int			port;
+	unsigned short		port;
 	struct sockaddr_in	sin;
-	int			i;
 	int			on = 1;
+#if defined(OMTU) /*[*/
+	int			mtu = OMTU;
+#endif /*]*/
 
 #	define close_fail	{ (void) close(sock); sock = -1; return -1; }
 
@@ -165,20 +192,18 @@ Boolean	*pending;
 		XtFree(hostname);
 	hostname = XtNewString(host);
 
-	/* initialize the telnet variables */
-	(void) memset((char *) myopts, 0, sizeof(myopts));
-	(void) memset((char *) hisopts, 0, sizeof(hisopts));
-	telnet_state = TNS_DATA;
-	ibptr = &ibuf[0];
-	sbptr = &sbbuf[0];
-
 	/* get the tcp/ip service (telnet) */
-	if (sp = getservbyname(portname, "tcp"))
+	port = (unsigned short) atoi(portname);
+	if (port)
+		port = htons(port);
+	else {
+		if (!(sp = getservbyname(portname, "tcp"))) {
+			popup_an_error("Unknown service");
+			return -1;
+		}
 		port = sp->s_port;
-	else if (!(port = htons(atoi(portname)))) {
-		popup_an_error("unknown service");
-		return -1;
 	}
+
 
 	/* fill in the socket address of the given host */
 	(void) memset((char *) &sin, 0, sizeof(sin));
@@ -186,7 +211,7 @@ Boolean	*pending;
 		sin.sin_family = AF_INET;
 		sin.sin_addr.s_addr = inet_addr(host);
 		if (sin.sin_addr.s_addr == -1) {
-			char *msg = xs_buffer("unknown host:\n%s", hostname);
+			char *msg = xs_buffer("Unknown host:\n%s", hostname);
 
 			popup_an_error(msg);
 			XtFree(msg);
@@ -216,6 +241,13 @@ Boolean	*pending;
 		popup_an_errno("setsockopt(SO_KEEPALIVE)", errno);
 		close_fail;
 	}
+#if defined(OMTU) /*[*/
+	if (setsockopt(sock, SOL_SOCKET, SO_SNDBUF, (char *)&mtu, sizeof(mtu)))
+	{
+		popup_an_errno("setsockopt(SO_SNDBUF)", errno);
+		close_fail;
+	}
+#endif /*]*/
 
 	/* set the socket to be non-delaying */
 	if (non_blocking(True) < 0)
@@ -224,14 +256,14 @@ Boolean	*pending;
 	/* connect */
 	if (connect(sock, (struct sockaddr *) &sin, sizeof(sin)) == -1) {
 		if (errno == EWOULDBLOCK
-#ifdef EINPROGRESS
+#if defined(EINPROGRESS) /*[*/
 		 || errno == EINPROGRESS
-#endif
+#endif /*]*/
 		                        ) {
-			trace("connect pending\n");
+			trace_str("Connection pending.\n");
 			*pending = True;
 		} else {
-			char *msg = xs_buffer("connect %s", hostname);
+			char *msg = xs_buffer("Connect %s", hostname);
 
 			popup_an_errno(msg, errno);
 			XtFree(msg);
@@ -240,8 +272,26 @@ Boolean	*pending;
 	} else {
 		if (non_blocking(False) < 0)
 			close_fail;
-		trace("connected\n");
+		net_connected();
 	}
+
+	/* all done */
+	return sock;
+}
+#undef close_fail
+
+static void
+net_connected()
+{
+	(void) sprintf(trace_msg, "Connected to %s.\n", hostname);
+	trace_str(trace_msg);
+
+	/* set up telnet options */
+	(void) memset((char *) myopts, 0, sizeof(myopts));
+	(void) memset((char *) hisopts, 0, sizeof(hisopts));
+	telnet_state = TNS_DATA;
+	ibptr = &ibuf[0];
+	sbptr = &sbbuf[0];
 
 	/* clear statistics and flags */
 	(void) time(&ns_time);
@@ -250,12 +300,9 @@ Boolean	*pending;
 	ns_bsent = 0;
 	ns_rsent = 0;
 	syncing = 0;
-	check_linemode(True);
 
-	/* all done */
-	return sock;
+	check_linemode(True);
 }
-#undef close_fail
 
 /*
  * net_disconnect
@@ -264,10 +311,19 @@ Boolean	*pending;
 void
 net_disconnect()
 {
-	(void) shutdown(sock, 2);
-	(void) close(sock);
+	if (pstate != NONE) {
+		(void) fclose(playbackf);
+		XtFree(hostname);
+		hostname = NULL;
+		playbackf = (FILE *)0;
+		pstate = NONE;
+	} else {
+		if (CONNECTED)
+			(void) shutdown(sock, 2);
+		(void) close(sock);
+	}
 	sock = -1;
-	trace("SENT disconnect\n");
+	trace_str("SENT disconnect\n");
 	return;
 }
 
@@ -296,22 +352,23 @@ net_input()
 				return;
 			}
 			x_connected();
-			trace("connected\n");
+			net_connected();
 			return;
 		}
-		trace("RCVD socket error %d\n", errno);
+		(void) sprintf(trace_msg, "RCVD socket error %d\n", errno);
+		trace_str(trace_msg);
 		if (HALF_CONNECTED) {
-			char *msg = xs_buffer("connect %s", hostname);
+			char *msg = xs_buffer("Connect %s", hostname);
 
 			popup_an_errno(msg, errno);
 			XtFree(msg);
 		} else
-			popup_an_errno("socket read", errno);
+			popup_an_errno("Socket read", errno);
 		x_disconnect();
 		return;
 	} else if (nr == 0) {
 		/* Host disconnected. */
-		trace("RCVD disconnect\n");
+		trace_str("RCVD disconnect\n");
 		x_disconnect();
 		return;
 	}
@@ -324,7 +381,7 @@ net_input()
 			return;
 		}
 		x_connected();
-		trace("connected\n");
+		net_connected();
 	}
 
 	trace_netdata('<', netrbuf, nr);
@@ -338,7 +395,7 @@ net_input()
 		}
 
 	if (ansi_data) {
-		trace("\n");
+		trace_str("\n");
 		ansi_data = 0;
 	}
 }
@@ -354,37 +411,60 @@ telnet_fsm(c)
 unsigned char c;
 {
 	char	*errmsg;
+	char	*see_chr;
+	int	sl;
 
 	switch (telnet_state) {
 	    case TNS_DATA:	/* normal data processing */
 		if (c == IAC) {	/* got a telnet command */
 			telnet_state = TNS_IAC;
 			if (ansi_data) {
-				trace("\n");
+				trace_str("\n");
 				ansi_data = 0;
 			}
 		} else if (IN_ANSI) {
-			if (!ansi_data++) {
-				trace("<");
+			if (!ansi_data) {
+				trace_str("<.. ");
+				ansi_data = 4;
 			}
-			trace(" %s", ctl_see((int) c));
-			if (!syncing)
+			see_chr = ctl_see((int) c);
+			ansi_data += (sl = strlen(see_chr));
+			if (ansi_data >= TRACELINE) {
+				trace_str(" ...\n... ");
+				ansi_data = 4 + sl;
+			}
+			trace_str(see_chr);
+			if (!syncing) {
 				ansi_process((unsigned int) c);
+				if (appres.scripted)
+					script_store(c);
+			}
 		} else {
 			*ibptr++ = c;
 		}
 		break;
 	    case TNS_IAC:	/* process a telnet command */
-		if (c != EOR)
-			trace("RCVD %s ", cmd(c));
+		if (c != EOR) {
+			(void) sprintf(trace_msg, "RCVD %s ", cmd(c));
+			trace_str(trace_msg);
+		}
 		switch (c) {
 		    case IAC:	/* escaped IAC, insert it */
 			if (IN_ANSI) {
-				if (!ansi_data++) {
-					trace("<");
+				if (!ansi_data) {
+					trace_str("<.. ");
+					ansi_data = 4;
 				}
-				trace(" %s", ctl_see((int) c));
+				see_chr = ctl_see((int) c);
+				ansi_data += (sl = strlen(see_chr));
+				if (ansi_data >= TRACELINE) {
+					trace_str(" ...\n ...");
+					ansi_data = 4 + sl;
+				}
+				trace_str(see_chr);
 				ansi_process((unsigned int) c);
+				if (appres.scripted)
+					script_store(c);
 			} else
 				*ibptr++ = c;
 			telnet_state = TNS_DATA;
@@ -392,12 +472,12 @@ unsigned char c;
 		    case EOR:	/* eor, process accumulated input */
 			if (IN_3270) {
 				ns_rrcvd++;
-				if (!syncing)
+				if (!syncing && (ibptr - ibuf))
 					if (process_ds(ibuf, ibptr - ibuf))
 						return -1;
 			} else
-				(void) fprintf(stderr, "EOR received when not in 3270 mode, ignored.\n");
-			trace("RCVD EOR\n");
+				XtWarning("EOR received when not in 3270 mode, ignored.");
+			trace_str("RCVD EOR\n");
 			ibptr = ibuf;
 			telnet_state = TNS_DATA;
 			break;
@@ -418,7 +498,7 @@ unsigned char c;
 			sbptr = sbbuf;
 			break;
 		    case DM:
-			trace("\n");
+			trace_str("\n");
 			if (syncing) {
 				syncing = 0;
 				x_except_on();
@@ -426,17 +506,18 @@ unsigned char c;
 			telnet_state = TNS_DATA;
 			break;
 		    case GA:
-			trace("\n");
+			trace_str("\n");
 			telnet_state = TNS_DATA;
 			break;
 		    default:
-			trace("???\n");
+			trace_str("???\n");
 			telnet_state = TNS_DATA;
 			break;
 		}
 		break;
 	    case TNS_WILL:	/* telnet WILL DO OPTION command */
-		trace("%s\n", opt(c));
+		trace_str(opt(c));
+		trace_str("\n");
 		switch (c) {
 		    case TELOPT_SGA:
 		    case TELOPT_BINARY:
@@ -447,21 +528,26 @@ unsigned char c;
 				hisopts[c] = 1;
 				do_opt[2] = c;
 				net_rawout(do_opt, sizeof(do_opt));
-				trace("SENT %s %s\n", cmd(DO), opt(c));
+				(void) sprintf(trace_msg, "SENT %s %s\n",
+				    cmd(DO), opt(c));
+				trace_str(trace_msg);
 			}
 			check_in3270();
 			break;
 		    default:
 			dont_opt[2] = c;
 			net_rawout(dont_opt, sizeof(dont_opt));
-			trace("SENT %s %s\n", cmd(DONT), opt(c));
+			(void) sprintf(trace_msg, "SENT %s %s\n",
+			    cmd(DONT), opt(c));
+			trace_str(trace_msg);
 			break;
 		}
 		telnet_state = TNS_DATA;
 		check_linemode(False);
 		break;
 	    case TNS_WONT:	/* telnet WONT DO OPTION command */
-		trace("%s\n", opt(c));
+		trace_str(opt(c));
+		trace_str("\n");
 		switch (c) {
 		    case TELOPT_BINARY:
 		    case TELOPT_EOR:
@@ -471,7 +557,15 @@ unsigned char c;
 				popup_an_error(errmsg);
 				XtFree(errmsg);
 				return -1;
-			} /* else fall through */
+			}
+			if (hisopts[c]) {
+				dont_opt[2] = c;
+				net_rawout(dont_opt, sizeof(dont_opt));
+				(void) sprintf(trace_msg, "SENT %s %s\n",
+				    cmd(DONT), opt(c));
+				trace_str(trace_msg);
+			}
+			/* fall through */
 		    default:
 			hisopts[c] = 0;
 			break;
@@ -481,7 +575,8 @@ unsigned char c;
 		check_linemode(False);
 		break;
 	    case TNS_DO:	/* telnet PLEASE DO OPTION command */
-		trace("%s\n", opt(c));
+		trace_str(opt(c));
+		trace_str("\n");
 		switch (c) {
 		    case TELOPT_BINARY:
 		    case TELOPT_EOR:
@@ -491,20 +586,25 @@ unsigned char c;
 				myopts[c] = 1;
 				will_opt[2] = c;
 				net_rawout(will_opt, sizeof(will_opt));
-				trace("SENT %s %s\n", cmd(WILL), opt(c));
+				(void) sprintf(trace_msg, "SENT %s %s\n",
+				    cmd(WILL), opt(c));
+				trace_str(trace_msg);
 			}
 			check_in3270();
 			break;
 		    default:
 			wont_opt[2] = c;
 			net_rawout(wont_opt, sizeof(wont_opt));
-			trace("SENT %s %s\n", cmd(WONT), opt(c));
+			(void) sprintf(trace_msg, "SENT %s %s\n",
+			    cmd(WONT), opt(c));
+			trace_str(trace_msg);
 			break;
 		}
 		telnet_state = TNS_DATA;
 		break;
 	    case TNS_DONT:	/* telnet PLEASE DON'T DO OPTION command */
-		trace("%s\n", opt(c));
+		trace_str(opt(c));
+		trace_str("\n");
 		switch (c) {
 		    case TELOPT_BINARY:
 		    case TELOPT_EOR:
@@ -514,7 +614,13 @@ unsigned char c;
 				popup_an_error(errmsg);
 				XtFree(errmsg);
 				return -1;
-			} /* else fall through */
+			}
+			wont_opt[2] = c;
+			net_rawout(wont_opt, sizeof(wont_opt));
+			(void) sprintf(trace_msg, "SENT %s %s\n",
+			    cmd(WONT), opt(c));
+			trace_str(trace_msg);
+			/* fall through */
 		    default:
 			myopts[c] = 0;
 			break;
@@ -535,22 +641,27 @@ unsigned char c;
 				    (appres.termname ?
 				     appres.termname : ttype_val);
 
-				trace("%s %s\n", opt(sbbuf[0]),
-				    telquals[sbbuf[1]]);
+				(void) sprintf(trace_msg, "%s %s\n",
+				    opt(sbbuf[0]), telquals[sbbuf[1]]);
+				trace_str(trace_msg);
 				net_rawout(ttype_opt, sizeof(ttype_opt));
 				net_rawout(ttype, strlen((char *) ttype));
 				net_rawout(ttype_end, sizeof(ttype_end));
 
-				trace("SENT %s %s %s %s %s\n",
+				(void) sprintf(trace_msg,
+				    "SENT %s %s %s %s %s\n",
 				    cmd(SB), opt(TELOPT_TTYPE),
 				    telquals[TELQUAL_IS], appres.termname ? appres.termname : ttype_val,
 				    cmd(SE));
+				trace_str(trace_msg);
 				check_in3270();
 				/* tell the remote host to DO EOR */
 				/* perhaps this will root out non-IBM hosts */
 				do_opt[2] = TELOPT_EOR;
 				net_rawout(do_opt, sizeof(do_opt));
-				trace("SENT %s %s\n", cmd(DO), opt(TELOPT_EOR));
+				(void) sprintf(trace_msg, "SENT %s %s\n",
+				    cmd(DO), opt(TELOPT_EOR));
+				trace_str(trace_msg);
 			}
 		}
 		else {
@@ -570,7 +681,7 @@ unsigned char c;
 void
 net_exception()
 {
-	trace("RCVD urgent data indication\n");
+	trace_str("RCVD urgent data indication\n");
 	if (!syncing) {
 		syncing = 1;
 		x_except_off();
@@ -609,22 +720,42 @@ int	len;
 	trace_netdata('>', buf, len);
 
 	while (len) {
-		nw = write(sock, (char *) buf, len);
-		if (nw < 0) {
-			if (errno == EPIPE) {
-				x_disconnect();
-				return;
-			} else if (errno == EINTR) {
-				continue;
-			} else {
-				popup_an_errno("write", errno);
-				x_disconnect();
-				return;
-			}
+#if defined(OMTU) /*[*/
+		int n2w = len;
+		int pause = 0;
+
+		if (n2w > OMTU) {
+			n2w = OMTU;
+			pause = 1;
 		}
-		ns_bsent += len;
+#else
+#define n2w len
+#endif
+		if (pstate == NONE) {
+			nw = write(sock, (char *) buf, n2w);
+			if (nw < 0) {
+				if (errno == EPIPE) {
+					x_disconnect();
+					return;
+				} else if (errno == EINTR) {
+					goto bot;
+				} else {
+					popup_an_errno("write", errno);
+					x_disconnect();
+					return;
+				}
+			}
+		} else
+			nw = len;
+		ns_bsent += nw;
 		len -= nw;
 		buf += nw;
+	    bot:
+#if defined(OMTU) /*[*/
+		if (pause)
+			sleep(1);
+#endif /*]*/
+		;
 	}
 }
 
@@ -640,11 +771,11 @@ int	len;
 {
 	int i;
 
-	if (toggled(TRACETN)) {
-		(void) printf(">");
+	if (toggled(TRACE)) {
+		(void) fprintf(tracef, ">");
 		for (i = 0; i < len; i++)
-			(void) printf(" %s", ctl_see((int) *(buf+i)));
-		(void) printf("\n");
+			(void) fprintf(tracef, " %s", ctl_see((int) *(buf+i)));
+		(void) fprintf(tracef, "\n");
 	}
 	net_rawout((unsigned char *) buf, len);
 }
@@ -900,7 +1031,7 @@ char c;
 		do_data(c);
 		return;
 	}
-	if (obptr+1 >= obuf + sizeof(obuf)) {
+	if (obptr+2 >= obuf + sizeof(obuf)) {
 		ansi_process_s("\007");
 		return;
 	}
@@ -938,11 +1069,10 @@ check_in3270()
 	    hisopts[TELOPT_EOR];
 
 	if (now3270 != IN_3270) {
-		trace("No%c operating in 3270 mode.\n", now3270 ? 'w' : 't');
-		if (now3270)
-			x_in3270();
-		else	/* host un3270'd, punt for now */
-			x_disconnect();
+		(void) sprintf(trace_msg, "No%c operating in 3270 mode.\n",
+		    now3270 ? 'w' : 't');
+		trace_str(trace_msg);
+		x_in3270(now3270);
 	}
 }
 
@@ -976,9 +1106,11 @@ Boolean init;
 
 	if (init || linemode != wasline) {
 		menubar_newmode();
-		if (!init)
-			trace("Operating in %s mode.\n",
+		if (!init) {
+			(void) sprintf(trace_msg, "Operating in %s mode.\n",
 			    linemode ? "line" : "character-at-a-time");
+			trace_str(trace_msg);
+		}
 		if (linemode)
 			cooked_init();
 	}
@@ -1042,15 +1174,15 @@ int len;
 {
 	int offset;
 
-	if (!toggled(TRACETN))
+	if (!toggled(TRACE))
 		return;
 	for (offset = 0; offset < len; offset++) {
 		if (!(offset % LINEDUMP_MAX))
-			(void) printf("%s%c 0x%-3x ", (offset ? "\n" : ""),
-			    direction, offset);
-		(void) printf("%02x", buf[offset]);
+			(void) fprintf(tracef, "%s%c 0x%-3x ",
+			    (offset ? "\n" : ""), direction, offset);
+		(void) fprintf(tracef, "%02x", buf[offset]);
 	}
-	(void) printf("\n");
+	(void) fprintf(tracef, "\n");
 }
 
 
@@ -1067,8 +1199,9 @@ int	len;
 	buf[len++] = IAC;
 	buf[len++] = EOR;
 	net_rawout(buf, len);
-	trace("SENT EOR\n");
+	trace_str("SENT EOR\n");
 	ns_rsent++;
+	cooked_init();	/* in case we go back to ANSI mode */
 }
 
 
@@ -1143,12 +1276,16 @@ net_linemode()
 	if (hisopts[TELOPT_ECHO]) {
 		dont_opt[2] = TELOPT_ECHO;
 		net_rawout(dont_opt, sizeof(dont_opt));
-		trace("SENT %s %s\n", cmd(DONT), opt(TELOPT_ECHO));
+		(void) sprintf(trace_msg, "SENT %s %s\n",
+		    cmd(DONT), opt(TELOPT_ECHO));
+		trace_str(trace_msg);
 	}
 	if (hisopts[TELOPT_SGA]) {
 		dont_opt[2] = TELOPT_SGA;
 		net_rawout(dont_opt, sizeof(dont_opt));
-		trace("SENT %s %s\n", cmd(DONT), opt(TELOPT_SGA));
+		(void) sprintf(trace_msg, "SENT %s %s\n",
+		    cmd(DONT), opt(TELOPT_SGA));
+		trace_str(trace_msg);
 	}
 }
 
@@ -1160,12 +1297,16 @@ net_charmode()
 	if (!hisopts[TELOPT_ECHO]) {
 		do_opt[2] = TELOPT_ECHO;
 		net_rawout(do_opt, sizeof(do_opt));
-		trace("SENT %s %s\n", cmd(DO), opt(TELOPT_ECHO));
+		(void) sprintf(trace_msg, "SENT %s %s\n", cmd(DO),
+		    opt(TELOPT_ECHO));
+		trace_str(trace_msg);
 	}
 	if (!hisopts[TELOPT_SGA]) {
 		do_opt[2] = TELOPT_SGA;
 		net_rawout(do_opt, sizeof(do_opt));
-		trace("SENT %s %s\n", cmd(DO), opt(TELOPT_SGA));
+		(void) sprintf(trace_msg, "SENT %s %s\n", cmd(DO),
+		    opt(TELOPT_SGA));
+		trace_str(trace_msg);
 	}
 }
 
@@ -1182,7 +1323,7 @@ net_break()
 
 	/* I don't know if we should first send TELNET synch ? */
 	net_rawout(buf, sizeof(buf));
-	trace("SENT BREAK\n");
+	trace_str("SENT BREAK\n");
 }
 
 /*
@@ -1197,7 +1338,7 @@ net_interrupt()
 
 	/* I don't know if we should first send TELNET synch ? */
 	net_rawout(buf, sizeof(buf));
-	trace("SENT IP\n");
+	trace_str("SENT IP\n");
 }
 
 /*
@@ -1231,14 +1372,14 @@ net_linemode_chars()
 {
 	static struct ctl_char c[9];
 
-	c[0].name = "intr";	strcpy(c[0].value, ctl_see(vintr));
-	c[1].name = "quit";	strcpy(c[1].value, ctl_see(vquit));
-	c[2].name = "erase";	strcpy(c[2].value, ctl_see(verase));
-	c[3].name = "kill";	strcpy(c[3].value, ctl_see(vkill));
-	c[4].name = "eof";	strcpy(c[4].value, ctl_see(veof));
-	c[5].name = "werase";	strcpy(c[5].value, ctl_see(vwerase));
-	c[6].name = "rprnt";	strcpy(c[6].value, ctl_see(vrprnt));
-	c[7].name = "lnext";	strcpy(c[7].value, ctl_see(vlnext));
+	c[0].name = "intr";	(void) strcpy(c[0].value, ctl_see(vintr));
+	c[1].name = "quit";	(void) strcpy(c[1].value, ctl_see(vquit));
+	c[2].name = "erase";	(void) strcpy(c[2].value, ctl_see(verase));
+	c[3].name = "kill";	(void) strcpy(c[3].value, ctl_see(vkill));
+	c[4].name = "eof";	(void) strcpy(c[4].value, ctl_see(veof));
+	c[5].name = "werase";	(void) strcpy(c[5].value, ctl_see(vwerase));
+	c[6].name = "rprnt";	(void) strcpy(c[6].value, ctl_see(vrprnt));
+	c[7].name = "lnext";	(void) strcpy(c[7].value, ctl_see(vlnext));
 	c[8].name = 0;
 
 	return c;
@@ -1252,14 +1393,14 @@ static int
 non_blocking(on)
 Boolean on;
 {
-#ifdef FIONBIO
+#if defined(FIONBIO) /*[*/
 	int i = on ? 1 : 0;
 
 	if (ioctl(sock, FIONBIO, &i) < 0) {
 		popup_an_errno("ioctl(FIONBIO)", errno);
 		return -1;
 	}
-#else
+#else /*][*/
 	int f;
 
 	if ((f = fcntl(sock, F_GETFL, 0)) == -1) {
@@ -1274,6 +1415,168 @@ Boolean on;
 		popup_an_errno("fcntl(F_SETFL)", errno);
 		return -1;
 	}
-#endif
+#endif /*]*/
 	return 0;
+}
+
+static void
+trace_str(s)
+char *s;
+{
+	if (!toggled(TRACE))
+		return;
+	(void) fprintf(tracef, "%s", s);
+}
+
+/*
+ * Playback file support.
+ */
+
+int
+net_playback_connect(f)
+char *f;
+{
+
+	if (playbackf)
+		(void) fclose(playbackf);
+	if (!(playbackf = fopen(f, "r"))) {
+		popup_an_errno(f, errno);
+		return -1;
+	}
+
+	hostname = XtNewString(f);
+	pstate = BASE;
+	net_connected();
+
+	return fileno(playbackf);
+}
+
+void
+net_playback_step()
+{
+	int c = 0;
+	static int d1;
+	static char hexes[] = "0123456789abcdef";
+#	define isxd(c) strchr(hexes, c)
+	static int again = 0;
+
+	if (!playbackf) {
+		popup_an_error("PlaybackStep: not connected to playback file");
+		return;
+	}
+
+	while (CONNECTED && (again || ((c = fgetc(playbackf)) != EOF))) {
+		again = 0;
+		switch (pstate) {
+		    case WRONG:
+			if (c == '\n')
+				pstate = BASE;
+			break;
+		    case BASE:
+			if (c == '<')
+				pstate = LESS;
+			else {
+				pstate = WRONG;
+				again = 1;
+			}
+			break;
+		    case LESS:
+			if (c == ' ')
+				pstate = SPACE;
+			else {
+				pstate = WRONG;
+				again = 1;
+			}
+			break;
+		    case SPACE:
+			if (c == '0')
+				pstate = ZERO;
+			else {
+				pstate = WRONG;
+				again = 1;
+			}
+			break;
+		    case ZERO:
+			if (c == 'x')
+				pstate = X;
+			else {
+				pstate = WRONG;
+				again = 1;
+			}
+			break;
+		    case X:
+			if (isxd(c))
+				pstate = N;
+			else {
+				pstate = WRONG;
+				again = 1;
+			}
+			break;
+		    case N:
+			if (isxd(c))
+				pstate = N;
+			else if (c == ' ')
+				pstate = SPACE2;
+			else {
+				pstate = WRONG;
+				again = 1;
+			}
+			break;
+		    case SPACE2:
+			if (isxd(c)) {
+				d1 = strchr(hexes, c) - hexes;
+				pstate = D1;
+			} else if (c == ' ')
+				pstate = SPACE2;
+			else {
+				pstate = WRONG;
+				again = 1;
+			}
+			break;
+		    case D1:
+			if (isxd(c)) {
+				int r = ns_rrcvd;
+
+				if (telnet_fsm((unsigned char)((d1 * 16) + (strchr(hexes, c) - hexes)))) {
+					popup_an_error("Playback file fsm error");
+					goto close_playback;
+				}
+				pstate = D2;
+				if (ns_rrcvd != r)
+					return;
+			} else {
+				popup_an_error("Playback file parse error");
+				pstate = WRONG;
+				again = 1;
+			}
+			break;
+		    case D2:
+			if (isxd(c)) {
+				d1 = strchr(hexes, c) - hexes;
+				pstate = D1;
+			} else if (c == '\n') {
+				pstate = BASE;
+				if (ansi_data) {
+					trace_str("\n");
+					ansi_data = 0;
+				}
+				if (IN_ANSI)
+					return;
+			} else {
+				popup_an_error("Playback file parse error");
+				pstate = WRONG;
+				again = 1;
+			}
+			break;
+		}
+	}
+	if (ansi_data) {
+		trace_str("\n");
+		ansi_data = 0;
+	}
+	if (c == EOF)
+		trace_str("Playback file EOF.\n");
+
+    close_playback:
+	x_disconnect();
 }

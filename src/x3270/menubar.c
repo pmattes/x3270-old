@@ -1,11 +1,10 @@
 /*
- * Copyright 1993 Paul Mattes.
- *
- * Permission to use, copy, modify, and distribute this software and its
- * documentation for any purpose and without fee is hereby granted,
- * provided that the above copyright notice appear in all copies and that
- * both that copyright notice and this permission notice appear in
- * supporting documentation.
+ * Copyright 1993, 1994 by Paul Mattes.
+ *  Permission to use, copy, modify, and distribute this software and its
+ *  documentation for any purpose and without fee is hereby granted,
+ *  provided that the above copyright notice appear in all copies and that
+ *  both that copyright notice and this permission notice appear in
+ *  supporting documentation.
  */
 
 /*
@@ -41,9 +40,11 @@ static struct host {
 static void	options_menu_init();
 static void	keypad_button_init();
 static void	connect_menu_init();
+static void	macros_menu_init();
 static void	quit_menu_init();
 
 #include "dot.bm"
+#include "arrow.bm"
 #include "ky.bm"
 
 
@@ -54,6 +55,7 @@ static void	quit_menu_init();
 static Widget menu_bar;
 static Boolean menubar_buttons;
 static Widget disconnect_button;
+static Widget macros_button;
 static Widget connect_button;
 static Widget keypad_button;
 static Widget linemode_button;
@@ -64,8 +66,10 @@ static Widget model_4_button;
 static Widget model_5_button;
 static Widget keypad_option_button;
 static Widget connect_menu;
+static Widget macros_menu;
 
 static Pixmap dot;
+static Pixmap arrow;
 
 #define TOP_MARGIN	3
 #define BOTTOM_MARGIN	3
@@ -95,6 +99,7 @@ Dimension current_width;
 	/* Error popup */
 
 	error_popup_init();
+	info_popup_init();
 
 	if (!appres.menubar || current_width < (unsigned) MENU_MIN_WIDTH) {
 		height = 0;
@@ -108,13 +113,13 @@ Dimension current_width;
 		    XtNwidth, overall_width,
 		    XtNheight, height,
 		    NULL);
-		if (depth > 1)
+		if (appres.mono)
 			XtVaSetValues(menu_bar,
-			    XtNbackground, appres.keypadbg,
+			    XtNbackgroundPixmap, gray,
 			    NULL);
 		else
 			XtVaSetValues(menu_bar,
-			    XtNbackgroundPixmap, gray,
+			    XtNbackground, appres.keypadbg,
 			    NULL);
 		menubar_buttons = True;
 	}
@@ -135,6 +140,12 @@ Dimension current_width;
 	/* "Connect..." menu */
 
 	connect_menu_init(menu_bar,
+	    LEFT_MARGIN + CN_OFFSET*(KEY_WIDTH+2*BORDER+SPACING),
+	    TOP_MARGIN);
+
+	/* "Macros..." menu */
+
+	macros_menu_init(menu_bar,
 	    LEFT_MARGIN + CN_OFFSET*(KEY_WIDTH+2*BORDER+SPACING),
 	    TOP_MARGIN);
 
@@ -175,6 +186,20 @@ menubar_connect()	/* have connected to or disconnected from a host */
 				XtMapWidget(connect_button);
 		}
 	}
+	if (macros_menu) {
+		if (!PCONNECTED && macros_button)
+			XtUnmapWidget(macros_button);
+		else {
+			macros_menu_init(menu_bar,
+			    LEFT_MARGIN + CN_OFFSET*(KEY_WIDTH+2*BORDER+SPACING),
+			    TOP_MARGIN);
+			if (menubar_buttons && macros_button)
+				XtMapWidget(macros_button);
+		}
+	}
+	if (appres.toggle[LINEWRAP].w[0])
+		XtVaSetValues(appres.toggle[LINEWRAP].w[0], XtNsensitive, IN_ANSI,
+		    NULL);
 	if (linemode_button)
 		XtVaSetValues(linemode_button, XtNsensitive, IN_ANSI, NULL);
 	if (charmode_button)
@@ -204,12 +229,12 @@ menubar_newmode()	/* have switched telnet modes */
 	if (linemode_button)
 		XtVaSetValues(linemode_button,
 		    XtNsensitive, IN_ANSI,
-		    XtNleftBitmap, linemode ? dot : None,
+		    XtNleftBitmap, linemode ? arrow : None,
 		    NULL);
 	if (charmode_button)
 		XtVaSetValues(charmode_button,
 		    XtNsensitive, IN_ANSI,
-		    XtNleftBitmap, linemode ? None : dot,
+		    XtNleftBitmap, linemode ? None : arrow,
 		    NULL);
 }
 
@@ -218,6 +243,8 @@ menubar_gone()		/* container has gone away */
 {
 	connect_menu = (Widget) NULL;
 	connect_button = (Widget) NULL;
+	macros_menu = (Widget) NULL;
+	macros_button = (Widget) NULL;
 }
 
 
@@ -233,7 +260,7 @@ Widget w;
 XtPointer client_data;
 XtPointer call_data;
 {
-	exit(0);
+	x3270_exit(0);
 }
 
 /* Called from the "Disconnect" button on the "Quit..." menu */
@@ -261,7 +288,8 @@ Dimension x, y;
 	    menubar_buttons ? XtNlabel : NULL, NULL,
 	    NULL);
 	if (!menubar_buttons)
-		XtCreateManagedWidget("space", smeLineObjectClass, quit_menu, NULL, 0);
+		(void) XtCreateManagedWidget("space", smeLineObjectClass,
+		    quit_menu, NULL, 0);
 
 	disconnect_button = XtVaCreateManagedWidget(
 	    "disconnectOption", smeBSBObjectClass, quit_menu,
@@ -274,7 +302,7 @@ Dimension x, y;
 	    NULL);
 	XtAddCallback(w, XtNcallback, Bye, 0);
 
-	if (menubar_buttons)
+	if (menubar_buttons) {
 		(void) XtVaCreateManagedWidget(
 		    "quitMenuButton", menuButtonWidgetClass, container,
 		    XtNx, x,
@@ -283,6 +311,7 @@ Dimension x, y;
 		    XtNheight, KEY_HEIGHT,
 		    XtNmenuName, "quitMenu",
 		    NULL);
+	}
 }
 
 
@@ -313,7 +342,7 @@ XtPointer call_data;
 {
 	char *s;
 
-	s = XawDialogGetValueString(client_data);
+	s = XawDialogGetValueString((Widget)client_data);
 	if (!s || !*s)
 		return;
 	if (!x_connect(s))
@@ -329,8 +358,8 @@ XtPointer client_data;
 XtPointer call_data;
 {
 	if (connect_shell == NULL)
-		connect_shell = create_form_popup("Connect", "Enter Hostname",
-		    "Connect", connect_button_callback);
+		connect_shell = create_form_popup("Connect",
+		    connect_button_callback, (XtCallbackProc)NULL, True);
 	popup_popup(connect_shell, XtGrabExclusive);
 }
 
@@ -448,6 +477,77 @@ Position x, y;
 	}
 }
 
+/*
+ * Callback for macros
+ */
+/*ARGSUSED*/
+static void
+do_macro(w, client_data, call_data)
+Widget w;
+XtPointer client_data;
+XtPointer call_data;
+{
+	macro_command((struct macro_def *)client_data);
+}
+
+/*
+ * Initialize the "Macros..." menu
+ */
+static void
+macros_menu_init(container, x, y)
+Widget container;
+Position x, y;
+{
+	Widget w;
+	struct macro_def *m;
+	Boolean any = False;
+
+	/* Destroy any previous macros menu */
+
+	if (macros_menu) {
+		XtDestroyWidget(macros_menu);
+		macros_menu = NULL;
+	}
+	if (macros_button) {
+		XtDestroyWidget(macros_button);
+		macros_button = NULL;
+	}
+
+	/* Create the menu */
+
+	macros_menu = XtVaCreatePopupShell(
+	    "macrosMenu", simpleMenuWidgetClass, container,
+	    menubar_buttons ? XtNlabel : NULL, NULL,
+	    NULL);
+	if (!menubar_buttons)
+		(void) XtCreateManagedWidget("space",
+		    smeLineObjectClass, macros_menu, NULL, 0);
+
+	/* Walk the list */
+
+	for (m = macro_defs; m; m = m->next) {
+		w = XtVaCreateManagedWidget(
+		    m->name, smeBSBObjectClass, macros_menu, 
+		    NULL);
+		XtAddCallback(w, XtNcallback, do_macro, (XtPointer)m);
+		any = True;
+	}
+
+	/* Add the "Macros..." button itself to the container */
+
+	if (any && menubar_buttons)
+		macros_button = XtVaCreateManagedWidget(
+		    "macrosMenuButton", menuButtonWidgetClass,
+		    container,
+		    XtNx, x,
+		    XtNy, y,
+		    XtNwidth, KEY_WIDTH,
+		    XtNheight, KEY_HEIGHT,
+		    XtNmenuName, "macrosMenu",
+		    XtNmappedWhenManaged, PCONNECTED,
+		    NULL);
+}
+
 /* Called toggle the keypad */
 /*ARGSUSED*/
 static void
@@ -511,7 +611,7 @@ Dimension width;
  */
 
 /*ARGSUSED*/
-void
+static void
 show_options(w, userdata, calldata)
 Widget w;
 XtPointer userdata;
@@ -555,23 +655,20 @@ char *name2;
 	t->label[1] = name2;
 	t->w[0] = XtVaCreateManagedWidget(
 	    name1, smeBSBObjectClass, menu,
-	    XtNleftMargin, 20,
-	    XtNleftBitmap, t->value ? dot : None,
+	    XtNleftBitmap, t->value ? (name2 ? arrow : dot) : None,
 	    NULL);
 	XtAddCallback(t->w[0], XtNcallback, toggle_callback, (XtPointer) t);
 	if (name2 != NULL) {
 		t->w[1] = XtVaCreateManagedWidget(
 		    name2, smeBSBObjectClass, menu,
-		    XtNleftMargin, 20,
-		    XtNleftBitmap, t->value ? None : dot,
+		    XtNleftBitmap, t->value ? None : arrow,
 		    NULL);
 		XtAddCallback(t->w[1], XtNcallback, toggle_callback, (XtPointer) t);
 	} else
 		t->w[1] = NULL;
 }
 
-Widget large_font;
-Widget small_font;
+Widget *font_widgets;
 Widget other_font;
 Widget font_shell = NULL;
 
@@ -583,17 +680,25 @@ XtPointer userdata;
 XtPointer calldata;
 {
 	char *ud = (char *)userdata;
+	struct font_list *f;
+	int ix;
+	Boolean do_arrow;
+	Boolean any = False;
 
-	if (!strcmp(ud, appres.large_font) && !screen_newfont(ud, True)) {
-			XtVaSetValues(large_font, XtNleftBitmap, dot, NULL);
-			XtVaSetValues(small_font, XtNleftBitmap, None, NULL);
-	} else if (!strcmp(ud, appres.small_font) && !screen_newfont(ud, True)) {
-			XtVaSetValues(large_font, XtNleftBitmap, None, NULL);
-			XtVaSetValues(small_font, XtNleftBitmap, dot, NULL);
-	} else if (!screen_newfont(ud, True)) {
-			XtVaSetValues(large_font, XtNleftBitmap, None, NULL);
-			XtVaSetValues(small_font, XtNleftBitmap, None, NULL);
+	for (f = font_list, ix = 0; f; f = f->next, ix++) {
+		do_arrow = False;
+		if (!strcmp(ud, f->font)) {
+			any = True;
+			if (!screen_newfont(ud, True))
+				do_arrow = True;
+		}
+		XtVaSetValues(font_widgets[ix],
+		    XtNleftBitmap, do_arrow ? arrow : None,
+		    NULL);
 	}
+
+	if (!any)
+		(void) screen_newfont(ud, True);
 }
 
 /* Called from the "Select Font" button on the font dialog */
@@ -606,7 +711,7 @@ XtPointer call_data;
 {
 	char *s;
 
-	s = XawDialogGetValueString(client_data);
+	s = XawDialogGetValueString((Widget)client_data);
 	if (!s || !*s)
 		return;
 	XtPopdown(font_shell);
@@ -621,8 +726,8 @@ XtPointer userdata;
 XtPointer calldata;
 {
 	if (font_shell == NULL)
-		font_shell = create_form_popup("Font", "Enter Font Name",
-		    "Select Font", font_button_callback);
+		font_shell = create_form_popup("Font", font_button_callback,
+						(XtCallbackProc)NULL, True);
 	popup_popup(font_shell, XtGrabExclusive);
 }
 
@@ -671,7 +776,7 @@ XtPointer call_data;
 		XtVaSetValues(model_5_button, XtNleftBitmap, None, NULL);
 		break;
 	}
-	XtVaSetValues(w, XtNleftBitmap, dot, NULL);
+	XtVaSetValues(w, XtNleftBitmap, arrow, NULL);
 	screen_change_model(client_data);
 }
 
@@ -682,107 +787,114 @@ Position x, y;
 {
 	Widget w;
 	Widget m;
+	struct font_list *f;
+	int ix;
 
 	dot = XCreateBitmapFromData(display, root_window,
 	    (char *) dot_bits, dot_width, dot_height);
+	arrow = XCreateBitmapFromData(display, root_window,
+	    (char *) arrow_bits, arrow_width, arrow_height);
 
 	m = XtVaCreatePopupShell(
 	    "optionsMenu", simpleMenuWidgetClass, container,
 	    menubar_buttons ? XtNlabel : NULL, NULL,
 	    NULL);
 	if (!menubar_buttons)
-		XtCreateManagedWidget("space", smeLineObjectClass, m, NULL, 0);
+		(void) XtCreateManagedWidget("space", smeLineObjectClass,
+		    m, NULL, 0);
 
 	w = XtVaCreateManagedWidget(
 	    "aboutOption", smeBSBObjectClass, m,
-	    XtNleftMargin, 20,
 	    XtNleftBitmap, None,
 	    NULL);
 	XtAddCallback(w, XtNcallback, show_options, NULL);
 
 	if (!menubar_buttons) {
-		XtCreateManagedWidget("space", smeLineObjectClass, m, NULL, 0);
+		(void) XtCreateManagedWidget("space", smeLineObjectClass,
+		    m, NULL, 0);
 		keypad_option_button = XtVaCreateManagedWidget(
 		    "keypadOption", smeBSBObjectClass, m,
-		    XtNleftMargin, 20,
 		    XtNleftBitmap, keypad || keypad_popped ? dot : None,
 		    NULL);
 		XtAddCallback(keypad_option_button, XtNcallback, toggle_keypad,
 		    (XtPointer)NULL);
 	}
 
-	XtCreateManagedWidget("space", smeLineObjectClass, m, NULL, 0);
-	toggle_init(m, MONOCASE, "monocaseOption", NULL);
-	toggle_init(m, BLINK, "blinkOption", NULL);
-	toggle_init(m, TIMING, "timingOption", NULL);
-	toggle_init(m, CURSORP, "trackOption", NULL);
-	XtCreateManagedWidget("space", smeLineObjectClass, m, NULL, 0);
-	toggle_init(m, TRACE3270, "traceDsOption", NULL);
-	toggle_init(m, TRACETN, "traceTelnetOption", NULL);
-	XtCreateManagedWidget("space", smeLineObjectClass, m, NULL, 0);
+	(void) XtCreateManagedWidget("space", smeLineObjectClass, m, NULL, 0);
+	toggle_init(m, MONOCASE, "monocaseOption", (char *)NULL);
+	toggle_init(m, BLINK, "blinkOption", (char *)NULL);
+	toggle_init(m, BLANKFILL, "fillOption", (char *)NULL);
+	toggle_init(m, TIMING, "timingOption", (char *)NULL);
+	toggle_init(m, CURSORP, "trackOption", (char *)NULL);
+	toggle_init(m, TRACE, "traceOption", (char *)NULL);
+	toggle_init(m, SCREENTRACE, "screentraceOption", (char *)NULL);
+	toggle_init(m, SCROLLBAR, "scrollbarOption", (char *)NULL);
+	toggle_init(m, LINEWRAP, "wrapOption", (char *)NULL);
+	(void) XtCreateManagedWidget("space", smeLineObjectClass, m, NULL, 0);
 	toggle_init(m, ALTCURSOR, "underlineOption", "blockOption");
 
-	XtCreateManagedWidget("space", smeLineObjectClass, m, NULL, 0);
-	large_font = XtVaCreateManagedWidget(
-	    "largeFontOption", smeBSBObjectClass, m,
-	    XtNleftMargin, 20,
-	    XtNleftBitmap, !strcmp(efontname, appres.large_font) ? dot : None,
-	    NULL);
-	XtAddCallback(large_font, XtNcallback, do_newfont, appres.large_font);
-	small_font = XtVaCreateManagedWidget(
-	    "smallFontOption", smeBSBObjectClass, m,
-	    XtNleftMargin, 20,
-	    XtNleftBitmap, !strcmp(efontname, appres.small_font) ? dot : None,
-	    NULL);
-	XtAddCallback(small_font, XtNcallback, do_newfont, appres.small_font);
+	(void) XtCreateManagedWidget("space", smeLineObjectClass, m, NULL, 0);
+
+	font_widgets = (Widget *)XtCalloc(font_count, sizeof(Widget));
+	for (f = font_list, ix = 0; f; f = f->next, ix++) {
+		font_widgets[ix] = XtVaCreateManagedWidget(
+		    f->label, smeBSBObjectClass, m,
+		    XtNleftBitmap, !strcmp(efontname, f->font) ? arrow : None,
+		    NULL);
+		XtAddCallback(font_widgets[ix], XtNcallback, do_newfont,
+		    f->font);
+	}
 	other_font = XtVaCreateManagedWidget(
 	    "otherFontOption", smeBSBObjectClass, m,
-	    XtNleftMargin, 20,
 	    NULL);
 	XtAddCallback(other_font, XtNcallback, do_otherfont, NULL);
 
-	XtCreateManagedWidget("space", smeLineObjectClass, m, NULL, 0);
+	(void) XtCreateManagedWidget("space", smeLineObjectClass, m, NULL, 0);
 	linemode_button = XtVaCreateManagedWidget(
 	    "lineModeOption", smeBSBObjectClass, m,
-	    XtNleftMargin, 20,
-	    XtNleftBitmap, linemode ? dot : None,
+	    XtNleftBitmap, linemode ? arrow : None,
 	    XtNsensitive, IN_ANSI,
 	    NULL);
 	XtAddCallback(linemode_button, XtNcallback, linemode_callback, NULL);
 	charmode_button = XtVaCreateManagedWidget(
 	    "characterModeOption", smeBSBObjectClass, m,
-	    XtNleftMargin, 20,
-	    XtNleftBitmap, linemode ? None : dot,
+	    XtNleftBitmap, linemode ? None : arrow,
 	    XtNsensitive, IN_ANSI,
 	    NULL);
 	XtAddCallback(charmode_button, XtNcallback, charmode_callback, NULL);
 
-	XtCreateManagedWidget("space", smeLineObjectClass, m, NULL, 0);
+	(void) XtCreateManagedWidget("space", smeLineObjectClass, m, NULL, 0);
+	w = XtVaCreateManagedWidget(
+	    "printTextOption", smeBSBObjectClass, m,
+	    NULL);
+	XtAddCallback(w, XtNcallback, print_text_option, NULL);
+	w = XtVaCreateManagedWidget(
+	    "printWindowOption", smeBSBObjectClass, m,
+	    NULL);
+	XtAddCallback(w, XtNcallback, print_window_option, NULL);
+
+	(void) XtCreateManagedWidget("space", smeLineObjectClass, m, NULL, 0);
 	model_2_button = XtVaCreateManagedWidget(
 	    "model2Option", smeBSBObjectClass, m,
-	    XtNleftMargin, 20,
-	    XtNleftBitmap, model_num == 2 ? dot : None,
+	    XtNleftBitmap, model_num == 2 ? arrow : None,
 	    XtNsensitive, !PCONNECTED,
 	    NULL);
 	XtAddCallback(model_2_button, XtNcallback, change_model_callback, "2");
 	model_3_button = XtVaCreateManagedWidget(
 	    "model3Option", smeBSBObjectClass, m,
-	    XtNleftMargin, 20,
-	    XtNleftBitmap, model_num == 3 ? dot : None,
+	    XtNleftBitmap, model_num == 3 ? arrow : None,
 	    XtNsensitive, !PCONNECTED,
 	    NULL);
 	XtAddCallback(model_3_button, XtNcallback, change_model_callback, "3");
 	model_4_button = XtVaCreateManagedWidget(
 	    "model4Option", smeBSBObjectClass, m,
-	    XtNleftMargin, 20,
-	    XtNleftBitmap, model_num == 4 ? dot : None,
+	    XtNleftBitmap, model_num == 4 ? arrow : None,
 	    XtNsensitive, !PCONNECTED,
 	    NULL);
 	XtAddCallback(model_4_button, XtNcallback, change_model_callback, "4");
 	model_5_button = XtVaCreateManagedWidget(
 	    "model5Option", smeBSBObjectClass, m,
-	    XtNleftMargin, 20,
-	    XtNleftBitmap, model_num == 5 ? dot : None,
+	    XtNleftBitmap, model_num == 5 ? arrow : None,
 	    XtNsensitive, !PCONNECTED,
 	    NULL);
 	XtAddCallback(model_5_button, XtNcallback, change_model_callback, "5");
@@ -808,14 +920,15 @@ menubar_retoggle(t)
 struct toggle *t;
 {
 	XtVaSetValues(t->w[0],
-	    XtNleftBitmap, t->value ? dot : None,
+	    XtNleftBitmap, t->value ? (t->w[1] ? arrow : dot) : None,
 	    NULL);
 	if (t->w[1] != NULL)
 		XtVaSetValues(t->w[1],
-		    XtNleftBitmap, t->value ? None : dot,
+		    XtNleftBitmap, t->value ? None : arrow,
 		    NULL);
 }
 
+/*ARGSUSED*/
 void
 handle_menu(w, event, params, num_params)
 Widget w;
@@ -823,14 +936,12 @@ XEvent *event;
 String *params;
 Cardinal *num_params;
 {
-	Widget c;
-
 	if (*num_params != 1) {
-		XtWarning("HandleMenu must have one argument");
+		popup_an_error("HandleMenu requires 1 argument");
 		return;
 	}
-	if (!(c = XtNameToWidget(menu_bar, params[0]))) {
-		xs_warning("HandleMenu: can't find menu %s", params[0]);
+	if (!XtNameToWidget(menu_bar, params[0])) {
+		xs_popup_an_error("HandleMenu: can't find menu %s", params[0]);
 		return;
 	}
 	XtCallActionProc(menu_bar, "XawPositionSimpleMenu", event, params, 1);
@@ -874,10 +985,8 @@ hostfile_init()
 	char buf[1024];
 
 	hf = fopen(appres.hostsfile, "r");
-	if (!hf) {
-		xs_warning("Can't read hostsFile '%s'", appres.hostsfile);
+	if (!hf)
 		return;
-	}
 
 	while (fgets(buf, 1024, hf)) {
 		char *s = buf;
@@ -937,4 +1046,48 @@ char **loginstring;
 			return 1;
 		}
 	return 0;
+}
+
+/* Explicit connect/disconnect actions. */
+
+/*ARGSUSED*/
+void
+Connect(w, event, params, num_params)
+Widget w;
+XEvent *event;
+String *params;
+Cardinal *num_params;
+{
+	if (*num_params != 1) {
+		popup_an_error("Connect() requires 1 argument");
+		return;
+	}
+	if (CONNECTED || HALF_CONNECTED) {
+		popup_an_error("Already connected");
+		return;
+	}
+	(void) x_connect(params[0]);
+
+	/*
+	 * If called from a script and the connection was successful (or
+	 * half-successful), pause the script until we are connected and
+	 * we have identified the host type.
+	 */
+	if (!w && CONNECTED || HALF_CONNECTED)
+		script_connect_wait();
+}
+
+/*ARGSUSED*/
+void
+Disconnect(w, event, params, num_params)
+Widget w;
+XEvent *event;
+String *params;
+Cardinal *num_params;
+{
+	if (*num_params != 0) {
+		popup_an_error("Disconnect() requires 0 arguments");
+		return;
+	}
+	x_disconnect();
 }

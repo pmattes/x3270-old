@@ -1,20 +1,28 @@
 /*
- * Copyright 1989 by Georgia Tech Research Corporation, Atlanta, GA.
- * Copyright 1988, 1989 by Robert Viduya.
- * Copyright 1990 Jeff Sparkes.
- * Copyright 1993 Paul Mattes.
+ * Copyright 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.
+ *   All Rights Reserved.  GTRC hereby grants public use of this software.
+ *   Derivative works based on this software must incorporate this copyright
+ *   notice.
  *
- *                         All Rights Reserved
+ * X11 Port Copyright 1990 by Jeff Sparkes.
+ * Additional X11 Modifications Copyright 1993, 1994 by Paul Mattes.
+ *   Permission to use, copy, modify, and distribute this software and its
+ *   documentation for any purpose and without fee is hereby granted,
+ *   provided that the above copyright notice appear in all copies and that
+ *   both that copyright notice and this permission notice appear in
+ *   supporting documentation.
  */
 
 /*
  *	x3270.c
+ *		A 3270 Terminal Emulator for X11
  */
 
 #include <X11/Intrinsic.h>
 #include <X11/StringDefs.h>
 #include <X11/Core.h>
 #include <X11/Shell.h>
+#include <X11/Xatom.h>
 #include <string.h>
 #include <stdio.h>
 #include <signal.h>
@@ -32,17 +40,17 @@ extern char	*app_defaults_version;
 /* Globals */
 Display		*display;
 int		default_screen;
-int		root_window;
+Window		root_window;
 int		depth;
 Widget		toplevel;
 Widget		icon_shell;
 XtAppContext	appcontext;
-Atom		a_delete_me, a_spacing, a_c, a_family_name, a_3270,
-		a_registry, a_iso8859, a_encoding, a_1;
+Atom		a_delete_me, a_save_yourself, a_spacing, a_c, a_family_name,
+		a_3270, a_registry, a_iso8859, a_encoding, a_1, a_command,
+		a_state;
 int		net_sock = -1;
 char		*current_host;
 char		*full_current_host;
-int		background, foreground;
 char		*efontname;
 char		*bfontname;
 int		model_num;
@@ -58,9 +66,14 @@ AppRes		appres;
 char		*charset = (char *) NULL;
 enum kp_placement	kp_placement;
 Pixmap		icon;
+char		*user_title = (char *) NULL;
+char		*user_icon_name = (char *) NULL;
+struct font_list *font_list = (struct font_list *)NULL;
+int		font_count = 0;
 
 enum cstate	cstate = NOT_CONNECTED;
 Boolean		ansi_host = False;
+Boolean		playback_host = False;
 Boolean		ever_3270 = False;
 Boolean		exiting = False;
 
@@ -71,49 +84,64 @@ static Boolean		reading = False;
 static Boolean		excepting = False;
 static Pixmap		inv_icon;
 static Boolean		icon_inverted = False;
-static char		*user_title = (char *) NULL;
-static char		*user_icon_name = (char *) NULL;
+static struct font_list *font_last = (struct font_list *)NULL;
 static void		find_keymaps();
 static void		add_trans();
 static void		peek_at_xevent();
 static void		x_throttle();
+static void		parse_font_list();
+static XtErrorMsgHandler old_emh;
+static void		trap_colormaps();
+static Boolean		colormap_failure = False;
 
 static XrmOptionDescRec options[]= {
 	{ "-activeicon",".activeIcon",	XrmoptionNoArg,		"true" },
 	{ "-apl",	".aplMode",	XrmoptionNoArg,		"true" },
+	{ "-aw",	".autoWrap",	XrmoptionNoArg,		"true" },
+	{ "+aw",	".autoWrap",	XrmoptionNoArg,		"false" },
 	{ "-bfont",	".boldFont",	XrmoptionSepArg,	NULL },
 	{ "-charset",	".charset",	XrmoptionSepArg,	NULL },
 	{ "-efont",	".emulatorFont",XrmoptionSepArg,	NULL },
+	{ "-iconname",	".iconName",	XrmoptionSepArg,	NULL },
 	{ "-keymap",	".keymap",	XrmoptionSepArg,	NULL },
 	{ "-model",	".model",	XrmoptionSepArg,	NULL },
 	{ "-mono",	".mono",	XrmoptionNoArg,		"true" },
 	{ "-once",	".once",	XrmoptionNoArg,		"true" },
+	{ "-script",	".scripted",	XrmoptionNoArg,		"true" },
 	{ "-port",	".port",	XrmoptionSepArg,	NULL },
+	{ "-sb",	".scrollBar",	XrmoptionNoArg,		"true" },
+	{ "+sb",	".scrollBar",	XrmoptionNoArg,		"false" },
+	{ "-sl",	".saveLines",	XrmoptionSepArg,	NULL },
 	{ "-tn",	".termName",	XrmoptionSepArg,	NULL },
+	{ "-trace",	".trace",	XrmoptionNoArg,		"true" },
 };
 
 #define offset(field) XtOffset(AppResptr, field)
 static XtResource resources[] = {
 	{ XtNforeground, XtCForeground, XtRPixel, sizeof(Pixel),
-	  offset(foreground), XtRString, "XtDefaultForeground", },
+	  offset(foreground), XtRString, "XtDefaultForeground" },
 	{ XtNbackground, XtCBackground, XtRPixel, sizeof(Pixel),
-	  offset(background), XtRString, "XtDefaultBackground", },
+	  offset(background), XtRString, "XtDefaultBackground" },
 	{ "colorBackground", "ColorBackground", XtRPixel, sizeof(Pixel),
-	  offset(colorbg), XtRString, "black", },
+	  offset(colorbg), XtRString, "black" },
 	{ "selectBackground", "SelectBackground", XtRPixel, sizeof(Pixel),
-	  offset(selbg), XtRString, "dim gray", },
+	  offset(selbg), XtRString, "dim gray" },
 	{ "normalColor", "NormalColor", XtRPixel, sizeof(Pixel),
-	  offset(normal), XtRString, "green", },
+	  offset(normal), XtRString, "green" },
 	{ "inputColor", "InputColor", XtRPixel, sizeof(Pixel),
-	  offset(select), XtRString, "orange", },
+	  offset(select), XtRString, "orange" },
 	{ "boldColor", "BoldColor", XtRPixel, sizeof(Pixel),
-	  offset(bold), XtRString, "cyan", },
+	  offset(bold), XtRString, "cyan" },
 	{ "mono", "Mono", XtRBoolean, sizeof(Boolean),
 	  offset(mono), XtRString, "false" },
 	{ "keypad", "Keypad", XtRString, sizeof(String),
 	  offset(keypad), XtRString, "right" },
 	{ "keypadOn", "KeypadOn", XtRBoolean, sizeof(Boolean),
 	  offset(keypad_on), XtRString, "false" },
+	{ "invertKeypadShift", "InvertKeypadShift", XtRBoolean, sizeof(Boolean),
+	  offset(invert_kpshift), XtRString, "false" },
+	{ "saveLines", "SaveLines", XtRInt, sizeof(int),
+	  offset(save_lines), XtRString, "64" },
 	{ "menuBar", "MenuBar", XtRBoolean, sizeof(Boolean),
 	  offset(menubar), XtRString, "true" },
 	{ "activeIcon", "ActiveIcon", XtRBoolean, sizeof(Boolean),
@@ -121,47 +149,54 @@ static XtResource resources[] = {
 	{ "labelIcon", "LabelIcon", XtRBoolean, sizeof(Boolean),
 	  offset(label_icon), XtRString, "false" },
 	{ "keypadBackground", "KeypadBackground", XtRPixel, sizeof(Pixel),
-	  offset(keypadbg), XtRString, "grey70", },
+	  offset(keypadbg), XtRString, "grey70" },
 	{ "emulatorFont", "EmulatorFont", XtRString, sizeof(char *),
-	  offset(efontname), XtRString, 0, },
+	  offset(efontname), XtRString, 0 },
 	{ "boldFont", "boldFont", XtRString, sizeof(char *),
-	  offset(bfontname), XtRString, 0, },
+	  offset(bfontname), XtRString, 0 },
 	{ "visualBell", "VisualBell", XtRBoolean, sizeof(Boolean),
 	  offset(visual_bell), XtRString, "false" },
 	{ "aplMode", "AplMode", XtRBoolean, sizeof(Boolean),
 	  offset(apl_mode), XtRString, "false" },
-	{ "once", "once", XtRBoolean, sizeof(Boolean),
+	{ "once", "Once", XtRBoolean, sizeof(Boolean),
 	  offset(once), XtRString, "false" },
+	{ "scripted", "Scripted", XtRBoolean, sizeof(Boolean),
+	  offset(scripted), XtRString, "false" },
 	{ "model", "Model", XtRString, sizeof(char *),
-	  offset(model), XtRString, "4", },
+	  offset(model), XtRString, "4" },
 	{ "keymap", "Keymap", XtRString, sizeof(char *),
-	  offset(key_map), XtRString, 0, },
+	  offset(key_map), XtRString, 0 },
 	{ "composeMap", "ComposeMap", XtRString, sizeof(char *),
-	  offset(compose_map), XtRString, "latin1", },
+	  offset(compose_map), XtRString, "latin1" },
 	{ "hostsFile", "HostsFile", XtRString, sizeof(char *),
-	  offset(hostsfile), XtRString, "/usr/local/pub/ibm_hosts", },
+	  offset(hostsfile), XtRString, "/usr/lib/X11/x3270/ibm_hosts" },
 	{ "port", "Port", XtRString, sizeof(char *),
-	  offset(port), XtRString, "telnet", },
+	  offset(port), XtRString, "telnet" },
 	{ "charset", "Charset", XtRString, sizeof(char *),
-	  offset(charset), XtRString, "us", },
+	  offset(charset), XtRString, "us" },
 	{ "termName", "TermName", XtRString, sizeof(char *),
-	  offset(termname), XtRString, 0, },
-	{ "largeFont", "LargeFont", XtRString, sizeof(char *),
-	  offset(large_font), XtRString, "3270", },
-	{ "smallFont", "smallFont", XtRString, sizeof(char *),
-	  offset(small_font), XtRString, "3270-12", },
+	  offset(termname), XtRString, 0 },
+	{ "debugFont", "DebugFont", XtRString, sizeof(char *),
+	  offset(debug_font), XtRString, "3270d" },
+	{ "fontList", "FontList", XtRString, sizeof(char *),
+	  offset(font_list), XtRString, 0 },
 	{ "iconFont", "IconFont", XtRString, sizeof(char *),
-	  offset(icon_font), XtRString, "nil2", },
+	  offset(icon_font), XtRString, "nil2" },
 	{ "iconLabelFont", "IconLabelFont", XtRString, sizeof(char *),
-	  offset(icon_label_font), XtRString, "8x13", },
-	{ "defaultTranslations", "DefaultTranslations", XtRTranslationTable, sizeof(XtTranslations),
-	  offset(default_translations), XtRTranslationTable, NULL, },
+	  offset(icon_label_font), XtRString, "8x13" },
+	{ "defaultTranslations", "DefaultTranslations", XtRTranslationTable,
+	    sizeof(XtTranslations),
+	  offset(default_translations), XtRTranslationTable, NULL },
 	{ "waitCursor", "WaitCursor", XtRCursor, sizeof(Cursor),
-	  offset(wait_mcursor), XtRString, "watch", },
+	  offset(wait_mcursor), XtRString, "watch" },
 	{ "lockedCursor", "LockedCursor", XtRCursor, sizeof(Cursor),
-	  offset(locked_mcursor), XtRString, "X_cursor", },
+	  offset(locked_mcursor), XtRString, "X_cursor" },
 	{ "adVersion", "AdVersion", XtRString, sizeof(char *),
-	  offset(ad_version), XtRString, 0, },
+	  offset(ad_version), XtRString, 0 },
+	{ "macros", "Macros", XtRString, sizeof(char *),
+	  offset(macros), XtRString, 0 },
+	{ "traceDir", "TraceDir", XtRString, sizeof(char *),
+	  offset(trace_dir), XtRString, "/usr/tmp" },
 
 	{ "monoCase", "MonoCase", XtRBoolean, sizeof(Boolean),
 	  offset(toggle[MONOCASE].value), XtRString, "false" },
@@ -173,31 +208,37 @@ static XtResource resources[] = {
 	  offset(toggle[TIMING].value), XtRString, "false" },
 	{ "cursorPos", "CursorPos", XtRBoolean, sizeof(Boolean),
 	  offset(toggle[CURSORP].value), XtRString, "true" },
-	{ "trace3270", "Trace3270", XtRBoolean, sizeof(Boolean),
-	  offset(toggle[TRACE3270].value), XtRString, "false" },
-	{ "traceTelnet", "TraceTelnet", XtRBoolean, sizeof(Boolean),
-	  offset(toggle[TRACETN].value), XtRString, "false" },
+	{ "trace", "Trace", XtRBoolean, sizeof(Boolean),
+	  offset(toggle[TRACE].value), XtRString, "false" },
+	{ "scrollBar", "ScrollBar", XtRBoolean, sizeof(Boolean),
+	  offset(toggle[SCROLLBAR].value), XtRString, "false" },
+	{ "autoWrap", "AutoWrap", XtRBoolean, sizeof(Boolean),
+	  offset(toggle[LINEWRAP].value), XtRString, "true" },
+	{ "blankFill", "BlankFill", XtRBoolean, sizeof(Boolean),
+	  offset(toggle[BLANKFILL].value), XtRString, "false" },
+	{ "screenTrace", "ScreenTrace", XtRBoolean, sizeof(Boolean),
+	  offset(toggle[SCREENTRACE].value), XtRString, "false" },
 
 	{ "icrnl", "Icrnl", XtRBoolean, sizeof(Boolean),
 	  offset(icrnl), XtRString, "true" },
 	{ "inlcr", "Inlcr", XtRBoolean, sizeof(Boolean),
 	  offset(inlcr), XtRString, "false" },
 	{ "erase", "Erase", XtRString, sizeof(char *),
-	  offset(erase), XtRString, "^?", },
+	  offset(erase), XtRString, "^?" },
 	{ "kill", "Kill", XtRString, sizeof(char *),
-	  offset(kill), XtRString, "^U", },
+	  offset(kill), XtRString, "^U" },
 	{ "werase", "Werase", XtRString, sizeof(char *),
-	  offset(werase), XtRString, "^W", },
+	  offset(werase), XtRString, "^W" },
 	{ "rprnt", "Rprnt", XtRString, sizeof(char *),
-	  offset(rprnt), XtRString, "^R", },
+	  offset(rprnt), XtRString, "^R" },
 	{ "lnext", "Lnext", XtRString, sizeof(char *),
-	  offset(lnext), XtRString, "^V", },
+	  offset(lnext), XtRString, "^V" },
 	{ "intr", "Intr", XtRString, sizeof(char *),
-	  offset(intr), XtRString, "^C", },
+	  offset(intr), XtRString, "^C" },
 	{ "quit", "Quit", XtRString, sizeof(char *),
-	  offset(quit), XtRString, "^\\", },
+	  offset(quit), XtRString, "^\\" },
 	{ "eof", "Eof", XtRString, sizeof(char *),
-	  offset(eof), XtRString, "^D", },
+	  offset(eof), XtRString, "^D" },
 
 };
 #undef offset
@@ -219,6 +260,7 @@ char	*argv[];
 	char	*ef, *bf = NULL, *emsg;
 	int	i;
 	Boolean saw_apl_keymod = False;
+	Atom	protocols[2];
 
 	/* Figure out who we are */
 	programname = strrchr(argv[0], '/');
@@ -237,8 +279,11 @@ char	*argv[];
 	    XtNallowShellResize, False,
 	    NULL);
 
+	old_emh = XtAppSetWarningMsgHandler(appcontext,
+	    (XtErrorMsgHandler)trap_colormaps);
 	XtGetApplicationResources(toplevel, (XtPointer)&appres, resources,
 	    XtNumber(resources), 0, 0);
+	(void) XtAppSetWarningMsgHandler(appcontext, old_emh);
 	if (!appres.ad_version)
 		XtError("Outdated app-defaults file");
 	else if (!strcmp(appres.ad_version, "fallback"))
@@ -254,11 +299,12 @@ char	*argv[];
 	default_screen = DefaultScreen(display);
 	root_window = RootWindow(display, default_screen);
 	depth = DefaultDepthOfScreen(XtScreen(toplevel));
-	if (depth <= 1)
+	if (depth <= 1 || colormap_failure)
 		appres.mono = True;
 	rdb = XtDatabase(display);
 
 	a_delete_me = XInternAtom(display, "WM_DELETE_WINDOW", False);
+	a_save_yourself = XInternAtom(display, "WM_SAVE_YOURSELF", False);
 	a_spacing = XInternAtom(display, "SPACING", False);
 	a_c = XInternAtom(display, "C", False);
 	a_family_name = XInternAtom(display, "FAMILY_NAME", False);
@@ -267,6 +313,8 @@ char	*argv[];
 	a_iso8859 = XInternAtom(display, "ISO8859", False);
 	a_encoding = XInternAtom(display, "CHARSET_ENCODING", False);
 	a_1 = XInternAtom(display, "1", False);
+	a_command = XInternAtom(display, "WM_COMMAND", False);
+	a_state = XInternAtom(display, "WM_STATE", False);
 
 	XtAppAddActions(appcontext, actions, actioncount);
 
@@ -274,8 +322,6 @@ char	*argv[];
 		buf = xs_buffer("Usage: %s [[a:]hostname]", programname);
 		XtError(buf);
 	}
-	foreground = appres.foreground;
-	background = appres.background;
 
 	/*
 	 * Font stuff.  Try the "emulatorFont" resource; if that isn't right,
@@ -283,13 +329,14 @@ char	*argv[];
 	 * say anything if it's wrong.  Finally, fall back to "fixed", and
 	 * die if that won't work.
 	 */
+	parse_font_list();
 	if (appres.apl_mode) {
 		if ((appres.efontname = get_resource("aplFont")) == NULL)
 			XtWarning("Can't find aplFont resource");
 		appres.bfontname = NULL;
 	}
 	if (!appres.efontname)
-		appres.efontname = appres.large_font;
+		appres.efontname = font_list->font;
 	ef = appres.efontname;
 	if (appres.mono)
 		bf = appres.bfontname;
@@ -327,6 +374,7 @@ char	*argv[];
 
 	set_rows_cols(appres.model);
 	hostfile_init();
+	macros_init();
 
 	if (appres.key_map == NULL)
 		appres.key_map = (char *)getenv("KEYMAP");
@@ -413,10 +461,12 @@ char	*argv[];
 
 	screen_init(False, True, True);
 	keypad_at_startup();
-	XSetWMProtocols(display, XtWindow(toplevel), &a_delete_me, 1);
+	protocols[0] = a_delete_me;
+	protocols[1] = a_save_yourself;
+	XSetWMProtocols(display, XtWindow(toplevel), protocols, 2);
 
 	/* Make sure we don't fall over any SIGPIPEs. */
-	signal(SIGPIPE, SIG_IGN);
+	(void) signal(SIGPIPE, SIG_IGN);
 
 	/* Respect the user's title wishes. */
 	user_title = get_resource("title");
@@ -424,11 +474,15 @@ char	*argv[];
 	if (user_icon_name)
 		set_aicon_label(user_icon_name);
 
+	/* Handle initial toggle settings. */
+	initialize_toggles();
+
 	/* Connect to the host. */
-	if (argc > 1)
-		(void) x_connect(argv[1]);
-	else
+	if (argc <= 1 || x_connect(argv[1]) < 0)
 		x_disconnect();
+
+	/* Prepare the tty. */
+	script_init();
 
 	/* Process X events forever. */
 	while (1) {
@@ -476,11 +530,11 @@ char *key;
 	static char namebuf[128];
 	char *r;
 
-	sprintf(namebuf, "message.%s", key);
+	(void) sprintf(namebuf, "message.%s", key);
 	if (r = get_resource(namebuf))
 		return r;
 	else {
-		sprintf(namebuf, "[missing '%s' message]", key);
+		(void) sprintf(namebuf, "[missing '%s' message]", key);
 		return namebuf;
 	}
 }
@@ -492,12 +546,12 @@ char *key;
  * Returns 0 for success, -1 for error.
  */
 #define A_COLON(s)	(!strncmp(s, "a:", 2) || !strncmp(s, "A:", 2))
+#define P_COLON(t)	(!strncmp(t, "p:", 2) || !strncmp(t, "P:", 2))
 int
 x_connect(pseudonym)
 char	*pseudonym;
 {
 	char *raw_name;
-	Boolean manual_ansi = False;
 	char *real_name;
 	char *ps;
 	Boolean pending;
@@ -510,15 +564,18 @@ char	*pseudonym;
 
 	/* Strip off 'a:' and remember it. */
 	ansi_host = False;
+	playback_host = False;
 	if (A_COLON(pseudonym))
 		ansi_host = True;
+	else if (P_COLON(pseudonym))
+		playback_host = True;
 
 	/* Look up the name in the hosts file and record any pending string. */
 	if (hostfile_lookup(pseudonym, &real_name, &ps)) {
-		ps_set(XtNewString(ps));
+		ps_set(XtNewString(ps), True);
 	} else {
 		real_name = pseudonym;
-		ps_set((char *) NULL);
+		ps_set((char *) NULL, False);
 	}
 
 	/* Maybe the translated name in the hosts file had an 'a:'. */
@@ -526,10 +583,22 @@ char	*pseudonym;
 		ansi_host = True;
 		real_name += 2;
 	}
+	if (P_COLON(real_name)) {
+		playback_host = True;
+		real_name += 2;
+	}
+
+	/* Null name? */
+	if (!*real_name)
+		return -1;
 
 	/* Attempt contact. */
 	ever_3270 = False;
-	net_sock = net_connect(real_name, appres.port, &pending);
+	if (playback_host) {
+		pending = False;
+		net_sock = net_playback_connect(real_name);
+	} else
+		net_sock = net_connect(real_name, appres.port, &pending);
 	if (net_sock < 0)
 		return -1;
 
@@ -544,16 +613,19 @@ char	*pseudonym;
 		XtFree(full_current_host);
 	full_current_host = XtNewString(raw_name);
 	current_host = full_current_host;
-	if (A_COLON(current_host))
+	if (A_COLON(current_host) || P_COLON(current_host))
 		current_host += 2;
 
 	/* Prepare for I/O. */
-	ns_exception_id = XtAppAddInput(appcontext, net_sock,
-	    (XtPointer) XtInputExceptMask, net_exception, (XtPointer) NULL);
-	excepting = True;
-	ns_read_id = XtAppAddInput(appcontext, net_sock,
-	    (XtPointer) XtInputReadMask, net_input, (XtPointer) NULL);
-	reading = True;
+	if (!playback_host) {
+		ns_exception_id = XtAppAddInput(appcontext, net_sock,
+		    (XtPointer)XtInputExceptMask, net_exception,
+		    (XtPointer)NULL);
+		excepting = True;
+		ns_read_id = XtAppAddInput(appcontext, net_sock,
+		    (XtPointer) XtInputReadMask, net_input, (XtPointer) NULL);
+		reading = True;
+	}
 
 	/* Tell the world. */
 	menubar_connect();
@@ -561,15 +633,17 @@ char	*pseudonym;
 	kybd_connect();
 	relabel();
 	ansi_init();
+	scroll_reset();
 
 	return 0;
 }
 #undef A_COLON
+#undef P_COLON
 
 void
 x_disconnect()
 {
-	ps_set((char *) NULL);
+	ps_set((char *) NULL, True);
 	ticking_stop();
 	if (HALF_CONNECTED)
 		status_untiming();
@@ -588,24 +662,42 @@ x_disconnect()
 			if (error_popup_visible)
 				exiting = True;
 			else
-				exit(0);
+				x3270_exit(0);
 		}
 		cstate = NOT_CONNECTED;
 	}
 	menubar_connect();
 	screen_connect();
 	kybd_connect();
+	script_continue();	/* in case of Wait pending */
 	relabel();
 }
 
 void
-x_in3270()
+x_in3270(now3270)
+Boolean now3270;
 {
-	cstate = CONNECTED_3270;
-	ever_3270 = True;
-	menubar_newmode();
-	relabel();
-	kybd_connect();
+	if (now3270) {		/* ANSI -> 3270 */
+		cstate = CONNECTED_3270;
+		ever_3270 = True;
+		menubar_newmode();
+		screen_connect();
+		kybd_connect();
+		relabel();
+		scroll_reset();
+		script_continue();	/* in case of Wait pending */
+	} else if (ansi_host) {	/* 3270 -> ANSI */
+		cstate = CONNECTED_INITIAL;
+		ever_3270 = False;
+		ticking_stop();
+		menubar_newmode();
+		screen_connect();
+		kybd_connect();
+		relabel();
+		ansi_init();
+		scroll_reset();
+	} else			/* 3270 -> nothing */
+		x_disconnect();
 }
 
 void
@@ -617,6 +709,7 @@ x_connected()
 	screen_connect();
 	kybd_connect();
 	relabel();
+	script_continue();	/* in case of Wait pending */
 }
 
 /*
@@ -687,7 +780,7 @@ void
 relabel()
 {
 	char *title;
-	char icon[8];
+	char icon_label[8];
 
 	if (user_title && user_icon_name)
 		return;
@@ -702,12 +795,12 @@ relabel()
 		set_aicon_label(current_host);
 	} else {
 		(void) sprintf(title, "x3270-%d", model_num);
-		(void) sprintf(icon, "x3270-%d", model_num);
+		(void) sprintf(icon_label, "x3270-%d", model_num);
 		if (!user_title)
 			XtVaSetValues(toplevel, XtNtitle, title, NULL);
 		if (!user_icon_name)
-			XtVaSetValues(toplevel, XtNiconName, icon, NULL);
-		set_aicon_label(icon);
+			XtVaSetValues(toplevel, XtNiconName, icon_label, NULL);
+		set_aicon_label(icon_label);
 	}
 	XtFree(title);
 }
@@ -786,7 +879,30 @@ peek_at_xevent(e)
 XEvent *e;
 {
 	if (e->type == KeymapNotify)
-		keymap_event(NULL, e, NULL, NULL);
+		keymap_event((Widget)NULL, e, (String *)NULL, (Cardinal *)NULL);
+}
+
+/*
+ * Application exit, with cleanup.
+ */
+void
+x3270_exit(n)
+int n;
+{
+	static Boolean exiting = 0;
+
+	/* Handle unintentional recursion. */
+	if (exiting)
+		return;
+	exiting = True;
+
+	/* Turn off toggle-related activity. */
+	shutdown_toggles();
+
+	/* Shut down the socket gracefully. */
+	x_disconnect();
+
+	exit(n);
 }
 
 /*
@@ -845,7 +961,7 @@ char *string2;
 	XtFree(r);
 }
 
-#ifndef MEMORY_MOVE
+#if !defined(MEMORY_MOVE) /*[*/
 /*
  * A version of memcpy that handles overlaps
  */
@@ -870,4 +986,126 @@ register int cnt;
 	}
 	return r;
 }
-#endif
+#endif /*]*/
+
+/*
+ * Resource splitter.
+ * Returns 1 (success), 0 (EOF), -1 (error).
+ */
+int
+split_resource(st, left, right)
+char **st;
+char **left;
+char **right;
+{
+	char *s = *st;
+	char *t;
+	Boolean quote;
+
+	/* Skip leading white space. */
+	while (isspace(*s))
+		s++;
+
+	/* If nothing left, EOF. */
+	if (!*s)
+		return 0;
+
+	/* There must be a left-hand side. */
+	if (*s == ':')
+		return -1;
+
+	/* Scan until an unquoted colon is found. */
+	*left = s;
+	for (; *s && *s != ':' && *s != '\n'; s++)
+		if (*s == '\\' && *(s+1) == ':')
+			s++;
+	if (*s != ':')
+		return -1;
+
+	/* Stip white space before the colon. */
+	for (t = s-1; isspace(*t); t--)
+		*t = '\0';
+
+	/* Terminate the left-hand side. */
+	*(s++) = '\0';
+
+	/* Skip white space after the colon. */
+	while (*s != '\n' && isspace(*s))
+		s++;
+
+	/* There must be a right-hand side. */
+	if (!*s || *s == '\n')
+		return -1;
+
+	/* Scan until an unquoted newline is found. */
+	*right = s;
+	quote = False;
+	for (; *s; s++) {
+		if (*s == '\\' && *(s+1) == '"')
+			s++;
+		else if (*s == '"')
+			quote = !quote;
+		else if (!quote && *s == '\n')
+			break;
+	}
+
+	/* Strip white space before the newline. */
+	if (*s) {
+		t = s;
+		*st = s+1;
+	} else {
+		t = s-1;
+		*st = s;
+	}
+	while (isspace(*t))
+		*t-- = '\0';
+
+	/* Done. */
+	return 1;
+}
+
+/*
+ * Font list parser.
+ */
+static void
+parse_font_list()
+{
+	char *s, *label, *font;
+	int ns;
+	struct font_list *f;
+
+	if (!appres.font_list)
+		XtError("No fontList resource");
+	s = XtNewString(appres.font_list);
+	while ((ns = split_resource(&s, &label, &font)) == 1) {
+		f = (struct font_list *)XtMalloc(sizeof(*f));
+		f->label = label;
+		f->font = font;
+		f->next = (struct font_list *)NULL;
+		if (font_list)
+			font_last->next = f;
+		else
+			font_list = f;
+		font_last = f;
+		font_count++;
+	}
+	if (!font_count)
+		XtError("Invalid fontList resource");
+}
+
+/*
+ * Warning message trap, for catching colormap failures.
+ */
+static void
+trap_colormaps(name, type, class, defaultp, params, num_params)
+String name;
+String type;
+String class;
+String defaultp;
+String *params;
+Cardinal *num_params;
+{
+    if (!strcmp(type, "cvtStringToPixel"))
+	    colormap_failure = True;
+    (*old_emh)(name, type, class, defaultp, params, num_params);
+}

@@ -1,11 +1,22 @@
 STARTFONT 2.1
-COMMENT Originally a BSD vfont.
-COMMENT The following isn't probably quite right....
-COMMENT FONT -Misc-3270-Medium-R-Normal--14-140-75-75-C-90--1
+COMMENT Bold 14-point 3270 font with APL characters
+COMMENT Uses nonstandard ordering
+COMMENT Copyright 1989 by Georgia Tech Research Corporation, Atlanta, GA
+COMMENT 30332.  All Rights Reserved.
+COMMENT  GTRC hereby grants public use of this software.  Derivative
+COMMENT  works based on this software must incorporate this copyright
+COMMENT  notice.
+COMMENT X11 Port Copyright 1990 by Jeff Sparkes.
+COMMENT Additional X11 Modifications Copyright 1993, 1994 by Paul Mattes.
+COMMENT  Permission to use, copy, modify, and distribute this software and
+COMMENT  its documentation for any purpose and without fee is hereby
+COMMENT  granted, provided that the above copyright notice appear in all
+COMMENT  copies and that both that copyright notice and this permission
+COMMENT  notice appear in supporting documentation.
 FONT 3270-aplbold
 SIZE 14 72 72
 FONTBOUNDINGBOX 9 14 0 -3
-STARTPROPERTIES 17
+STARTPROPERTIES 16
 FONTNAME_REGISTRY ""
 FOUNDRY "Misc"
 FAMILY_NAME "3270"
@@ -22,7 +33,6 @@ AVERAGE_WIDTH 90
 DEFAULT_CHAR 0
 FONT_ASCENT 11
 FONT_DESCENT 3
-COPYRIGHT "Copyright 1990 Robert Vidyua and Jeff Sparkes."
 ENDPROPERTIES
 CHARS 256
 STARTCHAR null
@@ -64,7 +74,7 @@ c3
 00
 ff
 ENDCHAR
-STARTCHAR formfeed
+STARTCHAR ff
 ENCODING 2
 SWIDTH 562 0
 DWIDTH 9 0
@@ -85,7 +95,7 @@ BITMAP
 00
 00
 ENDCHAR
-STARTCHAR carriagereturn
+STARTCHAR cr
 ENCODING 3
 SWIDTH 562 0
 DWIDTH 9 0
@@ -106,7 +116,7 @@ BITMAP
 00
 00
 ENDCHAR
-STARTCHAR newline
+STARTCHAR nl
 ENCODING 4
 SWIDTH 562 0
 DWIDTH 9 0
@@ -127,7 +137,7 @@ BITMAP
 00
 00
 ENDCHAR
-STARTCHAR endofmedia
+STARTCHAR em
 ENCODING 5
 SWIDTH 562 0
 DWIDTH 9 0
@@ -2479,7 +2489,7 @@ c6
 00
 ff
 ENDCHAR
-STARTCHAR divide
+STARTCHAR division
 ENCODING 157
 SWIDTH 562 0
 DWIDTH 9 0
@@ -2493,7 +2503,7 @@ fe
 38
 38
 ENDCHAR
-STARTCHAR fieldmark
+STARTCHAR fm
 ENCODING 158
 SWIDTH 562 0
 DWIDTH 9 0
@@ -3396,7 +3406,7 @@ d8
 d8
 70
 ENDCHAR
-STARTCHAR blockA
+STARTCHAR boxA
 ENCODING 210
 SWIDTH 562 0
 DWIDTH 9 0
@@ -3429,7 +3439,7 @@ e380
 c180
 8080
 ENDCHAR
-STARTCHAR blockb
+STARTCHAR boxB
 ENCODING 212
 SWIDTH 562 0
 DWIDTH 9 0

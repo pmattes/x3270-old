@@ -1,0 +1,8 @@
+Known Bugs in x3270 3.0.2
+
+Pull-down menus do not work if the Shift, Meta, Alt or Caps Lock keys are down.
+Specifically, the menus will drop down, but nothing can be selected.  This is a
+bug in the Athena menu widget, and affects other programs such as 'bitmap' as
+well.
+
+When the -mono switch is used on a color display, the cursor is green.

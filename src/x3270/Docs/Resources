@@ -1,0 +1,537 @@
+x3270 Resources
+
+Here is a complete list of the customizable X resources used by x3270, their
+meanings, default values, command-line switches and menu options that change
+them.
+
+Note that any resource can be set on the command line with the -xrm
+switch.
+
+x3270.adVersion		Default 3.0.2
+    Used to synchronize the version of x3270 with the app-defaults file.  This
+    is often the same as the x3270 version number, but not always.  Whenever
+    an incompatible change is made in x3270's resource definitions, the number
+    is changed.  If you upgrade x3270 to a new release, and merely change this
+    number in your app-defaults file (rather than finding out what really
+    changed), very bad things will happen.
+
+x3270.emulatorFont	Default 3270		Switch -efont
+			Options 3270 Font
+			        3270-12 Font
+			        Debug Font
+			        Other Font...
+    The font used for the emulator window.  By default it is 3270, a 14-pixel
+    clone of a real 3278 display font.  A nice substitution is 3270-12, which
+    is a little more compact.  Actually, x3270 can use any X font, so long as
+    it uses constant spacing.  However, only 3270 and 3270-12 allow displaying
+    special symbols on the status line.
+
+    (Actually, the default for emulatorFont is the value of the first font
+    in the fontList resource, below.)
+
+x3270.boldFont		Default 3270b		Switch -bfont
+    On monochrome displays, this is the font used for high-intensity text in
+    the emulator window.  If no boldFont is defined, high-intensity text is
+    displayed by overstriking each character.  The boldFont is not used on
+    color displays.
+
+x3270.foreground	Default black		Switches: -fg, -rv
+    The foreground color for menus, buttons, and on monochrome displays, the
+    emulator display.
+
+x3270.background	Default white		Switches: -bg, -rv
+    The background color for menus, buttons, and on monochrome displays, the
+    emulator display.
+
+x3270.colorBackground	Default black
+    The background color for the emulator window (color displays only).  On
+    monochrome displays, the background color is white, unless -rv (reverse
+    video) is selected on the command line.
+
+x3270.selectBackground	Default dim gray
+    On color displays, this is the background color used for selected text
+    (text highlighted with the mouse for cut and paste).  On monochrome
+    displays, selected text is in reverse video.
+
+x3270.normalColor	Default green
+    On color displays, this is the color of normal-intensity text.  (On
+    monochrome displays, normal text uses the foreground color.)
+
+x3270.inputColor	Default orange
+    On color displays, this is the color of light-pen selectable fields, and
+    modified fields.  On monochrome displays, these fields are
+    indistinguishable from other normal-intensity text.
+
+x3270.boldColor		Default cyan
+    On color displays, this is the color of high-intensity text.  (See the
+    description of boldFont for how it works on monochrome displays.)
+
+x3270.keymap		No Default		Switch -keymap
+    The name of the keyboard map to use.  If no keymap resource is specified,
+    the environment variables KEYMAP and KEYBD are checked (in that order) for
+    the keymap name.
+
+    For each keymap x, an additional resource by the name x3270.keymap.x must
+    be defined, which gives the actual key mappings.  These are in X
+    translation table format.
+
+    The name may be followed by any number of comma-separated modifier names,
+    e.g., if the keymap name "sun-k4,ow", means keymap "sun-k4" and modifier
+    "ow".
+
+    For each keymap modifier x, an additional resource by the name
+    x3270.keymap.x must be defined, which gives the actual key mappings.
+    These are also in X translation table format.
+
+x3270.keymap.sun-k5
+x3270.keymap.sun-k4
+x3270.keymap.sun-k3
+x3270.keymap.ncd
+x3270.keymap.hp-k1
+x3270.keymap.hp-pc
+    These are predefined keymaps.
+
+x3270.keymap.ow
+x3270.keymap.apl
+x3270.keymap.alt
+x3270.keymap.t
+x3270.keymap.finnish7
+x3270.keymap.norwegian7
+    These are predefined keymap modifiers:
+    - "ow" makes the mouse work more like OpenWindows defaults
+    - "apl" is automatically applied when in apl mode (the -apl switch is used)
+    - "alt" maps many of the "Meta" key actions to "Alt" key actions, for
+	keyboards which lack a "Meta" key
+    - "t" is useful for keymap debugging; it maps Meta-z to an action that
+	displays the current keymap
+    - "finnish7" and "norwegian7" are for compatibility with certain 7-bit
+	international keyboards
+
+x3270.defaultTranslations
+    The default translation table for the main window and keypad.  This may
+    be modified with great care, however, it makes more sense to use keymaps
+    to accomplish customizations.
+
+x3270.keypadBackground	Default grey70
+    On color displays, this is the color of the empty area behind the buttons
+    on the main window and keypad window.  On monochrome displays, these areas
+    are filled with a 50% grey bitmap.
+
+x3270.waitCursor	Default watch
+    The name of the mouse cursor displayed when x3270 is connected to a host,
+    but is unable to process keyboard input.  Cursor names are in the file
+    <X11/cursorfont.h>.
+
+x3270.lockedCursor	Default X_cursor
+    The name of the mouse cursor displayed with x3270 is not connected to a
+    host.
+
+x3270.icrnl		Default true
+x3270.inlcr		Default false
+    These resources are used in ANSI mode, and are similar to the "stty"
+    parameters of the same name.  They control whether input carriage returns
+    are mapped to newlines, and newlines are mapped to carriage returns,
+    respectively.
+
+x3270.erase		Default ^?
+x3270.kill		Default ^U
+x3270.werase		Default ^W
+x3270.rprnt		Default ^R
+x3270.lnext		Default ^V
+x3270.intr		Default ^C
+x3270.quit		Default ^\\
+x3270.eof		Default ^D
+    These resources are also used in ANSI mode, but only when communicating
+    in line-at-a-time mode (when x3270 gathers a line of input before
+    forwarding it to the host).  They define the special characters used for
+    editing input, and have exactly the same functions as the "stty" parameters
+    of the same names.
+
+    The erase, werase and kill resources are also used in reverse.  When
+    connected in ANSI character-at-a-time mode (when x3270 sends each
+    keystroke to the host), these are the ASCII characters that are sent to
+    the host in response to the Erase, DeleteWord and DeleteField actions,
+    respectively.
+
+x3270.activeIcon	Default false		Switch -activeicon
+    This one is a lot of fun.  When set to true, x3270's icon becomes a live
+    miniature of the screen display.  There are some limitations, spelled out
+    in the man page.
+
+x3270.iconFont		Default nil2
+    The font used to paint the text inside the active icon.  "nil2" is a
+    one-by-two pixel font that produces a "greeked" picture of the screen
+    image.
+
+x3270.labelIcon		Default false
+    When activeIcon is true, MIT's twm window manager will not put a label on
+    x3270's icon.  Setting labelIcon to true causes x3270 to supply its own
+    label for the icon.
+
+x3270.iconLabelFont 	Default 8x13
+    When activeIcon and labelIcon are true, this is the name of the font used
+    to paint the icon label.
+
+x3270.altCursor		Default false		Option Underline Cursor
+						       Block Cursor
+    When set to true, this causes x3270 to start with the alternate
+    (underscore) cursor.
+
+x3270.autoWrap		Default true		Switch -aw, +aw
+			Option Wraparound
+    When set to true, in ANSI mode x3270 will automatically insert a 
+    Newline then output reaches the end of a line.  When false, output can
+    pile up at the end of each line.
+
+x3270.blankFill		Default false		Option Blank Fill
+    When set to true, in ANSI mode x3270 will automatically insert a 
+    Newline then output reaches the end of a line.  When false, output can
+    pile up at the end of each line.
+
+x3270.blink		Default false
+    When set to true, this causes x3270 to start with a blinking cursor.
+
+x3270.charset		Default us		Switch -charset
+    This defines the EBCDIC character set, that is, what glyph (image) is
+    displayed for each EBCDIC code.
+
+    For each character set x, an additional resource by the name of
+    charset.x must be defined.  These resources consist of a series of
+    newline-separated strings that define how an EBCDIC national character
+    set differs from IBM's standard U.S. set (table 01).  Each string is a
+    number, a colon, and a symbol.  The number is the EBCDIC code, and the
+    symbol is an ASCII character or ISO Latin-1 name of the graphic it
+    represents.
+    
+x3270.charset.us
+x3270.charset.apl
+x3270.charset.bracket
+x3270.charset.oldibm
+x3270.charset.german
+x3270.charset.finnish
+x3270.charset.uk
+x3270.charset.norwegian
+x3270.charset.french
+    Character set definitions.
+
+x3270.composeMap	Default latin1
+    Gives the name of the map used to define the pairs of characters that
+    form composite characters with the Compose key.
+
+x3270.composeMap.latin1
+x3270.composeMap.apl
+    Foe each compose map x, an additional resource by the name of composeMap.x
+    must be defined.  Each line in the resource is of the form
+    "keysym1 + keysym2 = keysym3", meaning "when the Compose key is pressed,
+    followed by keysym1 and keysym2 (in either order), interpret it as
+    keysym3."  The definitions are case-sensitive.
+
+x3270.cursorPos		Default true
+    When set to true, causes x3270 to display the cursor location on the
+    status line.
+
+x3270.hostsFile		Default /usr/lib/X11/x3270/ibm_hosts
+    The name of a file listing the host names that appear on the "Connect"
+    pull-down menu.  The format of the file is explained on the ibm_hosts man
+    page.
+
+x3270.invertKeypadShift	Default false
+    When set to true, this causes the PF1-PF12 and PF13-PF24 keys on the
+    pop-up keypad to be swapped.  Normally, the low-numbered keys appear;
+    when Shift, Alt, Ctrl or Meta is pressed, the high-numbered keys appear.
+    With this resource set to true, that is reversed.
+
+x3270.keypad		Default right
+    This controls the position of the pop-up keypad.  It can have one of
+    three values: right, meaning a pop-up window initially positioned to
+    the right of the main x3270 window; bottom, meaning a pop-up window
+    initially positioned below the main x3270 window; and integral, making
+    the keypad an extension of the bottom of the main window itself.
+
+x3270.keypadOn		Default false
+    If set to true, the keypad will automatically appear when x3270 is started.
+
+x3270.macros
+    Defines a set of macros assigned to a pull-down menu that appears when
+    connected to a host.  The syntax is similar to a keymap (an X11 translation
+    table), except that rather than a keysym name, the left-hand side is a
+    name that will appear on the menu.  Any single action can be specified
+    on the right-hand side.
+
+x3270.menuBar		Default true
+    If set to false, the menu bar will not be displayed at the top of the
+    x3270 main window.  The three pull-down menus are still available, however,
+    by pressing Ctrl and each of the mouse buttons.
+
+x3270.model		Default 4		Switch -model
+			Options Model 2
+			        Model 3
+			        Model 4
+			        Model 5
+    The 3278 terminal model that x3270 is emulating, which determines the
+    size of the screen.
+
+x3270.monoCase		Default false		Option Monocase
+    When true, causes x3270 to start in uppercase-only mode.
+
+x3270.once		Default false		Switch -once
+    When true, x3270 will exit as soon as a host disconnects.
+
+x3270.port		Default telnet		Switch -port
+    The name of the TCP port for x3270 to connect to.  This can be either a
+    symbolic name from /etc/services, or an integer.
+
+x3270.saveLines		Default 64		Switch -sl
+    The number of display lines to save for the scroll bar.
+
+x3270.screenTrace	Default false		Option Save Screen(s) in File
+    When true, x3270 will save an ASCII version of the screen image in
+    the file /usr/tmp/x3scr.<pid>, every time it is redrawn.  The directory
+    prefix is defined by the traceDir resource.
+
+x3270.scripted		Default false		Switch -scripted
+    When true, x3270 will read commands from standard input.  The rules for
+    these commands are documented in x3270script(1).
+
+x3270.scrollBar		Default false		Switches -sb, +sb
+			Option Scrollbar
+    When true, x3270 will display a scroll bar to the right of the emulator
+    window.
+
+x3270.termName		Default IBM-3278-n	Switch -tn
+    An alternate name to be sent in response to the host's "DO OPTION
+    TERMINAL-NAME" request.  The default is IBM-3278-n, where n is the model
+    number.
+
+x3270.timing		Default false
+    When true, x3270 will display on the status line the time that the host
+    takes to unlock the keyboard after an AID is sent.
+
+x3270.trace		Default false		 Switch -trace 
+			Option Trace Data Stream
+    When true, x3270 writes a hexadecimal representation of all network
+    traffic, and its interpretation, into the file /usr/tmp/x3trc.<pid>.  It
+    also pops up a window to watch the file as it is created, with the
+    pathname of the file as the window title.  The command run in the window
+    is defined by the traceCommand resource.  The directory prefix is
+    defined by the traceDir resource.
+
+x3270.traceDir		Default /usr/tmp
+    Defines the directory that data stream traces and screen images are saved
+    in.
+
+x3270.traceCommand	Default tail -f
+    The command that is run in the trace monitor window, with its standard
+    input redirected from the trace file.  If given the value 'none', no
+    monitor window will be created.
+
+x3270.visualBell	Default false
+    When true, x3270 will flash the screen in response to an ALARM WCC or
+    BELL character, rather than ringing the X display's bell.
+
+x3270.fontList		Default: 3270 Font: 3270
+				 3270-12 Font: 3270-12
+				 Debug Font: 3270d
+    The list of menu labels and font names that appear on the Options menu.
+    The first name on the list is used as the default emulator font.
+
+x3270.aplFont		Default	3270-apl
+    The font used when in apl mode (when the -apl switch is used).  It is
+    assumed that this is a 3270 font (one with the same ordering as 3270 and
+    3270-12), but with special APL characters in place of accented (ISO
+    Latin-1) characters.
+
+x3270.debugFont		Default 3270d
+    The name of the font recognized as the "debug" font.  (When x3270 thinks
+    it is using a debug font, it uses a different, slower method to draw the
+    screen.)  It is assumed that this is a 3270 font (one with the same
+    ordering as 3270 and 3270-12), but with printable graphics in place of
+    the NULL and field attribute characters, which are normally blank.
+
+    Usually, the "Debug Font" menu option selects this font.
+
+x3270*keyPad*large*font	Default fixed
+    The font used to paint the "large" labels on the keys in the keypad, i.e.,
+    the PA and PF keys.
+
+x3270*keyPad*small*font	Default -*-fixed-medium-r-semicondensed-*-12-*-*-*-*-*-*-*
+    The font used to paint the "small" labels on the keys in the keypad, e.g.,
+    the "Mono Case" key.
+
+x3270*value*font	Default fixed
+    The is the name of the font used for the input fields in data entry
+    pop-ups.
+
+x3270*dataLabel.font	Default -*-terminal-medium-r-normal--14-*-*-*-*-*-iso8859-1
+    The font used to display values in the "About x3270" pop-up.
+
+x3270*font:		Default -*-helvetica-bold-r-normal--12-*-*-*-*-*-*-*
+    The font used for everything else.
+
+x3270.printTextCommand	Default lpr
+    The shell command used by the PrintText action.  An ASCII image of the
+    3270 display becomes the standard input to this command.  If the first
+    character of the command is '@', the usual pop-up windows before and after
+    the text is printed will not appear.
+
+x3270.printWindowCommand	Default xwd -id %d | xpr | lpr
+    The shell command used by the PrintWindow action.  The X window identifier
+    of the main x3270 window is substituted for any "%d" in the command.  If
+    the first character of the command is '@', the usual pop-up windows before
+    and after the window is printed will not appear.
+
+x3270.keypad.keyHeight	Default 24
+    The height in pixels of all of the buttons on the keypad.
+
+x3270.keypad.keyWidth	Default 48
+    The width in pixels of the lower tier of buttons on a horizontal keypad.
+
+x3270.keypad.pfWidth	Default 32
+    The width in pixels of PF keys on the keypad.
+
+x3270.keypad.paWidth	Default 36
+    The width in pixels of PA and cursor keys on the keypad.
+
+x3270.keypad.largeKeyWidth	Default 56
+    The width in pixels of the lower tier of buttons on a vertical keypad.
+
+x3270*cancelButton.label
+x3270*connectMenuButton.label
+x3270*disconnectOption.label
+x3270*exitOption.label
+x3270*hostMenu.label
+x3270*okayButton.label
+x3270*optionsMenu.aboutOption.label
+x3270*optionsMenu.blinkOption.label
+x3270*optionsMenu.blockOption.label
+x3270*optionsMenu.characterModeOption.label
+x3270*optionsMenu.fillOption.label
+x3270*optionsMenu.keypadOption.label
+x3270*optionsMenu.label
+x3270*optionsMenu.lineModeOption.label
+x3270*optionsMenu.model2Option.label
+x3270*optionsMenu.model3Option.label
+x3270*optionsMenu.model4Option.label
+x3270*optionsMenu.model5Option.label
+x3270*optionsMenu.monocaseOption.label
+x3270*optionsMenu.otherFontOption.label
+x3270*optionsMenu.scrollbarOption.label
+x3270*optionsMenu.timingOption.label
+x3270*optionsMenu.traceOption.label
+x3270*optionsMenu.trackOption.label
+x3270*optionsMenu.underlineOption.label
+x3270*optionsMenu.wrapOption.label
+x3270*optionsMenuButton.label
+x3270*otherHostOption.label
+x3270*quitMenu.label
+x3270*quitMenuButton.label
+x3270.connectPopup*confirmButton.label
+x3270.connectPopup.dialog.label
+x3270.connectPopup.title
+x3270.errorPopup.title
+x3270.fontPopup*confirmButton.label
+x3270.fontPopup.dialog.label
+x3270.fontPopup.title
+x3270.infoPopup.title
+x3270.infoPopup.translations
+x3270.keypadPopup.title
+x3270.optionsPopup.title
+x3270.printTextPopup*confirmButton.label
+x3270.printTextPopup.dialog.label
+x3270.printTextPopup.title
+x3270.printWindowPopup*confirmButton.label
+x3270.printWindowPopup.dialog.label
+x3270.printWindowPopup.title
+x3270.screentracePopup*confirm2Button.label
+x3270.screentracePopup*confirmButton.label
+x3270.screentracePopup.dialog.label
+x3270.screentracePopup.title
+x3270.tracePopup*confirmButton.label
+x3270.tracePopup.dialog.label
+x3270.tracePopup.title
+    The titles and labels used for nearly every window, menu option, and
+    button.  These can be readily translated to Swahili, Hindi, or whatever.
+
+x3270.message.reconnect
+x3270.message.model
+x3270.message.rows
+x3270.message.columns
+x3270.message.terminalName
+x3270.message.emulatorFont
+x3270.message.fullFont
+x3270.message.asciiFont
+x3270.message.cgFont
+x3270.message.boldEmulatorFont
+x3270.message.overstriking
+x3270.message.characterSet
+x3270.message.defaultCharacterSet
+x3270.message.keyboardMap
+x3270.message.defaultKeyboardMap
+x3270.message.composeMap
+x3270.message.noComposeMap
+x3270.message.activeIcon
+x3270.message.iconFont
+x3270.message.iconLabelFont
+x3270.message.staticIcon
+x3270.message.connectedTo
+x3270.message.charMode
+x3270.message.lineMode
+x3270.message.dsMode
+x3270.message.connectionPending
+x3270.message.notConnected
+x3270.message.specialCharacters
+x3270.message.hour
+x3270.message.hours
+x3270.message.minute
+x3270.message.minutes
+x3270.message.second
+x3270.message.seconds
+x3270.message.sent
+x3270.message.Received
+x3270.message.received
+x3270.message.byte
+x3270.message.bytes
+x3270.message.record
+x3270.message.records
+x3270.message.statusNotConnected
+x3270.message.statusConnecting
+x3270.message.statusTwait
+x3270.message.statusSyswait
+x3270.message.statusProtected
+x3270.message.statusNumeric
+x3270.message.statusOverflow
+    More translatable text.  These are used in the "About x3270" pop-up, and in
+    some variable menu items.
+
+x3270*cancelButton.foreground
+x3270.connectPopup.width
+x3270.errorPopup*foreground
+x3270.errorPopup.width
+x3270.fontPopup.width
+x3270.infoPopup.width
+x3270.optionsPopup*icon.foreground
+x3270.printTextPopup.width
+x3270.printWindowPopup.width
+x3270.screentracePopup.width
+x3270.tracePopup*background
+x3270.tracePopup.width
+    Various shapes, sizes and colors for pop-ups.
+
+x3270*optionsMenu*leftMargin
+    The size of the margin at the left of the Options menu.
+
+x3270.translations
+x3270*screen.translations
+x3270icon.translations
+x3270.keypadPopup.translations
+x3270.errorPopup.translations
+x3270.connectPopup.translations
+x3270.fontPopup.translations
+x3270.optionsPopup.translations
+x3270*value.translations
+    Basic translation tables for the various widgets in x3270.  These
+    should _never_ be changed.
+
+x3270.cmap.3270-apl
+    Character map resource for the apl font.  Used to describe which EBCDIC
+    characters change their representation when using the apl font.

@@ -1,11 +1,10 @@
 /*
- * Copyright 1993 Paul Mattes.
- *
- * Permission to use, copy, modify, and distribute this software and its
- * documentation for any purpose and without fee is hereby granted,
- * provided that the above copyright notice appear in all copies and that
- * both that copyright notice and this permission notice appear in
- * supporting documentation.
+ * Copyright 1993, 1994 by Paul Mattes.
+ *  Permission to use, copy, modify, and distribute this software and its
+ *  documentation for any purpose and without fee is hereby granted,
+ *  provided that the above copyright notice appear in all copies and that
+ *  both that copyright notice and this permission notice appear in
+ *  supporting documentation.
  */
 
 /*
@@ -18,10 +17,14 @@
 #include <X11/Shell.h>
 #include "globals.h"
 
+/* Externals */
 extern unsigned char asc2cg[];
 extern int cursor_addr;
 extern Boolean is_altbuffer;
+extern unsigned char *screen_buf;
+extern unsigned char *ea_buf;
 
+/* Statics */
 static void ansi_scroll();
 
 #define	SC	1	/* save cursor position */
@@ -351,12 +354,14 @@ static unsigned char ea = 0;
 static int insert_mode = 0;
 static int auto_newline_mode = 0;
 static int appl_cursor = 0;		static int saved_appl_cursor = 0;
-static int wraparound_mode = 0;		static int saved_wraparound_mode = 0;
+static int wraparound_mode = 1;		static int saved_wraparound_mode = 1;
 static int rev_wraparound_mode = 0;	static int saved_rev_wraparound_mode = 0;
 static Boolean saved_altbuffer = False;
 static int scroll_top = -1;
 static int scroll_bottom = -1;
 static unsigned char tabs[(132+7)/8];
+
+static Boolean held_wrap = False;
 
 static enum state
 ansi_data_mode()
@@ -375,6 +380,7 @@ static enum state
 dec_restore_cursor()
 {
 	cursor_move(saved_cursor);
+	held_wrap = False;
 	return DATA;
 }
 
@@ -389,6 +395,7 @@ ansi_newline()
 		cursor_move(nc);
 	else
 		ansi_scroll();
+	held_wrap = False;
 	return DATA;
 }
 
@@ -405,6 +412,7 @@ int nn;
 		cursor_move(cursor_addr % COLS);
 	else
 		cursor_move(cursor_addr - (nn * COLS));
+	held_wrap = False;
 	return DATA;
 }
 
@@ -431,8 +439,8 @@ ansi_reset()
 	auto_newline_mode = 0;
 	appl_cursor = 0;
 	saved_appl_cursor = 0;
-	wraparound_mode = 0;
-	saved_wraparound_mode = 0;
+	wraparound_mode = 1;
+	saved_wraparound_mode = 1;
 	rev_wraparound_mode = 0;
 	saved_rev_wraparound_mode = 0;
 	saved_altbuffer = False;
@@ -440,6 +448,7 @@ ansi_reset()
 	scroll_bottom = ROWS;
 	for (i = 0; i < sizeof(tabs); i++)
 		tabs[i] = 0x01;
+	held_wrap = False;
 	if (!first) {
 		ctlr_altbuffer(True);
 		ctlr_aclear(0, ROWS * COLS, 1);
@@ -486,6 +495,7 @@ int nn;
 		cursor_move((ROWS-1)*COLS + (cursor_addr%COLS));
 	else
 		cursor_move(cursor_addr + (nn * COLS));
+	held_wrap = False;
 	return DATA;
 }
 
@@ -503,6 +513,7 @@ int nn;
 	if (cc + nn >= COLS)
 		nn = COLS - 1 - cc;
 	cursor_move(cursor_addr + nn);
+	held_wrap = False;
 	return DATA;
 }
 
@@ -512,6 +523,10 @@ int nn;
 {
 	int cc;
 
+	if (held_wrap) {
+		held_wrap = False;
+		return DATA;
+	}
 	if (nn < 1)
 		nn = 1;
 	cc = cursor_addr % COLS;
@@ -532,6 +547,7 @@ int n1, n2;
 	if (n2 < 1) n2 = 1;
 	if (n2 > COLS) n2 = COLS;
 	cursor_move((n1 - 1) * COLS + (n2 - 1));
+	held_wrap = False;
 	return DATA;
 }
 
@@ -675,6 +691,10 @@ ansi_newpage()
 static enum state
 ansi_backspace()
 {
+	if (held_wrap) {
+		held_wrap = False;
+		return DATA;
+	}
 	if (rev_wraparound_mode) {
 		if (cursor_addr > (scroll_top - 1) * COLS)
 			cursor_move(cursor_addr - 1);
@@ -692,6 +712,7 @@ ansi_cr()
 		cursor_move(cursor_addr - (cursor_addr % COLS));
 	if (auto_newline_mode)
 		(void) ansi_lf();
+	held_wrap = False;
 	return DATA;
 }
 
@@ -699,6 +720,8 @@ static enum state
 ansi_lf()
 {
 	int nc = cursor_addr + COLS;
+
+	held_wrap = False;
 
 	/* If we're below the scrolling region, don't scroll. */
 	if ((cursor_addr / COLS) >= scroll_bottom) {
@@ -720,6 +743,7 @@ ansi_htab()
 	int col = cursor_addr % COLS;
 	int i;
 
+	held_wrap = False;
 	if (col == COLS-1)
 		return DATA;
 	for (i = col+1; i < COLS-1; i++)
@@ -741,24 +765,52 @@ ansi_nop()
 	return DATA;
 }
 
+#define PWRAP { \
+    nc = cursor_addr + 1; \
+    if (nc < scroll_bottom * COLS) \
+	    cursor_move(nc); \
+    else { \
+	    if (cursor_addr / COLS >= scroll_bottom) \
+		    cursor_move(cursor_addr / COLS * COLS); \
+	    else { \
+		    ansi_scroll(); \
+		    cursor_move(nc - COLS); \
+	    } \
+    } \
+}
+
 static enum state
 ansi_printing()
 {
 	int nc;
+
+	if (held_wrap) {
+		PWRAP;
+		held_wrap = False;
+	}
 
 	if (insert_mode)
 		(void) ansi_insert_chars(1);
 	ctlr_add(cursor_addr, asc2cg[ansi_ch]);
 	ctlr_add_ea(cursor_addr, ea);
 	if (wraparound_mode) {
-		nc = cursor_addr + 1;
-		if (nc < scroll_bottom * COLS)
-			cursor_move(nc);
-		else if (cursor_addr / COLS >= scroll_bottom)
-			cursor_move(cursor_addr / COLS * COLS);
-		else {
-			ansi_scroll();
-			cursor_move(nc - COLS);
+		/*
+		 * There is a fascinating behavior of xterm which we will
+		 * attempt to emulate here.  When a character is printed in the
+		 * last column, the cursor sticks there, rather than wrapping
+		 * to the next line.  Another printing character will put the
+		 * cursor in column 2 of the next line.  One cursor-left
+		 * sequence won't budge it; two will.  Saving and restoring
+		 * the cursor won't move the cursor, but will cancel all of
+		 * the above behaviors...
+		 *
+		 * In my opinion, very strange, but among other things, 'vi'
+		 * depends on it!
+		 */
+		if (!((cursor_addr + 1) % COLS)) {
+			held_wrap = True;
+		} else {
+			PWRAP;
 		}
 	} else {
 		if ((cursor_addr % COLS) != (COLS - 1))
@@ -791,6 +843,8 @@ ansi_reverse_index()
 					   region, above this line */
 	int ns;				/* number of rows to scroll */
 	int nn = 1;			/* number of rows to index */
+
+	held_wrap = False;
 
 	/* If the cursor is above the scrolling region, do a simple margined
 	   cursor up.  */
@@ -1083,6 +1137,12 @@ int nn;
 static void
 ansi_scroll()
 {
+	held_wrap = False;
+
+	/* Save the top line */
+	if (scroll_top == 1 && scroll_bottom == ROWS && !is_altbuffer)
+		scroll_save(1);
+
 	/* Scroll all but the last line up */
 	if (scroll_bottom > scroll_top)
 		ctlr_bcopy(scroll_top * COLS,
@@ -1112,7 +1172,9 @@ unsigned int c;
 	c &= 0xff;
 	ansi_ch = c;
 
-	state = (*ansi_fn[st[state][c]])(n[0], n[1]);
+	scroll_to_bottom();
+
+	state = (*ansi_fn[st[(int)state][c]])(n[0], n[1]);
 }
 
 void
@@ -1190,4 +1252,13 @@ int nn;
 		return;
 	(void) sprintf(fn_buf, "\033O%c", code[nn-1]);
 	net_sends(fn_buf);
+}
+
+void
+toggle_wrap()
+{
+	if (toggled(LINEWRAP))
+		wraparound_mode = 1;
+	else
+		wraparound_mode = 0;
 }

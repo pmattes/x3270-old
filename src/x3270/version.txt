@@ -1,2 +1,2 @@
-char *version = "3.0.1.4";
-char *app_defaults_version = "3.0.1.2";
+version="3.0.2.5"
+adversion="3.0.2.1"

@@ -1,8 +1,11 @@
 /*
- * Copyright 1990 Jeff Sparkes.
- * Copyright 1993 Paul Mattes.
- *
- *	All rights reserved.
+ * Copyright 1990 by Jeff Sparkes.
+ * Modifications Copyright 1993, 1994 by Paul Mattes.
+ *  Permission to use, copy, modify, and distribute this software and its
+ *  documentation for any purpose and without fee is hereby granted,
+ *  provided that the above copyright notice appear in all copies and that
+ *  both that copyright notice and this permission notice appear in
+ *  supporting documentation.
  */
 
 /*
@@ -10,6 +13,7 @@
  *		Common definitions for x3270.
  */
 
+enum toggle_type { TT_INITIAL, TT_TOGGLE, TT_FINAL };
 struct toggle {
 	Boolean value;		/* toggle value */
 	Widget w[2];		/* the menu item widgets */
@@ -21,10 +25,13 @@ struct toggle {
 #define BLINK		2
 #define TIMING		3
 #define CURSORP		4
-#define TRACE3270	5
-#define TRACETN		6
+#define TRACE		5
+#define SCROLLBAR	6
+#define LINEWRAP	7
+#define BLANKFILL	8
+#define SCREENTRACE	9
 
-#define N_TOGGLES	7
+#define N_TOGGLES	10
 
 typedef struct {
 	Pixel	foreground;
@@ -43,6 +50,8 @@ typedef struct {
 	Boolean label_icon;
 	Boolean	apl_mode;
 	Boolean	once;
+	Boolean invert_kpshift;
+	Boolean scripted;
 	XtTranslations	default_translations;
 	Cursor	wait_mcursor;
 	Cursor	locked_mcursor;
@@ -57,10 +66,13 @@ typedef struct {
 	char	*port;
 	char	*charset;
 	char	*termname;
-	char	*large_font;
-	char	*small_font;
+	char	*font_list;
+	char	*debug_font;
 	char	*icon_font;
 	char	*icon_label_font;
+	char	*macros;
+	char	*trace_dir;
+	int	save_lines;
 	struct toggle toggle[N_TOGGLES];
 
 	/* Line-mode TTY parameters */
@@ -83,14 +95,16 @@ extern int		actioncount;
 extern XtActionsRec	actions[];
 extern AppRes		appres;
 extern XtAppContext	appcontext;
+extern Atom		a_command;
 extern Atom		a_delete_me;
-extern Font		bfont;
+extern Atom		a_save_yourself;
+extern Atom		a_state;
 extern XFontStruct      **bfontinfo;
 extern char		*bfontname;
 extern char		*current_host;
+extern Boolean		*debugging_font;
 extern int		depth;
 extern Display		*display;
-extern Font		efont;
 extern XFontStruct      **efontinfo;
 extern char		*efontname;
 extern Boolean		error_popup_visible;
@@ -103,10 +117,12 @@ extern int		maxCOLS;
 extern int		maxROWS;
 extern int		model_num;
 extern char		*programname;
-extern int		root_window;
+extern Window		root_window;
 extern Boolean		shifted;
 extern Boolean		*standard_font;
 extern Widget		toplevel;
+extern char		*user_icon_name;
+extern char		*user_title;
 
 #define toggled(ix)		(appres.toggle[ix].value)
 #define toggle_toggle(t)	((t)->value = !(t)->value)
@@ -127,11 +143,12 @@ extern enum cstate {
 	CONNECTED_3270		/* connected in 3270 mode */
 } cstate;
 extern Boolean		ansi_host;
+extern Boolean		playback_host;
 extern Boolean		ever_3270;
 
-#define PCONNECTED	(cstate >= PENDING)
+#define PCONNECTED	((int)cstate >= (int)PENDING)
 #define HALF_CONNECTED	(cstate == PENDING)
-#define CONNECTED	(cstate >= CONNECTED_INITIAL)
+#define CONNECTED	((int)cstate >= (int)CONNECTED_INITIAL)
 #define IN_3270		(cstate == CONNECTED_3270)
 #define IN_ANSI		(cstate == CONNECTED_INITIAL && ansi_host)
 
@@ -144,10 +161,41 @@ struct ctl_char {
 #define MetaKeyDown	0x02
 #define AltKeyDown	0x04
 
+extern struct macro_def {
+	char			*name;
+	char			*action;
+	struct macro_def	*next;
+} *macro_defs;
+
+extern struct font_list {
+	char			*label;
+	char			*font;
+	struct font_list	*next;
+} *font_list;
+extern int font_count;
+
 /* Replacement for memcpy that handles overlaps */
 
-#ifndef MEMORY_MOVE
+#if XtSpecificationRelease >= 5 /*[*/
+#include <X11/Xfuncs.h>
+#undef MEMORY_MOVE
+#define MEMORY_MOVE(to,from,cnt)	bcopy(from,to,cnt)
+#else /*][*/
+#if !defined(MEMORY_MOVE) /*[*/
 extern char *MEMORY_MOVE();
+#endif /*]*/
+#endif /*]*/
+
+/* Equivalent of setlinebuf */
+
+#if defined(hpux) || defined(SVR4) || defined(_SEQUENT_) /*[*/
+#define setlinebuf(s)	setvbuf(s, (char *)NULL, _IOLBF, BUFSIZ)
+#endif /*]*/
+
+/* Motorola version of gettimeofday */
+
+#if defined(MOTOROLA)
+#define gettimeofday(tp,tz)	gettimeofday(tp)
 #endif
 
 /* Global Functions */
@@ -163,17 +211,20 @@ extern void ansi_send_pa();
 extern void ansi_send_pf();
 extern void ansi_send_right();
 extern void ansi_send_up();
+extern void toggle_wrap();
 
 /* apl.c */
-extern KeySym APLStringToKeySym();
+extern KeySym APLStringToKeysym();
 
 /* ctlr.c */
 extern void ctlr_aclear();
 extern void ctlr_add();
 extern void ctlr_add_ea();
 extern void ctlr_altbuffer();
+extern Boolean ctlr_any_data();
 extern void ctlr_bcopy();
 extern void ctlr_clear();
+extern void ctlr_connect();
 extern void ctlr_erase();
 extern void ctlr_init();
 extern void ctlr_read_modified();
@@ -185,16 +236,15 @@ extern int next_unprotected();
 extern int process_ds();
 extern void ps_process();
 extern void ps_set();
-extern char *rcba();
 extern void set_rows_cols();
 extern void ticking_start();
 extern void ticking_stop();
 extern void toggle_nop();
 extern void toggle_timing();
-extern void toggle_tracetn();
 
 /* keypad.c */
 extern void keypad_at_startup();
+extern void keypad_first_up();
 extern Widget keypad_init();
 extern void keypad_popup_init();
 extern void keypad_shift();
@@ -253,35 +303,67 @@ extern void key_Up();
 extern void kybd_connect();
 extern int state_from_keymap();
 
+/* macros.c */
+extern void ansi_text_fn();
+extern void ascii_fn();
+extern void ascii_field_fn();
+extern void close_script_fn();
+extern void continue_script_fn();
+extern void ebcdic_fn();
+extern void ebcdic_field_fn();
+extern void execute_fn();
+extern void macro_command();
+extern void macros_init();
+extern void pause_script_fn();
+extern Boolean scripting();
+extern void script_connect_wait();
+extern void script_continue();
+extern void script_error();
+extern void script_init();
+extern void script_input();
+extern void script_store();
+extern void wait_fn();
+
 /* menubar.c */
+extern void Connect();
+extern void Disconnect();
 extern void handle_menu();
 extern void hostfile_init();
 extern int hostfile_lookup();
 extern void menubar_connect();
 extern void menubar_gone();
 extern Dimension menubar_init();
+extern void menubar_keypad_changed();
 extern void menubar_newmode();
 extern void menubar_resize();
 extern void menubar_retoggle();
 
 /* popups.c */
+extern void Info();
 extern Widget create_form_popup();
 extern void error_popup_init();
+extern void info_popup_init();
 extern void place_popup();
+extern void popup_an_info();
 extern void popup_an_errno();
 extern void popup_an_error();
 extern void popup_options();
 extern void popup_popup();
+extern void xs_popup_an_error();
+
+/* save.c */
+extern void save_yourself();
 
 /* screen.c */
 extern void aicon_font_init();
-extern void aicon_init();
 extern void aicon_size();
 extern void cursor_move();
-extern void delete_window();
 extern void do_toggle();
+extern void enable_cursor();
 extern void enter_leave();
 extern void focus_change();
+extern Boolean fprint_screen();
+extern void initialize_toggles();
 extern void keymap_event();
 extern char *load_fixed_font();
 extern void mcursor_normal();
@@ -289,7 +371,9 @@ extern void mcursor_waiting();
 extern void mcursor_locked();
 extern void quit_event();
 extern void print_text();
+extern void print_text_option();
 extern void print_window();
+extern void print_window_option();
 extern void redraw();
 extern void ring_bell();
 extern void screen_change_model();
@@ -297,13 +381,25 @@ extern void screen_connect();
 extern void screen_disp();
 extern void screen_init();
 extern int screen_newfont();
+extern void screen_set_thumb();
 extern void screen_showkeypad();
 extern void set_aicon_label();
 extern void set_font();
 extern void set_font_globals();
 extern void set_translations();
 extern void shift_event();
+extern void shutdown_toggles();
 extern void state_event();
+extern void wm_protocols();
+
+/* scroll.c */
+extern void jump_proc();
+extern void rethumb();
+extern void scroll_init();
+extern void scroll_proc();
+extern void scroll_reset();
+extern void scroll_save();
+extern void scroll_to_bottom();
 
 /* select.c */
 extern void MoveCursor();
@@ -346,18 +442,32 @@ extern void net_input();
 extern void net_linemode();
 extern struct ctl_char *net_linemode_chars();
 extern void net_output();
+extern int net_playback_connect();
+extern void net_playback_step();
 extern void net_sendc();
 extern void net_sends();
 extern void net_send_erase();
 extern void net_send_kill();
 extern void net_send_werase();
 
+/* trace_ds.c */
+extern char *rcba();
+extern char *see_ebc();
+extern char *see_aid();
+extern char *see_attr();
+extern char *see_efa();
+extern void toggle_screentrace();
+extern void toggle_trace();
+extern void trace_ds();
+extern void trace_screen();
+
 /* x3270.c */
 extern char *get_message();
 extern char *get_resource();
 extern void invert_icon();
 extern void relabel();
-extern void set_toplevel_translations();
+extern int split_resource();
+extern void x3270_exit();
 extern int x_connect();
 extern void x_connected();
 extern void x_disconnect();

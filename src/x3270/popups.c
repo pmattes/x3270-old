@@ -1,11 +1,10 @@
 /*
- * Copyright 1993 Paul Mattes.
- *
- * Permission to use, copy, modify, and distribute this software and its
- * documentation for any purpose and without fee is hereby granted,
- * provided that the above copyright notice appear in all copies and that
- * both that copyright notice and this permission notice appear in
- * supporting documentation.
+ * Copyright 1993, 1994 by Paul Mattes.
+ *  Permission to use, copy, modify, and distribute this software and its
+ *  documentation for any purpose and without fee is hereby granted,
+ *  provided that the above copyright notice appear in all copies and that
+ *  both that copyright notice and this permission notice appear in
+ *  supporting documentation.
  */
 
 /*
@@ -200,7 +199,7 @@ Cardinal *num_params;
 	/* Find the Connect button */
 	w2 = XtNameToWidget(XtParent(w), "confirmButton");
 	if (w2 == NULL) {
-		(void) fprintf(stderr, "Confirm: can't find comfirmButton\n");
+		XtWarning("Confirm: can't find comfirmButton\n");
 		return;
 	}
 
@@ -290,11 +289,11 @@ XtPointer call_data;
 
 /* Create a simple data entry popup */
 Widget
-create_form_popup(name, label, go, callback)
+create_form_popup(name, callback, callback2, no_spaces)
 char *name;
-char *label;
-char *go;
 XtCallbackProc callback;
+XtCallbackProc callback2;
+Boolean no_spaces;
 {
 	char *widgetname;
 	Widget shell;
@@ -333,11 +332,20 @@ XtCallbackProc callback;
 	w = XtVaCreateManagedWidget(
 	    "confirmButton", commandWidgetClass, dialog,
 	    NULL);
-	XtAddCallback(w, XtNcallback, callback, dialog);
+	XtAddCallback(w, XtNcallback, callback, (XtPointer)dialog);
+	if (callback2) {
+		w = XtVaCreateManagedWidget(
+			"confirm2Button", commandWidgetClass, dialog,
+			NULL);
+		XtAddCallback(w, XtNcallback, callback2, (XtPointer)dialog);
+	}
 	w = XtVaCreateManagedWidget(
 	    "cancelButton", commandWidgetClass, dialog,
 	    NULL);
 	XtAddCallback(w, XtNcallback, cancel_button_callback, (XtPointer) shell);
+
+	if (!no_spaces)
+		return shell;
 
 	/* Modify the translations for the objects in the dialog */
 
@@ -376,6 +384,7 @@ XtPointer call_data;
 }
 
 /* Called when the error popup is closed */
+/*ARGSUSED*/
 static void
 error_popdown(w, client_data, call_data)
 Widget w;
@@ -384,7 +393,7 @@ XtPointer call_data;
 {
 	error_popup_visible = False;
 	if (exiting)
-		exit(1);
+		x3270_exit(1);
 }
 
 void
@@ -433,10 +442,18 @@ char *msg;
 		(void) fprintf(stderr, "%s: %s\n", programname, msg);
 		exit(1);
 	}
-	ring_bell();
+
+	if (scripting()) {
+		script_error(msg);
+		return;
+	}
+
 	XtVaSetValues(error_form, XtNlabel, msg, NULL);
-	error_popup_visible = True;
-	popup_popup(error_shell, XtGrabExclusive);
+	if (!error_popup_visible) {
+		ring_bell();
+		error_popup_visible = True;
+		popup_popup(error_shell, XtGrabExclusive);
+	}
 }
 
 /* Pop up an error dialog, based on an error number. */
@@ -446,7 +463,6 @@ char *msg;
 int errn;
 {
 	char *s;
-	char buf[1024];
 	extern int sys_nerr;
 	extern char *sys_errlist[];
 
@@ -455,12 +471,111 @@ int errn;
 			s = xs_buffer2("%s:\n%s", msg, sys_errlist[errn]);
 		else {
 			s = XtMalloc(strlen(msg) + 32);
-			(void) sprintf(s, "%s:\nError %d", errn);
+			(void) sprintf(s, "%s:\nError %d", msg, errn);
 		}
 		popup_an_error(s);
 		XtFree(s);
 	} else
 		popup_an_error(msg);
+}
+
+/* Popup an error dialog, with one string argument. */
+void
+xs_popup_an_error(msg, arg)
+char *msg;
+char *arg;
+{
+	char *buf;
+
+	buf = xs_buffer(msg, arg);
+	popup_an_error(buf);
+	XtFree(buf);
+}
+
+
+
+/*
+ * Info popup
+ */
+
+static Widget info_shell = NULL;
+static Widget info_form;
+Boolean info_popup_visible;
+
+/* Called when OK is pressed on the info popup */
+/*ARGSUSED*/
+static void
+saw_info(w, client_data, call_data)
+Widget w;
+XtPointer client_data;
+XtPointer call_data;
+{
+	XtPopdown(info_shell);
+}
+
+/* Called when the info popup is closed */
+/*ARGSUSED*/
+static void
+info_popdown(w, client_data, call_data)
+Widget w;
+XtPointer client_data;
+XtPointer call_data;
+{
+	info_popup_visible = False;
+}
+
+void
+info_popup_init()
+{
+	Widget w;
+
+	if (info_shell != NULL)
+		return;
+
+	info_shell = XtVaCreatePopupShell(
+	    "infoPopup", transientShellWidgetClass, toplevel,
+	    NULL);
+	XtAddCallback(info_shell, XtNpopupCallback, place_popup,
+	    (XtPointer) CenterP);
+	XtAddCallback(info_shell, XtNpopdownCallback, info_popdown,
+	    (XtPointer) NULL);
+
+	/* Create a dialog in the popup */
+
+	info_form = XtVaCreateManagedWidget(
+	    "infoDialog", dialogWidgetClass, info_shell,
+	    NULL);
+	XtVaSetValues(XtNameToWidget(info_form, "label"),
+	    XtNlabel, "first line\nsecond line",
+	    NULL);
+
+	/* Add "OK" button to the dialog */
+
+	w = XtVaCreateManagedWidget(
+	    "okayButton", commandWidgetClass, info_form,
+	    NULL);
+	XtAddCallback(w, XtNcallback, saw_info, 0);
+
+	/* Force it into existence so it sizes itself with 2-line text */
+
+	XtRealizeWidget(info_shell);
+}
+
+/* Pop up an info dialog. */
+void
+popup_an_info(msg)
+char *msg;
+{
+	if (!info_shell) {
+		(void) printf("%s: %s\n", programname, msg);
+		return;
+	}
+
+	XtVaSetValues(info_form, XtNlabel, msg, NULL);
+	if (!info_popup_visible) {
+		info_popup_visible = True;
+		popup_popup(info_shell, XtGrabNonexclusive);
+	}
 }
 
 
@@ -476,7 +591,6 @@ extern int ns_rrcvd;
 extern int ns_bsent;
 extern int ns_rsent;
 extern int linemode;
-extern char *version;
 extern char *build;
 extern char ttype_val[];
 extern Pixmap icon;
@@ -512,7 +626,7 @@ hms(ts)
 time_t ts;
 {
 	time_t t, td;
-	int hr, mn, sc;
+	long hr, mn, sc;
 	static char buf[128];
 
 	(void) time(&t);
@@ -523,16 +637,16 @@ time_t ts;
 	sc = td % 60;
 
 	if (hr > 0)
-		(void) sprintf(buf, "%d %s %d %s %d %s",
+		(void) sprintf(buf, "%ld %s %ld %s %ld %s",
 		    hr, (hr == 1) ? get_message("hour") : get_message("hours"),
 		    mn, (mn == 1) ? get_message("minute") : get_message("minutes"),
 		    sc, (sc == 1) ? get_message("second") : get_message("seconds"));
 	else if (mn > 0)
-		(void) sprintf(buf, "%d %s %d %s",
+		(void) sprintf(buf, "%ld %s %ld %s",
 		    mn, (mn == 1) ? get_message("minute") : get_message("minutes"),
 		    sc, (sc == 1) ? get_message("second") : get_message("seconds"));
 	else
-		(void) sprintf(buf, "%d %s",
+		(void) sprintf(buf, "%ld %s",
 		    sc, (sc == 1) ? get_message("second") : get_message("seconds"));
 
 	return buf;
@@ -587,7 +701,6 @@ popup_options()
 	char fbuf[1024];
 	char *ftype;
 	char *xbuf;
-	Dimension height, width;
 
 	/* Create the popup */
 
@@ -617,11 +730,10 @@ popup_options()
 
 	/* Miscellany */
 
-	sprintf(fbuf, "x3270 v%s, %s", version, build);
 	(void) XtVaCreateManagedWidget(
 	    "build", labelWidgetClass, options_form,
 	    XtNborderWidth, 0,
-	    XtNlabel, fbuf,
+	    XtNlabel, build,
 	    XtNfromHoriz, w,
 	    XtNleft, XtChainLeft,
 	    NULL);
@@ -736,7 +848,7 @@ popup_options()
 			MAKE_LABEL(get_message("specialCharacters"), 4);
 			for (i = 0; c[i].name; i++) {
 				if (!i || !(i % 4)) {
-					sprintf(fbuf, "  %s", c[i].name);
+					(void) sprintf(fbuf, "  %s", c[i].name);
 					MAKE_LABEL(fbuf, 0);
 				} else {
 					MAKE_LABEL2(c[i].name);
@@ -768,3 +880,21 @@ popup_options()
 
 #undef MAKE_LABEL
 #undef MAKE_VALUE
+
+/*
+ * Script actions
+ */
+/*ARGSUSED*/
+void
+Info(w, event, params, num_params)
+Widget w;
+XEvent *event;
+String *params;
+Cardinal *num_params;
+{
+	if (*num_params != 1) {
+		popup_an_error("Info requires 1 argument");
+		return;
+	}
+	popup_an_info(params[0]);
+}

@@ -1,0 +1,56 @@
+LOCAL_LIBRARIES = $(XAWLIB) $(XMULIB) $(XTOOLLIB) $(XLIB)
+           SRCS = ansi.c apl.c ctlr.c keypad.c kybd.c macros.c menubar.c \
+		  popups.c save.c screen.c scroll.c select.c status.c \
+		  tables.c telnet.c trace_ds.c x3270.c
+          VOBJS = ansi.o apl.o ctlr.o keypad.o kybd.o macros.o menubar.o \
+		  popups.o save.o screen.o scroll.o select.o status.o \
+		  tables.o telnet.o trace_ds.o x3270.o
+           OBJS = $(VOBJS) version.o
+          FONTS = 3270.snf    3270b.snf \
+		  3270-12.snf 3270-12b.snf \
+		  3270a.snf   3270ab.snf \
+		  3270d.snf
+
+    FONTINSTDIR = $(FONTDIR)/misc
+
+#ifdef HPArchitecture
+EXTRA_DEFINES = -D_HPUX_SOURCE
+#endif
+
+/* For SVR4, uncomment the following: */
+/* EXTRA_LIBRARIES = -lnsl -lsocket */
+
+/* For Dynix/ptx, umcomment the following: */
+/* EXTRA_LIBRARIES = -lsocket -linet -lnsl */
+
+
+AllTarget($(FONTS) x3270)
+
+ComplexProgramTarget(x3270)
+InstallAppDefaults(X3270)
+InstallManPage(x3270-script,$(MANDIR))
+InstallManPage(ibm_hosts,$(MANDIR))
+
+FontTarget(3270)
+FontTarget(3270b)
+FontTarget(3270-12)
+FontTarget(3270-12b)
+FontTarget(3270a)
+FontTarget(3270ab)
+FontTarget(3270d)
+InstallMultipleFlags($(FONTS),$(FONTINSTDIR),$(INSTDATFLAGS))
+
+version.o: $(VOBJS) version.txt mkversion.sh
+	@chmod +x mkversion.sh version.txt
+	sh ./mkversion.sh
+
+/* Extra install rule to regenerate misc/fonts.dir */
+install:: $(FONTINSTDIR)/fonts.dir
+$(FONTINSTDIR)/fonts.dir::
+	chmod u+w $(FONTINSTDIR) $(FONTINSTDIR)/fonts.dir
+	$(MKFONTDIR) $(FONTINSTDIR)
+	chmod u=rwx,go=rx $(FONTINSTDIR)
+	chmod a=r $(FONTINSTDIR)/fonts.dir
+
+clean:: 
+	$(RM) $(FONTS)

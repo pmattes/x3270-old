@@ -1,5 +1,12 @@
 STARTFONT 2.1
-COMMENT Originally a BSD vfont.
+COMMENT Bold 12-point 3270 font
+COMMENT Uses nonstandard ordering
+COMMENT Copyright 1993, 1994 by Paul Mattes.
+COMMENT  Permission to use, copy, modify, and distribute this software and
+COMMENT  its documentation for any purpose and without fee is hereby
+COMMENT  granted, provided that the above copyright notice appear in all
+COMMENT  copies and that both that copyright notice and this permission
+COMMENT  notice appear in supporting documentation.
 FONT 3270-12bold
 SIZE 12 72 72
 FONTBOUNDINGBOX 7 12 0 -2
@@ -7,7 +14,7 @@ STARTPROPERTIES 15
 FONTNAME_REGISTRY ""
 FOUNDRY "Misc"
 FAMILY_NAME "3270"
-WEIGHT_NAME "Medium"
+WEIGHT_NAME "Bold"
 SLANT "R"
 PIXEL_SIZE 12
 POINT_SIZE 120
@@ -39,7 +46,7 @@ BITMAP
 00
 00
 ENDCHAR
-STARTCHAR rsp
+STARTCHAR nobreakspace
 ENCODING 1
 SWIDTH 42 0
 DWIDTH 7 0
@@ -57,7 +64,7 @@ BITMAP
 00
 00
 ENDCHAR
-STARTCHAR formfeed
+STARTCHAR ff
 ENCODING 2
 SWIDTH 42 0
 DWIDTH 7 0
@@ -75,7 +82,7 @@ BITMAP
 00
 00
 ENDCHAR
-STARTCHAR carriagereturn
+STARTCHAR cr
 ENCODING 3
 SWIDTH 42 0
 DWIDTH 7 0
@@ -93,7 +100,7 @@ BITMAP
 00
 00
 ENDCHAR
-STARTCHAR newline
+STARTCHAR nl
 ENCODING 4
 SWIDTH 42 0
 DWIDTH 7 0
@@ -111,7 +118,7 @@ BITMAP
 00
 00
 ENDCHAR
-STARTCHAR endofmedia
+STARTCHAR em
 ENCODING 5
 SWIDTH 42 0
 DWIDTH 7 0
@@ -2463,7 +2470,7 @@ cc
 cc
 7c
 ENDCHAR
-STARTCHAR divide
+STARTCHAR division
 ENCODING 157
 SWIDTH 42 0
 DWIDTH 7 0
@@ -2477,7 +2484,7 @@ f8
 70
 70
 ENDCHAR
-STARTCHAR fieldmark
+STARTCHAR fm
 ENCODING 158
 SWIDTH 42 0
 DWIDTH 7 0
@@ -3343,7 +3350,7 @@ fc
 cc
 78
 ENDCHAR
-STARTCHAR blockA
+STARTCHAR boxA
 ENCODING 210
 SWIDTH 42 0
 DWIDTH 7 0
@@ -3375,7 +3382,7 @@ ee
 c6
 82
 ENDCHAR
-STARTCHAR blockB
+STARTCHAR boxB
 ENCODING 212
 SWIDTH 42 0
 DWIDTH 7 0

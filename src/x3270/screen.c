@@ -1,10 +1,16 @@
 /*
- * Copyright 1989 by Georgia Tech Research Corporation, Atlanta, GA.
- * Copyright 1988, 1989 by Robert Viduya.
- * Copyright 1990 Jeff Sparkes.
- * Copyright 1993 Paul Mattes.
+ * Copyright 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.
+ *  All Rights Reserved.  GTRC hereby grants public use of this software.
+ *  Derivative works based on this software must incorporate this copyright
+ *  notice.
  *
- *                         All Rights Reserved
+ * X11 Port Copyright 1990 by Jeff Sparkes.
+ * Additional X11 Modifications Copyright 1993, 1994 by Paul Mattes.
+ *  Permission to use, copy, modify, and distribute this software and its
+ *  documentation for any purpose and without fee is hereby granted,
+ *  provided that the above copyright notice appear in all copies and that
+ *  both that copyright notice and this permission notice appear in
+ *  supporting documentation.
  */
 
 /*
@@ -19,22 +25,29 @@
 #include <X11/StringDefs.h>
 #include <X11/Shell.h>
 #include <X11/Composite.h>
+#include <X11/Xaw/Dialog.h>
+#include <X11/Xaw/Scrollbar.h>
 #include <X11/cursorfont.h>
 #include <X11/keysym.h>
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
-#include "3270.h"
-#include "3270_enc.h"
+#include "3270ds.h"
+#include "screen.h"
+#include "cg.h"
 #include "globals.h"
 
+#if defined(_IBMR2) || defined(_SEQUENT_)
+#include <sys/select.h>		/* fd_set declaration */
+#endif
+
 #define MODIFIED_SEL	1	/* modified fields appear in "select" color */
+#define SCROLLBAR_WIDTH	15
 
 #define IMAGE_COLOR(fa)		(fa_color(fa) << 8)
 #define CG_FROM_IMAGE(i)	(((i) >> 8) & 0x7)
 
 /* Externals: x3270.c */
-extern int	foreground, background;
 extern char	*charset;
 
 /* Externals: ctlr.c */
@@ -49,12 +62,13 @@ extern unsigned char	cg2asc7[];
 /* Globals */
 char		*select_buf;	/* what's been selected */
 unsigned char	*selected;	/* selection bitmap */
-#include "gray.bm"
+#include <X11/bitmaps/gray>
 
 /* Statics */
-static unsigned char	*blanks;
+static unsigned char	*nulls;
 static unsigned int	*temp_image;	/* temporary for X display */
 static Boolean	cursor_displayed = False;
+static Boolean	cursor_enabled = True;
 static Boolean	blink_pending = False;
 static XtIntervalId	blink_id;
 static Boolean	in_focus = False;
@@ -63,11 +77,13 @@ static Boolean	line_changed = False;
 static Boolean	cursor_changed = False;
 static Boolean	iconic = False;
 static Widget	container;
+static Widget	scrollbar;
 static Dimension	menubar_height;
 static Dimension	keypad_height;
 static Dimension	keypad_xwidth;
 static Dimension	container_width;
 static Dimension	container_height;
+static Dimension	scrollbar_width;
 static unsigned char	cg2uc[256];
 static char		*aicon_text = (char *) NULL;
 static XFontStruct	*ailabel_font;
@@ -75,10 +91,12 @@ static Dimension	aicon_label_height = 0;
 static GC		ailabel_gc;
 static enum { LOCKED, NORMAL, WAIT } mcursor_state = LOCKED;
 
+static void	aicon_init();
 static void	toggle_monocase();
 static void	toggle_altcursor();
 static void	toggle_blink();
 static void	toggle_cursorp();
+static void	toggle_scrollbar();
 static void	remap_ascii();
 static void	remap_chars();
 static void	screen_focus();
@@ -96,6 +114,7 @@ static int	fa_color();
 static Boolean	cursor_off();
 static void	draw_aicon_label();
 static void	set_mcursor();
+static void	create_scrollbar();
 
 /*
  * The screen state structure.  This structure is swapped whenever we switch
@@ -116,6 +135,7 @@ struct sstate {
 	XFontStruct	*efontinfo, *bfontinfo;
 	Boolean		standard_font;
 	Boolean		latin1_font;
+	Boolean		debugging_font;
 };
 static struct sstate nss;
 static struct sstate iss;
@@ -134,6 +154,7 @@ XFontStruct	**efontinfo = &nss.efontinfo;
 XFontStruct	**bfontinfo = &nss.bfontinfo;
 Boolean		*standard_font = &nss.standard_font;
 Boolean		*latin1_font = &nss.latin1_font;
+Boolean		*debugging_font = &nss.debugging_font;
 
 
 /* 
@@ -165,7 +186,7 @@ Boolean keep_contents;
 Boolean model_changed;
 Boolean font_changed;
 {
-	extern Dimension min_keypad_width;
+	extern Dimension min_keypad_width();
 	Widget w;
 	static Boolean ever = False;
 
@@ -183,13 +204,32 @@ Boolean font_changed;
 			else
 				cg2uc[i] = i;
 
+		/* Fix up monocase translation table. */
+		cg2uc[CG_ydiaeresis] =    CG_ydiaeresis;
+		cg2uc[CG_Yacute] =        CG_Yacute;
+		cg2uc[CG_yacute] =        CG_Yacute;
+		cg2uc[CG_eacute] =        CG_Eacute;
+		cg2uc[CG_onequarter] =    CG_onequarter;
+		cg2uc[CG_onehalf] =       CG_onehalf;
+		cg2uc[CG_threequarters] = CG_threequarters;
+		cg2uc[CG_udiaeresis] =    CG_Udiaeresis;
+		cg2uc[CG_ccedilla] =      CG_Ccedilla;
+		cg2uc[CG_mu] =            CG_mu;
+		cg2uc[CG_multiply] =      CG_multiply;
+		cg2uc[CG_division] =      CG_division;
+		cg2uc[CG_fm] =            CG_fm;
+		cg2uc[CG_dup] =           CG_dup;
+		cg2uc[CG_eth] =           CG_ETH;
+		cg2uc[CG_thorn] =         CG_THORN;
+
 		/* Set up the character swaps. */
 		if (charset)
 			remap_chars(XtNewString(charset));
 
 		/* Initialize "gray" bitmap. */
-		gray = XCreateBitmapFromData(display, root_window,
-		    (char *) gray_bits, gray_width, gray_height);
+		gray = XCreatePixmapFromBitmapData(display, root_window,
+		    (char *) gray_bits, gray_width, gray_height,
+		    appres.foreground, appres.background, depth);
 
 		/* Initialize the toggles. */
 		appres.toggle[MONOCASE].upcall =  toggle_monocase;
@@ -197,8 +237,11 @@ Boolean font_changed;
 		appres.toggle[BLINK].upcall =     toggle_blink;
 		appres.toggle[TIMING].upcall =    toggle_timing;
 		appres.toggle[CURSORP].upcall =   toggle_cursorp;
-		appres.toggle[TRACE3270].upcall = toggle_nop;
-		appres.toggle[TRACETN].upcall =   toggle_tracetn;
+		appres.toggle[TRACE].upcall =     toggle_trace;
+		appres.toggle[SCROLLBAR].upcall = toggle_scrollbar;
+		appres.toggle[LINEWRAP].upcall =  toggle_wrap;
+		appres.toggle[BLANKFILL].upcall = toggle_nop;
+		appres.toggle[SCREENTRACE].upcall = toggle_screentrace;
 
 		ever = True;
 	}
@@ -229,10 +272,10 @@ Boolean font_changed;
 			XtFree((char *)temp_image);
 		temp_image = (unsigned int *) XtCalloc(sizeof(unsigned int), maxROWS*maxCOLS);
 
-		/* One line of blanks */
-		if (blanks)
-			XtFree((char *)blanks);
-		blanks = (unsigned char *)XtCalloc(sizeof(unsigned int), maxCOLS);
+		/* One line of nulls */
+		if (nulls)
+			XtFree((char *)nulls);
+		nulls = (unsigned char *)XtCalloc(sizeof(unsigned int), maxCOLS);
 
 		/* Selection buffer */
 		if (select_buf)
@@ -247,10 +290,14 @@ Boolean font_changed;
 	nss.screen_width  = ssCOL_TO_X(maxCOLS)+HHALO;
 	nss.screen_height = ssROW_TO_Y(maxROWS)+VHALO+SGAP+VHALO;
 
-	container_width = nss.screen_width+2;	/* add border width */
-	if (kp_placement == kp_integral && container_width < min_keypad_width) {
-		keypad_xwidth = min_keypad_width - container_width;
-		container_width = min_keypad_width;
+	if (toggled(SCROLLBAR))
+		scrollbar_width = SCROLLBAR_WIDTH;
+	else
+		scrollbar_width = 0;
+	container_width = nss.screen_width+2 + scrollbar_width;	/* add border width */
+	if (kp_placement == kp_integral && container_width < min_keypad_width()) {
+		keypad_xwidth = min_keypad_width() - container_width;
+		container_width = min_keypad_width();
 	} else
 		keypad_xwidth = 0;
 
@@ -264,7 +311,7 @@ Boolean font_changed;
 	/* Initialize the menu bar and integral keypad */
 
 	menubar_height = menubar_init(container, container_width,
-	    keypad ? container_width : nss.screen_width+2);
+	    keypad ? container_width : nss.screen_width+2+scrollbar_width);
 
 	if (kp_placement == kp_integral) {
 		w = keypad_init(container, menubar_height + nss.screen_height+2,
@@ -277,18 +324,21 @@ Boolean font_changed;
 	/* Create screen and set container dimensions */
 	inflate_screen();
 
+	/* Create scrollbar */
+	create_scrollbar(model_changed);
+
 	set_translations(container);
-	if (depth > 1)
-		XtVaSetValues(container, XtNbackground, appres.keypadbg, NULL);
-	else
+	if (appres.mono)
 		XtVaSetValues(container, XtNbackgroundPixmap, gray, NULL);
+	else
+		XtVaSetValues(container, XtNbackground, appres.keypadbg, NULL);
 
 	XtRealizeWidget(toplevel);
 	nss.window = XtWindow(nss.widget);
 	set_mcursor();
 
 	if (appres.active_icon)
-		aicon_init(keep_contents, model_changed, font_changed);
+		aicon_init(model_changed);
 
 	status_init(keep_contents, model_changed, font_changed);
 	if (keep_contents) {
@@ -338,6 +388,81 @@ inflate_screen()
 	    NULL);
 }
 
+/*ARGSUSED*/
+static void
+screen_scroll_proc(w, client_data, position)
+Widget w;
+XtPointer client_data;
+XtPointer position;
+{
+	scroll_proc((int)position, (int)nss.screen_height);
+}
+
+/*ARGSUSED*/
+static void
+screen_jump_proc(w, client_data, percent_ptr)
+Widget w;
+XtPointer client_data;
+XtPointer percent_ptr;
+{
+	jump_proc(*(float *)percent_ptr);
+}
+
+/* Add the scrollbar. */
+static void
+create_scrollbar(model_changed)
+Boolean model_changed;
+{
+	extern Boolean scroll_initted;
+
+	if (!scrollbar_width) {
+		scrollbar = (Widget)NULL;
+	} else {
+		scrollbar = XtVaCreateManagedWidget(
+		    "scrollbar", scrollbarWidgetClass,
+		    container,
+		    XtNx, ((keypad ? (keypad_xwidth / 2) : 0) + nss.screen_width+2)-1,
+		    XtNy, menubar_height,
+		    XtNwidth, scrollbar_width-1,
+		    XtNheight, nss.screen_height,
+		    XtNbackground, appres.mono ? appres.background : appres.keypadbg,
+		    NULL);
+		XawScrollbarSetThumb(scrollbar, 0.0, 1.0);
+		XtAddCallback(scrollbar, XtNscrollProc, screen_scroll_proc, NULL);
+		XtAddCallback(scrollbar, XtNjumpProc, screen_jump_proc, NULL);
+	}
+
+	/*
+	 * If the screen dimensions have changed, reallocate the scroll
+	 * save area.
+	 */
+	if (model_changed || !scroll_initted)
+		scroll_init();
+}
+
+/* Turn the scrollbar on or off */
+/*ARGSUSED*/
+static void
+toggle_scrollbar(t, tt)
+struct toggle *t;
+enum toggle_type tt;
+{
+	if (toggled(SCROLLBAR))
+		scrollbar_width = SCROLLBAR_WIDTH;
+	else {
+		scroll_to_bottom();
+		scrollbar_width = 0;
+	}
+
+	XtDestroyWidget(container);
+	container = (Widget) NULL;
+	nss.widget = (Widget) NULL;
+	menubar_gone();
+	screen_init(True, False, True);
+	if (toggled(SCROLLBAR))
+		rethumb();
+}
+
 /*
  * Called when a host connects or disconnects
  */
@@ -348,6 +473,7 @@ screen_connect()
 		return;		/* too soon */
 
 	status_connect();
+	ctlr_connect();
 
 	if (CONNECTED) {
 		ctlr_erase(True);
@@ -416,9 +542,15 @@ int on;
 		XtDestroyWidget(nss.widget);
 		nss.widget = (Widget) NULL;
 		inflate_screen();
+		if (scrollbar != (Widget) NULL) {
+			XtDestroyWidget(scrollbar);
+			create_scrollbar(False);
+		}
 		nss.window = XtWindow(nss.widget);
-		redraw(0, 0, 0, 0);
-		menubar_resize(on ? container_width : nss.screen_width+2);
+		redraw((Widget)NULL, (XEvent *)NULL, (String *)NULL,
+		    (Cardinal *)NULL);
+
+		menubar_resize(on ? container_width : nss.screen_width+2+scrollbar_width);
 	} else
 		inflate_screen();
 }
@@ -488,8 +620,11 @@ cancel_blink()
 /*
  * Toggle cursor blinking (called from menu)
  */
+/*ARGSUSED*/
 static void
-toggle_blink()
+toggle_blink(t, tt)
+struct toggle *t;
+enum toggle_type tt;
 {
 	if (!CONNECTED)
 		return;
@@ -506,7 +641,7 @@ toggle_blink()
 static void
 cursor_on()
 {
-	if (!cursor_displayed) {
+	if (cursor_enabled && !cursor_displayed) {
 		cursor_displayed = True;
 		put_cursor(cursor_addr, True);
 		ss->cursor_daddr = cursor_addr;
@@ -518,9 +653,11 @@ cursor_on()
 /*
  * Toggle the cursor (block/underline).
  */
+/*ARGSUSED*/
 static void
-toggle_altcursor(t)
+toggle_altcursor(t, tt)
 struct toggle *t;
+enum toggle_type tt;
 {
 	Boolean was_on;
 
@@ -562,13 +699,29 @@ cursor_pos()
 /*
  * Toggle the display of the cursor position
  */
+/*ARGSUSED*/
 static void
-toggle_cursorp()
+toggle_cursorp(t, tt)
+struct toggle *t;
+enum toggle_type tt;
 {
 	if (toggled(CURSORP))
 		cursor_pos();
 	else
 		status_uncursor_pos();
+}
+
+/*
+ * Enable or disable cursor display (used by scroll logic)
+ */
+void
+enable_cursor(on)
+Boolean on;
+{
+	if ((cursor_enabled = on) && CONNECTED)
+		cursor_on();
+	else
+		(void) cursor_off();
 }
 
 
@@ -591,6 +744,7 @@ Cardinal *num_params;
 		if (appres.active_icon && iconic) {
 			ss = &nss;
 			iconic = False;
+			keypad_first_up();
 		}
 	} else if (appres.active_icon && w == iss.widget) {
 		if (appres.active_icon && !iconic) {
@@ -624,11 +778,12 @@ Cardinal *num_params;
 			ncols--;
 		for (row = startrow; row < endrow; row++)
 			(void) memset((char *) &ss->image[ROWCOL_TO_BA(row, startcol)],
-			              0, ncols * sizeof(unsigned int));
+			              (ss->debugging_font ? ' ' : 0),
+				      ncols * sizeof(unsigned int));
 	} else {
 		XFillRectangle(display, ss->window, ss->invgc[0],
 		    0, 0, ss->screen_width, ss->screen_height);
-		(void) memset((char *) ss->image, 0,
+		(void) memset((char *) ss->image, (ss->debugging_font ? ' ' : 0),
 		              (maxROWS*maxCOLS) * sizeof(unsigned int));
 	}
 	screen_changed = True;
@@ -744,14 +899,14 @@ resync_text(baddr, len, buffer)
 int baddr, len;
 unsigned int *buffer;
 {
-	if (!memcmp((char *) &buffer[baddr], (char *) blanks,
+	if (!ss->debugging_font && !memcmp((char *) &buffer[baddr], (char *) nulls,
 	    len*sizeof(unsigned int))) {
 		int x, y;
 
 		x = ssCOL_TO_X(BA_TO_COL(baddr));
 		y = ssROW_TO_Y(BA_TO_ROW(baddr));
 
-		/* All blanks, fill a rectangle */
+		/* All nulls, fill a rectangle */
 		XFillRectangle(display, ss->window, ss->invgc[0],
 		    x, y - ss->efontinfo->ascent,
 		    (ss->char_width * len), ss->char_height);
@@ -768,7 +923,9 @@ unsigned int *buffer;
 			 * Blanks are the same, no matter what color, as long
 			 * as they have the same selection status
 			 */
-			if (!buffer[baddr+i] && ((color & SEL_BIT) == (color2 & SEL_BIT)))
+			if (!ss->debugging_font &&
+			    !buffer[baddr+i] &&
+			    ((color & SEL_BIT) == (color2 & SEL_BIT)))
 				continue;
 
 			if (color2 != color) {
@@ -797,7 +954,7 @@ Boolean block_cursor;
 {
 	int color = CG_FROM_IMAGE(buffer[0]);
 	int x, y;
-	unsigned char buf[128];
+	unsigned char buf[132];
 	GC dgc;
 	int sel = (color & SEL_BIT) != 0;
 	register int i;
@@ -847,8 +1004,11 @@ Boolean block_cursor;
 /*
  * Toggle mono-/dual-case mode.
  */
+/*ARGSUSED*/
 static void
-toggle_monocase()
+toggle_monocase(t, tt)
+struct toggle *t;
+enum toggle_type tt;
 {
 	(void) memset((char *) ss->image, 0,
 		      (ROWS*COLS) * sizeof(unsigned int));
@@ -867,34 +1027,43 @@ unsigned int *buffer;
 	int	color;
 	int	zero;
 
-	(void) memset((char *) buffer, 0, ROWS*COLS);
-
 	zero = FA_IS_ZERO(fa);
 	color = IMAGE_COLOR(fa);
 
 	do {
 		unsigned char	c = screen_buf[baddr];
+		unsigned int	b = 0;
 
 		if (IS_FA(c)) {
 			fa = c;
 			zero = FA_IS_ZERO(fa);
 			color = IMAGE_COLOR(fa);
-			buffer[baddr] = 0;
+			if (ss->debugging_font) {
+				if (zero)
+					b = c;
+				else
+					b = c | color;
+			} else
+				b = 0;
 		} else {
 			int e_color = color;
 
-			/* Quickish hack: If the extended-attribute value is
-			   nonzero, highlight. */
+			/* Temporarily treat all extended attributes as
+			   highlighted. */
 			if (get_extended_attribute(baddr))
 				e_color = IMAGE_COLOR(FA_INT_HIGH_SEL);
-			if (zero || IS_FA(c) ||
-			    c == CG_BLANK || c == CG_NULLBLANK)
-				buffer[baddr] = 0;
+
+			if (zero && ss->debugging_font)
+				b = CG_space;
+			else if (zero || (!ss->debugging_font &&
+				     (c == CG_null || c == CG_space)))
+				b = 0;
 			else
-				buffer[baddr] = c | e_color;
+				b = c | e_color;
 		}
 		if (SELECTED(baddr))
-			buffer[baddr] |= IMAGE_SEL;
+			b |= IMAGE_SEL;
+		buffer[baddr] = b;
 		INC_BA(baddr);
 	} while (baddr);
 }
@@ -911,7 +1080,6 @@ unsigned int	*buffer;
 	int		i0 = -1;
 #	define SPREAD	10
 
-
 	for (i = 0; i < ROWS; b += COLS, i++) {
 		int d0 = -1;
 		int s0 = -1;
@@ -926,9 +1094,11 @@ unsigned int	*buffer;
 			continue;
 		}
 
-		/* Is the new value blanks? */
-		if (!memcmp((char *) &buffer[b], (char *) blanks,
-		    COLS*sizeof(unsigned int))) {
+		/* Is the new value nulls? */
+		if (!ss->debugging_font &&
+		    !(cursor_addr >= b && cursor_addr < (b+COLS)) &&
+		    !memcmp((char *) &buffer[b], (char *) nulls,
+			    COLS*sizeof(unsigned int))) {
 			if (i0 < 0)
 				i0 = i;
 			continue;
@@ -1002,9 +1172,12 @@ Boolean on;
 	 * is that if the text isn't supposed to be displayed, pretend it's a
 	 * correct-colored blank.
 	 */
-	if (hidden_text)
-		buffer = (color | sel) << 8;
-	else
+	if (hidden_text) {
+		if (ss->debugging_font && IS_FA(screen_buf[baddr]))
+			buffer = screen_buf[baddr] | (sel << 8);
+		else
+			buffer = (ss->debugging_font ? CG_space : 0) | ((color | sel) << 8);
+	} else
 		buffer = screen_buf[baddr] | ((color | sel) << 8);
 
 	if (appres.mono && sel)
@@ -1045,26 +1218,26 @@ Boolean on;
  * Create graphics contexts.
  */
 static void
-make_gcs(ss)
-struct sstate *ss;
+make_gcs(s)
+struct sstate *s;
 {
 	if (!appres.mono) {
-		make_gc_set(ss, FA_INT_NORM_NSEL, appres.normal, appres.colorbg,
+		make_gc_set(s, FA_INT_NORM_NSEL, appres.normal, appres.colorbg,
 		    False);
-		make_gc_set(ss, FA_INT_NORM_SEL,  appres.select, appres.colorbg,
+		make_gc_set(s, FA_INT_NORM_SEL,  appres.select, appres.colorbg,
 		    False);
-		make_gc_set(ss, FA_INT_HIGH_SEL,  appres.bold,   appres.colorbg,
+		make_gc_set(s, FA_INT_HIGH_SEL,  appres.bold,   appres.colorbg,
 		    True);
-		make_gc_set(ss, FA_INT_ZERO_NSEL, appres.colorbg, appres.colorbg,
+		make_gc_set(s, FA_INT_ZERO_NSEL, appres.colorbg, appres.colorbg,
 		    False);
 	} else {
-		make_gc_set(ss, FA_INT_NORM_NSEL, appres.foreground,
+		make_gc_set(s, FA_INT_NORM_NSEL, appres.foreground,
 		    appres.background, False);
-		make_gc_set(ss, FA_INT_NORM_SEL,  appres.foreground,
+		make_gc_set(s, FA_INT_NORM_SEL,  appres.foreground,
 		    appres.background, False);
-		make_gc_set(ss, FA_INT_HIGH_SEL,  appres.foreground,
+		make_gc_set(s, FA_INT_HIGH_SEL,  appres.foreground,
 		    appres.background, True);
-		make_gc_set(ss, FA_INT_ZERO_NSEL, appres.background,
+		make_gc_set(s, FA_INT_ZERO_NSEL, appres.background,
 		    appres.background, False);
 	}
 
@@ -1073,19 +1246,19 @@ struct sstate *ss;
 		XGCValues xgcv;
 
 		xgcv.function = GXinvert;
-		ss->mcgc = XtGetGC(toplevel, GCFunction, &xgcv);
+		s->mcgc = XtGetGC(toplevel, GCFunction, &xgcv);
 	}
 
 	/* Set the flag for overstriking bold. */
-	ss->overstrike = appres.mono && ss->bfontinfo == NULL && ss->char_width > 1;
+	s->overstrike = appres.mono && s->bfontinfo == NULL && s->char_width > 1;
 }
 
 /*
  * Create a set of graphics contexts for a given color.
  */
 static void
-make_gc_set(ss, i, fg, bg, bold)
-struct sstate	*ss;
+make_gc_set(s, i, fg, bg, bold)
+struct sstate	*s;
 int		i;
 Pixel 	fg, bg;
 Boolean	bold;
@@ -1094,20 +1267,20 @@ Boolean	bold;
 
 	xgcv.foreground = fg;
 	xgcv.background = bg;
-	if (bold && ss->bfontinfo != NULL)
-		xgcv.font = ss->bfontinfo->fid;
+	if (bold && s->bfontinfo != NULL)
+		xgcv.font = s->bfontinfo->fid;
 	else
-		xgcv.font = ss->efontinfo->fid;
-	ss->gc[i] = XtGetGC(toplevel, GCForeground|GCBackground|GCFont, &xgcv);
+		xgcv.font = s->efontinfo->fid;
+	s->gc[i] = XtGetGC(toplevel, GCForeground|GCBackground|GCFont, &xgcv);
 	xgcv.foreground = bg;
 	xgcv.background = fg;
-	ss->invgc[i] = XtGetGC(toplevel, GCForeground|GCBackground|GCFont, &xgcv);
+	s->invgc[i] = XtGetGC(toplevel, GCForeground|GCBackground|GCFont, &xgcv);
 	if (appres.mono)
-		ss->selgc[i] = ss->invgc[i];
+		s->selgc[i] = s->invgc[i];
 	else {
 		xgcv.foreground = fg;
 		xgcv.background = appres.selbg;
-		ss->selgc[i] = XtGetGC(toplevel, GCForeground|GCBackground|GCFont,
+		s->selgc[i] = XtGetGC(toplevel, GCForeground|GCBackground|GCFont,
 		    &xgcv);
 	}
 }
@@ -1124,10 +1297,10 @@ unsigned char fa;
 
 	if (appres.mono || FA_IS_ZERO(fa))
 		return c;
-#ifdef MODIFIED_SEL
+#if defined(MODIFIED_SEL) /*[*/
 	else if (FA_IS_MODIFIED(fa))
 		return FA_INT_NORM_SEL;
-#endif
+#endif /*]*/
 	else
 		return c;
 }
@@ -1147,8 +1320,40 @@ int index;
 	 * menu label(s).
 	 */
 	toggle_toggle(t);
-	t->upcall(t);
+	t->upcall(t, TT_TOGGLE);
 	menubar_retoggle(t);
+}
+
+/*
+ * Called from system initialization code to handle initial toggle settings.
+ */
+void
+initialize_toggles()
+{
+	if (toggled(TRACE))
+		appres.toggle[TRACE].upcall(&appres.toggle[TRACE], TT_INITIAL);
+	if (toggled(SCREENTRACE))
+		appres.toggle[SCREENTRACE].upcall(&appres.toggle[SCREENTRACE],
+		    TT_INITIAL);
+}
+
+/*
+ * Called from system exit code to handle toggles.
+ */
+void
+shutdown_toggles()
+{
+	/* Clean up the data stream trace monitor window. */
+	if (toggled(TRACE)) {
+		appres.toggle[TRACE].value = False;
+		toggle_trace(&appres.toggle[TRACE], TT_FINAL);
+	}
+
+	/* Clean up the screen trace file. */
+	if (toggled(SCREENTRACE)) {
+		appres.toggle[SCREENTRACE].value = False;
+		toggle_screentrace(&appres.toggle[SCREENTRACE], TT_FINAL);
+	}
 }
 
 /*
@@ -1222,20 +1427,22 @@ query_window_state()
 	unsigned long nitems;
 	unsigned long leftover;
 	unsigned char *data = NULL;
-	Atom a_state = XInternAtom(display, "WM_STATE", False);
 
+	/* If using an active icon, the expose events are more reliable. */
 	if (appres.active_icon)
 		return;
+
 	if (XGetWindowProperty(display, XtWindow(toplevel), a_state, 0L,
 	    (long)BUFSIZ, False, a_state, &actual_type, &actual_format,
 	    &nitems, &leftover, &data) != Success)
 		return;
 	if (actual_type == a_state && actual_format == 32) {
-		if (*(unsigned long *)data == 3)
+		if (*(unsigned long *)data == IconicState)
 			iconic = True;
 		else {
 			iconic = False;
 			invert_icon(False);
+			keypad_first_up();
 		}
 	}
 }
@@ -1261,7 +1468,8 @@ shift_event(event_state)
 int event_state;
 {
 	static int old_state;
-	Boolean shifted_now = (event_state & ShiftKeyDown) != 0;
+	Boolean shifted_now =
+	    (event_state & (ShiftKeyDown | MetaKeyDown | AltKeyDown)) != 0;
 
 	if (event_state != old_state) {
 		old_state = event_state;
@@ -1311,11 +1519,16 @@ Boolean in;
 		schedule_blink();
 }
 
+/*ARGSUSED*/
 void
-quit_event()
+quit_event(w, event, params, num_params)
+Widget  w;
+XEvent  *event;
+String  *params;
+Cardinal *num_params;
 {
-	if (!CONNECTED)
-		exit(0);
+	if (!w || !CONNECTED)
+		x3270_exit(0);
 }
 
 /*
@@ -1330,10 +1543,10 @@ String	*params;
 Cardinal *num_params;
 {
 	if (*num_params != 1) {
-		XtWarning("SetFont: must have 1 argument");
+		popup_an_error("SetFont requires 1 argument");
 		return;
 	}
-	screen_newfont(params[0], True);
+	(void) screen_newfont(params[0], True);
 }
 
 int
@@ -1452,6 +1665,10 @@ char *ef, *bf;
 	    svalue == a_iso8859 &&
 	    XGetFontProperty(f, a_encoding, &svalue2) &&
 	    svalue2 == a_1;
+	if (!strcmp(efontname, "3270d"))
+		nss.debugging_font = True;
+	else
+		nss.debugging_font = False;
 }
 
 /*
@@ -1513,7 +1730,11 @@ ring_bell()
 	XSync(display, 0);
 	tv.tv_sec = 0;
 	tv.tv_usec = 125000;
-	(void) select(0, 0, 0, 0, &tv);
+#if defined(hpux) /*[*/
+	(void) select(0, (int *)0, (int *)0, (int *)0, &tv);
+#else /*][*/
+	(void) select(0, (fd_set *)0, (fd_set *)0, (fd_set *)0, &tv);
+#endif /*]*/
 	XFillRectangle(display, ss->window, bgc,
 	    0, 0, ss->screen_width, ss->screen_height);
 	XSync(display, 0);
@@ -1524,16 +1745,22 @@ ring_bell()
  */
 /*ARGSUSED*/
 void
-delete_window(w, event, params, num_params)
+wm_protocols(w, event, params, num_params)
 Widget w;
 XEvent *event;
 String *params;
 Cardinal *num_params;
 {
-	if (w == toplevel)
-		exit(0);
-	else
-		XtPopdown(w);
+	XClientMessageEvent *cme = (XClientMessageEvent *)event;
+
+	if ((Atom)cme->data.l[0] == a_delete_me) {
+		if (w == toplevel)
+			x3270_exit(0);
+		else
+			XtPopdown(w);
+	} else if ((Atom)cme->data.l[0] == a_save_yourself && w == toplevel) {
+		save_yourself();
+	}
 }
 
 /*
@@ -1556,7 +1783,7 @@ char *s;
 	if (k < ' ' || k > 0xff)
 		return 0;
 	else
-		return (unsigned char) k;
+		return (unsigned char)(k & 0xff);
 }
 
 /*
@@ -1569,30 +1796,18 @@ remap_chars(spec)
 char *spec;
 {
 	char	*s, *line;
-	char	ebcs[64], isos[64];
-	char	*nl;
+	char	*ebcs, *isos;
 	unsigned char	ebc, iso, cg;
 	int	ne = 0;
+	int	ns;
 	extern	unsigned char ebc2cg[];
 	extern	unsigned char asc2cg[];
 	extern	unsigned char cg2ebc[];
 
 	s = spec;
-	while (s) {
-		while (isspace(*s))
-			s++;
-		if (!*s)
-			break;
-		line = s;
-		nl = strchr(line, '\n');
-		if (nl) {
-			*nl = '\0';
-			s = nl + 1;
-		} else {
-			s = NULL;
-		}
+	while (ns = split_resource(&s, &ebcs, &isos)) {
 		ne++;
-		if (sscanf(line, "%63[^: \t]: %63s", ebcs, isos) != 2 ||
+		if (ns < 0 ||
 		    !(ebc = strtol(ebcs, (char **)NULL, 0)) ||
 		    !(iso = parse_keysym(isos))) {
 			char	nbuf[16];
@@ -1600,14 +1815,14 @@ char *spec;
 			(void) sprintf(nbuf, "%d", ne);
 			xs_warning2("Can't parse charset '%s', entry %s",
 			    appres.charset, nbuf);
-			continue;
+			break;
 		}
 		cg = asc2cg[iso];
 		if (cg2asc[cg] == iso) {	/* well-defined */
 			ebc2cg[ebc] = cg;
 			cg2ebc[cg] = ebc;
 		} else {			/* into a hole */
-			ebc2cg[ebc] = CG_BOXSOLID;
+			ebc2cg[ebc] = CG_boxsolid;
 		}
 	}
 	XtFree(spec);
@@ -1622,45 +1837,33 @@ static void
 remap_ascii()
 {
 	char	*mn;
-	char	*s, *line;
-	char	froms[64], tos[64];
-	char	*nl;
-	unsigned char	from, to, cg;
+	char	*s0, *s;
+	char	*froms, *tos;
+	unsigned char	from, to;
 	int	ne = 0;
+	int	ns;
 	extern	unsigned char asc2cg[];
 	static	unsigned char asc2cg_save[256];
 	static	Boolean ever = False;
 
 	/* Restore the original ASCII-to-CG map. */
 	if (!ever) {
-		memcpy((char *) asc2cg_save, (char *) asc2cg, 256);
+		(void) memcpy((char *) asc2cg_save, (char *) asc2cg, 256);
 		ever = True;
 	} else
-		memcpy((char *) asc2cg, (char *) asc2cg_save, 256);
+		(void) memcpy((char *) asc2cg, (char *) asc2cg_save, 256);
 
 	/* Find one that matches this font. */
 	mn = xs_buffer("cmap.%s", efontname);
-	s = get_resource(mn);
+	s0 = s = get_resource(mn);
 	XtFree(mn);
 	if (!s)
 		return;
 
 	/* Parse it. */
-	while (s) {
-		while (isspace(*s))
-			s++;
-		if (!*s)
-			break;
-		line = s;
-		nl = strchr(line, '\n');
-		if (nl) {
-			*nl = '\0';
-			s = nl + 1;
-		} else {
-			s = NULL;
-		}
+	while (ns = split_resource(&s, &froms, &tos)) {
 		ne++;
-		if (sscanf(line, "%63[^: \t]: %63s", froms, tos) != 2 ||
+		if (ns < 0 ||
 		    !(from = parse_keysym(froms)) ||
 		    !(to = parse_keysym(tos))) {
 			char	nbuf[16];
@@ -1668,10 +1871,11 @@ remap_ascii()
 			(void) sprintf(nbuf, "%d", ne);
 			xs_warning2("Can't parse cmap '%s', entry %s",
 			    efontname, nbuf);
-			continue;
+			break;
 		}
 		asc2cg[from] = asc2cg[to];
 	}
+	XtFree(s0);
 }
 
 
@@ -1698,6 +1902,7 @@ aicon_font_init()
 	iss.overstrike = False;
 	iss.standard_font = True;
 	iss.latin1_font = False;
+	iss.debugging_font = False;
 	if (appres.label_icon) {
 		ailabel_font = XLoadQueryFont(display, appres.icon_label_font);
 		if (ailabel_font == NULL) {
@@ -1734,13 +1939,10 @@ Dimension *ih;
  * Initialize or reinitialize the active icon.  Assumes that aicon_font_init
  * has already been called.
  */
-void
-aicon_init(keep_contents, model_changed, font_changed)
-Boolean keep_contents;
+static void
+aicon_init(model_changed)
 Boolean model_changed;
-Boolean font_changed;
 {
-	Widget w;
 	static Boolean ever = False;
 	extern Widget icon_shell;
 
@@ -1754,8 +1956,8 @@ Boolean font_changed;
 			XGCValues xgcv;
 
 			xgcv.font = ailabel_font->fid;
-			xgcv.foreground = foreground;
-			xgcv.background = background;
+			xgcv.foreground = appres.foreground;
+			xgcv.background = appres.background;
 			ailabel_gc = XtGetGC(toplevel,
 			    GCFont|GCForeground|GCBackground,
 			    &xgcv);
@@ -1764,8 +1966,6 @@ Boolean font_changed;
 	}
 
 	if (model_changed) {
-		Dimension iw, ih;
-
 		aicon_size(&iss.screen_width, &iss.screen_height);
 		if (iss.image)
 			XtFree((char *) iss.image);
@@ -1814,7 +2014,104 @@ char *l;
 	draw_aicon_label();
 }
 
+
+/* Print Text popup */
+
+static Widget print_text_shell = (Widget)NULL;
+
+/*
+ * Print the ASCIIfied contents of the screen onto a stream.
+ * Returns True if anything printed, False otherwise.
+ */
+Boolean
+fprint_screen(f, even_if_empty)
+FILE *f;
+Boolean even_if_empty;
+{
+	register int i;
+	unsigned char e;
+	char c;
+	int ns = 0;
+	int nr = 0;
+	Boolean any = False;
+	unsigned char fa = *get_field_attribute(0);
+
+	for (i = 0; i < ROWS*COLS; i++) {
+		if (i && !(i % COLS)) {
+			nr++;
+			ns = 0;
+		}
+		e = screen_buf[i];
+		if (IS_FA(e)) {
+			c = ' ';
+			fa = screen_buf[i];
+		}
+		if (FA_IS_ZERO(fa))
+			c = ' ';
+		else
+			c = cg2asc[e];
+		if (c == ' ')
+			ns++;
+		else {
+			any = True;
+			while (nr) {
+				(void) fputc('\n', f);
+				nr--;
+			}
+			while (ns) {
+				(void) fputc(' ', f);
+				ns--;
+			}
+			(void) fputc(c, f);
+		}
+	}
+	nr++;
+	if (!any && !even_if_empty)
+		return False;
+	while (nr) {
+		(void) fputc('\n', f);
+		nr--;
+	}
+	return True;
+}
+
+/* Callback for "OK" button on print text popup */
+/*ARGSUSED*/
+static void
+print_text_callback(w, client_data, call_data)
+Widget w;
+XtPointer client_data;
+XtPointer call_data;
+{
+	char *filter;
+	FILE *f;
+	int status;
+
+	filter = XawDialogGetValueString((Widget)client_data);
+	if (!filter) {
+		XtPopdown(print_text_shell);
+		return;
+	}
+	if (!(f = popen(filter, "w"))) {
+		popup_an_errno("popen", errno);
+		return;
+	}
+	(void) fprint_screen(f, True);
+	status = pclose(f);
+	if (status) {
+		char msg[64];
+
+		(void) sprintf(msg, "Print program exited with status %d.",
+		    (status & 0xff00) > 8);
+		popup_an_error(msg);
+	} else {
+		XtPopdown(print_text_shell);
+		popup_an_info("Screen image printed.");
+	}
+}
+
 /* Print the contents of the screen as text. */
+/*ARGSUSED*/
 void
 print_text(w, event, params, num_params)
 Widget	w;
@@ -1823,44 +2120,106 @@ String	*params;
 Cardinal *num_params;
 {
 	char *filter = get_resource("printTextCommand");
-	FILE *f;
-	register int i;
-	char c;
-	int ns = 0;
 
 	if (*num_params > 0)
 		filter = params[0];
 	if (*num_params > 1)
 		XtWarning("PrintText: extra arguments ignored");
-	if (!filter) {
-		XtWarning("PrintText: no command defined");
+	if (filter[0] == '@') {
+		FILE *f;
+
+		if (!(f = popen(filter+1, "w"))) {
+			popup_an_errno("popen", errno);
+			return;
+		}
+		(void) fprint_screen(f, True);
+		(void) pclose(f);
 		return;
 	}
-	if (!(f = popen(filter, "w"))) {
-		XtWarning("PrintText: popen of filter failed");
+	if (print_text_shell == NULL)
+		print_text_shell = create_form_popup("PrintText",
+		    print_text_callback, (XtCallbackProc)NULL, False);
+	XtVaSetValues(XtNameToWidget(print_text_shell, "dialog"),
+	    XtNvalue, filter,
+	    NULL);
+	popup_popup(print_text_shell, XtGrabExclusive);
+}
+
+/* Callback for menu option. */
+/*ARGSUSED*/
+void
+print_text_option(w, client_data, call_data)
+Widget w;
+XtPointer client_data;
+XtPointer call_data;
+{
+	Cardinal zero = 0;
+
+	print_text(w, (XEvent *)NULL, (String *)NULL, &zero);
+}
+
+
+/* Print Window popup */
+
+/*
+ * Printing the window bitmap is a rather convoluted process:
+ *    The PrintWindow action calls print_window(), or a menu option calls
+ *	print_window_option().
+ *    print_window_option() pops up the dialog.
+ *    The OK button on the dialog triggers print_window_callback.
+ *    print_window_callback pops down the dialog, then schedules a timeout
+ *     1 second away.
+ *    When the timeout expires, it triggers snap_it(), which finally calls
+ *     xwd.
+ * The timeout indirection is necessary because xwd prints the actual contents
+ * of the window, including any pop-up dialog in front of it.  We pop down the
+ * dialog, but then it is up to the server and Xt to send us the appropriate
+ * expose events to repaint our window.  Hopefully, one second is enough to do
+ * that.
+ */
+static Widget print_window_shell = (Widget)NULL;
+static char *print_window_command = (char *)NULL;
+
+/* Timeout callback for window print */
+/*ARGSUSED*/
+static void
+snap_it(closure, id)
+XtPointer closure;
+XtIntervalId *id;
+{
+	int status;
+
+	if (!print_window_command)
 		return;
-	}
-	for (i = 0; i < ROWS*COLS; i++) {
-		if (i && !(i % COLS)) {
-			fputc('\n', f);
-			ns = 0;
-		}
-		c = cg2asc[screen_buf[i]];
-		if (c == ' ')
-			ns++;
-		else {
-			while (ns) {
-				fputc(' ', f);
-				ns--;
-			}
-			fputc(c, f);
-		}
-	}
-	fputc('\n', f);
-	pclose(f);
+	XSync(display, 0);
+	status = system(print_window_command);
+	if (status) {
+		char msg[64];
+
+		(void) sprintf(msg, "Print program exited with status %d.",
+		    (status & 0xff00) >> 8);
+		popup_an_error(msg);
+	} else
+		popup_an_info("Bitmap printed.");
+	print_window_command = (char *)NULL;
+}
+
+/* Callback for "OK" button on print window popup */
+/*ARGSUSED*/
+static void
+print_window_callback(w, client_data, call_data)
+Widget w;
+XtPointer client_data;
+XtPointer call_data;
+{
+	print_window_command = XawDialogGetValueString((Widget)client_data);
+	XtPopdown(print_window_shell);
+	if (print_window_command)
+		(void) XtAppAddTimeOut(appcontext, 1000, snap_it, 0);
 }
 
 /* Print the contents of the screen as a bitmap. */
+/*ARGSUSED*/
 void
 print_window(w, event, params, num_params)
 Widget	w;
@@ -1876,10 +2235,42 @@ Cardinal *num_params;
 	if (*num_params > 1)
 		XtWarning("PrintWindow: extra arguments ignored");
 	if (!filter) {
-		XtWarning("PrintWindow: no command defined");
+		popup_an_error("PrintWindow: no command defined");
 		return;
 	}
-	sprintf(fb, filter, XtWindow(toplevel));
-	system(fb);
-	XtFree(fb);
+	(void) sprintf(fb, filter, XtWindow(toplevel));
+	if (fb[0] == '@') {
+		(void) system(fb+1);
+		XtFree(fb);
+		return;
+	}
+	if (print_window_shell == NULL)
+		print_window_shell = create_form_popup("printWindow",
+		    print_window_callback, (XtCallbackProc)NULL, False);
+	XtVaSetValues(XtNameToWidget(print_window_shell, "dialog"),
+	    XtNvalue, fb,
+	    NULL);
+	popup_popup(print_window_shell, XtGrabExclusive);
+}
+
+/* Callback for menu option. */
+/*ARGSUSED*/
+void
+print_window_option(w, client_data, call_data)
+Widget w;
+XtPointer client_data;
+XtPointer call_data;
+{
+	Cardinal zero = 0;
+
+	print_window(w, (XEvent *)NULL, (String *)NULL, &zero);
+}
+
+/* Scrollbar support. */
+void
+screen_set_thumb(top, shown)
+float top, shown;
+{
+	if (toggled(SCROLLBAR))
+		XawScrollbarSetThumb(scrollbar, top, shown);
 }

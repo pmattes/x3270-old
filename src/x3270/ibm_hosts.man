@@ -1,11 +1,11 @@
 '\\" t
-.TH IBM_HOSTS 5 "31 August 1993"
+.TH IBM_HOSTS 5 "5 May 1994"
 .SH NAME
 ibm_hosts \-
 host database for
 .B x3270
 .SH SYNOPSIS
-/usr/local/pub/ibm_hosts
+/usr/lib/X11/x3270/ibm_hosts
 .SH DESCRIPTION
 The
 .B ibm_hosts
@@ -90,6 +90,6 @@ will cause the 3270 emulator to connect to the host
 then enter the string ``3'' on the first data-entry field on the screen, and
 send the ENTER AID sequence.
 .SH FILES
-/usr/local/pub/ibm_hosts
+/usr/lib/X11/x3270/ibm_hosts
 .SH "SEE ALSO"
 x3270(1)

@@ -23,14 +23,12 @@
  */
 
 /*
- * Modifications and original code:
- * Copyright 1993 Paul Mattes.
- *
- * Permission to use, copy, modify, and distribute this software and its
- * documentation for any purpose and without fee is hereby granted,
- * provided that the above copyright notice appear in all copies and that
- * both that copyright notice and this permission notice appear in
- * supporting documentation.
+ * Copyright 1993, 1994 by Paul Mattes.
+ *  Permission to use, copy, modify, and distribute this software and its
+ *  documentation for any purpose and without fee is hereby granted,
+ *  provided that the above copyright notice appear in all copies and that
+ *  both that copyright notice and this permission notice appear in
+ *  supporting documentation.
  */
 
 /*
@@ -42,8 +40,9 @@
 #include <X11/Xatom.h>
 #include <X11/Xmu/Atoms.h>
 #include <X11/Xmu/StdSel.h>
-#include "3270.h"
-#include "3270_enc.h"
+#include "3270ds.h"
+#include "screen.h"
+#include "cg.h"
 #include "globals.h"
 
 /*
@@ -109,7 +108,7 @@ Time t;
 
 	/* Is there anything there? */
 	ch = screen_buf[baddr];
-	if (IS_FA(ch) || ch == CG_NULLBLANK || ch == CG_BLANK || FA_IS_ZERO(fa)) {
+	if (IS_FA(ch) || ch == CG_null || ch == CG_space || FA_IS_ZERO(fa)) {
 		return;
 	}
 
@@ -117,7 +116,7 @@ Time t;
 	for (f_start = baddr; f_start % COLS; f_start--) {
 		ch = screen_buf[f_start];
 		fa = *get_field_attribute(f_start);
-		if (IS_FA(ch) || ch == CG_NULLBLANK || ch == CG_BLANK || FA_IS_ZERO(fa)) {
+		if (IS_FA(ch) || ch == CG_null || ch == CG_space || FA_IS_ZERO(fa)) {
 			f_start++;
 			break;
 		}
@@ -127,7 +126,7 @@ Time t;
 	for (f_end = baddr; (f_end+1) % COLS; f_end++) {
 		ch = screen_buf[f_end];
 		fa = *get_field_attribute(f_end);
-		if (IS_FA(ch) || ch == CG_NULLBLANK || ch == CG_BLANK || FA_IS_ZERO(fa)) {
+		if (IS_FA(ch) || ch == CG_null || ch == CG_space || FA_IS_ZERO(fa)) {
 			f_end--;
 			break;
 		}
@@ -395,16 +394,41 @@ MoveCursor(w, event, params, num_params)
 Widget w;
 XEvent *event;
 String *params;
-Cardinal num_params;
+Cardinal *num_params;
 {
 	int x, y;
 	register int baddr;
+	int row, col;
 
-	if (w != *screen)
+	if (kybdlock)
 		return;
-	BOUNDED_XY(event, x, y);
-	baddr = ROWCOL_TO_BA(y, x);
-	cursor_move(baddr);
+
+	switch (*num_params) {
+	    case 0:		/* mouse click, presumably */
+		if (w != *screen)
+			return;
+		BOUNDED_XY(event, x, y);
+		baddr = ROWCOL_TO_BA(y, x);
+		cursor_move(baddr);
+		break;
+	    case 2:		/* probably a macro call */
+		row = atoi(params[0]);
+		col = atoi(params[1]);
+		if (!IN_3270) {
+			row--;
+			col--;
+		}
+		if (row < 0)
+			row = 0;
+		if (col < 0)
+			col = 0;
+		baddr = ((row * COLS) + col) % (ROWS * COLS);
+		cursor_move(baddr);
+		break;
+	    default:		/* couln't say */
+		popup_an_error("MoveCursor: unknown argument count");
+		break;
+	}
 }
 
 
@@ -510,29 +534,19 @@ Widget w;
 Atom *selection;
 {
 	int i;
+	Boolean mine = False;
 
 	for (i = 0; i < NS; i++)
 		if (own_sel[i] != None && own_sel[i] == *selection) {
 			own_sel[i] = None;
 			n_owned--;
+			mine = True;
 			break;
 		}
 	if (!n_owned)
 		unselect(0, ROWS*COLS);
-}
-
-static void
-disown_sels()
-{
-	int i;
-
-	if (!n_owned)
-		return;
-
-	for (i = 0; i < NS; i++)
-		if (own_sel[i] != None)
-			XtDisownSelection(*screen, own_sel[i], CurrentTime);
-	n_owned = 0;
+	if (!mine)
+		XtWarning("Lost unowned selection");
 }
 
 static void
@@ -616,7 +630,7 @@ Time t;
 
 	/* Trim trailing blanks on each line */
 	if (really) {
-		int k, j;
+		int k, l;
 		char c;
 		int nb = 0;
 		int iy = 0;
@@ -627,7 +641,7 @@ Time t;
 				nb++;
 			else {
 				if (c != '\n') {
-					for (j = 0; j < nb; j++)
+					for (l = 0; l < nb; l++)
 						select_buf[iy++] = ' ';
 				}
 				select_buf[iy++] = c;
@@ -654,20 +668,27 @@ Time t;
 					already_own = True;
 					break;
 				}
-			if (already_own)
-				continue;
 
-			/* Find an empty slot for it. */
-			for (j = 0; j < NS; j++)
-				if (own_sel[j] == None)
-					break;
-			if (j >= NS)
-				continue;
+			/* Find the slot for it. */
+			if (!already_own) {
+				for (j = 0; j < NS; j++)
+					if (own_sel[j] == None)
+						break;
+				if (j >= NS)
+					continue;
+			}
 
 			if (XtOwnSelection(*screen, want_sel[i], t,
 			    convert_sel, lose_sel, NULL)) {
-				n_owned++;
-				own_sel[j] = want_sel[i];
+				if (!already_own) {
+					n_owned++;
+					own_sel[j] = want_sel[i];
+				}
+			} else {
+				XtWarning("Couldn't get selection");
+				own_sel[j] = None;
+				if (already_own)
+					n_owned--;
 			}
 		}
 		if (!n_owned)

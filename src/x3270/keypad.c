@@ -1,11 +1,10 @@
 /*
- * Copyright 1993 Paul Mattes.
- *
- * Permission to use, copy, modify, and distribute this software and its
- * documentation for any purpose and without fee is hereby granted,
- * provided that the above copyright notice appear in all copies and that
- * both that copyright notice and this permission notice appear in
- * supporting documentation.
+ * Copyright 1993, 1994 by Paul Mattes.
+ *  Permission to use, copy, modify, and distribute this software and its
+ *  documentation for any purpose and without fee is hereby granted,
+ *  provided that the above copyright notice appear in all copies and that
+ *  both that copyright notice and this permission notice appear in
+ *  supporting documentation.
  */
 
 /*
@@ -27,13 +26,7 @@
 #define BORDER		1
 #define TOP_MARGIN	6
 #define BOTTOM_MARGIN	6
-#define KEY_HEIGHT	24
 
-#define HUGE_KEY_WIDTH		56
-
-#define KEY_WIDTH	48
-#define PF_WIDTH	32
-#define PA_WIDTH	36
 #define SPACING		2
 #define FAT_SPACING	3
 #define VGAP		4
@@ -42,18 +35,16 @@
 
 #define HORIZ_WIDTH \
 	(SIDE_MARGIN + \
-	 12*(PF_WIDTH+2*BORDER) + \
+	 12*(pf_width+2*BORDER) + \
 	 11*SPACING + \
 	 HGAP + \
-	 3*(PA_WIDTH+2*BORDER) + \
+	 3*(pa_width+2*BORDER) + \
 	 2*SPACING + \
 	 SIDE_MARGIN)
 
-Dimension min_keypad_width = HORIZ_WIDTH;
-
 #define VERT_WIDTH \
 	(SIDE_MARGIN + \
-	 3*(PA_WIDTH+2*BORDER) + \
+	 3*(pa_width+2*BORDER) + \
 	 2*SPACING + \
 	 SIDE_MARGIN)
 
@@ -62,6 +53,7 @@ Dimension min_keypad_width = HORIZ_WIDTH;
  */
 struct button_list {
 	char *label;
+	char *name;
 	char *bits;
 	int width;
 	int height;
@@ -69,140 +61,145 @@ struct button_list {
 };
 
 static struct button_list pf_list[] = {
-	{ "PF13",	(char *)0, 0, 0,	key_PF13 },
-	{ "PF14",	(char *)0, 0, 0,	key_PF14 },
-	{ "PF15",	(char *)0, 0, 0,	key_PF15 },
-	{ "PF16",	(char *)0, 0, 0,	key_PF16 },
-	{ "PF17",	(char *)0, 0, 0,	key_PF17 },
-	{ "PF18",	(char *)0, 0, 0,	key_PF18 },
-	{ "PF19",	(char *)0, 0, 0,	key_PF19 },
-	{ "PF20",	(char *)0, 0, 0,	key_PF20 },
-	{ "PF21",	(char *)0, 0, 0,	key_PF21 },
-	{ "PF22",	(char *)0, 0, 0,	key_PF22 },
-	{ "PF23",	(char *)0, 0, 0,	key_PF23 },
-	{ "PF24",	(char *)0, 0, 0,	key_PF24 },
-	{ "PF1",	(char *)0, 0, 0,	key_PF1 },
-	{ "PF2",	(char *)0, 0, 0,	key_PF2 },
-	{ "PF3",	(char *)0, 0, 0,	key_PF3 },
-	{ "PF4",	(char *)0, 0, 0,	key_PF4 },
-	{ "PF5",	(char *)0, 0, 0,	key_PF5 },
-	{ "PF6",	(char *)0, 0, 0,	key_PF6 },
-	{ "PF7",	(char *)0, 0, 0,	key_PF7 },
-	{ "PF8",	(char *)0, 0, 0,	key_PF8 },
-	{ "PF9",	(char *)0, 0, 0,	key_PF9 },
-	{ "PF10",	(char *)0, 0, 0,	key_PF10 },
-	{ "PF11",	(char *)0, 0, 0,	key_PF11 },
-	{ "PF12",	(char *)0, 0, 0,	key_PF12 }
+	{ "PF13",	"large", (char *)0, 0, 0,	key_PF13 },
+	{ "PF14",	"large", (char *)0, 0, 0,	key_PF14 },
+	{ "PF15",	"large", (char *)0, 0, 0,	key_PF15 },
+	{ "PF16",	"large", (char *)0, 0, 0,	key_PF16 },
+	{ "PF17",	"large", (char *)0, 0, 0,	key_PF17 },
+	{ "PF18",	"large", (char *)0, 0, 0,	key_PF18 },
+	{ "PF19",	"large", (char *)0, 0, 0,	key_PF19 },
+	{ "PF20",	"large", (char *)0, 0, 0,	key_PF20 },
+	{ "PF21",	"large", (char *)0, 0, 0,	key_PF21 },
+	{ "PF22",	"large", (char *)0, 0, 0,	key_PF22 },
+	{ "PF23",	"large", (char *)0, 0, 0,	key_PF23 },
+	{ "PF24",	"large", (char *)0, 0, 0,	key_PF24 },
+	{ "PF1",	"large", (char *)0, 0, 0,	key_PF1 },
+	{ "PF2",	"large", (char *)0, 0, 0,	key_PF2 },
+	{ "PF3",	"large", (char *)0, 0, 0,	key_PF3 },
+	{ "PF4",	"large", (char *)0, 0, 0,	key_PF4 },
+	{ "PF5",	"large", (char *)0, 0, 0,	key_PF5 },
+	{ "PF6",	"large", (char *)0, 0, 0,	key_PF6 },
+	{ "PF7",	"large", (char *)0, 0, 0,	key_PF7 },
+	{ "PF8",	"large", (char *)0, 0, 0,	key_PF8 },
+	{ "PF9",	"large", (char *)0, 0, 0,	key_PF9 },
+	{ "PF10",	"large", (char *)0, 0, 0,	key_PF10 },
+	{ "PF11",	"large", (char *)0, 0, 0,	key_PF11 },
+	{ "PF12",	"large", (char *)0, 0, 0,	key_PF12 }
 };
 #define PF_SZ (sizeof(pf_list)/sizeof(pf_list[0]))
 
 static struct button_list pad_list[] = {
-	{ "PA1",	(char *)0, 0, 0,	key_PA1 },
-	{ "PA2",	(char *)0, 0, 0,	key_PA2 },
-	{ "PA3",	(char *)0, 0, 0,	key_PA3 },
+	{ "PA1",	"large", (char *)0, 0, 0,	key_PA1 },
+	{ "PA2",	"large", (char *)0, 0, 0,	key_PA2 },
+	{ "PA3",	"large", (char *)0, 0, 0,	key_PA3 },
 	{ 0, 0, 0 },
-	{ "Up" ,	(char *)up_bits, up_width, up_height,	key_Up },
+	{ "Up" ,	"bm", (char *)up_bits, up_width, up_height,	key_Up },
 	{ 0, 0, 0 },
-	{ "Left" ,	(char *)left_bits, left_width, left_height,	key_Left },
-	{ "Home",	(char *)home_bits, home_width, home_height,	key_Home },
-	{ "Right" ,	(char *)right_bits, right_width, right_height,	key_Right },
+	{ "Left" ,	"bm", (char *)left_bits, left_width, left_height,	key_Left },
+	{ "Home",	"bm", (char *)home_bits, home_width, home_height,	key_Home },
+	{ "Right" ,	"bm", (char *)right_bits, right_width, right_height,	key_Right },
 	{ 0, 0, 0 },
-	{ "Down" ,	(char *)down_bits, down_width, down_height,	key_Down },
+	{ "Down" ,	"bm", (char *)down_bits, down_width, down_height,	key_Down },
 	{ 0, 0, 0 },
 };
 #define PAD_SZ (sizeof(pad_list)/sizeof(pad_list[0]))
 
 static struct button_list lower_list[] = {
-	{ "Clear",	(char *)clear_bits, clear_width, clear_height,	key_Clear },
-	{ "Reset",	(char *)reset_bits, reset_width, reset_height,	key_Reset },
+	{ "Clear",	"small", (char *)0, 0, 0,	key_Clear },
+	{ "Reset",	"small", (char *)0, 0, 0,	key_Reset },
 
-	{ "Ins",	(char *)ins_bits, ins_width, ins_height,	key_Insert },
-	{ "Del",	(char *)del_bits, del_width, del_height,	key_Delete },
+	{ "Ins",	"bm", (char *)ins_bits, ins_width, ins_height,	key_Insert },
+	{ "Del",	"bm", (char *)del_bits, del_width, del_height,	key_Delete },
 
-	{ "ErsEOF",	(char *)eeof_bits, eeof_width, eeof_height,	key_EraseEOF },
-	{ "ErsInp",	(char *)einp_bits, einp_width, einp_height,	key_EraseInput },
+	{ "Erase\nEOF",	"small", (char *)0, 0, 0,	key_EraseEOF },
+	{ "Erase\nInput",	"small", (char *)0, 0, 0,	key_EraseInput },
 
-	{ "Dup",	(char *)dup_bits, dup_width, dup_height,	key_Dup },
-	{ "FldMrk",	(char *)fldmrk_bits, fldmrk_width, fldmrk_height,	key_FieldMark },
+	{ "Dup",	"small", (char *)0, 0, 0,	key_Dup },
+	{ "Field\nMark",	"small", (char *)0, 0, 0,	key_FieldMark },
 
-	{ "SysReq",	(char *)sysreq_bits, sysreq_width, sysreq_height,	key_SysReq },
-	{ "CrsSel",	(char *)crssel_bits, crssel_width, crssel_height,	key_CursorSelect },
+	{ "Sys\nReq",	"small", (char *)0, 0, 0,	key_SysReq },
+	{ "Cursor\nSelect",	"small", (char *)0, 0, 0,	key_CursorSelect },
 
-	{ "Attn",	(char *)attn_bits, attn_width, attn_height,	key_Attn },
-	{ "MonCse",	(char *)moncse_bits, moncse_width, moncse_height,	key_MonoCase },
+	{ "Attn",	"small", (char *)0, 0, 0,	key_Attn },
+	{ "Mono\nCase",	"small", (char *)0, 0, 0,	key_MonoCase },
 
-	{ "Btab",	(char *)btab_bits, btab_width, btab_height,	key_BTab },
-	{ "Tab",	(char *)tab_bits, tab_width, tab_height,	key_FTab },
+	{ "Btab",	"bm", (char *)btab_bits, btab_width, btab_height,	key_BTab },
+	{ "Tab",	"bm", (char *)tab_bits, tab_width, tab_height,	key_FTab },
 
 	{ 0, 0, 0 },
-	{ "Enter",	(char *)enter_bits, enter_width, enter_height,	key_Enter }
+	{ "Enter",	"small", (char *)0, 0, 0,	key_Enter }
 };
 #define LOWER_SZ (sizeof(lower_list)/sizeof(lower_list[0]))
 
 static struct button_list vpf_list[] = {
-	{ "PF10",	(char *)0, 0, 0,	key_PF10 },
-	{ "PF11",	(char *)0, 0, 0,	key_PF11 },
-	{ "PF12",	(char *)0, 0, 0,	key_PF12 },
-	{ "PF7",	(char *)0, 0, 0,	key_PF7 },
-	{ "PF8",	(char *)0, 0, 0,	key_PF8 },
-	{ "PF9",	(char *)0, 0, 0,	key_PF9 },
-	{ "PF4",	(char *)0, 0, 0,	key_PF4 },
-	{ "PF5",	(char *)0, 0, 0,	key_PF5 },
-	{ "PF6",	(char *)0, 0, 0,	key_PF6 },
-	{ "PF1",	(char *)0, 0, 0,	key_PF1 },
-	{ "PF2",	(char *)0, 0, 0,	key_PF2 },
-	{ "PF3",	(char *)0, 0, 0,	key_PF3 },
+	{ "PF1",	"large", (char *)0, 0, 0,	key_PF1 },
+	{ "PF2",	"large", (char *)0, 0, 0,	key_PF2 },
+	{ "PF3",	"large", (char *)0, 0, 0,	key_PF3 },
+	{ "PF4",	"large", (char *)0, 0, 0,	key_PF4 },
+	{ "PF5",	"large", (char *)0, 0, 0,	key_PF5 },
+	{ "PF6",	"large", (char *)0, 0, 0,	key_PF6 },
+	{ "PF7",	"large", (char *)0, 0, 0,	key_PF7 },
+	{ "PF8",	"large", (char *)0, 0, 0,	key_PF8 },
+	{ "PF9",	"large", (char *)0, 0, 0,	key_PF9 },
+	{ "PF10",	"large", (char *)0, 0, 0,	key_PF10 },
+	{ "PF11",	"large", (char *)0, 0, 0,	key_PF11 },
+	{ "PF12",	"large", (char *)0, 0, 0,	key_PF12 },
 };
 #define VPF_SZ (sizeof(vpf_list)/sizeof(vpf_list[0]))
 
 static struct button_list vspf_list[] = {
-	{ "PF22",	(char *)0, 0, 0,	key_PF22 },
-	{ "PF23",	(char *)0, 0, 0,	key_PF23 },
-	{ "PF24",	(char *)0, 0, 0,	key_PF24 },
-	{ "PF19",	(char *)0, 0, 0,	key_PF19 },
-	{ "PF20",	(char *)0, 0, 0,	key_PF20 },
-	{ "PF21",	(char *)0, 0, 0,	key_PF21 },
-	{ "PF16",	(char *)0, 0, 0,	key_PF16 },
-	{ "PF17",	(char *)0, 0, 0,	key_PF17 },
-	{ "PF18",	(char *)0, 0, 0,	key_PF18 },
-	{ "PF13",	(char *)0, 0, 0,	key_PF13 },
-	{ "PF14",	(char *)0, 0, 0,	key_PF14 },
-	{ "PF15",	(char *)0, 0, 0,	key_PF15 },
+	{ "PF13",	"large", (char *)0, 0, 0,	key_PF13 },
+	{ "PF14",	"large", (char *)0, 0, 0,	key_PF14 },
+	{ "PF15",	"large", (char *)0, 0, 0,	key_PF15 },
+	{ "PF16",	"large", (char *)0, 0, 0,	key_PF16 },
+	{ "PF17",	"large", (char *)0, 0, 0,	key_PF17 },
+	{ "PF18",	"large", (char *)0, 0, 0,	key_PF18 },
+	{ "PF19",	"large", (char *)0, 0, 0,	key_PF19 },
+	{ "PF20",	"large", (char *)0, 0, 0,	key_PF20 },
+	{ "PF21",	"large", (char *)0, 0, 0,	key_PF21 },
+	{ "PF22",	"large", (char *)0, 0, 0,	key_PF22 },
+	{ "PF23",	"large", (char *)0, 0, 0,	key_PF23 },
+	{ "PF24",	"large", (char *)0, 0, 0,	key_PF24 },
 };
 static Widget vpf_w[2][VPF_SZ];
 
 static struct button_list vpad_list[] = {
 	{ 0, 0, 0 },
-	{ "Up" ,	(char *)up_bits, up_width, up_height,	key_Up },
+	{ "Up" ,	"bm", (char *)up_bits, up_width, up_height,	key_Up },
 	{ 0, 0, 0 },
-	{ "Left" ,	(char *)left_bits, left_width, left_height,	key_Left },
-	{ "Home",	(char *)home_bits, home_width, home_height,	key_Home },
-	{ "Right" ,	(char *)right_bits, right_width, right_height,	key_Right },
-	{ "Ins",	(char *)ins_bits, ins_width, ins_height,	key_Insert },
-	{ "Down" ,	(char *)down_bits, down_width, down_height,	key_Down },
-	{ "Del",	(char *)del_bits, del_width, del_height,	key_Delete },
-	{ "PA1",	(char *)0, 0, 0,	key_PA1 },
-	{ "PA2",	(char *)0, 0, 0,	key_PA2 },
-	{ "PA3",	(char *)0, 0, 0,	key_PA3 },
+	{ "Left" ,	"bm", (char *)left_bits, left_width, left_height,	key_Left },
+	{ "Home",	"bm", (char *)home_bits, home_width, home_height,	key_Home },
+	{ "Right" ,	"bm", (char *)right_bits, right_width, right_height,	key_Right },
+	{ "Ins",	"bm", (char *)ins_bits, ins_width, ins_height,	key_Insert },
+	{ "Down" ,	"bm", (char *)down_bits, down_width, down_height,	key_Down },
+	{ "Del",	"bm", (char *)del_bits, del_width, del_height,	key_Delete },
+	{ "PA1",	"large", (char *)0, 0, 0,	key_PA1 },
+	{ "PA2",	"large", (char *)0, 0, 0,	key_PA2 },
+	{ "PA3",	"large", (char *)0, 0, 0,	key_PA3 },
 };
 #define VPAD_SZ (sizeof(vpad_list)/sizeof(vpad_list[0]))
 
 static struct button_list vfn_list[] = {
-	{ "Btab",	(char *)btab_bits, btab_width, btab_height,	key_BTab },
-	{ "Tab",	(char *)tab_bits, tab_width, tab_height,	key_FTab },
-	{ "Clear",	(char *)clear_bits, clear_width, clear_height,	key_Clear },
-	{ "Reset",	(char *)reset_bits, reset_width, reset_height,	key_Reset },
-	{ "ErsEOF",	(char *)eeof_bits, eeof_width, eeof_height,	key_EraseEOF },
-	{ "ErsInp",	(char *)einp_bits, einp_width, einp_height,	key_EraseInput },
-	{ "Dup",	(char *)dup_bits, dup_width, dup_height,	key_Dup },
-	{ "FldMrk",	(char *)fldmrk_bits, fldmrk_width, fldmrk_height,	key_FieldMark },
-	{ "SysReq",	(char *)sysreq_bits, sysreq_width, sysreq_height,	key_SysReq },
-	{ "CrsSel",	(char *)crssel_bits, crssel_width, crssel_height,	key_CursorSelect },
-	{ "Attn",	(char *)attn_bits, attn_width, attn_height,	key_Attn },
-	{ "MonCse",	(char *)moncse_bits, moncse_width, moncse_height,	key_MonoCase },
+	{ "Btab",	"bm", (char *)btab_bits, btab_width, btab_height,	key_BTab },
+	{ "Tab",	"bm", (char *)tab_bits, tab_width, tab_height,	key_FTab },
+	{ "Clear",	"small", (char *)0, 0, 0,	key_Clear },
+	{ "Reset",	"small", (char *)0, 0, 0,	key_Reset },
+	{ "Erase\nEOF",	"small", (char *)0, 0, 0,	key_EraseEOF },
+	{ "Erase\nInput",	"small", (char *)0, 0, 0,	key_EraseInput },
+	{ "Dup",	"small", (char *)0, 0, 0,	key_Dup },
+	{ "Field\nMark",	"small", (char *)0, 0, 0,	key_FieldMark },
+	{ "Sys\nReq",	"small", (char *)0, 0, 0,	key_SysReq },
+	{ "Cursor\nSelect",	"small", (char *)0, 0, 0,	key_CursorSelect },
+	{ "Attn",	"small", (char *)0, 0, 0,	key_Attn },
+	{ "Mono\nCase",	"small", (char *)0, 0, 0,	key_MonoCase },
 };
 #define VFN_SZ (sizeof(vfn_list)/sizeof(vfn_list[0]))
 
+static Dimension pf_width;
+static Dimension key_height;
+static Dimension pa_width;
+static Dimension key_width;
+static Dimension large_key_width;
 
 
 /*
@@ -238,7 +235,7 @@ make_a_button(container, x, y, w, h, keyd)
 		return (Widget) 0;
 
 	command = XtVaCreateManagedWidget(
-	    keyd->label, commandWidgetClass, container,
+	    keyd->name, commandWidgetClass, container,
 	    XtNx, x,
 	    XtNy, y,
 	    XtNwidth, w,
@@ -250,7 +247,8 @@ make_a_button(container, x, y, w, h, keyd)
 		pixmap = XCreateBitmapFromData(display, root_window,
 		    keyd->bits, keyd->width, keyd->height);
 		XtVaSetValues(command, XtNbitmap, pixmap, NULL);
-	}
+	} else
+		XtVaSetValues(command, XtNlabel, keyd->label, NULL);
 	return command;
 }
 
@@ -271,10 +269,10 @@ keypad_keys_horiz(container)
 	y0 = TOP_MARGIN;
 	for (i = 0; i < PF_SZ; i++) {
 		(void) make_a_button(container,
-		    x0 + (col*(PF_WIDTH+2*BORDER+SPACING)),
-		    y0 + (row*(KEY_HEIGHT+2*BORDER+SPACING)),
-		    PF_WIDTH,
-		    KEY_HEIGHT,
+		    (Position)(x0 + (col*(pf_width+2*BORDER+SPACING))),
+		    (Position)(y0 + (row*(key_height+2*BORDER+SPACING))),
+		    pf_width,
+		    key_height,
 		    &pf_list[i]);
 		if (++col >= 12) {
 			col = 0;
@@ -284,14 +282,14 @@ keypad_keys_horiz(container)
 
 	/* Keypad */
 	row = col = 0;
-	x0 = SIDE_MARGIN + 12*(PF_WIDTH+2*BORDER+SPACING) + HGAP;
+	x0 = SIDE_MARGIN + 12*(pf_width+2*BORDER+SPACING) + HGAP;
 	y0 = TOP_MARGIN;
 	for (i = 0; i < PAD_SZ; i++) {
 		(void) make_a_button(container,
-		    x0 + (col*(PA_WIDTH+2*BORDER+SPACING)),
-		    y0 + (row*(KEY_HEIGHT+2*BORDER+SPACING)),
-		    PA_WIDTH,
-		    KEY_HEIGHT,
+		    (Position)(x0 + (col*(pa_width+2*BORDER+SPACING))),
+		    (Position)(y0 + (row*(key_height+2*BORDER+SPACING))),
+		    pa_width,
+		    key_height,
 		    &pad_list[i]);
 		if (++col >= 3) {
 			col = 0;
@@ -303,14 +301,14 @@ keypad_keys_horiz(container)
 	/* Bottom */
 	row = col = 0;
 	x0 = SIDE_MARGIN;
-	y0 = TOP_MARGIN + 2*(KEY_HEIGHT+2*BORDER+SPACING) + VGAP;
+	y0 = TOP_MARGIN + 2*(key_height+2*BORDER+SPACING) + VGAP;
 
 	for (i = 0; i < LOWER_SZ; i++) {
 		(void) make_a_button(container,
-		    x0 + (col*(KEY_WIDTH+2*BORDER+FAT_SPACING)),
-		    y0 + (row*(KEY_HEIGHT+2*BORDER+SPACING)),
-		    KEY_WIDTH,
-		    KEY_HEIGHT,
+		    (Position)(x0 + (col*(key_width+2*BORDER+FAT_SPACING))),
+		    (Position)(y0 + (row*(key_height+2*BORDER+SPACING))),
+		    key_width,
+		    key_height,
 		    &lower_list[i]);
 		if (++row >= 2) {
 			++col;
@@ -334,6 +332,7 @@ keypad_keys_vert(container)
 	int i;
 	Position row, col;
 	Position x0, y0;
+	Widget c1, c2;
 
 	vert_keypad = True;
 
@@ -343,29 +342,36 @@ keypad_keys_vert(container)
 	    XtNmappedWhenManaged, False,
 	    XtNborderWidth, 0,
 	    XtNwidth, VERT_WIDTH,
-	    XtNheight, TOP_MARGIN+4*(KEY_HEIGHT+2*BORDER)+3*SPACING,
+	    XtNheight, TOP_MARGIN+4*(key_height+2*BORDER)+3*SPACING,
 	    NULL);
-	if (depth > 1)
-		XtVaSetValues(spf_container, XtNbackground, appres.keypadbg, NULL);
-	else
+	if (appres.mono)
 		XtVaSetValues(spf_container, XtNbackgroundPixmap, gray, NULL);
+	else
+		XtVaSetValues(spf_container, XtNbackground, appres.keypadbg, NULL);
 
 	/* PF keys */
+	if (appres.invert_kpshift) {
+		c1 = spf_container;
+		c2 = container;
+	} else {
+		c1 = container;
+		c2 = spf_container;
+	}
 	row = col = 0;
 	x0 = SIDE_MARGIN;
 	y0 = TOP_MARGIN;
 	for (i = 0; i < VPF_SZ; i++) {
-		vpf_w[0][i] = make_a_button(container,
-		    x0 + (col*(PA_WIDTH+2*BORDER+SPACING)),
-		    y0 + (row*(KEY_HEIGHT+2*BORDER+SPACING)),
-		    PA_WIDTH,
-		    KEY_HEIGHT,
+		vpf_w[0][i] = make_a_button(c1,
+		    (Position)(x0 + (col*(pa_width+2*BORDER+SPACING))),
+		    (Position)(y0 + (row*(key_height+2*BORDER+SPACING))),
+		    pa_width,
+		    key_height,
 		    &vpf_list[i]);
-		vpf_w[1][i] = make_a_button(spf_container,
-		    x0 + (col*(PA_WIDTH+2*BORDER+SPACING)),
-		    y0 + (row*(KEY_HEIGHT+2*BORDER+SPACING)),
-		    PA_WIDTH,
-		    KEY_HEIGHT,
+		vpf_w[1][i] = make_a_button(c2,
+		    (Position)(x0 + (col*(pa_width+2*BORDER+SPACING))),
+		    (Position)(y0 + (row*(key_height+2*BORDER+SPACING))),
+		    pa_width,
+		    key_height,
 		    &vspf_list[i]);
 		if (++col >= 3) {
 			col = 0;
@@ -376,10 +382,10 @@ keypad_keys_vert(container)
 	/* Cursor and PA keys */
 	for (i = 0; i < VPAD_SZ; i++) {
 		(void) make_a_button(container,
-		    x0 + (col*(PA_WIDTH+2*BORDER+SPACING)),
-		    y0 + (row*(KEY_HEIGHT+2*BORDER+SPACING)),
-		    PA_WIDTH,
-		    KEY_HEIGHT,
+		    (Position)(x0 + (col*(pa_width+2*BORDER+SPACING))),
+		    (Position)(y0 + (row*(key_height+2*BORDER+SPACING))),
+		    pa_width,
+		    key_height,
 		    &vpad_list[i]);
 		if (++col >= 3) {
 			col = 0;
@@ -390,16 +396,55 @@ keypad_keys_vert(container)
 	/* Other keys */
 	for (i = 0; i < VFN_SZ; i++) {
 		(void) make_a_button(container,
-		    x0 + (col*(HUGE_KEY_WIDTH+2*BORDER+SPACING)),
-		    y0 + (row*(KEY_HEIGHT+2*BORDER+SPACING)),
-		    HUGE_KEY_WIDTH,
-		    KEY_HEIGHT,
+		    (Position)(x0 + (col*(large_key_width+2*BORDER+SPACING))),
+		    (Position)(y0 + (row*(key_height+2*BORDER+SPACING))),
+		    large_key_width,
+		    key_height,
 		    &vfn_list[i]);
 		if (++col >= 2) {
 			col = 0;
 			row++;
 		}
 	}
+}
+
+static Dimension
+get_keypad_dimension(name)
+char *name;
+{
+	static char rname[64];
+	char *d;
+	long v;
+
+	(void) sprintf(rname, "keypad.%s", name);
+	if (!(d = get_resource(rname)))
+		XtError("Can't find keypad dimension resource");
+	if ((v = strtol(d, (char **)0, 0)) <= 0)
+		XtError("Illegal keypad dimension resource");
+	XtFree(d);
+	return (Dimension)v;
+}
+
+static void
+init_keypad_dimensions()
+{
+	static Boolean done = False;
+
+	if (done)
+		return;
+	key_height = get_keypad_dimension("keyHeight");
+	key_width = get_keypad_dimension("keyWidth");
+	pf_width = get_keypad_dimension("pfWidth");
+	pa_width = get_keypad_dimension("paWidth");
+	large_key_width = get_keypad_dimension("largeKeyWidth");
+	done = True;
+}
+
+Dimension
+min_keypad_width()
+{
+	init_keypad_dimensions();
+	return HORIZ_WIDTH;
 }
 
 /*
@@ -418,6 +463,8 @@ keypad_init(container, voffset, screen_width, floating, vert)
 	Dimension width = screen_width;
 	Dimension hoffset;
 
+	init_keypad_dimensions();
+
 	/* Figure out what dimensions to use */
 	if (vert)
 		width = VERT_WIDTH;
@@ -426,11 +473,11 @@ keypad_init(container, voffset, screen_width, floating, vert)
 
 	if (vert)
 		height = TOP_MARGIN +
-		   (NUM_VROWS*(KEY_HEIGHT+2*BORDER)) + (NUM_VROWS-1)*SPACING +
+		   (NUM_VROWS*(key_height+2*BORDER)) + (NUM_VROWS-1)*SPACING +
 		   BOTTOM_MARGIN;
 	else
 		height = TOP_MARGIN +
-		   (NUM_ROWS*(KEY_HEIGHT+2*BORDER)) + (NUM_ROWS-1)*SPACING + VGAP +
+		   (NUM_ROWS*(key_height+2*BORDER)) + (NUM_ROWS-1)*SPACING + VGAP +
 		   BOTTOM_MARGIN;
 
 	/* Create a container */
@@ -448,10 +495,10 @@ keypad_init(container, voffset, screen_width, floating, vert)
 		XtNwidth, width,
 		XtNheight, height,
 		NULL);
-	if (depth > 1)
-		XtVaSetValues(key_pad, XtNbackground, appres.keypadbg, NULL);
-	else
+	if (appres.mono)
 		XtVaSetValues(key_pad, XtNbackgroundPixmap, gray, NULL);
+	else
+		XtVaSetValues(key_pad, XtNbackground, appres.keypadbg, NULL);
 
 	/* Create the keys */
 	if (vert)
@@ -484,15 +531,41 @@ keypad_shift()
  */
 Widget keypad_shell = NULL;
 Boolean keypad_popped = False;
+Boolean up_once = False;
 
 /* Called from main when a popup keypad is initially on */
 void
 keypad_at_startup()
 {
+	Boolean v;
+
 	if (!keypad || kp_placement == kp_integral)
 		return;
 	 keypad_popup_init();
-	 popup_popup(keypad_shell, XtGrabNone);
+
+	 /*
+	  * Normally, we could just pop up the window here.  However, there
+	  * is a bug in olwm that allows the pop-up to appear even if its
+	  * main window is iconified.  This only happens at start-up; after
+	  * that, the pop-ups disappear and reappear as the main window is
+	  * iconified and restored, without help.
+	  *
+	  * The following if(), and the keypad_first_up() function below
+	  * (called when the main window state changes to un-iconified) are a
+	  * workaround.
+	  */
+	 XtVaGetValues(toplevel, XtNiconic, &v, NULL);
+	 if (!v)
+		 popup_popup(keypad_shell, XtGrabNone);
+}
+
+/* Called when we become un-iconified, to pop up the keypad, once */
+void
+keypad_first_up()
+{
+	if (!appres.keypad_on || kp_placement == kp_integral || up_once)
+		return;
+	popup_popup(keypad_shell, XtGrabNone);
 }
 
 /* Called when the keypad popup pops up or down */
@@ -504,6 +577,8 @@ XtPointer client_data;
 XtPointer call_data;
 {
 	keypad_popped = *(Boolean *)client_data;
+	if (keypad_popped)
+		up_once = True;
 	menubar_keypad_changed();
 }
 

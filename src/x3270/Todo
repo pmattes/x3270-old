@@ -1,8 +1,24 @@
-Release second set of patches.
+look into jeff's cut and paste problem -- just reproduced accidentally, but I
+can't see how it gets wedged that way.  One window thinks he owns the selection
+when he doesn't, and doesn't think he needs to get it back.
 
-Fix Newline problem, adding lookahead logic.
-Talk to the guy at Kodak about protocol stuff.  Find the !@#$ manual.
+... functionality freeze 4/26/94 ...
 
-Experiments:
-    funny key popup
-    immediate fork for non-blocking hostname lookup
+look into 6k window print problem (xwd -id xxx) -- also can't reproduce
+
+Later...
+
+Structured fields.
+Make scrollbars work in 3270 mode.
+---
+Add an Enter key to the keypad, maybe.
+Add numeric-field-override key (next char only, or till reset).
+Investigate OpenWindows' "Dismiss" on popups -- document as a known problem,
+ at least.  It works on duluth.
+Macros menu pinup.
+Variable substitutions in macros.
+Tilde expansions in file names.
+Typeahead.
+Think about automagic macro recording... <Play> <PFn>  (to where?)
+Look into XtGetSubResources.
+Look into an icon that reflects keyboard-lock state (Gary Speechley).

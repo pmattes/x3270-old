@@ -1,10 +1,16 @@
 /*
- * Copyright 1989 by Georgia Tech Research Corporation, Atlanta, GA.
- * Copyright 1988, 1989 by Robert Viduya.
- * Copyright 1990 Jeff Sparkes.
- * Copyright 1993 Paul Mattes.
+ * Copyright 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.
+ *  All Rights Reserved.  GTRC hereby grants public use of this software.
+ *  Derivative works based on this software must incorporate this copyright
+ *  notice.
  *
- *                         All Rights Reserved
+ * X11 Port Copyright 1990 by Jeff Sparkes.
+ * Additional X11 Modifications Copyright 1993, 1994 by Paul Mattes.
+ *  Permission to use, copy, modify, and distribute this software and its
+ *  documentation for any purpose and without fee is hereby granted,
+ *  provided that the above copyright notice appear in all copies and that
+ *  both that copyright notice and this permission notice appear in
+ *  supporting documentation.
  */
 
 /*
@@ -19,8 +25,8 @@
 #include <X11/Intrinsic.h>
 #include <X11/Xatom.h>
 #include <X11/keysym.h>
-#include "3270.h"
-#include "3270_enc.h"
+#include "3270ds.h"
+#include "cg.h"
 #include "globals.h"
 
 /* Externals: tables.c */
@@ -33,6 +39,18 @@ static int	n_pasting = 0;
 static int	pix = 0;
 static Time	paste_time;
 static enum	{ NONE, COMPOSE, FIRST } composing = NONE;
+static unsigned char pf_xlate[] = { 
+	AID_PF1, AID_PF2, AID_PF3, AID_PF4, AID_PF5, AID_PF6,
+	AID_PF7, AID_PF8, AID_PF9, AID_PF10, AID_PF11,
+	AID_PF12, AID_PF13, AID_PF14, AID_PF15, AID_PF16,
+	AID_PF17, AID_PF18, AID_PF19, AID_PF20,
+	AID_PF21, AID_PF22, AID_PF23, AID_PF24
+};
+static unsigned char pa_xlate[] = { 
+	AID_PA1, AID_PA2, AID_PA3
+};
+#define PF_SZ	(sizeof(pf_xlate)/sizeof(pf_xlate[0]))
+#define PA_SZ	(sizeof(pa_xlate)/sizeof(pa_xlate[0]))
 
 /* Globals */
 Boolean		kybdlock = True,	/* kybd locked */
@@ -49,13 +67,13 @@ extern Boolean		formatted;
 
 enum keytype { LATIN, APL };
 struct akeysym {
-	char keysym;
+	KeySym keysym;
 	enum keytype keytype;
 };
 static struct akeysym cc_first;
 static struct composite {
 	struct akeysym k1, k2;
-	unsigned char translation;
+	KeySym translation;
 } *composites = NULL;
 static int n_composites = 0;
 
@@ -83,6 +101,20 @@ Boolean on;
 	status_insert_mode(on);
 }
 
+/*
+ * Lock the keyboard because of an operator error.
+ */
+static void
+operator_error(status_fn)
+void (*status_fn)();
+{
+	(*status_fn)();
+	mcursor_locked();
+	kybdlock = True;
+	if (scripting())
+		popup_an_error("Keyboard locked");
+}
+
 
 /*
  * Handle an AID (Attention IDentifier) key.  This is the common stuff that
@@ -94,18 +126,6 @@ unsigned char	aid_code;
 {
 	if (IN_ANSI) {
 		register int	i;
-		static unsigned char pf_xlate[] = { 
-			AID_PF1, AID_PF2, AID_PF3, AID_PF4, AID_PF5, AID_PF6,
-			AID_PF7, AID_PF8, AID_PF9, AID_PF10, AID_PF11,
-			AID_PF12, AID_PF13, AID_PF14, AID_PF15, AID_PF16,
-			AID_PF17, AID_PF18, AID_PF19, AID_PF20,
-			AID_PF21, AID_PF22, AID_PF23, AID_PF24
-		};
-		static unsigned char pa_xlate[] = { 
-			AID_PA1, AID_PA2, AID_PA3
-		};
-#		define PF_SZ	(sizeof(pf_xlate)/sizeof(pf_xlate[0]))
-#		define PA_SZ	(sizeof(pa_xlate)/sizeof(pa_xlate[0]))
 
 		if (aid_code == AID_ENTER) {
 			net_sendc('\r');
@@ -133,6 +153,52 @@ unsigned char	aid_code;
 	ctlr_read_modified();
 	ticking_start(False);
 	status_ctlr_done();
+}
+
+/*ARGSUSED*/
+static void
+key_PF(w, event, params, num_params)
+Widget w;
+XEvent *event;
+String *params;
+Cardinal *num_params;
+{
+	int k;
+
+	if (*num_params != 1) {
+		popup_an_error("PF requires 1 argument");
+		return;
+	}
+	k = atoi(params[0]);
+	if (k < 0 || k > PF_SZ) {
+		popup_an_error("PF: invalid argument");
+		return;
+	}
+	if (!kybdlock)
+		key_AID(pf_xlate[k-1]);
+}
+
+/*ARGSUSED*/
+static void
+key_PA(w, event, params, num_params)
+Widget w;
+XEvent *event;
+String *params;
+Cardinal *num_params;
+{
+	int k;
+
+	if (*num_params != 1) {
+		popup_an_error("PA requires 1 argument");
+		return;
+	}
+	k = atoi(params[0]);
+	if (k < 0 || k > PA_SZ) {
+		popup_an_error("PA: invalid argument");
+		return;
+	}
+	if (!kybdlock)
+		key_AID(pa_xlate[k-1]);
 }
 
 
@@ -173,61 +239,87 @@ int	cgcode;
 	baddr = cursor_addr;
 	fa = get_field_attribute(baddr);
 	if (IS_FA(screen_buf[baddr]) || FA_IS_PROTECTED(*fa)) {
-		status_protected();
-		mcursor_locked();
-		kybdlock = True;
+		operator_error(status_protected);
 		return False;
-	} else {
-		if (FA_IS_NUMERIC(*fa)
-		    &&  !((cgcode >= CG_ZERO && cgcode <= CG_NINE) || cgcode == CG_MINUS || cgcode == CG_PERIOD)) {
-			status_numeric();
-			mcursor_locked();
-			kybdlock = True;
-			return False;
-		} else {
-			if (insert && screen_buf[baddr]) {
-				/* find next null or next fa */
-				end_baddr = baddr;
-				do {
-					INC_BA(end_baddr);
-					if (screen_buf[end_baddr] == CG_NULLBLANK
-					    ||  IS_FA(screen_buf[end_baddr]))
-						break;
-				} while (end_baddr != baddr);
-				if (screen_buf[end_baddr] != CG_NULLBLANK) {
-					status_overflow();
-					mcursor_locked();
-					kybdlock = True;
-					return False;
-				} else {
-					if (end_baddr > baddr) {
-						ctlr_bcopy(baddr, baddr+1, end_baddr - baddr, 0);
-					} else {
-						ctlr_bcopy(0, 1, end_baddr, 0);
-						ctlr_add(0, screen_buf[(ROWS * COLS) - 1]);
-						ctlr_bcopy(baddr, baddr+1, ((ROWS * COLS) - 1) - baddr, 0);
-					}
-					ctlr_add(baddr, (unsigned char) cgcode);
-				}
-			} else {
-				ctlr_add(baddr, (unsigned char) cgcode);
+	}
+	if (FA_IS_NUMERIC(*fa) &&
+	    !((cgcode >= CG_0 && cgcode <= CG_9) ||
+	    cgcode == CG_minus || cgcode == CG_period)) {
+		operator_error(status_numeric);
+		return False;
+	}
+	if (insert && screen_buf[baddr]) {
+
+		/* Find next null or fa. */
+		end_baddr = baddr;
+		do {
+			INC_BA(end_baddr);
+			if (screen_buf[end_baddr] == CG_null
+			    ||  IS_FA(screen_buf[end_baddr]))
+				break;
+		} while (end_baddr != baddr);
+
+		/*
+		 * If the last character in the field is a space, perhaps
+		 * convert it to a null.
+		 */
+		if (toggled(BLANKFILL) && IS_FA(screen_buf[end_baddr])) {
+			int lastf = end_baddr;
+
+			DEC_BA(lastf);
+			if (screen_buf[lastf] == CG_space) {
+				DEC_BA(end_baddr);
+
+				/* No shift required if only one byte. */
+				if (end_baddr == baddr)
+					goto shift_done;
+
+				ctlr_add(end_baddr, CG_null);
 			}
+		}
 
+		/* Check for field overflow. */
+		if (screen_buf[end_baddr] != CG_null) {
+			operator_error(status_overflow);
+			return False;
+		}
 
-			/* Implement auto-skip, and don't land on attribute
-			   bytes. */
-			INC_BA(baddr);
-			if (IS_FA(screen_buf[baddr]) &&
-			    FA_IS_SKIP(screen_buf[baddr]))
-				baddr = next_unprotected(baddr);
-			else while (IS_FA(screen_buf[baddr]))
-				INC_BA(baddr);
-
-			cursor_move(baddr);
-
-			mdt_set(fa);
+		/* Shift data over. */
+		if (end_baddr > baddr) {
+			ctlr_bcopy(baddr, baddr+1, end_baddr - baddr, 0);
+		} else {
+			ctlr_bcopy(0, 1, end_baddr, 0);
+			ctlr_add(0, screen_buf[(ROWS * COLS) - 1]);
+			ctlr_bcopy(baddr, baddr+1, ((ROWS * COLS) - 1) - baddr, 0);
 		}
 	}
+
+    shift_done:
+	/* Replace leading nulls with blanks, if desired. */
+	if (formatted && toggled(BLANKFILL)) {
+		register int	baddr2 = fa - screen_buf;
+
+		INC_BA(baddr2);
+		while (baddr2 != baddr) {
+			if (screen_buf[baddr2] == CG_null)
+				ctlr_add(baddr2, CG_space);
+			INC_BA(baddr2);
+		}
+	}
+
+	/* Add the key (finally!) */
+	ctlr_add(baddr, (unsigned char) cgcode);
+
+	/* Implement auto-skip, and don't land on attribute bytes. */
+	INC_BA(baddr);
+	if (IS_FA(screen_buf[baddr]) &&
+	    FA_IS_SKIP(screen_buf[baddr]))
+		baddr = next_unprotected(baddr);
+	else while (IS_FA(screen_buf[baddr]))
+		INC_BA(baddr);
+
+	cursor_move(baddr);
+	mdt_set(fa);
 	return True;
 }
 
@@ -284,7 +376,7 @@ enum keytype	keytype;
 
 	if (IN_3270) {
 		if (c == '^' && keytype == LATIN) {
-			(void) key_Character(CG_NOT);
+			(void) key_Character(CG_notsign);
 		} else {
 			(void) key_Character((int) asc2cg[c]);
 		}
@@ -446,9 +538,7 @@ key_Erase()
 	baddr = cursor_addr;
 	fa = get_field_attribute(baddr);
 	if (fa == &screen_buf[baddr] || FA_IS_PROTECTED(*fa)) {
-		status_protected();
-		mcursor_locked();
-		kybdlock = True;
+		operator_error(status_protected);
 		return;
 	}
 	if (baddr && fa == &screen_buf[baddr - 1])
@@ -585,7 +675,7 @@ key_Dup()
 {
 	if (IN_ANSI)
 		return;
-	if (key_Character(CG_DUP))
+	if (key_Character(CG_dup))
 		cursor_move(next_unprotected(cursor_addr));
 }
 
@@ -598,7 +688,7 @@ key_FieldMark()
 {
 	if (IN_ANSI)
 		return;
-	(void) key_Character(CG_FM);
+	(void) key_Character(CG_fm);
 }
 
 
@@ -668,32 +758,28 @@ key_CursorSelect()
 		return;
 	fa = get_field_attribute(cursor_addr);
 	if (!FA_IS_SELECTABLE(*fa)) {
-		status_protected();
-		mcursor_locked();
-		kybdlock = True;
-	} else {
-		sel = fa + 1;
-		switch (*sel) {
-		    case CG_GREATER:		/* > */
-			ctlr_add(cursor_addr, CG_QUESTION); /* change to ? */
-			mdt_clear(fa);
-			break;
-		    case CG_QUESTION:		/* ? */
-			ctlr_add(cursor_addr, CG_GREATER);	/* change to > */
-			mdt_set(fa);
-			break;
-		    case CG_BLANK:		/* space */
-		    case CG_NULLBLANK:		/* null */
-			key_AID(AID_SELECT);
-			break;
-		    case CG_AMPERSAND:		/* & */
-			key_AID(AID_ENTER);
-			break;
-		    default:
-			status_protected();
-			mcursor_locked();
-			kybdlock = True;
-		}
+		operator_error(status_protected);
+		return;
+	}
+	sel = fa + 1;
+	switch (*sel) {
+	    case CG_greater:		/* > */
+		ctlr_add(cursor_addr, CG_question); /* change to ? */
+		mdt_clear(fa);
+		break;
+	    case CG_question:		/* ? */
+		ctlr_add(cursor_addr, CG_greater);	/* change to > */
+		mdt_set(fa);
+		break;
+	    case CG_space:		/* space */
+	    case CG_null:		/* null */
+		key_AID(AID_SELECT);
+		break;
+	    case CG_ampersand:		/* & */
+		key_AID(AID_ENTER);
+		break;
+	    default:
+		operator_error(status_protected);
 	}
 }
 
@@ -712,22 +798,20 @@ key_EraseEOF()
 	baddr = cursor_addr;
 	fa = get_field_attribute(baddr);
 	if (FA_IS_PROTECTED(*fa) || IS_FA(screen_buf[baddr])) {
-		status_protected();
-		mcursor_locked();
-		kybdlock = True;
-	} else {
-		if (formatted) {	/* erase to next field attribute */
-			do {
-				ctlr_add(baddr, CG_NULLBLANK);
-				INC_BA(baddr);
-			} while (!IS_FA(screen_buf[baddr]));
-			mdt_set(fa);
-		} else {	/* erase to end of screen */
-			do {
-				ctlr_add(baddr, CG_NULLBLANK);
-				INC_BA(baddr);
-			} while (baddr != 0);
-		}
+		operator_error(status_protected);
+		return;
+	}
+	if (formatted) {	/* erase to next field attribute */
+		do {
+			ctlr_add(baddr, CG_null);
+			INC_BA(baddr);
+		} while (!IS_FA(screen_buf[baddr]));
+		mdt_set(fa);
+	} else {	/* erase to end of screen */
+		do {
+			ctlr_add(baddr, CG_null);
+			INC_BA(baddr);
+		} while (baddr != 0);
 	}
 }
 
@@ -765,7 +849,7 @@ key_EraseInput()
 						f = True;
 					}
 					if (!IS_FA(screen_buf[baddr])) {
-						ctlr_add(baddr, CG_NULLBLANK);
+						ctlr_add(baddr, CG_null);
 					}
 				}		while (!IS_FA(screen_buf[baddr]));
 			} else {	/* skip protected */
@@ -801,28 +885,26 @@ key_Delete()
 	baddr = cursor_addr;
 	fa = get_field_attribute(baddr);
 	if (FA_IS_PROTECTED(*fa) || IS_FA(screen_buf[baddr])) {
-		status_protected();
-		mcursor_locked();
-		kybdlock = True;
-	} else {
-		/* find next fa */
-		end_baddr = baddr;
-		do {
-			INC_BA(end_baddr);
-			if (IS_FA(screen_buf[end_baddr]))
-				break;
-		} while (end_baddr != baddr);
-		DEC_BA(end_baddr);
-		if (end_baddr > baddr) {
-			ctlr_bcopy(baddr+1, baddr, end_baddr - baddr, 0);
-		} else if (end_baddr != baddr) {
-			ctlr_bcopy(baddr+1, baddr, ((ROWS * COLS) - 1) - baddr, 0);
-			ctlr_add((ROWS * COLS) - 1, screen_buf[0]);
-			ctlr_bcopy(1, 0, end_baddr, 0);
-		}
-		ctlr_add(end_baddr, CG_NULLBLANK);
-		mdt_set(fa);
+		operator_error(status_protected);
+		return;
 	}
+	/* find next fa */
+	end_baddr = baddr;
+	do {
+		INC_BA(end_baddr);
+		if (IS_FA(screen_buf[end_baddr]))
+			break;
+	} while (end_baddr != baddr);
+	DEC_BA(end_baddr);
+	if (end_baddr > baddr) {
+		ctlr_bcopy(baddr+1, baddr, end_baddr - baddr, 0);
+	} else if (end_baddr != baddr) {
+		ctlr_bcopy(baddr+1, baddr, ((ROWS * COLS) - 1) - baddr, 0);
+		ctlr_add((ROWS * COLS) - 1, screen_buf[0]);
+		ctlr_bcopy(1, 0, end_baddr, 0);
+	}
+	ctlr_add(end_baddr, CG_null);
+	mdt_set(fa);
 }
 
 
@@ -851,16 +933,14 @@ key_DeleteWord()
 
 	/* Make sure we're on a modifiable field. */
 	if (FA_IS_PROTECTED(*fa) || IS_FA(screen_buf[baddr])) {
-		status_protected();
-		mcursor_locked();
-		kybdlock = True;
+		operator_error(status_protected);
 		return;
 	}
 
 	/* Search backwards for a non-blank character. */
 	front_baddr = baddr;
-	while (screen_buf[front_baddr] == CG_BLANK ||
-	       screen_buf[front_baddr] == CG_NULLBLANK)
+	while (screen_buf[front_baddr] == CG_space ||
+	       screen_buf[front_baddr] == CG_null)
 		DEC_BA(front_baddr);
 
 	/* If we ran into the edge of the field without seeing any non-blanks,
@@ -874,8 +954,8 @@ key_DeleteWord()
 	   for the first blank to the left of that (or the edge of the field),
 	   leaving front_baddr pointing at the the beginning of the word. */
 	while (!IS_FA(screen_buf[front_baddr]) &&
-	       screen_buf[front_baddr] != CG_BLANK &&
-	       screen_buf[front_baddr] != CG_NULLBLANK)
+	       screen_buf[front_baddr] != CG_space &&
+	       screen_buf[front_baddr] != CG_null)
 		DEC_BA(front_baddr);
 	INC_BA(front_baddr);
 
@@ -883,14 +963,14 @@ key_DeleteWord()
 	   field or a non-blank. */
 	back_baddr = front_baddr;
 	while (!IS_FA(screen_buf[back_baddr]) &&
-	       screen_buf[back_baddr] != CG_BLANK &&
-	       screen_buf[back_baddr] != CG_NULLBLANK)
+	       screen_buf[back_baddr] != CG_space &&
+	       screen_buf[back_baddr] != CG_null)
 		INC_BA(back_baddr);
 
 	/* Find the start of the next word, leaving back_baddr pointing at it
 	   or at the end of the field. */
-	while (screen_buf[back_baddr] == CG_BLANK ||
-	       screen_buf[back_baddr] == CG_NULLBLANK)
+	while (screen_buf[back_baddr] == CG_space ||
+	       screen_buf[back_baddr] == CG_null)
 		INC_BA(back_baddr);
 
 	/* Find the end of the field, leaving end_baddr pointing at the field
@@ -910,7 +990,7 @@ key_DeleteWord()
 
 	/* Insert nulls to pad out the end of the field. */
 	while (baddr != end_baddr) {
-		ctlr_add(baddr, CG_NULLBLANK);
+		ctlr_add(baddr, CG_null);
 		INC_BA(baddr);
 	}
 
@@ -944,9 +1024,7 @@ key_DeleteField()
 	baddr = cursor_addr;
 	fa = get_field_attribute(baddr);
 	if (FA_IS_PROTECTED(*fa) || IS_FA(screen_buf[baddr])) {
-		status_protected();
-		mcursor_locked();
-		kybdlock = True;
+		operator_error(status_protected);
 		return;
 	}
 	while (!IS_FA(screen_buf[baddr]))
@@ -954,7 +1032,7 @@ key_DeleteField()
 	INC_BA(baddr);
 	cursor_move(baddr);
 	while (!IS_FA(screen_buf[baddr])) {
-		ctlr_add(baddr, CG_NULLBLANK);
+		ctlr_add(baddr, CG_null);
 		INC_BA(baddr);
 	}
 	mdt_set(fa);
@@ -1013,7 +1091,7 @@ key_FieldEnd()
 		c = screen_buf[baddr];
 		if (IS_FA(c))
 			break;
-		if (c != CG_NULLBLANK && c != CG_BLANK)
+		if (c != CG_null && c != CG_space)
 			last_nonblank = baddr;
 	}
 
@@ -1215,10 +1293,10 @@ XEvent *event;
 String *params;
 Cardinal *num_params;
 {
-	XKeyEvent		*kevent = (XKeyEvent *)event;
+	XKeyEvent	*kevent = (XKeyEvent *)event;
 	char		buf[10];
 	KeySym		ks;
-	int			ll;
+	int		ll;
 
 	ll = XLookupString(kevent, buf, 10, &ks, (XComposeStatus *) 0);
 	if (ll != 1)
@@ -1248,10 +1326,14 @@ Cardinal *nparams;
 
 		k = StringToKeysym(s, &keytype);
 		if (k == NoSymbol) {
-			xs_warning("Key: Nonexistent or invalid KeySym: %s", s);
+			xs_popup_an_error("Key: Nonexistent or invalid KeySym: %s", s);
 			continue;
 		}
-		key_ACharacter((unsigned char) k, keytype);
+		if (k & ~0xff) {
+			xs_popup_an_error("Key: Invalid KeySym: %s", s);
+			continue;
+		}
+		key_ACharacter((unsigned char)(k & 0xff), keytype);
 	}
 }
 
@@ -1283,8 +1365,34 @@ Cardinal *nparams;
 		(void) strcat(s, params[i]);
 
 	/* Set the pending string to that and process it. */
-	ps_set(s);
+	ps_set(s, False);
 	ps_process();
+}
+
+static void
+do_pa(n)
+int n;
+{
+	if (kybdlock)
+		return;
+	if (n < 1 || n > PA_SZ) {
+		popup_an_error("Unknown PA key");
+		return;
+	}
+	key_AID(pa_xlate[n-1]);
+}
+
+static void
+do_pf(n)
+int n;
+{
+	if (kybdlock)
+		return;
+	if (n < 1 || n > PF_SZ) {
+		popup_an_error("Unknown PF key");
+		return;
+	}
+	key_AID(pf_xlate[n-1]);
 }
 
 /*
@@ -1308,8 +1416,10 @@ int len;
 Boolean pasting;
 {
 	char c;
-	enum { BASE, BACKSLASH, BACKX, OCTAL, HEX } state = BASE;
+	enum { BASE, BACKSLASH, BACKX, BACKP, BACKPA, BACKPF, OCTAL, HEX }
+		state = BASE;
 	int literal;
+	int nc;
 	static char dxl[] = "0123456789abcdef";
 
 	/*
@@ -1358,31 +1468,41 @@ Boolean pasting;
 		    case BACKSLASH:	/* last character was a backslash */
 			switch (c) {
 			    case 'a':
-				XtWarning("Bell not supported in String action");
+				popup_an_error("String: bell not supported");
+				state = BASE;
 				break;
 			    case 'b':
 				key_Left();
+				state = BASE;
 				break;
 			    case 'f':
 				key_Clear();
+				state = BASE;
 				if (IN_3270)
 					return len-1;
 				else
 					break;
 			    case 'n':
 				key_Enter();
+				state = BASE;
 				if (IN_3270)
 					return len-1;
 				else
 					break;
+			    case 'p':
+				state = BACKP;
+				break;
 			    case 'r':
 				key_Newline();
+				state = BASE;
 				break;
 			    case 't':
 				key_FTab();
+				state = BASE;
 				break;
 			    case 'v':
-				XtWarning("Vertical Tab not supported in String action");
+				popup_an_error("String: vertical tab not supported");
+				state = BASE;
 				break;
 			    case 'x':
 				state = BACKX;
@@ -1397,26 +1517,76 @@ Boolean pasting;
 			    case '7':
 				state = OCTAL;
 				literal = 0;
+				nc = 0;
 				continue;
 			default:
 				state = BASE;
 				continue;
 			}
-			state = BASE;
+			break;
+		    case BACKP:	/* last two characters were "\p" */
+			switch (c) {
+			    case 'a':
+				literal = 0;
+				nc = 0;
+				state = BACKPA;
+				break;
+			    case 'f':
+				literal = 0;
+				nc = 0;
+				state = BACKPF;
+				break;
+			    default:
+				popup_an_error("String: unknown character after \\p");
+				state = BASE;
+				break;
+			}
+			break;
+		    case BACKPF: /* last three characters were "\pf" */
+			if (nc < 2 && isdigit(c)) {
+				literal = (literal * 10) + (c - '0');
+				nc++;
+			} else if (!nc) {
+				popup_an_error("String: unknown character after \\pf");
+				state = BASE;
+			} else {
+				do_pf(literal);
+				if (IN_3270)
+					return len-1;
+				state = BASE;
+				continue;
+			}
+			break;
+		    case BACKPA: /* last three characters were "\pa" */
+			if (nc < 1 && isdigit(c)) {
+				literal = (literal * 10) + (c - '0');
+				nc++;
+			} else if (!nc) {
+				popup_an_error("String: unknown character after \\pa");
+				state = BASE;
+			} else {
+				do_pa(literal);
+				if (IN_3270)
+					return len-1;
+				state = BASE;
+				continue;
+			}
 			break;
 		    case BACKX:	/* last two characters were "\x" */
 			if (isxdigit(c)) {
 				state = HEX;
 				literal = 0;
+				nc = 0;
 				continue;
 			} else {
-				XtWarning("Missing hex digits after \\x");
+				popup_an_error("String: missing hex digits after \\x");
 				state = BASE;
 				continue;
 			}
 		    case OCTAL:	/* have seen \ and one or more octal digits */
-			if (isdigit(c) && c < '8') {
+			if (nc < 3 && isdigit(c) && c < '8') {
 				literal = (literal * 8) + (strchr(dxl, c) - dxl);
+				nc++;
 				break;
 			} else {
 				key_ACharacter((unsigned char) literal, LATIN);
@@ -1424,8 +1594,9 @@ Boolean pasting;
 				continue;
 			}
 		    case HEX:	/* have seen \ and one or more hex digits */
-			if (isxdigit(c)) {
+			if (nc < 2 && isxdigit(c)) {
 				literal = (literal * 16) + (strchr(dxl, tolower(c)) - dxl);
+				nc++;
 				break;
 			} else {
 				key_ACharacter((unsigned char) literal, LATIN);
@@ -1437,8 +1608,28 @@ Boolean pasting;
 		len--;
 	}
 
+	switch (state) {
+	    case OCTAL:
+	    case HEX:
+		key_ACharacter((unsigned char) literal, LATIN);
+		state = BASE;
+		break;
+	    case BACKPF:
+		if (nc > 0) {
+			do_pf(literal);
+			state = BASE;
+		}
+		break;
+	    case BACKPA:
+		if (nc > 0) {
+			do_pa(literal);
+			state = BASE;
+		}
+		break;
+	}
+
 	if (state != BASE)
-		XtWarning("Missing data after \\ in String action");
+		popup_an_error("String: missing data after \\");
 
 	return len;
 }
@@ -1489,7 +1680,7 @@ Cardinal *nparams;
 	for (i = 0; i < *nparams; i++) {
 		a = XInternAtom(display, params[i], True);
 		if (a == None) {
-			XtWarning("No atom for selection");
+			popup_an_error("insert-selection: no atom for selection");
 			continue;
 		}
 		if (n_pasting < NP)
@@ -1514,88 +1705,104 @@ Cardinal *nparams;
 }
 
 XtActionsRec actions[] = {
-	{ "AltCursor",  (XtActionProc)key_AltCr },
-	{ "Attn",	(XtActionProc)key_Attn },
-	{ "BackSpace",	(XtActionProc)key_BackSpace },
-	{ "BackTab",	(XtActionProc)key_BTab },
-	{ "Clear",	(XtActionProc)key_Clear },
-	{ "Compose",	(XtActionProc)Compose },
-	{ "CursorSelect", (XtActionProc)key_CursorSelect },
-	{ "Default",	(XtActionProc)Default },
-	{ "Delete", 	(XtActionProc)key_Delete },
-	{ "DeleteField",(XtActionProc)key_DeleteField },
-	{ "DeleteWord",	(XtActionProc)key_DeleteWord },
-	{ "DeleteWindow", (XtActionProc)delete_window },
-	{ "Down",	(XtActionProc)key_Down },
-	{ "Dup",	(XtActionProc)key_Dup },
-	{ "Enter",	(XtActionProc)key_Enter },
-	{ "EnterLeave",	(XtActionProc)enter_leave },
-	{ "Erase",	(XtActionProc)key_Erase },
-	{ "EraseEOF",	(XtActionProc)key_EraseEOF },
-	{ "EraseInput", (XtActionProc)key_EraseInput },
-	{ "FieldEnd",	(XtActionProc)key_FieldEnd },
-	{ "FieldMark",	(XtActionProc)key_FieldMark },
-	{ "FocusEvent",	(XtActionProc)focus_change },
-	{ "HandleMenu",	(XtActionProc)handle_menu },
-	{ "Home",	(XtActionProc)key_Home },
-	{ "Insert",	(XtActionProc)key_Insert },
-	{ "Key",	(XtActionProc)key },
-	{ "KeymapEvent", (XtActionProc)keymap_event },
-	{ "Left",	(XtActionProc)key_Left },
-	{ "Left2", 	(XtActionProc)key_Left2 },
-	{ "MonoCase",	(XtActionProc)key_MonoCase },
-	{ "MoveCursor",	(XtActionProc)MoveCursor },
-	{ "Newline",	(XtActionProc)key_Newline },
-	{ "PA1",	(XtActionProc)key_PA1 },
-	{ "PA2",	(XtActionProc)key_PA2 },
-	{ "PA3",	(XtActionProc)key_PA3 },
-	{ "PF1",	(XtActionProc)key_PF1 },
-	{ "PF10",	(XtActionProc)key_PF10 },
-	{ "PF11",	(XtActionProc)key_PF11 },
-	{ "PF12",	(XtActionProc)key_PF12 },
-	{ "PF13",	(XtActionProc)key_PF13 },
-	{ "PF14",	(XtActionProc)key_PF14 },
-	{ "PF15",	(XtActionProc)key_PF15 },
-	{ "PF16",	(XtActionProc)key_PF16 },
-	{ "PF17",	(XtActionProc)key_PF17 },
-	{ "PF18",	(XtActionProc)key_PF18 },
-	{ "PF19",	(XtActionProc)key_PF19 },
-	{ "PF2",	(XtActionProc)key_PF2 },
-	{ "PF20",	(XtActionProc)key_PF20 },
-	{ "PF21",	(XtActionProc)key_PF21 },
-	{ "PF22",	(XtActionProc)key_PF22 },
-	{ "PF23",	(XtActionProc)key_PF23 },
-	{ "PF24",	(XtActionProc)key_PF24 },
-	{ "PF3",	(XtActionProc)key_PF3 },
-	{ "PF4",	(XtActionProc)key_PF4 },
-	{ "PF5",	(XtActionProc)key_PF5 },
-	{ "PF6",	(XtActionProc)key_PF6 },
-	{ "PF7",	(XtActionProc)key_PF7 },
-	{ "PF8",	(XtActionProc)key_PF8 },
-	{ "PF9",	(XtActionProc)key_PF9 },
-	{ "PrintText",	(XtActionProc)print_text },
-	{ "HardPrint",	(XtActionProc)print_text },
-	{ "PrintWindow",(XtActionProc)print_window },
-	{ "Quit",	(XtActionProc)quit_event },
-	{ "Redraw",	(XtActionProc)redraw },
-	{ "Reset",	(XtActionProc)key_Reset },
-	{ "Right",	(XtActionProc)key_Right },
-	{ "Right2",	(XtActionProc)key_Right2 },
-	{ "SetFont",	(XtActionProc)set_font },
-	{ "Shift",	(XtActionProc)key_Shift },
-	{ "StateChanged",(XtActionProc)state_event },
-	{ "String",	(XtActionProc)string },
-	{ "SysReq",	(XtActionProc)key_SysReq },
-	{ "Tab",	(XtActionProc)key_FTab },
-	{ "ToggleInsert",(XtActionProc)key_ToggleInsert },
-	{ "Up",		(XtActionProc)key_Up },
-	{ "ignore",	(XtActionProc)ignore },
-	{ "start-extend",	(XtActionProc)start_extend },
+	{ "AltCursor",  	(XtActionProc)key_AltCr },
+	{ "AnsiText",		(XtActionProc)ansi_text_fn },
+	{ "Ascii",		(XtActionProc)ascii_fn },
+	{ "AsciiField",		(XtActionProc)ascii_field_fn },
+	{ "Attn",		(XtActionProc)key_Attn },
+	{ "BackSpace",		(XtActionProc)key_BackSpace },
+	{ "BackTab",		(XtActionProc)key_BTab },
+	{ "Clear",		(XtActionProc)key_Clear },
+	{ "CloseScript",	(XtActionProc)close_script_fn },
+	{ "Compose",		(XtActionProc)Compose },
+	{ "Connect",		(XtActionProc)Connect },
+	{ "ContinueScript",	(XtActionProc)continue_script_fn },
+	{ "CursorSelect",	(XtActionProc)key_CursorSelect },
+	{ "Default",		(XtActionProc)Default },
+	{ "Delete", 		(XtActionProc)key_Delete },
+	{ "DeleteField",	(XtActionProc)key_DeleteField },
+	{ "DeleteWord",		(XtActionProc)key_DeleteWord },
+	{ "Disconnect",		(XtActionProc)Disconnect },
+	{ "Down",		(XtActionProc)key_Down },
+	{ "Dup",		(XtActionProc)key_Dup },
+	{ "Ebcdic",		(XtActionProc)ebcdic_fn },
+	{ "EbcdicField",	(XtActionProc)ebcdic_field_fn },
+	{ "Enter",		(XtActionProc)key_Enter },
+	{ "EnterLeave",		(XtActionProc)enter_leave },
+	{ "Erase",		(XtActionProc)key_Erase },
+	{ "EraseEOF",		(XtActionProc)key_EraseEOF },
+	{ "EraseInput",		(XtActionProc)key_EraseInput },
+	{ "Execute",		(XtActionProc)execute_fn },
+	{ "FieldEnd",		(XtActionProc)key_FieldEnd },
+	{ "FieldMark",		(XtActionProc)key_FieldMark },
+	{ "FocusEvent",		(XtActionProc)focus_change },
+	{ "HandleMenu",		(XtActionProc)handle_menu },
+	{ "HardPrint",		(XtActionProc)print_text },
+	{ "Home",		(XtActionProc)key_Home },
+	{ "Info",		(XtActionProc)Info },
+	{ "Insert",		(XtActionProc)key_Insert },
+	{ "Key",		(XtActionProc)key },
+	{ "KeymapEvent",	(XtActionProc)keymap_event },
+	{ "Left",		(XtActionProc)key_Left },
+	{ "Left2", 		(XtActionProc)key_Left2 },
+	{ "MonoCase",		(XtActionProc)key_MonoCase },
+	{ "MoveCursor",		(XtActionProc)MoveCursor },
+	{ "Newline",		(XtActionProc)key_Newline },
+	{ "PauseScript",	(XtActionProc)pause_script_fn },
+	{ "PA",			(XtActionProc)key_PA },
+	{ "PA1",		(XtActionProc)key_PA1 },
+	{ "PA2",		(XtActionProc)key_PA2 },
+	{ "PA3",		(XtActionProc)key_PA3 },
+	{ "PF",			(XtActionProc)key_PF },
+	{ "PF1",		(XtActionProc)key_PF1 },
+	{ "PF10",		(XtActionProc)key_PF10 },
+	{ "PF11",		(XtActionProc)key_PF11 },
+	{ "PF12",		(XtActionProc)key_PF12 },
+	{ "PF13",		(XtActionProc)key_PF13 },
+	{ "PF14",		(XtActionProc)key_PF14 },
+	{ "PF15",		(XtActionProc)key_PF15 },
+	{ "PF16",		(XtActionProc)key_PF16 },
+	{ "PF17",		(XtActionProc)key_PF17 },
+	{ "PF18",		(XtActionProc)key_PF18 },
+	{ "PF19",		(XtActionProc)key_PF19 },
+	{ "PF2",		(XtActionProc)key_PF2 },
+	{ "PF20",		(XtActionProc)key_PF20 },
+	{ "PF21",		(XtActionProc)key_PF21 },
+	{ "PF22",		(XtActionProc)key_PF22 },
+	{ "PF23",		(XtActionProc)key_PF23 },
+	{ "PF24",		(XtActionProc)key_PF24 },
+	{ "PF3",		(XtActionProc)key_PF3 },
+	{ "PF4",		(XtActionProc)key_PF4 },
+	{ "PF5",		(XtActionProc)key_PF5 },
+	{ "PF6",		(XtActionProc)key_PF6 },
+	{ "PF7",		(XtActionProc)key_PF7 },
+	{ "PF8",		(XtActionProc)key_PF8 },
+	{ "PF9",		(XtActionProc)key_PF9 },
+	{ "PlaybackStep",	(XtActionProc)net_playback_step },
+	{ "PrintText",		(XtActionProc)print_text },
+	{ "PrintWindow",	(XtActionProc)print_window },
+	{ "Quit",		(XtActionProc)quit_event },
+	{ "Redraw",		(XtActionProc)redraw },
+	{ "Reset",		(XtActionProc)key_Reset },
+	{ "Right",		(XtActionProc)key_Right },
+	{ "Right2",		(XtActionProc)key_Right2 },
+	{ "SetFont",		(XtActionProc)set_font },
+	{ "Shift",		(XtActionProc)key_Shift },
+	{ "StateChanged",	(XtActionProc)state_event },
+	{ "String",		(XtActionProc)string },
+	{ "SysReq",		(XtActionProc)key_SysReq },
+	{ "Tab",		(XtActionProc)key_FTab },
+	{ "ToggleInsert",	(XtActionProc)key_ToggleInsert },
+	{ "Up",			(XtActionProc)key_Up },
+	{ "WMProtocols",	(XtActionProc)wm_protocols },
+	{ "Wait",		(XtActionProc)wait_fn },
+	{ "ignore",		(XtActionProc)ignore },
 	{ "insert-selection",	(XtActionProc)insert_selection },
 	{ "move-select",	(XtActionProc)move_select },
-	{ "select-end",	(XtActionProc)select_end },
+	{ "select-end",		(XtActionProc)select_end },
 	{ "select-extend",	(XtActionProc)select_extend },
 	{ "select-start",	(XtActionProc)select_start },
+	{ "start-extend",	(XtActionProc)start_extend },
 };
 
 int actioncount = XtNumber(actions);

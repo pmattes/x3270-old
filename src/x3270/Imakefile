@@ -1,21 +1,33 @@
 LOCAL_LIBRARIES = $(XAWLIB) $(XMULIB) $(XTOOLLIB) $(XLIB)
-           SRCS = ansi.c apl.c ctlr.c keypad.c kybd.c menubar.c popups.c \
-		  screen.c select.c status.c tables.c telnet.c x3270.c
-          VOBJS = ansi.o apl.o ctlr.o keypad.o kybd.o menubar.o popups.o \
-		  screen.o select.o status.o tables.o telnet.o x3270.o
+           SRCS = ansi.c apl.c ctlr.c keypad.c kybd.c macros.c menubar.c \
+		  popups.c save.c screen.c scroll.c select.c status.c \
+		  tables.c telnet.c trace_ds.c x3270.c
+          VOBJS = ansi.o apl.o ctlr.o keypad.o kybd.o macros.o menubar.o \
+		  popups.o save.o screen.o scroll.o select.o status.o \
+		  tables.o telnet.o trace_ds.o x3270.o
            OBJS = $(VOBJS) version.o
-          FONTS = FontBaseObj(3270) FontBaseObj(3270b) \
-		  FontBaseObj(3270-12) FontBaseObj(3270-12b) \
-		  FontBaseObj(3270a) FontBaseObj(3270ab)
+          FONTS = FontObj(3270)    FontObj(3270b) \
+		  FontObj(3270-12) FontObj(3270-12b) \
+		  FontObj(3270a)   FontObj(3270ab) \
+		  FontObj(3270d)
 
     FONTINSTDIR = $(FONTDIR)/misc
 
-/* Might be needed to build on HP/UX */
-/*EXTRA_DEFINES = -D_HPUX_SOURCE */
+#ifdef HPArchitecture
+EXTRA_DEFINES = -D_HPUX_SOURCE
+#endif
+
+/* For SVR4, uncomment the following: */
+/* EXTRA_LIBRARIES = -lnsl -lsocket */
+
+/* For Dynix/ptx, umcomment the following: */
+/* EXTRA_LIBRARIES = -lsocket -linet -lnsl */
+
+AllTarget($(FONTS) x3270)
 
 ComplexProgramTarget(x3270)
-
 InstallAppDefaults(X3270)
+InstallManPage(x3270-script,$(MANDIR))
 InstallManPage(ibm_hosts,$(MANDIR))
 
 FontTarget(3270)
@@ -24,20 +36,20 @@ FontTarget(3270-12)
 FontTarget(3270-12b)
 FontTarget(3270a)
 FontTarget(3270ab)
+FontTarget(3270d)
+InstallMultipleFlags($(FONTS),$(FONTINSTDIR),$(INSTDATFLAGS))
 
-version.o: $(VOBJS) version.txt
-	@(cat version.txt; echo "char *build = \"`date`\";") >version.c
-	@$(CC) -c version.c
-	@$(RM) version.c
+version.o: $(VOBJS) version.txt mkversion.sh
+	@chmod +x mkversion.sh version.txt
+	sh ./mkversion.sh
 
-all:: $(FONTS)
-	
-install::	$(FONTS)
-	@case '${MFLAGS}' in *[i]) set +e;; esac; \
-	for i in $(FONTS); do\
-		(set -x; $(INSTALL) -c $(INSTALLFLAGS) $$i $(FONTINSTDIR));\
-	done
+/* Extra install rule to regenerate misc/fonts.dir */
+install:: $(FONTINSTDIR)/fonts.dir
+$(FONTINSTDIR)/fonts.dir::
+	chmod u+w $(FONTINSTDIR) $(FONTINSTDIR)/fonts.dir
 	$(MKFONTDIR) $(FONTINSTDIR)
+	chmod u=rwx,go=rx $(FONTINSTDIR)
+	chmod a=r $(FONTINSTDIR)/fonts.dir
 
 clean:: 
-	rm -f $(FONTS)
+	$(RM) $(FONTS)

@@ -1,11 +1,10 @@
 /*
- * Copyright 1993 Paul Mattes.
- *
- * Permission to use, copy, modify, and distribute this software and its
- * documentation for any purpose and without fee is hereby granted,
- * provided that the above copyright notice appear in all copies and that
- * both that copyright notice and this permission notice appear in
- * supporting documentation.
+ * Copyright 1993, 1994 by Paul Mattes.
+ *  Permission to use, copy, modify, and distribute this software and its
+ *  documentation for any purpose and without fee is hereby granted,
+ *  provided that the above copyright notice appear in all copies and that
+ *  both that copyright notice and this permission notice appear in
+ *  supporting documentation.
  */
 
 /*
@@ -17,8 +16,9 @@
 #include <X11/Intrinsic.h>
 #include <X11/StringDefs.h>
 #include <X11/Shell.h>
-#include "3270.h"
-#include "3270_enc.h"
+#include "3270ds.h"
+#include "screen.h"
+#include "cg.h"
 #include "globals.h"
 
 
@@ -98,7 +98,7 @@ static Boolean oia_undera = False;
 static Boolean oia_boxsolid = False;
 static int oia_shift = 0;
 static Boolean oia_compose = False;
-static Boolean oia_compose_char = 0;
+static unsigned char oia_compose_char = 0;
 static enum msg {
 	DISCONNECTED,		/* X Not Connected */
 	CONNECTING,		/* X Connecting */
@@ -134,26 +134,26 @@ static char *oia_cursor = (char *) 0;
 static char *oia_timing = (char *) 0;
 
 static unsigned char disc_pfx[] = {
-	CG_LOCK, CG_BLANK, CG_BADCOMMHI, CG_COMMJAG, CG_COMMLO, CG_BLANK
+	CG_lock, CG_space, CG_badcommhi, CG_commjag, CG_commlo, CG_space
 };
 static unsigned char *disc_msg;
 static int disc_len = sizeof(disc_pfx);
 
 static unsigned char cnct_pfx[] = {
-	CG_LOCK, CG_BLANK, CG_COMMHI, CG_COMMJAG, CG_COMMLO, CG_BLANK
+	CG_lock, CG_space, CG_commhi, CG_commjag, CG_commlo, CG_space
 };
 static unsigned char *cnct_msg;
 static int cnct_len = sizeof(cnct_pfx);
 
-static char *a_not_connected;
-static char *a_connecting;
-static char *a_twait;
-static char *a_syswait;
-static char *a_protected;
-static char *a_numeric;
-static char *a_overflow;
+static unsigned char *a_not_connected;
+static unsigned char *a_connecting;
+static unsigned char *a_twait;
+static unsigned char *a_syswait;
+static unsigned char *a_protected;
+static unsigned char *a_numeric;
+static unsigned char *a_overflow;
 
-static char *make_amsg();
+static unsigned char *make_amsg();
 static unsigned char *make_emsg();
 
 static void status_render();
@@ -190,7 +190,7 @@ Boolean font_changed;
 		ever = True;
 	}
 	if (font_changed)
-		nullblank = *standard_font ? ' ' : CG_BLANK;
+		nullblank = *standard_font ? ' ' : CG_space;
 	if (font_changed || model_changed) {
 		status_y = STATUS_Y;
 		if (!(*efontinfo)->descent)
@@ -541,15 +541,15 @@ do_ctlr()
 		else
 			status_add(RBOX, '?');
 	} else {
-		status_add(LBOX, CG_BOX4);
+		status_add(LBOX, CG_box4);
 		if (oia_undera)
-			status_add(CNCT, CG_UNDERA);
+			status_add(CNCT, CG_underA);
 		else
-			status_add(CNCT, CG_NULLBLANK);
+			status_add(CNCT, CG_null);
 		if (oia_boxsolid)
-			status_add(RBOX, CG_BOXSOLID);
+			status_add(RBOX, CG_boxsolid);
 		else
-			status_add(RBOX, CG_BOXQUESTION);
+			status_add(RBOX, CG_boxquestion);
 	}
 }
 
@@ -560,9 +560,9 @@ do_msg(t)
 enum msg t;
 {
 	oia_msg = t;
-	(*msg_proc[t])();
+	(*msg_proc[(int)t])();
 	if (!appres.mono)
-		status_line[WAIT_REGION].color = msg_color[t];
+		status_line[WAIT_REGION].color = msg_color[(int)t];
 }
 
 static void
@@ -575,7 +575,8 @@ static void
 do_disconnected()
 {
 	if (*standard_font)
-		status_msg_set(a_not_connected, strlen(a_not_connected));
+		status_msg_set(a_not_connected,
+		    strlen((char *)a_not_connected));
 	else
 		status_msg_set(disc_msg, disc_len);
 }
@@ -584,7 +585,7 @@ static void
 do_connecting()
 {
 	if (*standard_font)
-		status_msg_set(a_connecting, strlen(a_connecting));
+		status_msg_set(a_connecting, strlen((char *)a_connecting));
 	else
 		status_msg_set(cnct_msg, cnct_len);
 }
@@ -593,11 +594,11 @@ static void
 do_twait()
 {
 	static unsigned char twait[] = {
-		CG_LOCK, CG_BLANK, CG_CLOCKLEFT, CG_CLOCKRIGHT
+		CG_lock, CG_space, CG_clockleft, CG_clockright
 	};
 
 	if (*standard_font)
-		status_msg_set(a_twait, strlen(a_twait));
+		status_msg_set(a_twait, strlen((char *)a_twait));
 	else
 		status_msg_set(twait, sizeof(twait));
 }
@@ -606,11 +607,11 @@ static void
 do_syswait()
 {
 	static unsigned char syswait[] = {
-		CG_LOCK, CG_BLANK, CG_CS, CG_CY, CG_CS, CG_CT, CG_CE, CG_CM
+		CG_lock, CG_space, CG_S, CG_Y, CG_S, CG_T, CG_E, CG_M
 	};
 
 	if (*standard_font)
-		status_msg_set(a_syswait, strlen(a_syswait));
+		status_msg_set(a_syswait, strlen((char *)a_syswait));
 	else
 		status_msg_set(syswait, sizeof(syswait));
 }
@@ -619,11 +620,11 @@ static void
 do_protected()
 {
 	static unsigned char protected[] = {
-		CG_LOCK, CG_BLANK, CG_LEFTARROW, CG_HUMAN, CG_RIGHTARROW
+		CG_lock, CG_space, CG_leftarrow, CG_human, CG_rightarrow
 	};
 
 	if (*standard_font)
-		status_msg_set(a_protected, strlen(a_protected));
+		status_msg_set(a_protected, strlen((char *)a_protected));
 	else
 		status_msg_set(protected, sizeof(protected));
 }
@@ -632,11 +633,11 @@ static void
 do_numeric()
 {
 	static unsigned char numeric[] = {
-		CG_LOCK, CG_BLANK, CG_HUMAN, CG_CN, CG_CU, CG_CM
+		CG_lock, CG_space, CG_human, CG_N, CG_U, CG_M
 	};
 
 	if (*standard_font)
-		status_msg_set(a_numeric, strlen(a_numeric));
+		status_msg_set(a_numeric, strlen((char *)a_numeric));
 	else
 		status_msg_set(numeric, sizeof(numeric));
 }
@@ -645,11 +646,11 @@ static void
 do_overflow()
 {
 	static unsigned char overflow[] = {
-		CG_LOCK, CG_BLANK, CG_HUMAN, CG_GREATER
+		CG_lock, CG_space, CG_human, CG_greater
 	};
 
 	if (*standard_font)
-		status_msg_set(a_overflow, strlen(a_overflow));
+		status_msg_set(a_overflow, strlen((char *)a_overflow));
 	else
 		status_msg_set(overflow, sizeof(overflow));
 }
@@ -660,7 +661,7 @@ static void
 do_insert(on)
 Boolean on;
 {
-	status_add(INSERT, on ? (*standard_font ? 'I' : CG_INSERT) : nullblank);
+	status_add(INSERT, on ? (*standard_font ? 'I' : CG_insert) : nullblank);
 }
 
 static void
@@ -668,11 +669,11 @@ do_shift(state)
 int state;
 {
 	status_add(SHIFT-2, (state & MetaKeyDown) ?
-		(*standard_font ? 'M' : CG_CM) : nullblank);
+		(*standard_font ? 'M' : CG_M) : nullblank);
 	status_add(SHIFT-1, (state & AltKeyDown) ?
-		(*standard_font ? 'A' : CG_CA) : nullblank);
+		(*standard_font ? 'A' : CG_A) : nullblank);
 	status_add(SHIFT, (state & ShiftKeyDown) ?
-		(*standard_font ? '^' : CG_UPSHIFT) : nullblank);
+		(*standard_font ? '^' : CG_upshift) : nullblank);
 }
 
 static void
@@ -681,8 +682,10 @@ Boolean on;
 unsigned char c;
 {
 	if (on) {
-		status_add(COMPOSE, (*standard_font ? 'C' : CG_CC));
-		status_add(COMPOSE+1, c ? (*standard_font ? c : asc2cg[c]) : nullblank);
+		status_add(COMPOSE,
+		    (unsigned char)(*standard_font ? 'C' : CG_C));
+		status_add(COMPOSE+1,
+		    c ? (*standard_font ? c : asc2cg[c]) : nullblank);
 	} else {
 		status_add(COMPOSE, nullblank);
 		status_add(COMPOSE+1, nullblank);
@@ -701,8 +704,8 @@ char *buf;
 			status_add(T0, nullblank);
 			status_add(T0+1, nullblank);
 		} else {
-			status_add(T0, CG_CLOCKLEFT);
-			status_add(T0+1, CG_CLOCKRIGHT);
+			status_add(T0, CG_clockleft);
+			status_add(T0+1, CG_clockright);
 		}
 		for (i = 0; i < (int) strlen(buf); i++)
 			status_add(T0+2+i, *standard_font ? buf[i] : asc2cg[(unsigned char) buf[i]]);
@@ -728,11 +731,11 @@ char *buf;
 
 /* Prepare status messages */
 
-static char *
+static unsigned char *
 make_amsg(key)
 char *key;
 {
-	return xs_buffer("X %s", get_message(key));
+	return (unsigned char *)xs_buffer("X %s", get_message(key));
 }
 
 static unsigned char *
@@ -743,9 +746,8 @@ int *len;
 {
 	char *text = get_message(key);
 	unsigned char *buf = (unsigned char *) XtMalloc(*len + strlen(key));
-	extern unsigned char asc2g[];
 
-	(void) MEMORY_MOVE(buf, (char *) prefix, *len);
+	(void) MEMORY_MOVE((char *)buf, (char *) prefix, *len);
 	while (*text)
 		buf[(*len)++] = asc2cg[*text++];
 
