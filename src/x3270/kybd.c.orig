@@ -887,7 +887,7 @@ do_reset(Boolean explicit)
 	 * If explicit (from the keyboard), unlock the keyboard now.
 	 * Otherwise (from the host), schedule a deferred keyboard unlock.
 	 */
-	if (explicit || ft_state != FT_NONE) {
+	if (explicit) {
 		kybdlock_clr(-1, "do_reset");
 	} else if (kybdlock &
   (KL_DEFERRED_UNLOCK | KL_OIA_TWAIT | KL_OIA_LOCKED | KL_AWAITING_FIRST)) {

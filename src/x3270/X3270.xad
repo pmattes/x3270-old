@@ -342,7 +342,7 @@ x3270.keymap.base.3270: #override \
 	Meta<Key>p:			PrintText()\n\
 	Meta<Key>r:			Reset()\n\
 	Meta<Key>u:			Unselect()\n\
-	~Meta<Key>asciicircum:		Key(notsign)\n\
+	:<Key>asciicircum:		Key(notsign)\n\
 	Ctrl<Key>u:			DeleteField()\n\
 	Ctrl<Key>w:			DeleteWord()\n
 !

@@ -1869,7 +1869,7 @@ Transfer_action(Widget w unused, XEvent *event, String *params,
 				    case PARM_PRIMARY_SPACE:
 				    case PARM_SECONDARY_SPACE:
 					l = strtol(eq + 1, &ptr, 10);
-					if (ptr == eq + 1 || *ptr) {
+					if (ptr == eq + 1 || !*ptr) {
 						popup_an_error("Invalid option "
 							"value: '%s'", eq + 1);
 						return;
@@ -1954,7 +1954,7 @@ Transfer_action(Widget w unused, XEvent *event, String *params,
 	op[0] = '\0';
 	if (ascii_flag)
 		strcat(op, " ascii");
-	if (ascii_flag && cr_flag)
+	if (cr_flag)
 		strcat(op, " crlf");
 	if (append_flag && !receive_flag)
 		strcat(op, " append");
