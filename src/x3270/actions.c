@@ -42,6 +42,33 @@
 #include "screenc.h"
 #endif /*]*/
 
+#if defined(X3270_TRACE) && defined(X3270_DISPLAY) /*[*/
+#include <X11/keysym.h>
+
+#define MODMAP_SIZE	8
+#define MAP_SIZE	13
+#define MAX_MODS_PER	4
+static struct {
+        char *name[MAX_MODS_PER];
+        unsigned int mask;
+} skeymask[MAP_SIZE] = { 
+	{ { "Shift" }, ShiftMask },
+	{ { (char *)NULL } /* Lock */, LockMask, },
+	{ { "Ctrl" }, ControlMask },
+	{ { (char *)NULL }, Mod1Mask },
+	{ { (char *)NULL }, Mod2Mask },
+	{ { (char *)NULL }, Mod3Mask },
+	{ { (char *)NULL }, Mod4Mask },
+	{ { (char *)NULL }, Mod5Mask },
+	{ { "Button1" }, Button1Mask },
+	{ { "Button2" }, Button2Mask },
+	{ { "Button3" }, Button3Mask },
+	{ { "Button4" }, Button4Mask },
+	{ { "Button5" }, Button5Mask }
+};
+static Boolean know_mods = False;
+#endif /*]*/
+
 XtActionsRec actions[] = {
 #if defined(X3270_DISPLAY) /*[*/
 	{ "AltCursor",  	AltCursor_action },
@@ -203,6 +230,135 @@ action_name(XtActionProc action)
 }
 
 #if defined(X3270_DISPLAY) && defined(X3270_TRACE) /*[*/
+/*
+ * Search the modifier map to learn the modifier bits for Meta, Alt, Hyper and
+ *  Super.
+ */
+static void
+learn_modifiers(void)
+{
+	XModifierKeymap *mm;
+	int i, j, k;
+
+	mm = XGetModifierMapping(display);
+
+	for (i = 0; i < MODMAP_SIZE; i++) {
+		for (j = 0; j < mm->max_keypermod; j++) {
+			KeyCode kc;
+			char *name = CN;
+
+			kc = mm->modifiermap[(i * mm->max_keypermod) + j];
+			if (!kc)
+				continue;
+
+			switch(XKeycodeToKeysym(display, kc, 0)) {
+			    case XK_Meta_L:
+			    case XK_Meta_R:
+				name = "Meta";
+				break;
+			    case XK_Alt_L:
+			    case XK_Alt_R:
+				name = "Alt";
+				break;
+			    case XK_Super_L:
+			    case XK_Super_R:
+				name = "Super";
+				break;
+			    case XK_Hyper_L:
+			    case XK_Hyper_R:
+				name = "Hyper";
+				break;
+			    default:
+				break;
+			}
+			if (name == CN)
+				continue;
+
+			for (k = 0; k < MAX_MODS_PER; k++) {
+				if (skeymask[i].name[k] == CN)
+					break;
+				else if (!strcmp(skeymask[i].name[k], name))
+					k = MAX_MODS_PER;
+			}
+			if (k >= MAX_MODS_PER)
+				continue;
+			skeymask[i].name[k] = name;
+		}
+	}
+}
+
+/*
+ * Return the symbolic name for the modifier combination (i.e., "Meta" instead
+ * of "Mod2".  Note that because it is possible to map multiple keysyms to the
+ * same modifier bit, the answer may be ambiguous; we return the combinations
+ * iteratively.
+ */
+static char *
+key_symbolic_state(unsigned int state, int *iteration)
+{
+	static char rs[64];
+	static int ix[MAP_SIZE];
+	static int ix_ix[MAP_SIZE];
+	static int n_ix = 0;
+	static int leftover = 0;
+	const char *comma = "";
+	int i;
+
+	if (!know_mods) {
+		learn_modifiers();
+		know_mods = True;
+	}
+
+	if (*iteration == 0) {
+		/* First time, build the table. */
+		n_ix = 0;
+		for (i = 0; i < MAP_SIZE; i++) {
+			if (skeymask[i].name[0] != CN &&
+			    (state & skeymask[i].mask)) {
+				ix[i] = 0;
+				state &= ~skeymask[i].mask;
+				ix_ix[n_ix++] = i;
+			} else
+				ix[i] = MAX_MODS_PER;
+		}
+		leftover = state;
+	}
+
+	/* Construct this result. */
+	rs[0] = '\0';
+	for (i = 0; i < n_ix;  i++) {
+		(void) strcat(rs, comma);
+		(void) strcat(rs, skeymask[ix_ix[i]].name[ix[ix_ix[i]]]);
+		comma = " ";
+	}
+	if (leftover)
+		(void) sprintf(strchr(rs, '\0'), "%s?%d", comma, state);
+
+	/*
+	 * Iterate to the next.
+	 * This involves treating each slot like an n-ary number, where n is
+	 * the number of elements in the slot, iterating until the highest-
+	 * ordered slot rolls back over to 0.
+	 */
+	if (n_ix) {
+		i = n_ix - 1;
+		ix[ix_ix[i]]++;
+		while (i >= 0 &&
+		       (ix[ix_ix[i]] >= MAX_MODS_PER ||
+			skeymask[ix_ix[i]].name[ix[ix_ix[i]]] == CN)) {
+			ix[ix_ix[i]] = 0;
+			i = i - 1;
+			if (i >= 0)
+				ix[ix_ix[i]]++;
+		}
+		*iteration = i >= 0;
+	} else
+		*iteration = 0;
+
+	return rs;
+}
+
+#if defined(VERBOSE_EVENTS) /*[*/
 static char *
 key_state(unsigned int state)
 {
@@ -230,19 +386,21 @@ key_state(unsigned int state)
 	int i;
 
 	rs[0] = '\0';
-	for (i = 0; keymask[i].name; i++)
+	for (i = 0; keymask[i].name; i++) {
 		if (state & keymask[i].mask) {
 			(void) strcat(rs, comma);
 			(void) strcat(rs, keymask[i].name);
 			comma = "|";
 			state &= ~keymask[i].mask;
 		}
+	}
 	if (!rs[0])
 		(void) sprintf(rs, "%d", state);
 	else if (state)
-		(void) sprintf(strchr(rs, '\0'), "|%d", state);
+		(void) sprintf(strchr(rs, '\0'), "%s?%d", comma, state);
 	return rs;
 }
+#endif /*]*/
 #endif /*]*/
 
 /*
@@ -273,7 +431,7 @@ check_usage(XtActionProc action, Cardinal nargs, Cardinal nargs_min,
 
 #define KSBUF	256
 void
-action_debug(void (*action)(), XEvent *event, String *params,
+action_debug(XtActionProc action, XEvent *event, String *params,
     Cardinal *num_params)
 {
 	Cardinal i;
@@ -286,8 +444,13 @@ action_debug(void (*action)(), XEvent *event, String *params,
 	XClientMessageEvent *cmevent;
 	XExposeEvent *exevent;
 	const char *press = "Press";
+	const char *direction = "Down";
 	char dummystr[KSBUF+1];
 	char *atom_name;
+	int ambiguous = 0;
+	int state;
+	const char *symname = "";
+	char snbuf[11];
 #endif /*]*/
 
 	if (!toggled(EVENT_TRACE))
@@ -302,25 +465,88 @@ action_debug(void (*action)(), XEvent *event, String *params,
 	    case KeyPress:
 		kevent = (XKeyEvent *)event;
 		(void) XLookupString(kevent, dummystr, KSBUF, &ks, NULL);
+		state = kevent->state;
+		/*
+		 * If the keysym is a printable ASCII character, ignore the
+		 * Shift key.
+		 */
+		if (ks != ' ' && !(ks & ~0xff) && isprint(ks))
+			state &= ~ShiftMask;
+		if (ks == NoSymbol)
+			symname = "NoSymbol";
+		else if ((symname = XKeysymToString(ks)) == CN) {
+			(void) sprintf(snbuf, "0x%lx", (unsigned long)ks);
+			symname = snbuf;
+		}
+		do {
+			int was_ambiguous = ambiguous;
+
+			(void) fprintf(tracef, "%s ':%s<Key%s>%s'",
+				was_ambiguous? " or": "Event",
+				key_symbolic_state(state, &ambiguous),
+				press,
+				symname);
+		} while (ambiguous);
+		/*
+		 * If the keysym is an alphanumeric ASCII character, show the
+		 * case-insensitive alternative, sans the colon.
+		 */
+		if (!(ks & ~0xff) && isalpha(ks)) {
+			ambiguous = 0;
+			do {
+				int was_ambiguous = ambiguous;
+
+				(void) fprintf(tracef, " %s '%s<Key%s>%s'",
+					was_ambiguous? "or":
+					    "(case-insensitive:",
+					key_symbolic_state(state, &ambiguous),
+					press,
+					symname);
+			} while (ambiguous);
+			(void) fprintf(tracef, ")");
+		}
+#if defined(VERBOSE_EVENTS) /*[*/
 		(void) fprintf(tracef,
-		    "Key%s [state %s, keycode %d, keysym 0x%lx \"%s\"]",
+		    "\nKey%s [state %s, keycode %d, keysym 0x%lx \"%s\"]",
 			    press, key_state(kevent->state),
 			    kevent->keycode, ks,
-			    ks == NoSymbol ? "NoSymbol" : XKeysymToString(ks));
+			    symname);
+#endif /*]*/
 		break;
 	    case ButtonRelease:
 		press = "Release";
+		direction = "Up";
 	    case ButtonPress:
 		bevent = (XButtonEvent *)event;
+		do {
+			int was_ambiguous = ambiguous;
+
+			(void) fprintf(tracef, "%s '%s<Btn%d%s>'",
+				was_ambiguous? " or": "Event",
+				key_symbolic_state(bevent->state, &ambiguous),
+				bevent->button,
+				direction);
+		} while (ambiguous);
+#if defined(VERBOSE_EVENTS) /*[*/
 		(void) fprintf(tracef,
-		    "Button%s [state %s, button %d]",
+		    "\nButton%s [state %s, button %d]",
 		    press, key_state(bevent->state),
 		    bevent->button);
+#endif /*]*/
 		break;
 	    case MotionNotify:
 		mevent = (XMotionEvent *)event;
+		do {
+			int was_ambiguous = ambiguous;
+
+			(void) fprintf(tracef, "%s '%s<Motion>'",
+				was_ambiguous? " or": "Event",
+				key_symbolic_state(mevent->state, &ambiguous));
+		} while (ambiguous);
+#if defined(VERBOSE_EVENTS) /*[*/
 		(void) fprintf(tracef,
-		    "MotionNotify [state %s]", key_state(mevent->state));
+		    "\nMotionNotify [state %s]", key_state(mevent->state));
+#endif /*]*/
 		break;
 	    case EnterNotify:
 		(void) fprintf(tracef, "EnterNotify");

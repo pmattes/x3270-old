@@ -115,6 +115,8 @@ XtResource resources[] = {
 	  offset(attn_lock), XtRString, ResFalse },
 	{ ResDisconnectClear, ClsDisconnectClear, XtRBoolean, sizeof(Boolean),
 	  offset(disconnect_clear), XtRString, ResFalse },
+	{ ResHighlightBold, ClsHighlightBold, XtRBoolean, sizeof(Boolean),
+	  offset(highlight_bold), XtRString, ResFalse },
 	{ ResHighlightSelect, ClsHighlightSelect, XtRBoolean, sizeof(Boolean),
 	  offset(highlight_select), XtRString, ResTrue },
 	{ ResBellVolume, ClsBellVolume, XtRInt, sizeof(int),

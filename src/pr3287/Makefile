@@ -8,7 +8,7 @@
 # Makefile for pr3287
 
 OBJECTS = pr3287.o ctlr.o trace_ds.o tables.o telnet.o sf.o
-CDEBUGFLAGS = -g -Wall
+#CDEBUGFLAGS = -g -Wall
 CFLAGS = $(INCLUDES) $(DEFINES) $(CDEBUGFLAGS)
 
 all: pr3287
@@ -19,3 +19,6 @@ version.o: version.txt mkversion.sh
 
 pr3287: $(OBJECTS) version.o
 	$(CC) $(CFLAGS) -o $@ $(OBJECTS) version.o
+
+clean:
+	rm -f pr3287 $(OBJECTS) version.o

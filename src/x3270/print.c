@@ -282,7 +282,7 @@ PrintWindow_action(Widget w unused, XEvent *event, String *params,
 	}
 	if (print_window_shell == NULL)
 		print_window_shell = create_form_popup("printWindow",
-		    print_window_callback, (XtCallbackProc)NULL, False);
+		    print_window_callback, (XtCallbackProc)NULL, FORM_AS_IS);
 	XtVaSetValues(XtNameToWidget(print_window_shell, ObjDialog),
 	    XtNvalue, fb,
 	    NULL);

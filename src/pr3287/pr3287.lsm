@@ -1,7 +1,7 @@
 Begin4
 Title:		pr3287
-Version:	3.2A10
-Entered-date:	2000-06-29
+Version:	3.2.11
+Entered-date:	2000-07-31
 Description:	IBM 3287 Printer Emulator for TN3270 Sessions
 		TN3270E support, structured fields
 Keywords:	tn3270 tn3270e x3270 3270 3287
@@ -10,6 +10,6 @@ Author:		Paul Mattes (Paul.Mattes@usa.net)
 		Robert Viduya
 Maintained-by:	Paul Mattes (Paul.Mattes@usa.net)
 Primary-site:	metalab.unc.edu /pub/Linux/system/network/misc/
-		31 KB pr3287-3.2A10.tgz
+		35 KB pr3287-3.2.11.tgz
 Copying-policy:	GPL
 End

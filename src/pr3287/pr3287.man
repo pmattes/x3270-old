@@ -1,9 +1,9 @@
 '\" t
-.TH X3270 1 "29 June 2000"
+.TH X3270 1 "31. July 2000"
 .SH NAME
 pr3287 \-
 .SM IBM
-host access tool
+host printing tool
 .SH SYNOPSIS
 .B pr3287
 .RI [ options ]       
@@ -83,4 +83,4 @@ Derivative works based on this software must incorporate this copyright
 notice.
 .RE
 .SH VERSION
-pr3287 3.2A10
+pr3287 3.2.11

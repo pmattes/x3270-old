@@ -26,7 +26,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tcl3270.c,v 1.6 2000/06/22 20:30:27 pdm Exp $
+ * RCS: @(#) $Id: tcl3270.c,v 1.7 2000/07/09 04:50:37 pdm Exp $
  */
 
 /*
@@ -275,7 +275,7 @@ Tcl_AppInit(Tcl_Interp *interp)
 void
 usage(char *msg)
 {
-	char *sn = "";
+	const char *sn = "";
 
 	if (msg != CN)
 		Warning(msg);

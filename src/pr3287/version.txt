@@ -1,1 +1,1 @@
-version="3.2A10.4"
+../x3270/version.txt

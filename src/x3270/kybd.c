@@ -23,6 +23,10 @@
 #if defined(X3270_DISPLAY) /*[*/
 #include <X11/Xatom.h>
 #endif
+#define XK_3270
+#if defined(X3270_APL) /*[*/
+#define XK_APL
+#endif /*]*/
 #include <X11/keysym.h>
 
 #include <fcntl.h>
@@ -107,7 +111,7 @@ static int n_composites = 0;
 
 static struct ta {
 	struct ta *next;
-	void (*fn)();
+	XtActionProc fn;
 	char *parm1;
 	char *parm2;
 } *ta_head = (struct ta *) NULL,
@@ -121,7 +125,7 @@ static char dxl[] = "0123456789abcdef";
  * Put an action on the typeahead queue.
  */
 void
-enq_ta(void (*fn)(), char *parm1, char *parm2)
+enq_ta(XtActionProc fn, char *parm1, char *parm2)
 {
 	struct ta *ta;
 
@@ -2984,65 +2988,212 @@ Default_action(Widget w unused, XEvent *event, String *params, Cardinal *num_par
 	int		ll;
 
 	action_debug(Default_action, event, params, num_params);
-	ll = XLookupString(kevent, buf, 32, &ks, (XComposeStatus *) 0);
-	if (ll == 1) {
-		/* Remap certain control characters. */
-		switch (buf[0]) {
-		    case '\t':
-			action_internal(Tab_action, IA_DEFAULT, CN, CN);
+	switch (event->type) {
+	    case KeyPress:
+		ll = XLookupString(kevent, buf, 32, &ks, (XComposeStatus *) 0);
+		if (ll == 1) {
+			/* Remap certain control characters. */
+			switch (buf[0]) {
+			    case '\t':
+				action_internal(Tab_action, IA_DEFAULT, CN, CN);
+				break;
+			   case '\177':
+				action_internal(Delete_action, IA_DEFAULT, CN,
+				    CN);
+				break;
+			    case '\b':
+				action_internal(BackSpace_action, IA_DEFAULT,
+				    CN, CN);
+				break;
+			    case '\r':
+				action_internal(Enter_action, IA_DEFAULT, CN,
+				    CN);
+				break;
+			    case '\n':
+				action_internal(Newline_action, IA_DEFAULT, CN,
+				    CN);
+				break;
+			    default:
+				key_ACharacter((unsigned char) buf[0], KT_STD,
+				    IA_DEFAULT);
+			}
+			return;
+		}
+
+		/* Pick some other reasonable defaults. */
+		switch (ks) {
+		    case XK_Up:
+			action_internal(Up_action, IA_DEFAULT, CN, CN);
 			break;
-                   case '\177':
+		    case XK_Down:
+			action_internal(Down_action, IA_DEFAULT, CN, CN);
+			break;
+		    case XK_Left:
+			action_internal(Left_action, IA_DEFAULT, CN, CN);
+			break;
+		    case XK_Right:
+			action_internal(Right_action, IA_DEFAULT, CN, CN);
+			break;
+		    case XK_Insert:
+#if defined(XK_KP_Insert) /*[*/
+		    case XK_KP_Insert:
+#endif /*]*/
+			action_internal(Insert_action, IA_DEFAULT, CN, CN);
+			break;
+		    case XK_Delete:
 			action_internal(Delete_action, IA_DEFAULT, CN, CN);
 			break;
-		    case '\b':
-			action_internal(BackSpace_action, IA_DEFAULT, CN, CN);
+		    case XK_Home:
+			action_internal(Home_action, IA_DEFAULT, CN, CN);
 			break;
-		    case '\r':
+		    case XK_Tab:
+			action_internal(Tab_action, IA_DEFAULT, CN, CN);
+			break;
+		    case XK_Clear:
+			action_internal(Clear_action, IA_DEFAULT, CN, CN);
+			break;
+		    case XK_Sys_Req:
+			action_internal(SysReq_action, IA_DEFAULT, CN, CN);
+			break;
+
+		    /* Funky 3270 keysyms. */
+		    case XK_3270_Duplicate:
+			action_internal(Dup_action, IA_DEFAULT, CN, CN);
+			break;
+		    case XK_3270_FieldMark:
+			action_internal(FieldMark_action, IA_DEFAULT, CN, CN);
+			break;
+		    case XK_3270_Right2:
+			action_internal(Right2_action, IA_DEFAULT, CN, CN);
+			break;
+		    case XK_3270_Left2:
+			action_internal(Left2_action, IA_DEFAULT, CN, CN);
+			break;
+		    case XK_3270_BackTab:
+			action_internal(BackTab_action, IA_DEFAULT, CN, CN);
+			break;
+		    case XK_3270_EraseEOF:
+			action_internal(EraseEOF_action, IA_DEFAULT, CN, CN);
+			break;
+		    case XK_3270_EraseInput:
+			action_internal(EraseInput_action, IA_DEFAULT, CN, CN);
+			break;
+		    case XK_3270_Reset:
+			action_internal(Reset_action, IA_DEFAULT, CN, CN);
+			break;
+		    case XK_3270_PA1:
+			action_internal(PA_action, IA_DEFAULT, "1", CN);
+			break;
+		    case XK_3270_PA2:
+			action_internal(PA_action, IA_DEFAULT, "2", CN);
+			break;
+		    case XK_3270_PA3:
+			action_internal(PA_action, IA_DEFAULT, "3", CN);
+			break;
+		    case XK_3270_Attn:
+			action_internal(Attn_action, IA_DEFAULT, CN, CN);
+			break;
+		    case XK_3270_AltCursor:
+			action_internal(AltCursor_action, IA_DEFAULT, CN, CN);
+			break;
+		    case XK_3270_CursorSelect:
+			action_internal(CursorSelect_action, IA_DEFAULT, CN,
+			    CN);
+			break;
+		    case XK_3270_Enter:
 			action_internal(Enter_action, IA_DEFAULT, CN, CN);
 			break;
-		    case '\n':
-			action_internal(Newline_action, IA_DEFAULT, CN, CN);
-			break;
-		    default:
-			key_ACharacter((unsigned char) buf[0], KT_STD,
-			    IA_DEFAULT);
-		}
-		return;
-	}
 
-	/* Pick some other reasonable defaults. */
-	switch (ks) {
-	    case XK_Up:
-		action_internal(Up_action, IA_DEFAULT, CN, CN);
-		break;
-	    case XK_Down:
-		action_internal(Down_action, IA_DEFAULT, CN, CN);
-		break;
-	    case XK_Left:
-		action_internal(Left_action, IA_DEFAULT, CN, CN);
-		break;
-	    case XK_Right:
-		action_internal(Right_action, IA_DEFAULT, CN, CN);
-		break;
-	    case XK_Insert:
-#if defined(XK_KP_Insert) /*[*/
-	    case XK_KP_Insert:
+#if defined(X3270_APL) /*[*/
+		    /* Funky APL keysyms. */
+		    case XK_downcaret:
+			action_internal(Key_action, IA_DEFAULT, "apl_downcaret",
+			    CN);
+			break;
+		    case XK_upcaret:
+			action_internal(Key_action, IA_DEFAULT, "apl_upcaret",
+			    CN);
+			break;
+		    case XK_overbar:
+			action_internal(Key_action, IA_DEFAULT, "apl_overbar",
+			    CN);
+			break;
+		    case XK_downtack:
+			action_internal(Key_action, IA_DEFAULT, "apl_downtack",
+			    CN);
+			break;
+		    case XK_upshoe:
+			action_internal(Key_action, IA_DEFAULT, "apl_upshoe",
+			    CN);
+			break;
+		    case XK_downstile:
+			action_internal(Key_action, IA_DEFAULT, "apl_downstile",
+			    CN);
+			break;
+		    case XK_underbar:
+			action_internal(Key_action, IA_DEFAULT, "apl_underbar",
+			    CN);
+			break;
+		    case XK_jot:
+			action_internal(Key_action, IA_DEFAULT, "apl_jot", CN);
+			break;
+		    case XK_quad:
+			action_internal(Key_action, IA_DEFAULT, "apl_quad", CN);
+			break;
+		    case XK_uptack:
+			action_internal(Key_action, IA_DEFAULT, "apl_uptack",
+			    CN);
+			break;
+		    case XK_circle:
+			action_internal(Key_action, IA_DEFAULT, "apl_circle",
+			    CN);
+			break;
+		    case XK_upstile:
+			action_internal(Key_action, IA_DEFAULT, "apl_upstile",
+			    CN);
+			break;
+		    case XK_downshoe:
+			action_internal(Key_action, IA_DEFAULT, "apl_downshoe",
+			    CN);
+			break;
+		    case XK_rightshoe:
+			action_internal(Key_action, IA_DEFAULT, "apl_rightshoe",
+			    CN);
+			break;
+		    case XK_leftshoe:
+			action_internal(Key_action, IA_DEFAULT, "apl_leftshoe",
+			    CN);
+			break;
+		    case XK_lefttack:
+			action_internal(Key_action, IA_DEFAULT, "apl_lefttack",
+			    CN);
+			break;
+		    case XK_righttack:
+			action_internal(Key_action, IA_DEFAULT, "apl_righttack",
+			    CN);
+			break;
 #endif /*]*/
-		action_internal(Insert_action, IA_DEFAULT, CN, CN);
+
+		    default:
+			if (ks >= XK_F1 && ks <= XK_F24) {
+				(void) sprintf(buf, "%ld", ks - XK_F1 + 1);
+				action_internal(PF_action, IA_DEFAULT, buf, CN);
+			} else
+				trace_event(" %s: dropped (unknown keysym)\n",
+				    action_name(Default_action));
+			break;
+		}
 		break;
-	    case XK_Delete:
-		action_internal(Delete_action, IA_DEFAULT, CN, CN);
-		break;
-	    case XK_Home:
-		action_internal(Home_action, IA_DEFAULT, CN, CN);
-		break;
-	    case XK_Tab:
-		action_internal(Tab_action, IA_DEFAULT, CN, CN);
+
+	    case ButtonPress:
+	    case ButtonRelease:
+		trace_event(" %s: dropped (no action configured)\n",
+		    action_name(Default_action));
 		break;
 	    default:
-		trace_event(" %s: dropped (non-alphanumeric keysym)\n",
+		trace_event(" %s: dropped (unknown event type)\n",
 		    action_name(Default_action));
-		return;
+		break;
 	}
 }
 

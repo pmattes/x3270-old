@@ -17,14 +17,19 @@ static struct {
 	char *value;
 } rdb[] = {
 	{ "charset.us-intl", "\n" },
+	{ "codepage.us", "37" },
 	{ "charset.us", "\n" },
+	{ "codepage.us", "37" },
 	{ "charset.apl", "\n" },
+	{ "codepage.apl", "37" },
 	{ "charset.bracket",
 "0xad: [		\n	0xba: Yacute		\n\
 0xbd: ]			\n	0xbb: diaeresis		\n" },
+	{ "codepage.bracket", "37" },
 	{ "charset.oldibm",
 "0xad: [		\n	0xba: Yacute		\n\
 0xbd: ]			\n	0xbb: diaeresis		\n" },
+	{ "codepage.oldibm", "37" },
 	{ "charset.german",
 "0x43: {		\n	0x4a: Adiaeresis	\n\
 0x4f: !			\n	0x59: ~			\n\
@@ -37,6 +42,7 @@ static struct {
 0xd0: udiaeresis	\n	0xdc: }			\n\
 0xe0: Odiaeresis	\n	0xec: backslash		\n\
 0xfc: ]			\n" },
+	{ "codepage.german", "273" },
 	{ "charset.finnish",
 "0x43: {		\n	0x47: }			\n\
 0x4a: section		\n	0x4f: !			\n\
@@ -52,11 +58,13 @@ static struct {
 0xcc: brokenbar		\n	0xd0: aring		\n\
 0xdc: ~			\n	0xe0: Eacute		\n\
 0xec: @			\n" },
+	{ "codepage.finnish", "278" },
 	{ "charset.uk",
 "0x4a: $		\n	0x5b: sterling		\n\
 0xa1: macron		\n	0xb0: cent		\n\
 0xb1: [			\n	0xba: ^			\n\
 0xbc: ~			\n" },
+	{ "codepage.uk", "285" },
 	{ "charset.norwegian",
 "0x47: }		\n	0x4a: #			\n\
 0x4f: !			\n	0x5a: currency		\n\
@@ -69,6 +77,7 @@ static struct {
 0xb0: cent		\n	0xba: notsign		\n\
 0xbb: bar		\n	0xc0: ae		\n\
 0xd0: aring		\n	0xdc: ~			\n" },
+	{ "codepage.norwegian", "277" },
 	{ "charset.french",
 "0x44: @		\n	0x48: backslash		\n\
 0x4a: degree		\n	0x4f: !			\n\
@@ -82,6 +91,7 @@ static struct {
 0xba: notsign		\n	0xbb: bar		\n\
 0xbd: ~			\n	0xc0: eacute		\n\
 0xd0: egrave		\n	0xe0: ccedilla		\n" },
+	{ "codepage.french", "297" },
 	{ "charset.hebrew",
 "0x41: hebrew_aleph	\n	0x42: hebrew_bet	\n\
 0x43: hebrew_gimel	\n	0x44: hebrew_dalet	\n\
@@ -108,6 +118,13 @@ static struct {
 0xac: @			\n	0xbe: \\		\n\
 0x7d: '			\n	0x8c: `			\n\
 0x6a: |			\n" },
+	{ "codepage.icelandic", "871" },
+	{ "charset.belgian",
+"0x4a: [		\n	0x4f: !			\n\
+0x5a: ]			\n	0x5f: ^			\n\
+0xb0: cent		\n	0xba: notsign		\n\
+0xbb: bar		\n" },
+	{ "codepage.belgian", "500" },
 	{ "message.ftComplete",
 "Transfer complete, %i bytes transferred\n\
 %.2lg Kbytes/sec in %s mode" },

@@ -22,13 +22,12 @@
 
 #include "kybdc.h"
 #include "hostc.h"
+#include "screenc.h"
 #include "statusc.h"
 #include "tablesc.h"
 #include "utilc.h"
 
 extern Window  *screen_window;
-extern GC       screen_gc();
-extern GC       screen_invgc();
 
 static XChar2b *status_2b;
 static unsigned char *status_1b;

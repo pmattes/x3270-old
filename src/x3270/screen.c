@@ -1514,7 +1514,8 @@ render_text(union sp *buffer, int baddr, int len, Boolean block_cursor,
 		    (char *)rt_buf8, len);
 	if (ss->overstrike &&
 	    ((attrs->bits.gr & GR_INTENSIFY) ||
-	     (appres.mono && ((color & BASE_MASK) == FA_INT_HIGH_SEL)))) {
+	     ((appres.mono || appres.highlight_bold) &&
+	      ((color & BASE_MASK) == FA_INT_HIGH_SEL)))) {
 		if (ss->extended_3270font)
 			XDrawString16(display, ss->window, dgc, x+1, y,
 			    rt_buf16, len);
@@ -1679,6 +1680,8 @@ draw_fields(union sp *buffer, int first, int last)
 				gr = field_ea->gr;
 			if (gr & GR_BLINK)
 				any_blink = True;
+			if (appres.highlight_bold && FA_IS_HIGH(fa))
+				gr |= GR_INTENSIFY;
 
 			/* Find the right color. */
 			if (char_ea->fg)
@@ -2883,7 +2886,7 @@ font_init(void)
 	 */
 	ef = appres.efontname;
 	if ((emsg = load_fixed_font(ef)) != CN) {
-		xs_warning("%s \"%s\" %s", ResEmulatorFont, ef);
+		xs_warning("%s \"%s\" %s", ResEmulatorFont, ef, emsg);
 		if (appres.apl_mode) {
 			XtWarning("Ignoring APL mode");
 			appres.apl_mode = False;
@@ -2892,7 +2895,8 @@ font_init(void)
 			ef = font_list->font;
 			emsg = load_fixed_font(ef);
 			if (emsg != CN)
-				xs_warning("%s \"%s\" %s", ResEmulatorFont, ef);
+				xs_warning("%s \"%s\" %s", ResEmulatorFont, ef,
+				    emsg);
 		}
 		if (emsg != CN) {
 			ef = "fixed";

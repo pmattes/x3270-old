@@ -558,14 +558,18 @@ tracefile_callback(Widget w, XtPointer client_data, XtPointer call_data unused)
 		Free(tfn);
 		return;
 	}
-	tracef = fopen(tfn, "a");
-	if (tracef == (FILE *)NULL) {
-		popup_an_errno(errno, tfn);
-		Free(tfn);
-		return;
+	if (!strcmp(tfn, "stdout"))
+		tracef = stdout;
+	else {
+		tracef = fopen(tfn, "a");
+		if (tracef == (FILE *)NULL) {
+			popup_an_errno(errno, tfn);
+			Free(tfn);
+			return;
+		}
+		(void) SETLINEBUF(tracef);
+		(void) fcntl(fileno(tracef), F_SETFD, 1);
 	}
-	(void) SETLINEBUF(tracef);
-	(void) fcntl(fileno(tracef), F_SETFD, 1);
 
 	/* Display current status */
 	clk = time((time_t *)0);
@@ -592,7 +596,7 @@ tracefile_callback(Widget w, XtPointer client_data, XtPointer call_data unused)
 
 	/* Start the monitor window */
 	tracecmd = get_resource(ResTraceCommand);
-	if (tracecmd == CN || !strcmp(tracecmd, "none"))
+	if (tracecmd == CN || !strcmp(tracecmd, "none") || tracef == stdout)
 		goto done;
 	switch (tracewindow_pid = fork()) {
 	    case 0:	/* child process */
@@ -720,9 +724,10 @@ tracefile_off(void)
 	clk = time((time_t *)0);
 	(void) fprintf(tracef, "Trace stopped %s", ctime(&clk));
 	if (tracewindow_pid != -1)
-		(void) kill(tracewindow_pid, SIGTERM);
+		(void) kill(tracewindow_pid, SIGKILL);
 	tracewindow_pid = -1;
-	(void) fclose(tracef);
+	if (tracef != stdout)
+		(void) fclose(tracef);
 	tracef = (FILE *) NULL;
 }
 

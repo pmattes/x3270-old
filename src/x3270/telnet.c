@@ -982,18 +982,19 @@ telnet_fsm(unsigned char c)
 				}
 
 				tt_len = strlen(termtype);
-				if (try_lu != CN) {
+				if (try_lu != CN && *try_lu) {
 					tt_len += strlen(try_lu) + 1;
 					connected_lu = try_lu;
-				}
+				} else
+					connected_lu = CN;
 
 				tb_len = 4 + tt_len + 2;
 				tt_out = Malloc(tb_len + 1);
 				(void) sprintf(tt_out, "%c%c%c%c%s%s%s%c%c",
 				    IAC, SB, TELOPT_TTYPE, TELQUAL_IS,
 				    termtype,
-				    (try_lu != CN) ? "@" : "",
-				    try_lu ? try_lu : "",
+				    (try_lu != CN && *try_lu) ? "@" : "",
+				    (try_lu != CN && *try_lu) ? try_lu : "",
 				    IAC, SE);
 				net_rawout((unsigned char *)tt_out, tb_len);
 
@@ -1025,14 +1026,14 @@ telnet_fsm(unsigned char c)
 #if defined(X3270_TN3270E) /*[*/
 /* Send a TN3270E terminal type request. */
 static void
-tn3270e_request(Boolean use_next)
+tn3270e_request(void)
 {
 	int tt_len, tb_len;
 	char *tt_out;
 	char *t;
 
 	tt_len = strlen(termtype);
-	if (try_lu != CN)
+	if (try_lu != CN && *try_lu)
 		tt_len += strlen(try_lu) + 1;
 
 	tb_len = 5 + tt_len + 2;
@@ -1046,7 +1047,7 @@ tn3270e_request(Boolean use_next)
 	if (tt_out[12] == '9')
 		tt_out[12] = '8';
 
-	if (try_lu != CN)
+	if (try_lu != CN && *try_lu)
 		t += sprintf(t, "%c%s", TN3270E_OP_CONNECT, try_lu);
 
 	(void) sprintf(t, "%c%c", IAC, SE);
@@ -1056,16 +1057,11 @@ tn3270e_request(Boolean use_next)
 	vtrace_str("SENT %s %s DEVICE-TYPE REQUEST %.*s%s%s "
 		   "%s\n",
 	    cmd(SB), opt(TELOPT_TN3270E), strlen(termtype), tt_out + 5,
-	    (try_lu != CN) ? " CONNECT " : "",
-	    (try_lu != CN) ? try_lu : "",
+	    (try_lu != CN && *try_lu) ? " CONNECT " : "",
+	    (try_lu != CN && *try_lu) ? try_lu : "",
 	    cmd(SE));
 
 	Free(tt_out);
-
-	/* Prep for the next LU. */
-	connected_lu = try_lu;
-	if (use_next)
-		next_lu();
 }
 
 /*
@@ -1098,7 +1094,7 @@ tn3270e_negotiate(void)
 			/* Host wants us to send our device type. */
 			vtrace_str("SEND DEVICE-TYPE SE\n");
 
-			tn3270e_request(False);
+			tn3270e_request();
 		} else {
 			vtrace_str("SEND ??%u SE\n", sbbuf[2]);
 		}
@@ -1157,9 +1153,10 @@ tn3270e_negotiate(void)
 
 			vtrace_str("REJECT REASON %s SE\n", rsn(sbbuf[4]));
 
+			next_lu();
 			if (try_lu != CN) {
 				/* Try the next LU. */
-				tn3270e_request(True);
+				tn3270e_request();
 			} else if (lus != (char **)NULL) {
 				/* No more LUs to try.  Give up. */
 				popup_an_error("Cannot connect to "
@@ -1900,7 +1897,7 @@ check_in3270(void)
 #if defined(X3270_TN3270E) /*[*/
 		/*
 		 * If we've now switched between non-TN3270E mode and
-		 * TN3270E state, reset the LU list so we can try again
+		 * TN3270E mode, reset the LU list so we can try again
 		 * in the new mode.
 		 */
 		if (lus != (char **)NULL && was_in_e != IN_E) {

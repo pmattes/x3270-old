@@ -19,6 +19,7 @@
 #include "appres.h"
 #include "screen.h"
 #include "cg.h"
+#include "resources.h"
 
 #include "ctlrc.h"
 #if defined(X3270_FT) /*[*/
@@ -29,6 +30,7 @@
 #include "sfc.h"
 #include "telnetc.h"
 #include "trace_dsc.h"
+#include "utilc.h"
 
 /* Externals: ctlr.c */
 extern Boolean  screen_alt;
@@ -417,6 +419,10 @@ do_query_reply(unsigned char code)
 	int obptr0 = obptr - obuf;
 	unsigned char *obptr_len;
 	unsigned short num, denom;
+	char *cp_name;
+	char *cp_value;
+	unsigned long cp;
+	char *ptr;
 
 	if (qr_in_progress) {
 		trace_ds("> StructuredField\n");
@@ -447,16 +453,33 @@ do_query_reply(unsigned char code)
 		*obptr++ = 0x00;	/*  LCID */
 		*obptr++ = 0x02;	/*  CGCSGID: English (U.S.) */
 		*obptr++ = 0xb9;
-		*obptr++ = 0x00;
-		*obptr++ = 0x25;
-		*obptr++ = 0x01;	/* SET 1: */
-		*obptr++ = 0x10;	/*  FLAGS: non-loadable, single-plane,
+		/* Get the codepage resource. */
+		cp_name = xs_buffer("%s.%s", ResCodepage, appres.charset);
+		cp_value = get_resource(cp_name);
+		if (cp_value != CN &&
+		    (cp = strtoul(cp_value, &ptr, 0)) &&
+		    ptr != cp_value &&
+		    *ptr == '\0' &&
+		    !(cp & ~0xffffL)) {
+			/* Reasonable non-default value defined. */
+			SET16(obptr, cp);
+		} else {
+			/* Default to codepage 37. */
+			*obptr++ = 0x00;
+			*obptr++ = 0x25;
+		}
+		Free(cp_name);
+		if (!*standard_font) {
+			/* special 3270 font, includes APL */
+			*obptr++ = 0x01;/* SET 1: */
+			*obptr++ = 0x10;/*  FLAGS: non-loadable, single-plane,
 					     single-byte, no compare */
-		*obptr++ = 0xf1;	/*  LCID */
-		*obptr++ = 0x03;	/*  CGCSGID: 3179-style APL2 */
-		*obptr++ = 0xc3;
-		*obptr++ = 0x01;
-		*obptr++ = 0x36;
+			*obptr++ = 0xf1;/*  LCID */
+			*obptr++ = 0x03;/*  CGCSGID: 3179-style APL2 */
+			*obptr++ = 0xc3;
+			*obptr++ = 0x01;
+			*obptr++ = 0x36;
+		}
 		break;
 
 	    case QR_IMP_PART:

@@ -707,7 +707,7 @@ dummy_error_handler(Display *d unused, XErrorEvent *e unused)
 static Status
 x_get_window_attributes(Window w, XWindowAttributes *wa)
 {
-	int (*old_handler)();
+	XErrorHandler old_handler;
 	Status s;
 
 	old_handler = XSetErrorHandler(dummy_error_handler);

@@ -788,6 +788,7 @@ x3270.charset.belgian: \
 	0x5a: ]			\n	0x5f: ^			\n\
 	0xb0: cent		\n	0xba: notsign		\n\
 	0xbb: bar		\n
+x3270.codepage.belgian: 500
 !
 !=============================================================================
 ! Section 2: Labels and Messages
@@ -1043,7 +1044,7 @@ x3270.message.kmFromServer:			\ (expanded from '@server')
 !=============================================================================
 !
 ! App-defaults file version
-x3270.adVersion:		3.2.10
+x3270.adVersion:		3.2.11
 !
 ! Fonts
 #ifdef X3270_APL
@@ -1261,7 +1262,9 @@ x3270.container.translations: #override \n\
 	<KeyRelease>Alt_L:		PA-Shift()\n\
 	<KeyPress>Alt_R:		PA-Shift()\n\
 	<KeyRelease>Alt_R:		PA-Shift()\n\
-	:<Key>:				Default()
+	:<Key>:				Default()\n\
+	:<BtnDown>:			Default()\n\
+	:<BtnUp>:			Default()
 x3270*screen.translations:		#override \n\
 	<Expose>:			PA-Expose()\n\
 	<VisibilityNotify>:		PA-VisibilityNotify()\n\
@@ -1278,7 +1281,9 @@ x3270*screen.translations:		#override \n\
 	<KeyRelease>Alt_L:		PA-Shift()\n\
 	<KeyPress>Alt_R:		PA-Shift()\n\
 	<KeyRelease>Alt_R:		PA-Shift()\n\
-	:<Key>:				Default()
+	:<Key>:				Default()\n\
+	:<BtnDown>:			Default()\n\
+	:<BtnUp>:			Default()
 x3270icon.translations:			#override \n\
 	<Expose>:			PA-Expose()
 #ifdef X3270_KEYPAD
@@ -1590,11 +1595,14 @@ x3270.composeMap.apl: \
 !
 ! U.S.-International (table 01)
 x3270.charset.us-intl:		\n
+x3270.codepage.us-intl:		37
 ! alias for 'us-intl' (backwards compatibility)
 x3270.charset.us:		\n
+x3270.codepage.us:		37
 !
 ! APL character set (same as us-intl, no remapping required)
 x3270.charset.apl:		\n
+x3270.codepage.apl:		37
 !
 ! EBCDIC map for hosts that put [ and ] in non-standard positions.  This is
 ! the default x3270 character set, because these hosts are so common in the
@@ -1602,10 +1610,14 @@ x3270.charset.apl:		\n
 x3270.charset.bracket: \
 	0xad: [			\n	0xba: Yacute		\n\
 	0xbd: ]			\n	0xbb: diaeresis		\n
+! The codepage for 'bracket' is a lie, but there is no real codepage that
+! corresponds to it.
+x3270.codepage.bracket:		37
 ! alias for 'bracket' (backwards compatibility)
 x3270.charset.oldibm: \
 	0xad: [			\n	0xba: Yacute		\n\
 	0xbd: ]			\n	0xbb: diaeresis		\n
+x3270.codepage.oldibm:		37
 !
 ! Each entry below is derived from IBM GA27-3831-03, Fourth Edition.
 ! Austrian/German (table 03)
@@ -1621,6 +1633,7 @@ x3270.charset.german: \
 	0xd0: udiaeresis	\n	0xdc: }			\n\
 	0xe0: Odiaeresis	\n	0xec: backslash		\n\
 	0xfc: ]			\n
+x3270.codepage.german:		273
 ! Finnish (table 09)
 x3270.charset.finnish: \
 	0x43: {			\n	0x47: }			\n\
@@ -1637,12 +1650,14 @@ x3270.charset.finnish: \
 	0xcc: brokenbar		\n	0xd0: aring		\n\
 	0xdc: ~			\n	0xe0: Eacute		\n\
 	0xec: @			\n
+x3270.codepage.finnish:		278
 ! U.K. (table 22)
 x3270.charset.uk: \
 	0x4a: $			\n	0x5b: sterling		\n\
 	0xa1: macron		\n	0xb0: cent		\n\
 	0xb1: [			\n	0xba: ^			\n\
 	0xbc: ~			\n
+x3270.codepage.uk:		285
 ! Norwegian (table 23)
 x3270.charset.norwegian: \
 	0x47: }			\n	0x4a: #			\n\
@@ -1656,6 +1671,7 @@ x3270.charset.norwegian: \
 	0xb0: cent		\n	0xba: notsign		\n\
 	0xbb: bar		\n	0xc0: ae		\n\
 	0xd0: aring		\n	0xdc: ~			\n
+x3270.codepage.norwegian:	277
 ! French (table 30)
 x3270.charset.french: \
 	0x44: @			\n	0x48: backslash		\n\
@@ -1670,6 +1686,7 @@ x3270.charset.french: \
 	0xba: notsign		\n	0xbb: bar		\n\
 	0xbd: ~			\n	0xc0: eacute		\n\
 	0xd0: egrave		\n	0xe0: ccedilla		\n
+x3270.codepage.french:		297
 ! Hebrew
 ! (Assigns non-Latin-1 characters to certain code positions, requiring a
 ! special font such as 3270h)
@@ -1700,6 +1717,7 @@ x3270.charset.icelandic: \
 	0xac: @			\n	0xbe: \\		\n\
 	0x7d: apostrophe	\n	0x8c: `			\n\
 	0x6a: |			\n
+x3270.codepage.icelandic:	871
 ! Greek, requires the 3270gr font
 ! Courtesty of Mantzios Achilleus
 x3270.charset.greek: \

@@ -95,6 +95,7 @@ typedef struct {
 	Boolean debug_tracing;
 	Boolean attn_lock;
 	Boolean disconnect_clear;
+	Boolean highlight_bold;
 	Boolean highlight_select;
 
 	/* Named resources */

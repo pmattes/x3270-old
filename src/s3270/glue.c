@@ -61,6 +61,8 @@ AppRes          appres;
 int		children = 0;
 Boolean		exiting = False;
 char	       *command_string = CN;
+static Boolean	sfont = False;
+Boolean	       *standard_font = &sfont;
 
 struct toggle_name toggle_names[N_TOGGLES] = {
 	{ ResMonoCase,        MONOCASE },
@@ -230,7 +232,7 @@ parse_options(int *argcp, char **argv)
 #       define offset(n) (void *)&appres.n
 #       define toggle_offset(index) offset(toggle[index].value)
 	static struct {
-		char *name;
+		const char *name;
 		enum { OPT_BOOLEAN, OPT_STRING, OPT_SKIP2, OPT_DONE } type;
 		Boolean flag;
 		void *aoff;
