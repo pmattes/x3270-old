@@ -866,7 +866,6 @@ ctlr_snap_buffer(void)
 	unsigned char	current_cs = 0x00;
 	unsigned char   av;
 
-	obptr = obuf;
 	space3270out(2);
 	*obptr++ = screen_alt ? CMD_EWA : CMD_EW;
 	*obptr++ = code_table[0];
@@ -954,7 +953,6 @@ ctlr_snap_modes(void)
 	if (!IN_3270 || reply_mode == SF_SRM_FIELD)
 		return False;
 
-	obptr = obuf;
 	space3270out(6 + crm_nattr);
 	*obptr++ = CMD_WSF;
 	*obptr++ = 0x00;	/* implicit length */

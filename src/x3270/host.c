@@ -36,6 +36,7 @@ Boolean		passthru_host = False;
 #define		LUNAME_SIZE	16
 char		luname[LUNAME_SIZE+1];
 char		*connected_lu = CN;
+char		*connected_type = CN;
 Boolean		ever_3270 = False;
 Boolean		auto_reconnect_disabled = False;
 

@@ -252,6 +252,7 @@ static void do_timing(char *buf);
 static void do_cursor(char *buf);
 
 static void status_connect(Boolean connected);
+static void status_3270_mode(Boolean connected);
 static void status_half_connect(Boolean ignored);
 
 
@@ -274,7 +275,7 @@ status_init(void)
 
 	register_schange(ST_HALF_CONNECT, status_half_connect);
 	register_schange(ST_CONNECT, status_connect);
-	register_schange(ST_3270_MODE, status_connect);
+	register_schange(ST_3270_MODE, status_3270_mode);
 }
 
 /* Reinitialize the status line */
@@ -402,6 +403,15 @@ status_connect(Boolean connected)
 		do_msg(DISCONNECTED);
 		status_uncursor_pos();
 	}
+}
+
+/* Changed 3270 mode */
+static void
+status_3270_mode(Boolean connected)
+{
+	oia_boxsolid = IN_3270 && !IN_SSCP;
+	do_ctlr();
+	status_untiming();
 }
 
 /* Half connected */

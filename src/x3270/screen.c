@@ -540,11 +540,15 @@ screen_reinit(unsigned cmask)
 	/* Reinitialize the status line. */
 	status_reinit(cmask);
 
+#if 0
 	if (cmask & MODEL_CHANGE) {
 		cursor_changed = True;
 	} else {
 		screen_connect(False);
 	}
+#endif
+	/* now unconditional */ cursor_changed = True;
+
 	line_changed = True;
 
 	/* Redraw the screen. */

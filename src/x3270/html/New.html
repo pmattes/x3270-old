@@ -40,9 +40,9 @@ X display</li>
 </ul>
 This can make for a much smaller footprint for limited applications, as
 well as new applications based on components of x3270. For example, a new
-program, s3270, is now available, which consists of only the 3270 protocol
-engine and the scripting facility, allowing x3270 scripts to be run without
-an X display.
+program, <i>s3270</i>, is now available, which consists of only the 3270
+protocol engine and the scripting facility, allowing x3270 scripts to be
+run without an X display.
 <p>The code is also reorganized to reduce the amount of explicit coupling
 between modules. An event registration mechanism is used to propagate state
 changes, instead of explicit calls from one module to another.
@@ -50,11 +50,23 @@ changes, instead of explicit calls from one module to another.
 where appropriate.
 <p>Support for X11R4 and K&amp;R C compilers has been dropped.
 <p><b>External Changes</b>
-<br>Basic TN3270E mode is now supported.
+<br>TN3270E is now supported.&nbsp; x3270 supports the following TN3270E
+functions:
+<ul>
+<li>
+RESPONSES</li>
+
+<li>
+SYSREQ</li>
+
+<li>
+BIND-IMAGE</li>
+</ul>
+TN3270 printers are not supported.
 <p>On systems that support the <i>forkpty</i>() library call (such as BSD-derived
-systems), tn3270 supports local processes.&nbsp; A local process is a Unix
-process such as a shell which is connected to x3270 with a pty.&nbsp; In
-this way, x3270 will function as a local terminal emulator like <i>xterm</i>.
+systems and Linux), x3270 supports local processes.&nbsp; A local process
+is a Unix process such as a shell which is connected to x3270 with a pty.&nbsp;
+In this way, x3270 will function as a local terminal emulator like <i>xterm</i>.
 <p>All operating modes can now be changed at runtime via menus, including
 extended data stream mode, and 3277/3278/3279 emulation.
 <p>The "Trace X Events" option has been replaced with a "Trace Keyboard
@@ -72,5 +84,7 @@ keymaps are automatically used when x3270 recognizes the vendor string
 for the associated X server.
 <p>Several x3270 bugs, which were in the "impossible to fix" category (because
 of basic code organization problems) have finally been fixed.
+<p>The Greek character set is now supported via the <b>greek</b> character
+set and a new <b>3270gr</b> font.
 </body>
 </html>

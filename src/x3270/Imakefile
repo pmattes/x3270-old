@@ -28,6 +28,7 @@ LOCAL_LIBRARIES = $(XAWLIB) $(XMULIB) $(XTOOLLIB) $(XLIB)
                   FontObj(3270-12)  FontObj(3270-12b) \
                   FontObj(3270-20)  FontObj(3270-20b) \
                   FontObj(3270d) \
+                  FontObj(3270gr) \
                   FontObj(3270h) \
                   FontObj(3270gt8) \
                   FontObj(3270gt12) FontObj(3270gt12b) \
@@ -69,6 +70,7 @@ FontTarget(3270-12b)
 FontTarget(3270-20)
 FontTarget(3270-20b)
 FontTarget(3270d)
+FontTarget(3270gr)
 FontTarget(3270h)
 FontTarget(3270gt8)
 FontTarget(3270gt12)

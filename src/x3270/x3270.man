@@ -1,5 +1,5 @@
 '\" t
-.TH X3270 1 "9 December 1999"
+.TH X3270 1 "2 May 2000"
 .SH NAME
 x3270 \-
 .SM IBM
@@ -385,10 +385,14 @@ french	30
 hebrew*	\-
 icelandic	\-
 belgian	\-
+greek** \-
 .TE
 .IP
 (*) requires a special font,
 .B 3270h
+.br
+(*) requires a special font,
+.B 3270gr
 .PP
 The default character set is
 .BR bracket ,
@@ -1533,7 +1537,7 @@ RFC 1646, TN3270 Extensions for LUname and Printer Selection
 RFC 2355, TN3270 Enhancements
 .SH COPYRIGHTS
 .LP
-Modifications Copyright 1993, 1994, 1995, 1996, 1997, 1999 by Paul Mattes.
+Modifications Copyright 1993, 1994, 1995, 1996, 1997, 1999, 2000 by Paul Mattes.
 .br
 Original X11 Port Copyright 1990 by Jeff Sparkes.
 .RS
@@ -1551,4 +1555,4 @@ notice.
 .RE
 5250 Emulation Code copyright Minolta (Schweiz) AG, Beat Rubischon.
 .SH VERSION
-x3270 3.2A1
+x3270 3.2A3

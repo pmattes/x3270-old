@@ -461,6 +461,7 @@ setup_lus(void)
 	int i;
 
 	connected_lu = CN;
+	connected_type = CN;
 
 	if (!luname[0]) {
 		curr_lu = (char **)NULL;
@@ -1032,6 +1033,7 @@ tn3270e_negotiate(void)
 {
 #define LU_MAX	32
 	static char reported_lu[LU_MAX+1];
+	static char reported_type[LU_MAX+1];
 	int sblen;
 	unsigned long e_rcvd;
 
@@ -1084,6 +1086,14 @@ tn3270e_negotiate(void)
 				snlen, &sbbuf[3+tnlen+1]);
 
 			/* Remember the LU. */
+			if (tnlen) {
+				if (tnlen > LU_MAX)
+					tnlen = LU_MAX;
+				(void)strncpy(reported_type,
+				    (char *)&sbbuf[3], tnlen);
+				reported_type[tnlen] = '\0';
+				connected_type = reported_type;
+			}
 			if (snlen) {
 				if (snlen > LU_MAX)
 					snlen = LU_MAX;
@@ -2157,6 +2167,41 @@ tn3270e_nak(enum pds rv unused)
 }
 
 #if defined(X3270_TRACE) /*[*/
+/* Add a dummy TN3270E header to the output buffer. */
+Boolean
+net_add_dummy_tn3270e(void)
+{
+	tn3270e_header *h;
+
+	if (!IN_E || tn3270e_submode == E_NONE)
+		return False;
+
+	space3270out(EH_SIZE);
+	h = (tn3270e_header *)obptr;
+
+	switch (tn3270e_submode) {
+	case E_NONE:
+		break;
+	case E_NVT:
+		h->data_type = TN3270E_DT_NVT_DATA;
+		break;
+	case E_SSCP:
+		h->data_type = TN3270E_DT_SSCP_LU_DATA;
+		break;
+	case E_3270:
+		h->data_type = TN3270E_DT_3270_DATA;
+		break;
+	}
+	h->request_flag = 0;
+	h->response_flag = TN3270E_RSF_NO_RESPONSE;
+	h->seq_number[0] = 0;
+	h->seq_number[1] = 0;
+	obptr += EH_SIZE;
+	return True;
+}
+#endif /*]*/
+
+#if defined(X3270_TRACE) /*[*/
 /*
  * Add IAC EOR to a buffer.
  */
@@ -2437,6 +2482,61 @@ net_snap_options(void)
 			*obptr++ = DO;
 			*obptr++ = (unsigned char)i;
 			any = True;
+		}
+	}
+
+	/* If we're in TN3270E mode, snap the subnegotations as well. */
+	if (myopts[TELOPT_TN3270E]) {
+		any = True;
+
+		space3270out(5 +
+			((connected_type != CN) ? strlen(connected_type) : 0) +
+			((connected_lu != CN) ? + strlen(connected_lu) : 0) +
+			2);
+		*obptr++ = IAC;
+		*obptr++ = SB;
+		*obptr++ = TELOPT_TN3270E;
+		*obptr++ = TN3270E_OP_DEVICE_TYPE;
+		*obptr++ = TN3270E_OP_IS;
+		if (connected_type != CN) {
+			(void) memcpy(obptr, connected_type,
+					strlen(connected_type));
+			obptr += strlen(connected_type);
+		}
+		if (connected_lu != CN) {
+			*obptr++ = TN3270E_OP_CONNECT;
+			(void) memcpy(obptr, connected_lu,
+					strlen(connected_lu));
+			obptr += strlen(connected_lu);
+		}
+		*obptr++ = IAC;
+		*obptr++ = SE;
+
+		space3270out(38);
+		(void) memcpy(obptr, functions_req, 4);
+		obptr += 4;
+		*obptr++ = TN3270E_OP_IS;
+		for (i = 0; i < 32; i++) {
+			if (e_funcs & E_OPT(i))
+				*obptr++ = i;
+		}
+		*obptr++ = IAC;
+		*obptr++ = SE;
+
+		if (tn3270e_bound) {
+			tn3270e_header *h;
+
+			space3270out(EH_SIZE + 3);
+			h = (tn3270e_header *)obptr;
+			h->data_type = TN3270E_DT_BIND_IMAGE;
+			h->request_flag = 0;
+			h->response_flag = 0;
+			h->seq_number[0] = 0;
+			h->seq_number[1] = 0;
+			obptr += EH_SIZE;
+			*obptr++ = 1; /* dummy */
+			*obptr++ = IAC;
+			*obptr++ = EOR;
 		}
 	}
 	return any;

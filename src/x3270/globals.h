@@ -108,6 +108,7 @@ extern XtAppContext	appcontext;
 extern const char	*build;
 extern int		children;
 extern char		*connected_lu;
+extern char		*connected_type;
 extern char		*current_host;
 extern unsigned short	current_port;
 extern Boolean		*debugging_font;

@@ -541,7 +541,7 @@ save_options(char *n)
 	Boolean exists = False;
 	char *ct;
 	int i;
-	long clk;
+	time_t clk;
 	char buf[64];
 	Boolean any_toggles = False;
 
@@ -568,7 +568,7 @@ save_options(char *n)
 	profile_name = n;
 
 	/* Print the header. */
-	clk = time((long *)0);
+	clk = time((time_t *)0);
 	ct = ctime(&clk);
 	if (ct[strlen(ct)-1] == '\n')
 		ct[strlen(ct)-1] = '\0';

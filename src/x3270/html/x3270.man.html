@@ -8,7 +8,8 @@
 <body>
 
 <h1>
-<img SRC="x3270.jpg"  align=CENTER> x3270 - IBM host access tool</h1>
+<img SRC="x3270.jpg"  align=CENTER> x3270 - IBM host
+access tool</h1>
 
 <h2>
 SYNOPSIS</h2>
@@ -125,7 +126,9 @@ Turns on the keypad as soon as <b>x3270</b> starts.</dd>
 The model of 3270 display to be emulated. The model name is in three parts,
 any of which may be omitted:</dd>
 
-<p><br>The first part is the <b>base model</b>, which is either <b>3278</b>
+<br>&nbsp;
+<p>&nbsp;
+<p>The first part is the <b>base model</b>, which is either <b>3278</b>
 or <b>3279</b>. <b>3278</b> specifies a monochrome 3270 display;
 <b>3279</b>
 specifies a color 3270 display. When 3278 emulation is specified for a
@@ -142,8 +145,7 @@ of rows and columns. Model 4 is the default.
 <b>Note</b>: Technically, there is no such 3270 display as a 3279-4 or
 3279-5, but most hosts seem to work with them anyway.
 <p>The third part specifies the Extended 3270 Data Stream, and is given
-as <b>-E</b>.
-It signals the host that the 3270 display is capable of displaying
+as <b>-E</b>. It signals the host that the 3270 display is capable of displaying
 extended field attributes, and supports structured fields and query replies.
 A 3279 always uses the Extended Data Stream (whether or not <b>-E</b> is
 specified); for a 3278 it is optional.
@@ -180,9 +182,10 @@ addressing.</dd>
 <dd>
 Specifies a different TCP port to connect to.
 <i>n</i> can be a name from
-<b>/etc/services</b> like <b>telnet</b>, or a number. This option changes
-the default port number used for all connections. (The positional parameter
-affects only the initial connection.)</dd>
+<b>/etc/services</b>
+like <b>telnet</b>, or a number. This option changes the default port number
+used for all connections. (The positional parameter affects only the initial
+connection.)</dd>
 
 <dt>
 <b>-reconnect</b></dt>
@@ -239,8 +242,10 @@ The default name is <b>IBM-</b><i>model_name</i>, for example,
 <b>IBM-3279-4-E</b>
 for a color X display, or <b>IBM-3278-4-E</b> for monochrome X display.</dd>
 
-<p><br>Some hosts are confused by the <b>-E</b> suffix on the terminal
-name, and will ignore the extra screen area on models 3, 4 and 5. Prepending
+<br>&nbsp;
+<p>&nbsp;
+<p>Some hosts are confused by the <b>-E</b> suffix on the terminal name,
+and will ignore the extra screen area on models 3, 4 and 5. Prepending
 an <b>:s</b> on the hostname removes the <b>-E</b> from the terminal name
 when connecting to such hosts.
 <p>The name can also be specified with the "x3270.termName" resource.
@@ -297,8 +302,10 @@ EBCDIC national character set used by <b>x3270.</b> Available sets include:
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; hebrew*&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; -
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; icelandic&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; -
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; belgian&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; -
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; greek**&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; -
 
-&nbsp;&nbsp;&nbsp; (*) requires a special font, <b>3270h</b></pre>
+&nbsp;&nbsp;&nbsp; (*) requires a special font, <b>3270h
+&nbsp;&nbsp;&nbsp; </b>(**) requires a special font, <b>3270gr</b></pre>
 The default character set is <b>bracket</b>, which useful for common IBM
 hosts which use EBCDIC codes 0xAD and 0xBD for the `[' and `]' characters,
 respectively.
@@ -333,10 +340,10 @@ The default is <b>right</b>.
 be displayed at startup.
 <h2>
 HOSTS DATABASE</h2>
-<b>x3270</b> uses the <i><a href="ibm_hosts.html">ibm_hosts</a></i> database
-to construct a pull-down menu of hosts to connect to. It supports the <b>loginstring</b>
-function, which allows you to specify a macro to be sent to the host when
-the connection is first made. See <a href="ibm_hosts.html"><i>ibm_hosts</i>(5)</a>
+<b>x3270</b> uses the <i><a href="ibm_hosts.html">ibm_hosts</a></i>
+database to construct a pull-down menu of hosts to connect to. It supports
+the <b>loginstring</b> function, which allows you to specify a macro to
+be sent to the host when the connection is first made. See <a href="ibm_hosts.html"><i>ibm_hosts</i>(5)</a>
 for details.
 <p>You may specify a different <i><a href="ibm_hosts.html">ibm_hosts</a></i>
 database with the "x3270.hostsFile" resource.
@@ -411,9 +418,10 @@ Initiates transferring a file between the IBM host and the local workstation,
 using the <b>IND$FILE</b> protocol. A pop-up menu allows specifying the
 file names and other attributes of the transfer.</dd>
 
-<p><br>The IND$FILE program must be installed on the IBM host, and the
-3270 cursor must be located in a field that will accept a TSO or VM/CMS
-command.
+<br>&nbsp;
+<p>&nbsp;
+<p>The IND$FILE program must be installed on the IBM host, and the 3270
+cursor must be located in a field that will accept a TSO or VM/CMS command.
 <dt>
 <b>Trace Data Stream</b></dt>
 
@@ -543,7 +551,8 @@ Otherwise, <b>x3270</b> selects by rectangles when in 3270 mode, but in
 ANSI mode it selects continuous regions of the screen like <i>xterm</i>(1).</dd>
 </dl>
 The&nbsp;<a NAME="toggle names"></a>names of the toggles for use with the
-<b>-set</b> and <b>-clear</b> options are as follows:
+<b>-set</b>
+and <b>-clear</b> options are as follows:
 <pre>&nbsp;&nbsp;&nbsp; Menu Option&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Name
 &nbsp;&nbsp;&nbsp; ------------------------------------
 &nbsp;&nbsp;&nbsp; Monocase&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; monoCase
@@ -678,11 +687,13 @@ cannot accept keyboard input.</dd>
 The full screen image of all 3270 models can be displayed on the icon,
 and the icon can be resized. The icon can accept keyboard input.</dd>
 
-<p><br>However, <b>twm</b> does not put labels on application-supplied
-icon windows. You can have <b>x3270</b> add its own label to the icon by
-setting the "x3270.labelIcon" resource to
-<b>true</b>. The default font
-for icon labels is <b>8x13</b>; you may change it with the "x3270.iconLabelFont"
+<br>&nbsp;
+<p>&nbsp;
+<p>However, <b>twm</b> does not put labels on application-supplied icon
+windows. You can have <b>x3270</b> add its own label to the icon by setting
+the "x3270.labelIcon" resource to
+<b>true</b>. The default font for icon
+labels is <b>8x13</b>; you may change it with the "x3270.iconLabelFont"
 resource.</dl>
 
 <h2>
@@ -691,7 +702,8 @@ The type of keyboard may be specified with the <b>-keymap</b> switch or
 using either the KEYMAP or KEYBD environment variables. The types of supported
 keyboards include <b>sun_k3</b>, <b>sun_k4</b>,
 <b>sun_k5</b>, <b>hp-k1</b>,
-<b>hp-pc</b> and <b>ncd</b>.
+<b>hp-pc</b>
+and <b>ncd</b>.
 <p>The keymap may also be specified as a comma-separated list of names.
 Later definitions override earlier ones. This is used to specify both a
 primary keyboard type and a set of modifiers. The modifiers defined include:
@@ -764,7 +776,8 @@ application default file, which defines actions for such things as keypad
 keys, and keys unique to certain keyboards.
 <p>The third level is a user customizable table which may be used to augment
 or override key definitions. This will typically be found in the users
-<b>.Xdefaults</b> file. The naming for a sun4 keyboard would be:
+<b>.Xdefaults</b>
+file. The naming for a sun4 keyboard would be:
 <pre>&nbsp;&nbsp;&nbsp; x3270.keymap.default:
 &nbsp;&nbsp;&nbsp; x3270.keymap.sun_k4:
 &nbsp;&nbsp;&nbsp; x3270.keymap.sun_k4.user:</pre>
@@ -974,7 +987,8 @@ data represent ASCII characters, which are sent directly to the host.
 This facility causes <b>x3270</b> to start a child process which can execute
 <b>x3270</b>
 actions. The child process' standard input and output are piped back to
-<b>x3270</b>. The <b>Script()</b> action is fully documented in
+<b>x3270</b>.
+The <b>Script()</b> action is fully documented in
 <a href="x3270-script.html"><i>x3270-script</i>(1)</a>.</dd>
 
 <dt>
@@ -1038,11 +1052,12 @@ characters from the keyboard.
 <p>Keyboard entry of APL characters is supported through the <b>apl</b>
 keymap modifier. This modifier defines the "Alt" key as an APL shift key,
 with a typical APL keyboard layout, <i>e.g.</i>, "Alt" pressed with the
-<b>A</b> key results in the APL `alpha' symbol. Overstruck characters such
-as `quad-quote' are not defined as single keystrokes; instead they are
-entered as composites (see
-<a href="#COMPOSITE CHARACTERS">COMPOSITE CHARACTERS</a>).
-A special composite map, <b>apl</b>, is provided for this purpose.
+<b>A</b>
+key results in the APL `alpha' symbol. Overstruck characters such as `quad-quote'
+are not defined as single keystrokes; instead they are entered as composites
+(see
+<a href="#COMPOSITE CHARACTERS">COMPOSITE CHARACTERS</a>). A special
+composite map, <b>apl</b>, is provided for this purpose.
 <p><b>Note:</b> Some keyboards do not define the "Alt" key as a modifier,
 so keymaps that use the "Alt" key will not function. On a Sun for example,
 this can be remedied with the command:
@@ -1211,12 +1226,13 @@ the command cannot be edited.
 the
 <i>in.telnet-gw</i> server. This allows outbound telnet connections
 through a firewall machine. When a <b>p:</b> is prepended to a hostname,
-<b>x3270</b> acts much like the
-<i>itelnet</i>(1) command. It contacts
-the machine named <b>internet-gateway</b> at the port defined in
-<b>/etc/services</b>
-as <b>telnet-passthru</b> (which defaults to 3514). It then passes the
-requested hostname and port to the <b>in.telnet-gw</b> server.
+<b>x3270</b>
+acts much like the
+<i>itelnet</i>(1) command. It contacts the machine named
+<b>internet-gateway</b> at the port defined in
+<b>/etc/services</b> as
+<b>telnet-passthru</b> (which defaults to 3514). It then passes the requested
+hostname and port to the <b>in.telnet-gw</b> server.
 <h2>
 BUGS</h2>
 Cursor highlighting will not work with if you use the
@@ -1233,7 +1249,7 @@ SEE ALSO</h2>
 <i>telnet</i>(1)
 <br><i>tn3270</i>(1)
 <br><a href="ibm_hosts.html"><i>ibm_hosts</i>(5)</a>
-<br><a href="x3270-script.html"><i>x3270-script</i>(1)</a>
+<br><i><a href="x3270-script.html">x3270-script</a></i><a href="x3270-script.html">(1)</a>
 <br><i>X Toolkit Intrinsics</i>
 <br><i>Data Stream Programmer's Reference, IBM GA23-0059</i>
 <br><i>Character Set Reference, IBM GA27-3831</i>
@@ -1242,8 +1258,8 @@ SEE ALSO</h2>
 <br><i>RFC 2355, TN3270 Enhancements</i>
 <h2>
 COPYRIGHTS</h2>
-Modifications Copyright &copy; 1993, 1994, 1995, 1996, 1997, 1999 by Paul
-Mattes.
+Modifications Copyright &copy; 1993, 1994, 1995, 1996, 1997, 1999, 2000
+by Paul Mattes.
 <br>Original X11 Port Copyright &copy; 1990 by Jeff Sparkes.
 <br>Permission to use, copy, modify, and distribute this software and its
 documentation for any purpose and without fee is hereby granted, provided
@@ -1257,7 +1273,7 @@ notice.
 <p>5250 Emulation Code Copyright &copy; Minolta (Schweiz) AG, Beat Rubischon.
 <hr>
 <address>
-x3270 version 3.2A1, last modified 6. August 1999</address>
+x3270 version 3.2A3, last modified 2. May 2000</address>
 
 </body>
 </html>

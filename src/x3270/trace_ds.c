@@ -542,7 +542,7 @@ tracefile_callback(Widget w, XtPointer client_data, XtPointer call_data unused)
 	char *tfn;
 	char *tracecmd;
 	char *full_cmd;
-	long clk;
+	time_t clk;
 
 #if defined(X3270_DISPLAY) /*[*/
 	if (w)
@@ -567,7 +567,7 @@ tracefile_callback(Widget w, XtPointer client_data, XtPointer call_data unused)
 	(void) fcntl(fileno(tracef), F_SETFD, 1);
 
 	/* Display current status */
-	clk = time((long *)0);
+	clk = time((time_t *)0);
 	(void) fprintf(tracef, "Trace started %s", ctime(&clk));
 	(void) fprintf(tracef, " Version: %s\n", build);
 	save_yourself();
@@ -628,20 +628,44 @@ tracefile_callback(Widget w, XtPointer client_data, XtPointer call_data unused)
 	}
 
 	/* Dump the screen contents and modes into the trace file. */
-	if (CONNECTED && formatted) {
-		(void) fprintf(tracef, " Screen contents:\n");
-		ctlr_snap_buffer();
-		space3270out(2);
-		net_add_eor(obuf, obptr - obuf);
-		obptr += 2;
-		trace_netdata('<', obuf, obptr - obuf);
-	}
-	if (CONNECTED && ctlr_snap_modes()) {
-		(void) fprintf(tracef, " 3270 modes:\n");
-		space3270out(2);
-		net_add_eor(obuf, obptr - obuf);
-		obptr += 2;
-		trace_netdata('<', obuf, obptr - obuf);
+	if (CONNECTED) {
+		/*
+		 * Note that if the screen is not formatted, we do not
+		 * attempt to save what's on it.  However, if we're in
+		 * 3270 SSCP-LU or NVT mode, we'll do a dummy, empty
+		 * write to ensure that the display is in the right
+		 * mode.
+		 */
+		if (formatted) {
+			(void) fprintf(tracef, " Screen contents:\n");
+			obptr = obuf;
+			(void) net_add_dummy_tn3270e();
+			ctlr_snap_buffer();
+			space3270out(2);
+			net_add_eor(obuf, obptr - obuf);
+			obptr += 2;
+			trace_netdata('<', obuf, obptr - obuf);
+
+			obptr = obuf;
+			(void) net_add_dummy_tn3270e();
+			if (ctlr_snap_modes()) {
+				(void) fprintf(tracef, " 3270 modes:\n");
+				space3270out(2);
+				net_add_eor(obuf, obptr - obuf);
+				obptr += 2;
+				trace_netdata('<', obuf, obptr - obuf);
+			}
+		} else if (IN_E) {
+			obptr = obuf;
+			if (net_add_dummy_tn3270e()) {
+				(void) fprintf(tracef,
+					" Screen contents:\n");
+				space3270out(2);
+				net_add_eor(obuf, obptr - obuf);
+				obptr += 2;
+				trace_netdata('<', obuf, obptr - obuf);
+			}
+		}
 	}
 
 	(void) fprintf(tracef, " Data stream:\n");
@@ -683,9 +707,9 @@ tracefile_on(int reason, enum toggle_type tt)
 static void
 tracefile_off(void)
 {
-	long clk;
+	time_t clk;
 
-	clk = time((long *)0);
+	clk = time((time_t *)0);
 	(void) fprintf(tracef, "Trace stopped %s", ctime(&clk));
 	if (tracewindow_pid != -1)
 		(void) kill(tracewindow_pid, SIGTERM);

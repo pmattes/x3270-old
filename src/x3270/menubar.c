@@ -1352,14 +1352,33 @@ options_menu_init(Boolean regen, Position x, Position y)
 	static Widget options_menu;
 	Widget t, w;
 	struct font_list *f;
+	struct scheme *s;
 	int ix;
 
 	if (regen && (options_menu != (Widget)NULL)) {
 		XtDestroyWidget(options_menu);
 		options_menu = (Widget)NULL;
 	}
-	if (options_menu != (Widget)NULL)
+	if (options_menu != (Widget)NULL) {
+		/* Set the current font. */
+		for (f = font_list, ix = 0; f; f = f->next, ix++) {
+			XtVaSetValues(font_widgets[ix], XtNleftBitmap,
+				!strcmp(efontname, f->font) ?
+					diamond : no_diamond,
+				NULL);
+		}
+		/* Set the current color scheme. */
+		s = schemes;
+		for (ix = 0, s = schemes;
+		     ix < scheme_count;
+		     ix++, s = s->next) {
+			XtVaSetValues(scheme_widgets[ix], XtNleftBitmap,
+				!strcmp(appres.color_scheme, s->scheme) ?
+				    diamond : no_diamond,
+			    NULL);
+		}
 		return;
+	}
 
 	/* Create the shell */
 	options_menu = XtVaCreatePopupShell(
@@ -1525,9 +1544,6 @@ options_menu_init(Boolean regen, Position x, Position y)
 
 	/* Create the "colors" pullright */
 	if (scheme_count) {
-		struct scheme *s;
-		int i;
-
 		(void) XtVaCreateManagedWidget("space", cmeLineObjectClass,
 		    options_menu,
 		    NULL);
@@ -1538,14 +1554,14 @@ options_menu_init(Boolean regen, Position x, Position y)
 		    "colorsMenu", complexMenuWidgetClass, menu_parent,
 		    NULL);
 		s = schemes;
-		for (i = 0, s = schemes; i < scheme_count; i++, s = s->next) {
-			scheme_widgets[i] = XtVaCreateManagedWidget(
+		for (ix = 0, s = schemes; ix < scheme_count; ix++, s = s->next) {
+			scheme_widgets[ix] = XtVaCreateManagedWidget(
 			    s->label, cmeBSBObjectClass, t,
 			    XtNleftBitmap,
 				!strcmp(appres.color_scheme, s->scheme) ?
 				    diamond : no_diamond,
 			    NULL);
-			XtAddCallback(scheme_widgets[i], XtNcallback,
+			XtAddCallback(scheme_widgets[ix], XtNcallback,
 			    do_newscheme, s->scheme);
 		}
 		scheme_button = XtVaCreateManagedWidget(
@@ -1558,8 +1574,7 @@ options_menu_init(Boolean regen, Position x, Position y)
 
 	/* Create the "character set" pullright */
 	if (charset_count) {
-		struct charset *s;
-		int i;
+		struct charset *cs;
 
 		(void) XtVaCreateManagedWidget("space", cmeLineObjectClass,
 		    options_menu,
@@ -1570,16 +1585,18 @@ options_menu_init(Boolean regen, Position x, Position y)
 		t = XtVaCreatePopupShell(
 		    "charsetMenu", complexMenuWidgetClass, menu_parent,
 		    NULL);
-		for (i = 0, s = charsets; i < charset_count; i++, s = s->next) {
-			charset_widgets[i] = XtVaCreateManagedWidget(
-			    s->label, cmeBSBObjectClass, t,
+		for (ix = 0, cs = charsets;
+                     ix < charset_count;
+                     ix++, cs = cs->next) {
+			charset_widgets[ix] = XtVaCreateManagedWidget(
+			    cs->label, cmeBSBObjectClass, t,
 			    XtNleftBitmap,
 				((appres.charset == CN) ||
-				 strcmp(appres.charset, s->charset)) ?
+				 strcmp(appres.charset, cs->charset)) ?
 				    no_diamond : diamond,
 			    NULL);
-			XtAddCallback(charset_widgets[i], XtNcallback,
-			    do_newcharset, s->charset);
+			XtAddCallback(charset_widgets[ix], XtNcallback,
+			    do_newcharset, cs->charset);
 		}
 		(void) XtVaCreateManagedWidget(
 		    "charsetOption", cmeBSBObjectClass, options_menu,
