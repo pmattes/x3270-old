@@ -88,7 +88,7 @@ The list of toggle names is under <a HREF="#Toggles"><font size=-1>TOGGLES</font
 below.
 <dt><b>-model</b> <i>name</i></dt><dd>
 The model of 3270 display to be emulated.
-The model name is in three parts, any of which may be omitted:
+The model name is in two parts, either of which may be omitted:
 <p>
 The first part is the
 <b>base model</b>,
@@ -113,24 +113,15 @@ Model 4 is the default.
 Note: Technically, there is no such 3270 display as a 3279-4 or 3279-5, but
 most hosts seem to work with them anyway.
 <p>
-The third part specifies the Extended 3270 Data Stream, and is given as
-<b>-E</b>.
-It signals the host that the 3270 display is capable of displaying
-extended field attributes, and supports structured fields and query replies.
-A 3279 always uses the Extended Data Stream (whether or not <b>-E</b>
-is specified); for a 3278 it is optional.
-<p>
 The default model
-<b>3278-4-E</b>.
+is <b>3278-4</b>.
 <dt><b>-mono</b></dt><dd>
 Forces 3278 emulation.
 <dt><b>-oversize</b> <i>cols</i><b>x</b><i>rows</i></dt><dd>
 Makes the screen larger than the default for the chosen model number.
 This option has effect only in combination with extended data stream support
-(the
-<b>-E</b>
-suffix on the model), and only if the host supports the Query Reply structured
-field.
+(controlled by the "tcl3270.extended" resource), and only if the host
+supports the Query Reply structured field.
 The number of columns multiplied by the number of rows must not exceed
 16383 (3fff hex), the limit of 14-bit 3270 buffer addressing.
 <dt><b>-port</b> <i>n</i></dt><dd>
@@ -146,14 +137,15 @@ below.
 <dt><a NAME="tn"></a><b>-tn</b> <i>name</i></dt><dd>
 Specifies the terminal name to be transmitted over the telnet connection.
 The default name is
-<b>IBM-</b><i>model_name</i>,
+<b>IBM-</b><i>model_name</i><b>-E</b>,
 for example,
 <b>IBM-3278-4-E</b>.
 <p>
 Some hosts are confused by the <b>-E</b>
 suffix on the terminal name, and will ignore the extra screen area on
 models 3, 4 and 5.
-Prepending an <b>:s</b> on the hostname removes the <b>-E</b>
+Prepending an <b>:s</b> on the hostname, or setting the "tcl3270.extended"
+resource to "false", removes the <b>-E</b>
 from the terminal name when connecting to such hosts.
 <p>
 The name can also be specified with the "tcl3270.termName" resource.
@@ -278,8 +270,14 @@ options are as follows:
 <tr><td >Save Screen(s) in File</td>	<td >screenTrace</td></tr>
 <tr><td >Wraparound</td>	<td >lineWrap</td></tr>
 </table>
+<p>
+These names are also used as the first parameter to the <b>Toggle</b>
+action.
 <a NAME="actions"></a><a NAME="Commands"></a><h2>Commands</h2>
 <b>tcl3270</b> supports the following additional tcl commands:
+<p>
+Actions marked with an asterisk (*) may block, sending data to the host and
+possibly waiting for a response.
 <p>
 <table BORDER cols=2 width="75%">
 <tr><td >Ascii</td>	<td >return entire screen contents in <font size=-1>ASCII</font></td></tr>
@@ -287,18 +285,18 @@ options are as follows:
 <tr><td >Ascii <i>row</i> <i>col</i> <i>length</i></td>	<td >return screen contents in <font size=-1>ASCII</font></td></tr>
 <tr><td >Ascii <i>row</i> <i>col</i> <i>rows</i> <i>cols</i></td>	<td >return screen region in <font size=-1>ASCII</font></td></tr>
 <tr><td >AsciiField</td>	<td >return current field in <font size=-1>ASCII</font></td></tr>
-<tr><td >Attn</td>	<td >attention key</td></tr>
+<tr><td >*Attn</td>	<td >attention key</td></tr>
 <tr><td >BackSpace</td>	<td >move cursor left (or send <font size=-1>ASCII BS</font>)</td></tr>
 <tr><td >BackTab</td>	<td >tab to start of previous input field</td></tr>
 <tr><td >CircumNot</td>	<td >input "^" in <font size=-1>NVT</font> mode, or "&not;" in 3270 mode</tr></td>
-<tr><td >Clear</td>	<td >clear screen</td></tr>
+<tr><td >*Clear</td>	<td >clear screen</td></tr>
 <tr><td >Cols</td>	<td >report screen size</td></tr>
-<tr><td >Connect <i>host</i></td>	<td >connect to <i>host</i></td></tr>
-<tr><td >CursorSelect</td>	<td >Cursor Select <font size=-1>AID</font></td></tr>
+<tr><td >*Connect <i>host</i></td>	<td >connect to <i>host</i></td></tr>
+<tr><td >*CursorSelect</td>	<td >Cursor Select <font size=-1>AID</font></td></tr>
 <tr><td >Delete</td>	<td >delete character under cursor (or send <font size=-1>ASCII DEL</font>)</td></tr>
 <tr><td >DeleteField</td>	<td >delete the entire field</td></tr>
 <tr><td >DeleteWord</td>	<td >delete the current or previous word</td></tr>
-<tr><td >Disconnect</td>	<td >disconnect from host</td></tr>
+<tr><td >*Disconnect</td>	<td >disconnect from host</td></tr>
 <tr><td >Down</td>	<td >move cursor down</td></tr>
 <tr><td >Dup</td>	<td >duplicate field</td></tr>
 <tr><td >Ebcdic</td>	<td >return entire screen contents in <font size=-1>EBCDIC</font></td></tr>
@@ -306,7 +304,7 @@ options are as follows:
 <tr><td >Ebcdic <i>row</i> <i>col</i> <i>length</i></td>	<td >return screen contents in <font size=-1>EBCDIC</font></td></tr>
 <tr><td >Ebcdic <i>row</i> <i>col</i> <i>rows</i> <i>cols</i></td>	<td >return screen region in <font size=-1>EBCDIC</font></td></tr>
 <tr><td >EbcdicField</td>	<td >return current field in <font size=-1>EBCDIC</font></td></tr>
-<tr><td >Enter</td>	<td >Enter <font size=-1>AID</font> (or send <font size=-1>ASCII CR</font>)</td></tr>
+<tr><td >*Enter</td>	<td >Enter <font size=-1>AID</font> (or send <font size=-1>ASCII CR</font>)</td></tr>
 <tr><td >Erase</td>	<td >erase previous character (or send <font size=-1>ASCII BS</font>)</td></tr>
 <tr><td >EraseEOF</td>	<td >erase to end of current field</td></tr>
 <tr><td >EraseInput</td>	<td >erase all input fields</td></tr>
@@ -316,7 +314,7 @@ options are as follows:
 <tr><td >HexString <i>hex_digits</i></td>	<td >insert control-character string</td></tr>
 <tr><td >Home</td>	<td >move cursor to first input field</td></tr>
 <tr><td >Insert</td>	<td >set insert mode</td></tr>
-<tr><td >Interrupt</td>	<td >send <font size=-1>TELNET IP</font> to host</td></tr>
+<tr><td >*Interrupt</td>	<td >send <font size=-1>TELNET IP</font> to host</td></tr>
 <tr><td >Key <i>keysym</i></td>	<td >insert key <i>keysym</i></td></tr>
 <tr><td >Key 0x<i>xx</i></td>	<td >insert key with <font size=-1>ASCII</font> code <i>xx</i></td></tr>
 <tr><td >Left</td>	<td >move cursor left</td></tr>
@@ -325,8 +323,8 @@ options are as follows:
 <tr><td >MoveCursor <i>row</i> <i>col</i></td>	<td >move cursor to (<i>row</i>,<i>col</i>)</td></tr>
 <tr><td >Newline</td>	<td >move cursor to first field on next line (or send <font size=-1>ASCII LF</font>)</td></tr>
 <tr><td >NextWord</td>	<td >move cursor to next word</td></tr>
-<tr><td >PA <i>n</i></td>	<td >Program Attention <font size=-1>AID</font> (<i>n</i> from 1 to 3)</td></tr>
-<tr><td >PF <i>n</i></td>	<td >Program Function <font size=-1>AID</font> (<i>n</i> from 1 to 24)</td></tr>
+<tr><td >*PA <i>n</i></td>	<td >Program Attention <font size=-1>AID</font> (<i>n</i> from 1 to 3)</td></tr>
+<tr><td >*PF <i>n</i></td>	<td >Program Function <font size=-1>AID</font> (<i>n</i> from 1 to 24)</td></tr>
 <tr><td >PreviousWord</td>	<td >move cursor to previous word</td></tr>
 <tr><td >Quit</td>	<td >exit <b>tcl3270</b></td></tr>
 <tr><td >Redraw</td>	<td >redraw window</td></tr>
@@ -341,20 +339,21 @@ options are as follows:
 <tr><td >Snap Rows</td>	<td >report saved screen size</td></tr>
 <tr><td >Snap Save</td>	<td >save screen image</td></tr>
 <tr><td >Snap Status</td>	<td >report saved connection status</td></tr>
-<tr><td >Snap Wait [<i>timeout</i>] Output</td>	<td >wait for host output and save screen image</td></tr>
+<tr><td >*Snap Wait [<i>timeout</i>] Output</td>	<td >wait for host output and save screen image</td></tr>
 <tr><td >Status</td>	<td >report connection status</td></tr>
-<tr><td >String <i>string</i></td>	<td >insert string (simple macro facility)</td></tr>
-<tr><td >SysReq</td>	<td >System Request <font size=-1>AID</font></td></tr>
+<tr><td >*String <i>string</i></td>	<td >insert string (simple macro facility)</td></tr>
+<tr><td >*SysReq</td>	<td >System Request <font size=-1>AID</font></td></tr>
 <tr><td >Tab</td>	<td >move cursor to next input field</td></tr>
+<tr><td <i>set|clear</i>]>Toggle <i>option</i>[</td>	<td >toggle an option</td></tr>
 <tr><td >ToggleInsert</td>	<td >toggle insert mode</td></tr>
 <tr><td >ToggleReverse</td>	<td >toggle reverse-input mode</td></tr>
-<tr><td >Transfer <i>option</i>=<i>value</i>...</td>	<td >file transfer</td></tr>
+<tr><td >*Transfer <i>option</i>=<i>value</i>...</td>	<td >file transfer</td></tr>
 <tr><td >Up</td>	<td >move cursor up</td></tr>
-<tr><td >Wait [<i>timeout</i>] 3270mode</td>	<td >wait for 3270 mode</td></tr>
-<tr><td >Wait [<i>timeout</i>] Disconnect</td>	<td >wait for host to disconnect</td></tr>
-<tr><td >Wait [<i>timeout</i>] InputField</td>	<td >wait for valid input field</td></tr>
-<tr><td >Wait [<i>timeout</i>] NVTMode</td>	<td >wait for NVT mode</td></tr>
-<tr><td >Wait [<i>timeout</i>] Output</td>	<td >wait for more host output</td></tr>
+<tr><td >*Wait [<i>timeout</i>] 3270mode</td>	<td >wait for 3270 mode</td></tr>
+<tr><td >*Wait [<i>timeout</i>] Disconnect</td>	<td >wait for host to disconnect</td></tr>
+<tr><td >*Wait [<i>timeout</i>] InputField</td>	<td >wait for valid input field</td></tr>
+<tr><td >*Wait [<i>timeout</i>] NVTMode</td>	<td >wait for NVT mode</td></tr>
+<tr><td >*Wait [<i>timeout</i>] Output</td>	<td >wait for more host output</td></tr>
 </table>
 <a NAME="File-Transfer"></a><h2>File Transfer</h2>
 The <b>Transfer</b> command implements <b>IND$FILE</b> file transfer.
@@ -571,12 +570,12 @@ Derivative works based on this software must incorporate this copyright
 notice.</blockquote>
 5250 Emulation Code Copyright &copy; Minolta (Schweiz) AG, Beat Rubischon.
 <a NAME="Version"></a><h2>Version</h2>
-tcl3270 3.2.18
+tcl3270 3.2.19beta
 <hr>
 <address>
 This HTML document and the accompanying troff document were generated with
 a set of write-only <b>m4</b> macros and the powerful <b>vi</b> editor.
-<br>Last modified 31 December 2001.
+<br>Last modified 20 April 2002.
 </address>
 </body>
 </html>

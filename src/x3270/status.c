@@ -88,7 +88,7 @@ static int colors3279[SSZ] =  {
  *   M-31	Alternate keymap indication ("K" or blank)
  *   M-30	Reverse input mode indication ("R" or blank)
  *   M-29	Insert mode indication (Special symbol/"I" or blank)
- *   M-28	empty
+ *   M-28	Printer indication ("P" or blank)
  *   M-27	Script indication ("S" or blank)
  *   M-26..M-16	empty
  *   M-15..M-9	command timing (Clock symbol and m:ss, or blank)
@@ -115,7 +115,12 @@ static int colors3279[SSZ] =  {
 
 #define INSERT	(maxCOLS-29)	/* insert mode */
 
+#define PSESS	(maxCOLS-28)	/* printer session */
+
 #define SCRIPT	(maxCOLS-27)	/* script in progress */
+
+#define LU	(maxCOLS-25)	/* LU name */
+#define LUCNT	8
 
 #define T0	(maxCOLS-15)	/* timings */
 #define	TCNT	7
@@ -166,6 +171,7 @@ static enum msg {
 	SCROLLED,		/* X Scrolled */
 	MINUS			/* X -f */
 }               oia_msg = DISCONNECTED, saved_msg;
+static char	oia_lu[LUCNT+1];
 static Boolean  msg_is_saved = False;
 static int      n_scrolled = 0;
 static void     (*msg_proc[])(void) = {
@@ -215,6 +221,7 @@ static Boolean  oia_insert = False;
 static Boolean  oia_reverse = False;
 static Boolean  oia_kmap = False;
 static Boolean	oia_script = False;
+static Boolean	oia_printer = False;
 static char    *oia_cursor = (char *) 0;
 static char    *oia_timing = (char *) 0;
 
@@ -260,9 +267,11 @@ static void do_insert(Boolean on);
 static void do_reverse(Boolean on);
 static void do_kmap(Boolean on);
 static void do_script(Boolean on);
+static void do_printer(Boolean on);
 static void do_shift(int state);
 static void do_typeahead(int state);
 static void do_compose(Boolean on, unsigned char c, enum keytype keytype);
+static void do_lu(const char *lu);
 static void do_timing(char *buf);
 static void do_cursor(char *buf);
 
@@ -270,6 +279,7 @@ static void status_connect(Boolean connected);
 static void status_3270_mode(Boolean connected);
 static void status_resolving(Boolean ignored);
 static void status_half_connect(Boolean ignored);
+static void status_printer(Boolean on);
 
 
 /* Initialize the status line */
@@ -296,6 +306,7 @@ status_init(void)
 	register_schange(ST_HALF_CONNECT, status_half_connect);
 	register_schange(ST_CONNECT, status_connect);
 	register_schange(ST_3270_MODE, status_3270_mode);
+	register_schange(ST_PRINTER, status_printer);
 }
 
 /* Reinitialize the status line */
@@ -354,9 +365,11 @@ status_reinit(unsigned cmask)
 	do_reverse(oia_reverse);
 	do_kmap(oia_kmap);
 	do_script(oia_script);
+	do_printer(oia_printer);
 	do_shift(oia_shift);
 	do_typeahead(oia_typeahead);
 	do_compose(oia_compose, oia_compose_char, oia_compose_keytype);
+	do_lu(oia_lu);
 	do_cursor(oia_cursor);
 	do_timing(oia_timing);
 }
@@ -449,6 +462,13 @@ status_half_connect(Boolean ignored unused)
 	do_msg(CONNECTING);
 	status_untiming();
 	status_uncursor_pos();
+}
+
+/* Toggle printer session mode */
+static void
+status_printer(Boolean on)
+{
+	do_printer(oia_printer = on);
 }
 
 /* Lock the keyboard (twait) */
@@ -580,6 +600,18 @@ status_compose(Boolean on, unsigned char c, enum keytype keytype)
 	oia_compose_char = c;
 	oia_compose_keytype = keytype;
 	do_compose(on, c, keytype);
+}
+
+/* Set LU name */
+void
+status_lu(const char *lu)
+{
+	if (lu != NULL) {
+		(void) strncpy(oia_lu, lu, LUCNT);
+		oia_lu[LUCNT] = '\0';
+	} else
+		(void) memset(oia_lu, '\0', sizeof(oia_lu));
+	do_lu(oia_lu);
 }
 
 /* Display timing */
@@ -1030,6 +1062,12 @@ do_script(Boolean on)
 }
 
 static void
+do_printer(Boolean on)
+{
+	status_add(PSESS, on ? (*standard_font ? 'P' : CG_P) : nullblank, KT_STD);
+}
+
+static void
 do_shift(int state)
 {
 	status_add(SHIFT-2, (state & MetaKeyDown) ?
@@ -1057,6 +1095,19 @@ do_compose(Boolean on, unsigned char c, enum keytype keytype)
 	} else {
 		status_add(COMPOSE, nullblank, KT_STD);
 		status_add(COMPOSE+1, nullblank, KT_STD);
+	}
+}
+
+static void
+do_lu(const char *lu)
+{
+	int i;
+
+	for (i = 0; i < LUCNT; i++) {
+		status_add(LU+i,
+		    lu[i]? (*standard_font? lu[i]: asc2cg[(int)lu[i]]):
+			nullblank,
+		    KT_STD);
 	}
 }
 

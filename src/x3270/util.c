@@ -125,7 +125,7 @@ scatv(const char *s, char *buf, size_t len)
 	char *dst = buf;
 
 	while ((c = *s++) && len > 0) {
-		char cbuf[4];
+		char cbuf[5];
 		char *t = cbuf;
 
 		/* Expand this character. */

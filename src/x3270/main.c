@@ -41,6 +41,7 @@
 #include "macrosc.h"
 #include "menubarc.h"
 #include "popupsc.h"
+#include "printerc.h"
 #include "resourcesc.h"
 #include "savec.h"
 #include "screenc.h"
@@ -86,6 +87,7 @@ static Boolean  colormap_failure = False;
 #if defined(LOCAL_PROCESS) /*[*/
 static void	parse_local_process(int *argcp, char **argv, char **cmds);
 #endif /*]*/
+static int	parse_model_number(char *m);
 static void	parse_set_clear(int *, char **);
 static void	label_init(void);
 static char    *user_title = CN;
@@ -115,6 +117,9 @@ XrmOptionDescRec options[]= {
 	{ OptOnce,	DotOnce,	XrmoptionNoArg,		ResTrue },
 	{ OptOversize,	DotOversize,	XrmoptionSepArg,	NULL },
 	{ OptPort,	DotPort,	XrmoptionSepArg,	NULL },
+#if defined(X3270_PRINTER) /*[*/
+	{ OptPrinterLu,	DotPrinterLu,	XrmoptionSepArg,	NULL },
+#endif /*]*/
 	{ OptReconnect,	DotReconnect,	XrmoptionNoArg,		ResTrue },
 	{ OptSaveLines,	DotSaveLines,	XrmoptionSepArg,	NULL },
 	{ OptScripted,	DotScripted,	XrmoptionNoArg,		ResTrue },
@@ -165,7 +170,8 @@ struct toggle_name toggle_names[N_TOGGLES] = {
 	{ ResEventTrace,      -1 },
 #endif /*]*/
 	{ ResMarginedPaste,   MARGINED_PASTE },
-	{ ResRectangleSelect, RECTANGLE_SELECT }
+	{ ResRectangleSelect, RECTANGLE_SELECT },
+	{ ResCrosshair,	      CROSSHAIR }
 };
 
 
@@ -199,7 +205,7 @@ main(int argc, char *argv[])
 	char	*cl_hostname = CN;
 	int	ovc, ovr;
 	char	junk;
-	int	sl;
+	int	model_number;
 
 	/* Figure out who we are */
 	programname = strrchr(argv[0], '/');
@@ -314,35 +320,21 @@ main(int argc, char *argv[])
 	root_window = RootWindow(display, default_screen);
 	screen_depth = DefaultDepthOfScreen(XtScreen(toplevel));
 
-	/* Sort out model, color and extended data stream modes. */
-	appres.model = XtNewString(appres.model);
-	if (!strncmp(appres.model, "3278", 4)) {
-		appres.m3279 = False;
-		appres.model = appres.model + 4;
-		if (appres.model[0] == '-')
-			++appres.model;
-	} else if (!strncmp(appres.model, "3279", 4)) {
-		appres.m3279 = True;
-		appres.model = appres.model + 4;
-		if (appres.model[0] == '-')
-			++appres.model;
+	/*
+	 * Sort out model and color modes, based on the model number resource.
+	 */
+	model_number = parse_model_number(appres.model);
+	if (model_number < 0) {
+		popup_an_error("Invalid model number: %s", appres.model);
+		model_number = 0;
 	}
-	sl = strlen(appres.model);
-	if (sl && (appres.model[sl-1] == 'E' || appres.model[sl-1] == 'e')) {
-		appres.extended = True;
-		appres.model[sl-1] = '\0';
-		sl--;
-		if (sl && appres.model[sl-1] == '-')
-			appres.model[sl-1] = '\0';
-	}
-	if (!appres.model[0])
+	if (!model_number) {
 #if defined(RESTRICT_3279) /*[*/
-		appres.model = XtNewString("3");
+		model_number = 3;
 #else /*][*/
-		appres.model = XtNewString("4");
+		model_number = 4;
 #endif /*]*/
-	if (appres.m3279)
-		appres.extended = True;
+	}
 	if (screen_depth <= 1 || colormap_failure)
 		appres.mono = True;
 	if (appres.mono) {
@@ -393,15 +385,15 @@ main(int argc, char *argv[])
 	font_init();
 
 #if defined(RESTRICT_3279) /*[*/
-	if (appres.m3279 && !strcmp(appres.model, "4"))
-		appres.model = "3";
+	if (appres.m3279 && model_number == 4)
+		model_number = 3;
 #endif /*]*/
 	if (!appres.extended || appres.oversize == CN ||
 	    sscanf(appres.oversize, "%dx%d%c", &ovc, &ovr, &junk) != 2) {
 		ovc = 0;
 		ovr = 0;
 	}
-	set_rows_cols(atoi(appres.model), ovc, ovr);
+	set_rows_cols(model_number, ovc, ovr);
 	if (appres.termname != CN)
 		termtype = appres.termname;
 	else
@@ -445,6 +437,9 @@ main(int argc, char *argv[])
 #if defined(X3270_FT) && !defined(X3270_MENUS) /*[*/
 	ft_init();
 #endif /*]*/
+#if defined(X3270_PRINTER) /*[*/
+	printer_init();
+#endif /*]*/
 
 	protocols[0] = a_delete_me;
 	protocols[1] = a_save_yourself;
@@ -485,12 +480,80 @@ main(int argc, char *argv[])
 			XtAppProcessEvent(appcontext,
 			    XtIMXEvent | XtIMTimer);
 		}
-		screen_disp();
+		screen_disp(False);
 		XtAppProcessEvent(appcontext, XtIMAll);
 
 		if (children && waitpid(0, (int *)0, WNOHANG) > 0)
 			--children;
 	}
+}
+
+/*
+ * Parse the model number.
+ * Returns -1 (error), 0 (default), or the specified number.
+ */
+static int
+parse_model_number(char *m)
+{
+	int sl;
+	int n;
+
+	sl = strlen(m);
+
+	/* An empty model number is no good. */
+	if (!sl) {
+		return 0;
+	}
+
+	if (sl > 1) {
+		/*
+		 * If it's longer than one character, it needs to start with
+		 * '327[89]', and it sets the m3279 resource.
+		 */
+		if (!strncmp(m, "3278", 4)) {
+			appres.m3279 = False;
+		} else if (!strncmp(m, "3279", 4)) {
+			appres.m3279 = True;
+		} else {
+			return -1;
+		}
+		m += 4;
+		sl -= 4;
+
+		/* Check more syntax.  -E is allowed, but ignored. */
+		switch (m[0]) {
+		case '\0':
+			/* Use default model number. */
+			return 0;
+		case '-':
+			/* Model number specified. */
+			m++;
+			sl--;
+			break;
+		default:
+			return -1;
+		}
+		switch (sl) {
+		case 1: /* n */
+			break;
+		case 3:	/* n-E */
+			if (strcasecmp(m + 1, "-E")) {
+				return -1;
+			}
+			break;
+		default:
+			return -1;
+		}
+	}
+
+	/* Check the numeric model number. */
+	n = atoi(m);
+	if (n >= 2 && n <= 5) {
+		return n;
+	} else {
+		return -1;
+	}
+
 }
 
 /* Change the window and icon labels. */

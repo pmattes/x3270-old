@@ -74,11 +74,15 @@ enum ts { TS_AUTO, TS_ON, TS_OFF };
 enum ts me_mode = TS_AUTO;
 enum ts ab_mode = TS_AUTO;
 
+static int status_row = 0;	/* Row to display the status line on */
+static int status_skip = 0;	/* Row to blank above the status line */
+
 static void kybd_input(void);
-static void kybd_input2(int k);
+static void kybd_input2(int k, Boolean derived);
 static void draw_oia(void);
 static void status_connect(Boolean ignored);
 static void status_3270_mode(Boolean ignored);
+static void status_printer(Boolean on);
 static int get_color_pair(int fg, int bg);
 static int color_from_fa(unsigned char);
 static void screen_init2(void);
@@ -140,9 +144,21 @@ screen_init(void)
 		set_rows_cols(model_num, want_ov_cols, want_ov_rows);
 	}
 
+	/* Figure out where the status line goes, if it fits. */
+	if (LINES < maxROWS + 1) {
+		status_row = status_skip = 0;
+	} else if (LINES == maxROWS + 1) {
+		status_skip = 0;
+		status_row = maxROWS;
+	} else {
+		status_skip = maxROWS;
+		status_row = maxROWS + 1;
+	}
+
 	/* Set up callbacks for state changes. */
 	register_schange(ST_CONNECT, status_connect);
 	register_schange(ST_3270_MODE, status_3270_mode);
+	register_schange(ST_PRINTER, status_printer);
 
 	/* Play with curses color. */
 	if (appres.m3279) {
@@ -198,7 +214,8 @@ screen_init2(void)
 	noecho();
 	nonl();
 	intrflush(stdscr,FALSE);
-	keypad(stdscr, TRUE);
+	if (appres.curses_keypad)
+		keypad(stdscr, TRUE);
 	meta(stdscr, TRUE);
 	nodelay(stdscr, TRUE);
 	input_id = AddInput(0, kybd_input);
@@ -265,7 +282,7 @@ color_from_fa(unsigned char fa)
 
 /* Display what's in the buffer. */
 void
-screen_disp(void)
+screen_disp(Boolean erasing unused)
 {
 	int row, col;
 	int a;
@@ -288,7 +305,28 @@ screen_disp(void)
 			baddr = row*cCOLS+col;
 			if (IS_FA(screen_buf[baddr])) {
 				fa = screen_buf[baddr];
-				a = FA_IS_HIGH(fa)? A_BOLD: A_NORMAL;
+				if (appres.m3279) {
+					if (ea_buf[baddr].fg ||
+					    ea_buf[baddr].bg) {
+						int fg, bg;
+
+						if (ea_buf[baddr].fg)
+							fg = cmap[ea_buf[baddr].fg
+							    & 0x0f];
+						else
+							fg = COLOR_WHITE;
+						if (ea_buf[baddr].bg)
+							bg = cmap[ea_buf[baddr].bg
+							    & 0x0f];
+						else
+							bg = COLOR_BLACK;
+						a = get_color_pair(fg, bg);
+					} else {
+						a = color_from_fa(fa);
+					}
+				} else {
+					a = FA_IS_HIGH(fa)? A_BOLD: A_NORMAL;
+				}
 				if (ea_buf[baddr].gr & GR_BLINK)
 					a |= A_BLINK;
 				if (ea_buf[baddr].gr & GR_REVERSE)
@@ -297,24 +335,6 @@ screen_disp(void)
 					a |= A_UNDERLINE;
 				if (ea_buf[baddr].gr & GR_INTENSIFY)
 					a |= A_BOLD;
-				if (appres.m3279 &&
-				    (ea_buf[baddr].fg ||
-				     ea_buf[baddr].bg)) {
-					int fg, bg;
-
-					if (ea_buf[baddr].fg)
-						fg = cmap[ea_buf[baddr].fg
-						    & 0x0f];
-					else
-						fg = COLOR_WHITE;
-					if (ea_buf[baddr].bg)
-						bg = cmap[ea_buf[baddr].bg
-						    & 0x0f];
-					else
-						bg = COLOR_BLACK;
-					a |= get_color_pair(fg, bg);
-				} else
-					a = color_from_fa(fa);
 				attrset(defattr);
 				addch(' ');
 			} else if (FA_IS_ZERO(fa)) {
@@ -364,7 +384,7 @@ screen_disp(void)
 			}
 		}
 	}
-	if (LINES > maxROWS+1)
+	if (status_row)
 		draw_oia();
 	(void) attrset(defattr);
 	if (flipped)
@@ -382,9 +402,9 @@ static void
 escape_timeout(void)
 {
 	trace_event("ESC timeout\n");
-	eto = 0;
+	eto = 0L;
 	meta_escape = False;
-	kybd_input2(0x1b);
+	kybd_input2(0x1b, False);
 }
 
 /* Keyboard input. */
@@ -394,6 +414,10 @@ kybd_input(void)
 	int k;
 
 	for (;;) {
+		Boolean derived = False;
+
+		if (isendwin())
+			return;
 		k = wgetch(stdscr);
 		if (k == ERR)
 			return;
@@ -401,26 +425,30 @@ kybd_input(void)
 
 		/* Handle Meta-Escapes. */
 		if (meta_escape) {
-			RemoveTimeOut(eto);
-			eto = 0L;
+			if (eto != 0L) {
+				RemoveTimeOut(eto);
+				eto = 0L;
+			}
 			meta_escape = False;
 			k |= 0x80;
+			derived = True;
 		} else if (me_mode == TS_ON && k == 0x1b) {
 			eto = AddTimeOut(100L, escape_timeout);
 			meta_escape = True;
 			continue;
 		}
-		kybd_input2(k);
+		kybd_input2(k, derived);
 	}
 }
 
 static void
-kybd_input2(int k)
+kybd_input2(int k, Boolean derived)
 {
 	char buf[16];
 	char *action;
 
-	trace_event("Key %s (0x%x)\n", decode_key(k, 0), k);
+	if (derived)
+		trace_event("Derived Key %s (0x%x)\n", decode_key(k, 0), k);
 	action = lookup_key(k);
 	if (action != CN) {
 		if (strcmp(action, "[ignore]"))
@@ -547,7 +575,7 @@ void
 screen_resume(void)
 {
 	escaped = False;
-	screen_disp(); /* in case something changed while we were escaped */
+	screen_disp(False); /* in case something changed while we were escaped */
 	refresh();
 	input_id = AddInput(0, kybd_input);
 }
@@ -561,7 +589,7 @@ cursor_move(int baddr)
 void
 toggle_monocase(struct toggle *t unused, enum toggle_type tt unused)
 {
-	screen_disp();
+	screen_disp(False);
 }
 
 /* Status line stuff. */
@@ -572,8 +600,11 @@ static Boolean status_im = False;
 static Boolean oia_boxsolid = False;
 static Boolean oia_undera = True;
 static Boolean oia_compose = False;
+static Boolean oia_printer = False;
 static unsigned char oia_compose_char = 0;
 static enum keytype oia_compose_keytype = KT_STD;
+#define LUCNT	8
+static char oia_lu[LUCNT+1];
 
 static char *status_msg = "";
 
@@ -655,6 +686,16 @@ status_compose(Boolean on, unsigned char c, enum keytype keytype)
         oia_compose_keytype = keytype;
 }
 
+void
+status_lu(const char *lu)
+{
+	if (lu != NULL) {
+		(void) strncpy(oia_lu, lu, LUCNT);
+		oia_lu[LUCNT] = '\0';
+	} else
+		(void) memset(oia_lu, '\0', sizeof(oia_lu));
+}
+
 static void
 status_connect(Boolean connected)
 {
@@ -679,6 +720,12 @@ status_3270_mode(Boolean ignored unused)
 }
 
 static void
+status_printer(Boolean on)
+{
+	oia_printer = on;
+}
+
+static void
 draw_oia(void)
 {
 	/* Make sure the status line region is filled in properly. */
@@ -686,18 +733,20 @@ draw_oia(void)
 		int i;
 
 		attrset(defattr);
-		move(maxROWS, 0);
-		for (i = 0; i < maxCOLS; i++) {
-			printw(" ");
+		if (status_skip) {
+			move(status_skip, 0);
+			for (i = 0; i < maxCOLS; i++) {
+				printw(" ");
+			}
 		}
-		move(maxROWS+1, 0);
+		move(status_row, 0);
 		for (i = 0; i < maxCOLS; i++) {
 			printw(" ");
 		}
 	}
 
 	(void) attrset(A_REVERSE | defattr);
-	mvprintw(maxROWS + 1, 0, "4");
+	mvprintw(status_row, 0, "4");
 	(void) attrset(A_UNDERLINE | defattr);
 	if (oia_undera)
 		printw("%c", IN_E? 'B': 'A');
@@ -714,16 +763,18 @@ draw_oia(void)
 		printw("?");
 
 	(void) attrset(defattr);
-	mvprintw(maxROWS + 1, 8, "%-11s", status_msg);
-	mvprintw(maxROWS + 1, maxCOLS-36,
-	    "%c%c %c  %c%c",
+	mvprintw(status_row, 8, "%-11s", status_msg);
+	mvprintw(status_row, maxCOLS-36,
+	    "%c%c %c  %c%c%c",
 	    oia_compose? 'C': ' ',
 	    oia_compose? oia_compose_char: ' ',
 	    status_ta? 'T': ' ',
 	    status_rm? 'R': ' ',
-	    status_im? 'I': ' ');
+	    status_im? 'I': ' ',
+	    oia_printer? 'P': ' ');
 
-	mvprintw(maxROWS + 1, maxCOLS-7,
+	mvprintw(status_row, maxCOLS-25, "%s", oia_lu);
+	mvprintw(status_row, maxCOLS-7,
 	    "%03d/%03d", cursor_addr/COLS + 1, cursor_addr%COLS + 1);
 }
 
@@ -747,5 +798,5 @@ void
 screen_flip(void)
 {
 	flipped = !flipped;
-	screen_disp();
+	screen_disp(False);
 }

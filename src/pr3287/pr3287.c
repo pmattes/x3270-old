@@ -22,8 +22,14 @@
  *          -charset @file
  *          -charset =spec
  *		use the specified character set
+ *          -crlf
+ *		expand newlines to CR/LF
  *          -blanklines
  *		display blank lines even if they're empty (formatted LU3)
+ *          -ffthru
+ *		pass through SCS FF orders
+ *          -ffskip
+ *		skip SCS FF at top of page
  *          -reconnect
  *		keep trying to reconnect
  *	    -trace
@@ -72,6 +78,10 @@ char *programname = NULL;	/* program name */
 int blanklines = 0;
 int ignoreeoj = 0;
 int reconnect = 0;
+int crlf = 0;
+int ffthru = 0;
+int ffskip = 0;
+int verbose = 0;
 
 /* User options. */
 static enum { NOT_DAEMON, WILL_DAEMON, AM_DAEMON } bdaemon = NOT_DAEMON;
@@ -93,6 +103,9 @@ usage(void)
 "                   specify alternate EBCDIC-to-ASCII mappings\n"
 "  -command \"<cmd>\" use <cmd> for printing (default \"lpr\")\n"
 "  -blanklines      display blank lines even if empty (formatted LU3)\n"
+"  -crlf            expand newlines to CR/LF\n"
+"  -ffthru          pass through SCS FF orders\n"
+"  -ffskip          skip SCS FF orders at top of page\n"
 "  -ignoreeoj       ignore PRINT-EOJ commands\n"
 "  -reconnect       keep trying to reconnect\n"
 "  -trace           trace data stream to /tmp/x3trc.<pid>\n",
@@ -112,8 +125,12 @@ errmsg(const char *fmt, ...)
 	va_start(args, fmt);
 	(void) vsprintf(buf[ix], fmt, args);
 	va_end(args);
-	if (!strcmp(buf[ix], buf[!ix]))
+	if (!strcmp(buf[ix], buf[!ix])) {
+		if (verbose)
+			(void) fprintf(stderr, "Suppressed error '%s'\n",
+			    buf[ix]);
 		return;
+	}
 	if (bdaemon == AM_DAEMON)
 		syslog(LOG_ERR, "%s", buf[ix]);
 	else
@@ -183,7 +200,6 @@ main(int argc, char *argv[])
 	char *lu = NULL;
 	char *host = NULL;
 	const char *port = "telnet";
-	int verbose = 0;
 	struct hostent *he;
 	struct in_addr ha;
 	struct servent *se;
@@ -229,8 +245,14 @@ main(int argc, char *argv[])
 			i++;
 		} else if (!strcmp(argv[i], "-blanklines")) {
 			blanklines = 1;
+		} else if (!strcmp(argv[i], "-crlf")) {
+			crlf = 1;
 		} else if (!strcmp(argv[i], "-ignoreeoj")) {
 			ignoreeoj = 1;
+		} else if (!strcmp(argv[i], "-ffthru")) {
+			ffthru = 1;
+		} else if (!strcmp(argv[i], "-ffskip")) {
+			ffskip = 1;
 		} else if (!strcmp(argv[i], "-reconnect")) {
 			reconnect = 1;
 		} else if (!strcmp(argv[i], "-v")) {
@@ -382,7 +404,7 @@ main(int argc, char *argv[])
 			if (assoc != NULL)
 				(void) fprintf(stderr, "Associating with LU "
 				    "%s\n", assoc);
-			else
+			else if (lu != NULL)
 				(void) fprintf(stderr, "Connecting to LU %s\n",
 				    lu);
 			(void) fprintf(stderr, "Command: %s\n", command);
@@ -405,8 +427,13 @@ main(int argc, char *argv[])
 		/* Process what we're told to process. */
 		if (process(s) < 0) {
 			rc = 1;
+			if (verbose)
+				(void) fprintf(stderr,
+				    "Disconnected (error).\n");
 			goto retry;
 		}
+		if (verbose)
+			(void) fprintf(stderr, "Disconnected (eof).\n");
 
 	    retry:
 		/* Flush any pending data. */
@@ -421,10 +448,12 @@ main(int argc, char *argv[])
 		if (!reconnect)
 			break;
 		report_success = 1;
-		rc = 0;
 
 		/* Wait a while, to reduce thrash. */
-		sleep(5);
+		if (rc)
+			sleep(5);
+
+		rc = 0;
 	}
 
 	return rc;

@@ -299,7 +299,7 @@ static struct {
 	{ "Linefeed", 0x0a },
 	{ "Return", 0x0d },
 	{ "Escape", 0x1b },
-	{ "Delete", 0xff },
+	{ "Delete", 0x7f },
 
 	{ (char *)NULL, NoSymbol }
 };
@@ -335,6 +335,7 @@ typedef struct timeout {
 	struct timeout *next;
 	struct timeval tv;
 	void (*proc)(void);
+	Boolean in_play;
 } timeout_t;
 #define TN	(timeout_t *)NULL
 static timeout_t *timeouts = TN;
@@ -348,6 +349,7 @@ AddTimeOut(unsigned long interval, void (*proc)(void))
 
 	t_new = (timeout_t *)Malloc(sizeof(timeout_t));
 	t_new->proc = proc;
+	t_new->in_play = False;
 	(void) gettimeofday(&t_new->tv, NULL);
 	t_new->tv.tv_sec += interval / 1000L;
 	t_new->tv.tv_usec += (interval % 1000L) * 1000L;
@@ -383,11 +385,14 @@ AddTimeOut(unsigned long interval, void (*proc)(void))
 void
 RemoveTimeOut(unsigned long timer)
 {
+	timeout_t *st = (timeout_t *)timer;
 	timeout_t *t;
 	timeout_t *prev = TN;
 
+	if (st->in_play)
+		return;
 	for (t = timeouts; t != TN; t = t->next) {
-		if (t == (timeout_t *)timer) {
+		if (t == st) {
 			if (prev != TN)
 				prev->next = t->next;
 			else
@@ -539,7 +544,7 @@ select_setup(int *nfds, fd_set *readfds, fd_set *writefds,
 Boolean
 process_events(Boolean block)
 {
-	input_t *ip;
+	input_t *ip, *ip_next;
 	fd_set rfds, wfds, xfds;
 	int ns;
 	struct timeval now, twait, *tp;
@@ -599,7 +604,8 @@ process_events(Boolean block)
 		return processed_any;
 	}
 	inputs_changed = False;
-	for (ip = inputs; ip != (input_t *)NULL; ip = ip->next) {
+	for (ip = inputs; ip != (input_t *)NULL; ip = ip_next) {
+		ip_next = ip->next;
 		if (((unsigned long)ip->condition & InputReadMask) &&
 		    FD_ISSET(ip->source, &rfds)) {
 			(*ip->proc)();
@@ -631,6 +637,7 @@ process_events(Boolean block)
 			    (t->tv.tv_sec == now.tv_sec &&
 			     t->tv.tv_usec < now.tv_usec)) {
 				timeouts = t->next;
+				t->in_play = True;
 				(*t->proc)();
 				processed_any = True;
 				Free(t);

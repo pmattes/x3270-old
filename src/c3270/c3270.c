@@ -38,6 +38,7 @@
 #include "kybdc.h"
 #include "macrosc.h"
 #include "popupsc.h"
+#include "printerc.h"
 #include "screenc.h"
 #include "telnetc.h"
 #include "togglesc.h"
@@ -185,6 +186,9 @@ main(int argc, char *argv[])
 #if defined(X3270_FT) /*[*/
 	ft_init();
 #endif /*]*/
+#if defined(X3270_PRINTER) /*[*/
+	printer_init();
+#endif /*]*/
 
 	/* Make sure we don't fall over any SIGPIPEs. */
 	(void) signal(SIGPIPE, SIG_IGN);
@@ -211,19 +215,18 @@ main(int argc, char *argv[])
 				exit(1);
 		}
 	} else {
+		if (appres.secure) {
+			Error("Must specify hostname with secure option");
+		}
 		appres.once = False;
 		interact();
 	}
 	screen_resume();
-	screen_disp();
+	screen_disp(False);
 
 	/* Process events forever. */
 	while (1) {
 		(void) process_events(True);
-		if (escaped) {
-			interact();
-			screen_resume();
-		}
 		if (!CONNECTED) {
 			screen_suspend();
 			(void) printf("Disconnected.\n");
@@ -231,11 +234,14 @@ main(int argc, char *argv[])
 				exit(0);
 			interact();
 			screen_resume();
+		} else if (escaped) {
+			interact();
+			screen_resume();
 		}
 
 		if (children && waitpid(0, (int *)0, WNOHANG) > 0)
 			--children;
-		screen_disp();
+		screen_disp(False);
 	}
 }
 
@@ -244,6 +250,14 @@ interact(void)
 {
 	/* In case we got here because a command output, stop the pager. */
 	stop_pager();
+
+	if (appres.secure) {
+		char s[10];
+
+		printf("Press <RETURN>\n");
+		(void) fgets(s, sizeof(s), stdin);
+		return;
+	}
 
 	for (;;) {
 		int sl;
@@ -757,7 +771,8 @@ Escape_action(Widget w unused, XEvent *event unused, String *params unused,
     Cardinal *num_params unused)
 {
 	action_debug(Escape_action, event, params, num_params);
-	screen_suspend();
+	if (!appres.secure)
+		screen_suspend();
 }
 
 /* Support for c3270 profiles. */

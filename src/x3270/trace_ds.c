@@ -491,11 +491,27 @@ get_tracef_max(void)
 	}
 }
 
+/* Parse the name '/dev/fd<n>', so we can simulate it. */
+static int
+get_devfd(const char *pathname)
+{
+	unsigned long fd;
+	char *ptr;
+
+	if (strncmp(pathname, "/dev/fd/", 8))
+		return -1;
+	fd = strtoul(pathname + 8, &ptr, 10);
+	if (ptr == pathname + 8 || *ptr != '\0' || fd < 0)
+		return -1;
+	return fd;
+}
+
 /* Callback for "OK" button on trace popup */
 static void
 tracefile_callback(Widget w, XtPointer client_data, XtPointer call_data unused)
 {
 	char *tfn = CN;
+	int devfd = -1;
 #if defined(X3270_DISPLAY) /*[*/
 	int pipefd[2];
 	Boolean just_piped = False;
@@ -511,7 +527,7 @@ tracefile_callback(Widget w, XtPointer client_data, XtPointer call_data unused)
 	tfn = do_subst(tfn, True, True);
 	if (strchr(tfn, '\'') ||
 	    ((int)strlen(tfn) > 0 && tfn[strlen(tfn)-1] == '\\')) {
-		popup_an_error("Illegal file name: %s\n", tfn);
+		popup_an_error("Illegal file name: %s", tfn);
 		Free(tfn);
 		return;
 	}
@@ -524,7 +540,7 @@ tracefile_callback(Widget w, XtPointer client_data, XtPointer call_data unused)
 		tracef = stdout;
 	} else {
 #if defined(X3270_DISPLAY) /*[*/
-		FILE *pipefile;
+		FILE *pipefile = NULL;
 
 		if (!strcmp(tfn, "none") || !tfn[0]) {
 			just_piped = True;
@@ -579,7 +595,10 @@ tracefile_callback(Widget w, XtPointer client_data, XtPointer call_data unused)
 			}
 
 			/* Open and configure the file. */
-			tracef = fopen(tfn, tracef_max? "w+": "a");
+			if ((devfd = get_devfd(tfn)) >= 0)
+				tracef = fdopen(dup(devfd), "a");
+			else
+				tracef = fopen(tfn, tracef_max? "w+": "a");
 			if (tracef == (FILE *)NULL) {
 				popup_an_errno(errno, tfn);
 #if defined(X3270_DISPLAY) /*[*/
@@ -676,7 +695,7 @@ tracefile_on(int reason, enum toggle_type tt)
 	}
 
 #if defined(X3270_DISPLAY) /*[*/
-	if (tt == TT_INITIAL)
+	if (tt == TT_INITIAL || tt == TT_ACTION)
 #endif /*]*/
 	{
 		tracefile_callback((Widget)NULL, tracefile, PN);
@@ -885,7 +904,7 @@ toggle_screenTrace(struct toggle *t unused, enum toggle_type tt)
 				appres.trace_dir, getpid());
 			tracefile = tracefile_buf;
 		}
-		if (tt == TT_INITIAL) {
+		if (tt == TT_INITIAL || tt == TT_ACTION) {
 			(void) screentrace_cb(NewString(tracefile));
 			return;
 		}

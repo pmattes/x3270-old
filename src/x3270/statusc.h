@@ -20,6 +20,7 @@ extern void status_init(void);
 extern void status_insert_mode(Boolean on);
 extern void status_kmap(Boolean on);
 extern void status_kybdlock(void);
+extern void status_lu(const char *);
 extern void status_minus(void);
 extern void status_oerr(int error_type);
 extern void status_reinit(unsigned cmask);

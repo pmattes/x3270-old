@@ -104,7 +104,7 @@ Specifies a keyboard map to be found in the resource
 See <a HREF="#Keymaps"><font size=-1>KEYMAPS</font></a> below for details.
 <dt><b>-model</b> <i>name</i></dt><dd>
 The model of 3270 display to be emulated.
-The model name is in three parts, any of which may be omitted:
+The model name is in two parts, either of which may be omitted:
 <p>
 The first part is the
 <b>base model</b>,
@@ -129,25 +129,16 @@ Model 4 is the default.
 Note: Technically, there is no such 3270 display as a 3279-4 or 3279-5, but
 most hosts seem to work with them anyway.
 <p>
-The third part specifies the Extended 3270 Data Stream, and is given as
-<b>-E</b>.
-It signals the host that the 3270 display is capable of displaying
-extended field attributes, and supports structured fields and query replies.
-A 3279 always uses the Extended Data Stream (whether or not <b>-E</b>
-is specified); for a 3278 it is optional.
-<p>
 The default model
-for a color display is <b>3279-4-E</b>.
-For a monochrome display, it is <b>3278-4-E</b>.
+for a color display is <b>3279-4</b>.
+For a monochrome display, it is <b>3278-4</b>.
 <dt><b>-mono</b></dt><dd>
 Forces 3278 emulation.
 <dt><b>-oversize</b> <i>cols</i><b>x</b><i>rows</i></dt><dd>
 Makes the screen larger than the default for the chosen model number.
 This option has effect only in combination with extended data stream support
-(the
-<b>-E</b>
-suffix on the model), and only if the host supports the Query Reply structured
-field.
+(controlled by the "c3270.extended" resource), and only if the host
+supports the Query Reply structured field.
 The number of columns multiplied by the number of rows must not exceed
 16383 (3fff hex), the limit of 14-bit 3270 buffer addressing.
 <dt><b>-port</b> <i>n</i></dt><dd>
@@ -156,6 +147,13 @@ Specifies a different <font size=-1>TCP</font> port to connect to.
 number.
 This option changes the default port number used for all connections.
 (The positional parameter affects only the initial connection.)
+<dt><b>-printerlu <i>luname</i></b></dt><dd>
+Causes <b>c3270</b> to automatically start a <i>pr3287</i> printer
+session.
+If <i>luname</i> is ".", then the printer session will be associated with the
+interactive terminal session (this requires that the host support TN3270E).
+Otherwise, the value is used as the explicit LU name to associate with the
+printer session.
 <dt><b>-set</b> <i>toggle</i></dt><dd>
 Sets the initial value of <i>toggle</i> to <b>true</b>.
 The list of toggle names is under <a HREF="#Toggles"><font size=-1>TOGGLES</font></a>
@@ -163,7 +161,7 @@ below.
 <dt><a NAME="tn"></a><b>-tn</b> <i>name</i></dt><dd>
 Specifies the terminal name to be transmitted over the telnet connection.
 The default name is
-<b>IBM-</b><i>model_name</i>,
+<b>IBM-</b><i>model_name</i><b>-E</b>,
 for example,
 <b>IBM-3279-4-E</b> 
 for a color display, or
@@ -173,7 +171,8 @@ for a monochrome display.
 Some hosts are confused by the <b>-E</b>
 suffix on the terminal name, and will ignore the extra screen area on
 models 3, 4 and 5.
-Prepending an <b>:s</b> on the hostname removes the <b>-E</b>
+Prepending an <b>:s</b> on the hostname, or setting the "c3270.extended"
+resource to "false", removes the <b>-E</b>
 from the terminal name when connecting to such hosts.
 <p>
 The name can also be specified with the "c3270.termName" resource.
@@ -306,7 +305,13 @@ options are as follows:
 <tr><td >Save Screen(s) in File</td>	<td >screenTrace</td></tr>
 <tr><td >Wraparound</td>	<td >lineWrap</td></tr>
 </table>
+<p>
+These names are also used as the first parameter to the <b>Toggle</b>
+action.
 <a NAME="Status-Line"></a><h2>Status Line</h2>
+If the terminal that <b>c3270</b> is running on
+has at least one more row that the 3270 model requires (e.g., 25 rows for a
+model 2), <b>c3270</b> will display a status line.
 The <b>c3270</b> status line contains a variety of information.
 From left to right, the fields are:
 <dl><dt><b>comm status</b></dt><dd>
@@ -326,6 +331,10 @@ The letter "R" indicates that the keyboard is in reverse field entry mode.
 <dt><b>insert mode</b></dt><dd>
 The 
 letter "I" indicates that the keyboard is in insert mode.
+<dt><b>printer session</b></dt><dd>
+The letter "P" indicates that a <i>pr3287</i> session is active.
+<dt><b>LU name</b></dt><dd>
+The LU name associated with the session, if there is one.
 <dt><b>cursor position</b></dt><dd>
 The cursor row and column are optionally displayed, separated by a "/".
 </dl>
@@ -334,22 +343,25 @@ Here is a complete list of basic c3270 actions.
 Script-specific actions are described on the
 <a HREF="x3270-script.html"><i>x3270-script</i>(1)</a> manual page.
 <p>
+Actions marked with an asterisk (*) may block, sending data to the host and
+possibly waiting for a response.
+<p>
 <table BORDER cols=2 width="75%">
-<tr><td >Attn</td>	<td >attention key</td></tr>
+<tr><td >*Attn</td>	<td >attention key</td></tr>
 <tr><td >BackSpace</td>	<td >move cursor left (or send <font size=-1>ASCII BS</font>)</td></tr>
 <tr><td >BackTab</td>	<td >tab to start of previous input field</td></tr>
 <tr><td >CircumNot</td>	<td >input "^" in <font size=-1>NVT</font> mode, or "&not;" in 3270 mode</tr></td>
-<tr><td >Clear</td>	<td >clear screen</td></tr>
+<tr><td >*Clear</td>	<td >clear screen</td></tr>
 <tr><td >Compose</td>	<td >next two keys form a special symbol</td></tr>
-<tr><td >Connect(l3h_t <i>h</i>, <i>host</i>)</td>	<td >connect to <i>host</i></td></tr>
-<tr><td >CursorSelect</td>	<td >Cursor Select <font size=-1>AID</font></td></tr>
+<tr><td >*Connect(<i>host</i>)</td>	<td >connect to <i>host</i></td></tr>
+<tr><td >*CursorSelect</td>	<td >Cursor Select <font size=-1>AID</font></td></tr>
 <tr><td >Delete</td>	<td >delete character under cursor (or send <font size=-1>ASCII DEL</font>)</td></tr>
 <tr><td >DeleteField</td>	<td >delete the entire field</td></tr>
 <tr><td >DeleteWord</td>	<td >delete the current or previous word</td></tr>
-<tr><td >Disconnect</td>	<td >disconnect from host</td></tr>
+<tr><td >*Disconnect</td>	<td >disconnect from host</td></tr>
 <tr><td >Down</td>	<td >move cursor down</td></tr>
 <tr><td >Dup</td>	<td >duplicate field</td></tr>
-<tr><td >Enter</td>	<td >Enter <font size=-1>AID</font> (or send <font size=-1>ASCII CR</font>)</td></tr>
+<tr><td >*Enter</td>	<td >Enter <font size=-1>AID</font> (or send <font size=-1>ASCII CR</font>)</td></tr>
 <tr><td >Erase</td>	<td >erase previous character (or send <font size=-1>ASCII BS</font>)</td></tr>
 <tr><td >EraseEOF</td>	<td >erase to end of current field</td></tr>
 <tr><td >EraseInput</td>	<td >erase all input fields</td></tr>
@@ -358,20 +370,20 @@ Script-specific actions are described on the
 <tr><td >FieldEnd</td>	<td >move cursor to end of field</td></tr>
 <tr><td >FieldExit</td>	<td >clear to end of field and skip to next (5250 emulation)</td></tr>
 <tr><td >FieldMark</td>	<td >mark field</td></tr>
-<tr><td >HexString(l3h_t <i>h</i>, <i>hex_digits</i>)</td>	<td >insert control-character string</td></tr>
+<tr><td >HexString(<i>hex_digits</i>)</td>	<td >insert control-character string</td></tr>
 <tr><td >Home</td>	<td >move cursor to first input field</td></tr>
 <tr><td >Insert</td>	<td >set insert mode</td></tr>
-<tr><td >Interrupt</td>	<td >send <font size=-1>TELNET IP</font> to host</td></tr>
-<tr><td >Key(l3h_t <i>h</i>, <i>keysym</i>)</td>	<td >insert key <i>keysym</i></td></tr>
-<tr><td >Key(l3h_t <i>h</i>, 0x<i>xx</i>)</td>	<td >insert key with <font size=-1>ASCII</font> code <i>xx</i></td></tr>
+<tr><td >*Interrupt</td>	<td >send <font size=-1>TELNET IP</font> to host</td></tr>
+<tr><td >Key(<i>keysym</i>)</td>	<td >insert key <i>keysym</i></td></tr>
+<tr><td >Key(0x<i>xx</i>)</td>	<td >insert key with <font size=-1>ASCII</font> code <i>xx</i></td></tr>
 <tr><td >Left</td>	<td >move cursor left</td></tr>
 <tr><td >Left2</td>	<td >move cursor left 2 positions</td></tr>
 <tr><td >MonoCase</td>	<td >toggle uppercase-only mode</td></tr>
-<tr><td >MoveCursor(l3h_t <i>h</i>, <i>row</i>, <i>col</i>)</td>	<td >move cursor to (<i>row</i>,<i>col</i>)</td></tr>
+<tr><td >MoveCursor(<i>row</i>, <i>col</i>)</td>	<td >move cursor to (<i>row</i>,<i>col</i>)</td></tr>
 <tr><td >Newline</td>	<td >move cursor to first field on next line (or send <font size=-1>ASCII LF</font>)</td></tr>
 <tr><td >NextWord</td>	<td >move cursor to next word</td></tr>
-<tr><td >PA(l3h_t <i>h</i>, <i>n</i>)</td>	<td >Program Attention <font size=-1>AID</font> (<i>n</i> from 1 to 3)</td></tr>
-<tr><td >PF(l3h_t <i>h</i>, <i>n</i>)</td>	<td >Program Function <font size=-1>AID</font> (<i>n</i> from 1 to 24)</td></tr>
+<tr><td >*PA(<i>n</i>)</td>	<td >Program Attention <font size=-1>AID</font> (<i>n</i> from 1 to 3)</td></tr>
+<tr><td >*PF(<i>n</i>)</td>	<td >Program Function <font size=-1>AID</font> (<i>n</i> from 1 to 24)</td></tr>
 <tr><td >PreviousWord</td>	<td >move cursor to previous word</td></tr>
 <tr><td >Printer(Start[,<i>lu</i>]|Stop)</td>	<td >Start or stop printer session</td></tr>
 <tr><td >PrintText(<i>command</i>)</td>	<td >print screen text on printer</td></tr>
@@ -380,13 +392,14 @@ Script-specific actions are described on the
 <tr><td >Reset</td>	<td >reset locked keyboard</td></tr>
 <tr><td >Right</td>	<td >move cursor right</td></tr>
 <tr><td >Right2</td>	<td >move cursor right 2 positions</td></tr>
-<tr><td >Script(<i>command</i>[,<i>arg</i>...])</td>	<td >run a script</td></tr>
-<tr><td >String(l3h_t <i>h</i>, <i>string</i>)</td>	<td >insert string (simple macro facility)</td></tr>
-<tr><td >SysReq</td>	<td >System Request <font size=-1>AID</font></td></tr>
+<tr><td >*Script(<i>command</i>[,<i>arg</i>...])</td>	<td >run a script</td></tr>
+<tr><td >*String(<i>string</i>)</td>	<td >insert string (simple macro facility)</td></tr>
+<tr><td >*SysReq</td>	<td >System Request <font size=-1>AID</font></td></tr>
 <tr><td >Tab</td>	<td >move cursor to next input field</td></tr>
+<tr><td >Toggle(<i>option</i>[,<i>set|clear</i>])</td>	<td >toggle an option</td></tr>
 <tr><td >ToggleInsert</td>	<td >toggle insert mode</td></tr>
 <tr><td >ToggleReverse</td>	<td >toggle reverse-input mode</td></tr>
-<tr><td >Transfer(l3h_t <i>h</i>, <i>option</i>=<i>value</i>...)</td>	<td >file transfer</td></tr>
+<tr><td >*Transfer(<i>option</i>=<i>value</i>...)</td>	<td >file transfer</td></tr>
 <tr><td >Up</td>	<td >move cursor up</td></tr>
 <tr><td >ignore</td>	<td >do nothing</td></tr>
 </table>
@@ -456,10 +469,13 @@ the <b>Meta</b> and <b>Ctrl</b> keys are pressed along with the
 specified <i>key</i>, respectively.
 The <i>key</i> is either a valid X11 keysym (these are
 the <font size=-1>ISO</font> 8859-1 symbol names, such as <b>equal</b> for `='
-and <b>a</b> for `a') or a valid <b>ncurses</b> key name, such
-as <b>UP</b>.
+and <b>a</b> for `a') or a valid symbolic <b>ncurses</b> key name,
+such as <b>UP</b>.
 The <i>Action</i> is an action from the <font size=-1>ACTIONS</font> list, above.
 More than one action may be specified.
+(Note that symbolic <b>ncurses</b> key names can be used only if the
+<b>c3270.cursesKeymap</b> resource is set to <b>True</b>, which enables
+ncurses keymap mode.)
 <p>
 Keymap entries are case-sensitive and modifier-specific.
 This means that a keymap for the <b>b</b> key will match only a
@@ -510,23 +526,36 @@ The base 3270-mode keymap adds:
 </table>
 <a NAME="The-Meta-or-Alt-Key"></a><h2>The Meta or Alt Key</h2>
 Some keyboards do not have a <b>Meta</b> key.
-Instead, they have an <b>Alt</b> key.  Sometimes this key acts as a proper
+Instead, they have an <b>Alt</b> key.
+Sometimes this key acts as a proper
 <b>Meta</b> key, that is, it is a modifier key that sets the high-order bit
-(0x80) in each keystroke.  Other keyboards send a two-character sequence when
+(0x80) in the code that is transmitted for each key.
+Other keyboards send a two-character sequence when
 the <b>Alt</b> key is pressed with another key: the Escape character (0x1b),
-followed by the other keystroke.
+followed by the code for the other key.
 <p>
 The resource <b>c3270.metaEscape</b> and the termcap <b>km</b> attribute
-control how <b>c3270</b> will interpret these sequences.  When
-<b>c3270.metaEscape</b> is set to <b>auto</b> (the default), then the
-termcap <b>km</b> attribute controls how Escape sequences are interpreted:
-if <b>km</b> is set (the keyboard has a <b>Meta</b> key), Escape characters
-are not interpreted specially and can appear in keymaps; if <b>km</b> is not
-set, then Escape followed (quickly) by another keystroke is interpreted as
-the <b>Meta</b> modifier of that keystroke.  If <b>c3270.metaEscape</b> is
-set to <b>true</b>, then Escape sequences are always interpreted as <b>Meta</b>
-sequences.  If <b>c3270.metaEscape</b> is set to <b>false</b>, then Escape
-is always considered an ordinary keystroke.
+control how <b>c3270</b> will interpret these sequences.
+When <b>c3270.metaEscape</b> is set to <b>true</b>, or when
+<b>c3270.metaEscape</b> is set to <b>auto</b> and the termcap <b>km</b>
+attribute is set, the keyboard is assumed to have a separate <b>Meta</b> key.
+The Escape key can be used as an ordinary data key and has no special meaning.
+<p>
+When <b>c3270.metaEscape</b> is set to <b>true</b>, or when
+<b>c3270.metaEscape</b> is set to <b>auto</b> and the termcap <b>km</b>
+attribute is not set, the keyboard is assumed to use the Escape character
+as a prefix to indicate that the following character is supposed to have the
+high-order bit set.
+When <b>c3270</b> sees an Escape character from the keyboard, it sets a short
+timeout.
+If another character arrives before the timeout expires, then <b>c3270</b>
+will combine the two characters, setting the high-order bit of the second.
+In an event trace file, the combined character is listed as <i>derived</i>.
+In a keymap, only the combined character or the <b>Meta</b> prefix may be used.
+The Escape key can still be used by itself, but only if there is a short pause
+before pressing another key.
+<p>
+The default value for <b>c3270.metaEscape</b> is <b>auto</b>.
 <a NAME="File-Transfer"></a><h2>File Transfer</h2>
 The <b>Transfer</b> action implements <b>IND$FILE</b> file transfer.
 This action requires that the <b>IND$FILE</b>
@@ -746,6 +775,7 @@ The resources available in <b>c3270</b> are:
 <tr><td >charset</td>	<td >bracket</td>	<td >-charset</td>	<td ><font size=-1>EBCDIC</font> character set</td></tr>
 <tr><td >charset.<i>foo</i></td>	<td >&nbsp;</td>	<td >&nbsp;</td>	<td >Definition of character set <i>foo</i></td></tr>
 <tr><td >composeMap</td>	<td >latin1</td>	<td >&nbsp;</td>	<td >Name of composed-character map</td></tr>
+<tr><td >cursesKeymap</td>	<td >True</td>	<td >&nbsp;</td>	<td >Set curses keymap option</td></tr>
 <tr><td >dsTrace</td>	<td >False</td>	<td >-trace</td>	<td >Data stream tracing</td></tr>
 <tr><td >eof</td>	<td >^D</td>	<td >&nbsp;</td>	<td ><font size=-1>NVT</font>-mode <font size=-1>EOF</font> character</td></tr>
 <tr><td >erase</td>	<td >^H</td>	<td >&nbsp;</td>	<td ><font size=-1>NVT</font>-mode erase character</td></tr>
@@ -836,12 +866,12 @@ Derivative works based on this software must incorporate this copyright
 notice.</blockquote>
 5250 Emulation Code Copyright &copy; Minolta (Schweiz) AG, Beat Rubischon.
 <a NAME="Version"></a><h2>Version</h2>
-c3270 3.2.18
+c3270 3.2.19beta
 <hr>
 <address>
 This HTML document and the accompanying troff document were generated with
 a set of write-only <b>m4</b> macros and the powerful <b>vi</b> editor.
-<br>Last modified 31 December 2001.
+<br>Last modified 20 April 2002.
 </address>
 </body>
 </html>

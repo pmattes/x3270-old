@@ -11,6 +11,50 @@
 <h1>
 s3270 Version 3.2 -- New Features and Bug Fixes</h1>
 s3270 is all-new code, based on the scripting functions of x3270 3.2.
+<h2>Changes in s3270 3.2.19, 1. May 2002</h2>
+<ul>
+ <li>Bug Fixes:
+  <ul>
+   <li>Corrected the behavior of the <b>Delete</b> action on an unformatted 
+    screen.</li>
+   <li>Improved the performance of CUT-mode file transfers.</li>
+   <li>Send script errors back to the script, rather than displaying it on
+    s3270's stderr.</li>
+   <li>Corrected the <b>Transfer</b> action.  Numeric arguments always failed,
+    and the <b>crlf</b> option was being passed to the host even for binary
+    transfers.</li>
+   <li>Made the interpretation of model numbers and the 3270 Extendended Data
+    Stream consistent with <b>x3270</b>, e.g. <b>-model 3270-2</b> means
+    no Extended Data Stream, while <b>-model 3278-2-E</b> causes the Extended
+    Data Stream to be enabled.</li>
+   <li>Corrected the display of TN3270E mode names in data stream traces.<li>
+   <li>Removed use of the <i>memccpy</i>() library function, which is
+    apparently broken on some platforms and causes malformed Query Reply
+    messages to be generated.</li>
+   <li>Fixed an infinite loop in the <b>SysReq</b> action in TN3270E mode.</li>
+  </ul>
+ </li>
+ <li>Enhancements:
+  <ul>
+   <li>Added support for the <b>-script</b> option -- a no-op, but it makes
+    converting between x3270 and s3270 scripts easier.</li>
+   <li>Removed the association between the <b>-E</b> suffix on the model number
+    and the <b>-E</b> transmitted with the terminal name on the telnet session.
+    A <b>-e</b> will now be silently ignored in the model number value; the
+    <b>-E></b> transmitted with the telnet terminal type string (indicating
+    support for the 3270 Extended Data Stream) is now controlled by the
+    <b>s3270.extended</b> resource (which defaults to <b>true</b>), or by the
+    presence of an <b>s:</b> prefix on the hostname, which turns off the
+    <b>-E</b> when connecting to that host.</li>
+   <li>Allow CR/LF translation on binary transfers.</li>
+   <li>Allow ASCII files that already contain CR/LF sequences to be transferred
+    to the host.</li>
+   <li>Added simulation of /dev/fd/ for trace files.</li>
+   <li>Updated to autoconf 2.53.</li>
+   <li>Added a <b>Toggle</b> action.</li>
+  </ul>
+ </li>
+</ul>
 <h2>Changes in s3270 3.2.18, 31. December 2001</h2>
 <ul>
  <li>Bug Fixes:

@@ -33,6 +33,9 @@
 #undef HAVE_VASPRINTF
 #undef HAVE_FSEEKO
 
+/* Functions we may need to supply. */
+#undef NEED_STRTOK_R
+
 /* Optional parts. */
 #undef X3270_ANSI
 #undef X3270_APL

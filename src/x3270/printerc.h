@@ -12,6 +12,7 @@
  *		Printer session support
  */             
 
+extern void printer_init(void);
 extern void printer_lu_dialog(void);
 extern void printer_start(const char *lu);
 extern void printer_stop(void);

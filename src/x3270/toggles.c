@@ -1,5 +1,6 @@
 /*
- * Modifications Copyright 1993, 1994, 1995, 1996, 1999, 2000 by Paul Mattes.
+ * Modifications Copyright 1993, 1994, 1995, 1996, 1999, 2000, 2002 by
+ *  Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -22,8 +23,10 @@
 #include "appres.h"
 
 #include "ansic.h"
+#include "actionsc.h"
 #include "ctlrc.h"
 #include "menubarc.h"
+#include "popupsc.h"
 #include "screenc.h"
 #include "trace_dsc.h"
 #include "togglesc.h"
@@ -32,8 +35,8 @@
 /*
  * Generic toggle stuff
  */
-void
-do_toggle(int ix)
+static void
+do_toggle_reason(int ix, enum toggle_type reason)
 {
 	struct toggle *t = &appres.toggle[ix];
 
@@ -42,10 +45,16 @@ do_toggle(int ix)
 	 * menu label(s).
 	 */
 	toggle_toggle(t);
-	t->upcall(t, TT_TOGGLE);
+	t->upcall(t, reason);
 #if defined(X3270_MENUS) /*[*/
 	menubar_retoggle(t);
 #endif /*]*/
+}
+
+void
+do_toggle(int ix)
+{
+	do_toggle_reason(ix, TT_INTERACTIVE);
 }
 
 /*
@@ -65,6 +74,7 @@ initialize_toggles(void)
 	appres.toggle[MARGINED_PASTE].upcall =   toggle_nop;
 	appres.toggle[RECTANGLE_SELECT].upcall = toggle_nop;
 	appres.toggle[SCROLL_BAR].upcall =       toggle_scrollBar;
+	appres.toggle[CROSSHAIR].upcall =        toggle_crosshair;
 #endif /*]*/
 #if defined(X3270_TRACE) /*[*/
 	appres.toggle[DS_TRACE].upcall =         toggle_dsTrace;
@@ -112,4 +122,40 @@ shutdown_toggles(void)
 		toggle_screenTrace(&appres.toggle[SCREEN_TRACE], TT_FINAL);
 	}
 #endif /*]*/
+}
+
+void
+Toggle_action(Widget w unused, XEvent *event, String *params,
+    Cardinal *num_params)
+{
+	int j;
+
+	action_debug(Toggle_action, event, params, num_params);
+	if (check_usage(Toggle_action, *num_params, 1, 2) < 0)
+		return;
+	for (j = 0; j < N_TOGGLES; j++)
+		if (toggle_names[j].index >= 0 &&
+		    !strcasecmp(params[0], toggle_names[j].name)) {
+			break;
+		}
+	if (j >= N_TOGGLES) {
+		popup_an_error("%s: Unknown toggle name '%s'",
+		    action_name(Toggle_action), params[0]);
+		return;
+	}
+
+	if (*num_params == 1) {
+		do_toggle_reason(j, TT_ACTION);
+	} else if (!strcasecmp(params[1], "set")) {
+		if (!toggled(j)) {
+			do_toggle_reason(j, TT_ACTION);
+		}
+	} else if (!strcasecmp(params[1], "clear")) {
+		if (toggled(j)) {
+			do_toggle_reason(j, TT_ACTION);
+		}
+	} else {
+		popup_an_error("%s: Unknown keyword '%s' (must be 'set' or "
+		    "'clear')", action_name(Toggle_action), params[1]);
+	}
 }

@@ -1,5 +1,6 @@
 /*
- * Modifications Copyright 1993, 1994, 1995, 1999, 2000, 2001 by Paul Mattes.
+ * Modifications Copyright 1993, 1994, 1995, 1999, 2000, 2001, 2002 by
+ *  Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -29,6 +30,7 @@
 #include "popupsc.h"
 #include "printc.h"
 #include "selectc.h"
+#include "togglesc.h"
 #include "trace_dsc.h"
 #include "utilc.h"
 #include "xioc.h"
@@ -58,11 +60,11 @@ static struct {
 	{ { "Shift" }, ShiftMask, False },
 	{ { (char *)NULL } /* Lock */, LockMask, False },
 	{ { "Ctrl" }, ControlMask, False },
-	{ { (char *)NULL }, Mod1Mask, False },
-	{ { (char *)NULL }, Mod2Mask, False },
-	{ { (char *)NULL }, Mod3Mask, False },
-	{ { (char *)NULL }, Mod4Mask, False },
-	{ { (char *)NULL }, Mod5Mask, False },
+	{ { CN }, Mod1Mask, False },
+	{ { CN }, Mod2Mask, False },
+	{ { CN }, Mod3Mask, False },
+	{ { CN }, Mod4Mask, False },
+	{ { CN }, Mod5Mask, False },
 	{ { "Button1" }, Button1Mask, False },
 	{ { "Button2" }, Button2Mask, False },
 	{ { "Button3" }, Button3Mask, False },
@@ -232,6 +234,7 @@ XtActionsRec actions[] = {
 	{ "String",		String_action },
 	{ "SysReq",		SysReq_action },
 	{ "Tab",		Tab_action },
+	{ "Toggle",		Toggle_action },
 	{ "ToggleInsert",	ToggleInsert_action },
 	{ "ToggleReverse",	ToggleReverse_action },
 #if defined(C3270) && defined(X3270_TRACE) /*[*/
@@ -283,6 +286,11 @@ learn_modifiers(void)
 {
 	XModifierKeymap *mm;
 	int i, j, k;
+	static char *default_modname[] = {
+	    CN, CN, "Ctrl",
+	    "Mod1", "Mod2", "Mod3", "Mod4", "Mod5",
+	    "Button1", "Button2", "Button3", "Button4", "Button5"
+	};
 
 	mm = XGetModifierMapping(display);
 
@@ -333,6 +341,11 @@ learn_modifiers(void)
 			skeymask[i].name[k] = name;
 		}
 	}
+	for (i = 0; i < MODMAP_SIZE; i++) {
+		if (skeymask[i].name[0] == CN) {
+			skeymask[i].name[0] = default_modname[i];
+		}
+	}
 }
 
 #if defined(X3270_TRACE) /*[*/
@@ -380,8 +393,10 @@ key_symbolic_state(unsigned int state, int *iteration)
 		(void) strcat(rs, skeymask[ix_ix[i]].name[ix[ix_ix[i]]]);
 		comma = " ";
 	}
+#if defined(VERBOSE_EVENTS) /*[*/
 	if (leftover)
 		(void) sprintf(strchr(rs, '\0'), "%s?%d", comma, state);
+#endif /*]*/
 
 	/*
 	 * Iterate to the next.

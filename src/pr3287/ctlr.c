@@ -34,6 +34,9 @@
 extern char *command;
 extern int blanklines;	/* display blank lines even if empty (formatted LU3) */
 extern int ignoreeoj;	/* ignore PRINT-EOJ commands */
+extern int crlf;	/* expand newline to CR/LF */
+extern int ffthru;	/* pass through SCS FF orders */
+extern int ffskip;	/* skip SCS FF orders at top of page */
 
 #define CS_GE 0x04	/* hack */
 
@@ -78,9 +81,14 @@ static void stash(unsigned char c);
 #define MAX_MPL	108
 
 static char linebuf[MAX_MPP+1];
+static struct {
+    unsigned malloc_len;
+    unsigned data_len;
+    char *buf;
+} trnbuf[MAX_MPP+1];
 static char htabs[MAX_MPP+1];
 static char vtabs[MAX_MPL+1];
-static int lm, tm, bm, mpp, mpl;
+static int lm, tm, bm, mpp, mpl, scs_any;
 static int pp;
 static int line;
 static Boolean scs_initted = False;
@@ -177,6 +185,7 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 	unsigned char	efa_fg;
 	unsigned char	efa_gr;
 	unsigned char	efa_cs;
+	unsigned char	ra_xlate = 0;
 	const char	*paren = "(";
 	int		xbaddr;
 	enum { NONE, ORDER, SBA, TEXT, NULLCH } previous = NONE;
@@ -314,18 +323,30 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 				cp++;
 			} else
 				ra_ge = False;
+			trace_ds("'%s'", see_ebc(*cp));
 			previous = ORDER;
-			if (*cp)
-				trace_ds("'");
-			trace_ds(see_ebc(*cp));
-			if (*cp)
-				trace_ds("'");
 			if (xbaddr > MAX_BUF || xbaddr < baddr) {
 				baddr = 0;
 				return;
 			}
+			/* Translate '*cp' once. */
+			switch (*cp) {
+			case FCORDER_FF:
+			case FCORDER_CR:
+			case FCORDER_NL:
+			case FCORDER_EM:
+				ra_xlate = *cp;
+				break;
+			default:
+				if (*cp <= 0x3F) {
+					ra_xlate = '\0';
+				} else {
+					ra_xlate = ebc2asc[*cp];
+				}
+				break;
+			}
 			while (baddr < xbaddr) {
-				ctlr_add(ebc2asc[*cp], ra_ge? CS_GE: default_cs,
+				ctlr_add(ra_xlate, ra_ge? CS_GE: default_cs,
 				    default_gr);
 			}
 			last_cmd = True;
@@ -558,6 +579,7 @@ init_scs(void)
 	init_scs_vert();
 	pp = 1;
 	line = 1;
+	scs_any = 0;
 	(void) memset(linebuf, ' ', MAX_MPP+1);
 	scs_initted = True;
 }
@@ -578,13 +600,14 @@ init_scs(void)
  * margin.
  */
 static void
-dump_scs_line(Boolean reset_pp)
+dump_scs_line(Boolean reset_pp, Boolean always_nl)
 {
 	int i;
+	Boolean any_data = False;
 
 	/* Find the last non-space character in the line buffer. */
 	for (i = mpp; i >= 1; i--) {
-		if (linebuf[i] != ' ')
+		if (trnbuf[i].data_len != 0 || linebuf[i] != ' ')
 			break;
 	}
 
@@ -595,14 +618,44 @@ dump_scs_line(Boolean reset_pp)
 	 */
 	if (i >= 1) {
 		int j;
+		int n_data = 0;
+		int n_trn = 0;
 
 		for (j = 1; j <= i; j++) {
-			stash(linebuf[j]);
+			/*
+			 * Dump and transparent data that precedes this
+			 * character.
+			 */
+			if (trnbuf[j].data_len) {
+				int k;
+
+				n_trn += trnbuf[j].data_len;
+				for (k = 0; k < trnbuf[j].data_len; k++) {
+					stash(trnbuf[j].buf[k]);
+				}
+				trnbuf[j].data_len = 0;
+			}
+			if (j < i || linebuf[j] != ' ') {
+				n_data++;
+				any_data = True;
+				scs_any = True;
+				stash(linebuf[j]);
+			}
 		}
+#if defined(DEBUG_FF) /*[*/
+		trace_ds(" [dumping %d+%dt]", n_data, n_trn);
+#endif /*]*/
 		(void) memset(linebuf, ' ', MAX_MPP+1);
 	}
-	stash('\n');
-	line++;
+	if (any_data || always_nl) {
+		if (crlf)
+			stash('\r');
+		stash('\n');
+		line++;
+	}
+#if defined(DEBUG_FF) /*[*/
+	trace_ds(" [line=%d]", line);
+#endif /*]*/
 	if (reset_pp)
 		pp = lm;
 	any_scs_output = False;
@@ -610,20 +663,55 @@ dump_scs_line(Boolean reset_pp)
 
 /* SCS formfeed. */
 static void
-scs_formfeed(void)
+scs_formfeed(Boolean explicit)
 {
+	int nls = 0;
+
+	/*
+	 * In ffskip mode, if it's an explicit formfeed, and we haven't
+	 * printed any non-transparent data, do nothing.
+	 */
+	if (ffskip && explicit && !scs_any)
+		return;
+
+	/*
+	 * In ffthru mode, pass through a \f, but only if it's explicit.
+	 */
+	if (ffthru) {
+		if (explicit) {
+			stash('\f');
+			scs_any = 0;
+		}
+		line = 1;
+		return;
+	}
+
+	if (explicit)
+		scs_any = 0;
+
 	/* Skip to the end of the physical page. */
 	while (line < mpl) {
+		if (crlf)
+			stash('\r');
 		stash('\n');
+		nls++;
 		line++;
 	}
 	line = 1;
 
 	/* Skip the top margin. */
 	while (line < tm) {
+		if (crlf)
+			stash('\r');
 		stash('\n');
+		nls++;
 		line++;
 	}
+#if defined(DEBUG_FF) /*[*/
+	if (nls)
+		trace_ds(" [formfeed %s %d]", explicit? "explicit": "implicit",
+			nls);
+#endif /*]*/
 }
 
 /*
@@ -641,14 +729,14 @@ add_scs(char c)
 	 * MPL, and then past the top margin.
 	 */
 	if (line > bm)
-		scs_formfeed();
+		scs_formfeed(False);
 
 	/*
 	 * If this character would overflow the line, then dump the current
 	 * line and start over at the left margin.
 	 */
 	if (pp > mpp)
-		dump_scs_line(True);
+		dump_scs_line(True, True);
 
 	/*
 	 * Store this character in the line buffer and advance the print
@@ -656,6 +744,29 @@ add_scs(char c)
 	 */
 	linebuf[pp++] = c;
 	any_scs_output = True;
+}
+
+/*
+ * Add a string of transparent data to the SCS virtual 3287.
+ * Transparent data lives between the 'counted' 3287 characters.  Really.
+ */
+static void
+add_scs_trn(unsigned char *cp, int cnt)
+{
+	int i;
+	int new_malloc_len;
+
+	for (i = 0; i < cnt; i++) {
+	    trace_ds(" %02x", cp[i]);
+	}
+
+	new_malloc_len = trnbuf[pp].data_len + cnt;
+	if (trnbuf[pp].malloc_len < new_malloc_len) {
+		trnbuf[pp].buf = Realloc(trnbuf[pp].buf, new_malloc_len);
+		trnbuf[pp].malloc_len = new_malloc_len;
+	}
+	(void) memcpy(trnbuf[pp].buf + trnbuf[pp].data_len, cp, cnt);
+	trnbuf[pp].data_len += cnt;
 }
 
 /* Process a bufferful of SCS data. */
@@ -696,12 +807,12 @@ process_scs(unsigned char *buf, int buflen)
 		case SCS_FF:	/* form feed */
 			END_TEXT("FF");
 			/* Dump any pending data, and go to the next line. */
-			dump_scs_line(True);
+			dump_scs_line(True, False);
 			/*
 			 * If there is a max page length, skip to the next
 			 * page.
 			 */
-			scs_formfeed();
+			scs_formfeed(True);
 			break;
 		case SCS_HT:	/* horizontal tab */
 			END_TEXT("HT");
@@ -723,7 +834,7 @@ process_scs(unsigned char *buf, int buflen)
 		case SCS_NL:	/* new line */
 			if (*cp == SCS_NL)
 				END_TEXT("NL");
-			dump_scs_line(True);
+			dump_scs_line(True, True);
 			break;
 		case SCS_VT:	/* vertical tab */
 			END_TEXT("VT");
@@ -732,8 +843,10 @@ process_scs(unsigned char *buf, int buflen)
 					break;
 			}
 			if (i <= MAX_MPL) {
-				dump_scs_line(False);
+				dump_scs_line(False, True);
 				while (line < i) {
+					if (crlf)
+						stash('\r');
 					stash('\n');
 					line++;
 				}
@@ -747,7 +860,7 @@ process_scs(unsigned char *buf, int buflen)
 		case SCS_LF:	/* line feed */
 			if (*cp == SCS_LF)
 				END_TEXT("LF");
-			dump_scs_line(False);
+			dump_scs_line(False, True);
 			break;
 		case SCS_GE:	/* graphic escape */
 			END_TEXT("GE");
@@ -779,12 +892,8 @@ process_scs(unsigned char *buf, int buflen)
 			cnt = *cp;
 			trace_ds("(%d)", cnt);
 			/* Copy out the data literally. */
-			while (cnt && cp < buf + buflen) {
-				cp++;
-				trace_ds(" %02x", *cp);
-				add_scs(*cp);
-				cnt--;
-			}
+			add_scs_trn(cp+1, cnt);
+			cp += cnt;
 			break;
 		case SCS_SET:	/* set... */
 			/* Skip over the first byte of the order. */
@@ -865,16 +974,10 @@ process_scs(unsigned char *buf, int buflen)
 						break;
 					cnt = *cp;
 					trace_ds("(%d)", cnt);
-					if (cnt < 1 || cnt > 2)
+					if (cnt != 2)
 						break; /* be gentle */
-					/*
-					 * Skip over the length byte and data.
-					 */
-					if (cnt == 1)
-						trace_ds(" %02x", *(cp + 1));
-					else
-						trace_ds(" %02x%02x",
-						    *(cp + 2));
+					cnt--;
+					trace_ds(" %02x", *(cp + 1));
 					cp += cnt;
 					break;
 				case SCS_SVF:	/* set vertical format */
@@ -906,6 +1009,10 @@ process_scs(unsigned char *buf, int buflen)
 					trace_ds(" mpl=%d", mpl);
 					if (!mpl || mpl > MAX_MPL)
 						mpl = 1;
+					if (cnt < 2) {
+						bm = mpl;
+						break;
+					}
 					/* Skip over the MPL. */
 					cp++;
 					cnt--;
@@ -916,6 +1023,8 @@ process_scs(unsigned char *buf, int buflen)
 					trace_ds(" tm=%d", tm);
 					if (tm < 1 || tm >= mpl)
 						tm = 1;
+					if (cnt < 2)
+						break;
 					/* Skip over the TM. */
 					cp++;
 					cnt--;
@@ -926,11 +1035,13 @@ process_scs(unsigned char *buf, int buflen)
 					trace_ds(" bm=%d", bm);
 					if (bm < tm || bm >= mpl)
 						bm = mpl;
+					if (cnt < 2)
+						break;
 					/* Skip over the BM. */
 					cp++;
 					cnt--;
 					/* Next are the tab stops. */
-					while (cnt && cp < buf + buflen) {
+					while (cnt > 1 && cp < buf + buflen) {
 						tab = *cp;
 						trace_ds(" tab=%d", tab);
 						if (tab >= 1 && tab <= mpp)
@@ -1185,6 +1296,8 @@ dump_formatted(void)
 				break;
 			case '\f':
 				while (newlines) {
+					if (crlf)
+						stash('\r');
 					stash('\n');
 					newlines--;
 				}
@@ -1200,6 +1313,8 @@ dump_formatted(void)
 				break;
 			default:
 				while (newlines) {
+					if (crlf)
+						stash('\r');
 					stash('\n');
 					newlines--;
 				}
@@ -1231,7 +1346,7 @@ print_eoj(void)
 
 	/* Dump any pending SCS-mode output. */
 	if (any_scs_output)
-		dump_scs_line(True);
+		dump_scs_line(True, False);
 
 	/* Close the stream to the print process. */
 	if (prfile != NULL) {
@@ -1265,7 +1380,7 @@ ctlr_erase(void)
 
 	/* Dump any pending SCS-mode output. */
 	if (any_scs_output)
-		dump_scs_line(True); /* XXX: True? */
+		dump_scs_line(True, False); /* XXX: 1st True? */
 
 	/* Make sure the buffer is clean. */
 	(void) memset(page_buf, '\0', MAX_BUF);

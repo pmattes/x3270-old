@@ -413,11 +413,11 @@ ctlr_erase(Boolean alt)
 	if (alt == screen_alt)
 		return;
 
-	screen_disp();
+	screen_disp(True);
 
 	if (alt) {
 		/* Going from 24x80 to maximum. */
-		screen_disp();
+		screen_disp(False);
 		ROWS = maxROWS;
 		COLS = maxCOLS;
 	} else {
@@ -425,7 +425,7 @@ ctlr_erase(Boolean alt)
 		if (maxROWS > 24 || maxCOLS > 80) {
 			if (*debugging_font) {
 				ctlr_blanks();
-				screen_disp();
+				screen_disp(False);
 			}
 			ROWS = 24;
 			COLS = 80;
@@ -1861,7 +1861,7 @@ ctlr_scroll(void)
 	/* Synchronize pending changes prior to this. */
 	obscured = screen_obscured();
 	if (!obscured && screen_changed)
-		screen_disp();
+		screen_disp(False);
 
 	/* Move screen_buf and ea_buf. */
 	(void) memmove(&screen_buf[0], &screen_buf[COLS], qty);
@@ -1958,7 +1958,7 @@ ctlr_shrink(void)
 	    *debugging_font ? CG_space : CG_null,
 	    ROWS*COLS);
 	ALL_CHANGED;
-	screen_disp();
+	screen_disp(False);
 }
 
 

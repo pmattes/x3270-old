@@ -52,7 +52,7 @@ extern void Redraw_action(Widget w, XEvent *event, String *params,
 extern void ring_bell(void);
 extern void save_00translations(Widget w, XtTranslations *t00);
 extern void screen_change_model(int mn, int ovc, int ovr);
-extern void screen_disp(void);
+extern void screen_disp(Boolean erasing);
 extern void screen_extended(Boolean extended);
 extern void screen_flip(void);
 extern GC screen_gc(int color);
@@ -76,6 +76,7 @@ extern void set_aicon_label(char *l);
 extern void set_translations(Widget w, XtTranslations *t00, XtTranslations *t0);
 extern void shift_event(int event_state);
 extern void toggle_altCursor(struct toggle *t, enum toggle_type tt);
+extern void toggle_crosshair(struct toggle *t, enum toggle_type tt);
 extern void toggle_cursorBlink(struct toggle *t, enum toggle_type tt);
 extern void toggle_cursorPos(struct toggle *t, enum toggle_type tt);
 extern void toggle_monocase(struct toggle *t, enum toggle_type tt);

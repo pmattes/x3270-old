@@ -1,5 +1,5 @@
 '\" t
-.TH PR3287 1 "31 December 2001"
+.TH PR3287 1 "20 April 2002"
 .SH "NAME"
 pr3287 \-
 \s-1IBM\s+1
@@ -81,6 +81,10 @@ Specifies the command to run for each print job.
 The default is
 \fBlpr\fP.
 .TP
+\fB\-crlf\fP
+Causes newline characters in the output to be expanded to
+carriage-return/linefeed sequences.
+.TP
 \fB\-daemon\fP
 Causes
 \fIpr3287\fP
@@ -89,6 +93,15 @@ to become a daemon (background) process.
 \fB\-ignoreeoj\fP
 Ignore TN3270E PRINT-EOJ commands, relying on UNBIND commands to indicate
 the ends of print jobs.
+.TP
+\fB\-ffskip\fP
+In SCS mode, causes \fIpr3287\fP to ignore a FF (formfeed) order if it occurs
+at the top of a page.
+.TP
+\fB\-ffthru\fP
+In SCS mode, causes \fIpr3287\fP to pass FF (formfeed) orders through to the
+printer as ASCII formfeed characters, rather than simulating them based on the
+values of the MPL (maximum presentation line) and TM (top margin) parameters.
 .TP
 \fB\-reconnect\fP
 Causes \fIpr3287\fP to reconnect to the host, whenever the connection is
@@ -106,6 +119,8 @@ x3270(1), telnet(1), tn3270(1)
 Data Stream Programmer's Reference, IBM GA23\-0059
 .br
 Character Set Reference, IBM GA27\-3831
+.br
+3174 Establishment Controller Functional Description, IBM GA23\-0218
 .br
 RFC 1576, TN3270 Current Practices
 .br
@@ -131,4 +146,4 @@ Derivative works based on this software must incorporate this copyright
 notice.
 .RE
 .SH "VERSION"
-pr3287 3.2.18
+pr3287 3.2.19beta

@@ -27,6 +27,7 @@ enum ft_state {
 	FT_ABORT_WAIT,	/* Awaiting chance to send an abort */
 	FT_ABORT_SENT	/* Abort sent; awaiting response */
 	};
+extern Boolean ft_last_cr;
 extern enum ft_state ft_state;
 extern Boolean remap_flag;
 

@@ -1,5 +1,5 @@
 '\" t
-.TH x3270 1 "31 December 2001"
+.TH x3270 1 "20 April 2002"
 .SH "NAME"
 x3270 \-
 \s-1IBM\s+1 host access tool
@@ -103,7 +103,7 @@ Turns on the keypad as soon as \fBx3270\fP starts.
 .TP
 \fB\-model\fP \fIname\fP
 The model of 3270 display to be emulated.
-The model name is in three parts, any of which may be omitted:
+The model name is in two parts, either of which may be omitted:
 .IP
 The first part is the
 \fBbase model\fP,
@@ -192,19 +192,12 @@ T}
 Note: Technically, there is no such 3270 display as a 3279-4 or 3279-5, but
 most hosts seem to work with them anyway.
 .IP
-The third part specifies the Extended 3270 Data Stream, and is given as
-\fB\-E\fP.
-It signals the host that the 3270 display is capable of displaying
-extended field attributes, and supports structured fields and query replies.
-A 3279 always uses the Extended Data Stream (whether or not \fB\-E\fP
-is specified); for a 3278 it is optional.
-.IP
 The default model
 for a color X display
-is \fB3279\-4\-E\fP.
+is \fB3279\-4\fP.
 For a monochrome X display, it is
-\fB3278\-4\-E\fP.
-(The behavior of previous versions of \fBx3270\fP on color X displays
+\fB3278\-4\fP.
+(The behavior of early versions of \fBx3270\fP on color X displays
 can be specified as \fB3278\-4)\fP.
 .TP
 \fB\-mono\fP
@@ -217,10 +210,8 @@ This option has effect only if a hostname is specified on the command line.
 \fB\-oversize\fP \fIcols\fP\fBx\fP\fIrows\fP
 Makes the screen larger than the default for the chosen model number.
 This option has effect only in combination with extended data stream support
-(the
-\fB\-E\fP
-suffix on the model), and only if the host supports the Query Reply structured
-field.
+(controlled by the "x3270.extended" resource), and only if the host
+supports the Query Reply structured field.
 The number of columns multiplied by the number of rows must not exceed
 16383 (3fff hex), the limit of 14-bit 3270 buffer addressing.
 .TP
@@ -230,6 +221,14 @@ Specifies a different \s-1TCP\s+1 port to connect to.
 number.
 This option changes the default port number used for all connections.
 (The positional parameter affects only the initial connection.)
+.TP
+\fB\-printerlu \fIluname\fP\fP
+Causes \fBx3270\fP to automatically start a \fIpr3287\fP printer
+session.
+If \fIluname\fP is ".", then the printer session will be associated with the
+interactive terminal session (this requires that the host support TN3270E).
+Otherwise, the value is used as the explicit LU name to associate with the
+printer session.
 .TP
 \fB\-reconnect\fP
 Causes \fBx3270\fP
@@ -267,7 +266,7 @@ below.
 \fB\-tn\fP \fIname\fP
 Specifies the terminal name to be transmitted over the telnet connection.
 The default name is
-\fBIBM\-\fP\fImodel_name\fP,
+\fBIBM\-\fP\fImodel_name\fP\fB\-E\fP,
 for example,
 \fBIBM\-3279\-4\-E\fP
 for a color X display, or
@@ -277,7 +276,8 @@ for a monochrome X display.
 Some hosts are confused by the \fB\-E\fP
 suffix on the terminal name, and will ignore the extra screen area on
 models 3, 4 and 5.
-Prepending an \fB:s\fP on the hostname removes the \fB\-E\fP
+Prepending an \fB:s\fP on the hostname, or setting the "x3270.extended"
+resource to "false", removes the \fB\-E\fP
 from the terminal name when connecting to such hosts.
 .IP
 The name can also be specified with the "x3270.termName" resource.
@@ -1038,6 +1038,11 @@ If set, \fBx3270\fP will always select rectangular areas of the screen.
 Otherwise, \fBx3270\fP
 selects by rectangles when in 3270 mode, but in \s-1ANSI\s+1 mode it selects
 continuous regions of the screen like \fIxterm\fP(1).
+.TP
+\fBCrosshair Cursor\fP
+If set, \fBx3270\fP will display a crosshair over the cursor: lines extending
+the full width and height of the screen, centered over the cursor position.
+This makes locating the cursor on the screen much easier.
 .LP
 The names of the toggles for use with the \fB\-set\fP
 and \fB\-clear\fP
@@ -1164,6 +1169,15 @@ T}	T{
 .nh
 rectangleSelect
 T}
+T{
+.na
+.nh
+Crosshair Cursor
+T}	T{
+.na
+.nh
+crosshair
+T}
 .TE
 .LP
 In addition, the toggle \fBaltCursor\fP can be used to select the cursor type.
@@ -1171,14 +1185,17 @@ If set, an underline cursor will be used.
 If clear, the normal block cursor will be used.
 .LP
 These names also represent resources that can be set in your .Xdefaults
-file.
+or .x3270pro file.
 For example, if you always want to have the scrollbar on, you can add
-the following to your .Xdefaults:
+the following to your .Xdefaults or .x3270pro:
 .br
 .RS
 x3270.scrollBar:	true
 .RE
 .br
+.LP
+These names are also used as the first parameter to the \fBToggle\fP
+action.
 .SH "STATUS LINE"
 The \fBx3270\fP status line contains a variety of information.
 From left to right, the fields are:
@@ -1215,6 +1232,15 @@ The letter "R" indicates that the keyboard is in reverse field entry mode.
 \fBinsert mode\fP
 A thick caret "^" or the 
 letter "I" indicates that the keyboard is in insert mode.
+.TP
+\fBprinter session\fP
+The letter "P" indicates that a \fIpr3287\fP session is active.
+.TP
+\fBscript\fP
+The letter "S" indicates that a script is active.
+.TP
+\fBLU name\fP
+The LU name associated with the session, if there is one.
 .TP
 \fBtiming\fP
 A clock symbol and a time in seconds indicate the time it took to process
@@ -2102,6 +2128,9 @@ Other actions are defined for use by scripts and are documented in
 still others are defined for internal use by \fBx3270\fP
 and are not documented here.
 .PP
+Actions marked with an asterisk (*) may block, sending data to the host and
+possibly waiting for a response.
+.PP
 .TS
 center; lw(3i) lw(3i).
 T{
@@ -2109,7 +2138,7 @@ T{
 .nh
 .in +2
 .ti -2
-Attn
+*Attn
 T}	T{
 .na
 .nh
@@ -2164,7 +2193,7 @@ T{
 .nh
 .in +2
 .ti -2
-Clear
+*Clear
 T}	T{
 .na
 .nh
@@ -2186,7 +2215,7 @@ T{
 .nh
 .in +2
 .ti -2
-Connect(l3h_t \fIh\fP, \fIhost\fP)
+*Connect(\fIhost\fP)
 T}	T{
 .na
 .nh
@@ -2197,7 +2226,7 @@ T{
 .nh
 .in +2
 .ti -2
-CursorSelect
+*CursorSelect
 T}	T{
 .na
 .nh
@@ -2263,7 +2292,7 @@ T{
 .nh
 .in +2
 .ti -2
-Disconnect
+*Disconnect
 T}	T{
 .na
 .nh
@@ -2296,7 +2325,7 @@ T{
 .nh
 .in +2
 .ti -2
-Enter
+*Enter
 T}	T{
 .na
 .nh
@@ -2395,7 +2424,7 @@ T{
 .nh
 .in +2
 .ti -2
-HexString(l3h_t \fIh\fP, \fIhex_digits\fP)
+HexString(\fIhex_digits\fP)
 T}	T{
 .na
 .nh
@@ -2428,7 +2457,7 @@ T{
 .nh
 .in +2
 .ti -2
-Interrupt
+*Interrupt
 T}	T{
 .na
 .nh
@@ -2439,7 +2468,7 @@ T{
 .nh
 .in +2
 .ti -2
-Key(l3h_t \fIh\fP, \fIkeysym\fP)
+Key(\fIkeysym\fP)
 T}	T{
 .na
 .nh
@@ -2450,7 +2479,7 @@ T{
 .nh
 .in +2
 .ti -2
-Key(l3h_t \fIh\fP, 0x\fIxx\fP)
+Key(0x\fIxx\fP)
 T}	T{
 .na
 .nh
@@ -2505,7 +2534,7 @@ T{
 .nh
 .in +2
 .ti -2
-Macro(\fImacro\fP)
+*Macro(\fImacro\fP)
 T}	T{
 .na
 .nh
@@ -2538,7 +2567,7 @@ T{
 .nh
 .in +2
 .ti -2
-MoveCursor(l3h_t \fIh\fP, \fIrow\fP, \fIcol\fP)
+MoveCursor(\fIrow\fP, \fIcol\fP)
 T}	T{
 .na
 .nh
@@ -2549,7 +2578,7 @@ T{
 .nh
 .in +2
 .ti -2
-MoveCursorSelect
+*MoveCursorSelect
 T}	T{
 .na
 .nh
@@ -2582,7 +2611,7 @@ T{
 .nh
 .in +2
 .ti -2
-PA(l3h_t \fIh\fP, \fIn\fP)
+*PA(\fIn\fP)
 T}	T{
 .na
 .nh
@@ -2593,7 +2622,7 @@ T{
 .nh
 .in +2
 .ti -2
-PF(l3h_t \fIh\fP, \fIn\fP)
+*PF(\fIn\fP)
 T}	T{
 .na
 .nh
@@ -2659,7 +2688,7 @@ T{
 .nh
 .in +2
 .ti -2
-Reconnect
+*Reconnect
 T}	T{
 .na
 .nh
@@ -2725,7 +2754,7 @@ T{
 .nh
 .in +2
 .ti -2
-Script(\fIcommand\fP[,\fIarg\fP...])
+*Script(\fIcommand\fP[,\fIarg\fP...])
 T}	T{
 .na
 .nh
@@ -2736,7 +2765,7 @@ T{
 .nh
 .in +2
 .ti -2
-String(l3h_t \fIh\fP, \fIstring\fP)
+*String(\fIstring\fP)
 T}	T{
 .na
 .nh
@@ -2747,7 +2776,7 @@ T{
 .nh
 .in +2
 .ti -2
-SysReq
+*SysReq
 T}	T{
 .na
 .nh
@@ -2763,6 +2792,17 @@ T}	T{
 .na
 .nh
 move cursor to next input field
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+Toggle(\fIoption\fP[,\fIset|clear\fP])
+T}	T{
+.na
+.nh
+toggle an option
 T}
 T{
 .na
@@ -2791,7 +2831,7 @@ T{
 .nh
 .in +2
 .ti -2
-Transfer(l3h_t \fIh\fP, \fIoption\fP=\fIvalue\fP...)
+*Transfer(\fIoption\fP=\fIvalue\fP...)
 T}	T{
 .na
 .nh
@@ -5619,4 +5659,4 @@ notice.
 .RE
 5250 Emulation Code Copyright Minolta (Schweiz) AG, Beat Rubischon.
 .SH "VERSION"
-x3270 3.2.18
+x3270 3.2.19beta

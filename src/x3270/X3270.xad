@@ -160,6 +160,7 @@ x3270.charsetList:			U.S. English (CP 37): us-intl\n\
 !   Toggles, using the same names as the "-set" and "-clear" options
 ! x3270.altCursor:			false
 ! x3270.blankFill:			false
+! x3270.crosshair:			false
 ! x3270.cursorBlink:			false
 ! x3270.cursorPos:			true
 ! x3270.dsTrace:			false
@@ -342,7 +343,6 @@ x3270.keymap.base.3270: #override \
 	Meta<Key>p:			PrintText()\n\
 	Meta<Key>r:			Reset()\n\
 	Meta<Key>u:			Unselect()\n\
-	~Meta<Key>asciicircum:		Key(notsign)\n\
 	Ctrl<Key>u:			DeleteField()\n\
 	Ctrl<Key>w:			DeleteWord()\n
 !
@@ -730,6 +730,12 @@ x3270.keymap.hebrew: \
 	~Ctrl ~Alt ~Meta <Key>a:		Key(hebrew_shin)\n\
 	: ~Ctrl ~Alt ~Meta <Key>period:		Key(hebrew_taw)\n
 !
+! Keymap for the "not" key, assumed to be above the "6" key on U.S.
+! keyboards.  This used to be part of the 3270 base keymap, but does not
+! work properly on non-U.S. keyboards.
+x3270.keymap.not.3270: \
+	:<Key>asciicircum:		Key(notsign)
+!
 ! Special translations for use with IBM AS/400 systems
 ! Derived from work (C) Minolta (Schweiz) AG, Beat Rubischon <bru@minolta.ch>
 !
@@ -1008,6 +1014,7 @@ x3270*lineWrapOption.label:			Wraparound
 x3270*marginedPasteOption.label:		Paste with Left Margin
 x3270*rectangleSelectOption.label:		Select by Rectangles
 x3270*blankFillOption.label:			Blank Fill
+x3270*crosshairOption.label:			Crosshair Cursor
 x3270*underlineCursorOption.label:		Underline Cursor
 x3270*blockCursorOption.label:			Block Cursor
 x3270*otherFontOption.label:			Other...
@@ -1704,8 +1711,8 @@ x3270.codepage.us-intl:		37
 ! alias for 'us-intl' (backwards compatibility)
 x3270.charset.us:		\n
 x3270.codepage.us:		37
-! U.S. English with Euro symbol
-x3270.codepage.us-euro:		1140
+! U.S. English w/Euro (code page 1140)
+x3270.codepage.us-euro:		0x02b70474
 x3270.displayCharset.us-euro:	3270cg-15a,3270cg-15,iso8859-15
 !
 ! APL character set (same as us-intl, no remapping required)
@@ -1746,7 +1753,8 @@ x3270.charset.german: \
 	0xe0: Odiaeresis	\n	0xec: backslash		\n\
 	0xfc: ]			\n
 x3270.codepage.german:		273
-x3270.codepage.german-euro:	1141
+! German w/Euro (code page 1141)
+x3270.codepage.german-euro:	0x02b70475
 x3270.displayCharset.german-euro:	3270cg-15a,3270cg-15,iso8859-15
 ! Finnish (table 09)
 x3270.charset.finnish: \
@@ -1765,7 +1773,8 @@ x3270.charset.finnish: \
 	0xdc: ~			\n	0xe0: Eacute		\n\
 	0xec: @			\n
 x3270.codepage.finnish:		278
-x3270.codepage.finnish-euro:	1143
+! Finnish w/Euro (code page 1143)
+x3270.codepage.finnish-euro:	0x02b70477
 x3270.displayCharset.finnish-euro:	3270cg-15a,3270cg-15,iso8859-15
 ! U.K. (table 22)
 x3270.charset.uk: \
@@ -1774,7 +1783,8 @@ x3270.charset.uk: \
 	0xb1: [			\n	0xba: ^			\n\
 	0xbc: ~			\n
 x3270.codepage.uk:		285
-x3270.codepage.uk-euro:	1146
+! U.K w/Euro (code page 1146)
+x3270.codepage.uk-euro:	0x02b7047a
 x3270.displayCharset.uk-euro:	3270cg-15a,3270cg-15,iso8859-15
 ! Norwegian (table 23)
 x3270.charset.norwegian: \
@@ -1790,7 +1800,8 @@ x3270.charset.norwegian: \
 	0xbb: bar		\n	0xc0: ae		\n\
 	0xd0: aring		\n	0xdc: ~			\n
 x3270.codepage.norwegian:	277
-x3270.codepage.norwegian-euro:	1142
+! Norwegian w/Euro (code page 1142)
+x3270.codepage.norwegian-euro:	0x02b70476
 x3270.displayCharset.norwegian-euro:	3270cg-15a,3270cg-15,iso8859-15
 ! French (table 30)
 x3270.charset.french: \
@@ -1807,7 +1818,8 @@ x3270.charset.french: \
 	0xbd: ~			\n	0xc0: eacute		\n\
 	0xd0: egrave		\n	0xe0: ccedilla		\n
 x3270.codepage.french:		297
-x3270.codepage.french-euro:	1147
+! French w/Euro (code page 1147)
+x3270.codepage.french-euro:	0x02b7047b
 x3270.displayCharset.french-euro:	3270cg-15a,3270cg-15,iso8859-15
 ! Icelandic, courtesy of Rikhardur Egilsson
 x3270.charset.icelandic: \
@@ -1822,7 +1834,8 @@ x3270.charset.icelandic: \
 	0x7d: apostrophe	\n	0x8c: `			\n\
 	0x6a: |			\n
 x3270.codepage.icelandic:	871
-x3270.codepage.icelandic-euro:	1149
+! Icelandic w/Euro (code page 1149)
+x3270.codepage.icelandic-euro:	0x02b7047d
 x3270.displayCharset.icelandic-euro:	3270cg-15a,3270cg-15,iso8859-15
 ! Belgian, with the help of Peter Govaerts
 x3270.charset.belgian: \
@@ -1831,7 +1844,8 @@ x3270.charset.belgian: \
 	0xb0: cent		\n	0xba: notsign		\n\
 	0xbb: bar		\n
 x3270.codepage.belgian: 500
-x3270.codepage.belgian-euro:	1148
+! Belgian w/Euro (code page 1148)
+x3270.codepage.belgian-euro:	0x02b7047c
 x3270.displayCharset.belgian-euro:	3270cg-15a,3270cg-15,iso8859-15
 ! Italian, courtesy of Claudio Maniscalco and Daniele Patoner
 x3270.charset.italian: \
@@ -1849,7 +1863,8 @@ x3270.charset.italian: \
 	0xd0: egrave		\n	0xdd: grave		\n\
 	0xe0: ccedilla		\n
 x3270.codepage.italian: 280
-x3270.codepage.italian-euro:	1144
+! Italian w/Euro (code page 1144)
+x3270.codepage.italian-euro:	0x02b70478
 x3270.displayCharset.italian-euro:	3270cg-15a,3270cg-15,iso8859-15
 ! Turkish, uses standard ISO 8859-9 fonts
 x3270.charset.turkish: \

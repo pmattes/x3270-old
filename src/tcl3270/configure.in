@@ -19,10 +19,13 @@ AC_CANONICAL_HOST
 case "$host_os" in
 solaris2*)	XANSI=-D__EXTENSIONS__
 		;;
+darwin*)	XPRECOMP=-no-cpp-precomp
+		;;
 *)		XANSI=""
 		;;
 esac
 AC_SUBST(XANSI)
+AC_SUBST(XPRECOMP)
 
 dnl Allow the tcl version to change
 AC_ARG_WITH(tcl, [  --with-tcl=VERSION      Specify Tcl library version [8.3]],

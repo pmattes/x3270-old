@@ -15,6 +15,73 @@ New Features in x3270 3.2
 x3270 3.2 is a reorganization of x3270 3.1, with some significant enhancements.
 It is intended to be the future development platform for x3270, with x3270
 3.1 continued only with bug fixes.
+<h2>Changes in x3270 3.2.19, 1. May 2002</h2>
+<ul>
+ <li>Bug Fixes:
+  <ul>
+   <li>Corrected the definition of the 6 key in the base 3270 keymap.</li>
+   <li>Corrected the behavior of the <b>Delete</b> action on an unformatted
+    screen.</li>
+   <li>Removed junk that appears on the screen during CUT-mode file transfers,
+    and sped them up a bit.</li>
+   <li>Send script errors back to the script, rather than displaying it on
+    x3270's stderr.</li>
+   <li>Corrected the <b>Transfer</b> action.  Numeric arguments always failed,
+    and the <b>crlf</b> option was being passed to the host even for binary
+    transfers.</li>
+   <li>Corrected the display of TN3270E mode names in data stream traces.<li>
+   <li>Corrected the font-selection behavior when the host returns fonts with
+    wild-card font registries.</li>
+   <li>Removed use of the <i>memccpy</i>() library function, which is
+    apparently broken on some platforms and causes malformed Query Reply
+    messages to be generated.</li>
+   <li>Corrected the trace display of events with modifier bits 2 through 5
+    set.</li>
+   <li>Fixed an infinite loop in the <b>SysReq</b> action in TN3270E mode.</li>
+   <li>Corrected the CGCSGIDs for Euro host chararacter sets.</li>
+  </ul>
+ </li>
+ <li>Enhancements:
+  <ul>
+   <li>CR/LF conversion can now be applied to binary file transfers.</li>
+   <li>Removed the association between the <b>-E</b> suffix on the model number
+    and the <b>-E</b> transmitted with the terminal name on the telnet session.
+    A <b>-e</b> will now be silently ignored in the model number value; the
+    <b>-E></b> transmitted with the telnet terminal type string (indicating
+    support for the 3270 Extended Data Stream) is now controlled by the
+    <b>x3270.extended</b> resource (which defaults to <b>true</b>), or by the
+    presence of an <b>s:</b> prefix on the hostname, which turns off the
+    <b>-E</b> when connecting to that host.</li>
+   <li>Allow CR/LF translation on binary transfers.  Also made the File
+    Transfer dialog box a bit more readable.</li>
+   <li>Added support for <b>ISO_BackTab</b> and <b>EuroSign</b> keysyms to the
+    <i>Default</i> action.</li>
+   <li>Allow ASCII files that already contain CR/LF sequences to be transferred
+    to the host.</li>
+   <li>Added bold Euro fonts (courtesy of systematics.de).</li>
+   <li>Added the LU name to the status line.</li>
+   <li>Changed the font list generation logic so that fonts wild-carded from
+    the display character set are listed only if there is no
+    <b>emulatorFontList</b> resource defined, or none of the fonts on that list
+    are found.</li>
+   <li>If using the ISO 8859-1 display character set, and no 3270 fonts are
+    found, use the <b>fixed</b> character set, instead of trying to select
+    from all of the ISO 8859-1 fonts on the server.</li>
+   <li>Added simulation of /dev/fd/ for trace files.</li>
+   <li>Updated to autoconf 2.53.</li>
+   <li>Added strtok_r() definition for systems that don't have it.</li>
+   <li>Added a <b>Toggle</b> action.</li>
+   <li>Added a <b>crosshair</b> toggle, to display a crosshair over the cursor.
+    These lines, extending to the height and width of the screen, make it much
+    easier to see the cursor.</li>
+   <li>Moved the mapping of the 'notsign' (assumed to be above the '6' key)
+    into a separate keymap, <b>not</b>.  This corrects some unexpected behavior
+    with non-U.S. keyboards.</li>
+   <li>Added a <b>-printerlu</b> option and <b>printerLu</b> resource to
+    automatically start a <b>pr3287</b> printer session.</li>
+  </ul>
+ </li>
+</ul>
 <h2>Changes in x3270 3.2.18, 31. December 2001</h2>
 <ul>
  <li>Bug Fixes:

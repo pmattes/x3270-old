@@ -26,7 +26,7 @@ password=${3-PASSWORD}
 # x3270 interface function
 xi()
 {
-	X3270OUTPUT=6 X3270INPUT=5 x3270if 5>$ip 6<$op $v "$@"
+	x3270if $v "$@"
 }
 
 # 'xi' function, with space-to-comma translation
@@ -110,14 +110,15 @@ waitread()
 ip=/tmp/ip.$$
 op=/tmp/op.$$
 rm -f $ip $op
-trap "rm -f $ip $op" EXIT
-trap "exit" INT QUIT HUP TERM
 mkfifo $ip $op
 
 # Start x3270
 x3270 -script -model 2 <$ip >$op &
-xp=$!
-exec 5>$ip	# hold the pipe open
+exec 5>$ip 6<$op
+rm -f $ip $op
+X3270INPUT=5
+X3270OUTPUT=6
+export X3270INPUT X3270OUTPUT
 xi -s 0 >/dev/null || exit 1
 
 # Connect to host

@@ -45,6 +45,10 @@
 #include "telnetc.h"
 #include "utilc.h"
 
+#if defined(X3270_DISPLAY) && defined(X3270_MENUS) /*[*/
+#include "no_dot.bm"
+#endif /*]*/
+
 /* Macros. */
 #define eos(s)	strchr((s), '\0')
 
@@ -71,6 +75,7 @@ extern Pixmap dot;
 enum ft_state ft_state = FT_NONE;	/* File transfer state */
 char *ft_local_filename;		/* Local file to transfer to/from */
 FILE *ft_local_file = (FILE *)NULL;	/* File descriptor for local file */
+Boolean ft_last_cr = False;		/* CR was last char in local file */
 Boolean ascii_flag = True;		/* Convert to ascii */
 Boolean cr_flag = True;			/* Add crlf to each line */
 Boolean remap_flag = True;		/* Remap ASCII<->EBCDIC */
@@ -86,6 +91,7 @@ static Widget vm_toggle, tso_toggle;
 static Widget ascii_toggle, binary_toggle;
 static Widget cr_widget;
 static Widget remap_widget;
+static Pixmap no_dot;
 #endif /*]*/
 
 static char *ft_host_filename;		/* Host file to transfer to/from */
@@ -258,6 +264,10 @@ ft_popup_init(void)
 	register_schange(ST_CONNECT, ft_connected);
 	register_schange(ST_3270_MODE, ft_in3270);
 
+	/* Create bitmap. */
+	no_dot = XCreateBitmapFromData(display, root_window,
+	    (char *) no_dot_bits, no_dot_width, no_dot_height);
+
 	/* Create the menu shell. */
 	ft_shell = XtVaCreatePopupShell(
 	    "ftPopup", transientShellWidgetClass, toplevel,
@@ -383,7 +393,7 @@ ft_popup_init(void)
 	    XtNhorizDistance, MARGIN,
 	    XtNborderWidth, 0,
 	    NULL);
-	apply_bitmap(append_widget, append_flag ? dot : null);
+	apply_bitmap(append_widget, append_flag ? dot : no_dot);
 	XtAddCallback(append_widget, XtNcallback, toggle_append, NULL);
 
 	/* Set up the recfm group. */
@@ -580,10 +590,10 @@ ft_popup_init(void)
 	    XtNhorizDistance, COLUMN_GAP,
 	    XtNborderWidth, 0,
 	    NULL);
-	apply_bitmap(cr_widget, cr_flag ? dot : null);
+	apply_bitmap(cr_widget, cr_flag ? dot : no_dot);
 	XtAddCallback(cr_widget, XtNcallback, toggle_cr, 0);
 	register_sensitivity(cr_widget,
-	    &ascii_flag, True,
+	    BN, False,
 	    BN, False,
 	    BN, False);
 
@@ -596,7 +606,7 @@ ft_popup_init(void)
 	    XtNhorizDistance, COLUMN_GAP,
 	    XtNborderWidth, 0,
 	    NULL);
-	apply_bitmap(remap_widget, remap_flag ? dot : null);
+	apply_bitmap(remap_widget, remap_flag ? dot : no_dot);
 	XtAddCallback(remap_widget, XtNcallback, toggle_remap, NULL);
 	register_sensitivity(remap_widget,
 	    &ascii_flag, True,
@@ -861,8 +871,8 @@ toggle_ascii(Widget w unused, XtPointer client_data, XtPointer call_data unused)
 	mark_toggle(binary_toggle, ascii_flag ? no_diamond : diamond);
 	cr_flag = ascii_flag;
 	remap_flag = ascii_flag;
-	mark_toggle(cr_widget, cr_flag ? dot : null);
-	mark_toggle(remap_widget, remap_flag ? dot : null);
+	mark_toggle(cr_widget, cr_flag ? dot : no_dot);
+	mark_toggle(remap_widget, remap_flag ? dot : no_dot);
 	check_sensitivity(&ascii_flag);
 }
 
@@ -873,7 +883,7 @@ toggle_cr(Widget w, XtPointer client_data unused, XtPointer call_data unused)
 	/* Toggle the cr flag */
 	cr_flag = !cr_flag;
 
-	mark_toggle(w, cr_flag ? dot : null);
+	mark_toggle(w, cr_flag ? dot : no_dot);
 }
 
 /* Append option. */
@@ -884,7 +894,7 @@ toggle_append(Widget w, XtPointer client_data unused,
 	/* Toggle Append Flag */
 	append_flag = !append_flag;
 
-	mark_toggle(w, append_flag ? dot : null);
+	mark_toggle(w, append_flag ? dot : no_dot);
 }
 
 /* Remap option. */
@@ -895,7 +905,7 @@ toggle_remap(Widget w, XtPointer client_data unused,
 	/* Toggle Remap Flag */
 	remap_flag = !remap_flag;
 
-	mark_toggle(w, remap_flag ? dot : null);
+	mark_toggle(w, remap_flag ? dot : no_dot);
 }
 
 /* TSO/VM option. */
@@ -1086,6 +1096,7 @@ ft_start(void)
 	/* Get this thing started. */
 	ft_state = FT_AWAIT_ACK;
 	ft_is_cut = False;
+	ft_last_cr = False;
 
 	return 1;
 }
@@ -1772,7 +1783,7 @@ static struct {
 	{ "LocalFile" },
 	{ "Host",		CN, { "tso", "vm" } },
 	{ "Mode",		CN, { "ascii", "binary" } },
-	{ "Cr",			CN, { "remove",	"add", "keep" } },
+	{ "Cr",			CN, { "auto", "remove",	"add", "keep" } },
 	{ "Exist",		CN, { "keep", "replace", "append" } },
 	{ "Recfm",		CN, { "default", "fixed", "variable",
 				      "undefined" } },
@@ -1869,7 +1880,7 @@ Transfer_action(Widget w unused, XEvent *event, String *params,
 				    case PARM_PRIMARY_SPACE:
 				    case PARM_SECONDARY_SPACE:
 					l = strtol(eq + 1, &ptr, 10);
-					if (ptr == eq + 1 || !*ptr) {
+					if (ptr == eq + 1 || *ptr) {
 						popup_an_error("Invalid option "
 							"value: '%s'", eq + 1);
 						return;
@@ -1907,8 +1918,12 @@ Transfer_action(Widget w unused, XEvent *event, String *params,
 	append_flag = !strcasecmp(tp[PARM_EXIST].value, "append");
 	allow_overwrite = !strcasecmp(tp[PARM_EXIST].value, "replace");
 	ascii_flag = !strcasecmp(tp[PARM_MODE].value, "ascii");
-	cr_flag = !strcasecmp(tp[PARM_CR].value, "remove") ||
-		  !strcasecmp(tp[PARM_CR].value, "add");
+	if (!strcasecmp(tp[PARM_CR].value, "auto")) {
+		cr_flag = ascii_flag;
+	} else {
+		cr_flag = !strcasecmp(tp[PARM_CR].value, "remove") ||
+			  !strcasecmp(tp[PARM_CR].value, "add");
+	}
 	vm_flag = !strcasecmp(tp[PARM_HOST].value, "vm");
 	recfm = DEFAULT_RECFM;
 	for (k = 0; tp[PARM_RECFM].keyword[k] != CN && k < 4; k++) {

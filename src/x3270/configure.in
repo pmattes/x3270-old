@@ -20,10 +20,13 @@ AC_CANONICAL_HOST
 case "$host_os" in
 solaris2*)	XANSI=-D__EXTENSIONS__
 		;;
+darwin*)	XPRECOMP=-no-cpp-precomp
+		;;
 *)		XANSI=""
 		;;
 esac
 AC_SUBST(XANSI)
+AC_SUBST(XPRECOMP)
 
 dnl Check for X
 AC_PATH_X
@@ -161,6 +164,8 @@ dnl AC_TYPE_SIGNAL
 dnl AC_FUNC_VPRINTF
 dnl AC_CHECK_FUNCS(gettimeofday putenv select socket strerror strstr strtol strtoul)
 AC_CHECK_FUNCS(vasprintf)
+AC_CHECK_FUNC(strtok_r,,AC_LIBOBJ(strtok_r)
+AC_DEFINE(NEED_STRTOK_R))
 AC_FUNC_FSEEKO
 
 dnl Check for xmkmkf

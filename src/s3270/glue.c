@@ -62,6 +62,7 @@ static void parse_local_process(int *argcp, const char **argv,
 #endif /*]*/
 static void parse_options(int *argcp, const char **argv);
 static void parse_set_clear(int *argcp, const char **argv);
+static int parse_model_number(char *m);
 
 /* Globals */
 const char     *programname;
@@ -100,7 +101,8 @@ struct toggle_name toggle_names[N_TOGGLES] = {
 	{ ResEventTrace,      -1 },
 #endif /*]*/
 	{ ResMarginedPaste,   MARGINED_PASTE },
-	{ ResRectangleSelect, RECTANGLE_SELECT }
+	{ ResRectangleSelect, RECTANGLE_SELECT },
+	{ ResCrosshair,       -1 }
 };
 
 
@@ -110,8 +112,8 @@ parse_command_line(int argc, const char **argv, const char **cl_hostname)
 	int cl, i;
 	int ovc, ovr;
 	char junk;
-	int sl;
 	int hn_argc;
+	int model_number;
 
 	/* Figure out who we are */
 	programname = strrchr(argv[0], '/');
@@ -176,35 +178,21 @@ parse_command_line(int argc, const char **argv, const char **cl_hostname)
 		}
 	}
 
-	/* Sort out model, color and extended data stream modes. */
-	appres.model = NewString(appres.model);
-	if (!strncmp(appres.model, "3278", 4)) {
-		appres.m3279 = False;
-		appres.model = appres.model + 4;
-		if (appres.model[0] == '-')
-			++appres.model;
-	} else if (!strncmp(appres.model, "3279", 4)) {
-		appres.m3279 = True;
-		appres.model = appres.model + 4;
-		if (appres.model[0] == '-')
-			++appres.model;
+	/*
+	 * Sort out model and color modes, based on the model number resource.
+	 */
+	model_number = parse_model_number(appres.model);
+	if (model_number < 0) {
+		popup_an_error("Invalid model number: %s", appres.model);
+		model_number = 0;
 	}
-	sl = strlen(appres.model);
-	if (sl && (appres.model[sl-1] == 'E' || appres.model[sl-1] == 'e')) {
-		appres.extended = True;
-		appres.model[sl-1] = '\0';
-		sl--;
-		if (sl && appres.model[sl-1] == '-')
-			appres.model[sl-1] = '\0';
-	}
-	if (!appres.model[0])
+	if (!model_number) {
 #if defined(RESTRICT_3279) /*[*/
-		appres.model = "3";
+		model_number = 3;
 #else /*][*/
-		appres.model = "4";
+		model_number = 4;
 #endif /*]*/
-	if (appres.m3279)
-		appres.extended = True;
+	}
 	if (appres.mono) {
 		appres.m3279 = False;
 	}
@@ -212,15 +200,15 @@ parse_command_line(int argc, const char **argv, const char **cl_hostname)
 		appres.oversize = CN;
 
 #if defined(RESTRICT_3279) /*[*/
-	if (appres.m3279 && !strcmp(appres.model, "4"))
-		appres.model = "3";
+	if (appres.m3279 && model_number == 4)
+		model_number = 3;
 #endif /*]*/
 	if (!appres.extended || appres.oversize == CN ||
 	    sscanf(appres.oversize, "%dx%d%c", &ovc, &ovr, &junk) != 2) {
 		ovc = 0;
 		ovr = 0;
 	}
-	set_rows_cols(atoi(appres.model), ovc, ovr);
+	set_rows_cols(model_number, ovc, ovr);
 	if (appres.termname != CN)
 		termtype = appres.termname;
 	else
@@ -294,7 +282,8 @@ parse_options(int *argcp, const char **argv)
 	static struct {
 		const char *name;
 		enum {
-		    OPT_BOOLEAN, OPT_STRING, OPT_XRM, OPT_SKIP2, OPT_DONE
+		    OPT_BOOLEAN, OPT_STRING, OPT_XRM, OPT_SKIP2, OPT_NOP,
+		    OPT_DONE
 		} type;
 		Boolean flag;
 		void *aoff;
@@ -317,6 +306,12 @@ parse_options(int *argcp, const char **argv)
 		{ OptOnce,     OPT_BOOLEAN, True,  offset(once) },
 		{ OptOversize, OPT_STRING,  False, offset(oversize) },
 		{ OptPort,     OPT_STRING,  False, offset(port) },
+#if defined(C3270) /*[*/
+		{ OptPrinterLu,OPT_STRING,  False, offset(printer_lu) },
+#endif /*]*/
+#if defined(S3270) /*[*/
+		{ OptScripted, OPT_NOP,     False, NULL },
+#endif /*]*/
 		{ OptSet,      OPT_SKIP2,   False, NULL },
 		{ OptTermName, OPT_STRING,  False, offset(termname) },
 #if defined(X3270_TRACE) /*[*/
@@ -369,6 +364,7 @@ parse_options(int *argcp, const char **argv)
 #endif /*]*/
 #if defined(C3270) /*[*/
 	appres.meta_escape = "auto";
+	appres.curses_keypad = True;
 #endif /*]*/
 
 #if defined(X3270_ANSI) /*[*/
@@ -421,7 +417,9 @@ parse_options(int *argcp, const char **argv)
 			argv_out[argc_out++] = argv[i++];
 			if (i < *argcp)
 				argv_out[argc_out++] = argv[i];
-			continue;
+			break;
+		    case OPT_NOP:
+			break;
 		    case OPT_DONE:
 			while (i < *argcp)
 				argv_out[argc_out++] = argv[i++];
@@ -489,6 +487,74 @@ parse_set_clear(int *argcp, const char **argv)
 }
 
 /*
+ * Parse the model number.
+ * Returns -1 (error), 0 (default), or the specified number.
+ */
+static int
+parse_model_number(char *m)
+{
+	int sl;
+	int n;
+
+	sl = strlen(m);
+
+	/* An empty model number is no good. */
+	if (!sl) {
+		return 0;
+	}
+
+	if (sl > 1) {
+		/*
+		 * If it's longer than one character, it needs to start with
+		 * '327[89]', and it sets the m3279 resource.
+		 */
+		if (!strncmp(m, "3278", 4)) {
+			appres.m3279 = False;
+		} else if (!strncmp(m, "3279", 4)) {
+			appres.m3279 = True;
+		} else {
+			return -1;
+		}
+		m += 4;
+		sl -= 4;
+
+		/* Check more syntax.  -E is allowed, but ignored. */
+		switch (m[0]) {
+		case '\0':
+			/* Use default model number. */
+			return 0;
+		case '-':
+			/* Model number specified. */
+			m++;
+			sl--;
+			break;
+		default:
+			return -1;
+		}
+		switch (sl) {
+		case 1: /* n */
+			break;
+		case 3:	/* n-E */
+			if (strcasecmp(m + 1, "-E")) {
+				return -1;
+			}
+			break;
+		default:
+			return -1;
+		}
+	}
+
+	/* Check the numeric model number. */
+	n = atoi(m);
+	if (n >= 2 && n <= 5) {
+		return n;
+	} else {
+		return -1;
+	}
+
+}
+
+/*
  * Parse '-xrm' options.
  * Understands only:
  *   {c,s,tcl}3270.<resourcename>: value
@@ -524,6 +590,7 @@ static struct {
 #if defined(C3270) /*[*/
 	{ ResKeymap,	offset(key_map),	XRM_STRING },
 	{ ResMetaEscape,offset(meta_escape),	XRM_STRING },
+	{ ResCursesKeypad,offset(curses_keypad),XRM_BOOLEAN },
 #endif /*]*/
 #if defined(X3270_ANSI) /*[*/
 	{ ResKill,	offset(kill),		XRM_STRING },
@@ -538,6 +605,7 @@ static struct {
 	{ ResOversize,	offset(oversize),	XRM_STRING },
 	{ ResPort,	offset(port),		XRM_STRING },
 #if defined(C3270) /*[*/
+	{ ResPrinterLu,	offset(printer_lu),	XRM_STRING },
 	{ ResPrintTextCommand,	NULL,		XRM_STRING },
 #endif /*]*/
 #if defined(X3270_ANSI) /*[*/
@@ -807,6 +875,23 @@ read_resource_file(const char *filename, Boolean fatal)
 		}
 		*t = '\0';
 
+		/* Skip leading whitespace. */
+		s = buf;
+		while (isspace(*s))
+			s++;
+
+		/* Skip comments _before_ checking for line continuation. */
+		if (*s == '!') {
+		    ilen = 0;
+		    continue;
+		}
+		if (*s == '#') {
+			(void) sprintf(where, "%s:%d: Invalid profile "
+			    "syntax ('#' ignored)", filename, lno);
+			Warning(where);
+			ilen = 0;
+			continue;
+		}
 
 		/* If this line is a continuation, try again. */
 		if (bsl) {
@@ -820,20 +905,16 @@ read_resource_file(const char *filename, Boolean fatal)
 			continue;
 		}
 
-		s = buf;
-		while (isspace(*s))
-			s++;
+		/* Strip trailing whitespace and check for empty lines. */
 		sl = strlen(s);
 		while (sl && isspace(s[sl-1]))
 			s[--sl] = '\0';
-		if (!sl || *s == '!')
-			continue;
-		if (*s == '#') {
-			(void) sprintf(where, "%s:%d: Invalid profile "
-			    "syntax ('#' ignored)", filename, lno);
-			Warning(where);
+		if (!sl) {
+			ilen = 0;
 			continue;
 		}
+
+		/* Digest it. */
 		(void) sprintf(where, "%s:%d", filename, lno);
 		parse_xrm(s, where);
 

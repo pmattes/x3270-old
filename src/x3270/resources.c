@@ -48,7 +48,7 @@ XtResource resources[] = {
 	{ ResMono, ClsMono, XtRBoolean, sizeof(Boolean),
 	  offset(mono), XtRString, ResFalse },
 	{ ResExtended, ClsExtended, XtRBoolean, sizeof(Boolean),
-	  offset(extended), XtRString, ResFalse },
+	  offset(extended), XtRString, ResTrue },
 	{ ResM3279, ClsM3279, XtRBoolean, sizeof(Boolean),
 	  offset(m3279), XtRString, ResTrue },
 #if defined(X3270_KEYPAD) /*[*/
@@ -239,6 +239,11 @@ XtResource resources[] = {
 	  offset(quit), XtRString, "^\\" },
 	{ ResEof, ClsEof, XtRString, sizeof(char *),
 	  offset(eof), XtRString, "^D" },
+#endif /*]*/
+
+#if defined(X3270_PRINTER) /*[*/
+	{ ResPrinterLu, ClsPrinterLu, XtRString, sizeof(char *),
+	  offset(printer_lu), XtRString, 0 },
 #endif /*]*/
 
 #if defined(USE_APP_DEFAULTS) /*[*/

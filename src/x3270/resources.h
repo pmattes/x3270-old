@@ -35,6 +35,8 @@
 #define ResComposeMap		"composeMap"
 #define ResConfDir		"confDir"
 #define ResConnectFileName	"connectFileName"
+#define ResCrosshair		"crosshair"
+#define ResCursesKeypad		"cursesKeypad"
 #define ResCursorBlink		"cursorBlink"
 #define ResCursorColor		"cursorColor"
 #define ResCursorPos		"cursorPos"
@@ -90,6 +92,7 @@
 #define ResOversize		"oversize"
 #define ResPort			"port"
 #define ResPrinterCommand	"printer.command"
+#define ResPrinterLu		"printerLu"
 #define ResQuit			"quit"
 #define ResReconnect		"reconnect"
 #define ResRectangleSelect	"rectangleSelect"
@@ -133,6 +136,7 @@
 #define DotOnce			"." ResOnce
 #define DotOversize		"." ResOversize
 #define DotPort			"." ResPort
+#define DotPrinterLu		"." ResPrinterLu
 #define DotReconnect		"." ResReconnect
 #define DotSaveLines		"." ResSaveLines
 #define DotScripted		"." ResScripted
@@ -212,6 +216,7 @@
 #define ClsOnlcr		"Onlcr"
 #define ClsOversize		"Oversize"
 #define ClsPort			"Port"
+#define ClsPrinterLu		"PrinterLu"
 #define ClsQuit			"Quit"
 #define ClsReconnect		"Reconnect"
 #define ClsRectangleSelect	"RectangleSelect"
@@ -262,6 +267,7 @@
 #define OptOnce			"-once"
 #define OptOversize		"-oversize"
 #define OptPort			"-port"
+#define OptPrinterLu		"-printerlu"
 #define OptReconnect		"-reconnect"
 #define OptSaveLines		"-sl"
 #define OptScripted		"-script"

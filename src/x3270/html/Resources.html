@@ -192,6 +192,11 @@ x3270.connectFileName	Default ~/.x3270connect
     written.  Note that by default, this file is shared among all instances
     of x3270 that run under the same username.
 
+x3270.crosshair		Default false		Switch -set crosshair
+						       -clear crosshair
+    When set to true, causes x3270 to display a crosshair over the cursor:
+    lines extending with height and width of the screen.
+
 x3270.cursorBlink	Default false		Switch -set cursorBlink
 						       -clear cursorBlink
     When set to true, this causes x3270 to use a blinking cursor.
@@ -599,6 +604,13 @@ x3270.oversize					Switch -oversize
 x3270.port		Default telnet		Switch -port
     The name of the default TCP port for x3270 to connect to.  This can be
     either a symbolic name from /etc/services, or an integer.
+
+x3270.printerLu					Switch -printerlu
+    If a value is set, x3270 will automatically start a pr3287 printer session
+    when a host is connected to.  If the value is ".", the pr3287 session will
+    be associated with the interactive terminal session (this requires that
+    the host support TN3270E).  Otherwise, the value is assumed to be the LU
+    name to associate with the printer session.
 
 x3270.printer.assocCommandLine
 			Default pr3287 -assoc %L% -command %C% %H%

@@ -1,6 +1,6 @@
 #! /usr/local/bin/bash
 
-# Copyright 1995, 2000 by Paul Mattes.
+# Copyright 1995, 2000, 2002 by Paul Mattes.
 #  Permission to use, copy, modify, and distribute this software and its
 #  documentation for any purpose and without fee is hereby granted,
 #  provided that the above copyright notice appear in all copies and that
@@ -10,7 +10,7 @@
 # VM login script, which runs as a peer of x3270.
 # bash version
 
-set -x
+#set -x
 me=${0##*/}
 
 # Set up login parameters
@@ -26,7 +26,7 @@ password=${3-PASSWORD}
 # x3270 interface function
 function xi
 {
-	X3270OUTPUT=6 X3270INPUT=5 x3270if 5>$ip 6<$op $v "$@"
+	x3270if $v "$@"
 }
 
 # 'xi' function, with space-to-comma translation
@@ -102,14 +102,21 @@ function waitread
 ip=/tmp/ip.$$
 op=/tmp/op.$$
 rm -f $ip $op
-trap "rm -f $ip $op" EXIT
-trap "exit" INT QUIT HUP TERM
 mkfifo $ip $op
 
 # Start x3270
 x3270 -script -model 2 <$ip >$op &
-xp=$!
-exec 5>$ip	# hold the pipe open
+
+# Set up file descriptors for pipe I/O.
+exec 5>$ip 6<$op
+
+# Unlink the pipes (they'll stay around until this script and x3270 exit).
+rm -f $ip $op
+
+# Tell x3270if where to find the pipes.
+export X3270INPUT=5 X3270OUTPUT=6
+
+# Make sure x3270 is still running.
 xi -s 0 >/dev/null || exit 1
 
 # Connect to host

@@ -365,47 +365,24 @@ dft_get_request(void)
 		SET16(obptr, numbytes+5);
 		bufptr = (unsigned char *)upbufp->sf_data;
 		obptr = (unsigned char *)upbufp->header.sf_data_length;
-		while (numbytes > 1) {
+		while (numbytes) {
 			/* Continue until we run out of buffer */
-			if (cr_flag) {
-				/* Insert CR after LF. */
-				if (fgets((char *)bufptr, numbytes,
-					    ft_local_file) != CN) {
-					/* We got a line. */
+			if (ascii_flag && cr_flag) {
+				int c;
 
-					/* Filter. */
-					{
-						unsigned char *s = bufptr;
-
-						while (*s) {
-							*s = asc2ft[*s];
-							s++;
-						}
+				c = fgetc(ft_local_file);
+				if (c != EOF) {
+					if (!ft_last_cr && c == '\n') {
+						*bufptr++ = '\r';
+						numbytes--;
 					}
-
-					/* Decrement left. */
-					numbytes -= (strlen((char *)bufptr)+1);
-
-					/* Point to \r at end of str. */
-					bufptr += (strlen((char *)bufptr)-1);
-
-					if (*bufptr == '\n') {
-						/* Stick in the \r\n. */
-						memcpy(bufptr, "\r\n", 2);
-					}
-
-					/* Point to next space. */
-					bufptr += 2;
-
-					if (numbytes == 0) {
-						/* At end of buffer */
-						if (*(bufptr - 1) != '\n') {
-							/*
-							 * If not a LF, Back up
-							 * the buff pointer.
-							 */
-							bufptr--;
-						}
+					if (numbytes) {
+						ft_last_cr = (c == '\r');
+						*bufptr++ = remap_flag?
+							     asc2ft[c]: c;
+						numbytes--;
+					} else {
+						ungetc(c, ft_local_file);
 					}
 				}
 			} else {

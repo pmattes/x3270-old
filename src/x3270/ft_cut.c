@@ -540,10 +540,12 @@ xlate_getc(void)
 	ft_length++;
 
 	/* Expand it. */
-	if (ascii_flag && cr_flag && c == '\n') {
+	if (ascii_flag && cr_flag && !ft_last_cr && c == '\n') {
 		nc = download_convert((unsigned const char *)"\r", 1, cbuf);
-	} else
+	} else {
 		nc = 0;
+		ft_last_cr = (c == '\r');
+	}
 
 	/* Convert it. */
 	cc = (unsigned char)c;

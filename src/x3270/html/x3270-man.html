@@ -124,7 +124,7 @@ See <a HREF="#Keymaps"><font size=-1>KEYMAPS</font></a> below.
 Turns on the keypad as soon as <b>x3270</b> starts.
 <dt><b>-model</b> <i>name</i></dt><dd>
 The model of 3270 display to be emulated.
-The model name is in three parts, any of which may be omitted:
+The model name is in two parts, either of which may be omitted:
 <p>
 The first part is the
 <b>base model</b>,
@@ -151,19 +151,12 @@ Model 4 is the default.
 Note: Technically, there is no such 3270 display as a 3279-4 or 3279-5, but
 most hosts seem to work with them anyway.
 <p>
-The third part specifies the Extended 3270 Data Stream, and is given as
-<b>-E</b>.
-It signals the host that the 3270 display is capable of displaying
-extended field attributes, and supports structured fields and query replies.
-A 3279 always uses the Extended Data Stream (whether or not <b>-E</b>
-is specified); for a 3278 it is optional.
-<p>
 The default model
 for a color X display
-is <b>3279-4-E</b>.
+is <b>3279-4</b>.
 For a monochrome X display, it is
-<b>3278-4-E</b>.
-(The behavior of previous versions of <b>x3270</b> on color X displays
+<b>3278-4</b>.
+(The behavior of early versions of <b>x3270</b> on color X displays
 can be specified as <b>3278-4)</b>.
 <dt><b>-mono</b></dt><dd>
 Forces <b>x3270</b> to believe it is running on a monochrome X display.
@@ -173,10 +166,8 @@ This option has effect only if a hostname is specified on the command line.
 <dt><b>-oversize</b> <i>cols</i><b>x</b><i>rows</i></dt><dd>
 Makes the screen larger than the default for the chosen model number.
 This option has effect only in combination with extended data stream support
-(the
-<b>-E</b>
-suffix on the model), and only if the host supports the Query Reply structured
-field.
+(controlled by the "x3270.extended" resource), and only if the host
+supports the Query Reply structured field.
 The number of columns multiplied by the number of rows must not exceed
 16383 (3fff hex), the limit of 14-bit 3270 buffer addressing.
 <dt><b>-port</b> <i>n</i></dt><dd>
@@ -185,6 +176,13 @@ Specifies a different <font size=-1>TCP</font> port to connect to.
 number.
 This option changes the default port number used for all connections.
 (The positional parameter affects only the initial connection.)
+<dt><b>-printerlu <i>luname</i></b></dt><dd>
+Causes <b>x3270</b> to automatically start a <i>pr3287</i> printer
+session.
+If <i>luname</i> is ".", then the printer session will be associated with the
+interactive terminal session (this requires that the host support TN3270E).
+Otherwise, the value is used as the explicit LU name to associate with the
+printer session.
 <dt><b>-reconnect</b></dt><dd>
 Causes <b>x3270</b>
 to automatically reconnect to the host if it ever disconnects.
@@ -214,7 +212,7 @@ below.
 <dt><a NAME="tn"></a><b>-tn</b> <i>name</i></dt><dd>
 Specifies the terminal name to be transmitted over the telnet connection.
 The default name is
-<b>IBM-</b><i>model_name</i>,
+<b>IBM-</b><i>model_name</i><b>-E</b>,
 for example,
 <b>IBM-3279-4-E</b>
 for a color X display, or
@@ -224,7 +222,8 @@ for a monochrome X display.
 Some hosts are confused by the <b>-E</b>
 suffix on the terminal name, and will ignore the extra screen area on
 models 3, 4 and 5.
-Prepending an <b>:s</b> on the hostname removes the <b>-E</b>
+Prepending an <b>:s</b> on the hostname, or setting the "x3270.extended"
+resource to "false", removes the <b>-E</b>
 from the terminal name when connecting to such hosts.
 <p>
 The name can also be specified with the "x3270.termName" resource.
@@ -552,6 +551,10 @@ If set, <b>x3270</b> will always select rectangular areas of the screen.
 Otherwise, <b>x3270</b>
 selects by rectangles when in 3270 mode, but in <font size=-1>ANSI</font> mode it selects
 continuous regions of the screen like <i>xterm</i>(1).
+<dt><b>Crosshair Cursor</b></dt><dd>
+If set, <b>x3270</b> will display a crosshair over the cursor: lines extending
+the full width and height of the screen, centered over the cursor position.
+This makes locating the cursor on the screen much easier.
 </dl>
 </dl>
 <p>
@@ -574,6 +577,7 @@ options are as follows:
 <tr><td >Wraparound</td>	<td >lineWrap</td></tr>
 <tr><td >Paste with Left Margin</td>	<td >marginedPaste</td></tr>
 <tr><td >Select by Rectangles</td>	<td >rectangleSelect</td></tr>
+<tr><td >Crosshair Cursor</td>	<td >crosshair</td></tr>
 </table>
 <p>
 In addition, the toggle <b>altCursor</b> can be used to select the cursor type.
@@ -581,12 +585,15 @@ If set, an underline cursor will be used.
 If clear, the normal block cursor will be used.
 <p>
 These names also represent resources that can be set in your .Xdefaults
-file.
+or .x3270pro file.
 For example, if you always want to have the scrollbar on, you can add
-the following to your .Xdefaults:
+the following to your .Xdefaults or .x3270pro:
 <br>
 <blockquote>x3270.scrollBar:	true</blockquote>
 <br>
+<p>
+These names are also used as the first parameter to the <b>Toggle</b>
+action.
 <a NAME="Status-Line"></a><h2>Status Line</h2>
 The <b>x3270</b> status line contains a variety of information.
 From left to right, the fields are:
@@ -615,6 +622,12 @@ The letter "R" indicates that the keyboard is in reverse field entry mode.
 <dt><b>insert mode</b></dt><dd>
 A thick caret "^" or the 
 letter "I" indicates that the keyboard is in insert mode.
+<dt><b>printer session</b></dt><dd>
+The letter "P" indicates that a <i>pr3287</i> session is active.
+<dt><b>script</b></dt><dd>
+The letter "S" indicates that a script is active.
+<dt><b>LU name</b></dt><dd>
+The LU name associated with the session, if there is one.
 <dt><b>timing</b></dt><dd>
 A clock symbol and a time in seconds indicate the time it took to process
 the last <font size=-1>AID</font> or the time to connect to a host.
@@ -875,25 +888,28 @@ Other actions are defined for use by scripts and are documented in
 still others are defined for internal use by <b>x3270</b>
 and are not documented here.
 <a NAME="actions"></a><p>
+Actions marked with an asterisk (*) may block, sending data to the host and
+possibly waiting for a response.
+<p>
 <table BORDER cols=2 width="75%">
-<tr><td >Attn</td>	<td >attention key</td></tr>
+<tr><td >*Attn</td>	<td >attention key</td></tr>
 <tr><td >AltCursor</td>	<td >switch between block and underscore cursor</td></tr>
 <tr><td >BackSpace</td>	<td >move cursor left (or send <font size=-1>ASCII BS</font>)</td></tr>
 <tr><td >BackTab</td>	<td >tab to start of previous input field</td></tr>
 <tr><td >CircumNot</td>	<td >input "^" in <font size=-1>NVT</font> mode, or "&not;" in 3270 mode</tr></td>
-<tr><td >Clear</td>	<td >clear screen</td></tr>
+<tr><td >*Clear</td>	<td >clear screen</td></tr>
 <tr><td >Compose</td>	<td >next two keys form a special symbol</td></tr>
-<tr><td >Connect(l3h_t <i>h</i>, <i>host</i>)</td>	<td >connect to <i>host</i></td></tr>
-<tr><td >CursorSelect</td>	<td >Cursor Select <font size=-1>AID</font></td></tr>
+<tr><td >*Connect(<i>host</i>)</td>	<td >connect to <i>host</i></td></tr>
+<tr><td >*CursorSelect</td>	<td >Cursor Select <font size=-1>AID</font></td></tr>
 <tr><td >Cut</td>	<td >erase selected text</td></tr>
 <tr><td >Default</td>	<td >enter key literally</td></tr>
 <tr><td >Delete</td>	<td >delete character under cursor (or send <font size=-1>ASCII DEL</font>)</td></tr>
 <tr><td >DeleteField</td>	<td >delete the entire field</td></tr>
 <tr><td >DeleteWord</td>	<td >delete the current or previous word</td></tr>
-<tr><td >Disconnect</td>	<td >disconnect from host</td></tr>
+<tr><td >*Disconnect</td>	<td >disconnect from host</td></tr>
 <tr><td >Down</td>	<td >move cursor down</td></tr>
 <tr><td >Dup</td>	<td >duplicate field</td></tr>
-<tr><td >Enter</td>	<td >Enter <font size=-1>AID</font> (or send <font size=-1>ASCII CR</font>)</td></tr>
+<tr><td >*Enter</td>	<td >Enter <font size=-1>AID</font> (or send <font size=-1>ASCII CR</font>)</td></tr>
 <tr><td >Erase</td>	<td >erase previous character (or send <font size=-1>ASCII BS</font>)</td></tr>
 <tr><td >EraseEOF</td>	<td >erase to end of current field</td></tr>
 <tr><td >EraseInput</td>	<td >erase all input fields</td></tr>
@@ -902,43 +918,44 @@ and are not documented here.
 <tr><td >FieldExit</td>	<td >clear to end of field and skip to next (5250 emulation)</td></tr>
 <tr><td >FieldMark</td>	<td >mark field</td></tr>
 <tr><td >HandleMenu(<i>name</i>)</td>	<td >pop up a menu</td></tr>
-<tr><td >HexString(l3h_t <i>h</i>, <i>hex_digits</i>)</td>	<td >insert control-character string</td></tr>
+<tr><td >HexString(<i>hex_digits</i>)</td>	<td >insert control-character string</td></tr>
 <tr><td >Home</td>	<td >move cursor to first input field</td></tr>
 <tr><td >Insert</td>	<td >set insert mode</td></tr>
-<tr><td >Interrupt</td>	<td >send <font size=-1>TELNET IP</font> to host</td></tr>
-<tr><td >Key(l3h_t <i>h</i>, <i>keysym</i>)</td>	<td >insert key <i>keysym</i></td></tr>
-<tr><td >Key(l3h_t <i>h</i>, 0x<i>xx</i>)</td>	<td >insert key with <font size=-1>ASCII</font> code <i>xx</i></td></tr>
+<tr><td >*Interrupt</td>	<td >send <font size=-1>TELNET IP</font> to host</td></tr>
+<tr><td >Key(<i>keysym</i>)</td>	<td >insert key <i>keysym</i></td></tr>
+<tr><td >Key(0x<i>xx</i>)</td>	<td >insert key with <font size=-1>ASCII</font> code <i>xx</i></td></tr>
 <tr><td >Keymap(<i>keymap</i>)</td>	<td >toggle alternate <i>keymap</i> (or remove with <b>None</b>)</td></tr>
 <tr><td >KybdSelect(<i>direction</i>[,<i>atom</i>...])</td>	<td >Extend selection by one row or column</td></tr>
 <tr><td >Left</td>	<td >move cursor left</td></tr>
 <tr><td >Left2</td>	<td >move cursor left 2 positions</td></tr>
-<tr><td >Macro(<i>macro</i>)</td>	<td >run a macro</td></tr>
+<tr><td >*Macro(<i>macro</i>)</td>	<td >run a macro</td></tr>
 <tr><td >MonoCase</td>	<td >toggle uppercase-only mode</td></tr>
 <tr><td >MoveCursor</td>	<td >move cursor to mouse position</td></tr>
-<tr><td >MoveCursor(l3h_t <i>h</i>, <i>row</i>, <i>col</i>)</td>	<td >move cursor to (<i>row</i>,<i>col</i>)</td></tr>
-<tr><td >MoveCursorSelect</td>	<td >move cursor to mouse position, light pen selection</tr></td>
+<tr><td >MoveCursor(<i>row</i>, <i>col</i>)</td>	<td >move cursor to (<i>row</i>,<i>col</i>)</td></tr>
+<tr><td >*MoveCursorSelect</td>	<td >move cursor to mouse position, light pen selection</tr></td>
 <tr><td >Newline</td>	<td >move cursor to first field on next line (or send <font size=-1>ASCII LF</font>)</td></tr>
 <tr><td >NextWord</td>	<td >move cursor to next word</td></tr>
-<tr><td >PA(l3h_t <i>h</i>, <i>n</i>)</td>	<td >Program Attention <font size=-1>AID</font> (<i>n</i> from 1 to 3)</td></tr>
-<tr><td >PF(l3h_t <i>h</i>, <i>n</i>)</td>	<td >Program Function <font size=-1>AID</font> (<i>n</i> from 1 to 24)</td></tr>
+<tr><td >*PA(<i>n</i>)</td>	<td >Program Attention <font size=-1>AID</font> (<i>n</i> from 1 to 3)</td></tr>
+<tr><td >*PF(<i>n</i>)</td>	<td >Program Function <font size=-1>AID</font> (<i>n</i> from 1 to 24)</td></tr>
 <tr><td >PreviousWord</td>	<td >move cursor to previous word</td></tr>
 <tr><td >Printer(Start[,<i>lu</i>]|Stop)</td>	<td >Start or stop printer session</td></tr>
 <tr><td >PrintText(<i>command</i>)</td>	<td >print screen text on printer</td></tr>
 <tr><td >PrintWindow(<i>command</i>)</td>	<td >print screen image (bitmap) on printer</td></tr>
 <tr><td >Quit</td>	<td >exit <b>x3270</b></td></tr>
-<tr><td >Reconnect</td>	<td >reconnect to previous host</td></tr>
+<tr><td >*Reconnect</td>	<td >reconnect to previous host</td></tr>
 <tr><td >Redraw</td>	<td >redraw window</td></tr>
 <tr><td >Reset</td>	<td >reset locked keyboard</td></tr>
 <tr><td >Right</td>	<td >move cursor right</td></tr>
 <tr><td >Right2</td>	<td >move cursor right 2 positions</td></tr>
 <tr><td >SetFont(<i>font</i>)</td>	<td >change emulator font</td></tr>
-<tr><td >Script(<i>command</i>[,<i>arg</i>...])</td>	<td >run a script</td></tr>
-<tr><td >String(l3h_t <i>h</i>, <i>string</i>)</td>	<td >insert string (simple macro facility)</td></tr>
-<tr><td >SysReq</td>	<td >System Request <font size=-1>AID</font></td></tr>
+<tr><td >*Script(<i>command</i>[,<i>arg</i>...])</td>	<td >run a script</td></tr>
+<tr><td >*String(<i>string</i>)</td>	<td >insert string (simple macro facility)</td></tr>
+<tr><td >*SysReq</td>	<td >System Request <font size=-1>AID</font></td></tr>
 <tr><td >Tab</td>	<td >move cursor to next input field</td></tr>
+<tr><td >Toggle(<i>option</i>[,<i>set|clear</i>])</td>	<td >toggle an option</td></tr>
 <tr><td >ToggleInsert</td>	<td >toggle insert mode</td></tr>
 <tr><td >ToggleReverse</td>	<td >toggle reverse-input mode</td></tr>
-<tr><td >Transfer(l3h_t <i>h</i>, <i>option</i>=<i>value</i>...)</td>	<td >file transfer</td></tr>
+<tr><td >*Transfer(<i>option</i>=<i>value</i>...)</td>	<td >file transfer</td></tr>
 <tr><td >Unselect</td>	<td >release selection</td></tr>
 <tr><td >Up</td>	<td >move cursor up</td></tr>
 
@@ -1326,12 +1343,12 @@ Derivative works based on this software must incorporate this copyright
 notice.</blockquote>
 5250 Emulation Code Copyright &copy; Minolta (Schweiz) AG, Beat Rubischon.
 <a NAME="Version"></a><h2>Version</h2>
-x3270 3.2.18
+x3270 3.2.19beta
 <hr>
 <address>
 This HTML document and the accompanying troff document were generated with
 a set of write-only <b>m4</b> macros and the powerful <b>vi</b> editor.
-<br>Last modified 31 December 2001.
+<br>Last modified 20 April 2002.
 </address>
 </body>
 </html>

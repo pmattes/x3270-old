@@ -71,6 +71,17 @@ static void	printer_host_connect(Boolean connected unused);
 /* Globals */
 
 /*
+ * Printer initialization function.
+ */
+void
+printer_init(void)
+{
+	/* Register interest in host connects and mode changes. */
+	register_schange(ST_CONNECT, printer_host_connect);
+	register_schange(ST_3270_MODE, printer_host_connect);
+}
+
+/*
  * Printer Start-up function
  * If 'lu' is non-NULL, then use the specific-LU form.
  * If not, use the assoc form.
@@ -87,19 +98,11 @@ printer_start(const char *lu)
 	char c;
 	int stdout_pipe[2];
 	int stderr_pipe[2];
-	static Boolean registered = False;
 
 #if defined(X3270_DISPLAY) /*[*/
 	/* Make sure the popups are initted. */
 	printer_popup_init();
 #endif /*]*/
-
-	/* Register interest in host connects and mode changes. */
-	if (!registered) {
-		register_schange(ST_CONNECT, printer_host_connect);
-		register_schange(ST_3270_MODE, printer_host_connect);
-		registered = True;
-	}
 
 	/* Can't start two. */
 	if (printer_pid != -1) {
@@ -435,14 +438,40 @@ lu_callback(Widget w, XtPointer client_data, XtPointer call_data unused)
 static void
 printer_host_connect(Boolean connected unused)
 {
-	/*
-	 * If we're no longer in 3270 mode, then we can no longer have a
-	 * printer session.  This may cause some fireworks if there is a
-	 * print job pending when we do this, so some sort of awful timeout
-	 * may be needed.
-	 */
-	if (!IN_3270)
+	if (IN_3270) {
+		if (appres.printer_lu != CN && !printer_running()) {
+			if (!strcmp(appres.printer_lu, ".")) {
+				if (IN_TN3270E) {
+					/* Associate with TN3270E session. */
+					trace_dsn("Starting associated printer "
+						  "session.\n");
+					printer_start(CN);
+				}
+			} else {
+				/* Specific LU. */
+				trace_dsn("Starting %s printer session.\n",
+				    appres.printer_lu);
+				printer_start(appres.printer_lu);
+			}
+		} else if (!IN_E &&
+			   appres.printer_lu != CN &&
+			   !strcmp(appres.printer_lu, ".") &&
+			   printer_running()) {
+
+			/* Stop an automatic associated printer. */
+			trace_dsn("Stopping printer session.\n");
+			printer_stop();
+		}
+	} else if (printer_running()) {
+		/*
+		 * We're no longer in 3270 mode, then we can no longer have a
+		 * printer session.  This may cause some fireworks if there is
+		 * a print job pending when we do this, so some sort of awful
+		 * timeout may be needed.
+		 */
+		trace_dsn("Stopping printer session.\n");
 		printer_stop();
+	}
 }
 
 #if defined(X3270_DISPLAY) /*[*/

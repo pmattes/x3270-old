@@ -1325,6 +1325,14 @@ menubar_remodel(Boolean ignored unused)
 	    (model_num == 5)? diamond: no_diamond, NULL);
 }
 
+/* Compare a font name to the current emulator font name. */
+static Boolean
+is_efont(const char *font_name)
+{
+	return !strcmp(NO_BANG(font_name), NO_BANG(efontname)) ||
+	       !strcmp(NO_BANG(font_name), NO_BANG(full_efontname));
+}
+
 /* Create, or re-create the font menu. */
 static void
 create_font_menu(Boolean regen, Boolean even_if_unknown)
@@ -1405,11 +1413,11 @@ create_font_menu(Boolean regen, Boolean even_if_unknown)
 			k->fw[ix] = XtVaCreateManagedWidget(
 			    f->label, cmeBSBObjectClass, t,
 			    XtNleftBitmap,
-				!strcmp(efontname, NO_BANG(f->font)) ? diamond : no_diamond,
+				is_efont(f->font)? diamond: no_diamond,
 			    XtNleftMargin, fm_leftMargin,
 			    NULL);
 			XtAddCallback(k->fw[ix], XtNcallback, do_newfont,
-			    f->font);
+			    XtNewString(f->font));
 		}
 		if (!appres.no_other) {
 			other_font = XtVaCreateManagedWidget(
@@ -1495,8 +1503,7 @@ options_menu_init(Boolean regen, Position x, Position y)
 			if (ix >= MAX_MENU_OPTIONS)
 				break;
 			XtVaSetValues(font_widgets[ix], XtNleftBitmap,
-				!strcmp(efontname, NO_BANG(f->font)) ?
-					diamond : no_diamond,
+				is_efont(f->font)? diamond: no_diamond,
 				NULL);
 		}
 		/* Set the current color scheme. */
@@ -1549,6 +1556,7 @@ options_menu_init(Boolean regen, Position x, Position y)
 #endif /*]*/
 	toggle_init(t, MARGINED_PASTE, "marginedPasteOption", CN);
 	toggle_init(t, RECTANGLE_SELECT, "rectangleSelectOption", CN);
+	toggle_init(t, CROSSHAIR, "crosshairOption", CN);
 	(void) XtVaCreateManagedWidget("space", cmeLineObjectClass, t, NULL);
 	toggle_init(t, ALT_CURSOR, "underlineCursorOption",
 	    "blockCursorOption");

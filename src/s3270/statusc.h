@@ -23,3 +23,4 @@
 #define status_untiming()
 #define status_kybdlock()
 #define status_minus()
+#define status_lu(lu)

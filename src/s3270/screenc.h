@@ -19,7 +19,7 @@
 #define mcursor_normal()
 #define mcursor_waiting()
 #define ring_bell()
-#define screen_disp()
+#define screen_disp(erasing)
 #define screen_flip()
 #define screen_obscured()	False
 #define screen_scroll()

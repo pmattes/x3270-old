@@ -1,5 +1,5 @@
 '\" t
-.TH s3270 1 "31 December 2001"
+.TH s3270 1 "20 April 2002"
 .SH "NAME"
 s3270 \-
 \s-1IBM\s+1 host access tool
@@ -67,7 +67,7 @@ below.
 .TP
 \fB\-model\fP \fIname\fP
 The model of 3270 display to be emulated.
-The model name is in three parts, any of which may be omitted:
+The model name is in two parts, either of which may be omitted:
 .IP
 The first part is the
 \fBbase model\fP,
@@ -154,15 +154,8 @@ T}
 Note: Technically, there is no such 3270 display as a 3279-4 or 3279-5, but
 most hosts seem to work with them anyway.
 .IP
-The third part specifies the Extended 3270 Data Stream, and is given as
-\fB\-E\fP.
-It signals the host that the 3270 display is capable of displaying
-extended field attributes, and supports structured fields and query replies.
-A 3279 always uses the Extended Data Stream (whether or not \fB\-E\fP
-is specified); for a 3278 it is optional.
-.IP
 The default model
-\fB3278\-4\-E\fP.
+is \fB3278\-4\fP.
 .TP
 \fB\-mono\fP
 Forces 3278 emulation.
@@ -170,10 +163,8 @@ Forces 3278 emulation.
 \fB\-oversize\fP \fIcols\fP\fBx\fP\fIrows\fP
 Makes the screen larger than the default for the chosen model number.
 This option has effect only in combination with extended data stream support
-(the
-\fB\-E\fP
-suffix on the model), and only if the host supports the Query Reply structured
-field.
+(controlled by the "s3270.extended" resource), and only if the host
+supports the Query Reply structured field.
 The number of columns multiplied by the number of rows must not exceed
 16383 (3fff hex), the limit of 14-bit 3270 buffer addressing.
 .TP
@@ -192,14 +183,15 @@ below.
 \fB\-tn\fP \fIname\fP
 Specifies the terminal name to be transmitted over the telnet connection.
 The default name is
-\fBIBM\-\fP\fImodel_name\fP,
+\fBIBM\-\fP\fImodel_name\fP\fB\-E\fP,
 for example,
 \fBIBM\-3278\-4\-E\fP.
 .IP
 Some hosts are confused by the \fB\-E\fP
 suffix on the terminal name, and will ignore the extra screen area on
 models 3, 4 and 5.
-Prepending an \fB:s\fP on the hostname removes the \fB\-E\fP
+Prepending an \fB:s\fP on the hostname, or setting the "s3270.extended"
+resource to "false", removes the \fB\-E\fP
 from the terminal name when connecting to such hosts.
 .IP
 The name can also be specified with the "s3270.termName" resource.
@@ -744,10 +736,16 @@ T}	T{
 lineWrap
 T}
 .TE
+.LP
+These names are also used as the first parameter to the \fBToggle\fP
+action.
 .SH "ACTIONS"
 Here is a complete list of basic s3270 actions.
 Script-specific actions are described on the
 \fIx3270-script\fP(1) manual page.
+.PP
+Actions marked with an asterisk (*) may block, sending data to the host and
+possibly waiting for a response.
 .PP
 .TS
 center; lw(3i) lw(3i).
@@ -756,7 +754,7 @@ T{
 .nh
 .in +2
 .ti -2
-Attn
+*Attn
 T}	T{
 .na
 .nh
@@ -800,7 +798,7 @@ T{
 .nh
 .in +2
 .ti -2
-Clear
+*Clear
 T}	T{
 .na
 .nh
@@ -811,7 +809,7 @@ T{
 .nh
 .in +2
 .ti -2
-Connect(l3h_t \fIh\fP, \fIhost\fP)
+*Connect(\fIhost\fP)
 T}	T{
 .na
 .nh
@@ -822,7 +820,7 @@ T{
 .nh
 .in +2
 .ti -2
-CursorSelect
+*CursorSelect
 T}	T{
 .na
 .nh
@@ -866,7 +864,7 @@ T{
 .nh
 .in +2
 .ti -2
-Disconnect
+*Disconnect
 T}	T{
 .na
 .nh
@@ -899,7 +897,7 @@ T{
 .nh
 .in +2
 .ti -2
-Enter
+*Enter
 T}	T{
 .na
 .nh
@@ -987,7 +985,7 @@ T{
 .nh
 .in +2
 .ti -2
-HexString(l3h_t \fIh\fP, \fIhex_digits\fP)
+HexString(\fIhex_digits\fP)
 T}	T{
 .na
 .nh
@@ -1020,7 +1018,7 @@ T{
 .nh
 .in +2
 .ti -2
-Interrupt
+*Interrupt
 T}	T{
 .na
 .nh
@@ -1031,7 +1029,7 @@ T{
 .nh
 .in +2
 .ti -2
-Key(l3h_t \fIh\fP, \fIkeysym\fP)
+Key(\fIkeysym\fP)
 T}	T{
 .na
 .nh
@@ -1042,7 +1040,7 @@ T{
 .nh
 .in +2
 .ti -2
-Key(l3h_t \fIh\fP, 0x\fIxx\fP)
+Key(0x\fIxx\fP)
 T}	T{
 .na
 .nh
@@ -1086,7 +1084,7 @@ T{
 .nh
 .in +2
 .ti -2
-MoveCursor(l3h_t \fIh\fP, \fIrow\fP, \fIcol\fP)
+MoveCursor(\fIrow\fP, \fIcol\fP)
 T}	T{
 .na
 .nh
@@ -1119,7 +1117,7 @@ T{
 .nh
 .in +2
 .ti -2
-PA(l3h_t \fIh\fP, \fIn\fP)
+*PA(\fIn\fP)
 T}	T{
 .na
 .nh
@@ -1130,7 +1128,7 @@ T{
 .nh
 .in +2
 .ti -2
-PF(l3h_t \fIh\fP, \fIn\fP)
+*PF(\fIn\fP)
 T}	T{
 .na
 .nh
@@ -1207,7 +1205,7 @@ T{
 .nh
 .in +2
 .ti -2
-Script(\fIcommand\fP[,\fIarg\fP...])
+*Script(\fIcommand\fP[,\fIarg\fP...])
 T}	T{
 .na
 .nh
@@ -1218,7 +1216,7 @@ T{
 .nh
 .in +2
 .ti -2
-String(l3h_t \fIh\fP, \fIstring\fP)
+*String(\fIstring\fP)
 T}	T{
 .na
 .nh
@@ -1229,7 +1227,7 @@ T{
 .nh
 .in +2
 .ti -2
-SysReq
+*SysReq
 T}	T{
 .na
 .nh
@@ -1245,6 +1243,17 @@ T}	T{
 .na
 .nh
 move cursor to next input field
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+Toggle(\fIoption\fP[,\fIset|clear\fP])
+T}	T{
+.na
+.nh
+toggle an option
 T}
 T{
 .na
@@ -1273,7 +1282,7 @@ T{
 .nh
 .in +2
 .ti -2
-Transfer(l3h_t \fIh\fP, \fIoption\fP=\fIvalue\fP...)
+*Transfer(\fIoption\fP=\fIvalue\fP...)
 T}	T{
 .na
 .nh
@@ -2293,4 +2302,4 @@ notice.
 .RE
 5250 Emulation Code Copyright Minolta (Schweiz) AG, Beat Rubischon.
 .SH "VERSION"
-s3270 3.2.18
+s3270 3.2.19beta

@@ -84,6 +84,14 @@
 #endif /*]*/
 #endif /*]*/
 
+/* Functions we may need to supply. */
+#if defined(NEED_STRTOK_R) /*[*/
+extern char *strtok_r(char *str, const char *sep, char **last);
+#endif /*]*/
+
+/* Stop conflicting with curses' COLS, even if we don't link with it. */
+#define COLS cCOLS
+
 /* Simple global variables */
 
 extern int		COLS;
@@ -266,6 +274,6 @@ enum keytype { KT_STD, KT_GE };
 
 /* DFT file transfer buffer sizes. */
 #if defined(X3270_FT) /*[*/
-#define DFT_INBUF	(16*1024)
-#define DFT_OUTBUF	(31*1024)
+#define DFT_INBUF	(2*1024)
+#define DFT_OUTBUF	(2*1024)
 #endif /*]*/

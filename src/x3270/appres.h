@@ -15,7 +15,7 @@
 
 /* Toggles */
 
-enum toggle_type { TT_INITIAL, TT_TOGGLE, TT_FINAL };
+enum toggle_type { TT_INITIAL, TT_INTERACTIVE, TT_ACTION, TT_FINAL };
 struct toggle {
 	Boolean value;		/* toggle value */
 	Boolean changed;	/* has the value changed since init */
@@ -49,7 +49,11 @@ struct toggle {
 #define MARGINED_PASTE	11
 #define RECTANGLE_SELECT 12
 
-#define N_TOGGLES	13
+#if defined(X3270_DISPLAY) /*[*/
+#define CROSSHAIR	13
+#endif /*]*/
+
+#define N_TOGGLES	14
 
 #define toggled(ix)		(appres.toggle[ix].value)
 #define toggle_toggle(t) \
@@ -88,6 +92,7 @@ typedef struct {
 #endif /*]*/
 #if defined(C3270) /*[*/
 	Boolean all_bold_on;
+	Boolean	curses_keypad;
 #endif /*]*/
 	Boolean	apl_mode;
 	Boolean scripted;
@@ -107,6 +112,7 @@ typedef struct {
 #if defined(X3270_DISPLAY) || defined(C3270) /*[*/
 	char	*key_map;
 	char	*compose_map;
+	char	*printer_lu;
 #endif /*]*/
 #if defined(X3270_DISPLAY) /*[*/
 	char	*efontname;

@@ -12,6 +12,29 @@
 <h1>
 New Features in pr3287 3.2
 <hr WIDTH="100%"></h1>
+<h2>Changes in pr3287 3.2.19, 1. May 2002</h2>
+<ul>
+ <li>Bug Fixes:
+  <ul>
+   <li>Fixed a problem with interpreting certain SCS commands.</li>
+   <li>Fixed a problem with Repeat-To-Address orders which specify Format
+    Control orders instead of printable characters.</li>
+   <li>Properly implemented SCS transparent data.</li>
+  </ul>
+ </li>
+ <li>Enhancements:
+  <ul>
+   <li>Updated to autoconf 2.53.</li>
+   <li>Added a <b>-crlf</b> option, to expand newlines to CR/LF sequences in
+    the output.</li>
+   <li>Added a <b>-ffskip</b> option, to ignore SCS FF orders if they occur at
+    the top  of a page.</li>
+   <li>Added a <b>-ffthru</b> option, to pass through SCS FF orders as ASCII
+    formfeed characters, instead of simulating them with linefeeds based on the
+    SCS MPL and TP parameters.</li>
+  </ul>
+ </li>
+</ul>
 <h2>Changes in pr3287 3.2.18, 31. December 2001</h2>
 <ul>
  <li>Bug Fixes:

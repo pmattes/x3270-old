@@ -491,7 +491,8 @@ setup_lus(void)
 	 * Allocate enough memory to construct an argv[] array for
 	 * the LUs.
 	 */
-	lus = (char **)Malloc((n_lus+1) * sizeof(char *) + strlen(luname) + 1);
+	Replace(lus,
+	    (char **)Malloc((n_lus+1) * sizeof(char *) + strlen(luname) + 1));
 
 	/* Copy each LU into the array. */
 	lu = (char *)(lus + n_lus + 1);
@@ -570,6 +571,9 @@ net_disconnect(void)
 	/* Restore terminal type to its default. */
 	if (appres.termname == CN)
 		termtype = full_model_name;
+
+	/* We're not connected to an LU any more. */
+	status_lu(CN);
 }
 
 
@@ -991,6 +995,7 @@ telnet_fsm(unsigned char c)
 					connected_lu = try_lu;
 				} else
 					connected_lu = CN;
+				status_lu(connected_lu);
 
 				tb_len = 4 + tt_len + 2;
 				tt_out = Malloc(tb_len + 1);
@@ -1066,6 +1071,27 @@ tn3270e_request(void)
 	    cmd(SE));
 
 	Free(tt_out);
+}
+
+/*
+ * Back off of TN3270E.
+ */
+static void
+backoff_tn3270e(const char *why)
+{
+	trace_dsn("Aborting TN3270E: %s\n", why);
+
+	/* Tell the host 'no'. */
+	wont_opt[2] = TELOPT_TN3270E;
+	net_rawout(wont_opt, sizeof(wont_opt));
+	trace_dsn("SENT %s %s\n", cmd(WONT), opt(TELOPT_TN3270E));
+
+	/* Restore the LU list; we may need to run it again in TN3270 mode. */
+	setup_lus();
+
+	/* Reset our internal state. */
+	myopts[TELOPT_TN3270E] = 0;
+	check_in3270();
 }
 
 /*
@@ -1145,6 +1171,7 @@ tn3270e_negotiate(void)
 				    (char *)&sbbuf[3+tnlen+1], snlen);
 				reported_lu[snlen] = '\0';
 				connected_lu = reported_lu;
+				status_lu(connected_lu);
 			}
 
 			/* Tell them what we can do. */
@@ -1156,6 +1183,12 @@ tn3270e_negotiate(void)
 			/* Device type failure. */
 
 			trace_dsn("REJECT REASON %s SE\n", rsn(sbbuf[4]));
+			if (sbbuf[4] == TN3270E_REASON_INV_DEVICE_TYPE ||
+			    sbbuf[4] == TN3270E_REASON_UNSUPPORTED_REQ) {
+				backoff_tn3270e("Host rejected device type or "
+				    "request type");
+				break;
+			}
 
 			next_lu();
 			if (try_lu != CN) {
@@ -1163,13 +1196,9 @@ tn3270e_negotiate(void)
 				tn3270e_request();
 			} else if (lus != (char **)NULL) {
 				/* No more LUs to try.  Give up. */
-				popup_an_error("Cannot connect to "
-					"specified LU:\n%s", rsn(sbbuf[4]));
-				return -1;
+				backoff_tn3270e("Host rejected resource(s)");
 			} else {
-				popup_an_error("Device type rejected:\n"
-					"%s", rsn(sbbuf[4]));
-				return -1;
+				backoff_tn3270e("Device type rejected");
 			}
 
 			break;
@@ -1231,15 +1260,8 @@ tn3270e_negotiate(void)
 					 * They've added something.  Abandon
 					 * TN3270E, they're brain dead.
 					 */
-					trace_dsn("Host illegally added "
-						"function(s), aborting "
-						"TN3270E\n");
-					wont_opt[2] = TELOPT_TN3270E;
-					net_rawout(wont_opt, sizeof(wont_opt));
-					trace_dsn("SENT %s %s\n", cmd(WONT),
-						opt(TELOPT_TN3270E));
-					myopts[TELOPT_TN3270E] = 0;
-					check_in3270();
+					backoff_tn3270e("Host illegally added "
+					    "function(s)");
 					break;
 				}
 			}
@@ -1860,6 +1882,7 @@ check_in3270(void)
 #if defined(X3270_TRACE) /*[*/
 	static const char *state_name[] = {
 		"unconnected",
+		"resolving",
 		"pending",
 		"connected initial",
 		"TN3270 NVT",
@@ -2122,7 +2145,7 @@ net_output(void)
 	static unsigned char *xobuf = NULL;
 	static int xobuf_len = 0;
 	int need_resize = 0;
-	unsigned char *balance, *nxoptr, *xoptr;
+	unsigned char *nxoptr, *xoptr;
 
 #if defined(X3270_TN3270E) /*[*/
 #define BSTART	((IN_TN3270E || IN_SSCP) ? obuf_base : obuf)
@@ -2167,13 +2190,12 @@ net_output(void)
 
 	/* Copy and expand IACs. */
 	xoptr = xobuf;
-	balance = BSTART;
-	while ((nxoptr = memccpy(xoptr, balance, IAC, obptr-balance)) != NULL) {
-		balance += nxoptr - xoptr;
-		xoptr = nxoptr;
-		*xoptr++ = IAC;
+	nxoptr = BSTART;
+	while (nxoptr < obptr) {
+		if ((*xoptr++ = *nxoptr++) == IAC) {
+			*xoptr++ = IAC;
+		}
 	}
-	xoptr += obptr - balance;
 
 	/* Append the IAC EOR and transmit. */
 	*xoptr++ = IAC;
