@@ -418,15 +418,12 @@ color_from_fa(unsigned char fa)
 	    COLOR_RED,		/* intensified */
 	    COLOR_BLUE,		/* protected */
 	    COLOR_WHITE		/* protected, intensified */
-#	define DEFCOLOR_MAP(f) \
-		((((f) & FA_PROTECT) >> 4) | (((f) & FA_INT_HIGH_SEL) >> 3))
-
 	};
 
 	if (appres.m3279) {
 		int fg;
 
-		fg = field_colors[DEFCOLOR_MAP(fa)];
+		fg = field_colors[(fa >> 1) & 0x03];
 		return get_color_pair(fg, COLOR_BLACK) |
 		    (((ab_mode == TS_ON) || FA_IS_HIGH(fa))? A_BOLD: A_NORMAL);
 	} else
@@ -509,9 +506,7 @@ screen_disp(Boolean erasing unused)
 							    & 0x0f];
 						else
 							bg = COLOR_BLACK;
-						a = get_color_pair(fg, bg) |
-							((ab_mode == TS_ON)?
-							  A_BOLD: A_NORMAL);
+						a = get_color_pair(fg, bg);
 					} else {
 						a = color_from_fa(fa);
 					}
@@ -535,9 +530,7 @@ screen_disp(Boolean erasing unused)
 				if (ea_buf[baddr].gr ||
 				    ea_buf[baddr].fg ||
 				    ea_buf[baddr].bg) {
-					int b = ((ab_mode == TS_ON) ||
-						 FA_IS_HIGH(fa))? A_BOLD:
-						                  A_NORMAL;
+					int b = FA_IS_HIGH(fa)? A_BOLD: A_NORMAL;
 
 					if (ea_buf[baddr].gr & GR_BLINK)
 						b |= A_BLINK;
