@@ -26,7 +26,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tcl3270.c,v 1.12 2000/11/13 16:09:35 pdm Exp $
+ * RCS: @(#) $Id: tcl3270.c,v 1.14 2000/12/23 17:55:57 pdm Exp $
  */
 
 /*
@@ -38,6 +38,10 @@
 #include "tcl.h"
 
 #include "globals.h"
+#if defined(HAVE_TCLEXTEND_H) /*[*/
+#include "tclExtend.h"
+#endif /*]*/
+
 #include <sys/wait.h>
 #include <signal.h>
 #include <errno.h>
@@ -168,7 +172,11 @@ Boolean macro_output = False;
 int
 main(int argc, char **argv)
 {
+#if defined(HAVE_TCLEXTEND_H) /*[*/
+    TclX_Main(argc, argv, Tcl_AppInit);
+#else /*][*/
     Tcl_Main(argc, argv, Tcl_AppInit);
+#endif /*]*/
     return 0;
 }
 
@@ -206,6 +214,12 @@ Tcl_AppInit(Tcl_Interp *interp)
     if (Tcl_Init(interp) == TCL_ERROR) {
 	return TCL_ERROR;
     }
+#if defined(HAVE_TCLEXTEND_H) /*[*/
+    if (Tclx_Init(interp) == TCL_ERROR) {
+	return TCL_ERROR;
+    }
+#endif /*]*/
+
 
     /* Use argv and argv0 to figure out our command-line arguments. */
     s0 = Tcl_GetVar(interp, "argv0", 0);
@@ -624,10 +638,7 @@ sms_continue(void)
 {
 }
 
-/*
- * Data query actions.  Except for dump_range(), these are copied from macros.c,
- * and should be compiled from there directly instead.
- */
+/* Data query actions. */
 
 static void
 dump_range(int first, int len, Boolean in_ascii, unsigned char *buf,
@@ -649,6 +660,7 @@ dump_range(int first, int len, Boolean in_ascii, unsigned char *buf,
 	for (i = 0; i < len; i++) {
 		unsigned char c;
 
+		/* Check for a new row. */
 		if (i && !((first + i) % rel_cols)) {
 			/* Done with this row. */
 			if (o == NULL)
@@ -674,6 +686,69 @@ dump_range(int first, int len, Boolean in_ascii, unsigned char *buf,
 				cg2ebc[buf[first + i]]);
 			Tcl_ListObjAppendElement(sms_interp, row,
 				Tcl_NewStringObj(s, 5));
+		}
+	}
+
+	/* Return it. */
+	if (row) {
+		if (o) {
+			Tcl_ListObjAppendElement(sms_interp, o, row);
+			Tcl_SetObjResult(sms_interp, o);
+		} else
+			Tcl_SetObjResult(sms_interp, row);
+	}
+}
+
+static void
+dump_rectangle(int start_row, int start_col, int rows, int cols,
+    Boolean in_ascii, unsigned char *buf, int rel_cols)
+{
+	register int r, c;
+	Tcl_Obj *o = NULL;
+	Tcl_Obj *row = NULL;
+
+	/*
+	 * The client has now 'looked' at the screen, so should they later
+	 * execute 'Wait(output)', they will actually need to wait for output
+	 * from the host.  output_wait_needed is cleared by sms_host_output,
+	 * which is called from the write logic in ctlr.c.
+	 */
+	if (buf == screen_buf)
+		output_wait_needed = True;
+
+	if (!rows || !cols)
+		return;
+
+	for (r = start_row; r < start_row + rows; r++) {
+		/* New row. */
+		if (o == NULL)
+			o = Tcl_NewListObj(0, NULL);
+		if (row != NULL)
+			Tcl_ListObjAppendElement(sms_interp, o, row);
+		if (in_ascii)
+			row = Tcl_NewObj();
+		else
+			row = Tcl_NewListObj(0, NULL);
+
+		for (c = start_col; c < start_col + cols; c++) {
+			int loc = (r * rel_cols) + c;
+
+			if (in_ascii) {
+				unsigned char ch;
+
+				ch = cg2asc[buf[loc]];
+				if (!ch)
+					ch = ' ';
+				Tcl_AppendToObj(row, &ch, 1);
+			} else {
+				char s[5];
+
+				(void) sprintf(s, "0x%02x",
+					cg2ebc[buf[loc]]);
+				Tcl_ListObjAppendElement(sms_interp, row,
+					Tcl_NewStringObj(s, 5));
+			}
+
 		}
 	}
 
@@ -733,13 +808,8 @@ dump_fixed(String params[], Cardinal count, const char *name, Boolean in_ascii,
 	if (count < 4)
 		dump_range((row * rel_cols) + col, len, in_ascii, buf,
 			rel_rows, rel_cols);
-	else {
-		int i;
-
-		for (i = 0; i < rows; i++)
-			dump_range(((row+i) * rel_cols) + col, cols, in_ascii,
-				buf, rel_rows, rel_cols);
-	}
+	else
+		dump_rectangle(row, col, rows, cols, in_ascii, buf, rel_cols);
 }
 
 static void

@@ -1,5 +1,5 @@
 '\" t
-.TH tcl3270 1 "16 November 2000"
+.TH tcl3270 1 "23 December 2000"
 .SH "NAME"
 tcl3270 \-
 \s-1IBM\s+1 host access tool
@@ -104,8 +104,7 @@ A 3279 always uses the Extended Data Stream (whether or not \fB\-E\fP
 is specified); for a 3278 it is optional.
 .IP
 The default model
-is
-\fB3279\-4\-E\fP.
+\fB3278\-4\-E\fP.
 .TP
 \fB\-mono\fP
 Forces 3278 emulation.
@@ -136,10 +135,8 @@ below.
 Specifies the terminal name to be transmitted over the telnet connection.
 The default name is
 \fBIBM\-\fP\fImodel_name\fP,
-for example, \fBIBM\-3279\-4\-E\fP
-for a color display, or
-\fBIBM\-3278\-4\-E\fP
-for a monochrome display.
+for example,
+\fBIBM\-3278\-4\-E\fP.
 .IP
 Some hosts are confused by the \fB\-E\fP
 suffix on the terminal name, and will ignore the extra screen area on
@@ -554,8 +551,7 @@ in the directory specified by the \fBtraceDir\fP resource.
 If more than one \fB\-xrm\fP option is given for the same resource,
 the last one on the command line is used.
 .SH "SEE ALSO"
-telnet(1), tn3270(1),
-x3270(1), s3270(1), c3270(1), pr3287(1)
+x3270(1), s3270(1), c3270(1), telnet(1), tn3270(1)
 .br
 Data Stream Programmer's Reference, IBM GA23-0059
 .br
@@ -586,4 +582,4 @@ notice.
 .RE
 5250 Emulation Code Copyright Minolta (Schweiz) AG, Beat Rubischon.
 .SH "VERSION"
-tcl3270 3.2.14
+tcl3270 3.2.15k

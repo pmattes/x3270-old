@@ -22,6 +22,7 @@
 #undef HAVE_PTY_H
 #undef HAVE_LIBUTIL_H
 #undef HAVE_UTIL_H
+#undef HAVE_TCLEXTEND_H
 
 /* Uncommon functions. */
 #undef HAVE_VASPRINTF

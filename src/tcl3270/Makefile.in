@@ -36,7 +36,7 @@ LIBS = @LIBS@ -lm
 
 version.o: $(VOBJS) version.txt mkversion.sh
 	@chmod +x mkversion.sh version.txt
-	sh ./mkversion.sh $(CC) c3270
+	sh ./mkversion.sh $(CC) tcl3270
 
 tcl3270: $(OBJS1)
 	$(CC) -o $@ $(OBJS1) $(LDFLAGS) $(LIBS)
@@ -45,7 +45,7 @@ install: tcl3270 x3270if
 	install tcl3270 $(BINDIR)/tcl3270
 
 install.man:
-	install c3270.man $(MANDIR)/man1/c3270.1
+	install tcl3270.man $(MANDIR)/man1/tcl3270.1
 
 clean:
 	$(RM) tcl3270 *.o

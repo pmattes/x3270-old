@@ -23,6 +23,7 @@
 /* #undef HAVE_PTY_H */
 #define HAVE_LIBUTIL_H 1
 /* #undef HAVE_UTIL_H */
+#define HAVE_TCLEXTEND_H 1
 
 /* Uncommon functions. */
 #define HAVE_VASPRINTF 1
