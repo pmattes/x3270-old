@@ -1371,7 +1371,8 @@ ft_complete(const char *errmsg)
 
 #if defined(X3270_DISPLAY) && defined(X3270_MENUS) /*[*/
 	/* Pop down the in-progress shell. */
-	XtPopdown(progress_shell);
+	if (!ft_is_action)
+		XtPopdown(progress_shell);
 #endif /*]*/
 
 	/* Pop up the text. */
@@ -1421,9 +1422,11 @@ ft_update_length(void)
 	char text_string[80];
 
 	/* Format the message */
-	sprintf(text_string, status_string, ft_length);
+	if (!ft_is_action) {
+		sprintf(text_string, status_string, ft_length);
 
-	XtVaSetValues(ft_status, XtNlabel, text_string, NULL);
+		XtVaSetValues(ft_status, XtNlabel, text_string, NULL);
+	}
 #endif /*]*/
 }
 
@@ -1438,11 +1441,11 @@ ft_running(Boolean is_cut)
 	ft_length = 0;
 
 #if defined(X3270_DISPLAY) && defined(X3270_MENUS) /*[*/
-	XtUnmapWidget(waiting);
-#endif /*]*/
-	ft_update_length();
-#if defined(X3270_DISPLAY) && defined(X3270_MENUS) /*[*/
-	XtMapWidget(ft_status);
+	if (!ft_is_action) {
+		XtUnmapWidget(waiting);
+		ft_update_length();
+		XtMapWidget(ft_status);
+	}
 #endif /*]*/
 }
 
@@ -1453,9 +1456,11 @@ ft_aborting(void)
 	if (ft_state == FT_RUNNING || ft_state == FT_ABORT_WAIT) {
 		ft_state = FT_ABORT_SENT;
 #if defined(X3270_DISPLAY) && defined(X3270_MENUS) /*[*/
-		XtUnmapWidget(waiting);
-		XtUnmapWidget(ft_status);
-		XtMapWidget(aborting);
+		if (!ft_is_action) {
+			XtUnmapWidget(waiting);
+			XtUnmapWidget(ft_status);
+			XtMapWidget(aborting);
+		}
 #endif /*]*/
 	}
 }
@@ -1539,6 +1544,7 @@ Transfer_action(Widget w unused, XEvent *event, String *params,
 	Cardinal j;
 	long l;
 	char *ptr;
+	char *ft_command = CN;
 
 	char opts[80];
 	char *op = opts + 1;
@@ -1772,10 +1778,33 @@ Transfer_action(Widget w unused, XEvent *event, String *params,
 		op = opts;
 	}
 
+	/*
+	 * Unless the user specified a particular file transfer command,
+	 * translate 'ind$file' so that it will have the proper EBCDIC value,
+	 * regardless of the local character set.
+	 */
+	if (appres.ft_command != CN) {
+		ft_command = appres.ft_command;
+	} else {
+		char *s = "ind$file";
+		char *t;
+		unsigned char c;
+
+		ft_command = Malloc(strlen(s) + 1);
+		t = ft_command;
+
+		while ((c = *s++)) {
+			*t++ = ebc2asc[asc2ebc0[c & 0xff]];
+		}
+		*t = '\0';
+	}
+
 	/* Build the whole command. */
 	cmd = xs_buffer("%s %s %s%s\\n",
-	    appres.ft_command,
+	    ft_command,
 	    receive_flag ? "get" : "put", ft_host_filename, op);
+	if (appres.ft_command == CN)
+		Free(ft_command);
 
 	/* Erase the line and enter the command. */
 	flen = kybd_prime();
@@ -1790,11 +1819,6 @@ Transfer_action(Widget w unused, XEvent *event, String *params,
 	/* Get this thing started. */
 	ft_state = FT_AWAIT_ACK;
 	ft_is_cut = False;
-
-	/* Start tracking it. */
-#if defined(X3270_DISPLAY) && defined(X3270_MENUS) /*[*/
-	popup_progress();
-#endif /*]*/
 }
 
 #endif /*]*/
