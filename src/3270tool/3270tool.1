@@ -1,0 +1,168 @@
+'\" t
+.TH 3270TOOL 1 "March 28, 1989"
+.SH NAME
+3270tool \- IBM remote host access tool
+.SH SYNOPSIS
+.B 3270tool
+host
+.SH DESCRIPTION
+.I 3270tool
+opens a telnet connection to the given IBM host in a SunView window.
+The created window provides a fairly complete IBM 3278 Model 2 terminal
+emulation.
+.I 3270tool
+is similar to
+.I tn3270 (1)
+except that it is SunView-based, not Curses-based.
+.PP
+The window created by
+.I 3270tool
+is 80x24 (the standard size of a Model 2) and, since 3270tool uses it's own
+font for displaying characters, is a fairly accurate representation of a
+standard 3278.
+The window listens to the following SunView standard keys: Expose (L5),
+Put (L6), Open (L7)
+and
+Get (L8).
+It also has the standard SunView frame menu.
+.PP
+Since 3278 keyboards are quite different from Sun keyboards, a number of
+the keys are mapped to special 3278 functions.
+Most of the keys do what they are expected to do, with the following exceptions.
+.sp
+.TS
+center;
+lb lb
+l l .
+Sun Keys	IBM Equivalent
+^ (shift-6)	EBCDIC not sign
+ESC	EBCDIC cent sign
+|	EBCDIC broken bar
+shift-ESC	EBCDIC solid bar
+F1	Alternate Cursor
+F2	Cursor Blink
+F3	Reset
+F9	Monocase
+Delete	Backward Field Tab
+Backspace	Cursor Left
+Meta-Delete	Cursor Home
+Meta-Backspace	Cursor Home
+Tab	Forward Field Tab
+Line Feed	Newline
+Return	Enter
+Meta-1	PF1
+Meta-2	PF2
+Meta-3	PF3
+Meta-4	PF4
+Meta-5	PF5
+Meta-6	PF6
+Meta-7	PF7
+Meta-8	PF8
+Meta-9	PF9
+Meta-0	PF10
+Meta--	PF11
+Meta-=	PF12
+R1	Dup
+R2	Field Mark
+R3	Cursor Select
+R4	Erase EOF
+R5	Erase Input
+R6	System Request
+R7	Delete Character
+R8	Cursor Up
+R9	Insert Mode
+R10	Cursor Left
+R11	Cursor Home
+R12	Cursor Right
+R13	Cursor Left 2
+R14	Cursor Down
+R15	Cursor Right 2
+Meta-R1	PA1
+Meta-R2	PA2
+Meta-R3	Clear
+Meta-R4	PF13
+Meta-R5	PF14
+Meta-R6	PF15
+Meta-R7	PF16
+Meta-R8	PF17
+Meta-R9	PF18
+Meta-R10	PF19
+Meta-R11	PF20
+Meta-R12	PF21
+Meta-R13	PF22
+Meta-R14	PF23
+Meta-R15	PF24
+.TE
+.PP
+On Sun systems with the Type-4 keyboards,
+.I 3270tool
+may be compiled to take advantage of the fact that there are 12 F? keys
+instead of the 9 on the Type-3 keyboards.
+(The F? keys are the row of functions keys above the main keypad.)
+In this case, the definitions of the F? keys are changed to the following:
+.sp
+.TS
+center;
+lb lb
+l l .
+Sun Keys	IBM Equivalent
+Meta-F1	Alternate Cursor
+Meta-F2	Cursor Blink
+Meta-F3	Reset
+Meta-F9	Monocase
+F1	PF1
+F2	PF2
+F3	PF3
+F4	PF4
+F5	PF5
+F6	PF6
+F7	PF7
+F8	PF8
+F9	PF9
+F10	PF10
+F11	PF11
+F12	PF12
+.TE
+.PP
+Mouse usage is fairly conventional (i.e., it follows SunView conventions).
+The Left button simulates the cursor motion keys by moving the cursor directly
+under the pointer on each click.
+The Middle button sets the primary selection to be those characters on the
+screen from the current character cursor position to the character position
+pointed to by the mouse pointer.
+Setting the selection uses a block-mode fashion of operation instead of the usual
+line-by-line.
+This seems more appropriate for displays generated from most IBM host software.
+The Right button brings up a menu with three items.
+The first item is labelled
+.B "Show/Hide Key Panel"
+and is used to display a panel of buttons that allow accessing all the PF keys,
+the 2 PA keys, the Clear key, the SysReq key and the Enter key from the mouse.
+This panel is displayed in a separate window and may be moved around as needed.
+The panel displays a 3x6 array of buttons.
+The top 3 buttons are, in order, PA1, PA2 and Clear.
+The twelve buttons on the next four rows are either PF1 through PF12 or
+PF13 through PF24.
+The bottom 3 buttons are, in order, SysReq, Enter and a special button called
+Shift which alternates the middle four rows between PF1 through PF12 and
+PF13 through PF24.
+To minimize mouse motions, the key panel can be typed into; it passes the
+keystrokes to the main window.
+The second menu item accesses a sub-menu which allows access to all the other
+special 3278 keys from the mouse.
+All keys besides the characters keys may therefore be accessed directly from
+the mouse, if needed.
+The third menu item performs the standard "Stuff" of the primary selection.
+.SH FILES
+.ta 2i
+/usr/lib/fonts/fixedwidthfonts/3270.font	3270 font
+.SH "SEE ALSO"
+telnet(1), tn3270(1)
+.SH AUTHOR
+Robert Viduya
+.SH BUGS
+Since the custom font is not substitutable, the program cannot be coerced into
+using a different sized font.
+This means that the window is essentially fixed in size.
+.PP
+The keyboard mapping ought to be user-customizable.
