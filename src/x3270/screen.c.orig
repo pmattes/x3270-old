@@ -2926,15 +2926,14 @@ screen_new_display_charset(const char *display_charset, const char *csname)
 			char *cs_dup;
 			char *cs;
 			char *buf;
-			char *lasts;
 
 			buf = cs_dup = NewString(display_charset);
-			while (!font_found && (cs = strtok_r(buf, ",", &lasts)) != CN) {
+			while (!font_found && (cs = strtok(buf, ",")) != CN) {
 				char *wild;
 
 				buf = CN;
 				wild = xs_buffer("*-r-*-c-*-%s", cs);
-				lff = load_fixed_font(wild, cs);
+				lff = load_fixed_font(wild, display_charset);
 				if (lff != CN)
 					Free(lff);
 				else
@@ -2942,7 +2941,8 @@ screen_new_display_charset(const char *display_charset, const char *csname)
 				Free(wild);
 				if (!font_found) {
 					wild = xs_buffer("*-r-*-m-*-%s", cs);
-					lff = load_fixed_font(wild, cs);
+					lff = load_fixed_font(wild,
+							      display_charset);
 					if (lff != CN)
 						Free(lff);
 					else
@@ -3049,24 +3049,16 @@ check_charset(const char *name, XFontStruct *f, const char *dcsname,
 {
 	unsigned long a_family_name, a_font_registry, a_font_encoding;
 	char *font_registry = CN, *font_encoding = CN;
-	const char *font_charset = CN;
+	const char *font_charset;
 	Boolean r = False;
 	char *csn0, *ptr, *csn;
-	char *lasts;
 
-#if defined(DEBUG_FONTPICK) /*[*/
-	printf("checking '%s' against %s\n", name, dcsname);
-#endif /*]*/
 	/* Check for scalability. */
 	*scalable = False;
 	if (!force) {
 		*scalable = seems_scalable(name);
-		if (*scalable) {
-#if defined(DEBUG_FONTPICK) /*[*/
-		    printf("'%s' seems scalable\n", name);
-#endif /*]*/
+		if (*scalable)
 		    return False;
-		}
 	}
 
 	if (XGetFontProperty(f, a_registry, &a_font_registry))
@@ -3093,13 +3085,9 @@ check_charset(const char *name, XFontStruct *f, const char *dcsname,
 	}
 
 	ptr = csn0 = NewString(dcsname);
-	while (!r && (csn = strtok_r(ptr, ",", &lasts)) != CN) {
-		if (force || !strcasecmp(font_charset, csn)) {
-#if defined(DEBUG_FONTPICK) /*[*/
-			printf("'%s' says it implements '%s' (want '%s')%s\n", name, font_charset, csn, force? " (forced)": "");
-#endif /*]*/
+	while (!r && (csn = strtok(ptr, ",")) != CN) {
+		if (force || !strcasecmp(font_charset, csn))
 			r = True;
-		}
 		ptr = CN;
 	}
 	Free(csn0);
@@ -3107,9 +3095,6 @@ check_charset(const char *name, XFontStruct *f, const char *dcsname,
 		Replace(efont_charset, font_charset);
 	} else
 		*wrong_csname = font_charset;
-#if defined(DEBUG_FONTPICK) /*[*/
-	printf("'%s' seems %s\n", name, r? "okay": "bad");
-#endif /*]*/
 	return r;
 }
 
@@ -3195,7 +3180,7 @@ load_fixed_font(const char *name, const char *reqd_display_charset)
 	if (matches == (char **)NULL)
 		return xs_buffer("Font %s\nnot found", name);
 #if defined(DEBUG_FONTPICK) /*[*/
-	printf("%d fonts found for '%s'\n", count, name);
+	printf("%d fonts found\n", count);
 #endif /*]*/
 	for (i = 0; i < count; i++) {
 #if defined(DEBUG_FONTPICK) /*[*/
@@ -3235,11 +3220,11 @@ load_fixed_font(const char *name, const char *reqd_display_charset)
 				best = i;
 				best_pixel_size = pixel_size;
 #if defined(DEBUG_FONTPICK) /*[*/
-				printf("best pixel size: %ld '%s'\n", pixel_size, matches[i]);
+				printf("best pixel size: %ld\n", pixel_size);
 #endif /*]*/
 			} else {
 #if defined(DEBUG_FONTPICK) /*[*/
-				printf("not so good: %ld '%s'\n", pixel_size, matches[i]);
+				printf("not so good: %ld\n", pixel_size);
 #endif /*]*/
 			}
 		}
@@ -3798,7 +3783,6 @@ init_rsfonts(char *charset_name)
 	int count, i;
 	char **names;
 	char *dupcsn, *csn, *buf;
-	char *lasts;
 
 	/* Clear the old lists. */
 	while (rsfonts != NULL) {
@@ -3879,7 +3863,7 @@ init_rsfonts(char *charset_name)
 
 	/* Then expand out the wild-cards. */
 	buf = dupcsn = NewString(charset_name);
-	while ((csn = strtok_r(buf, ",", &lasts)) != CN) {
+	while ((csn = strtok(buf, ",")) != CN) {
 		buf = CN;
 		wild = xs_buffer("*-r-*-c-*-%s", csn);
 		count = 0;
