@@ -1151,7 +1151,7 @@ do_otherfont(Widget w unused, XtPointer userdata unused,
 	if (font_shell == NULL)
 		font_shell = create_form_popup("Font", font_button_callback,
 						(XtCallbackProc)NULL,
-						FORM_NO_WHITE);
+						FORM_NO_CC);
 	popup_popup(font_shell, XtGrabExclusive);
 }
 
@@ -1616,7 +1616,6 @@ options_menu_init(Boolean regen, Position x, Position y)
 		XtAddCallback(w, XtNcallback, do_keymap, NULL);
 	}
 
-#if XtSpecificationRelease >= 5 /*[*/
 	/* Create the "display keymap" option */
 	(void) XtVaCreateManagedWidget("space", cmeLineObjectClass,
 	    options_menu,
@@ -1625,7 +1624,6 @@ options_menu_init(Boolean regen, Position x, Position y)
 	    "keymapDisplayOption", cmeBSBObjectClass, options_menu,
 	    NULL);
 	XtAddCallback(w, XtNcallback, do_keymap_display, NULL);
-#endif /*]*/
 
 	if (menubar_buttons) {
 		(void) XtVaCreateManagedWidget(

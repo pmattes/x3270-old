@@ -141,7 +141,6 @@ WidgetClass cmeLineObjectClass = (WidgetClass) &cmeLineClassRec;
  *      Returns: none.
  */
 
-/* ARGSUSED */
 static void
 Initialize(Widget request unused, Widget new, ArgList args unused,
 	Cardinal *num_args unused)
@@ -211,7 +210,6 @@ DestroyGC(Widget w)
  *	Returns: none
  */
 
-/*ARGSUSED*/
 static void
 Redisplay(Widget w, XEvent *event unused, Region region unused)
 {
@@ -236,7 +234,6 @@ Redisplay(Widget w, XEvent *event unused, Region region unused)
  *      Returns: none
  */
 
-/* ARGSUSED */
 static Boolean
 SetValues(Widget current, Widget request unused, Widget new,
 	ArgList args unused, Cardinal *num_args unused)

@@ -42,7 +42,6 @@ extern int linemode;
 extern Pixmap icon;
 
 /* Called when OK is pressed on the about popup */
-/*ARGSUSED*/
 static void
 saw_about(Widget w unused, XtPointer client_data unused,
 	XtPointer call_data unused)
@@ -51,7 +50,6 @@ saw_about(Widget w unused, XtPointer client_data unused,
 }
 
 /* Called when the about popup is popped down */
-/*ARGSUSED*/
 static void
 destroy_about(Widget w unused, XtPointer client_data unused,
 	XtPointer call_data unused)
@@ -161,7 +159,9 @@ popup_about(void)
 	char fbuf[1024];
 	const char *ftype;
 	const char *emode;
+#if defined(X3270_TN3270E) /*[*/
 	const char *eopts;
+#endif /*]*/
 	char *xbuf;
 
 	/* Create the popup */
@@ -339,6 +339,7 @@ Copyright \251 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.\n\
 
 		MAKE_LABEL(fbuf, 0);
 
+#if defined(X3270_TN3270E) /*[*/
 		eopts = tn3270e_current_opts();
 		if (eopts != CN) {
 			(void) sprintf(fbuf, "  %s",
@@ -350,6 +351,7 @@ Copyright \251 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.\n\
 				get_message("tn3270eNoOpts"));
 			MAKE_LABEL(fbuf, 0);
 		}
+#endif /*]*/
 
 		if (IN_3270)
 			(void) sprintf(fbuf, "%s %d %s, %d %s\n%s %d %s, %d %s",

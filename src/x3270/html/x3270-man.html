@@ -8,7 +8,7 @@
 <body>
 
 <h1>
-<img SRC="x3270.jpg"  align=CENTER>
+<img SRC="x3270.jpg" align=CENTER>
 x3270 - IBM host access tool</h1>
 
 <h2>
@@ -28,6 +28,8 @@ host. See <a href="#PASSTHRU">PASSTHRU</a> below.
 <p>Prepending an <b>s:</b> onto <i>hostname</i> removes the "extended data
 stream" option reported to the host. See <b><a href="#-tn">-tn</a></b>
 for further information.
+<p>Prepending an <b>n:</b> onto <i>hostname</i> turns off TN3270E support
+for the session.
 <p>A specific LU name to use may be specified by prepending it to the
 <i>hostname</i>
 with an <b>@</b>. Multiple LU names to try can be separated by commas.
@@ -128,6 +130,8 @@ any of which may be omitted:</dd>
 
 <br>&nbsp;
 <p>&nbsp;
+<br>&nbsp;
+<br>&nbsp;
 <p>The first part is the <b>base model</b>, which is either <b>3278</b>
 or <b>3279</b>. <b>3278</b> specifies a monochrome 3270 display;
 <b>3279</b>
@@ -244,6 +248,8 @@ for a color X display, or <b>IBM-3278-4-E</b> for monochrome X display.</dd>
 
 <br>&nbsp;
 <p>&nbsp;
+<br>&nbsp;
+<br>&nbsp;
 <p>Some hosts are confused by the <b>-E</b> suffix on the terminal name,
 and will ignore the extra screen area on models 3, 4 and 5. Prepending
 an <b>:s</b> on the hostname removes the <b>-E</b> from the terminal name
@@ -340,10 +346,10 @@ The default is <b>right</b>.
 be displayed at startup.
 <h2>
 HOSTS DATABASE</h2>
-<b>x3270</b> uses the <i><a href="ibm_hosts.html">ibm_hosts</a></i>
-database to construct a pull-down menu of hosts to connect to. It supports
-the <b>loginstring</b> function, which allows you to specify a macro to
-be sent to the host when the connection is first made. See <a href="ibm_hosts.html"><i>ibm_hosts</i>(5)</a>
+<b>x3270</b> uses the <i><a href="ibm_hosts.html">ibm_hosts</a></i> database
+to construct a pull-down menu of hosts to connect to. It supports the <b>loginstring</b>
+function, which allows you to specify a macro to be sent to the host when
+the connection is first made. See <a href="ibm_hosts.html"><i>ibm_hosts</i>(5)</a>
 for details.
 <p>You may specify a different <i><a href="ibm_hosts.html">ibm_hosts</a></i>
 database with the "x3270.hostsFile" resource.
@@ -420,6 +426,8 @@ file names and other attributes of the transfer.</dd>
 
 <br>&nbsp;
 <p>&nbsp;
+<br>&nbsp;
+<br>&nbsp;
 <p>The IND$FILE program must be installed on the IBM host, and the 3270
 cursor must be located in a field that will accept a TSO or VM/CMS command.
 <dt>
@@ -689,6 +697,8 @@ and the icon can be resized. The icon can accept keyboard input.</dd>
 
 <br>&nbsp;
 <p>&nbsp;
+<br>&nbsp;
+<br>&nbsp;
 <p>However, <b>twm</b> does not put labels on application-supplied icon
 windows. You can have <b>x3270</b> add its own label to the icon by setting
 the "x3270.labelIcon" resource to
@@ -802,6 +812,7 @@ The basic default translation table is:
 &nbsp;&nbsp;&nbsp; Ctrl&lt;Btn2Down>&nbsp;&nbsp;&nbsp;&nbsp; HandleMenu(optionsMenu)
 &nbsp;&nbsp;&nbsp; Ctrl&lt;Btn3Down>&nbsp;&nbsp;&nbsp;&nbsp; HandleMenu(hostMenu)
 &nbsp;&nbsp;&nbsp; Shift&lt;Btn1Down>&nbsp;&nbsp;&nbsp; MoveCursor()
+&nbsp;&nbsp;&nbsp; Ctrl Shift&lt;Btn1Down> MoveCursorSelect()
 &nbsp;&nbsp;&nbsp; &lt;Btn1Down>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; select-start()
 &nbsp;&nbsp;&nbsp; &lt;Btn1Motion>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; select-extend()
 &nbsp;&nbsp;&nbsp; &lt;Btn2Down>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ignore()
@@ -909,6 +920,7 @@ not documented here.
 &nbsp;&nbsp;&nbsp; Left2&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; move cursor left 2 positions
 &nbsp;&nbsp;&nbsp; Macro(<i>macro</i>)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; run a macro
 &nbsp;&nbsp;&nbsp; MoveCursor&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; move cursor to mouse position
+&nbsp;&nbsp;&nbsp; MoveCursorSelect&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <u></u>move cursor to mouse position, light pen select
 &nbsp;&nbsp;&nbsp; MonoCase&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; toggle uppercase-only mode
 &nbsp;&nbsp;&nbsp; Newline&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; move cursor to first field on next line (or send ASCII LF)
 &nbsp;&nbsp;&nbsp; NextWord&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; move cursor to next word
@@ -1241,7 +1253,8 @@ at the port defined in
 <b>/etc/services</b> as
 <b>telnet-passthru</b> (which
 defaults to 3514). It then passes the requested hostname and port to the
-<b>in.telnet-gw</b> server.
+<b>in.telnet-gw</b>
+server.
 <h2>
 BUGS</h2>
 Cursor highlighting will not work with if you use the
@@ -1249,8 +1262,7 @@ Cursor highlighting will not work with if you use the
 option in your .twmrc file.
 <p>Pull-down menus may not work properly if the Caps Lock, Num Lock, Shift,
 Alt or Meta keys are pressed. This is a bug in the Athena menu widget and
-affects
-several other X applications as well.
+affects several other X applications as well.
 <h2>
 FILES</h2>
 /usr/lib/X11/x3270/ibm_hosts
@@ -1283,7 +1295,7 @@ notice.
 <p>5250 Emulation Code Copyright &copy; Minolta (Schweiz) AG, Beat Rubischon.
 <hr>
 <address>
-x3270 version 3.2.9, last modified 26. June 2000</address>
+x3270 version 3.2.10, last modified 5. July 2000</address>
 
 </body>
 </html>

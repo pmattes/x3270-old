@@ -45,6 +45,7 @@
 #define ResExtended		"extended"
 #define ResFontList		"fontMenuList"
 #define ResFtCommand		"ftCommand"
+#define ResHighlightSelect	"highlightSelect"
 #define ResHostsFile		"hostsFile"
 #define ResIconFont		"iconFont"
 #define ResIconLabelFont	"iconLabelFont"
@@ -95,6 +96,8 @@
 #define ResTypeahead		"typeahead"
 #define ResUseCursorColor	"useCursorColor"
 #define ResVisualBell		"visualBell"
+#define ResVisualSelect		"visualSelect"
+#define ResVisualSelectColor	"visualSelectColor"
 #define ResWaitCursor		"waitCursor"
 #define ResWerase		"werase"
 
@@ -153,6 +156,7 @@
 #define ClsExtended		"Extended"
 #define ClsFontList		"FontList"
 #define ClsFtCommand		"FtCommand"
+#define ClsHighlightSelect	"HighlightSelect"
 #define ClsHostsFile		"HostsFile"
 #define ClsIconFont		"IconFont"
 #define ClsIconLabelFont	"IconLabelFont"
@@ -202,6 +206,8 @@
 #define ClsTypeahead		"Typeahead"
 #define ClsUseCursorColor	"UseCursorColor"
 #define ClsVisualBell		"VisualBell"
+#define ClsVisualSelect		"VisualSelect"
+#define ClsVisualSelectColor	"VisualSelectColor"
 #define ClsWaitCursor		"WaitCursor"
 #define ClsWerase		"Werase"
 

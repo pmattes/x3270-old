@@ -77,7 +77,7 @@ XtActionsRec actions[] = {
 	{ "Redraw",		Redraw_action },
 	{ "SetFont",		SetFont_action },
 	{ "TemporaryKeymap",	TemporaryKeymap_action },
-# if defined(X3270_FT) /*[*/
+# if defined(X3270_FT) && defined(X3270_MENUS) /*[*/
 	{ PA_PFX "dialog-next",	PA_dialog_next_action },
 	{ PA_PFX "dialog-focus", PA_dialog_focus_action },
 # endif /*]*/
@@ -138,6 +138,9 @@ XtActionsRec actions[] = {
 #endif /*]*/
 	{ "MonoCase",		MonoCase_action },
 	{ "MoveCursor",		MoveCursor_action },
+#if defined(X3270_DISPLAY) /*[*/
+	{ "MoveCursorSelect",	MoveCursorSelect_action },
+#endif /*]*/
 	{ "Newline",		Newline_action },
 	{ "NextWord",		NextWord_action },
 	{ "PA",			PA_action },

@@ -162,6 +162,7 @@ x3270.charsetList:			U.S. International: us-intl\n\
 ! x3270.debugTracing:			true
 ! x3270.disconnectClear:		false
 ! x3270.hostsFile:			/usr/lib/X11/x3270/ibm_hosts
+! x3270.highlightSelect:		true
 ! x3270.invertKeypadShift:		false
 ! x3270.keymap:
 ! x3270.keypad:				right
@@ -185,6 +186,8 @@ x3270.charsetList:			U.S. International: us-intl\n\
 !  (note: cursorColor is not used unless useCursorColor is true, below)
 ! x3270.useCursorColor:			false
 ! x3270.visualBell:			false
+! x3270.visualSelect:			false
+! x3270.visualSelectColor:		6
 !
 ! Fonts listed on the Options menu
 x3270.fontMenuList:			3270 Font (14 point): 3270\n\
@@ -239,6 +242,7 @@ x3270.keymap.base: \
 	:Meta<Key>Left:			PreviousWord()\n\
 	:Meta<Key>Right:			NextWord()\n\
 	:<Key>BackSpace: 		BackSpace()\n\
+	:Ctrl Shift<Btn1Down>:		MoveCursorSelect()\n\
 	Ctrl<Btn1Down>:			HandleMenu(fileMenu)\n\
 	Ctrl<Btn2Down>:			HandleMenu(optionsMenu)\n\
 	Ctrl<Btn3Down>:			HandleMenu(hostMenu,macrosMenu)\n\
@@ -1039,7 +1043,7 @@ x3270.message.kmFromServer:			\ (expanded from '@server')
 !=============================================================================
 !
 ! App-defaults file version
-x3270.adVersion:		3.2.9
+x3270.adVersion:		3.2.10
 !
 ! Fonts
 #ifdef X3270_APL
@@ -1242,8 +1246,22 @@ x3270.translations: #override \n\
 	<KeymapNotify>:			PA-KeymapNotify()\n\
 	<PropertyNotify>WM_STATE:	PA-StateChanged()\n\
 	<FocusIn>:			PA-Focus()\n\
-	<FocusOut>:			PA-Focus()\n\
-	<ConfigureNotify>:		PA-ConfigureNotify()
+	<FocusOut>:			PA-Focus()
+x3270.container.translations: #override \n\
+	<ConfigureNotify>:		PA-ConfigureNotify()\n\
+	<KeyPress>Shift_L:		PA-Shift()\n\
+	<KeyRelease>Shift_L:		PA-Shift()\n\
+	<KeyPress>Shift_R:		PA-Shift()\n\
+	<KeyRelease>Shift_R:		PA-Shift()\n\
+	<KeyPress>Meta_L:		PA-Shift()\n\
+	<KeyRelease>Meta_L:		PA-Shift()\n\
+	<KeyPress>Meta_R:		PA-Shift()\n\
+	<KeyRelease>Meta_R:		PA-Shift()\n\
+	<KeyPress>Alt_L:		PA-Shift()\n\
+	<KeyRelease>Alt_L:		PA-Shift()\n\
+	<KeyPress>Alt_R:		PA-Shift()\n\
+	<KeyRelease>Alt_R:		PA-Shift()\n\
+	:<Key>:				Default()
 x3270*screen.translations:		#override \n\
 	<Expose>:			PA-Expose()\n\
 	<VisibilityNotify>:		PA-VisibilityNotify()\n\

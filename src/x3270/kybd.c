@@ -222,7 +222,6 @@ flush_ta(void)
 }
 
 /* Set bits in the keyboard lock. */
-/*ARGSUSED*/
 static void
 kybdlock_set(unsigned int bits, const char *cause unused)
 {
@@ -240,7 +239,6 @@ kybdlock_set(unsigned int bits, const char *cause unused)
 }
 
 /* Clear bits in the keyboard lock. */
-/*ARGSUSED*/
 void
 kybdlock_clr(unsigned int bits, const char *cause unused)
 {
@@ -409,7 +407,6 @@ key_AID(unsigned char aid_code)
 	}
 }
 
-/*ARGSUSED*/
 void
 PF_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
@@ -431,7 +428,6 @@ PF_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 		key_AID(pf_xlate[k-1]);
 }
 
-/*ARGSUSED*/
 void
 PA_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
@@ -456,38 +452,24 @@ PA_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 
 
 /*
- * ATTN key, similar to an AID key but without the read_modified call.
+ * ATTN key, per RFC 2355.  Sends IP, regardless.
  */
-/*ARGSUSED*/
 void
 Attn_action(Widget w unused, XEvent *event, String *params,
     Cardinal *num_params)
 {
 	action_debug(Attn_action, event, params, num_params);
-	if (kybdlock) {
-		enq_ta(Attn_action, CN, CN);
-		return;
-	}
 	if (!IN_3270)
 		return;
-	if (appres.attn_lock) {
-		status_twait();
-		mcursor_waiting();
-		insert_mode(False);
-		kybdlock_set(KL_OIA_TWAIT | KL_OIA_LOCKED, "Attn_action");
-	}
-	net_break();
-	if (appres.attn_lock) {
-		ticking_start(False);
-		status_ctlr_done();
-	}
+	net_interrupt();
 }
 
 /*
  * IAC IP, which works for 5250 System Request and interrupts the program
  * on an AS/400, even when the keyboard is locked.
+ *
+ * This is now the same as the Attn action.
  */
-/*ARGSUSED*/
 void
 Interrupt_action(Widget w unused, XEvent *event, String *params,
     Cardinal *num_params)
@@ -503,7 +485,6 @@ Interrupt_action(Widget w unused, XEvent *event, String *params,
 #define GE_WFLAG	0x100
 #define PASTE_WFLAG	0x200
 
-/*ARGSUSED*/
 static void
 key_Character_wrapper(Widget w unused, XEvent *event unused, String *params,
     Cardinal *num_params unused)
@@ -753,7 +734,6 @@ key_ACharacter(unsigned char c, enum keytype keytype, enum iaction cause)
  * Simple toggles.
  */
 #if defined(X3270_DISPLAY) /*[*/
-/*ARGSUSED*/
 void
 AltCursor_action(Widget w unused, XEvent *event, String *params,
     Cardinal *num_params)
@@ -763,7 +743,6 @@ AltCursor_action(Widget w unused, XEvent *event, String *params,
 }
 #endif /*]*/
 
-/*ARGSUSED*/
 void
 MonoCase_action(Widget w unused, XEvent *event, String *params,
     Cardinal *num_params)
@@ -775,7 +754,6 @@ MonoCase_action(Widget w unused, XEvent *event, String *params,
 /*
  * Flip the display left-to-right
  */
-/*ARGSUSED*/
 void
 Flip_action(Widget w unused, XEvent *event, String *params,
     Cardinal *num_params)
@@ -789,7 +767,6 @@ Flip_action(Widget w unused, XEvent *event, String *params,
 /*
  * Tab forward to next field.
  */
-/*ARGSUSED*/
 void
 Tab_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
@@ -811,7 +788,6 @@ Tab_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 /*
  * Tab backward to previous field.
  */
-/*ARGSUSED*/
 void
 BackTab_action(Widget w unused, XEvent *event, String *params,
     Cardinal *num_params)
@@ -853,7 +829,6 @@ BackTab_action(Widget w unused, XEvent *event, String *params,
  * Deferred keyboard unlock.
  */
 
-/*ARGSUSED*/
 static void
 defer_unlock(void)
 {
@@ -925,7 +900,6 @@ do_reset(Boolean explicit)
 	status_compose(False, 0, KT_STD);
 }
 
-/*ARGSUSED*/
 void
 Reset_action(Widget w unused, XEvent *event, String *params,
     Cardinal *num_params)
@@ -938,7 +912,6 @@ Reset_action(Widget w unused, XEvent *event, String *params,
 /*
  * Move to first unprotected field on screen.
  */
-/*ARGSUSED*/
 void
 Home_action(Widget w unused, XEvent *event, String *params,
     Cardinal *num_params)
@@ -975,7 +948,6 @@ do_left(void)
 	cursor_move(baddr);
 }
 
-/*ARGSUSED*/
 void
 Left_action(Widget w unused, XEvent *event, String *params,
     Cardinal *num_params)
@@ -1039,7 +1011,6 @@ do_delete(void)
 	return True;
 }
 
-/*ARGSUSED*/
 void
 Delete_action(Widget w unused, XEvent *event, String *params,
     Cardinal *num_params)
@@ -1070,7 +1041,6 @@ Delete_action(Widget w unused, XEvent *event, String *params,
 /*
  * Backspace.
  */
-/*ARGSUSED*/
 void
 BackSpace_action(Widget w unused, XEvent *event, String *params,
     Cardinal *num_params)
@@ -1103,7 +1073,6 @@ BackSpace_action(Widget w unused, XEvent *event, String *params,
 /*
  * Destructive backspace, like Unix "erase".
  */
-/*ARGSUSED*/
 void
 Erase_action(Widget w unused, XEvent *event, String *params,
     Cardinal *num_params)
@@ -1138,7 +1107,6 @@ Erase_action(Widget w unused, XEvent *event, String *params,
 /*
  * Cursor right 1 position.
  */
-/*ARGSUSED*/
 void
 Right_action(Widget w unused, XEvent *event, String *params,
     Cardinal *num_params)
@@ -1168,7 +1136,6 @@ Right_action(Widget w unused, XEvent *event, String *params,
 /*
  * Cursor left 2 positions.
  */
-/*ARGSUSED*/
 void
 Left2_action(Widget w unused, XEvent *event, String *params,
     Cardinal *num_params)
@@ -1194,7 +1161,6 @@ Left2_action(Widget w unused, XEvent *event, String *params,
 /*
  * Cursor to previous word.
  */
-/*ARGSUSED*/
 void
 PreviousWord_action(Widget w unused, XEvent *event, String *params,
     Cardinal *num_params)
@@ -1263,7 +1229,6 @@ PreviousWord_action(Widget w unused, XEvent *event, String *params,
 /*
  * Cursor right 2 positions.
  */
-/*ARGSUSED*/
 void
 Right2_action(Widget w unused, XEvent *event, String *params,
     Cardinal *num_params)
@@ -1337,7 +1302,6 @@ nt_word(int baddr)
 /*
  * Cursor to next unprotected word.
  */
-/*ARGSUSED*/
 void
 NextWord_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
@@ -1402,7 +1366,6 @@ NextWord_action(Widget w unused, XEvent *event, String *params, Cardinal *num_pa
 /*
  * Cursor up 1 position.
  */
-/*ARGSUSED*/
 void
 Up_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
@@ -1429,7 +1392,6 @@ Up_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 /*
  * Cursor down 1 position.
  */
-/*ARGSUSED*/
 void
 Down_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
@@ -1454,7 +1416,6 @@ Down_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params
 /*
  * Cursor to first field on next line or any lines after that.
  */
-/*ARGSUSED*/
 void
 Newline_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
@@ -1485,7 +1446,6 @@ Newline_action(Widget w unused, XEvent *event, String *params, Cardinal *num_par
 /*
  * DUP key
  */
-/*ARGSUSED*/
 void
 Dup_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
@@ -1506,7 +1466,6 @@ Dup_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 /*
  * FM key
  */
-/*ARGSUSED*/
 void
 FieldMark_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
@@ -1526,7 +1485,6 @@ FieldMark_action(Widget w unused, XEvent *event, String *params, Cardinal *num_p
 /*
  * Vanilla AID keys.
  */
-/*ARGSUSED*/
 void
 Enter_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
@@ -1540,16 +1498,18 @@ Enter_action(Widget w unused, XEvent *event, String *params, Cardinal *num_param
 }
 
 
-/*ARGSUSED*/
 void
 SysReq_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
 	action_debug(SysReq_action, event, params, num_params);
 	if (IN_ANSI)
 		return;
+#if defined(X3270_TN3270E) /*[*/
 	if (IN_E) {
 		net_abort();
-	} else {
+	} else
+#endif /*]*/
+	{
 		if (kybdlock & KL_OIA_MINUS)
 			return;
 		else if (kybdlock)
@@ -1563,7 +1523,6 @@ SysReq_action(Widget w unused, XEvent *event, String *params, Cardinal *num_para
 /*
  * Clear AID key
  */
-/*ARGSUSED*/
 void
 Clear_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
@@ -1590,27 +1549,14 @@ Clear_action(Widget w unused, XEvent *event, String *params, Cardinal *num_param
 
 /*
  * Cursor Select key (light pen simulator).
+ * Assumes that the current field has already been validated for selectability.
  */
-/*ARGSUSED*/
-void
-CursorSelect_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
+static void
+lightpen_select(void)
 {
 	register unsigned char	*fa, *sel;
 
-	action_debug(CursorSelect_action, event, params, num_params);
-	if (kybdlock) {
-		enq_ta(CursorSelect_action, CN, CN);
-		return;
-	}
-#if defined(X3270_ANSI) /*[*/
-	if (IN_ANSI)
-		return;
-#endif /*]*/
 	fa = get_field_attribute(cursor_addr);
-	if (!FA_IS_SELECTABLE(*fa)) {
-		operator_error(KL_OERR_PROTECTED);
-		return;
-	}
 	sel = fa + 1;
 	switch (*sel) {
 	    case CG_greater:		/* > */
@@ -1635,11 +1581,66 @@ CursorSelect_action(Widget w unused, XEvent *event, String *params, Cardinal *nu
 	}
 }
 
+/*
+ * Cursor Select key (light pen simulator) -- at the current cursor location.
+ */
+void
+CursorSelect_action(Widget w unused, XEvent *event, String *params,
+    Cardinal *num_params)
+{
+	register unsigned char *fa;
+
+	action_debug(CursorSelect_action, event, params, num_params);
+	if (kybdlock) {
+		enq_ta(CursorSelect_action, CN, CN);
+		return;
+	}
+
+#if defined(X3270_ANSI) /*[*/
+	if (IN_ANSI)
+		return;
+#endif /*]*/
+	fa = get_field_attribute(cursor_addr);
+	if (!FA_IS_SEL(*fa)) {
+		operator_error(KL_OERR_PROTECTED);
+		return;
+	}
+	lightpen_select();
+}
+
+#if defined(X3270_DISPLAY) /*[*/
+/*
+ * Cursor Select mouse action (light pen simulator), including cursor movement.
+ */
+void
+MoveCursorSelect_action(Widget w unused, XEvent *event, String *params,
+    Cardinal *num_params)
+{
+	register unsigned char *fa;
+
+	action_debug(MoveCursorSelect_action, event, params, num_params);
+	if (kybdlock) {
+		enq_ta(MoveCursorSelect_action, CN, CN);
+		return;
+	}
+#if defined(X3270_ANSI) /*[*/
+	if (IN_ANSI)
+		return;
+#endif /*]*/
+	move_cursor_to_mouse(w, event);
+	fa = get_field_attribute(cursor_addr);
+	if (!FA_IS_SEL(*fa)) {
+		operator_error(KL_OERR_PROTECTED);
+		return;
+	}
+	lightpen_select();
+}
+#endif /*]*/
+
 
 /*
  * Erase End Of Field Key.
  */
-/*ARGSUSED*/
 void
 EraseEOF_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
@@ -1679,7 +1680,6 @@ EraseEOF_action(Widget w unused, XEvent *event, String *params, Cardinal *num_pa
 /*
  * Erase all Input Key.
  */
-/*ARGSUSED*/
 void
 EraseInput_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
@@ -1743,7 +1743,6 @@ EraseInput_action(Widget w unused, XEvent *event, String *params, Cardinal *num_
  *
  * Which is to say, does a ^W.
  */
-/*ARGSUSED*/
 void
 DeleteWord_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
@@ -1844,7 +1843,6 @@ DeleteWord_action(Widget w unused, XEvent *event, String *params, Cardinal *num_
  *
  * Which is to say, does a ^U.
  */
-/*ARGSUSED*/
 void
 DeleteField_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
@@ -1887,7 +1885,6 @@ DeleteField_action(Widget w unused, XEvent *event, String *params, Cardinal *num
 /*
  * Set insert mode key.
  */
-/*ARGSUSED*/
 void
 Insert_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
@@ -1907,7 +1904,6 @@ Insert_action(Widget w unused, XEvent *event, String *params, Cardinal *num_para
 /*
  * Toggle insert mode key.
  */
-/*ARGSUSED*/
 void
 ToggleInsert_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
@@ -1930,7 +1926,6 @@ ToggleInsert_action(Widget w unused, XEvent *event, String *params, Cardinal *nu
 /*
  * Toggle reverse mode key.
  */
-/*ARGSUSED*/
 void
 ToggleReverse_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
@@ -1951,7 +1946,6 @@ ToggleReverse_action(Widget w unused, XEvent *event, String *params, Cardinal *n
  * Move the cursor to the first blank after the last nonblank in the
  * field, or if the field is full, to the last character in the field.
  */
-/*ARGSUSED*/
 void
 FieldEnd_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
@@ -2048,7 +2042,6 @@ MoveCursor_action(Widget w unused, XEvent *event, String *params, Cardinal *num_
 /*
  * Key action.
  */
-/*ARGSUSED*/
 void
 Key_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
@@ -2078,7 +2071,6 @@ Key_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 /*
  * String action.
  */
-/*ARGSUSED*/
 void
 String_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
@@ -2107,7 +2099,6 @@ String_action(Widget w unused, XEvent *event, String *params, Cardinal *num_para
 /*
  * HexString action.
  */
-/*ARGSUSED*/
 void
 HexString_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
@@ -2147,7 +2138,6 @@ HexString_action(Widget w unused, XEvent *event, String *params, Cardinal *num_p
  *  If in ANSI mode, pass through untranslated.
  *  If in 3270 mode, translate to "notsign".
  */
-/*ARGSUSED*/
 void
 CircumNot_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
@@ -2652,7 +2642,6 @@ hex_input(char *s)
 #endif /*]*/
 }
  
-/*ARGSUSED*/
 void
 ignore_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
@@ -2793,7 +2782,6 @@ clear_xks(void)
  *
  * Derived from work (C) Minolta (Schweiz) AG, Beat Rubischon <bru@minolta.ch>
  */
-/*ARGSUSED*/
 void
 FieldExit_action(Widget w unused, XEvent *event, String *params,
     Cardinal *num_params)
@@ -2882,7 +2870,6 @@ state_from_keymap(char keymap[32])
  *
  * This function is also called as part of Focus event processing.
  */
-/*ARGSUSED*/
 void
 PA_Shift_action(Widget w unused, XEvent *event unused, String *params unused,
     Cardinal *num_params unused)
@@ -2969,7 +2956,6 @@ build_composites(void)
  * The mechanism breaks down a little when the user presses "Compose" and
  * then a non-data key.  Oh well.
  */
-/*ARGSUSED*/
 void
 Compose_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
@@ -2989,7 +2975,6 @@ Compose_action(Widget w unused, XEvent *event, String *params, Cardinal *num_par
 /*
  * Called by the toolkit for any key without special actions.
  */
-/*ARGSUSED*/
 void
 Default_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
@@ -3069,7 +3054,6 @@ Default_action(Widget w unused, XEvent *event, String *params, Cardinal *num_par
  *   TemporaryKeymap()		removes the previous keymap, if any
  *   TemporaryKeymap(None)	removes the previous keymap, if any
  */
-/*ARGSUSED*/
 void
 TemporaryKeymap_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {

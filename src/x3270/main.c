@@ -34,6 +34,7 @@
 #include "ansic.h"
 #include "charsetc.h"
 #include "ctlrc.h"
+#include "ftc.h"
 #include "hostc.h"
 #include "keymapc.h"
 #include "kybdc.h"
@@ -401,6 +402,9 @@ main(int argc, char *argv[])
 	sms_init();
 	error_popup_init();
 	info_popup_init();
+#if defined(X3270_FT) && !defined(X3270_MENUS) /*[*/
+	ft_init();
+#endif /*]*/
 
 	protocols[0] = a_delete_me;
 	protocols[1] = a_save_yourself;

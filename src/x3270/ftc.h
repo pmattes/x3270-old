@@ -42,4 +42,8 @@ extern void popup_ft(Widget w, XtPointer call_parms, XtPointer call_data);
 extern void Transfer_action(Widget w, XEvent *event, String *parms,
     Cardinal *num_parms);
 
+#if !defined(X3270_MENUS) /*[*/
+extern void ft_init(void);
+#endif /*]*/
+
 #endif /*]*/

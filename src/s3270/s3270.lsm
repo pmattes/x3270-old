@@ -1,7 +1,7 @@
 Begin4
 Title:		s3270
-Version:	3.2.9
-Entered-date:	2000-06-26
+Version:	3.2.10
+Entered-date:	2000-07-05
 Description:	Scripted 3270 Emulator
 		Complete IBM 3278/3279 emulation, TN3270E support, structured
 		fields, color xterm emulation, highly configurable
@@ -11,6 +11,6 @@ Author:		Paul Mattes (Paul.Mattes@usa.net)
 		Robert Viduya
 Maintained-by:	Paul Mattes (Paul.Mattes@usa.net)
 Primary-site:	metalab.unc.edu /pub/Linux/system/network/misc/
-		167 KB s3270-3.2.9.tgz
+		167 KB s3270-3.2.10.tgz
 Copying-policy:	GPL
 End

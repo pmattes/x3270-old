@@ -31,6 +31,7 @@
 #include "ansic.h"
 #include "charsetc.h"
 #include "ctlrc.h"
+#include "ftc.h"
 #include "hostc.h"
 #include "keymapc.h"
 #include "kybdc.h"
@@ -80,6 +81,9 @@ main(int argc, char *argv[])
 	sms_init();
 	register_schange(ST_CONNECT, main_connect);
         register_schange(ST_3270_MODE, main_connect);
+#if defined(X3270_FT) /*[*/
+	ft_init();
+#endif /*]*/
 
 	/* Make sure we don't fall over any SIGPIPEs. */
 	(void) signal(SIGPIPE, SIG_IGN);

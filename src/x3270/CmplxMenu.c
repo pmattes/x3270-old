@@ -272,7 +272,6 @@ ClassPartInitialize(WidgetClass wc)
  *      Returns: none.
  */
 
-/* ARGSUSED */
 static void
 Initialize(Widget request unused, Widget new, ArgList args unused,
 	Cardinal *num_args unused)
@@ -327,7 +326,6 @@ Initialize(Widget request unused, Widget new, ArgList args unused,
  *      Returns: none.
  */
 
-/* ARGSUSED */
 static void
 Redisplay(Widget w, XEvent *event unused, Region region)
 {
@@ -419,7 +417,6 @@ Resize(Widget w)
  *      Returns: none
  */
 
-/* ARGSUSED */
 static Boolean
 SetValues(Widget current, Widget request unused, Widget new,
 	ArgList args unused, Cardinal *num_args unused)
@@ -617,7 +614,6 @@ ChangeManaged(Widget w)
  *      Returns: none
  */
 
-/* ARGSUSED */
 static void
 PositionMenuAction(Widget w, XEvent *event, String *params,
 	Cardinal *num_params)
@@ -680,7 +676,6 @@ PositionMenuAction(Widget w, XEvent *event, String *params,
  *      Returns: none
  */
 
-/* ARGSUSED */
 static void
 Unhighlight(Widget w, XEvent *event unused, String *params unused,
 	Cardinal *num_params unused)
@@ -696,7 +691,6 @@ Unhighlight(Widget w, XEvent *event unused, String *params unused,
     (class->cme_class.unhighlight) ( (Widget) entry);
 }
 
-/* ARGSUSED */
 static void
 SaveUnhighlight(Widget w, XEvent *event unused, String *params unused,
 	Cardinal *num_params unused)
@@ -721,7 +715,6 @@ SaveUnhighlight(Widget w, XEvent *event unused, String *params unused,
  *      Returns: none
  */
 
-/* ARGSUSED */
 static void
 LeftWindow(Widget w, XEvent *event, String *params unused,
 	Cardinal *num_params unused)
@@ -752,7 +745,6 @@ LeftWindow(Widget w, XEvent *event, String *params unused,
  *      Returns: none
  */
 
-/* ARGSUSED */
 static void
 Highlight(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
@@ -802,7 +794,6 @@ Highlight(Widget w, XEvent *event, String *params, Cardinal *num_params)
  *      Returns: none
  */
 
-/* ARGSUSED */
 static void
 Notify(Widget w, XEvent *event unused, String *params unused,
 	Cardinal *num_params unused)
@@ -1032,7 +1023,6 @@ Layout(Widget w, Dimension *width_ret, Dimension *height_ret)
  *	Returns: none.
  */
 
-/* ARGSUSED */
 static void
 AddPositionAction(XtAppContext app_con, caddr_t data unused)
 {
@@ -1161,7 +1151,6 @@ MoveMenu(Widget w, Position x, Position y)
  *	Returns: None.
  */
 
-/* ARGSUSED */
 static void
 ChangeCursorOnGrab(Widget w, XtPointer junk unused, XtPointer garbage unused)
 {
@@ -1184,7 +1173,6 @@ ChangeCursorOnGrab(Widget w, XtPointer junk unused, XtPointer garbage unused)
 			     XtLastTimestampProcessed(XtDisplay(w)));
 }
 
-/*ARGSUSED*/
 static void
 ClearParent(Widget w, XtPointer junk unused, XtPointer garbage unused)
 {

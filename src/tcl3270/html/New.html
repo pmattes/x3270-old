@@ -11,14 +11,23 @@
 tcl3270 Version 3.2 -- New Features and Bug Fixes</h1>
 
 <h2>
+<b>Changes in tcl3270 3.2.10, 5. July 2000</b></h2>
+Added an <b>n:</b> prefix to hostnames to selectively disable TN3270E.
+<br>Changed the reported CSCSGID to <tt>X'02B90025'</tt> (English-U.S.).
+<br>Fixed the <b>Attn</b> command to send TELNET IP, per RFC 2355.
+<br>Restored the ability to disable most components in <tt>parts.h</tt>,
+and made TN3270E mode a configurable component.
+<br>Removed old <tt>ARGSUSED</tt> lint hints.
+<h2>
 <b>Changes in tcl3270 3.2.9, 26. June 2000</b></h2>
 Fixed requesting the wrong LU after switching between TN3270E and TN3270
 modes.
 <br>Added a new <b>Snap</b> command.
 <br>Added new <b>Wait Disconnect</b> and <b>Wait Output</b> commands.
 <br>Changed <b>Wait</b> to <b>Wait InputField</b>, <b>Wait 3270</b> to
-<b>Wait 3270Mode</b> and <b>Wait ansi</b> to <b>Wait NVTMode</b>. The old
-names are still supported for backwards-compatibility.
+<b>Wait
+3270Mode</b> and <b>Wait ansi</b> to <b>Wait NVTMode</b>. The old names
+are still supported for backwards-compatibility.
 <br>Fixed a problem with parameter processing in the <b>Transfer</b> command.
 <br>Catch empty hostnames.
 <br>Added stricter enforcement of user-specified LUs.

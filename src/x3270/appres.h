@@ -81,6 +81,7 @@ typedef struct {
 	Boolean do_confirms;
 	Boolean	once;
 	Boolean reconnect;
+	Boolean visual_select;
 # if defined(X3270_KEYPAD) /*[*/
 	Boolean	keypad_on;
 # endif /*]*/
@@ -94,6 +95,7 @@ typedef struct {
 	Boolean debug_tracing;
 	Boolean attn_lock;
 	Boolean disconnect_clear;
+	Boolean highlight_select;
 
 	/* Named resources */
 #if defined(X3270_KEYPAD) /*[*/
@@ -120,6 +122,7 @@ typedef struct {
 	int	bell_volume;
 	char	*char_class;
 	int	modified_sel_color;
+	int	visual_select_color;
 #endif /*]*/
 	char	*model;
 	char	*hostsfile;

@@ -129,7 +129,6 @@ static enum placement RightD = Right;
 enum placement *RightP = &RightD;
 
 /* Place a popped-up shell */
-/*ARGSUSED*/
 void
 place_popup(Widget w, XtPointer client_data, XtPointer call_data unused)
 {
@@ -224,7 +223,6 @@ PA_confirm_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 }
 
 /* Callback for "Cancel" button in data entry popup */
-/*ARGSUSED*/
 static void
 cancel_button_callback(Widget w unused, XtPointer client_data,
     XtPointer call_data unused)
@@ -236,7 +234,6 @@ cancel_button_callback(Widget w unused, XtPointer client_data,
  * Callback for text source changes.  Ensures that the dialog text does not
  * contain white space -- especially newlines.
  */
-/*ARGSUSED*/
 static void
 popup_dialog_callback(Widget w, XtPointer client_data,
     XtPointer call_data unused)
@@ -382,7 +379,6 @@ static Widget error_form;
 Boolean error_popup_visible;
 
 /* Called when OK is pressed on the error popup */
-/*ARGSUSED*/
 static void
 saw_error(Widget w unused, XtPointer client_data unused,
     XtPointer call_data unused)
@@ -391,7 +387,6 @@ saw_error(Widget w unused, XtPointer client_data unused,
 }
 
 /* Called when the error popup is closed */
-/*ARGSUSED*/
 static void
 error_popdown(Widget w unused, XtPointer client_data unused,
     XtPointer call_data unused)
@@ -491,7 +486,6 @@ static Widget info_form;
 Boolean info_popup_visible;
 
 /* Called when OK is pressed on the info popup */
-/*ARGSUSED*/
 static void
 saw_info(Widget w unused, XtPointer client_data unused,
     XtPointer call_data unused)
@@ -500,7 +494,6 @@ saw_info(Widget w unused, XtPointer client_data unused,
 }
 
 /* Called when the info popup is closed */
-/*ARGSUSED*/
 static void
 info_popdown(Widget w unused, XtPointer client_data unused,
     XtPointer call_data unused)
@@ -568,7 +561,6 @@ popup_an_info(const char *fmt, ...)
 /*
  * Script actions
  */
-/*ARGSUSED*/
 void
 Info_action(Widget w unused, XEvent *event, String *params,
     Cardinal *num_params)

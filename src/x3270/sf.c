@@ -445,12 +445,12 @@ do_query_reply(unsigned char code)
 		*obptr++ = 0x10;	/*  FLAGS: non-loadable, single-plane,
 					     single-byte, no compare */
 		*obptr++ = 0x00;	/*  LCID */
-		*obptr++ = 0x00;	/*  CGCSGID: international */
-		*obptr++ = 0x67;
+		*obptr++ = 0x02;	/*  CGCSGID: English (U.S.) */
+		*obptr++ = 0xb9;
 		*obptr++ = 0x00;
-		*obptr++ = 0x26;
+		*obptr++ = 0x25;
 		*obptr++ = 0x01;	/* SET 1: */
-		*obptr++ = 0x00;	/*  FLAGS: non-loadable, single-plane,
+		*obptr++ = 0x10;	/*  FLAGS: non-loadable, single-plane,
 					     single-byte, no compare */
 		*obptr++ = 0xf1;	/*  LCID */
 		*obptr++ = 0x03;	/*  CGCSGID: 3179-style APL2 */
@@ -515,7 +515,7 @@ do_query_reply(unsigned char code)
 		SET16(obptr, (int)denom); /* Yr denominator */
 		*obptr++ = *char_width;	/* AW */
 		*obptr++ = *char_height;/* AH */
-		SET16(obptr, 0);	/* buffer */
+		SET16(obptr, maxCOLS*maxROWS);	/* buffer, questionable */
 		break;
 
 	    case QR_COLOR:

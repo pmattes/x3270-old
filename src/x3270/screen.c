@@ -132,6 +132,7 @@ static Boolean  text_blink_scheduled = False;
 static XtIntervalId text_blink_id;
 static XtTranslations screen_t00 = NULL;
 static XtTranslations screen_t0 = NULL;
+static XtTranslations container_t00 = NULL;
 static XtTranslations container_t0 = NULL;
 static unsigned char    *rt_buf8 = (unsigned char *) NULL;
 static XChar2b *rt_buf16 = (XChar2b *) NULL;
@@ -165,9 +166,11 @@ static enum {
     REDO_SCROLLBAR
 } screen_redo = REDO_NONE;
 static char *redo_old_font = CN;
+#if defined(X3270_MENUS) /*[*/
 static int redo_old_model;
 static int redo_old_ov_cols;
 static int redo_old_ov_rows;
+#endif /*]*/
 
 static unsigned char blank_map[32];
 #define BKM_SET(n)	blank_map[(n)/8] |= 1 << ((n)%8)
@@ -336,7 +339,6 @@ screen_set_temp_keymap(XtTranslations trans)
 	}
 }
 
-#if defined(X3270_MENUS) /*[*/
 /*
  * Change the baselevel keymap.
  */
@@ -346,9 +348,8 @@ screen_set_keymap(void)
 	XtUninstallTranslations(nss.widget);
 	set_translations(nss.widget, &screen_t00, &screen_t0);
 	XtUninstallTranslations(container);
-	set_translations(container, (XtTranslations *)NULL, &container_t0);
+	set_translations(container, &container_t00, &container_t0);
 }
-#endif /*]*/
 
 
 /*
@@ -493,6 +494,7 @@ screen_reinit(unsigned cmask)
 		    XtNheight, 10,
 			/* XXX -- a temporary lie to make Xt happy */
 		    NULL);
+		save_00translations(container, &container_t00);
 		set_translations(container, (XtTranslations *)NULL,
 		    &container_t0);
 		if (appres.mono)
@@ -2535,7 +2537,11 @@ fa_color(unsigned char fa)
 		 * identifier (0 through 15)
 		 */
 		if (appres.modified_sel && FA_IS_MODIFIED(fa))
-			return GC_NONDEFAULT | (appres.modified_sel_color & 0xf);
+			return GC_NONDEFAULT |
+				(appres.modified_sel_color & 0xf);
+		else if (appres.visual_select && FA_IS_SEL(fa))
+			return GC_NONDEFAULT |
+				(appres.visual_select_color & 0xf);
 		else
 			return field_colors[(fa >> 1) & 0x03];
 	} else {
@@ -2853,31 +2859,48 @@ font_init(void)
 
 	/* Now figure out which emulator font to load and load it. */
 	if (appres.apl_mode) {
+		/*
+		 * APL mode overrides any explicit font selection, but if there
+		 * isn't an APL font defined, APL mode is ignored.
+		 */
 		if ((appres.efontname = appres.afontname) == NULL) {
 			xs_warning("No %s resource, ignoring APL mode",
 			    ResAplFont);
 			appres.apl_mode = False;
 		}
 	}
+
+	/*
+	 * If there's no explicit emulator font, take the first one off the
+	 * menu list.
+	 */
 	if (!appres.efontname)
 		appres.efontname = font_list->font;
+
+	/*
+	 * Try the user's selection, then the first off the menu list, then
+	 * "fixed", then give up altogether.
+	 */
 	ef = appres.efontname;
 	if ((emsg = load_fixed_font(ef)) != CN) {
-		xs_warning("%s \"%s\" %s, using default font",
-		    ResEmulatorFont, ef, emsg);
+		xs_warning("%s \"%s\" %s", ResEmulatorFont, ef);
 		if (appres.apl_mode) {
 			XtWarning("Ignoring APL mode");
 			appres.apl_mode = False;
 		}
-		ef = font_list->font;
-		if (strcmp(ef, appres.efontname))
+		if (strcmp(ef, font_list->font)) {
+			ef = font_list->font;
 			emsg = load_fixed_font(ef);
-	}
-	if (emsg != CN) {
-		ef = "fixed";
-		if ((emsg = load_fixed_font(ef)))
-			xs_error("default %s \"%s\" %s", ResEmulatorFont, ef,
-			    emsg);
+			if (emsg != CN)
+				xs_warning("%s \"%s\" %s", ResEmulatorFont, ef);
+		}
+		if (emsg != CN) {
+			ef = "fixed";
+			if ((emsg = load_fixed_font(ef)) != CN)
+				xs_error("%s \"%s\" %s", ResEmulatorFont, ef,
+				    emsg);
+		}
+		xs_warning("Using font \"%s\"", ef);
 	}
 }
 

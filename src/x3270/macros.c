@@ -65,7 +65,9 @@ typedef struct sms {
 		SS_RUNNING,	/* command executing */
 		SS_KBWAIT,	/* command awaiting keyboard unlock */
 		SS_CONNECT_WAIT,/* command awaiting connection to complete */
+#if defined(X3270_FT) /*[*/
 		SS_FT_WAIT,	/* command awaiting file transfer to complete */
+#endif /*]*/
 		SS_PAUSED,	/* stopped in PauseScript action */
 		SS_WAIT_ANSI,	/* awaiting completion of Wait(ansi) */
 		SS_WAIT_3270,	/* awaiting completion of Wait(3270) */
@@ -95,13 +97,16 @@ typedef struct sms {
 static sms_t *sms = SN;
 static int sms_depth = 0;
 
+#if defined(X3270_TRACE) /*[*/
 static const char *sms_state_name[] = {
 	"IDLE",
 	"INCOMPLETE",
 	"RUNNING",
 	"KBWAIT",
 	"CONNECT_WAIT",
+#if defined(X3270_FT) /*[*/
 	"FT_WAIT",
+#endif /*]*/
 	"PAUSED",
 	"WAIT_ANSI",
 	"WAIT_3270",
@@ -111,6 +116,7 @@ static const char *sms_state_name[] = {
 	"EXPECTING",
 	"CLOSING"
 };
+#endif /*]*/
 
 #if defined(X3270_MENUS) /*[*/
 static struct macro_def *macro_last = (struct macro_def *) NULL;
@@ -659,8 +665,10 @@ execute_command(enum iaction cause, char *s, char **np)
 		return EM_ERROR;
 	}
 
+#if defined(X3270_FT) /*[*/
 	if (ft_state != FT_NONE)
 		sms->state = SS_FT_WAIT;
+#endif /*]*/
 	if (KBWAIT)
 		return EM_PAUSE;
 	else
@@ -1131,11 +1139,13 @@ sms_continue(void)
 			}
 			break;
 
+#if defined(X3270_FT) /*[*/
 		    case SS_FT_WAIT:
 			if (ft_state == FT_NONE)
 				break;
 			else
 				return;
+#endif /*]*/
 
 		    case SS_WAIT_OUTPUT:
 			return;

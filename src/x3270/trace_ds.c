@@ -537,7 +537,6 @@ static Widget trace_shell = (Widget)NULL;
 static int trace_reason;
 
 /* Callback for "OK" button on trace popup */
-/*ARGSUSED*/
 static void
 tracefile_callback(Widget w, XtPointer client_data, XtPointer call_data unused)
 {
@@ -641,7 +640,9 @@ tracefile_callback(Widget w, XtPointer client_data, XtPointer call_data unused)
 		if (formatted) {
 			(void) fprintf(tracef, " Screen contents:\n");
 			obptr = obuf;
+#if defined(X3270_TN3270E) /*[*/
 			(void) net_add_dummy_tn3270e();
+#endif /*]*/
 			ctlr_snap_buffer();
 			space3270out(2);
 			net_add_eor(obuf, obptr - obuf);
@@ -649,7 +650,9 @@ tracefile_callback(Widget w, XtPointer client_data, XtPointer call_data unused)
 			trace_netdata('<', obuf, obptr - obuf);
 
 			obptr = obuf;
+#if defined(X3270_TN3270E) /*[*/
 			(void) net_add_dummy_tn3270e();
+#endif /*]*/
 			if (ctlr_snap_modes()) {
 				(void) fprintf(tracef, " 3270 modes:\n");
 				space3270out(2);
@@ -657,7 +660,9 @@ tracefile_callback(Widget w, XtPointer client_data, XtPointer call_data unused)
 				obptr += 2;
 				trace_netdata('<', obuf, obptr - obuf);
 			}
-		} else if (IN_E) {
+		}
+#if defined(X3270_TN3270E) /*[*/
+		else if (IN_E) {
 			obptr = obuf;
 			if (net_add_dummy_tn3270e()) {
 				(void) fprintf(tracef,
@@ -668,6 +673,7 @@ tracefile_callback(Widget w, XtPointer client_data, XtPointer call_data unused)
 				trace_netdata('<', obuf, obptr - obuf);
 			}
 		}
+#endif /*]*/
 	}
 
 	(void) fprintf(tracef, " Data stream:\n");
@@ -720,7 +726,6 @@ tracefile_off(void)
 	tracef = (FILE *) NULL;
 }
 
-/*ARGSUSED*/
 void
 toggle_dsTrace(struct toggle *t unused, enum toggle_type tt)
 {
@@ -737,7 +742,6 @@ toggle_dsTrace(struct toggle *t unused, enum toggle_type tt)
 		(void) gettimeofday(&ds_ts, (struct timezone *)NULL);
 }
 
-/*ARGSUSED*/
 void
 toggle_eventTrace(struct toggle *t unused, enum toggle_type tt)
 {
@@ -838,7 +842,6 @@ screentrace_cb(char *tfn)
 
 #if defined(X3270_DISPLAY) /*[*/
 /* Callback for "OK" button on screentrace popup */
-/*ARGSUSED*/
 static void
 screentrace_callback(Widget w unused, XtPointer client_data,
     XtPointer call_data unused)
@@ -848,7 +851,6 @@ screentrace_callback(Widget w unused, XtPointer client_data,
 }
 
 /* Callback for second "OK" button on screentrace popup */
-/*ARGSUSED*/
 static void
 onescreen_callback(Widget w, XtPointer client_data, XtPointer call_data unused)
 {
@@ -880,7 +882,6 @@ onescreen_callback(Widget w, XtPointer client_data, XtPointer call_data unused)
 }
 #endif /*]*/
 
-/*ARGSUSED*/
 void
 toggle_screenTrace(struct toggle *t unused, enum toggle_type tt)
 {

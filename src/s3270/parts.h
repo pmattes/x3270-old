@@ -17,3 +17,8 @@
 #define X3270_APL	1	/* APL keysym support */
 #define X3270_SCRIPT	1	/* scripting */
 #define X3270_FT	1	/* file transfer */
+#define X3270_TN3270E	1	/* TN3270E support */
+
+#if defined(X3270_TN3270E) && !defined(X3270_ANSI) /*[*/
+#define X3270_ANSI	1	/* RFC2355 requires NVT mode */
+#endif /*]*/

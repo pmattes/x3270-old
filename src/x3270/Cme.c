@@ -162,7 +162,6 @@ ClassPartInitialize(WidgetClass class)
  * MENU ENTRIES CANNOT HAVE BORDERS.
  */
 
-/* ARGSUSED */
 static void
 Initialize(Widget request unused, Widget new, ArgList args unused,
 	Cardinal *num_args unused)
@@ -178,7 +177,6 @@ Initialize(Widget request unused, Widget new, ArgList args unused,
  *	Returns: none.
  */
 
-/* ARGSUSED */
 static void
 Highlight(Widget w unused)
 {
@@ -191,7 +189,6 @@ Highlight(Widget w unused)
  *	Returns: none.
  */
 
-/* ARGSUSED */
 static void
 Unhighlight(Widget w unused)
 {

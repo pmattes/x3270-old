@@ -32,10 +32,6 @@
 #endif /*]*/
 #include <errno.h>
 
-#if XtSpecificationRelease < 5 /*[*/
-#define TOGGLE_HACK 1
-#endif /*]*/
-
 #include "appres.h"
 #include "actionsc.h"
 #include "ft_cutc.h"
@@ -64,7 +60,7 @@
 #define BN	(Boolean *)NULL
 
 /* Externals. */
-#if defined(X3270_DISPLAY) /*[*/
+#if defined(X3270_DISPLAY) && defined(X3270_MENUS) /*[*/
 extern Pixmap diamond;
 extern Pixmap no_diamond;
 extern Pixmap null;
@@ -81,7 +77,7 @@ Boolean cr_flag = True;			/* Add crlf to each line */
 unsigned long ft_length = 0;		/* Length of transfer */
 
 /* Statics. */
-#if defined(X3270_DISPLAY) /*[*/
+#if defined(X3270_DISPLAY) && defined(X3270_MENUS) /*[*/
 static Widget ft_dialog, ft_shell, local_file, host_file;
 static Widget lrecl_widget, blksize_widget;
 static Widget primspace_widget, secspace_widget;
@@ -95,7 +91,7 @@ static Boolean receive_flag = True;	/* Current transfer is receive */
 static Boolean append_flag = False;	/* Append transfer */
 static Boolean vm_flag = False;		/* VM Transfer flag */
 
-#if defined(X3270_DISPLAY) /*[*/
+#if defined(X3270_DISPLAY) && defined(X3270_MENUS) /*[*/
 struct toggle_list {			/* List of toggle widgets */
 	Widget *widgets;
 };
@@ -108,7 +104,7 @@ static struct toggle_list units_toggles = { units_options };
 static enum recfm {
 	DEFAULT_RECFM, FIXED, VARIABLE, UNDEFINED
 } recfm = DEFAULT_RECFM;
-#if defined(X3270_DISPLAY) /*[*/
+#if defined(X3270_DISPLAY) && defined(X3270_MENUS) /*[*/
 static Boolean recfm_default = True;
 static enum recfm r_default_recfm = DEFAULT_RECFM;
 static enum recfm r_fixed = FIXED;
@@ -119,7 +115,7 @@ static enum recfm r_undefined = UNDEFINED;
 static enum units {
 	DEFAULT_UNITS, TRACKS, CYLINDERS, AVBLOCK
 } units = DEFAULT_UNITS;
-#if defined(X3270_DISPLAY) /*[*/
+#if defined(X3270_DISPLAY) && defined(X3270_MENUS) /*[*/
 static Boolean units_default = True;
 static enum units u_default_units = DEFAULT_UNITS;
 static enum units u_tracks = TRACKS;
@@ -128,18 +124,18 @@ static enum units u_avblock = AVBLOCK;
 #endif /*]*/
 
 typedef enum { T_NUMERIC, T_HOSTFILE, T_UNIXFILE } text_t;
-#if defined(X3270_DISPLAY) /*[*/
+#if defined(X3270_DISPLAY) && defined(X3270_MENUS) /*[*/
 static text_t t_numeric = T_NUMERIC;
 static text_t t_hostfile = T_HOSTFILE;
 static text_t t_unixfile = T_UNIXFILE;
 #endif /*]*/
 
-#if defined(X3270_DISPLAY) /*[*/
+#if defined(X3270_DISPLAY) && defined(X3270_MENUS) /*[*/
 static Boolean s_true = True;
 static Boolean s_false = False;
 #endif /*]*/
 static Boolean allow_overwrite = False;
-#if defined(X3270_DISPLAY) /*[*/
+#if defined(X3270_DISPLAY) && defined(X3270_MENUS) /*[*/
 typedef struct sr {
 	struct sr *next;
 	Widget w;
@@ -162,12 +158,12 @@ static String status_string;
 static struct timeval t0;		/* Starting time */
 static Boolean ft_is_cut;		/* File transfer is CUT-style */
 
-#if defined(X3270_DISPLAY) /*[*/
+#if defined(X3270_DISPLAY) && defined(X3270_MENUS) /*[*/
 static Widget overwrite_shell;
 #endif /*]*/
 static Boolean ft_is_action;
 
-#if defined(X3270_DISPLAY) /*[*/
+#if defined(X3270_DISPLAY) && defined(X3270_MENUS) /*[*/
 static void apply_bitmap(Widget w, Pixmap p);
 static void check_sensitivity(Boolean *bvar);
 static void flip_toggles(struct toggle_list *toggle_list, Widget w);
@@ -211,7 +207,7 @@ static void ft_in3270(Boolean ignored);
 
 /* Main external entry point. */
 
-#if !defined(X3270_DISPLAY) /*[*/
+#if !defined(X3270_DISPLAY) || !defined(X3270_MENUS) /*[*/
 void
 ft_init(void)
 {
@@ -221,7 +217,7 @@ ft_init(void)
 }
 #endif /*]*/
 
-#if defined(X3270_DISPLAY) /*[*/
+#if defined(X3270_DISPLAY) && defined(X3270_MENUS) /*[*/
 /* "File Transfer" dialog. */
 
 /*
@@ -817,24 +813,7 @@ ft_start_callback(Widget w unused, XtPointer call_parms unused,
 static void
 mark_toggle(Widget w, Pixmap p)
 {
-#if defined(TOGGLE_HACK) /*[*/
-	String l, nl;
-
-	XtVaGetValues(w, XtNlabel, &l, NULL);
-	nl = XtNewString(l);
-	if (p == diamond)
-		nl[0] = '+';
-	else if (p == no_diamond)
-		nl[0] = '-';
-	else if (p == dot)
-		nl[0] = '*';
-	else if (p == null)
-		nl[0] = ' ';
-	XtVaSetValues(w, XtNlabel, nl, NULL);
-	XtFree(nl);
-#else /*][*/
 	XtVaSetValues(w, XtNleftBitmap, p, NULL);
-#endif /*]*/
 }
 
 /* Send/receive options. */
@@ -1362,7 +1341,7 @@ ft_complete(const char *errmsg)
 	/* Clean up the state. */
 	ft_state = FT_NONE;
 
-#if defined(X3270_DISPLAY) /*[*/
+#if defined(X3270_DISPLAY) && defined(X3270_MENUS) /*[*/
 	/* Pop down the in-progress shell. */
 	XtPopdown(progress_shell);
 #endif /*]*/
@@ -1398,7 +1377,7 @@ ft_complete(const char *errmsg)
 			sms_info(buf);
 			sms_continue();
 		}
-#if defined(X3270_DISPLAY) /*[*/
+#if defined(X3270_DISPLAY) && defined(X3270_MENUS) /*[*/
 		else
 			popup_an_info(buf);
 #endif /*]*/
@@ -1410,7 +1389,7 @@ ft_complete(const char *errmsg)
 void
 ft_update_length(void)
 {
-#if defined(X3270_DISPLAY) /*[*/
+#if defined(X3270_DISPLAY) && defined(X3270_MENUS) /*[*/
 	char text_string[80];
 
 	/* Format the message */
@@ -1430,11 +1409,11 @@ ft_running(Boolean is_cut)
 	(void) gettimeofday(&t0, (struct timezone *)NULL);
 	ft_length = 0;
 
-#if defined(X3270_DISPLAY) /*[*/
+#if defined(X3270_DISPLAY) && defined(X3270_MENUS) /*[*/
 	XtUnmapWidget(waiting);
 #endif /*]*/
 	ft_update_length();
-#if defined(X3270_DISPLAY) /*[*/
+#if defined(X3270_DISPLAY) && defined(X3270_MENUS) /*[*/
 	XtMapWidget(ft_status);
 #endif /*]*/
 }
@@ -1445,7 +1424,7 @@ ft_aborting(void)
 {
 	if (ft_state == FT_RUNNING || ft_state == FT_ABORT_WAIT) {
 		ft_state = FT_ABORT_SENT;
-#if defined(X3270_DISPLAY) /*[*/
+#if defined(X3270_DISPLAY) && defined(X3270_MENUS) /*[*/
 		XtUnmapWidget(waiting);
 		XtUnmapWidget(ft_status);
 		XtMapWidget(aborting);
@@ -1469,7 +1448,7 @@ ft_in3270(Boolean ignored unused)
 		ft_complete(get_message("ftNot3270"));
 }
 
-#if defined(X3270_DISPLAY) /*[*/
+#if defined(X3270_DISPLAY) && defined(X3270_MENUS) /*[*/
 /* Support functions for dialogs. */
 
 /* Match one dimension of two widgets. */
@@ -1494,31 +1473,11 @@ static void
 apply_bitmap(Widget w, Pixmap p)
 {
 	Dimension d1;
-#if defined(TOGGLE_HACK) /*[*/
-	String l, nl;
-#endif /*]*/
 
 	XtVaGetValues(w, XtNheight, &d1, NULL);
 	if (d1 < 10)
 		XtVaSetValues(w, XtNheight, 10, NULL);
-#if defined(TOGGLE_HACK) /*[*/
-	XtVaGetValues(w, XtNlabel, &l, NULL);
-	nl = XtMalloc(strlen(l) + 6);
-	if (p == diamond)
-		(void) sprintf(nl, "+  %s", l);
-	else if (p == dot)
-		(void) sprintf(nl, "*  %s", l);
-	else if (p == no_diamond)
-		(void) sprintf(nl, "-  %s", l);
-	else if (p == null)
-		(void) sprintf(nl, "   %s", l);
-	XtVaSetValues(w,
-	    XtNlabel, nl,
-	    NULL);
-	XtFree(nl);
-#else /*][*/
 	XtVaSetValues(w, XtNleftBitmap, p, NULL);
-#endif /*]*/
 }
 
 /* Flip a multi-valued toggle. */
@@ -2066,7 +2025,7 @@ Transfer_action(Widget w unused, XEvent *event, String *params,
 	ft_is_cut = False;
 
 	/* Start tracking it. */
-#if defined(X3270_DISPLAY) /*[*/
+#if defined(X3270_DISPLAY) && defined(X3270_MENUS) /*[*/
 	popup_progress();
 #endif /*]*/
 }

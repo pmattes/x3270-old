@@ -29,3 +29,7 @@ extern void RemoveInput(unsigned long);
 extern unsigned long AddTimeOut(unsigned long msec, void (*fn)(void));
 extern void RemoveTimeOut(unsigned long cookie);
 extern KeySym StringToKeysym(char *s);
+
+#if !defined(X3270_DISPLAY) /*[*/
+extern char *MEMORY_MOVE(char *dst, char *src, int cnt);
+#endif /*]*/

@@ -188,7 +188,6 @@ ClassInitialize(void)
  *      Returns: none.
  */
 
-/* ARGSUSED */
 static void
 Initialize(Widget request unused, Widget new)
 {
@@ -237,7 +236,6 @@ Destroy(Widget w)
  *      Returns: none.
  */
 
-/* ARGSUSED */
 static void
 Redisplay(Widget w, XEvent *event unused, Region region unused)
 {
@@ -308,7 +306,6 @@ Redisplay(Widget w, XEvent *event unused, Region region unused)
  *      Returns: none
  */
 
-/* ARGSUSED */
 static Boolean
 SetValues(Widget current, Widget request unused, Widget new)
 {
@@ -407,7 +404,6 @@ QueryGeometry(Widget w, XtWidgetGeometry *intended,
  *      Returns: none.
  */
 
-/*ARGSUSED*/
 static void
 OnCallback(XtPointer closure, XtIntervalId *id unused)
 {

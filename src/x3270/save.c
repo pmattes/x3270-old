@@ -209,7 +209,6 @@ save_icon(void)
 }
 
 /* Save the keymap information. */
-/*ARGSUSED*/
 static void
 save_keymap(void)
 {
@@ -475,8 +474,8 @@ save_yourself(void)
 	save_keypad();
 #endif /*]*/
 	save_scrollbar();
-	save_host();
 	save_toggles();
+	save_host();
 
 	/* Copy what's left into contiguous memory. */
 	len = 0;
@@ -699,7 +698,6 @@ merge_profile(XrmDatabase *d)
 /*
  * Safe routine for querying window attributes
  */
-/*ARGSUSED*/
 static int
 dummy_error_handler(Display *d unused, XErrorEvent *e unused)
 {

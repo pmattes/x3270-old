@@ -129,6 +129,7 @@ extern int		maxCOLS;
 extern int		maxROWS;
 extern char		*model_name;
 extern int		model_num;
+extern Boolean		non_tn3270e_host;
 extern int		ov_cols, ov_rows;
 extern Boolean		passthru_host;
 extern char		*programname;
@@ -207,6 +208,14 @@ struct ea {
 #define CS_MASK		0x03	/* mask for specific character sets */
 #define CS_GE		0x04	/* cs flag for Graphic Escape */
 
+/*
+ * Lightpen select test macro, includes configurable override of selectability
+ * of highlighted fields.
+ */
+#define FA_IS_SEL(fa) \
+	(FA_IS_SELECTABLE(fa) && \
+	 (appres.highlight_select || !FA_IS_INTENSE(fa)))
+
 /*   translation lists */
 struct trans_list {
 	char			*name;
@@ -258,14 +267,10 @@ enum keytype { KT_STD, KT_GE };
 
 /*   Replacement for memcpy that handles overlaps */
 
-#if XtSpecificationRelease >= 5 /*[*/
+#if defined(X3270_DISPLAY) /*[*/
 #include <X11/Xfuncs.h>
 #undef MEMORY_MOVE
 #define MEMORY_MOVE(to,from,cnt)	bcopy(from,to,cnt)
-#else /*][*/
-#if !defined(MEMORY_MOVE) /*[*/
-extern char *MEMORY_MOVE();
-#endif /*]*/
 #endif /*]*/
 
 /*   Equivalent of setlinebuf */

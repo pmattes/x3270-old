@@ -11,9 +11,36 @@
 <h1>
 <b>New Features in x3270 3.2</b>
 <hr WIDTH="100%"></h1>
-x3270 3.2 is a reorganization of x3270 3.1, with some additional enhancements.&nbsp;
+x3270 3.2 is a reorganization of x3270 3.1, with some significant enhancements.&nbsp;
 It is intended to be the future development platform for x3270, with x3270
 3.1 continued only with bug fixes.
+<h2>
+<b>Changes in x3270 3.2.10, 5. July 2000</b></h2>
+Added an <b>n:</b> prefix to hostnames to selectively disable TN3270E.
+<br>Changed the reported CSCSGID to <tt>X'02B90025'</tt> (English-U.S.).
+<br>Fixed the <b>Attn()</b> action to send TELNET IP, per RFC 2355.
+<br>Removed the explicit <tt>$(BINDIR)</tt> from the <tt>Imakefile</tt>;
+it bothered XFree86 4.0.
+<br>Announce which font we're using when we can't find the one the user
+asked for.
+<br>Fixed the problem of ignoring keyboard input when the window manager
+uses a click-to-focus policy and the mouse cursor is outside the x3270
+window.
+<br>When processing <tt>WM_SAVE_YOURSELF</tt> ICCM messages, save toggles
+before saving the hostname.
+<br>Added a new <b>MoveCursorSelect()</b> action, to emulate light pen
+selection with the mouse. The default mapping is <tt>Ctrl Shift &lt;Btn1Down></tt>.
+<br>Added a <b>highlightSelect</b> resource (default <b>True</b>) to control
+whether highlighted fields are selectable via the <b>CursorSelect()</b>
+and <b>MoveCursorSelect()</b>.
+<br>Added <b>visualSelect</b> and <b>visualSelectColor</b> resources to
+optionally display light pen selectable fields in a different color.
+<br>Allow spaces in font names.
+<br>Removed <tt>XtSpecificationRelease</tt> dependencies.
+<br>Added AIX "<tt>@@for</tt>" problem workaround to the build instructions.
+<br>Restored the ability to disable most components in <tt>parts.h</tt>,
+and made TN3270E mode a configurable component.
+<br>Removed old <tt>ARGSUSED</tt> lint hints.
 <h2>
 <b>Changes in x3270 3.2.9, 26. June 2000</b></h2>
 Fixed requesting the wrong LU after switching between TN3270E and TN3270

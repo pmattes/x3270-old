@@ -266,7 +266,6 @@ keypad_placement_init(void)
  * Callback for keypad buttons.  Simply calls the function pointed to by the
  * client data.
  */
-/*ARGSUSED*/
 static void
 callfn(Widget w unused, XtPointer client_data, XtPointer call_data unused)
 {
@@ -612,7 +611,6 @@ keypad_first_up(void)
 }
 
 /* Called when the keypad popup pops up or down */
-/*ARGSUSED*/
 static void
 keypad_updown(Widget w unused, XtPointer client_data,
 		XtPointer call_data unused)

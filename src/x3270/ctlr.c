@@ -1938,7 +1938,6 @@ delta_msec(struct timeval *t1, struct timeval *t0)
 	       (t1->tv_usec - t0->tv_usec + 500) / 1000;
 }
 
-/*ARGSUSED*/
 static void
 keep_ticking(void)
 {
@@ -1981,7 +1980,6 @@ ticking_stop(void)
 	status_timing(&t_start, &t1);
 }
 
-/*ARGSUSED*/
 void
 toggle_showTiming(struct toggle *t unused, enum toggle_type tt unused)
 {
@@ -1993,7 +1991,6 @@ toggle_showTiming(struct toggle *t unused, enum toggle_type tt unused)
 /*
  * No-op toggle.
  */
-/*ARGSUSED*/
 void
 toggle_nop(struct toggle *t unused, enum toggle_type tt unused)
 {

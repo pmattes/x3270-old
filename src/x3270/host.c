@@ -32,6 +32,7 @@
 
 enum cstate	cstate = NOT_CONNECTED;
 Boolean		std_ds_host = False;
+Boolean		non_tn3270e_host = False;
 Boolean		passthru_host = False;
 #define		LUNAME_SIZE	16
 char		luname[LUNAME_SIZE+1];
@@ -190,11 +191,12 @@ parse_localprocess(const char *s)
  */
 static char *
 split_host(char *s, Boolean *ansi, Boolean *std_ds, Boolean *passthru,
-	char *xluname, char **port)
+	Boolean *non_e, char *xluname, char **port)
 {
 	*ansi = False;
 	*std_ds = False;
 	*passthru = False;
+	*non_e = False;
 	*xluname = '\0';
 	*port = CN;
 
@@ -213,6 +215,11 @@ split_host(char *s, Boolean *ansi, Boolean *std_ds, Boolean *passthru,
 		}
 		if (!strncmp(s, "p:", 2) || !strncmp(s, "P:", 2)) {
 			*passthru = True;
+			s += 2;
+			continue;
+		}
+		if (!strncmp(s, "n:", 2) || !strncmp(s, "N:", 2)) {
+			*non_e = True;
 			s += 2;
 			continue;
 		}
@@ -309,7 +316,7 @@ host_connect(const char *n)
 	{
 		/* Strip off and remember leading qualifiers. */
 		if ((s = split_host(nb, &ansi_host, &std_ds_host,
-		    &passthru_host, luname, &port)) == CN)
+		    &passthru_host, &non_tn3270e_host, luname, &port)) == CN)
 			return -1;
 
 		/* Look up the name in the hosts file. */
@@ -321,7 +328,8 @@ host_connect(const char *n)
 			 */
 			Free(s);
 			if (!(s = split_host(target_name, &ansi_host,
-			    &std_ds_host, &passthru_host, luname, &port)))
+			    &std_ds_host, &passthru_host, &non_tn3270e_host,
+			    luname, &port)))
 				return -1;
 		}
 		chost = s;
@@ -397,7 +405,6 @@ host_connect(const char *n)
 /*
  * Called from timer to attempt an automatic reconnection.
  */
-/*ARGSUSED*/
 static void
 try_reconnect(void)
 {
@@ -524,7 +531,6 @@ st_changed(int tx, Boolean mode)
 
 /* Explicit connect/disconnect actions. */
 
-/*ARGSUSED*/
 void
 Connect_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
@@ -547,7 +553,6 @@ Connect_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 }
 
 #if defined(X3270_MENUS) /*[*/
-/*ARGSUSED*/
 void
 Reconnect_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {

@@ -50,13 +50,13 @@ static void add_trans(const char *name, char *translations, char *pathname,
     Boolean is_from_server);
 static char *get_file_keymap(const char *name, char **pathp);
 
-#if XtSpecificationRelease >= 5 /*[*/
-
 /* Undocumented Xt function to convert translations to text. */
 extern String _XtPrintXlations(Widget w, XtTranslations xlations,
     Widget accelWidget, Boolean includeRHS);
 
 extern Widget *screen;
+
+#if defined(X3270_MENUS) /*[*/
 extern Pixmap diamond;
 extern Pixmap no_diamond;
 
@@ -82,7 +82,6 @@ static Boolean is_temp(char *k);
 static char *pathname(char *k);
 static Boolean from_server(char *k);
 static void km_regen(void);
-
 #else /*][*/
 #define km_regen()
 #endif /*]*/
@@ -431,9 +430,11 @@ expand_table(const char *name, char *table)
 		while (s <= cm)
 			*t++ = *s++;
 
+#if defined(X3270_TRACE) /*[*/
 		/* Insert a PA-KeymapTrace call. */
 		(void) sprintf(t, " " PA_KEYMAP_TRACE "(%s,%d) ", name, nlines);
 		t = strchr(t, '\0');
+#endif /*]*/
 
 		/*
 		 * Copy to the next unquoted newline and append a PA-End call.
@@ -448,8 +449,10 @@ expand_table(const char *name, char *table)
 			while (s < cm)
 				*t++ = *s++;
 		}
+#if defined(X3270_TRACE) /*[*/
 		(void) strcpy(t, PA_ENDL);
 		t += strlen(PA_ENDL);
+#endif /*]*/
 		if (cm == CN)
 			break;
 		else
@@ -460,13 +463,13 @@ expand_table(const char *name, char *table)
 	return t0;
 }
 
+#if defined(X3270_TRACE) /*[*/
 /*
  * Trace a keymap.
  *
  * This function leaves a value in the global "keymap_trace", which is used
  * by the action_debug function when subsequent actions are called.
  */
-/*ARGSUSED*/
 void
 PA_KeymapTrace_action(Widget w unused, XEvent *event unused, String *params,
     Cardinal *num_params)
@@ -478,13 +481,13 @@ PA_KeymapTrace_action(Widget w unused, XEvent *event unused, String *params,
 	keymap_trace = XtMalloc(strlen(params[0]) + 1 + strlen(params[1]) + 1);
 	(void) sprintf(keymap_trace, "%s:%s", params[0], params[1]);
 }
+#endif /*]*/
 
 /*
  * End a keymap trace.
  *
  * This function clears the value in the global "keymap_trace".
  */
-/*ARGSUSED*/
 void
 PA_End_action(Widget w unused, XEvent *event unused, String *params unused,
     Cardinal *num_params unused)
@@ -637,8 +640,7 @@ temporary_keymap(char *k)
 }
 #undef TN
 
-#if XtSpecificationRelease >= 5 /*[*/
-
+#if defined(X3270_MENUS) /*[*/
 /* Create and pop up the current keymap pop-up. */
 void
 do_keymap_display(Widget w unused, XtPointer userdata unused,
@@ -1164,12 +1166,4 @@ event_cmp(char *e1, char *e2)
 	else
 		return strcmp(e1, e2);
 }
-
-#else /*][*/
-
-void
-km_regen(void)
-{
-}
-
 #endif /*]*/

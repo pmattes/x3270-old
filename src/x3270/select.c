@@ -261,7 +261,6 @@ select_line(int baddr, Time t)
  * Start a new selection.
  * Usually bound to <Btn1Down>.
  */
-/*ARGSUSED*/
 void
 select_start_action(Widget w, XEvent *event, String *params,
     Cardinal *num_params)
@@ -291,7 +290,6 @@ select_start_action(Widget w, XEvent *event, String *params,
  * Alternate form of select_start, which combines cursor motion with selection.
  * Usually bound to <Btn1Down> in a user-specified keymap.
  */
-/*ARGSUSED*/
 void
 move_select_action(Widget w, XEvent *event, String *params,
     Cardinal *num_params)
@@ -330,7 +328,6 @@ move_select_action(Widget w, XEvent *event, String *params,
  * Begin extending the current selection.
  * Usually bound to <Btn3Down>.
  */
-/*ARGSUSED*/
 void
 start_extend_action(Widget w, XEvent *event, String *params,
     Cardinal *num_params)
@@ -365,7 +362,6 @@ start_extend_action(Widget w, XEvent *event, String *params,
  * Continuously extend the current selection.
  * Usually bound to <Btn1Motion> and <Btn3Motion>.
  */
-/*ARGSUSED*/
 void
 select_extend_action(Widget w, XEvent *event, String *params,
     Cardinal *num_params)
@@ -428,7 +424,6 @@ select_extend_action(Widget w, XEvent *event, String *params,
  * End the selection.
  * Usually bound to <BtnUp>.
  */
-/*ARGSUSED*/
 void
 select_end_action(Widget w unused, XEvent *event, String *params,
     Cardinal *num_params)
@@ -489,7 +484,6 @@ select_end_action(Widget w unused, XEvent *event, String *params,
  * Set the selection.
  * Usually bound to the Copy key.
  */
-/*ARGSUSED*/
 void
 set_select_action(Widget w unused, XEvent *event, String *params,
     Cardinal *num_params)
@@ -540,7 +534,6 @@ move_cursor_to_mouse(Widget w, XEvent *event)
 #define ULS	sizeof(unsigned long)
 #define ULBS	(ULS * 8)
 
-/*ARGSUSED*/
 void
 Cut_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
@@ -700,7 +693,6 @@ convert_sel(Widget w, Atom *selection, Atom *target, Atom *type,
 	return False;
 }
 
-/*ARGSUSED*/
 static void
 lose_sel(Widget w unused, Atom *selection)
 {
@@ -991,7 +983,6 @@ area_is_selected(int baddr, int len)
 /*
  * Unhighlight the region of selected text -- but don't give up the selection.
  */
-/*ARGSUSED*/
 void
 unselect(int baddr unused, int len unused)
 {
@@ -1009,7 +1000,6 @@ static int	n_pasting = 0;
 static int	pix = 0;
 static Time	paste_time;
 
-/*ARGSUSED*/
 static void
 paste_callback(Widget w, XtPointer client_data unused, Atom *selection unused,
     Atom *type unused, XtPointer value, unsigned long *length,

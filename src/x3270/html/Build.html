@@ -1,187 +1,162 @@
-<HTML>
-<TITLE>x3270 Build and Install Instructions</TITLE>
-<H1>x3270 Build and Install Instructions</H1>
+<!doctype html public "-//w3c//dtd html 4.0 transitional//en">
+<html>
+<head>
+   <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+   <meta name="GENERATOR" content="Mozilla/4.5 [en] (WinNT; U) [Netscape]">
+   <title>x3270 Build and Install Instructions</title>
+</head>
+<body>
 
-<H2>Vanilla X11R5 or X11R6</H2>
+<h1>
+x3270 Build and Install Instructions</h1>
 
-x3270 was developed on a Sun workstation running SunOS 4.1.3_U1 and MIT X11R5.
-It is set up to build and install without modifications under any complete
-X11R5 or X11R6 implementation.
-<P>
-A "complete" R5 or R6 implementation means that xmkmf and imake are configured
-and installed on your system, and that the Xaw and Xmu libraries and header
-files are installed.  Some vendors (HP and IBM in particular) consider these
-optional software and do not always install them.
-<P>
-If you are running vanilla X11R5 or X11R6, then the build procedure is:
-<P>
-<PRE>
-    xmkmf		# create a Makefile
-    make depend		# add dependency information
-    make		# build x3270 and its fonts
-</PRE>
-<P>
-x3270 prefers that its fonts be installed in order to run.  However, a script
-is provided for testing a local copy of x3270 in the current directory:
-<P>
-<PRE>
-    ./dryrun		# test x3270
-</PRE>
-<P>
-Once you are satisfied that x3270 is working, you can install it (as root)
-with the command:
-<P>
-<PRE>
-    make install
-</PRE>
-<P>
-Before running x3270, you will also need to (once):
-<P>
-<PRE>
-    xset fp rehash
-</PRE>
-<P>
-That's the easy way.  Here are the exceptions:
-
-<H2>IBM RS/6000, AIX 3.2, X11R5</H2>
-
-AIX X11R5 does not include does not include xmkmf or imake, but it includes
-the source code for them.  If these have not been built and installed on
-your system (e.g., if there is no such file as "/usr/bin/X11/imake"), you must
-first build and install them by following the instructions in
-/usr/lpp/X11/Xamples/README.
-<P>
-Once these have been installed, you can use the standard X11R5 build procedure
-above.
-
-<H2>HP-UX A9.01, X11R5</H2>
-
-HP's X11R5 distribution does not include the Xaw libraries or header files.  As
-HP's X man page says,
-<BLOCKQUOTE>
-    A number of unsupported core MIT clients and miscellaneous utilities
-    are provided in /usr/contrib/bin.  In addition, the entire core MIT
-    distribution, compiled for Hewlett-Packard platforms, can be obtained
-    from HP's users group INTERWORKS for a nominal fee.  See the release
-    notes for details.
-</BLOCKQUOTE>
-What you need is the Xaw and Xmu libraries, imake, and xmkmf.  Then you can
-follow the vanilla R5 build and install instructions.
-
-<H2>Sun Solaris 2.x</H2>
-
+<h2>
+Vanilla X11R5 or X11R6</h2>
+<i>x3270</i> is set up to build and install without modifications under
+any complete X11R5 or X11R6 implementation.
+<p>A "complete" R5 or R6 implementation means that <i>xmkmf</i> and <i>imake</i>
+are configured and installed on your system, and that the <tt>Xaw</tt>
+and <tt>Xmu</tt> libraries and header files are installed. Some vendors
+(HP and IBM in particular) consider these optional software and do not
+always install them.
+<p>If you are running vanilla X11R5 or X11R6, then the build procedure
+is to ensure that your X11 <tt>bin</tt> directory is in your <tt>$PATH</tt>,
+then:
+<pre>&nbsp;&nbsp;&nbsp; xmkmf&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; # create a Makefile
+&nbsp;&nbsp;&nbsp; make depend&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; # add dependency information
+&nbsp;&nbsp;&nbsp; make&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; # build x3270 and its fonts</pre>
+<i>x3270</i> prefers that its fonts be installed in order to run. However,
+a script is provided for testing a local copy of <i>x3270</i> in the current
+directory:
+<pre>&nbsp;&nbsp;&nbsp; ./dryrun&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; # test x3270</pre>
+Once you are satisfied that <i>x3270</i> is working, you can install it
+(as root) with the command:
+<pre>&nbsp;&nbsp;&nbsp; make install</pre>
+Before running <i>x3270</i>, you will also need to (once):
+<pre>&nbsp;&nbsp;&nbsp; xset fp rehash</pre>
+That's the easy way. Here are the exceptions:
+<h2>
+IBM RS/6000, AIX 4.3.3 and 4.2.1</h2>
+There is a bug in the <tt>X11.tmpl</tt> file in the X11 config directory,
+which causes the <tt>Makefile</tt> produced by <i>imake</i> to have an
+extra <tt>@</tt> character in it.
+<p>After running <i>xmkmf</i>, edit the <tt>Makefile</tt> and change:
+<blockquote><tt>@@for</tt></blockquote>
+to:
+<blockquote><tt>@for</tt></blockquote>
+(there's only one).
+<h2>
+IBM RS/6000, AIX 3.2, X11R5</h2>
+AIX X11R5 does not include does not include <i>xmkmf</i> or <i>imake</i>,
+but it includes the source code for them. If these have not been built
+and installed on your system (<i>e.g.</i>, if there is no such file as
+<tt>/usr/bin/X11/imake</tt>), you must first build and install them by
+following the instructions in <tt>/usr/lpp/X11/Xamples/README</tt>.
+<p>Once these have been installed, you can use the standard X11R5 build
+procedure above.
+<h2>
+HP-UX A9.01, X11R5</h2>
+HP's X11R5 distribution does not include the <tt>Xaw</tt> libraries or
+header files. As HP's X man page says,
+<blockquote>A number of unsupported core MIT clients and miscellaneous
+utilities are provided in /usr/contrib/bin. In addition, the entire core
+MIT distribution, compiled for Hewlett-Packard platforms, can be obtained
+from HP's users group INTERWORKS for a nominal fee. See the release notes
+for details.</blockquote>
+What you need is the <tt>Xaw</tt> and <tt>Xmu</tt> libraries, <i>imake</i>,
+and <i>xmkmf</i>. Then you can follow the vanilla R5 build and install
+instructions.
+<h2>
+Sun Solaris 2.x</h2>
 Follow the instructions for Vanilla X11R5, with the following two changes.
-<P>
-Sun's 'xmkmf' configuration puts some compiler flags in the Makefile
-that are specific to Sun's unbundled C compiler.  If you are using a
-different C compiler such as gcc, you may get a number of harmless, but
-annoying error messages while compiling.
-To eliminate these, use the command:
-<P>
-<PRE>
-    make "CDEBUGFLAGS=-O" "CCOPTIONS=-DSYSV -DSVR4"
-</PRE>
-<P>
-'xmkmf' also gets the path of the 'install' program wrong.
-To install x3270, you must use the command:
-<P>
-<PRE>
-    make INSTALL=/usr/ucb/install install
-</PRE>
-<P>
-To run x3270, you must have your LD_LIBRARY_PATH environment variable set
-properly.  First, it must include /usr/openwin/lib.  Also, if you are using
-Sun's BSD-compatibility C compiler, /usr/ucb/cc, you must also use include
-/usr/ucblib.  See the "dryrun" script for details on how to do this.
+<p>Sun's <i>xmkmf</i> configuration puts some compiler flags in the <tt>Makefile</tt>
+that are specific to Sun's unbundled C compiler. If you are using a different
+C compiler such as <i>gcc</i>, you may get a number of harmless, but annoying
+error messages while compiling. To eliminate these, use the command:
+<pre>&nbsp;&nbsp;&nbsp; make "CDEBUGFLAGS=-O" "CCOPTIONS=-DSYSV -DSVR4"</pre>
+<i>xmkmf</i> also gets the path of the <i>install</i> program wrong. To
+install <i>x3270</i>, you must use the command:
+<pre>&nbsp;&nbsp;&nbsp; make INSTALL=/usr/ucb/install install</pre>
+To run <i>x3270</i>, you must have your <tt>LD_LIBRARY_PATH</tt> environment
+variable set properly. First, it must include <tt>/usr/openwin/lib</tt>.
+Also, if you are using Sun's BSD-compatibility C compiler, <tt>/usr/ucb/cc</tt>
+(this is <b>not</b> recommended), you must also use include <tt>/usr/ucblib</tt>.
+See the <i>dryrun</i> script for details on how to do this.
+<h2>
+Systems Based on System V, Release 4</h2>
+Before running <i>xmkmf</i>, you must uncomment a line in the <tt>Imakefile</tt>
+to include the network libraries:
+<pre>&nbsp; EXTRA_LIBRARIES = -lnsl -lsocket</pre>
 
-<H2>Systems Based on System V, Release 4</H2>
-
-Before running xmkmf, you must uncomment a line in the Imakefile to include
-the network libraries:
-<PRE>
-  EXTRA_LIBRARIES = -lnsl -lsocket
-</PRE>
-
-<H2>Mixed X Environments</H2>
-
+<h2>
+Mixed X Environments</h2>
 If you are running a mixture of X environments, such as running a Sun XNews
-server but using X11R5 libraries and header files, the supplied Imakefile
-may not work properly, because it assumes that your server and libraries are
-of the same type.  This is not an impossible situation, just a difficult one.
-It generally means that you will have to build and install the fonts
+server but using X11R5 libraries and header files, the supplied <tt>Imakefile</tt>
+may not work properly, because it assumes that your server and libraries
+are of the same type. This is not an impossible situation, just a difficult
+one. It generally means that you will have to build and install the fonts
 separately, perhaps even by hand.
-<H2>Building Fonts for X Terminals</H2>
-
+<h2>
+Building Fonts for X Terminals</h2>
 The Imakefile that comes with x3270 assumes that you plan to run the x3270
-client on the same workstation as your X server.  Therefore it builds fonts
-for that kind of X server.  Compiled fonts (.snf or .pcf files) are not
+client on the same workstation as your X server. Therefore it builds fonts
+for that kind of X server. Compiled fonts (.snf or .pcf files) are not
 compatible between different servers, so if you run x3270 with its display
-somewhere else (such as on an X Terminal), you will need to compile the fonts
-for that server.  It is impossible to give comprehensive instructions here;
-however, here is an outline for how to do it:
-<UL>
-    Copy all of the .bdf files from the x3270 distribution into a new
-     directory, say XXX.
-<P>
-    cd into XXX.
-<P>
-    For each .bdf file, run the server-specific version of bdftosnf to
-     create a .snf file.  For example, for to build an NCD font on a
-     Sun-4, the command is:
-<PRE>
-	/usr/local/NCD/binSun4/bdftosnf 3270.bdf >3270.snf
-</PRE>
-    Run the server-specific version of mkfontdir.  For example:
-<PRE>
-	/usr/local/NCD/binSun4/mkfontdir .
-</PRE>
-    Then tell your X server to use this directory:
-<PRE>
-	xset fp+ XXX
-	xset fp rehash
-</PRE>
-</UL>
-<H2>SCO Open Desktop 3</H2>
-You will need to edit a few files in order to build under SCO Open Desktop 3.
-<P>
-In globals.h, remove the "#define NO_SYS_TIME_H" that is defined for sco.
-<P>
-In Imakefile, add:
-<PRE>
-	EXTRA_LIBRARIES = -lnsl_s -lsocket
-</PRE>
-Also be aware that x3270 requires the Athena Widgets library, which is
-available from sosco.sco.com.
+somewhere else (such as on an X Terminal), you will need to compile the
+fonts for that server. It is impossible to give comprehensive instructions
+here; however, here is an outline for how to do it:
+<ul>Copy all of the <tt>.bdf</tt> files from the <i>x3270</i> distribution
+into a new directory, say <tt>XXX</tt>.
+<p><i>cd</i> into <tt>XXX</tt>.
+<p>For each <tt>.bdf</tt> file, run the server-specific version of <i>bdftosnf</i>
+or <i>bdftopcf</i> to create a <tt>.snf</tt> or <tt>.pcf</tt> file. For
+example, for to build an NCD font on a Sun-4, the command is:
+<pre>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; /usr/local/NCD/binSun4/bdftosnf 3270.bdf >3270.snf</pre>
+Run the server-specific version of <i>mkfontdir</i>. For example:
+<pre>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; /usr/local/NCD/binSun4/mkfontdir .</pre>
+Then tell your X server to use this directory:
+<pre>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; xset fp+ XXX
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; xset fp rehash</pre>
+</ul>
 
-<H2>Using an app-defaults File</H2>
-Earlier versions of x3270 required a separate <B>app-defaults</B> file.
-The app-defaults file contains definitions for options, text strings,
-fonts, colors, etc.  The file allows x3270 to be reconfigured without
+<h2>
+SCO Open Desktop 3</h2>
+You will need to edit a few files in order to build under SCO Open Desktop
+3.
+<p>In <tt>globals.h</tt>, remove the <tt>#define NO_SYS_TIME_H</tt> that
+is defined for <tt>sco</tt>.
+<p>In <tt>Imakefile</tt>, add:
+<pre>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; EXTRA_LIBRARIES = -lnsl_s -lsocket</pre>
+Also be aware that <i>x3270</i> requires the Athena Widgets library, which
+is available from sosco.sco.com.
+<h2>
+Using an app-defaults File</h2>
+Earlier versions of <i>x3270</i> required a separate <b>app-defaults</b>
+file. The app-defaults file contains definitions for options, text strings,
+fonts, colors, etc. The file allows <i>x3270</i> to be reconfigured without
 recompiling by simply editing the file.
-
-<P>Unfortunately, using an app-defaults file is a pain.  The mechanism
-for finding the file is so flexible as to be almost incomprehensible, and it
+<p>Unfortunately, using an app-defaults file is a pain. The mechanism for
+finding the file is so flexible as to be almost incomprehensible, and it
 is difficult to run the program without doing a full installation, requiring
-root access to your system.  Also, the app-defaults file generally changes
-whenever the program changes, and making sure that x3270 finds the
-<STRONG>correct</STRONG> app-defaults file compounds the above problems.
+root access to your system. Also, the app-defaults file generally changes
+whenever the program changes, and making sure that <i>x3270</i> finds the
+<b>correct</b>
+app-defaults file compounds the above problems.
+<p>Starting with version 3.1.0.0, <i>x3270</i> no longer uses a separate
+app-defaults file. Instead, the file is compiled into <i>x3270</i> itself.
+If however, you prefer to have a separate app-defaults file, you can compile
+<i>x3270</i> to use it.
+<p>First, you must decide whether you want app-defaults for a color display
+or a monochrome display. The default is color; if you want monochrome app-defaults
+you must edit <tt>Imakefile</tt> and un-comment the line under the comment
+"<tt>Rule for building a separate app-defaults file...</tt>".
+<p>Then you need to edit <tt>Imakefile</tt>, and un-comment the lines under
+the comment "<tt>To use a separate app-defaults file...</tt>". Then do
+the following:
+<pre>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; xmkmf
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; make depend
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; make clean
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; make</pre>
 
-<P>Starting with version 3.1.0.0, x3270 no longer uses a separate app-defaults
-file.  Instead, the file is compiled into x3270 itself.  If however, you prefer
-to have a separate app-defaults file, you can compile x3270 to use it.
-
-<P>First, you must decide whether you want app-defaults for a color display
-or a monochrome display.  The default is color; if you want monochrome
-app-defaults you must edit Imakefile
-and un-comment the line under the comment "Rule for building a
-separate app-defaults file...".
-
-<P>Then you need to edit Imakefile, and un-comment the
-lines under the comment "To use a separate app-defaults file...".  Then, if
-you are using Imakefile, do the following:
-<PRE>
-	xmkmf
-	make depend
-	make clean
-	make
-</PRE>
+</body>
+</html>

@@ -274,6 +274,11 @@ x3270.foreground	Default black		Switches: -fg, -rv
     The foreground color for menus, buttons, and on monochrome X displays, the
     emulator display.
 
+x3270.highlightSelect	Default True
+    If true, then highlighted fields can be selected by the CursorSelect()
+    and MoveCursorSelect() actions (per the IBM spec).  If false, then only
+    unhighlighted, selectable fields can be selected.
+
 x3270.hostsFile		Default /usr/lib/X11/x3270/ibm_hosts
     The name of a file listing the host names that appear on the "Connect"
     pull-down menu.  The format of the file is explained on the ibm_hosts man
@@ -631,6 +636,18 @@ x3270.useCursorColor	Default false
 x3270.visualBell	Default false
     When true, x3270 will flash the screen in response to an ALARM WCC or
     BELL character, rather than ringing the X display's bell.
+
+x3270.visualSelect	Default false
+    This resource controls how x3270 displays light pen selectable fields
+    that do not have a color explicitly set by the host.  When set to true,
+    x3270 these fields using the color defined by x3270.visualSelectColor
+    (default 6).  When set to false, x3270 will display these fields based on
+    their highlighting attribute.  The attribute is used only in 3279 mode.
+
+x3270.visualSelectColor	Default 6
+    The 3270 color index of the color to use when displaying light pen
+    selectable fields.  This resource is used only if x3270.visualSelect is
+    set to true.  The default is 6 (yellow).
 
 x3270.waitCursor	Default watch
     The name of the mouse cursor displayed when x3270 is connected to a host,

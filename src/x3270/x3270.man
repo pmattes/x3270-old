@@ -1,5 +1,5 @@
 '\" t
-.TH X3270 1 "26 June 2000"
+.TH X3270 1 "5 July 2000"
 .SH NAME
 x3270 \-
 .SM IBM
@@ -41,6 +41,12 @@ removes the "extended data stream" option reported to the host.
 See
 .B \-tn
 below for further information.
+.LP
+Prepending an
+.B n:
+onto
+.I hostname
+turns off TN3270E support for the session.
 .LP
 A specific LU name to use may be specified by prepending it to the
 .I hostname
@@ -947,6 +953,7 @@ Meta<Key>Right	NextWord()
 Ctrl<Btn1Down>	HandleMenu(quitMenu)
 Ctrl<Btn2Down>	HandleMenu(optionsMenu)
 Ctrl<Btn3Down>	HandleMenu(hostMenu)
+Ctrl Shift<Btn1Down>	MoveCursorSelect()
 Shift<Btn1Down>	MoveCursor()
 <Btn1Down>	select\-start()
 <Btn1Motion>	select\-extend()
@@ -1082,6 +1089,7 @@ Left	move cursor left
 Left2	move cursor left 2 positions
 Macro(\fImacrofP)	run a macro
 MoveCursor	move cursor to mouse position
+MoveCursorSelect	move cursor to mouse position, light pen selection
 MonoCase	toggle uppercase-only mode
 Newline	move cursor to first field on next line (or send ASCII LF)
 NextWord	move cursor to next word
@@ -1562,4 +1570,4 @@ notice.
 .RE
 5250 Emulation Code copyright Minolta (Schweiz) AG, Beat Rubischon.
 .SH VERSION
-x3270 3.2.9
+x3270 3.2.10
