@@ -49,3 +49,5 @@ extern char *NewString(const char *);
 extern void Warning(const char *s);
 extern void Error(const char *s);
 #define X3270_TRACE 1
+
+extern void errmsg(const char *, ...);

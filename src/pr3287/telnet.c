@@ -47,22 +47,6 @@
 
 extern FILE *tracef;
 
-#if 0
-#include "appres.h"
-
-#include "ansic.h"
-#include "ctlrc.h"
-#include "hostc.h"
-#include "kybdc.h"
-#include "macrosc.h"
-#include "popupsc.h"
-#include "statusc.h"
-#include "telnetc.h"
-#include "trace_dsc.h"
-#include "utilc.h"
-#include "xioc.h"
-#endif
-
 /*   connection state */
 enum cstate {
 	NOT_CONNECTED,		/* no socket, unknown mode */
@@ -438,8 +422,8 @@ telnet_fsm(unsigned char c)
 				if (process_eor())
 					return -1;
 			} else
-				(void) fprintf(stderr, "EOR received when not "
-				    "in 3270 mode, ignored.\n");
+				errmsg("EOR received when not in 3270 mode, "
+				    "ignored.");
 			trace_str("RCVD EOR\n");
 			ibptr = ibuf;
 			telnet_state = TNS_DATA;
@@ -590,18 +574,19 @@ telnet_fsm(unsigned char c)
 					return -1;
 				}
 				tt_len = strlen(termtype);
-				if (try_lu != NULL) {
+				if (try_lu != NULL && *try_lu) {
 					tt_len += strlen(try_lu) + 1;
 					connected_lu = try_lu;
-				}
+				} else
+					connected_lu = NULL;
 
 				tb_len = 4 + tt_len + 2;
 				tt_out = Malloc(tb_len + 1);
 				(void) sprintf(tt_out, "%c%c%c%c%s%s%s%c%c",
 				    IAC, SB, TELOPT_TTYPE, TELQUAL_IS,
 				    termtype,
-				    (try_lu != NULL) ? "@" : "",
-				    try_lu ? try_lu : "",
+				    (try_lu != NULL && *try_lu) ? "@" : "",
+				    (try_lu != NULL && &try_lu) ? try_lu : "",
 				    IAC, SE);
 				net_rawout((unsigned char *)tt_out, tb_len);
 
@@ -638,7 +623,7 @@ tn3270e_request(void)
 	tt_len = strlen(termtype);
 	if (try_assoc != NULL)
 		tt_len += strlen(try_assoc) + 1;
-	else if (try_lu != NULL)
+	else if (try_lu != NULL && *try_lu)
 		tt_len += strlen(try_lu) + 1;
 
 	tb_len = 5 + tt_len + 2;
@@ -650,7 +635,7 @@ tn3270e_request(void)
 
 	if (try_assoc != NULL)
 		t += sprintf(t, "%c%s", TN3270E_OP_ASSOCIATE, try_assoc);
-	else if (try_lu != NULL)
+	else if (try_lu != NULL && *try_lu)
 		t += sprintf(t, "%c%s", TN3270E_OP_CONNECT, try_lu);
 
 	(void) sprintf(t, "%c%c", IAC, SE);
@@ -662,15 +647,11 @@ tn3270e_request(void)
 	    cmd(SB), opt(TELOPT_TN3270E), strlen(termtype), tt_out + 5,
 	    (try_assoc != NULL) ? " ASSOCIATE " : "",
 	    (try_assoc != NULL) ? try_assoc : "",
-	    (try_lu != NULL) ? " CONNECT " : "",
-	    (try_lu != NULL) ? try_lu : "",
+	    (try_lu != NULL && *try_lu) ? " CONNECT " : "",
+	    (try_lu != NULL && *try_lu) ? try_lu : "",
 	    cmd(SE));
 
 	Free(tt_out);
-
-	/* Prep for the next LU. */
-	connected_lu = try_lu;
-	next_lu();
 }
 
 /*
@@ -768,6 +749,7 @@ tn3270e_negotiate(void)
 					 rsn(sbbuf[4]));
 				return -1;
 			}
+			next_lu();
 			if (try_lu != NULL) {
 				/* Try the next LU. */
 				tn3270e_request();

@@ -18,6 +18,8 @@
  */
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdarg.h>
+#include <syslog.h>
 #include <string.h>
 #include <netdb.h>
 #include <sys/types.h>
@@ -26,6 +28,11 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <time.h>
+#include <signal.h>
+
+#include "globals.h"
+#include "trace_dsc.h"
+#include "ctlrc.h"
 
 #if defined(_IOLBF) /*[*/
 #define SETLINEBUF(s)	setvbuf(s, (char *)NULL, _IOLBF, BUFSIZ)
@@ -43,7 +50,7 @@ char *programname = NULL;	/* program name */
 FILE *tracef = NULL;		/* trace file */
 
 /* User options. */
-static int bdaemon = 0;		/* become a daemon? */
+static enum { NOT_DAEMON, WILL_DAEMON, AM_DAEMON } bdaemon = NOT_DAEMON;
 static char *assoc = NULL;	/* TN3270 session to associate with */
 char *command = "lpr";		/* command to run for printing */
 static int tracing = 0;		/* are we tracing? */
@@ -62,6 +69,22 @@ usage(void)
 	exit(1);
 }
 
+/* Print an error message. */
+void
+errmsg(const char *fmt, ...)
+{
+	va_list args;
+	char buf[4096];
+
+	va_start(args, fmt);
+	(void) vsprintf(buf, fmt, args);
+	if (bdaemon == AM_DAEMON)
+		syslog(LOG_ERR, "%s: %s", programname, buf);
+	else
+		(void) fprintf(stderr, "%s: %s\n", programname, buf);
+	va_end(args);
+}
+
 /* Memory allocation. */
 void *
 Malloc(unsigned len)
@@ -69,7 +92,7 @@ Malloc(unsigned len)
 	void *p = malloc(len);
 
 	if (p == NULL) {
-		(void) fprintf(stderr, "Out of memory\n");
+		errmsg("Out of memory");
 		exit(1);
 	}
 	return p;
@@ -88,20 +111,31 @@ Realloc(void *p, unsigned len)
 
 	pn = realloc(p, len);
 	if (pn == NULL) {
-		(void) fprintf(stderr, "Out of memory\n");
+		errmsg("Out of memory");
 		exit(1);
 	}
 	return pn;
 }
 
 char *
-NewString(char *s)
+NewString(const char *s)
 {
 	char *p;
 
 
 	p = Malloc(strlen(s) + 1);
 	return strcpy(p, s);
+}
+
+/* Signal handler for SIGTERM, SIGINT and SIGHUP. */
+static void
+fatal_signal(int sig)
+{
+	/* Flush any pending data and exit. */
+	trace_ds("Fatal signal %d\n", sig);
+	print_eoj();
+	errmsg("Exiting on signal %d", sig);
+	exit(0);
 }
 
 int
@@ -261,9 +295,17 @@ main(int argc, char *argv[])
 		}
 	}
 
+	/* Handle signals. */
+	(void) signal(SIGTERM, fatal_signal);
+	(void) signal(SIGINT, fatal_signal);
+	(void) signal(SIGHUP, fatal_signal);
+	(void) signal(SIGPIPE, SIG_IGN);
+
 	/* Process what we're told to process. */
 	process(s, command);
 
+	/* Flush any pending data and exit. */
+	print_eoj();
 	return 0;
 }
 

@@ -47,14 +47,14 @@ extern char *command;
 static char *ll_name[] = { "(none) 132", "40", "64", "80" };
 static ll_len[] = { 132, 40, 64, 80 };
 
-/* Statics */
+/* 3270 (formatted mode) data */
 static unsigned char default_gr;
 static unsigned char default_cs;
 static int line_length = MAX_LL;
 static char page_buf[MAX_BUF];	/* swag */
 static int baddr = 0;
-static int initted = 0;
-static int any_output = 0;
+static Boolean page_buf_initted = False;
+static int any_3270_output = 0;
 static FILE *prfile = NULL;
 
 static void ctlr_erase(void);
@@ -76,8 +76,8 @@ static char vtabs[MAX_MPL+1];
 static int lm, tm, bm, mpp, mpl;
 static int pp;
 static int line;
-static int scs_initted = 0;
-
+static Boolean scs_initted = False;
+static Boolean any_scs_output = False;
 
 
 /*
@@ -146,8 +146,7 @@ process_ds(unsigned char *buf, int buflen)
 		break;
 	default:
 		/* unknown 3270 command */
-		fprintf(stderr, "Unknown 3270 Data Stream command: 0x%X\n",
-		    buf[0]);
+		errmsg("Unknown 3270 Data Stream command: 0x%X", buf[0]);
 		return PDS_BAD_CMD;
 	}
 
@@ -199,9 +198,10 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 	if (buflen < 2)
 		return;
 
-	if (!initted) {
-		initted = 1;
+	if (!page_buf_initted) {
 		(void) memset(page_buf, ' ', MAX_BUF);
+		page_buf_initted = True;
+		baddr = 0;
 	}
 
 	default_gr = 0;
@@ -473,7 +473,7 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 #if 0
 	/* Do the implied trailing newline, unless we just processed an EM. */
 	if (previous != ORDER || *cp != FCORDER_EM || wcc_line_length ||
-			any_output) {
+			any_3270_output) {
 		ctlr_add('\n', default_cs, default_gr);
 	}
 #endif
@@ -524,12 +524,13 @@ init_scs(void)
 	if (scs_initted)
 		return;
 
+	trace_ds("Initializing SCS virtual 3287.\n");
 	init_scs_horiz();
 	init_scs_vert();
 	pp = 1;
 	line = 1;
 	(void) memset(linebuf, ' ', MAX_MPP+1);
-	scs_initted = 1;
+	scs_initted = True;
 }
 
 /*
@@ -548,7 +549,7 @@ init_scs(void)
  * margin.
  */
 static void
-dump_scs_line(int reset_pp)
+dump_scs_line(Boolean reset_pp)
 {
 	int i;
 
@@ -575,6 +576,7 @@ dump_scs_line(int reset_pp)
 	line++;
 	if (reset_pp)
 		pp = lm;
+	any_scs_output = False;
 }
 
 /* SCS formfeed. */
@@ -617,13 +619,14 @@ add_scs(char c)
 	 * line and start over at the left margin.
 	 */
 	if (pp > mpp)
-		dump_scs_line(1);
+		dump_scs_line(True);
 
 	/*
 	 * Store this character in the line buffer and advance the print
 	 * position.
 	 */
 	linebuf[pp++] = c;
+	any_scs_output = True;
 }
 
 /* Process a bufferful of SCS data. */
@@ -664,7 +667,7 @@ process_scs(unsigned char *buf, int buflen)
 		case SCS_FF:	/* form feed */
 			END_TEXT("FF");
 			/* Dump any pending data, and go to the next line. */
-			dump_scs_line(1);
+			dump_scs_line(True);
 			/*
 			 * If there is a max page length, skip to the next
 			 * page.
@@ -691,7 +694,7 @@ process_scs(unsigned char *buf, int buflen)
 		case SCS_NL:	/* new line */
 			if (*cp == SCS_NL)
 				END_TEXT("NL");
-			dump_scs_line(1);
+			dump_scs_line(True);
 			break;
 		case SCS_VT:	/* vertical tab */
 			END_TEXT("VT");
@@ -700,7 +703,7 @@ process_scs(unsigned char *buf, int buflen)
 					break;
 			}
 			if (i <= MAX_MPL) {
-				dump_scs_line(0);
+				dump_scs_line(False);
 				while (line < i) {
 					stash('\n');
 					line++;
@@ -715,7 +718,7 @@ process_scs(unsigned char *buf, int buflen)
 		case SCS_LF:	/* line feed */
 			if (*cp == SCS_LF)
 				END_TEXT("LF");
-			dump_scs_line(0);
+			dump_scs_line(False);
 			break;
 		case SCS_GE:	/* graphic escape */
 			END_TEXT("GE");
@@ -949,11 +952,14 @@ stash(unsigned char c)
 	if (prfile == NULL) {
 		prfile = popen(command, "w");
 		if (prfile == NULL) {
-			perror(command);
+			errmsg("%s: %s", command, strerror(errno));
 			exit(1);
 		}
 	}
-	(void) fputc(c, prfile);
+	if (ferror(prfile)) {
+		errmsg("Write error to '%s'", command);
+		exit(1);
+	}
 }
 
 /*
@@ -981,7 +987,7 @@ ctlr_add(unsigned char c, unsigned char cs, unsigned char gr)
 				baddr -= baddr % MAX_LL;
 			break;
 	}
-	any_output = 1;
+	any_3270_output = 1;
 }
 
 static void
@@ -991,7 +997,7 @@ dump_3270_page(void)
 	int blanks = 0;
 	int blank_lines = 0;
 
-	if (!any_output)
+	if (!any_3270_output)
 		return;
 	for (i = 0; i < MAX_LL; i++) {
 		for (j = 0; j < MAX_LL; j++) {
@@ -1021,20 +1027,37 @@ dump_3270_page(void)
 	stash('\f');
 	(void) memset(page_buf, ' ', MAX_BUF);
 	fflush(prfile);
-	any_output = 0;
+	any_3270_output = 0;
 }
 
 void
 print_eoj(void)
 {
+	/* Dump any pending 3270-mode output. */
 	dump_3270_page();
+
+	/* Dump any pending SCS-mode output. */
+	if (any_scs_output)
+		dump_scs_line(True);
+
+	/* Close the stream to the print process. */
 	if (prfile != NULL) {
 		if (pclose(prfile) < 0)
-			perror(command);
+			errmsg("Close error on '%s'", command);
 		prfile = NULL;
 		trace_ds("End of print job.\n");
 	}
-	scs_initted = 0;
+
+	/* Make sure the next 3270 job starts with clean conditions. */
+	page_buf_initted = 0;
+
+	/*
+	 * Make sure that the next SCS job starts with clean conditions.
+	 *
+	 * XXX: Not sure if this should happen at the end of each job, or
+	 * when an UNBIND is processed.
+	 */
+	scs_initted = False;
 }
 
 static void
