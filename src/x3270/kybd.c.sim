@@ -1513,6 +1513,8 @@ Cardinal *nparams;
 {
 }
 
+extern void sim();
+
 XtActionsRec actions[] = {
 	{ "AltCursor",  (XtActionProc)key_AltCr },
 	{ "Attn",	(XtActionProc)key_Attn },
@@ -1583,6 +1585,7 @@ XtActionsRec actions[] = {
 	{ "Right2",	(XtActionProc)key_Right2 },
 	{ "SetFont",	(XtActionProc)set_font },
 	{ "Shift",	(XtActionProc)key_Shift },
+	{ "Sim",	(XtActionProc)sim },
 	{ "StateChanged",(XtActionProc)state_event },
 	{ "String",	(XtActionProc)string },
 	{ "SysReq",	(XtActionProc)key_SysReq },

@@ -1,23 +1,41 @@
-CFLAGS = -g
-LDOPTIONS = -Bstatic
 LOCAL_LIBRARIES = $(XAWLIB) $(XMULIB) $(XTOOLLIB) $(XLIB)
-SRCS = kybd.c screen.c telnet.c x3270.c
-OBJS = kybd.o screen.o telnet.o x3270.o
-FONTS = 3270.snf
-FONTINSTDIR = $(FONTDIR)/misc
+           SRCS = ansi.c apl.c ctlr.c keypad.c kybd.c menubar.c popups.c \
+		  screen.c select.c status.c tables.c telnet.c x3270.c
+          VOBJS = ansi.o apl.o ctlr.o keypad.o kybd.o menubar.o popups.o \
+		  screen.o select.o status.o tables.o telnet.o x3270.o
+           OBJS = $(VOBJS) version.o
+          FONTS = FontBaseObj(3270) FontBaseObj(3270b) \
+		  FontBaseObj(3270-12) FontBaseObj(3270-12b) \
+		  FontBaseObj(3270a) FontBaseObj(3270ab)
+
+    FONTINSTDIR = $(FONTDIR)/misc
+
+/* Might be needed to build on HP/UX */
+/*EXTRA_DEFINES = -D_HPUX_SOURCE */
 
 ComplexProgramTarget(x3270)
 
 InstallAppDefaults(X3270)
+InstallManPage(ibm_hosts,$(MANDIR))
 
 FontTarget(3270)
+FontTarget(3270b)
+FontTarget(3270-12)
+FontTarget(3270-12b)
+FontTarget(3270a)
+FontTarget(3270ab)
+
+version.o: $(VOBJS) version.txt
+	@(cat version.txt; echo "char *build = \"`date`\";") >version.c
+	@$(CC) -c version.c
+	@$(RM) version.c
 
 all:: $(FONTS)
 	
 install::	$(FONTS)
 	@case '${MFLAGS}' in *[i]) set +e;; esac; \
 	for i in $(FONTS); do\
-		(set -x; $(INSTALL) -c $(INSTALLFLAGS) $$i $(FONTINSTDIR));;\
+		(set -x; $(INSTALL) -c $(INSTALLFLAGS) $$i $(FONTINSTDIR));\
 	done
 	$(MKFONTDIR) $(FONTINSTDIR)
 

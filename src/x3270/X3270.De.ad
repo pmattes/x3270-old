@@ -1,0 +1,456 @@
+! x3270 app-defaults file.  Besides fonts, keymaps and character sets, every
+! piece of text but error and trace messages is defined here.
+!
+! Basics
+x3270.adVersion:	3.0
+!
+! Fonts
+x3270.large_font	3270
+x3270.small_font	3270-12
+x3270*keyPad*font:	fixed
+x3270*value*font:	fixed
+x3270*dataLabel.font:	-*-terminal-medium-r-normal--14-*-*-*-*-*-iso8859-1
+x3270*font:		-*-helvetica-bold-r-normal--12-*-*-*-*-*-*-*
+!
+! Popup miscellany
+x3270.errorPopup.width:		400
+x3270.errorPopup*foreground:	red
+x3270.connectPopup.width:	300
+x3270.fontPopup.width:		300
+!
+! Titles and Labels
+x3270.errorPopup.title:				x3270 Fehler
+x3270.connectPopup.title:			x3270 Verbindungsaufbau
+x3270.connectPopup.dialog.label:		Knotennamen eingeben
+x3270.fontPopup.title:				x3270 Font
+x3270.fontPopup.dialog.label:			Font Namen eingeben
+x3270.keypadPopup.title:			x3270 Keypad
+x3270.optionsPopup.title:			Ueber x3270
+x3270.connectPopup*confirmButton.label: 	Verbinden
+x3270.fontPopup*confirmButton.label:		Font auswaehlen
+x3270*okayButton.label:				OK
+x3270*cancelButton.label:			Abbrechen
+x3270*disconnectOption.label:			Verbindung trennen
+x3270*exitOption.label:				x3270 beenden
+x3270*quitMenuButton.label:			Ende...
+x3270*quitMenu.label:				Ende
+x3270*optionsMenuButton.label:			Optionen...
+x3270*optionsMenu.label:			Optionen
+x3270*connectMenuButton.label:			Verbinden...
+x3270*hostMenu.label:				Verbinden
+x3270*otherHostOption.label:			Anderer...
+x3270*optionsMenu.aboutOption.label:		Ueber x3270...
+x3270*optionsMenu.keypadOption.label:		Keypad
+x3270*optionsMenu.monocaseOption.label:		Monocase
+x3270*optionsMenu.blinkOption.label:		Blinkender Cursor
+x3270*optionsMenu.timingOption.label:		Zeige Zeiten
+x3270*optionsMenu.trackOption.label:		Cursor verfolgen
+x3270*optionsMenu.traceDsOption.label:		Trace 3270 DS
+x3270*optionsMenu.traceTelnetOption.label:	Trace TELNET
+x3270*optionsMenu.underlineOption.label:	Unterstrichener Cursor
+x3270*optionsMenu.blockOption.label:		Block Cursor
+x3270*optionsMenu.largeFontOption.label:	3270 Font
+x3270*optionsMenu.smallFontOption.label:	3270-12 Font
+x3270*optionsMenu.otherFontOption.label:	Anderer Font...
+x3270*optionsMenu.lineModeOption.label:		Zeilen Modus
+x3270*optionsMenu.characterModeOption.label:	Zeichen Modus
+x3270*optionsMenu.model2Option.label:		Modell 2 (24x80)
+x3270*optionsMenu.model3Option.label:		Modell 3 (32x80)
+x3270*optionsMenu.model4Option.label:		Modell 4 (43x80)
+x3270*optionsMenu.model5Option.label:		Modell 5 (27x132)
+!
+! Messages
+x3270.message.reconnect:			Wiederverbinden mit
+x3270.message.model:				Modell
+x3270.message.rows:				Zeilen
+x3270.message.columns:				Spalten
+x3270.message.terminalName:			Terminal name:
+x3270.message.emulatorFont:			Emulator font:
+x3270.message.fullFont:				vollstaendiger ISO 8859-1 font
+x3270.message.asciiFont:			7-bit ASCII X font
+x3270.message.cgFont:				spezieller 3270 CG Zeichensatz
+x3270.message.boldEmulatorFont:			Fetter emulator Zeichensatz:
+x3270.message.overstriking:			Ueberzeichnen fuer bold
+x3270.message.characterSet:			EBCDIC Zeichensatz:
+x3270.message.defaultCharacterSet:		Default (us) EBCDIC Zeichensatz
+x3270.message.keyboardMap:			Tastatur definition:
+x3270.message.defaultKeyboardMap:		Default Tastatur definition
+x3270.message.activeIcon:			Actives icon
+x3270.message.iconFont:				Icon Zeichensatz:
+x3270.message.iconLabelFont:			Icon Beschriftung Zeichensatz:
+x3270.message.staticIcon:			Statische Icon bitmap
+x3270.message.connectedTo:			Verbunden mit:
+x3270.message.charMode:				ANSI zeichen modus
+x3270.message.lineMode:				ANSI zeilen modus
+x3270.message.dsMode:				3270 modus
+x3270.message.connectionPending:		Verbindung offen mit:
+x3270.message.notConnected:			Nicht Verbunden
+x3270.message.specialCharacters:		Spezielle Zeichen:
+x3270.message.hour:				Stunde
+x3270.message.hours:				Stunden
+x3270.message.minute:				Minute
+x3270.message.minutes:				Minuten
+x3270.message.second:				Sekunde
+x3270.message.seconds:				Sekunden
+x3270.message.sent:				Gesendet
+x3270.message.Received:				Empfangen
+x3270.message.received:				empfangen
+x3270.message.byte:				byte
+x3270.message.bytes:				bytes
+x3270.message.record:				record
+x3270.message.records:				records
+x3270.message.statusNotConnected:		nicht verbunden
+x3270.message.statusConnecting:			im Verbindungsaufbau
+x3270.message.statusTwait:			Warten
+x3270.message.statusSyswait:			System
+x3270.message.statusProtected:			Geschuetzt
+x3270.message.statusNumeric:			Numerisch
+x3270.message.statusOverflow:			Ueberlauf
+!
+! Basic translations -- these should NEVER be changed without code changes
+x3270.translations: \
+	<Message>WM_PROTOCOLS:		DeleteWindow()\n\
+	<KeymapNotify>:			KeymapEvent()\n\
+	<PropertyNotify>WM_STATE:	StateChanged()\n\
+	<FocusIn>:			FocusEvent()\n\
+	<FocusOut>:			FocusEvent()
+x3270*screen.translations:	#override \n\
+	<Expose>:			Redraw()
+x3270icon.translations:		#override \n\
+	<Expose>:			Redraw()
+x3270.keypadPopup.translations: \
+	<Message>WM_PROTOCOLS:		DeleteWindow()\n\
+	<KeymapNotify>:			KeymapEvent()\n\
+	<Enter>:			EnterLeave()\n\
+	<Leave>:			EnterLeave()
+x3270.errorPopup.translations: \
+	<Message>WM_PROTOCOLS:		DeleteWindow()
+x3270.connectPopup.translations: \
+	<Message>WM_PROTOCOLS:		DeleteWindow()
+x3270.fontPopup.translations: \
+	<Message>WM_PROTOCOLS:		DeleteWindow()
+x3270.optionsPopup.translations: \
+	<Message>WM_PROTOCOLS:		DeleteWindow()
+x3270*value.translations:	#override \n\
+	<Key>Return:			confirm()\n\
+	Ctrl<Key>U:			beginning-of-file() delete-next-word()
+!
+! Default translations -- these should be changed only with great caution
+x3270.defaultTranslations: \
+	<Key>Return:		Enter()\n\
+	<Key>Linefeed:		Newline()\n\
+	<KeyPress>Shift_L:	Shift()\n\
+	<KeyRelease>Shift_L:	Shift()\n\
+	<KeyPress>Shift_R:	Shift()\n\
+	<KeyRelease>Shift_R:	Shift()\n\
+	!Shift<Key>Tab:		BackTab()\n\
+	<Key>Tab:		Tab()\n\
+	<Key>Home:		Home()\n\
+	<Key>Left:		Left()\n\
+	!Meta<Key>Left:		Left2()\n\
+	<Key>Right: 		Right()\n\
+	!Meta<Key>Right:	Right2()\n\
+	<Key>Up:		Up()\n\
+	<Key>Down:		Down()\n\
+	<Key>Delete: 		Delete()\n\
+	<Key>BackSpace: 	BackSpace()\n\
+	!Ctrl<Btn1Down>:	HandleMenu(quitMenu)\n\
+	!Ctrl<Btn2Down>:	HandleMenu(optionsMenu)\n\
+	!Ctrl<Btn3Down>:	HandleMenu(hostMenu)\n\
+	<Btn1Down>:		select-start()\n\
+	<Btn1Motion>:		select-extend()\n\
+	<Btn2Down>:		ignore()\n\
+	<Btn2Motion>:		ignore()\n\
+	<Btn2Up>:		insert-selection(PRIMARY,CUT_BUFFER0)\n\
+	<Btn3Down>:		start-extend()\n\
+	<Btn3Motion>:		select-extend()\n\
+	<BtnUp>:		select-end(PRIMARY,CUT_BUFFER0)\n\
+	!Meta<Key>F1:		PF13()\n\
+	!Meta<Key>F2:		PF14()\n\
+	!Meta<Key>F3:		PF15()\n\
+	!Meta<Key>F4:		PF16()\n\
+	!Meta<Key>F5:		PF17()\n\
+	!Meta<Key>F6:		PF18()\n\
+	!Meta<Key>F7:		PF19()\n\
+	!Meta<Key>F8:		PF20()\n\
+	!Meta<Key>F9:		PF21()\n\
+	!Meta<Key>F10:		PF22()\n\
+	!Meta<Key>F11:		PF23()\n\
+	!Meta<Key>F12:		PF24()\n\
+	<Key>F1:		PF1()\n\
+	<Key>F2:		PF2()\n\
+	<Key>F3:		PF3()\n\
+	<Key>F4:		PF4()\n\
+	<Key>F5:		PF5()\n\
+	<Key>F6:		PF6()\n\
+	<Key>F7:		PF7()\n\
+	<Key>F8:		PF8()\n\
+	<Key>F9:		PF9()\n\
+	<Key>F10:		PF10()\n\
+	<Key>F11:		PF11()\n\
+	<Key>F12:		PF12()\n\
+	Meta<Key>c:		Clear()\n\
+	Meta<Key>r:		Reset()\n\
+	Meta<Key>1:		PA1()\n\
+	Meta<Key>2:		PA2()\n\
+	Meta<Key>3:		PA3()\n\
+	Meta<Key>a:		Attn()\n\
+	Meta<Key>i:		Insert()\n\
+	Meta<Key>d:		Delete()\n\
+	Meta<Key>h:		Home()\n\
+	Meta<Key>l:		Redraw()\n\
+	Meta<Key>q:		Quit()\n\
+	:<Key>:			Default()
+!
+! Keymaps (keyboard-specific key mappings)
+x3270.keymap.sun-k4: \
+	!Shift<Key>F1:		PF13()\n\
+	!Shift<Key>F2:		PF14()\n\
+	!Shift<Key>F3:		PF15()\n\
+	!Shift<Key>F4:		PF16()\n\
+	!Shift<Key>F5:		PF17()\n\
+	!Shift<Key>F6:		PF18()\n\
+	!Shift<Key>F7:		PF19()\n\
+	!Shift<Key>F8:		PF20()\n\
+	!Shift<Key>F9:		PF21()\n\
+	!Shift<Key>F10:		PF22()\n\
+	!Shift<Key>F11:		PF23()\n\
+	!Shift<Key>F12:		PF24()\n\
+	<Key>F18:		insert-selection(PRIMARY,CUT_BUFFER0)\n\
+	<Key>F19:		SysReq()\n\
+	<Key>0x0:		FieldMark()\n\
+	<Key>F21:		PA1()\n\
+	<Key>F22:		PA2()\n\
+	<Key>F23:		Dup()\n\
+	<Key>F24:		Reset()\n\
+	<Key>F25:		EraseEOF()\n\
+	<Key>F26:		EraseInput()\n\
+	<Key>F27:		Clear()\n\
+	<Key>F31:		Home()\n\
+	<Key>Up:		Up()\n\
+	<Key>F29:		Redraw()\n\
+	<Key>Left:		Left()\n\
+	<Key>Right:		Right()\n\
+	<Key>Down:		Down()\n\
+	<Key>KP_Enter:		Newline()\n\
+	<Key>Insert:		Insert()\n\
+	<Key>F35:		Delete()\n\
+	<Key>Delete:		Delete()
+x3270.keymap.sun-k3: \
+	!Shift<Key>F1:		PF13()\n\
+	!Shift<Key>F2:		PF14()\n\
+	!Shift<Key>F3:		PF15()\n\
+	!Shift<Key>F4:		PF16()\n\
+	!Shift<Key>F5:		PF17()\n\
+	!Shift<Key>F6:		PF18()\n\
+	!Shift<Key>F7:		PF19()\n\
+	!Shift<Key>F8:		PF20()\n\
+	!Shift<Key>F9:		PF21()\n\
+	!Shift<Key>F21:		PF22()\n\
+	!Shift<Key>F22:		PF23()\n\
+	!Shift<Key>F23:		PF24()\n\
+	!Meta<Key>F21:		PA1()\n\
+	!Meta<Key>F22:		PA2()\n\
+	!Meta<Key>F23:		Dup()\n\
+	<Key>F19:		SysReq()\n\
+	<Key>0x0:		FieldMark()\n\
+	<Key>F21:		PF10()\n\
+	<Key>F22:		PF11()\n\
+	<Key>F23:		PF12()\n\
+	<Key>F24:		Reset()\n\
+	<Key>F25:		EraseEOF()\n\
+	<Key>F26:		EraseInput()\n\
+	<Key>F27:		Clear()\n\
+	<Key>F31:		Home()\n\
+	<Key>Up:		Up()\n\
+	<Key>F29:		Redraw()\n\
+	<Key>Left:		Left()\n\
+	<Key>Right:		Right()\n\
+	<Key>Down:		Down()\n\
+	<Key>KP_Enter:		Newline()\n\
+	<Key>Insert:		Insert()\n\
+	<Key>F35:		Delete()\n\
+	<Key>Delete:		Delete()
+x3270.keymap.ncd: \
+	<Key>F13:		Dup()\n\
+	<Key>Linefeed:		Dup()\n\
+	<Key>F14:		FieldMark()\n\
+	<Key>Break:		FieldMark()\n\
+	<Key>Insert:		Insert()\n\
+	<Key>Home:		Home()\n\
+	<Key>F17:		Home()\n\
+	<Key>End:		EraseEOF()\n\
+	<Key>F15:		Reset()\n\
+	<Key>Prior:		Reset()\n\
+	<Key>F16:		Newline()\n\
+	<Key>Next:		Newline()\n\
+	<Key>KP_Add:		EraseInput()\n\
+	<Key>Num_Lock:		PF13()\n\
+	<Key>KP_Space:		PF13()\n\
+	<Key>KP_Divide:		PF14()\n\
+	<Key>KP_Multiply:	PF15()\n\
+	<Key>KP_7:		PF16()\n\
+	<Key>KP_8:		PF17()\n\
+	<Key>KP_9:		PF18()\n\
+	<Key>KP_4:		PF19()\n\
+	<Key>KP_5:		PF20()\n\
+	<Key>KP_6:		PF21()\n\
+	<Key>KP_1:		PF22()\n\
+	<Key>KP_2:		PF23()\n\
+	<Key>KP_3:		PF24()\n\
+	<Key>KP_Subtract:	SysReq()\n\
+	<Key>KP_0:		PA2()\n\
+	<Key>KP_Decimal:	PA1()\n\
+	<Key>KP_Enter:		Clear()\n
+x3270.keymap.hp-k1: \
+	<Key>KP_Tab:		BackTab()\n\
+	<Key>KP_Enter:		Home()\n\
+	<Key>KP_Separator:	Delete()\n\
+	Shift<Key>Delete:	Delete()\n\
+	<Key>Menu:		EraseEOF()\n\
+	<Key>KP_Multiply:	PF13()\n\
+	<Key>KP_Divide:		PF14()\n\
+	<Key>KP_Add:		PF14()\n\
+	<Key>KP_7:		PF16()\n\
+	<Key>KP_8:		PF17()\n\
+	<Key>KP_9:		PF18()\n\
+	<Key>KP_4:		PF19()\n\
+	<Key>KP_5:		PF20()\n\
+	<Key>KP_6:		PF21()\n\
+	<Key>KP_1:		PF22()\n\
+	<Key>KP_2:		PF23()\n\
+	<Key>KP_3:		PF24()\n\
+	<Key>KP_0:		PA2()\n\
+	<Key>KP_Decimal:	PA1()\n
+! Keymap modifier for OpenWindows (swaps buttons 2 and 3; defines Paste key).
+x3270.keymap.ow:	#override \
+	<Btn1Down>:		select-start()\n\
+	<Btn1Motion>:		select-extend()\n\
+	<Btn2Down>:		start-extend()\n\
+	<Btn2Motion>:		select-extend()\n\
+	<Btn3Down>:		ignore()\n\
+	<Btn3Motion>:		ignore()\n\
+	<Btn3Up>:		insert-selection(PRIMARY,CUT_BUFFER0)\n\
+	<BtnUp>:		select-end(PRIMARY,CUT_BUFFER0)\n\
+	<Key>F18:		insert-selection(PRIMARY,CUT_BUFFER0)\n
+! Keymap modifier for keyboards which lack a Meta key.
+x3270.keymap.alt: \
+	!Alt<Key>Left:		Left2()\n\
+	!Alt<Key>Right:		Right2()\n\
+	!Alt<Key>F1:		PF13()\n\
+	!Alt<Key>F2:		PF14()\n\
+	!Alt<Key>F3:		PF15()\n\
+	!Alt<Key>F4:		PF16()\n\
+	!Alt<Key>F5:		PF17()\n\
+	!Alt<Key>F6:		PF18()\n\
+	!Alt<Key>F7:		PF19()\n\
+	!Alt<Key>F8:		PF20()\n\
+	!Alt<Key>F9:		PF21()\n\
+	!Alt<Key>F10:		PF22()\n\
+	!Alt<Key>F11:		PF23()\n\
+	!Alt<Key>F12:		PF24()\n\
+	Alt<Key>c:		Clear()\n\
+	Alt<Key>r:		Reset()\n\
+	Alt<Key>1:		PA1()\n\
+	Alt<Key>2:		PA2()\n\
+	Alt<Key>3:		PA3()\n\
+	Alt<Key>a:		Attn()\n\
+	Alt<Key>i:		Insert()\n\
+	Alt<Key>d:		Delete()\n\
+	Alt<Key>h:		Home()\n\
+	Alt<Key>l:		Redraw()\n\
+	Alt<Key>q:		Quit()\n
+! International keymap modifiers.
+x3270.keymap.finnish7:	\
+	:<Key>bracketleft:	Key("Adiaeresis")\n\
+	:<Key>bracketright:	Key("Aring")\n\
+	:<Key>backslash:	Key("Odiaeresis")\n
+	:<Key>braceleft:	Key("adiaeresis")\n\
+	:<Key>braceright:	Key("aring")\n\
+	:<Key>bar:		Key("odiaeresis")\n\
+x3270.keymap.norwegian7:	\
+	:<Key>bracketleft:	Key("AE")\n\
+	:<Key>bracketright:	Key("Aring")\n\
+	:<Key>backslash:	Key("Ooblique")\n\
+	:<Key>braceleft:	Key("ae")\n\
+	:<Key>braceright:	Key("aring")\n\
+	:<Key>bar:		Key("oslash")\n
+!
+! EBCDIC character sets.
+! A charset is a series of newline-separated strings that define how an EBCDIC
+! national character set differs from IBM's standard U.S. set (table 01).  Each
+! string is a number, a colon, and a symbol.  The number is the EBCDIC code,
+! and the symbol is an ASCII character or ISO Latin-1 name of the graphic it
+! represents.
+!
+! Each entry below (except 'oldibm') is taken from IBM GA27-3831-03, Fourth
+! Edition.
+!
+! U.S. (table 01)
+x3270.charset.us:		\n
+! EBCDIC map for older IBM hosts that put [ and ] in different positions.
+x3270.charset.oldibm: \
+	0xad: [			\n	0xba: Yacute		\n\
+	0xbd: ]			\n	0xbb: diaeresis		\n
+! Austrian/German (table 03)
+x3270.charset.german: \
+	0x43: {			\n	0x4a: Adiaeresis	\n\
+	0x4f: !			\n	0x59: ~			\n\
+	0x5a: Udiaeresis	\n	0x5f: ^			\n\
+	0x63: [			\n	0x6a: odiaeresis	\n\
+	0x7c: section		\n	0xa1: ssharp		\n\
+	0xb0: cent		\n	0xb5: @			\n\
+	0xba: notsign		\n	0xbb: bar		\n\
+	0xc0: adiaeresis	\n	0xcc: brokenbar		\n\
+	0xd0: udiaeresis	\n	0xdc: }			\n\
+	0xe0: Odiaeresis	\n	0xec: backslash		\n\
+	0xfc: ]			\n
+! Finnish (table 09)
+x3270.charset.finnish: \
+	0x43: {			\n	0x47: }			\n\
+	0x4a: section		\n	0x4f: !			\n\
+	0x51: `			\n	0x5a: currency		\n\
+	0x5b: Aring		\n	0x5f: ^			\n\
+	0x63: #			\n	0x67: $			\n\
+	0x6a: odiaeresis	\n	0x71: backslash		\n\
+	0x79: eacute		\n	0x7b: Adiaeresis	\n\
+	0x7c: Odiaeresis	\n	0x9f: ]			\n\
+	0xa1: udiaeresis	\n	0xb1: cent		\n\
+	0xb5: [			\n	0xba: notsign		\n\
+	0xbb: |			\n	0xc0: adiaeresis	\n\
+	0xcc: brokenbar		\n	0xd0: aring		\n\
+	0xdc: ~			\n	0xe0: Eacute		\n\
+	0xec: @			\n
+! U.K. (table 22)
+x3270.charset.uk: \
+	0x4a: $			\n	0x5b: sterling		\n\
+	0xa1: macron		\n	0xb0: cent		\n\
+	0xb1: [			\n	0xba: ^			\n\
+	0xbc: ~			\n
+! Norwegian (table 23)
+x3270.charset.norwegian: \
+	0x47: }			\n	0x4a: #			\n\
+	0x4f: !			\n	0x5a: currency		\n\
+	0x5b: Aring		\n	0x5f: ^			\n\
+	0x67: $			\n	0x6a: oslash		\n\
+	0x70: brokenbar		\n	0x7b: AE		\n\
+	0x7c: Ooblique		\n	0x80: @			\n\
+	0x9c: {			\n	0x9e: [			\n\
+	0x9f: ]			\n	0xa1: udiaeresis	\n\
+	0xb0: cent		\n	0xba: notsign		\n\
+	0xbb: bar		\n	0xc0: ae		\n\
+	0xd0: aring		\n	0xdc: ~			\n
+! French (table 30)
+x3270.charset.french: \
+	0x44: @			\n	0x48: backslash		\n\
+	0x4a: degree		\n	0x4f: !			\n\
+	0x51: {			\n	0x54: }			\n\
+	0x5a: section		\n	0x5f: ^			\n\
+	0x6a: ugrave		\n	0x79: mu		\n\
+	0x7b: sterling		\n	0x7c: agrave		\n\
+	0x90: [			\n	0xa0: grave		\n\
+	0xa1: diaeresis		\n	0xb0: cent		\n\
+	0xb1: numbersign	\n	0xb5: ]			\n\
+	0xba: notsign		\n	0xbb: bar		\n\
+	0xbd: ~			\n	0xc0: eacute		\n\
+	0xd0: egrave		\n	0xe0: ccedilla		\n

@@ -1,0 +1,95 @@
+'\\" t
+.TH IBM_HOSTS 5 "31 August 1993"
+.SH NAME
+ibm_hosts \-
+host database for
+.B x3270
+.SH SYNOPSIS
+/usr/local/pub/ibm_hosts
+.SH DESCRIPTION
+The
+.B ibm_hosts
+file contains information regarding IBM hosts on the network.
+An
+.I "IBM host"
+is a host which can communcate with a 3270 terminal emulator such as
+.B x3270
+or
+.B tn3270.
+For each host a single line is present with the following information:
+.nf
+
+	\fIname	type	hostname	loginstring\fP
+
+.fi
+Items are separated by any number of blanks and/or TAB characters.
+A line beginning with `#' is taken as a comment (note that `#' anywhere
+else on a line does
+.I not
+indicate a comment).
+.LP
+The
+.I name
+field is a mnemonic used to identify the host.
+.LP
+The
+.I
+type
+field is a keyword that indicates the type of entry.
+The value
+.B primary
+means that the
+.I name
+will be included in host-selection menus that may be displayed by a
+3270 emulator.
+The value
+.B alias
+means that the
+.I name
+will not be included in menus, but will still be accepted as valid input
+when a host name is required.
+.LP
+The
+.I hostname
+field is the Internet hostname or dot-notation Internet address of the host.
+.LP
+The optional
+.I loginstring
+field specifies data to be sent to the host when the connection is made.  It
+may include embedded tabs, and embedded newline characters indicating the 3270
+ENTER key.
+The
+.I loginstring
+is not intended for entering usernames and passwords; rather it provides an
+automated way of specifying a front-end menu option.
+.SH EXAMPLE
+Given the following
+.B ibm_hosts
+file:
+.nf
+
+	mvs	primary	mvs-host
+	tso	alias	mvs-host
+	vm	primary	vtam\\t3\\n
+
+.fi
+An 3270 emulator will display two names
+.RB ( mvs
+and
+.BR vm )
+on its hosts menu.
+It will also accept the name
+.B tso
+as an alias for the same host as
+.BR mvs .
+The name
+.B vm
+will cause the 3270 emulator to connect to the host
+.B vtam
+(presumably some sort of host-selection front-end),
+then enter the string ``3'' on the first data-entry field on the screen, and
+send the ENTER AID sequence.
+.SH FILES
+/usr/local/pub/ibm_hosts
+.SH "SEE ALSO"
+x3270(1)

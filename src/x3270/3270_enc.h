@@ -2,6 +2,7 @@
  * Copyright 1989 by Georgia Tech Research Corporation, Atlanta, GA.
  * Copyright 1988, 1989 by Robert Viduya.
  * Copyright 1990 Jeff Sparkes.
+ * Copyright 1993 Paul Mattes.
  *
  *                         All Rights Reserved
  */
@@ -9,8 +10,8 @@
 /*
  *	3270_enc.h
  *
- *		Header file for 3270tool.  Contains the character encoding
- *		of the 3270.font vfont.
+ *		Header file for x3270.  Contains the character encoding
+ *		of the 3270 fonts.
  */
 
 #define CG_NULLBLANK	0x00
@@ -48,13 +49,13 @@
 #define CG_ZERO		0x20
 #define CG_ONE		0x21
 #define CG_TWO		0x22
-#define CG_THREE	0x23
 #define CG_FOUR		0x24
 #define CG_FIVE		0x25
 #define CG_SIX		0x26
+#define CG_NINE		0x29
+#define CG_THREE	0x23
 #define CG_SEVEN	0x27
 #define CG_EIGHT	0x28
-#define CG_NINE		0x29
 #define CG_SHARPS	0x2A
 #define CG_SECTION	0x2B
 #define CG_NUMBER	0x2C
@@ -77,22 +78,22 @@
 #define CG_GRAVE	0x3D
 #define CG_ACUTE	0x3E
 #define CG_CEDILLA	0x3F
-#define CG_LAACUTE1	0x40
-#define CG_LEACUTE1	0x41
-#define CG_LIACUTE1	0x42
-#define CG_LOACUTE1	0x43
-#define CG_LUACUTE1	0x44
+#define CG_LAGRAVE	0x40
+#define CG_LEGRAVE	0x41
+#define CG_LIGRAVE	0x42
+#define CG_LOGRAVE	0x43
+#define CG_LUGRAVE	0x44
 #define CG_LATILDE	0x45
 #define CG_LOTILDE	0x46
 #define CG_LYDIAERESIS	0x47
-#define CG_LAACUTE2	0x48
-#define CG_LEACUTE2	0x49
-#define CG_LEGRAVE1	0x4A
-#define CG_LIACUTE2	0x4B
-#define CG_LOACUTE2	0x4C
-#define CG_LUACUTE2	0x4D
-#define CG_LUDIAERESIS1	0x4E
-#define CG_LCCEDILLA1	0x4F
+#define CG_LAGRAVE2	0x48
+#define CG_LEGRAVE2	0x49
+#define CG_LEACUTE	0x4A
+#define CG_LIGRAVE2	0x4B
+#define CG_LOGRAVE2	0x4C
+#define CG_LUGRAVE2	0x4D
+#define CG_LUDIAERESIS	0x4E
+#define CG_LCCEDILLA	0x4F
 #define CG_LADIAERESIS	0x50
 #define CG_LEDIAERESIS	0x51
 #define CG_LIDIAERESIS	0x52
@@ -103,28 +104,28 @@
 #define CG_LICIRCUMFLEX	0x57
 #define CG_LOCIRCUMFLEX	0x58
 #define CG_LUCIRCUMFLEX	0x59
-#define CG_LAGRAVE	0x5A
-#define CG_LEGRAVE2	0x5B
-#define CG_LIGRAVE	0x5C
-#define CG_LOGRAVE	0x5D
-#define CG_LUGRAVE	0x5E
+#define CG_LAACUTE	0x5A
+#define CG_LEACUTE2	0x5B
+#define CG_LIACUTE	0x5C
+#define CG_LOACUTE	0x5D
+#define CG_LUACUTE	0x5E
 #define CG_LNTILDE	0x5F
-#define CG_CAACUTE	0x60
-#define CG_CEACUTE	0x61
-#define CG_CIACUTE	0x62
-#define CG_COACUTE	0x63
-#define CG_CUACUTE	0x64
+#define CG_CAGRAVE	0x60
+#define CG_CEGRAVE	0x61
+#define CG_CIGRAVE	0x62
+#define CG_COGRAVE	0x63
+#define CG_CUGRAVE	0x64
 #define CG_CATILDE	0x65
 #define CG_COTILDE	0x66
-#define CG_CY1		0x67
-#define CG_CA1		0x68
-#define CG_CE1		0x69
-#define CG_CE2		0x6A
-#define CG_CI1		0x6B
-#define CG_CO1		0x6C
-#define CG_CU1		0x6D
-#define CG_CY2		0x6E
-#define CG_CC1		0x6F
+#define CG_CY2		0x67
+#define CG_CA2		0x68
+#define CG_CE2		0x69
+#define CG_CE3		0x6A
+#define CG_CI2		0x6B
+#define CG_CO2		0x6C
+#define CG_CU2		0x6D
+#define CG_CY3		0x6E
+#define CG_CC2		0x6F
 #define CG_CADIAERESIS	0x70
 #define CG_CEDIAERESIS	0x71
 #define CG_CIDIAERESIS	0x72
@@ -135,11 +136,11 @@
 #define CG_CICIRCUMFLEX	0x77
 #define CG_COCIRCUMFLEX	0x78
 #define CG_CUCIRCUMFLEX	0x79
-#define CG_CAGRAVE	0x7A
-#define CG_CEGRAVE	0x7B
-#define CG_CIGRAVE	0x7C
-#define CG_COGRAVE	0x7D
-#define CG_CUGRAVE	0x7E
+#define CG_CAACUTE	0x7A
+#define CG_CEACUTE	0x7B
+#define CG_CIACUTE	0x7C
+#define CG_COACUTE	0x7D
+#define CG_CUACUTE	0x7E
 #define CG_CNTILDE	0x7F
 #define CG_LA		0x80
 #define CG_LB		0x81
@@ -168,7 +169,8 @@
 #define CG_LY		0x98
 #define CG_LZ		0x99
 #define CG_LAE		0x9A
-#define CG_SSLASH0	0x9B
+#define CG_LOSLASH	0x9B
+#define CG_SSLASH0	CG_LOSLASH
 #define CG_LADOT	0x9C
 #define CG_LCCEDILLA2	0x9D
 #define CG_FM		0x9E
@@ -200,7 +202,8 @@
 #define CG_CY		0xB8
 #define CG_CZ		0xB9
 #define CG_CAE		0xBA
-#define CG_BSLASH0	0xBB
+#define CG_COSLASH	0xBB
+#define CG_BSLASH0	CG_COSLASH
 #define CG_CADOT	0xBC
 #define CG_CCCEDILLA	0xBD
 #define CG_SEMICOLON	0xBE
@@ -253,19 +256,19 @@
 #define CG_0xED		0xED
 #define CG_0xEE		0xEE
 #define CG_0xEF		0xEF
+#define CG_LOCK		0xF6
+#define CG_BOX4		0xFC
 #define CG_BADCOMMHI	0xF0
 #define CG_COMMHI	0xF1
 #define CG_COMMJAG	0xF2
 #define CG_COMMLO	0xF3
 #define CG_CLOCKLEFT	0xF4
 #define CG_CLOCKRIGHT	0xF5
-#define CG_LOCK		0xF6
 #define CG_BUSYSTATION	0xF7
 #define CG_LEFTARROW	0xF8
 #define CG_BADBUSYSTATION	0xF9
 #define CG_KEYLEFT	0xFA
 #define CG_KEYRIGHT	0xFB
-#define CG_BOX4		0xFC
 #define CG_UNDERA	0xFD
 #define CG_MAGCARD	0xFE
 #define CG_BOXHUMAN	0xFF

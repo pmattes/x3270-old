@@ -1,0 +1,10 @@
+#! /usr/local/bin/ksh
+# create a context diff for the most recent version of a file
+
+for i in $*
+do	sid=$(sccs prt -y $i | awk 'NR==2{print $3}')
+	osid=$(print $sid | awk -F. '{print $1"."$2-1}')
+	sccs sccsdiff -r$osid -r$sid -c $i | tail +2 |
+	 sed -e "1s,/tmp/geta[0-9]*,$i.orig," \
+	     -e "2s,/tmp/getb[0-9]*,$i,"
+done

@@ -1,15 +1,16 @@
-/*;
+/*
  * Copyright 1989 by Georgia Tech Research Corporation, Atlanta, GA.
  * Copyright 1988, 1989 by Robert Viduya.
  * Copyright 1990 Jeff Sparkes.
+ * Copyright 1993 Paul Mattes.
  *
  *                         All Rights Reserved
  */
 
 /*
  *	screen.c
- *		This module handles interpretation of the 3270 data stream
- *		and other screen management actions.
+ *		This module handles the X display.  It has been extensively
+ *		optimized to minimize X drawing operations.
  */
 #include <sys/types.h>
 #include <sys/time.h>
@@ -17,1096 +18,1868 @@
 #include <X11/Intrinsic.h>
 #include <X11/StringDefs.h>
 #include <X11/Shell.h>
+#include <X11/Composite.h>
+#include <X11/cursorfont.h>
+#include <X11/keysym.h>
 #include <stdio.h>
+#include <string.h>
+#include <ctype.h>
 #include "3270.h"
 #include "3270_enc.h"
-#include "X.h"
+#include "globals.h"
 
-/* ebcdic to 3270 character generator xlate table */
+#define MODIFIED_SEL	1	/* modified fields appear in "select" color */
 
-u_char	ebc2cg[256] = {
-	CG_NULLBLANK,	CG_PERIOD,	CG_PERIOD,	CG_PERIOD,
-	CG_PERIOD,	CG_PERIOD,	CG_PERIOD,	CG_PERIOD,
-	CG_PERIOD,	CG_PERIOD,	CG_PERIOD,	CG_PERIOD,
-	CG_OVERBAR2,	CG_OVERBAR6,	CG_PERIOD,	CG_PERIOD,
-	CG_PERIOD,	CG_PERIOD,	CG_PERIOD,	CG_PERIOD,
-	CG_PERIOD,	CG_OVERBAR3,	CG_PERIOD,	CG_PERIOD,
-	CG_PERIOD,	CG_OVERBAR1,	CG_PERIOD,	CG_PERIOD,
-	CG_DUP,		CG_PERIOD,	CG_FM,		CG_PERIOD,
-	CG_PERIOD,	CG_PERIOD,	CG_PERIOD,	CG_PERIOD,
-	CG_PERIOD,	CG_PERIOD,	CG_PERIOD,	CG_PERIOD,
-	CG_PERIOD,	CG_PERIOD,	CG_PERIOD,	CG_PERIOD,
-	CG_PERIOD,	CG_PERIOD,	CG_PERIOD,	CG_PERIOD,
-	CG_PERIOD,	CG_PERIOD,	CG_PERIOD,	CG_PERIOD,
-	CG_PERIOD,	CG_PERIOD,	CG_PERIOD,	CG_PERIOD,
-	CG_PERIOD,	CG_PERIOD,	CG_PERIOD,	CG_PERIOD,
-	CG_PERIOD,	CG_PERIOD,	CG_PERIOD,	CG_OVERBAR4,
-	CG_BLANK,	CG_LBRACKET,	CG_RBRACKET,	CG_POUND,
-	CG_YEN,		CG_PT,		CG_CURRENCY,	CG_SHARPS,
-	CG_SECTION,	CG_OVERSCORE,	CG_CENT,	CG_PERIOD,
-	CG_LESS,	CG_LPAREN,	CG_PLUS,	CG_SOLIDBAR,
-	CG_AMPERSAND,	CG_DEGREE,	CG_BREVE,	CG_CIRCUMFLEX,
-	CG_DIAERESIS,	CG_ACUTE,	CG_CEDILLA,	CG_LAACUTE1,
-	CG_LEACUTE1,	CG_LIACUTE1,	CG_EXCLAMATION,	CG_DOLLAR,
-	CG_ASTERISK,	CG_RPAREN,	CG_SEMICOLON,	CG_NOT,
-	CG_MINUS,	CG_FSLASH,	CG_LOACUTE1,	CG_LUACUTE1,
-	CG_LATILDE,	CG_LOTILDE,	CG_LYDIAERESIS,	CG_LAACUTE2,
-	CG_LEACUTE2,	CG_LEGRAVE1,	CG_BROKENBAR,	CG_COMMA,
-	CG_PERCENT,	CG_UNDERSCORE,	CG_GREATER,	CG_QUESTION,
-	CG_LIACUTE2,	CG_LOACUTE2,	CG_LUACUTE2,	CG_LUDIAERESIS1,
-	CG_LCCEDILLA1,	CG_LADIAERESIS,	CG_LEDIAERESIS,	CG_LIDIAERESIS,
-	CG_LODIAERESIS,	CG_GRAVE,	CG_COLON,	CG_NUMBER,
-	CG_AT,		CG_SQUOTE,	CG_EQUAL,	CG_DQUOTE,
-	CG_LUDIAERESIS2,CG_LA,		CG_LB,		CG_LC,
-	CG_LD,		CG_LE,		CG_LF,		CG_LG,
-	CG_LH,		CG_LI,		CG_LACIRCUMFLEX,CG_LECIRCUMFLEX,
-	CG_LICIRCUMFLEX,CG_LOCIRCUMFLEX,CG_LUCIRCUMFLEX,CG_LAGRAVE,
-	CG_LEGRAVE2,	CG_LJ,		CG_LK,		CG_LL,
-	CG_LM,		CG_LN,		CG_LO,		CG_LP,
-	CG_LQ,		CG_LR,		CG_LIGRAVE,	CG_LOGRAVE,
-	CG_LUGRAVE,	CG_LNTILDE,	CG_CAACUTE,	CG_CEACUTE,
-	CG_CIACUTE,	CG_TILDE,	CG_LS,		CG_LT,
-	CG_LU,		CG_LV,		CG_LW,		CG_LX,
-	CG_LY,		CG_LZ,		CG_COACUTE,	CG_CUACUTE,
-	CG_CATILDE,	CG_COTILDE,	CG_CY1,		CG_CA1,
-	CG_CE1,		CG_CE2,		CG_CI1,		CG_CO1,
-	CG_CU1,		CG_CY2,		CG_CC1,		CG_CADIAERESIS,
-	CG_CEDIAERESIS,	CG_CIDIAERESIS,	CG_CODIAERESIS,	CG_CUDIAERESIS,
-	CG_CACIRCUMFLEX,CG_CECIRCUMFLEX,CG_CICIRCUMFLEX,CG_COCIRCUMFLEX,
-	CG_LBRACE,	CG_CA,		CG_CB,		CG_CC,
-	CG_CD,		CG_CE,		CG_CF,		CG_CG,
-	CG_CH,		CG_CI,		CG_CUCIRCUMFLEX,CG_CAGRAVE,
-	CG_CEGRAVE,	CG_CIGRAVE,	CG_PERIOD,	CG_PERIOD,
-	CG_RBRACE,	CG_CJ,		CG_CK,		CG_CL,
-	CG_CM,		CG_CN,		CG_CO,		CG_CP,
-	CG_CQ,		CG_CR,		CG_COGRAVE,	CG_CUGRAVE,
-	CG_CNTILDE,	CG_PERIOD,	CG_PERIOD,	CG_PERIOD,
-	CG_BSLASH,	CG_LAE,		CG_CS,		CG_CT,
-	CG_CU,		CG_CV,		CG_CW,		CG_CX,
-	CG_CY,		CG_CZ,		CG_SSLASH0,	CG_LADOT,
-	CG_LCCEDILLA2,	CG_PERIOD,	CG_PERIOD,	CG_MINUS,
-	CG_ZERO,	CG_ONE,		CG_TWO,		CG_THREE,
-	CG_FOUR,	CG_FIVE,	CG_SIX,		CG_SEVEN,
-	CG_EIGHT,	CG_NINE,	CG_CAE,		CG_BSLASH0,
-	CG_CADOT,	CG_CCCEDILLA,	CG_MINUS,	CG_OVERBAR7
-};
+#define IMAGE_COLOR(fa)		(fa_color(fa) << 8)
+#define CG_FROM_IMAGE(i)	(((i) >> 8) & 0x7)
 
-/* 3270 character generator to ebcdic xlate table */
-/* generated programmatically from ebc2cg */
+/* Externals: x3270.c */
+extern int	foreground, background;
+extern char	*charset;
 
-u_char	cg2ebc[256] = {
-	0x00, 0x19, 0x0c, 0x15, 0x3f, 0x00, 0x0d, 0xff,	/* 0x00 */
-	0x6e, 0x4c, 0x41, 0x42, 0x5d, 0x4d, 0xd0, 0xc0,
-	0x40, 0x7e, 0x7d, 0x7f, 0x61, 0xe0, 0x4f, 0x6a,	/* 0x10 */
-	0x6f, 0x5a, 0x5b, 0x4a, 0x43, 0x44, 0x45, 0x46,
-	0xf0, 0xf1, 0xf2, 0xf3, 0xf4, 0xf5, 0xf6, 0xf7,	/* 0x20 */
-	0xf8, 0xf9, 0x47, 0x48, 0x7b, 0x7c, 0x6c, 0x6d,
-	0x50, 0x60, 0x4b, 0x6b, 0x7a, 0x4e, 0x5f, 0x49,	/* 0x30 */
-	0x51, 0x52, 0x53, 0xa1, 0x54, 0x79, 0x55, 0x56,
-	0x57, 0x58, 0x59, 0x62, 0x63, 0x64, 0x65, 0x66,	/* 0x40 */
-	0x67, 0x68, 0x69, 0x70, 0x71, 0x72, 0x73, 0x74,
-	0x75, 0x76, 0x77, 0x78, 0x80, 0x8a, 0x8b, 0x8c,	/* 0x50 */
-	0x8d, 0x8e, 0x8f, 0x90, 0x9a, 0x9b, 0x9c, 0x9d,
-	0x9e, 0x9f, 0xa0, 0xaa, 0xab, 0xac, 0xad, 0xae,	/* 0x60 */
-	0xaf, 0xb0, 0xb1, 0xb2, 0xb3, 0xb4, 0xb5, 0xb6,
-	0xb7, 0xb8, 0xb9, 0xba, 0xbb, 0xbc, 0xbd, 0xbe,	/* 0x70 */
-	0xbf, 0xca, 0xcb, 0xcc, 0xcd, 0xda, 0xdb, 0xdc,
-	0x81, 0x82, 0x83, 0x84, 0x85, 0x86, 0x87, 0x88,	/* 0x80 */
-	0x89, 0x91, 0x92, 0x93, 0x94, 0x95, 0x96, 0x97,
-	0x98, 0x99, 0xa2, 0xa3, 0xa4, 0xa5, 0xa6, 0xa7,	/* 0x90 */
-	0xa8, 0xa9, 0xe1, 0xea, 0xeb, 0xec, 0x1e, 0x1c,
-	0xc1, 0xc2, 0xc3, 0xc4, 0xc5, 0xc6, 0xc7, 0xc8,	/* 0xA0 */
-	0xc9, 0xd1, 0xd2, 0xd3, 0xd4, 0xd5, 0xd6, 0xd7,
-	0xd8, 0xd9, 0xe2, 0xe3, 0xe4, 0xe5, 0xe6, 0xe7,	/* 0xB0 */
-	0xe8, 0xe9, 0xfa, 0xfb, 0xfc, 0xfd, 0x5e, 0x5c,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,	/* 0xC0 */
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,	/* 0xD0 */
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,	/* 0xE0 */
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,	/* 0xF0 */
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-};
+/* Externals: ctlr.c */
+extern int	cursor_addr, buffer_addr;
+extern unsigned char	*screen_buf;	/* 3270 display buffer */
+extern Boolean	screen_changed;
 
-/* code_table is used to translate buffer addresses to the 3270
- * datastream representation
+/* Externals: kybd.c */
+extern unsigned char	cg2asc[];
+extern unsigned char	cg2asc7[];
+
+/* Globals */
+char		*select_buf;	/* what's been selected */
+unsigned char	*selected;	/* selection bitmap */
+#include "gray.bm"
+
+/* Statics */
+static unsigned char	*blanks;
+static unsigned int	*temp_image;	/* temporary for X display */
+static Boolean	cursor_displayed = False;
+static Boolean	blink_pending = False;
+static XtIntervalId	blink_id;
+static Boolean	in_focus = False;
+static Boolean	image_changed = False;
+static Boolean	line_changed = False;
+static Boolean	cursor_changed = False;
+static Boolean	iconic = False;
+static Widget	container;
+static Dimension	menubar_height;
+static Dimension	keypad_height;
+static Dimension	keypad_xwidth;
+static Dimension	container_width;
+static Dimension	container_height;
+static unsigned char	cg2uc[256];
+static char		*aicon_text = (char *) NULL;
+static XFontStruct	*ailabel_font;
+static Dimension	aicon_label_height = 0;
+static GC		ailabel_gc;
+static enum { LOCKED, NORMAL, WAIT } mcursor_state = LOCKED;
+
+static void	toggle_monocase();
+static void	toggle_altcursor();
+static void	toggle_blink();
+static void	toggle_cursorp();
+static void	remap_ascii();
+static void	remap_chars();
+static void	screen_focus();
+static void	make_gc_set();
+static void	make_gcs();
+static void	put_cursor();
+static void	resync_display();
+static void	draw_fields();
+static void	render_text();
+static void	cursor_pos();
+static void	cursor_on();
+static void	schedule_blink();
+static void	inflate_screen();
+static int	fa_color();
+static Boolean	cursor_off();
+static void	draw_aicon_label();
+static void	set_mcursor();
+
+/*
+ * The screen state structure.  This structure is swapped whenever we switch
+ * between normal and active-iconic states.
  */
-u_char	code_table[64] = {
-    0x40, 0xC1, 0xC2, 0xC3, 0xC4, 0xC5, 0xC6, 0xC7,
-    0xC8, 0xC9, 0x4A, 0x4B, 0x4C, 0x4D, 0x4E, 0x4F,
-    0x50, 0xD1, 0xD2, 0xD3, 0xD4, 0xD5, 0xD6, 0xD7,
-    0xD8, 0xD9, 0x5A, 0x5B, 0x5C, 0x5D, 0x5E, 0x5F,
-    0x60, 0x61, 0xE2, 0xE3, 0xE4, 0xE5, 0xE6, 0xE7,
-    0xE8, 0xE9, 0x6A, 0x6B, 0x6C, 0x6D, 0x6E, 0x6F,
-    0xF0, 0xF1, 0xF2, 0xF3, 0xF4, 0xF5, 0xF6, 0xF7,
-    0xF8, 0xF9, 0x7A, 0x7B, 0x7C, 0x7D, 0x7E, 0x7F,
+struct sstate {
+	Widget 		widget;		/* the widget */
+	Window		window;		/* the window */
+	unsigned int	*image;		/* what's on the X display */
+	int		cursor_daddr;	/* displayed cursor address */
+	Boolean		exposed_yet;	/* have we been exposed yet? */
+	Boolean		overstrike;	/* are we overstriking? */
+	Dimension	screen_width;	/* screen dimensions in pixels */
+	Dimension	screen_height;
+	GC		gc[4], invgc[4], selgc[4], mcgc; /* graphics contexts */
+	int		char_height;
+	int		char_width;
+	XFontStruct	*efontinfo, *bfontinfo;
+	Boolean		standard_font;
+	Boolean		latin1_font;
 };
+static struct sstate nss;
+static struct sstate iss;
+static struct sstate *ss = &nss;
 
-char defaultTranslations[] = "\
-	<Expose>:		Redraw()\n\
-	<Key>Return:		Enter()\n\
-	<Key>Linefeed:		Newline()\n\
-	<KeyPress>Caps_Lock:	ShiftOn()\n\
-	<KeyRelease>Caps_Lock:	ShiftOff()\n\
-	<KeyPress>Shift_L:	ShiftOn()\n\
-	<KeyRelease>Shift_L:	ShiftOff()\n\
-	<KeyPress>Shift_R:	ShiftOn()\n\
-	<KeyRelease>Shift_R:	ShiftOff()\n\
-	!Shift<Key>Tab:		BackTab()\n\
-	<Key>Tab:		Tab()\n\
-	<Key>Home:  		Home()\n\
-	<Key>Left:		Left()\n\
-	!Meta<Key>Left:		Left2()\n\
-	<Key>Right: 		Right()\n\
-	!Meta<Key>Right:	Right2()\n\
-	<Key>Up:		Up()\n\
-	<Key>Down:		Down()\n\
-	<Key>Delete: 		Delete()\n\
-	<Key>BackSpace: 	Left()\n\
-	<Btn1Down>:		MoveCursor()\n\
-	!Meta<Key>F1:		PF13()\n\
-	!Meta<Key>F2:		PF14()\n\
-	!Meta<Key>F3:		PF15()\n\
-	!Meta<Key>F4:		PF16()\n\
-	!Meta<Key>F5:		PF17()\n\
-	!Meta<Key>F6:		PF18()\n\
-	!Meta<Key>F7:		PF19()\n\
-	!Meta<Key>F8:		PF20()\n\
-	!Meta<Key>F9:		PF21()\n\
-	!Meta<Key>F10:		PF22()\n\
-	!Meta<Key>F11:		PF23()\n\
-	!Meta<Key>F12:		PF24()\n\
-	<Key>F1:		PF1()\n\
-	<Key>F2:		PF2()\n\
-	<Key>F3:		PF3()\n\
-	<Key>F4:		PF4()\n\
-	<Key>F5:		PF5()\n\
-	<Key>F6:		PF6()\n\
-	<Key>F7:		PF7()\n\
-	<Key>F8:		PF8()\n\
-	<Key>F9:		PF9()\n\
-	<Key>F10:		PF10()\n\
-	<Key>F11:		PF11()\n\
-	<Key>F12:		PF12()\n\
-	Meta<Key>c:		Clear()\n\
-	Meta<Key>r:		Reset()\n\
-	Meta<Key>1:		PA1()\n\
-	Meta<Key>2:		PA2()\n\
-	Meta<Key>i:		Insert()\n\
-	Meta<Key>d:		Delete()\n\
-	Meta<Key>h:		Home()\n\
-	Meta<Key>l:		Redraw()\n\
-	Ctrl<Key>h:		Left()\n\
-	:<Key>:			Default()";
-
-extern Display		*display;
-extern Widget		toplevel;
-extern XtAppContext	appcontext;
-extern int		foreground, background;	
-extern int		ROWS, COLS;
-Widget 			win;
-Window			w;
-extern Font		ibmfont;
-extern XFontStruct	*ibmfontinfo;
-GC			gc[4], invgc[4];
-int			cursor_addr, buffer_addr;
-Bool			cursor_displayed = FALSE;
-Bool			cursor_alt = FALSE;
-Bool			mono_case = FALSE;
-
-/* the following are set from values in the 3270 font */
-int			char_width, char_height, char_base;
-
-u_char			*screen_buf;
-u_char			*status_buf;
-u_char			*update_buf;
-static u_char		*blanks;
-Bool			formatted = FALSE;	/* set in screen_disp */
-Bool			status_dirty = FALSE;
-Bool			screen_dirty = FALSE;
-
-extern u_char	obuf[], *obptr;
-extern u_char	aid;
-extern u_char	*get_field_attribute();
+/* Globals based on nss, used mostly by status and select routines. */
+Widget 		*screen = &nss.widget;
+Window		*screen_window = &nss.window;
+unsigned int	**x_image = &nss.image;
+Boolean		*overstrike = &nss.overstrike;
+GC		*gc = nss.gc;
+GC		*invgc = nss.invgc;
+int		*char_width = &nss.char_width;
+int		*char_height = &nss.char_height;
+XFontStruct	**efontinfo = &nss.efontinfo;
+XFontStruct	**bfontinfo = &nss.bfontinfo;
+Boolean		*standard_font = &nss.standard_font;
+Boolean		*latin1_font = &nss.latin1_font;
 
 
-/*
- * Initialize the screen canvas.  Should only be called once.
+/* 
+ * Define our event translations
  */
-screen_init (kbdtrans, usertrans)
-	char *kbdtrans, *usertrans;
+void
+set_translations(w)
+Widget w;
 {
-    Arg	args[10];
-    int i = 0;
-    XtTranslations trans;
+	struct trans_list *t;
+	XtTranslations trans;
 
-    screen_buf = (u_char *)XtCalloc(sizeof(u_char), ROWS * COLS);
-    update_buf = (u_char *)XtCalloc(sizeof(u_char), ROWS * COLS);
-    status_buf = (u_char *)XtCalloc(sizeof(u_char), COLS);
-    blanks = (u_char *)XtCalloc(sizeof(u_char), COLS);
+	if (appres.default_translations)
+		XtOverrideTranslations(w, appres.default_translations);
 
-    char_width = CHAR_WIDTH;
-    char_height = CHAR_HEIGHT;
-    char_base = CHAR_BASE;
-
-    i = 0;
-    XtSetArg(args[i], XtNwidth, COL_TO_X(COLS)); i++;
-    XtSetArg(args[i], XtNheight, ROW_TO_Y(ROWS)+8); i++;
-    XtSetArg(args[i], XtNbaseWidth, COL_TO_X(COLS)); i++;
-    XtSetArg(args[i], XtNbaseHeight, ROW_TO_Y(ROWS)+8); i++;
-    XtSetArg(args[i], XtNminWidth, COL_TO_X(COLS)); i++;
-    XtSetArg(args[i], XtNminHeight, ROW_TO_Y(ROWS)+8); i++;
-    XtSetArg(args[i], XtNmaxWidth, COL_TO_X(COLS)); i++;
-    XtSetArg(args[i], XtNmaxHeight, ROW_TO_Y(ROWS)+8); i++;
-    XtSetValues(toplevel, args, i);
-
-    i = 0;
-    XtSetArg(args[i], XtNwidth, COL_TO_X(COLS)); i++;
-    XtSetArg(args[i], XtNheight, ROW_TO_Y(ROWS)+8); i++;
-    win = XtCreateManagedWidget("screen", widgetClass, toplevel, args, i);
-
-
-    if (appres.mono == False && DefaultDepthOfScreen(XtScreen(toplevel)) > 1) {
-	make_gc_pair(FA_INT_NORM_NSEL, appres.normal, appres.colorbg);
-	make_gc_pair(FA_INT_NORM_SEL,  appres.select, appres.colorbg);
-	make_gc_pair(FA_INT_HIGH_SEL,  appres.bold,   appres.colorbg);
-	make_gc_pair(FA_INT_ZERO_NSEL, appres.colorbg, appres.colorbg);
-        XtSetArg(args[i], XtNbackground, appres.colorbg); i++;
-    } else {
-	appres.mono = True;
-	make_gc_pair(FA_INT_NORM_NSEL, appres.foreground, appres.background);
-	make_gc_pair(FA_INT_NORM_SEL,  appres.foreground, appres.background);
-	make_gc_pair(FA_INT_HIGH_SEL,  appres.foreground, appres.background);
-	make_gc_pair(FA_INT_ZERO_NSEL, appres.background, appres.background);
-        XtSetArg(args[i], XtNbackground, appres.background); i++;
-    }
-    XtSetValues(win, args, i);
-    trans = XtParseTranslationTable(defaultTranslations);
-    XtOverrideTranslations(win, trans);
-    if (kbdtrans && *kbdtrans) {
-	trans = XtParseTranslationTable(kbdtrans);
-        XtOverrideTranslations(win, trans);
-    }
-    if (usertrans && *usertrans) {
-	trans = XtParseTranslationTable(usertrans);
-        XtOverrideTranslations(win, trans);
-    }
-    XtRealizeWidget(toplevel);
-    w = XtWindow(win);
-
-    cursor_addr = 0;
-    buffer_addr = 0;
-    status_disp (0, CG_BOX4);
-    status_disp (1, CG_UNDERA);
-    status_disp (2, CG_BOXSOLID);
-    clear_text();
-    cursor_on ();
+	for (t = trans_list; t != NULL; t = t->next) {
+		trans = XtParseTranslationTable(t->translations);
+		XtOverrideTranslations(w, trans);
+	}
 }
 
 
 /*
- * Update the status line by displaying "symbol" at column "col".
+ * Initialize or re-initialize the screen.
  */
-status_disp (col, symbol)
-int	col, symbol;
+void
+screen_init(keep_contents, model_changed, font_changed)
+Boolean keep_contents;
+Boolean model_changed;
+Boolean font_changed;
 {
-    status_buf[col] = symbol;
-    status_dirty = TRUE;
-    /*
-    XDrawImageString(display,w,gc[0], COL_TO_X(col), ROW_TO_Y(ROWS)+5, 
-	&(status_buf[col]), 1);
-    */
-}
+	extern Dimension min_keypad_width;
+	Widget w;
+	static Boolean ever = False;
 
-
-/*
- * Make the cursor disappear.
- */
-cursor_off ()
-{
-    int  color;
-    u_char *fa = get_field_attribute(cursor_addr);
+	if (!ever) {
+		register int i;
 
-    color = fa_color(*fa);
-    if (color == FA_INT_ZERO_NSEL)
-	color = FA_INT_NORM_SEL;
-    if (cursor_displayed) {
-	cursor_displayed = FALSE;
-	if (!cursor_alt)
-	    put_cursor(cursor_addr, color, 0);
+		/* Initialize ss. */
+		nss.cursor_daddr = 0;
+		nss.exposed_yet = False;
+
+		/* Set up monocase translation table. */
+		for (i = 0; i < 256; i++)
+			if ((i & 0xE0) == 0x40 || (i & 0xE0) == 0x80)
+				cg2uc[i] = i | 0x20;
+			else
+				cg2uc[i] = i;
+
+		/* Set up the character swaps. */
+		if (charset)
+			remap_chars(XtNewString(charset));
+
+		/* Initialize "gray" bitmap. */
+		gray = XCreateBitmapFromData(display, root_window,
+		    (char *) gray_bits, gray_width, gray_height);
+
+		/* Initialize the toggles. */
+		appres.toggle[MONOCASE].upcall =  toggle_monocase;
+		appres.toggle[ALTCURSOR].upcall = toggle_altcursor;
+		appres.toggle[BLINK].upcall =     toggle_blink;
+		appres.toggle[TIMING].upcall =    toggle_timing;
+		appres.toggle[CURSORP].upcall =   toggle_cursorp;
+		appres.toggle[TRACE3270].upcall = toggle_nop;
+		appres.toggle[TRACETN].upcall =   toggle_tracetn;
+
+		ever = True;
+	}
+
+	/* Define graphics contexts and character dimensions. */
+	if (font_changed) {
+		nss.char_width  = CHAR_WIDTH;
+		nss.char_height = CHAR_HEIGHT;
+		make_gcs(&nss);
+		remap_ascii();
+	}
+
+	/* Initialize the controller. */
+	ctlr_init(keep_contents, model_changed);
+
+	/* Allocate buffers. */
+	if (model_changed) {
+		/* Selection bitmap */
+		if (selected)
+			XtFree((char *)selected);
+		selected = (unsigned char *)XtCalloc(sizeof(unsigned char), (maxROWS * maxCOLS + 7) / 8);
+
+		/* X display image */
+		if (nss.image)
+			XtFree((char *)nss.image);
+		nss.image = (unsigned int *) XtCalloc(sizeof(unsigned int), maxROWS * maxCOLS);
+		if (temp_image)
+			XtFree((char *)temp_image);
+		temp_image = (unsigned int *) XtCalloc(sizeof(unsigned int), maxROWS*maxCOLS);
+
+		/* One line of blanks */
+		if (blanks)
+			XtFree((char *)blanks);
+		blanks = (unsigned char *)XtCalloc(sizeof(unsigned int), maxCOLS);
+
+		/* Selection buffer */
+		if (select_buf)
+			XtFree(select_buf);
+		select_buf = XtCalloc(sizeof(char), maxROWS * (maxCOLS+1) + 1);
+	} else
+		(void) memset((char *) nss.image, 0,
+		              sizeof(unsigned int) * maxROWS * maxCOLS);
+
+	/* Set up a container for the menubar, screen and keypad */
+
+	nss.screen_width  = ssCOL_TO_X(maxCOLS)+HHALO;
+	nss.screen_height = ssROW_TO_Y(maxROWS)+VHALO+SGAP+VHALO;
+
+	container_width = nss.screen_width+2;	/* add border width */
+	if (kp_placement == kp_integral && container_width < min_keypad_width) {
+		keypad_xwidth = min_keypad_width - container_width;
+		container_width = min_keypad_width;
+	} else
+		keypad_xwidth = 0;
+
+	container = XtVaCreateManagedWidget(
+	    "container", compositeWidgetClass, toplevel,
+	    XtNborderWidth, 0,
+	    XtNwidth, container_width,
+	    XtNheight, 10,	/* XXX -- a temporary lie to make Xt happy */
+	    NULL);
+
+	/* Initialize the menu bar and integral keypad */
+
+	menubar_height = menubar_init(container, container_width,
+	    keypad ? container_width : nss.screen_width+2);
+
+	if (kp_placement == kp_integral) {
+		w = keypad_init(container, menubar_height + nss.screen_height+2,
+		    container_width, False, False);
+		XtVaGetValues(w, XtNheight, &keypad_height, NULL);
+	} else
+		keypad_height = 0;
+	container_height = menubar_height + nss.screen_height+2 + keypad_height;
+
+	/* Create screen and set container dimensions */
+	inflate_screen();
+
+	set_translations(container);
+	if (depth > 1)
+		XtVaSetValues(container, XtNbackground, appres.keypadbg, NULL);
 	else
-	    put_altcursor(cursor_addr, gc[color], 0);
-    }
+		XtVaSetValues(container, XtNbackgroundPixmap, gray, NULL);
+
+	XtRealizeWidget(toplevel);
+	nss.window = XtWindow(nss.widget);
+	set_mcursor();
+
+	if (appres.active_icon)
+		aicon_init(keep_contents, model_changed, font_changed);
+
+	status_init(keep_contents, model_changed, font_changed);
+	if (keep_contents) {
+		cursor_changed = True;
+	} else {
+		status_ctlr_init();
+		screen_connect();
+	}
+	line_changed = True;
+}
+
+static void
+inflate_screen()
+{
+	Dimension tw, th;
+
+	/* Create the screen window */
+	if (nss.widget == NULL) {
+		nss.widget = XtVaCreateManagedWidget(
+		    "screen", widgetClass, container,
+		    XtNwidth, nss.screen_width,
+		    XtNx, keypad ? (keypad_xwidth / 2) : 0,
+		    XtNheight, nss.screen_height,
+		    XtNy, menubar_height,
+		    XtNbackground, appres.mono ? appres.background : appres.colorbg,
+		    NULL);
+		set_translations(nss.widget);
+	}
+
+	/* Set the container and toplevel dimensions */
+	XtVaSetValues(container,
+	    XtNheight, container_height,
+	    XtNwidth, container_width,
+	    NULL);
+
+	tw = container_width - (keypad ? 0 : keypad_xwidth);
+	th = container_height - (keypad ? 0 : keypad_height);
+	XtVaSetValues(toplevel,
+	    XtNwidth, tw,
+	    XtNheight, th,
+	    XtNbaseWidth, tw,
+	    XtNbaseHeight, th,
+	    XtNminWidth, tw,
+	    XtNminHeight, th,
+	    XtNmaxWidth, tw,
+	    XtNmaxHeight, th,
+	    NULL);
+}
+
+/*
+ * Called when a host connects or disconnects
+ */
+void
+screen_connect()
+{
+	if (!screen_buf)
+		return;		/* too soon */
+
+	status_connect();
+
+	if (CONNECTED) {
+		ctlr_erase(True);
+		cursor_on();
+		schedule_blink();
+	} else
+		(void) cursor_off();
+
+	mcursor_normal();
+}
+
+/*
+ * Mouse cursor changes
+ */
+
+static void
+set_mcursor()
+{
+	switch (mcursor_state) {
+	    case LOCKED:
+		XDefineCursor(display, nss.window, appres.locked_mcursor);
+		break;
+	    case NORMAL:
+		XUndefineCursor(display, nss.window);
+		break;
+	    case WAIT:
+		XDefineCursor(display, nss.window, appres.wait_mcursor);
+		break;
+	}
+}
+
+void
+mcursor_normal()
+{
+	if (CONNECTED)
+		mcursor_state = NORMAL;
+	else if (HALF_CONNECTED)
+		mcursor_state = WAIT;
+	else
+		mcursor_state = LOCKED;
+	set_mcursor();
+}
+
+void
+mcursor_waiting()
+{
+	mcursor_state = WAIT;
+	set_mcursor();
+}
+
+void
+mcursor_locked()
+{
+	mcursor_state = LOCKED;
+	set_mcursor();
+}
+
+/*
+ * Called from the keypad button to expose or hide the integral keypad.
+ */
+void
+screen_showkeypad(on)
+int on;
+{
+	if (keypad_xwidth > 0) {
+		XtDestroyWidget(nss.widget);
+		nss.widget = (Widget) NULL;
+		inflate_screen();
+		nss.window = XtWindow(nss.widget);
+		redraw(0, 0, 0, 0);
+		menubar_resize(on ? container_width : nss.screen_width+2);
+	} else
+		inflate_screen();
 }
 
 
 /*
- * Make the cursor visible.
+ * Make the (displayed) cursor disappear.  Returns a Boolean indiciating if
+ * the cursor was on before the call.
  */
-cursor_on ()
+static Boolean
+cursor_off()
 {
-    int  color;
-    u_char *fa = get_field_attribute(cursor_addr);
+	if (cursor_displayed) {
+		cursor_displayed = False;
+		put_cursor(ss->cursor_daddr, False);
+		return True;
+	} else
+		return False;
+}
 
-    color = fa_color(*fa);
-    if (color == FA_INT_ZERO_NSEL)
-	color = FA_INT_NORM_SEL;
-    if (!cursor_displayed) {
-	cursor_displayed = TRUE;
-	if (!cursor_alt)
-	    put_cursor(cursor_addr, color, 1);
+
+
+/*
+ * Blink the cursor
+ */
+/*ARGSUSED*/
+static void
+blink_it(closure, id)
+XtPointer closure;
+XtIntervalId *id;
+{
+	blink_pending = False;
+	if (!CONNECTED || !toggled(BLINK))
+		return;
+	if (cursor_displayed) {
+		if (in_focus)
+			(void) cursor_off();
+	} else
+		cursor_on();
+	schedule_blink();
+}
+
+/*
+ * Schedule a cursor blink
+ */
+static void
+schedule_blink()
+{
+	if (!toggled(BLINK) || blink_pending)
+		return;
+	blink_pending = True;
+	blink_id = XtAppAddTimeOut(appcontext, 500, blink_it, 0);
+}
+
+/*
+ * Cancel a cursor blink
+ */
+void
+cancel_blink()
+{
+	if (blink_pending) {
+		XtRemoveTimeOut(blink_id);
+		blink_pending = False;
+	}
+}
+
+/*
+ * Toggle cursor blinking (called from menu)
+ */
+static void
+toggle_blink()
+{
+	if (!CONNECTED)
+		return;
+
+	if (toggled(BLINK))
+		schedule_blink();
 	else
-	    put_altcursor(cursor_addr, gc[color], 1);
-    }
+		cursor_on();
+}
+
+/*
+ * Make the cursor visible at its (possibly new) location.
+ */
+static void
+cursor_on()
+{
+	if (!cursor_displayed) {
+		cursor_displayed = True;
+		put_cursor(cursor_addr, True);
+		ss->cursor_daddr = cursor_addr;
+		cursor_changed = False;
+	}
 }
 
 
 /*
  * Toggle the cursor (block/underline).
  */
-alt_cursor (alt)
-Bool	alt;
+static void
+toggle_altcursor(t)
+struct toggle *t;
 {
-    if (alt != cursor_alt) {
-	cursor_off ();
-	cursor_alt = alt;
-	cursor_on ();
-    }
+	Boolean was_on;
+
+	/* do_toggle already changed the value; temporarily change it back */
+	toggle_toggle(t);
+
+	was_on = cursor_off();
+
+	/* Now change it back again */
+	toggle_toggle(t);
+
+	if (was_on)
+		cursor_on();
 }
 
 
 /*
  * Move the cursor to the specified buffer address.
  */
-cursor_move (baddr)
+void
+cursor_move(baddr)
 int	baddr;
 {
-    int	cflag = cursor_displayed;
+	cursor_addr = baddr;
+	cursor_pos();
+}
 
-    if (cflag) {
-	cursor_off();
-    }
-    cursor_addr = baddr;
-    if (cflag) {
-	cursor_on();
-    }
+/*
+ * Display the cursor position on the status line
+ */
+static void
+cursor_pos()
+{
+	if (!toggled(CURSORP) || !CONNECTED)
+		return;
+	status_cursor_pos(cursor_addr);
+}
+
+/*
+ * Toggle the display of the cursor position
+ */
+static void
+toggle_cursorp()
+{
+	if (toggled(CURSORP))
+		cursor_pos();
+	else
+		status_uncursor_pos();
 }
 
 
 /*
- * Redraw the entire screen.
+ * Redraw the screen.
  */
-redraw(wid, event, params, num_params)
-	Widget	wid;
-	XEvent	*event;
-	String	*params;
-	Cardinal num_params;
+/*ARGSUSED*/
+void
+redraw(w, event, params, num_params)
+Widget	w;
+XEvent	*event;
+String	*params;
+Cardinal *num_params;
 {
-    int 	i;
-    int		x, y, w, h;
-    int		start, end;
+	int	x, y, width, height;
+	int	startcol, ncols;
+	int	startrow, endrow, row;
 
-    /* Only redraw as necessary for an expose event */
-    if (event && event->type == Expose) {
-	x = event->xexpose.x;
-	y = event->xexpose.y;
-	w = event->xexpose.width;
-	h = event->xexpose.height;
+	if (w == nss.widget) {
+		if (appres.active_icon && iconic) {
+			ss = &nss;
+			iconic = False;
+		}
+	} else if (appres.active_icon && w == iss.widget) {
+		if (appres.active_icon && !iconic) {
+			ss = &iss;
+			iconic = True;
+		}
+	} else
+		return;
+
+	/* Only redraw as necessary for an expose event */
+	if (event && event->type == Expose) {
+		ss->exposed_yet = True;
+		x = event->xexpose.x;
+		y = event->xexpose.y;
+		width = event->xexpose.width;
+		height = event->xexpose.height;
+		startrow = ssY_TO_ROW(y);
+		if (startrow < 0)
+			startrow = 0;
+		if (startrow > 0)
+			startrow--;
+		endrow = ssY_TO_ROW(y+height);
+		endrow = endrow >= maxROWS ? maxROWS : endrow + 1;
+		startcol = ssX_TO_COL(x);
+		if (startcol < 0)
+			startcol = 0;
+		if (startcol > 0)
+			startcol--;
+		ncols = ssX_TO_COL(width+ss->char_width) + 2;
+		while ((ROWCOL_TO_BA(startrow, startcol) % maxCOLS) + ncols > maxCOLS)
+			ncols--;
+		for (row = startrow; row < endrow; row++)
+			(void) memset((char *) &ss->image[ROWCOL_TO_BA(row, startcol)],
+			              0, ncols * sizeof(unsigned int));
+	} else {
+		XFillRectangle(display, ss->window, ss->invgc[0],
+		    0, 0, ss->screen_width, ss->screen_height);
+		(void) memset((char *) ss->image, 0,
+		              (maxROWS*maxCOLS) * sizeof(unsigned int));
+	}
+	screen_changed = True;
+	cursor_changed = True;
+	if (!appres.active_icon || !iconic) {
+		line_changed = True;
+		status_touch();
+	}
+}
+
+/*
+ * Redraw the changed parts of the screen.
+ */
+
+void
+screen_disp()
+{
+	/* No point in doing anything if we aren't visible yet. */
+	if (!ss->exposed_yet)
+		return;
+
 	/*
-	printf("expose %d: %d,%d,%dx%d\n", event->xexpose.count, x, y, w, h);
-	*/
-	start = Y_TO_ROW(y);
-	start = start == 0 ? 0 : start - 1;
-	end = Y_TO_ROW(y+h);
-	end = end >= ROWS-1 ? ROWS-1 : end + 1;
-	for (i=start; i<end; i++) {
-	    int a, b;
-	    a = ROWCOL_TO_BA(i, X_TO_COL(x));
-	    b = X_TO_COL(w+char_width);
-	    bzero(&(update_buf[a]), b);
+	 * We don't set "cursor_changed" when the host moves the cursor,
+	 * 'cause he might just move it back later.  Set it here if the cursor
+	 * has moved since the last call to screen_disp.
+	 */
+	if (cursor_addr != ss->cursor_daddr) {
+		cursor_changed = True;
 	}
-    } else {
-	bzero(update_buf, ROWS*COLS);
-    }
-    screen_dirty = TRUE;
-    status_dirty = TRUE;
-    screen_disp ();
-}
 
-/*
- * Redraw the dirty parts of the screen.
- */
-screen_disp ()
-{
-    int 	i;
+	/*
+	 * If only the cursor has changed (and not the screen image), draw it.
+	 */
+	if (cursor_changed && !(screen_changed || image_changed)) {
+		if (cursor_off())
+			cursor_on();
+	}
 
-    if (status_dirty) {
-        XDrawImageString(display,w,gc[0],0,ROW_TO_Y(ROWS)+5, status_buf, COLS);
-        status_dirty = FALSE;
-    }
-    if (screen_dirty == FALSE)
-	return;
-    cursor_off ();
-    for (i=0; i< ROWS; i++) {
-        do_line(i*COLS);
-    }
-    cursor_on ();
-    /* XXXX */
-    XDrawLine(display, w, gc[0], 0, ROW_TO_Y(ROWS-1)+3, COL_TO_X(COLS), 
-	ROW_TO_Y(ROWS-1)+3);
-    screen_dirty = FALSE;
+	/*
+	 * Redraw the parts of the screen that need refreshing, and redraw the
+	 * cursor if necessary.
+	 */
+	if (screen_changed || image_changed) {
+		Boolean	was_on = False;
+
+		/* Draw the new screen image into "temp_image" */
+		if (screen_changed)
+			draw_fields(temp_image);
+
+		/* Set "cursor_changed" if the text under it has changed. */
+		if (ss->image[cursor_addr] != temp_image[cursor_addr])
+			cursor_changed = True;
+
+		/* Undraw the cursor, if necessary. */
+		if (cursor_changed)
+			was_on = cursor_off();
+
+		/* Intelligently update the X display with the new text. */
+		resync_display(temp_image);
+
+		/* Redraw the cursor. */
+		if (was_on)
+			cursor_on();
+
+		screen_changed = False;
+		image_changed = False;
+	}
+
+	if (!appres.active_icon || !iconic) {
+		/* Refresh the status line. */
+		status_disp();
+
+		/* Refresh the line across the bottom of the screen. */
+		if (line_changed) {
+			XDrawLine(display, ss->window, ss->gc[0],
+			    0,
+			    ssROW_TO_Y(maxROWS-1)+SGAP-1,
+			    ssCOL_TO_X(maxCOLS)+HHALO,
+			    ssROW_TO_Y(maxROWS-1)+SGAP-1);
+			line_changed = False;
+		}
+	}
+	draw_aicon_label();
 }
 
 
 /*
- * Set the formatted screen flag.  A formatted screen is a screen that
- * has at least one field somewhere on it.
+ * Render a blank rectangle on the X display.
  */
-set_formatted ()
+void
+render_blanks(baddr, height)
+int baddr, height;
 {
-    register int	baddr;
+	int x, y;
 
-    formatted = FALSE;
-    baddr = 0;
-    do {
-	if (IS_FA (screen_buf[baddr])) {
-	    formatted = TRUE;
-	    break;
-	}
-	INC_BA (baddr);
-    } while (baddr != 0);
+	x = ssCOL_TO_X(BA_TO_COL(baddr));
+	y = ssROW_TO_Y(BA_TO_ROW(baddr));
+
+	XFillRectangle(display, ss->window, ss->invgc[0],
+	    x, y - ss->efontinfo->ascent,
+	    (ss->char_width * COLS), (ss->char_height * height));
+	(void) memset((char *) &ss->image[baddr], 0,
+	              COLS * height * sizeof(unsigned int));
 }
 
-
 /*
- * Find the field attribute for the given buffer address.
+ * Reconcile the differences between a region of 'buffer' (what we want on
+ * the X display) and ss->image[] (what is on the X display now).  The region
+ * must not span lines.
  */
-u_char	*
-get_field_attribute (baddr)
-register int	baddr;
+void
+resync_text(baddr, len, buffer)
+int baddr, len;
+unsigned int *buffer;
 {
-    static u_char	fake_fa;
-    int			sbaddr;
+	if (!memcmp((char *) &buffer[baddr], (char *) blanks,
+	    len*sizeof(unsigned int))) {
+		int x, y;
 
-    sbaddr = baddr;
-    do {
-	if (IS_FA (screen_buf[baddr]))
-	    return (&(screen_buf[baddr]));
-	DEC_BA (baddr);
-    } while (baddr < sbaddr);
-    fake_fa = 0xE0;
-    return (&fake_fa);
+		x = ssCOL_TO_X(BA_TO_COL(baddr));
+		y = ssROW_TO_Y(BA_TO_ROW(baddr));
+
+		/* All blanks, fill a rectangle */
+		XFillRectangle(display, ss->window, ss->invgc[0],
+		    x, y - ss->efontinfo->ascent,
+		    (ss->char_width * len), ss->char_height);
+	} else {
+		int color = CG_FROM_IMAGE(buffer[baddr]);
+		int color2;
+		int i;
+		int i0 = 0;
+
+		for (i = 0; i < len; i++) {
+			color2 = CG_FROM_IMAGE(buffer[baddr+i]);
+
+			/*
+			 * Blanks are the same, no matter what color, as long
+			 * as they have the same selection status
+			 */
+			if (!buffer[baddr+i] && ((color & SEL_BIT) == (color2 & SEL_BIT)))
+				continue;
+
+			if (color2 != color) {
+				render_text(&buffer[baddr+i0], baddr+i0, i - i0, False);
+				color = color2;
+				i0 = i;
+			}
+		}
+		render_text(&buffer[baddr+i0], baddr+i0, len - i0, False);
+	}
+
+	/* The X display is now correct; update ss->image[]. */
+	(void) MEMORY_MOVE((char *) &ss->image[baddr],
+			   (char *) &buffer[baddr],
+	                   len*sizeof(unsigned int));
+}
+
+/*
+ * Render text onto the X display.  The region must not span lines.
+ */
+static void
+render_text(buffer, baddr, len, block_cursor)
+unsigned int *buffer;
+int baddr, len;
+Boolean block_cursor;
+{
+	int color = CG_FROM_IMAGE(buffer[0]);
+	int x, y;
+	unsigned char buf[128];
+	GC dgc;
+	int sel = (color & SEL_BIT) != 0;
+	register int i;
+
+	color &= 0x3;
+
+	if (ss->standard_font) {
+		unsigned char *xfmap = ss->latin1_font ? cg2asc : cg2asc7;
+
+		if (toggled(MONOCASE)) {
+			for (i = 0; i < len; i++) {
+				char c = xfmap[buffer[i] & 0xff];
+
+				if (c >= 'a' && c <= 'z')
+					c += 'A' - 'a';
+				buf[i] = c;
+			}
+		} else for (i = 0; i < len; i++)
+			buf[i] = xfmap[buffer[i] & 0xff];
+	} else {
+		if (toggled(MONOCASE)) {
+			for (i = 0; i < len; i++)
+				buf[i] = cg2uc[buffer[i] & 0xff];
+		} else
+			for (i = 0; i < len; i++)
+				buf[i] = buffer[i] & 0xff;
+	}
+
+	x = ssCOL_TO_X(BA_TO_COL(baddr));
+	y = ssROW_TO_Y(BA_TO_ROW(baddr));
+
+	if (sel && !block_cursor)
+		dgc = ss->selgc[color];
+	else if (block_cursor && !(appres.mono && sel))
+		dgc = ss->invgc[color];
+	else
+		dgc = ss->gc[color];
+
+	/* Draw the text */
+	XDrawImageString(display, ss->window, dgc, x, y, (char *) buf, len);
+	if (color == FA_INT_HIGH_SEL && ss->overstrike)
+		XDrawString(display, ss->window, dgc, x+1, y, (char *) buf,
+		    len);
 }
 
 
 /*
  * Toggle mono-/dual-case mode.
  */
-change_case (mono)
-Bool	mono;
+static void
+toggle_monocase()
 {
-    if (mono_case != mono) {
-	mono_case = mono;
-	screen_disp ();
-    }
+	(void) memset((char *) ss->image, 0,
+		      (ROWS*COLS) * sizeof(unsigned int));
+	image_changed = True;
 }
 
-
 /*
- * Interpret an incoming 3270 datastream.
+ * "Draw" screen_buf into a buffer
  */
-net_process (buf, buflen)
-u_char	*buf;
-int	buflen;
+static void
+draw_fields(buffer)
+unsigned int *buffer;
 {
-    switch (buf[0]) {	/* 3270 command */
-	case CMD_EAU:	/* erase all unprotected */
-	    do_erase_all_unprotected ();
-	    break;
-	case CMD_EWA:	/* erase/write alternate */
-	    /* on 3278-2, same as erase/write.  fallthrough */
-	case CMD_EW:	/* erase/write */
-	    buffer_addr = 0;
-	    /* cursor_off (); */
-	    clear_text();
-	    cursor_move (0);
-	    /* fallthrough into write */
-	case CMD_W:	/* write */
-	    do_write (buf, buflen);
-	    break;
-	case CMD_RB:	/* read buffer */
-	    do_read_buffer ();
-	    break;
-	case CMD_RM:	/* read modifed */
-	    do_read_modified ();
-	    break;
-	case CMD_NOP:	/* no-op */
-	    break;
-	default:
-	    /* unknown 3270 command */
-	    exit (1);
-    }
-}
+	int	baddr = 0;
+	unsigned char	fa = *get_field_attribute(baddr);
+	int	color;
+	int	zero;
 
-
-/*
- * Process a 3270 Read-Modified command and transmit the data back to the
- * host.
- */
-do_read_modified ()
-{
-    register int	baddr, sbaddr;
+	(void) memset((char *) buffer, 0, ROWS*COLS);
 
-    obptr = &obuf[0];
-    if (aid != AID_PA1 && aid != AID_PA2
-    &&  aid != AID_PA3 && aid != AID_CLEAR) {
-	if (aid == AID_SYSREQ) {
-	    *obptr++ = 0x01;	/* soh */
-	    *obptr++ = 0x5B;	/*  %  */
-	    *obptr++ = 0x61;	/*  /  */
-	    *obptr++ = 0x02;	/* stx */
-	}
-	else {
-	    *obptr++ = aid;
-	    *obptr++ = code_table[(cursor_addr >> 6) & 0x3F];
-	    *obptr++ = code_table[cursor_addr & 0x3F];
-	}
-	baddr = 0;
-	if (formatted) {
-	    /* find first field attribute */
-	    do {
-		if (IS_FA (screen_buf[baddr]))
-		    break;
-		INC_BA (baddr);
-	    } while (baddr != 0);
-	    sbaddr = baddr;
-	    do {
-		if (FA_IS_MODIFIED (screen_buf[baddr])) {
-		    INC_BA (baddr);
-		    *obptr++ = ORDER_SBA;
-		    *obptr++ = code_table[(baddr >> 6) & 0x3F];
-		    *obptr++ = code_table[baddr & 0x3F];
-		    do {
-			if (screen_buf[baddr])
-			    *obptr++ = cg2ebc[screen_buf[baddr]];
-			INC_BA (baddr);
-		    } while (!IS_FA (screen_buf[baddr]));
+	zero = FA_IS_ZERO(fa);
+	color = IMAGE_COLOR(fa);
+
+	do {
+		unsigned char	c = screen_buf[baddr];
+
+		if (IS_FA(c)) {
+			fa = c;
+			zero = FA_IS_ZERO(fa);
+			color = IMAGE_COLOR(fa);
+			buffer[baddr] = 0;
+		} else {
+			int e_color = color;
+
+			/* Quickish hack: If the extended-attribute value is
+			   nonzero, highlight. */
+			if (get_extended_attribute(baddr))
+				e_color = IMAGE_COLOR(FA_INT_HIGH_SEL);
+			if (zero || IS_FA(c) ||
+			    c == CG_BLANK || c == CG_NULLBLANK)
+				buffer[baddr] = 0;
+			else
+				buffer[baddr] = c | e_color;
 		}
-		else {	/* not modified - skip */
-		    do {
-			INC_BA (baddr);
-		    } while (!IS_FA (screen_buf[baddr]));
+		if (SELECTED(baddr))
+			buffer[baddr] |= IMAGE_SEL;
+		INC_BA(baddr);
+	} while (baddr);
+}
+
+/*
+ * Resync the X display with the contents of 'buffer'
+ */
+static void
+resync_display(buffer)
+unsigned int	*buffer;
+{
+	register int	i, j;
+	int		b = 0;
+	int		i0 = -1;
+#	define SPREAD	10
+
+
+	for (i = 0; i < ROWS; b += COLS, i++) {
+		int d0 = -1;
+		int s0 = -1;
+
+		/* Has the line changed? */
+		if (!memcmp((char *) &ss->image[b], (char *) &buffer[b],
+		    COLS*sizeof(unsigned int))) {
+			if (i0 >= 0) {
+				render_blanks(i0 * COLS, i - i0);
+				i0 = -1;
+			}
+			continue;
 		}
-	    } while (baddr != sbaddr);
+
+		/* Is the new value blanks? */
+		if (!memcmp((char *) &buffer[b], (char *) blanks,
+		    COLS*sizeof(unsigned int))) {
+			if (i0 < 0)
+				i0 = i;
+			continue;
+		}
+
+		/* Yes, it changed, and it isn't blank.
+		   Dump any pending blank lines. */
+		if (i0 >= 0) {
+			render_blanks(i0 * COLS, i - i0);
+			i0 = -1;
+		}
+
+		/* New text.  Scan it. */
+		for (j = 0; j < COLS; j++) {
+			if (ss->image[b+j] == buffer[b+j]) {
+
+				/* Same. */
+				if (d0 >= 0) {	/* something is pending... */
+					if (s0 < 0) {	/* 1st match past a non-match */
+						s0 = j;
+					} else {	/* nth matching character */
+						if (j - s0 > SPREAD) {	/* too many */
+							resync_text(b+d0, s0-d0, buffer);
+							d0 = -1;
+							s0 = -1;
+						}
+					}
+				}
+			} else {
+
+				/* Different. */
+				s0 = -1;		/* swallow intermediate matches */
+				if (d0 < 0)
+					d0 = j;		/* mark the start */
+			}
+		}
+		if (d0 >= 0)
+			resync_text(b+d0, COLS-d0, buffer);
 	}
-	else {
-	    do {
-		if (screen_buf[baddr])
-		    *obptr++ = cg2ebc[screen_buf[baddr]];
-		INC_BA (baddr);
-	    } while (baddr != 0);
-	}
-    }
-    else
-	*obptr++ = aid;
-    net_output (obuf, obptr - obuf);
+	if (i0 >= 0)
+		render_blanks(i0 * COLS, ROWS - i0);
 }
 
 
 /*
- * Process a 3270 Read-Buffer command and transmit the data back to the
- * host.
+ * Draw or remove the cursor
  */
-do_read_buffer ()
+static void
+put_cursor(baddr, on)
+int baddr;
+Boolean on;
 {
-    register int	baddr;
-    u_char		fa;
+	int	x, y;
+	unsigned char 	fa = *get_field_attribute(baddr);
+	int  	color = fa_color(fa);
+	int	sel = SELECTED(baddr) ? SEL_BIT : 0;
+	Boolean	hidden_text = False;
+	unsigned int	buffer;
+	GC	dgc;
 
-    obptr = &obuf[0];
-    *obptr++ = aid;
-    *obptr++ = code_table[(cursor_addr >> 6) & 0x3F];
-    *obptr++ = code_table[cursor_addr & 0x3F];
-    baddr = 0;
-    do {
-	if (IS_FA (screen_buf[baddr])) {
-	    *obptr++ = ORDER_SF;
-	    fa = 0x00;
-	    if (FA_IS_PROTECTED (screen_buf[baddr]))
-		fa |= 0x20;
-	    if (FA_IS_NUMERIC (screen_buf[baddr]))
-		fa |= 0x10;
-	    if (FA_IS_MODIFIED (screen_buf[baddr]))
-		fa |= 0x01;
-	    fa |= ((screen_buf[baddr] | FA_INTENSITY) << 2);
-	    *obptr++ = fa;
+	/* Figure out the proper color */
+	if (color == FA_INT_ZERO_NSEL) {
+		hidden_text = True;
+		color = FA_INT_NORM_SEL;
 	}
+	if (get_extended_attribute(baddr))
+		color = FA_INT_HIGH_SEL;
+
+	/*
+	 * Dummy up a display buffer for where the cursor is.  The difference
+	 * is that if the text isn't supposed to be displayed, pretend it's a
+	 * correct-colored blank.
+	 */
+	if (hidden_text)
+		buffer = (color | sel) << 8;
 	else
-	    *obptr++ = cg2ebc[screen_buf[baddr]];
-	INC_BA (baddr);
-    } while (baddr != 0);
-    net_output (obuf, obptr - obuf);
-}
+		buffer = screen_buf[baddr] | ((color | sel) << 8);
 
-
-/*
- * Process a 3270 Erase All Unprotected command.
- */
-do_erase_all_unprotected ()
-{
-    register int	baddr, sbaddr;
-    u_char		fa;
-    Bool		f;
+	if (appres.mono && sel)
+		dgc = ss->invgc[color];
+	else
+		dgc = ss->gc[color];
+	x = ssCOL_TO_X(BA_TO_COL(baddr));
+	y = ssROW_TO_Y(BA_TO_ROW(baddr));
 
-    screen_dirty = TRUE;
-    /* cursor_off (); */
-    if (formatted) {
-	/* find first field attribute */
-	baddr = 0;
-	do {
-	    if (IS_FA (screen_buf[baddr]))
-		break;
-	    INC_BA (baddr);
-	} while (baddr != 0);
-	sbaddr = baddr;
-	f = FALSE;
-	do {
-	    fa = screen_buf[baddr];
-	    if (!FA_IS_PROTECTED (fa)) {
-		screen_buf[baddr] &= ~FA_MODIFY;
-		do {
-		    INC_BA (baddr);
-		    if (!f) {
-			cursor_move (baddr);
-			f = TRUE;
-		    }
-		    if (!IS_FA (screen_buf[baddr])) {
-			screen_add(baddr, CG_NULLBLANK);
-		    }
-		} while (!IS_FA (screen_buf[baddr]));
-	    }
-	    else {
-		do {
-		    INC_BA (baddr);
-		} while (!IS_FA (screen_buf[baddr]));
-	    }
-	} while (baddr != sbaddr);
-	if (!f)
-	    cursor_move (0);
-    }
-    else {
-	clear_text();
-	buffer_addr = 0;
-	cursor_move (0);
-    }
-    /* cursor_on (); */
-    aid = AID_NO;
-    key_Reset ();
-}
-
-
-/*
- * Process a 3270 Write command.
- */
-do_write (buf, buflen)
-u_char	buf[];
-int	buflen;
-{
-    register u_char	*cp;
-    register int	baddr;
-    u_char		*current_fa;
-    Bool		last_cmd;
-    Bool		wcc_keyboard_restore, wcc_sound_alarm;
-
-    buffer_addr = cursor_addr;
-    wcc_sound_alarm = WCC_SOUND_ALARM (buf[1]);
-    wcc_keyboard_restore = WCC_KEYBOARD_RESTORE (buf[1]);
-    status_disp (8, CG_LOCK);
-    status_disp (9, CG_BLANK);
-    status_disp (10, CG_CS);
-    status_disp (11, CG_CY);
-    status_disp (12, CG_CS);
-    status_disp (13, CG_CT);
-    status_disp (14, CG_CE);
-    status_disp (15, CG_CM);
-    /* This may take a while, so update status line. */
-    XDrawImageString(display,w,gc[0],0,ROW_TO_Y(ROWS)+5, status_buf, COLS);
-    XSync(display, 0);
-
-    if (WCC_RESET_MDT (buf[1])) {
-	baddr = 0;
-        screen_dirty = TRUE;
-	do {
-	    if (IS_FA (screen_buf[baddr])) {
-		screen_buf[baddr] &= ~FA_MODIFY;
-	    }
-	    INC_BA (baddr);
-	} while (baddr != 0);
-    }
-    last_cmd = TRUE;
-    /* cursor_off (); */
-    current_fa = get_field_attribute (buffer_addr);
-    for (cp = &buf[2]; cp < (buf + buflen); cp++) {
-	switch (*cp) {
-	    case ORDER_GE:	/* graphic escape - ignore */
-		last_cmd = TRUE;
-		break;
-	    case ORDER_SF:	/* start field */
-		cp++;		/* skip field attribute */
-		screen_dirty = TRUE;
-		screen_buf[buffer_addr] = FA_BASE;
-		if (*cp & 0x20)
-		    screen_buf[buffer_addr] |= FA_PROTECT;
-		if (*cp & 0x10)
-		    screen_buf[buffer_addr] |= FA_NUMERIC;
-		if (*cp & 0x01)
-		    screen_buf[buffer_addr] |= FA_MODIFY;
-		screen_buf[buffer_addr] |= (*cp >> 2) & FA_INTENSITY;
-		current_fa = &(screen_buf[buffer_addr]);
-		formatted = TRUE;
-		INC_BA (buffer_addr);
-		last_cmd = TRUE;
-		break;
-	    case ORDER_SBA:	/* set buffer address */
-		cp += 2;	/* skip buffer address */
-		if ((*(cp-1) & 0xC0) == 0x00) /* 14-bit binary */
-		    buffer_addr = ((*(cp-1) & 0x3F) << 8) | *cp;
-		else	/* 12-bit coded */
-		    buffer_addr = ((*(cp-1) & 0x3F) << 6) | (*cp & 0x3F);
-		buffer_addr %= (COLS * ROWS);
-		current_fa = get_field_attribute (buffer_addr);
-		last_cmd = TRUE;
-		break;
-	    case ORDER_IC:	/* insert cursor */
-		cursor_move (buffer_addr);
-		last_cmd = TRUE;
-		break;
-	    case ORDER_PT:	/* program tab */
-		baddr = buffer_addr;
-		screen_dirty = TRUE;
-		while (TRUE) {
-		    if (IS_FA (screen_buf[baddr])
-		    &&  (!FA_IS_PROTECTED (screen_buf[baddr]))) {
-			current_fa = &screen_buf[baddr];
-			INC_BA (baddr);
-			buffer_addr = baddr;
-			if (!last_cmd) {
-			    while (!IS_FA (screen_buf[baddr])) {
-				screen_add(baddr, CG_NULLBLANK);
-				INC_BA (baddr);
-			    }
-			}
-			break;
-		    }
-		    else {
-			INC_BA (baddr);
-			if (baddr == 0) {
-			    buffer_addr = baddr;
-			    current_fa = get_field_attribute (baddr);
-			    break;
-			}
-		    }
-		}
-		last_cmd = TRUE;
-		break;
-	    case ORDER_RA:	/* repeat to address */
-		cp += 2;	/* skip buffer address */
-		screen_dirty = TRUE;
-		if ((*(cp-1) & 0xC0) == 0x00) /* 14-bit binary */
-		    baddr = ((*(cp-1) & 0x3F) << 8) | *cp;
-		else	/* 12-bit coded */
-		    baddr = ((*(cp-1) & 0x3F) << 6) | (*cp & 0x3F);
-		baddr %= (COLS * ROWS);
-		cp++;		/* skip char to repeat */
-		if (*cp == ORDER_GE)
-		    cp++;
-		if (buffer_addr == baddr) {
-		    screen_add(buffer_addr, ebc2cg[*cp]);
-		    INC_BA (buffer_addr);
-		}
-		while (buffer_addr != baddr) {
-		    screen_add(buffer_addr, ebc2cg[*cp]);
-		    INC_BA (buffer_addr);
-		}
-		current_fa = get_field_attribute (buffer_addr);
-		last_cmd = TRUE;
-		break;
-	    case ORDER_EUA:	/* erase unprotected to address */
-		cp += 2;	/* skip buffer address */
-		screen_dirty = TRUE;
-		if ((*(cp-1) & 0xC0) == 0x00) /* 14-bit binary */
-		    baddr = ((*(cp-1) & 0x3F) << 8) | *cp;
-		else	/* 12-bit coded */
-		    baddr = ((*(cp-1) & 0x3F) << 6) | (*cp & 0x3F);
-		baddr %= (COLS * ROWS);
-		do {
-		    if (IS_FA (screen_buf[buffer_addr]))
-			current_fa = &(screen_buf[buffer_addr]);
-		    else if (!FA_IS_PROTECTED (*current_fa)) {
-			screen_add(buffer_addr, CG_NULLBLANK);
-		    }
-		    INC_BA (buffer_addr);
-		} while (buffer_addr != baddr);
-		current_fa = get_field_attribute (buffer_addr);
-		last_cmd = TRUE;
-		break;
-	    case ORDER_MF:	/* modify field */
-	    case ORDER_SFE:	/* start field extended */
-	    case ORDER_SA:	/* set attribute */
-		/* unsupported 3270 order */
-		break;
-	    default:	/* enter character */
-		if (IS_FA(ebc2cg[*cp])) {
-			/* debug hook */
-		        last_cmd = FALSE;
-		}
-		screen_add(buffer_addr, ebc2cg[*cp]);
-		INC_BA (buffer_addr);
-		last_cmd = FALSE;
-		break;
+	/* Normal (block) cursor */
+	if (!toggled(ALTCURSOR)) {
+		if (appres.mono && in_focus && on) {
+			/* Small inverted-block cursor. */
+			XFillRectangle(display, ss->window, ss->mcgc,
+			    x, y - ss->efontinfo->ascent + 1,
+			    ss->char_width,
+			    (ss->char_height > 2) ? (ss->char_height - 2) : 1);
+		} else if (in_focus || !on)
+			render_text(&buffer, baddr, 1, on);
+		else
+			/* Not in focus.  Draw a hollow rectangle. */
+			XDrawRectangle(display, ss->window, dgc,
+			    x, y - ss->efontinfo->ascent + (appres.mono?1:0),
+			    ss->char_width - 1, ss->char_height - (appres.mono?2:1));
+		return;
 	}
-    }
-    /* cursor_on (); */
-    set_formatted ();
-    if (wcc_keyboard_restore) {
-	key_Reset ();
-	aid = AID_NO;
-    }
-    if (wcc_sound_alarm)
-	XBell(display, 100);
+
+	/* Alternate (underscore) cursor */
+	render_text(&buffer, baddr, 1, False);
+	if (on)
+		XDrawRectangle(display, ss->window, dgc,
+		    x, y - ss->efontinfo->ascent + ss->char_height - 2,
+		    ss->char_width - 1, 1);
 }
 
-put_cursor(baddr, color, on)
-	int baddr;
-	int color;
-	int on;
+
+/*
+ * Create graphics contexts.
+ */
+static void
+make_gcs(ss)
+struct sstate *ss;
 {
-    int		x, y;
-    u_char 	*fa = get_field_attribute(baddr);
-    int		invis;
-
-    x = COL_TO_X(BA_TO_COL(baddr));
-    y = ROW_TO_Y(BA_TO_ROW(baddr));
-    invis = FA_IS_ZERO(*fa) || IS_FA(screen_buf[baddr]) || screen_buf[baddr] == 0 |
-		screen_buf[baddr] == 0x10;
-    if (on) {
-	if (invis) {
-	    XDrawImageString(display, w, invgc[color], x, y, blanks, 1);
+	if (!appres.mono) {
+		make_gc_set(ss, FA_INT_NORM_NSEL, appres.normal, appres.colorbg,
+		    False);
+		make_gc_set(ss, FA_INT_NORM_SEL,  appres.select, appres.colorbg,
+		    False);
+		make_gc_set(ss, FA_INT_HIGH_SEL,  appres.bold,   appres.colorbg,
+		    True);
+		make_gc_set(ss, FA_INT_ZERO_NSEL, appres.colorbg, appres.colorbg,
+		    False);
 	} else {
-	    XDrawImageString(display, w, invgc[color], x, y, &(screen_buf[baddr]), 1);
+		make_gc_set(ss, FA_INT_NORM_NSEL, appres.foreground,
+		    appres.background, False);
+		make_gc_set(ss, FA_INT_NORM_SEL,  appres.foreground,
+		    appres.background, False);
+		make_gc_set(ss, FA_INT_HIGH_SEL,  appres.foreground,
+		    appres.background, True);
+		make_gc_set(ss, FA_INT_ZERO_NSEL, appres.background,
+		    appres.background, False);
 	}
-	if (appres.mono && FA_IS_HIGH(*fa) && !invis)
-	    XDrawString(display, w, invgc[color], x+1, y, &(screen_buf[baddr]), 1);
-    } else {
-	put_string(baddr, 1);
-    }
-}
 
-put_altcursor(baddr, gc, on)
-	int baddr;
-	GC gc;
-	int on;
-{
-    char 	str[2];
-    int		x, y;
+	/* Create monochrome block cursor GC. */
+	if (appres.mono) {
+		XGCValues xgcv;
 
-    put_string(baddr, 1);
-    if (on) {
-        str[0] = CG_COMMLO; str[1] = 0;
-        x = COL_TO_X(BA_TO_COL(baddr));
-        y = ROW_TO_Y(BA_TO_ROW(baddr));
-        XDrawString(display, w, gc, x, y+1, str, 1);
-        XDrawString(display, w, gc, x, y+2, str, 1);
-    }
-}
-
-put_string(baddr, len)
-	int baddr, len;
-{
-    put_string_gc(screen_buf, baddr, len, gc[fa_color(*get_field_attribute(baddr))]);
-}
-
-put_string_gc(buf, baddr, len, gc)
-	u_char *buf;
-	int baddr, len;
-	GC gc;
-{
-    u_char	*str, b[128];
-    u_char 	*fa, ch;
-    int		x, y, i;
-
-#if 0
-	extern u_char cg2asc[];
-
-	putchar('\n');
-	printf("address %d len %d", baddr, len);
-	for (i=0; i<len; i++) {
-	    ch = buf[i+baddr];
-	    putchar(cg2asc[ch]);
+		xgcv.function = GXinvert;
+		ss->mcgc = XtGetGC(toplevel, GCFunction, &xgcv);
 	}
-#endif
-    if (mono_case) {
-	for (i=0; i<len; i++) {
-	    ch = buf[i+baddr];
-	    /* this if xlates lowercase to uppercase */
-	    if (mono_case && ((ch & 0xE0) == 0x40 || (ch & 0xE0) == 0x80))
-	       ch |= 0x20;
-	    b[i] = ch;
-	}
-	str = b;
-    } else
-	str = &(buf[baddr]);
 
-    fa = get_field_attribute(baddr);
-    x = COL_TO_X(BA_TO_COL(baddr));
-    y = ROW_TO_Y(BA_TO_ROW(baddr));
-
-    /* Clear the area first... kludge for R2 on HP's */
-    /*
-    XDrawImageString(display, w, gc, x, y, blanks, len);
-    */
-    XDrawImageString(display, w, gc, x, y, str, len);
-    if (appres.mono && (FA_IS_HIGH(*fa))) {
-       XDrawString(display, w, gc, x+1, y, str, len);
-    }
+	/* Set the flag for overstriking bold. */
+	ss->overstrike = appres.mono && ss->bfontinfo == NULL && ss->char_width > 1;
 }
 
 /*
- * Clear the text (non-status) portion of the display.
+ * Create a set of graphics contexts for a given color.
  */
-clear_text()
+static void
+make_gc_set(ss, i, fg, bg, bold)
+struct sstate	*ss;
+int		i;
+Pixel 	fg, bg;
+Boolean	bold;
 {
-    int 	i;
+	XGCValues xgcv;
 
-    screen_dirty = TRUE;
-    bzero(screen_buf, ROWS*COLS);
-}
-
-/* 
- * Do one of line display.
- */
-do_line (baddr)
-    register int baddr;
-{
-    register int	end, start, len;
-    int			i;
-
-    end = baddr + COLS;
-    if (end >= ROWS*COLS)
-	end = 0;
-
-    start = baddr;
-    len = 0;
-    while(baddr != end) {
-	if (marked(baddr)) {
-	    if (len == 0) {
-	        start = baddr;
-	        len = 1;
-	    } else {
-                len++;
-                if (IS_FA(screen_buf[baddr])) {
-	            put_string(start, len);
-		    unmark_chars(start, len);
-		    INC_BA(baddr);
-	            start = baddr;
-	            len = 0;
-		    continue;
-	        }
-	    }
-	} else if (len > 0) {
-            put_string(start, len);
-	    unmark_chars(start, len);
-	    len = 0;
+	xgcv.foreground = fg;
+	xgcv.background = bg;
+	if (bold && ss->bfontinfo != NULL)
+		xgcv.font = ss->bfontinfo->fid;
+	else
+		xgcv.font = ss->efontinfo->fid;
+	ss->gc[i] = XtGetGC(toplevel, GCForeground|GCBackground|GCFont, &xgcv);
+	xgcv.foreground = bg;
+	xgcv.background = fg;
+	ss->invgc[i] = XtGetGC(toplevel, GCForeground|GCBackground|GCFont, &xgcv);
+	if (appres.mono)
+		ss->selgc[i] = ss->invgc[i];
+	else {
+		xgcv.foreground = fg;
+		xgcv.background = appres.selbg;
+		ss->selgc[i] = XtGetGC(toplevel, GCForeground|GCBackground|GCFont,
+		    &xgcv);
 	}
-	INC_BA(baddr);
-    }
-    if (len > 0) {
-        put_string(start, len);
-	unmark_chars(start, len);
-    }
 }
 
-screen_add(baddr, c)
-	int	baddr;
-	u_char	c;
-{
-    if (screen_buf[baddr] != c) {
-	screen_buf[baddr] = c;
-	screen_dirty = TRUE;
-    }
-}
-
-make_gc_pair(i, fg, bg)
-    int		i;
-    Pixel 	fg, bg;
-{
-    static XGCValues xgcv;
-
-    xgcv.foreground = fg;
-    xgcv.background = bg;
-    xgcv.font = ibmfont;
-    gc[i] = XtGetGC(toplevel, GCForeground|GCBackground|GCFont, &xgcv);
-    xgcv.foreground = bg;
-    xgcv.background = fg;
-    invgc[i] = XtGetGC(toplevel, GCForeground|GCBackground|GCFont, &xgcv);
-}
-
+
+/*
+ * Convert an attribute to a color index.
+ */
+static int
 fa_color(fa)
-    u_char fa;
+unsigned char fa;
 {
-    int	rval = 0;
+	int c = fa & FA_INTENSITY;
 
-    switch (fa & FA_INTENSITY) {
-    case FA_INT_NORM_NSEL:
-	rval = 0;
-        if (FA_IS_MODIFIED(fa))
-	    rval = 1;
-	break;
-    case FA_INT_NORM_SEL:
-	rval = 1;
-        if (FA_IS_MODIFIED(fa))
-	    rval = 1;
-	break;
-    case FA_INT_HIGH_SEL:
-	rval = 2;
-        if (FA_IS_MODIFIED(fa))
-	    rval = 1;
-	break;
-    case FA_INT_ZERO_NSEL:
-	rval = 3;
-	break;
-    }
-    return rval;
+	if (appres.mono || FA_IS_ZERO(fa))
+		return c;
+#ifdef MODIFIED_SEL
+	else if (FA_IS_MODIFIED(fa))
+		return FA_INT_NORM_SEL;
+#endif
+	else
+		return c;
 }
 
-unmark_chars(start, len)
-	int start, len;
+
+/*
+ * Generic toggle stuff
+ */
+void
+do_toggle(index)
+int index;
 {
-    memcpy(&(update_buf[start]), &(screen_buf[start]), len);
+	struct toggle *t = &appres.toggle[index];
+
+	/*
+	 * Change the value, call the internal update routine, and reset the
+	 * menu label(s).
+	 */
+	toggle_toggle(t);
+	t->upcall(t);
+	menubar_retoggle(t);
+}
+
+/*
+ * Event handlers for toplevel FocusIn, FocusOut, KeymapNotify and
+ * PropertyChanged events.
+ */
+
+static Boolean toplevel_focused = False;
+static Boolean keypad_entered = False;
+
+/*ARGSUSED*/
+void
+focus_change(w, event, params, num_params)
+Widget w;
+XFocusChangeEvent *event;
+{
+	switch (event->type) {
+	    case FocusIn:
+		if (event->detail != NotifyPointer) {
+			toplevel_focused = True;
+			screen_focus(True);
+		}
+		break;
+	    case FocusOut:
+		toplevel_focused = False;
+		if (!toplevel_focused && !keypad_entered)
+			screen_focus(False);
+		break;
+	}
+}
+
+/*ARGSUSED*/
+void
+enter_leave(w, event, params, num_params)
+Widget w;
+XCrossingEvent *event;
+{
+	extern Widget keypad_shell;
+
+	switch (event->type) {
+	    case EnterNotify:
+		keypad_entered = True;
+		screen_focus(True);
+		break;
+	    case LeaveNotify:
+		keypad_entered = False;
+		if (!toplevel_focused && !keypad_entered)
+			screen_focus(False);
+		break;
+	}
+}
+
+/*ARGSUSED*/
+void
+keymap_event(w, event, params, num_params)
+Widget w;
+XEvent *event;
+String *params;
+Cardinal *num_params;
+{
+	XKeymapEvent *k = (XKeymapEvent *)event;
+
+	shift_event(state_from_keymap(k->key_vector));
+}
+
+static void
+query_window_state()
+{
+	Atom actual_type;
+	int actual_format;
+	unsigned long nitems;
+	unsigned long leftover;
+	unsigned char *data = NULL;
+	Atom a_state = XInternAtom(display, "WM_STATE", False);
+
+	if (appres.active_icon)
+		return;
+	if (XGetWindowProperty(display, XtWindow(toplevel), a_state, 0L,
+	    (long)BUFSIZ, False, a_state, &actual_type, &actual_format,
+	    &nitems, &leftover, &data) != Success)
+		return;
+	if (actual_type == a_state && actual_format == 32) {
+		if (*(unsigned long *)data == 3)
+			iconic = True;
+		else {
+			iconic = False;
+			invert_icon(False);
+		}
+	}
+}
+
+/*ARGSUSED*/
+void
+state_event(w, event, params, num_params)
+Widget w;
+XEvent *event;
+String *params;
+Cardinal *num_params;
+{
+	query_window_state();
+}
+
+/*
+ * Handle Shift events (KeyPress and KeyRelease events, or KeymapNotify events
+ * that occur when the mouse enters the window).
+ */
+
+void
+shift_event(event_state)
+int event_state;
+{
+	static int old_state;
+	Boolean shifted_now = (event_state & ShiftKeyDown) != 0;
+
+	if (event_state != old_state) {
+		old_state = event_state;
+		status_shift_mode(event_state);
+		if (shifted != shifted_now) {
+			shifted = shifted_now;
+			keypad_shift();
+		}
+	}
+}
+
+/*
+ * Handle the mouse entering and leaving the window.
+ */
+static void
+screen_focus(in)
+Boolean in;
+{
+	/*
+	 * Cancel any pending cursor blink.  If we just came into focus and
+	 * have a blinking cursor, we will start a fresh blink cycle below, so
+	 * the filled-in cursor is visible for a full turn.
+	 */
+	cancel_blink();
+
+	/*
+	 * If the cursor is disabled, simply change internal state.
+	 */
+	if (!CONNECTED) {
+		in_focus = in;
+		return;
+	}
+
+	/*
+	 * Change the appearance of the cursor.  Make it hollow out or fill in
+	 * instantly, even if it was blinked off originally.
+	 */
+	(void) cursor_off();
+	in_focus = in;
+	cursor_on();
+
+	/*
+	 * If we just came into focus and we're supposed to have a blinking
+	 * cursor, schedule a blink.
+	 */
+	if (in_focus && toggled(BLINK))
+		schedule_blink();
+}
+
+void
+quit_event()
+{
+	if (!CONNECTED)
+		exit(0);
+}
+
+/*
+ * Change fonts.
+ */
+/*ARGSUSED*/
+void
+set_font(w, event, params, num_params)
+Widget	w;
+XEvent	*event;
+String	*params;
+Cardinal *num_params;
+{
+	if (*num_params != 1) {
+		XtWarning("SetFont: must have 1 argument");
+		return;
+	}
+	screen_newfont(params[0], True);
 }
 
 int
-marked(addr)
-	int addr;
+screen_newfont(fontname, do_popup)
+char *fontname;
+Boolean do_popup;
 {
-    int	rval;
+	XFontStruct	*new_fontinfo;
+	char		*buf = (char *) NULL;
+	char		*boldname;
+	char		*emsg;
 
-    rval = (update_buf[addr] != screen_buf[addr]);
+	boldname = strchr(fontname, ',');
+	if (boldname)
+		*boldname++ = '\0';
+	else {
+		buf = xs_buffer("%sbold", fontname);
+		boldname = buf;
+	}
+	if (efontname && !strcmp(fontname, efontname) &&
+	    bfontname && !strcmp(boldname, bfontname)) {
+		if (buf)
+			XtFree(buf);
+		return 0;
+	}
 
-    if (rval && IS_FA(screen_buf[addr]))
-	mark_field(addr);
-    return rval;
+	if (emsg = load_fixed_font(fontname, &new_fontinfo)) {
+		if (buf)
+			XtFree(buf);
+		if (do_popup) {
+			buf = xs_buffer2("Font '%s'\n%s", fontname, emsg);
+			popup_an_error(buf);
+			XtFree(buf);
+		}
+		return -1;
+	}
+	nss.efontinfo = new_fontinfo;
+	if (appres.mono)
+		(void) load_fixed_font(boldname, &nss.bfontinfo);
+	set_font_globals(nss.efontinfo, fontname, boldname);
+
+	XtDestroyWidget(container);
+	container = (Widget) NULL;
+	nss.widget = (Widget) NULL;
+	menubar_gone();
+	screen_init(True, False, True);
+	if (buf)
+		XtFree(buf);
+	return 0;
 }
 
-/* Mark the entire field as different from the screen_buf */
-mark_field(addr)
+/*
+ * Load and query a font, and verify that it is fixed-width.
+ * Returns NULL (okay) or an error message.
+ */
+char *
+load_fixed_font(name, font)
+char *name;
+XFontStruct **font;
 {
-    int s_addr = addr;
+	XFontStruct *f;
+	unsigned long svalue;
+	Boolean test_spacing = True;
+	extern Atom a_spacing, a_c;
 
-    update_buf[addr] = 1;
-    INC_BA(addr);
-    while (!IS_FA(screen_buf[addr]) && addr != s_addr) {
-        update_buf[addr] = 1;
-        INC_BA(addr);
-    }
+	*font = NULL;
+	if (*name == '!') {
+		name++;
+		test_spacing = False;
+	} else if (!strncmp(name, "3270", 4))
+		test_spacing = False;
+	f = XLoadQueryFont(display, name);
+	if (f == NULL)
+		return "doesn't exist";
+
+	if (test_spacing) {
+		if (XGetFontProperty(f, a_spacing, &svalue)) {
+			if ((Atom) svalue != a_c)
+				return "doesn't use constant spacing";
+		} else
+			xs_warning("Font %s has no SPACING property", name);
+	}
+
+	*font = f;
+	return (char *) NULL;
+}
+
+/*
+ * Set globals based on font name and info
+ */
+void
+set_font_globals(f, ef, bf)
+XFontStruct *f;
+char *ef, *bf;
+{
+	unsigned long svalue, svalue2;
+	extern Atom a_family_name, a_3270;
+	extern Atom a_registry, a_iso8859;
+	extern Atom a_encoding, a_1;
+
+	if (efontname)
+		XtFree(efontname);
+	efontname = XtNewString(ef);
+	if (bfontname)
+		XtFree(bfontname);
+	bfontname = XtNewString(bf);
+	if (XGetFontProperty(f, a_family_name, &svalue))
+		nss.standard_font = (Atom) svalue != a_3270;
+	else if (!strncmp(efontname, "3270", 4))
+		nss.standard_font = False;
+	else
+		nss.standard_font = True;
+	nss.latin1_font = nss.standard_font &&
+	    nss.efontinfo->max_char_or_byte2 > 127 &&
+	    XGetFontProperty(f, a_registry, &svalue) &&
+	    svalue == a_iso8859 &&
+	    XGetFontProperty(f, a_encoding, &svalue2) &&
+	    svalue2 == a_1;
+}
+
+/*
+ * Change models
+ */
+void
+screen_change_model(mn)
+char *mn;
+{
+	if (CONNECTED || model_num == atoi(mn))
+		return;
+	set_rows_cols(mn);
+	XtDestroyWidget(container);
+	container = (Widget) NULL;
+	nss.widget = (Widget) NULL;
+	menubar_gone();
+	relabel();
+	screen_init(False, True, False);
+	ansi_init();
+}
+
+/*
+ * Visual or not-so-visual bell
+ */
+void
+ring_bell()
+{
+	static XGCValues xgcv;
+	static GC bgc;
+	static int initted;
+	struct timeval tv;
+
+	/* Ring the real display's bell. */
+	if (!appres.visual_bell)
+		XBell(display, 0);
+
+	/* If we're iconic, flip the icon and return. */
+	if (!appres.active_icon) {
+		query_window_state();
+		if (iconic) {
+			invert_icon(True);
+			return;
+		}
+	}
+
+	if (!appres.visual_bell || !ss->exposed_yet)
+		return;
+
+	/* Do a screen flash. */
+
+	if (!initted) {
+		xgcv.function = GXinvert;
+		bgc = XtGetGC(toplevel, GCFunction, &xgcv);
+		initted = 1;
+	}
+	screen_disp();
+	XFillRectangle(display, ss->window, bgc,
+	    0, 0, ss->screen_width, ss->screen_height);
+	XSync(display, 0);
+	tv.tv_sec = 0;
+	tv.tv_usec = 125000;
+	(void) select(0, 0, 0, 0, &tv);
+	XFillRectangle(display, ss->window, bgc,
+	    0, 0, ss->screen_width, ss->screen_height);
+	XSync(display, 0);
+}
+
+/*
+ * Window deletion
+ */
+/*ARGSUSED*/
+void
+delete_window(w, event, params, num_params)
+Widget w;
+XEvent *event;
+String *params;
+Cardinal *num_params;
+{
+	if (w == toplevel)
+		exit(0);
+	else
+		XtPopdown(w);
+}
+
+/*
+ * Turn a keysym name or literal string into a character.  Return 0 if
+ * there is a problem.
+ */
+unsigned char
+parse_keysym(s)
+char *s;
+{
+	KeySym	k;
+
+	k = XStringToKeysym(s);
+	if (k == NoSymbol) {
+		if (strlen(s) == 1)
+			k = *s & 0xff;
+		else
+			return 0;
+	}
+	if (k < ' ' || k > 0xff)
+		return 0;
+	else
+		return (unsigned char) k;
+}
+
+/*
+ * Parse an EBCDIC character map, a series of pairs of numeric EBCDIC codes
+ * and ASCII characters or ISO Latin-1 character names, modifying the
+ * CG-to-EBCDIC maps.
+ */
+static void
+remap_chars(spec)
+char *spec;
+{
+	char	*s, *line;
+	char	ebcs[64], isos[64];
+	char	*nl;
+	unsigned char	ebc, iso, cg;
+	int	ne = 0;
+	extern	unsigned char ebc2cg[];
+	extern	unsigned char asc2cg[];
+	extern	unsigned char cg2ebc[];
+
+	s = spec;
+	while (s) {
+		while (isspace(*s))
+			s++;
+		if (!*s)
+			break;
+		line = s;
+		nl = strchr(line, '\n');
+		if (nl) {
+			*nl = '\0';
+			s = nl + 1;
+		} else {
+			s = NULL;
+		}
+		ne++;
+		if (sscanf(line, "%63[^: \t]: %63s", ebcs, isos) != 2 ||
+		    !(ebc = strtol(ebcs, (char **)NULL, 0)) ||
+		    !(iso = parse_keysym(isos))) {
+			char	nbuf[16];
+
+			(void) sprintf(nbuf, "%d", ne);
+			xs_warning2("Can't parse charset '%s', entry %s",
+			    appres.charset, nbuf);
+			continue;
+		}
+		cg = asc2cg[iso];
+		if (cg2asc[cg] == iso) {	/* well-defined */
+			ebc2cg[ebc] = cg;
+			cg2ebc[cg] = ebc;
+		} else {			/* into a hole */
+			ebc2cg[ebc] = CG_BOXSOLID;
+		}
+	}
+	XtFree(spec);
+}
+
+/*
+ * Parse an ASCII remap table, a series of pairs of keysyms, indicating that
+ * the first ASCII code should be translated into the second, modifying the
+ * ASCII-to-CG map.
+ */
+static void
+remap_ascii()
+{
+	char	*mn;
+	char	*s, *line;
+	char	froms[64], tos[64];
+	char	*nl;
+	unsigned char	from, to, cg;
+	int	ne = 0;
+	extern	unsigned char asc2cg[];
+	static	unsigned char asc2cg_save[256];
+	static	Boolean ever = False;
+
+	/* Restore the original ASCII-to-CG map. */
+	if (!ever) {
+		memcpy((char *) asc2cg_save, (char *) asc2cg, 256);
+		ever = True;
+	} else
+		memcpy((char *) asc2cg, (char *) asc2cg_save, 256);
+
+	/* Find one that matches this font. */
+	mn = xs_buffer("cmap.%s", efontname);
+	s = get_resource(mn);
+	XtFree(mn);
+	if (!s)
+		return;
+
+	/* Parse it. */
+	while (s) {
+		while (isspace(*s))
+			s++;
+		if (!*s)
+			break;
+		line = s;
+		nl = strchr(line, '\n');
+		if (nl) {
+			*nl = '\0';
+			s = nl + 1;
+		} else {
+			s = NULL;
+		}
+		ne++;
+		if (sscanf(line, "%63[^: \t]: %63s", froms, tos) != 2 ||
+		    !(from = parse_keysym(froms)) ||
+		    !(to = parse_keysym(tos))) {
+			char	nbuf[16];
+
+			(void) sprintf(nbuf, "%d", ne);
+			xs_warning2("Can't parse cmap '%s', entry %s",
+			    efontname, nbuf);
+			continue;
+		}
+		asc2cg[from] = asc2cg[to];
+	}
+}
+
+
+/*
+ * Initialize the active icon font information.
+ */
+void
+aicon_font_init()
+{
+	if (!appres.active_icon) {
+		appres.label_icon = False;
+		return;
+	}
+	iss.efontinfo = XLoadQueryFont(display, appres.icon_font);
+	if (iss.efontinfo == NULL) {
+		xs_warning("Can't load iconFont '%s'; activeIcon won't work",
+		    appres.icon_font);
+		appres.active_icon = False;
+		return;
+	}
+	iss.bfontinfo = NULL;
+	iss.char_width = fCHAR_WIDTH(iss.efontinfo);
+	iss.char_height = fCHAR_HEIGHT(iss.efontinfo);
+	iss.overstrike = False;
+	iss.standard_font = True;
+	iss.latin1_font = False;
+	if (appres.label_icon) {
+		ailabel_font = XLoadQueryFont(display, appres.icon_label_font);
+		if (ailabel_font == NULL) {
+			xs_warning("Can't load iconLabelFont '%s' font; labelIcon won't work", appres.icon_label_font);
+			appres.label_icon = False;
+			return;
+		}
+		aicon_label_height = fCHAR_HEIGHT(ailabel_font) + 2;
+	}
+}
+
+/*
+ * Determine the current size of the active icon.
+ */
+void
+aicon_size(iw, ih)
+Dimension *iw;
+Dimension *ih;
+{
+	XIconSize *is;
+	int count;
+
+	*iw = maxCOLS*iss.char_width + 2*VHALO;
+	*ih = maxROWS*iss.char_height + 2*HHALO + aicon_label_height;
+	if (XGetIconSizes(display, root_window, &is, &count)) {
+		if (*iw > (unsigned) is[0].max_width)
+			*iw = is[0].max_width;
+		if (*ih > (unsigned) is[0].max_height)
+			*ih = is[0].max_height;
+	}
+}
+
+/*
+ * Initialize or reinitialize the active icon.  Assumes that aicon_font_init
+ * has already been called.
+ */
+void
+aicon_init(keep_contents, model_changed, font_changed)
+Boolean keep_contents;
+Boolean model_changed;
+Boolean font_changed;
+{
+	Widget w;
+	static Boolean ever = False;
+	extern Widget icon_shell;
+
+	if (!ever) {
+		make_gcs(&iss);
+		iss.widget = icon_shell;
+		iss.window = XtWindow(iss.widget);
+		iss.cursor_daddr = 0;
+		iss.exposed_yet = False;
+		if (appres.label_icon) {
+			XGCValues xgcv;
+
+			xgcv.font = ailabel_font->fid;
+			xgcv.foreground = foreground;
+			xgcv.background = background;
+			ailabel_gc = XtGetGC(toplevel,
+			    GCFont|GCForeground|GCBackground,
+			    &xgcv);
+		}
+		ever = True;
+	}
+
+	if (model_changed) {
+		Dimension iw, ih;
+
+		aicon_size(&iss.screen_width, &iss.screen_height);
+		if (iss.image)
+			XtFree((char *) iss.image);
+		iss.image = (unsigned int *)
+		    XtMalloc(sizeof(unsigned int) * maxROWS * maxCOLS);
+		XtVaSetValues(iss.widget,
+		    XtNwidth, iss.screen_width,
+		    XtNheight, iss.screen_height,
+		    NULL);
+	}
+	(void) memset((char *) iss.image, 0,
+		      sizeof(unsigned int) * maxROWS * maxCOLS);
+}
+
+/* Draw the aicon label */
+static void
+draw_aicon_label()
+{
+	int len;
+	Position x;
+
+	if (!appres.label_icon || !iconic)
+		return;
+	XFillRectangle(display, iss.window, iss.invgc[0],
+	    0, iss.screen_height - aicon_label_height,
+	    iss.screen_width, aicon_label_height);
+	len = strlen(aicon_text);
+	x = ((int)iss.screen_width - XTextWidth(ailabel_font, aicon_text, len))
+	     / 2;
+	if (x < 0)
+		x = 2;
+	XDrawImageString(display, iss.window, ailabel_gc,
+	    x,
+	    iss.screen_height - aicon_label_height + ailabel_font->ascent,
+	    aicon_text, len);
+}
+
+/* Set the aicon label */
+void
+set_aicon_label(l)
+char *l;
+{
+	if (aicon_text)
+		XtFree(aicon_text);
+	aicon_text = XtNewString(l);
+	draw_aicon_label();
+}
+
+/* Print the contents of the screen as text. */
+void
+print_text(w, event, params, num_params)
+Widget	w;
+XEvent	*event;
+String	*params;
+Cardinal *num_params;
+{
+	char *filter = get_resource("printTextCommand");
+	FILE *f;
+	register int i;
+	char c;
+	int ns = 0;
+
+	if (*num_params > 0)
+		filter = params[0];
+	if (*num_params > 1)
+		XtWarning("PrintText: extra arguments ignored");
+	if (!filter) {
+		XtWarning("PrintText: no command defined");
+		return;
+	}
+	if (!(f = popen(filter, "w"))) {
+		XtWarning("PrintText: popen of filter failed");
+		return;
+	}
+	for (i = 0; i < ROWS*COLS; i++) {
+		if (i && !(i % COLS)) {
+			fputc('\n', f);
+			ns = 0;
+		}
+		c = cg2asc[screen_buf[i]];
+		if (c == ' ')
+			ns++;
+		else {
+			while (ns) {
+				fputc(' ', f);
+				ns--;
+			}
+			fputc(c, f);
+		}
+	}
+	fputc('\n', f);
+	pclose(f);
+}
+
+/* Print the contents of the screen as a bitmap. */
+void
+print_window(w, event, params, num_params)
+Widget	w;
+XEvent	*event;
+String	*params;
+Cardinal *num_params;
+{
+	char *filter = get_resource("printWindowCommand");
+	char *fb = XtMalloc(strlen(filter) + 16);
+
+	if (*num_params > 0)
+		filter = params[0];
+	if (*num_params > 1)
+		XtWarning("PrintWindow: extra arguments ignored");
+	if (!filter) {
+		XtWarning("PrintWindow: no command defined");
+		return;
+	}
+	sprintf(fb, filter, XtWindow(toplevel));
+	system(fb);
+	XtFree(fb);
 }

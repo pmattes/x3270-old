@@ -1,0 +1,8 @@
+Release second set of patches.
+
+Fix Newline problem, adding lookahead logic.
+Talk to the guy at Kodak about protocol stuff.  Find the !@#$ manual.
+
+Experiments:
+    funny key popup
+    immediate fork for non-blocking hostname lookup

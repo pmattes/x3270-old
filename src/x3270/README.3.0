@@ -1,0 +1,475 @@
+x3270 3.0.1.4 -- (Version 3.0, Update 1, Patch Set 4)
+===============================================================================
+
+0. Introduction
+
+x3270 3.0 is an IBM 3278 terminal emulator for X windows.  It can be used to
+communicate with any IBM host that supports 3270-style connections over TELNET.
+It can also communcate with hosts that use line-by-line ASCII mode to do
+initial login negotiation before switching to full-screen 3270 mode.
+
+It uses its own special fonts to fully emulate the special symbols displayed on
+a 3278.  If you grow tired of using a graphical workstation to do an exact
+emulation of the appearance of a dumb terminal, you can use any constant-width
+X font.
+
+0. History
+
+x3270 3.0 is a heavy revision of Jeff Sparkes' x3270 1.2.  It incorporates
+almost all of the enhancements already available in other improved versions of
+x3270 (cut and paste, hollowing cursor, etc.) and a number of significant
+changes and improvements.
+
+Despite its name, x3270 3.0 is a separate line of development from other
+versions of x3270, most notably v1.2-cutpaste-iso8859-1, and v2.65.  Patches
+for those versions will not apply to x3270 3.0, and some of the features found
+in those versions may not yet be in v3.0.
+
+1. Enhancements from Release 1.2
+
+1.1 Performance
+
+Screen painting is faster.  Much faster.
+
+1.2 Connect/Disconnect
+
+You do not need to specify a hostname on the command line.
+
+x3270 no longer exits when the host disconnects.
+
+You can put a list of common IBM host names in a file.
+
+You can specify a string to be be sent to a host when you connect to it.  This
+string can include TABs to enter data into multiple fields, and ENTER keys
+(newlines) to send an ENTER AID and wait for the keyboard to unlock.
+
+1.3 Menu Bar
+
+There is a menu bar with the following options:
+    Quit...
+	Disconnect		break the current connection
+	Exit x3270		terminate the application
+    Options...
+	About x3270...		friendly informational pop-up
+	---
+	Keypad (optional)	pop up (or down) the 3270 keypad
+	---
+	Monocase
+	Blinking cursor
+	Show Timing		display time between sending an AID and the
+				 keyboard unlocking
+	Track Cursor		show cursor position on status line
+	---
+	Trace 3270 DS		trace 3270 data semi-readably on stdout
+	Trace TELNET		trace TELNET negotiations and data on stdout
+	---
+	Underline Cursor
+	Block Cursor
+	---
+	3270 Font		the original 3270 font (14-point)
+	3270-12 Font		a smaller 3270 font (12-point)
+	Other Font...		pop-up to enter another font name
+	---
+	Line Mode		change TELNET modes (if ASCII)
+	Character Mode
+	---
+	Model 2			change 3270 model
+	Model 3
+	Model 4
+	Model 5
+    Connect...
+	(list of hosts)
+	Other... (popup window)
+
+The menu bar is turned off with "*menuBar: false" or if the size of the
+emulator font makes the window too small to hold it.  The menus can also be
+popped up with Ctrl and the mouse buttons.
+
+1.4 Keypad
+
+There is a mouse-clickable keypad containing all of the PF, PA, cursor control
+and miscellaneous 3270 keys.  It can be toggled on and off with a button in the
+upper right of the window.  The command-line option "-keypad" or the "*keypad"
+resource determines where it goes:
+    right	separate window, to the right of the main window (default)
+    bottom	separate window, below the main window
+    integral	integrated into the bottom of the main window
+
+The keypad can be displayed at startup with "*keypadOn: true".
+
+1.5 Fonts
+
+The font used by x3270 is configurable with the command-line option "-efont" or
+the resource "emulatorFont."
+
+An additional 3270 font (3270-12) is provided.
+
+Separate bold fonts are provided (3270bold and 3270-12bold) for speed.
+
+x3270 can use any standard constant-spaced X font, but some of the cute stuff
+on the status line might not look as nice.
+
+Many perfectly good constant-spaced fonts are misconfigured and x3270 doesn't
+like them; try a '!' in front of the name to override some of the checking.
+
+The font can be changed at any time with a menu option or the SetFont action.
+
+1.6 Cut/Paste
+
+Xterm-like mouse selection is supported.  The selection region is a rectangle,
+rather than a continuous band on the screen, because this is more "3270-like."
+
+The middle mouse button performs a "paste" action like xterm's.
+
+The mouse can be configured to act more like OpenWindows with a keymap option.
+
+1.7 ANSI Emulation
+
+Placing "a:" in front of a host name causes x3270 to emulate an ANSI terminal
+(more or less a VT100 or xterm) until the remote host negotiates 3270
+emulation.  Un-negotiating 3270 mode causes a disconnect.
+
+Line mode / character mode is negotiable with a menu option.
+
+1.8 Status Line
+
+The cursor position is reported in the lower-right corner.  The resource
+"*cursorPos: false" or a menu option will turn it off.
+
+The time between sending an AID key and the host unlocking the keyboard can be
+displayed next to the cursor position.  The resource "*timing: true" or a menu
+option will turn it on.  If the transaction takes more than 1 second, the
+timing display is updated once a second.
+
+1.9 Internationalization
+
+This version of x3270 supports international EBCDIC character sets and
+keyboards in a manner similar (but not quite identical) to version 1.3.
+The "-charset" option or "*charset" resource specifies an alternative mapping
+between EBCDIC codes and displayed graphics.  Character sets supported include
+"us" (the default), german, finnish, uk, norwegian and french.  The character
+set name "oldibm" is also supported to deal with older U.S. hosts that use
+different EBCDIC codes for the square bracket characters.
+
+Unlike version 1.3, specifying a "charset" does not modify your keyboard
+mapping.  Instead, the "-keymap" option and "*keymap" resource accept
+modifiers, that is, they can be specified as a comma-separated list of keymap
+names.  The keymap modifiers "finnish7" and "norwegian7" are defined, as is the
+modifier "ow", which swaps the middle and right mouse buttons to make them
+operate more like OpenWindows.  (For example, to speficy a Sun-4 keyboard with
+7-bit Finnish key mappings and OpenWindows mouse buttons, speficy "-keymap
+sun-k4,finnish7,ow".
+
+Character sets and keymap modifiers are implemented entirely in resources, so
+it is easy to add or correct definitions.
+
+1.10 Icons
+
+The icon can either be a cute bitmap or a miniature of the screen image.  The
+-activeicon switch or "*activeIcon: true" resource turns on active icons.  The
+default font for the icon (*iconFont) is nil2.  Window manager dependencies
+abound.
+
+Twm doesn't label application-supplied icon windows.  x3270 will supply its own
+icon label if "*labelIcon" is true.  The icon label font is controlled by
+"*iconLabelFont".
+
+1.11 Miscellany
+
+The block cursor hollows out when the mouse cursor leaves the x3270 window.
+
+The cursor can be made to blink with a resource (*blink: true) or a menu
+option.
+
+For debugging, the TELNET and 3270 data streams can be traced on standard
+output.
+
+The window and icon labels contain useful information.
+
+The model number (screen size) may be changed while running, so long as you are
+disconnected.
+
+The PA3 and 3270 ATTN keys (from v1.3) are implemented.
+
+2. Some Bugs Fixed
+
+The last line of the display was not being refreshed on an expose event.
+
+ERASE WRITE was not properly implemented (it is supposed to put the terminal in
+24x80 mode until an ERASE WRITE ALTERNATE is received).
+
+The "SYSTEM" wait condition on the status line was being displayed at
+inappropriate times.
+
+A TAB key on a screen with no unprotected fields caused an infinite loop.
+
+A field from which data had been deleted (with the DELETE key) was not marked
+as modified.
+
+If the 3270 font could not be found, x3270 used the wrong font and painted the
+screen with garbage.
+
+If there was a "*font" entry in the user's .Xdefaults, x3270 would find that
+font instead of its own font, with similarly unpleasant results.
+
+If the host sent an invalid 3270 command, x3270 crashed silently.
+
+If the host was not an IBM host, x3270 would either hang or fail cryptically.
+
+Screen updates on ordinary field input were jerky and slow.
+
+The 3270 READ MODIFIED command returned incorrect values for attribute bytes,
+causing all fields to appear to be nondisplayed.
+
+Characters that changed attributes (but not character codes) were not always
+redisplayed properly.
+
+The shift-key display was wrong if the mouse entered or left the window with
+a shift key pressed.
+
+3. Incompatibilities
+
+This code cannot use the 3270 font supplied with the v2.65beta release (nor can
+any of the other versions of x3270; I disagree with v2.65's author's decision
+to re-order the 3270 font).  It can use the fonts supplied with 1.2 and 1.3
+BETA, or any constant-width X font.
+
+The APL keyboard mappings supplied with the "apl" keymap modifier are somewhat
+different from those supplied with v2.65beta.  However, they are defined
+entirely with resources, so you can modify them easily.
+
+The x3270 app-defaults file must be updated in order to run this version.  The
+new app-defaults file is not compatible with any other release.
+
+4. Build Hints
+
+4.1. HP
+
+To build on HP boxes, you may need to uncomment the following in Imakefile:
+
+    EXTRA_DEFINES = -D_HPUX_SOURCE
+
+4.2 nil2 Font
+
+If for some reason you are missing the font alias for the "nil2" font, you can
+uncomment the following in X3270.ad:
+
+    x3270.iconFont: -misc-nil-medium-r-normal--2-20-75-75-c-10-misc-fontspecific
+
+4.3 SunOS Undefined Symbols
+
+If you are building for Sun Solaris 1, you may get the following undefineds:
+   _sin
+   _cos
+   _pow
+   _floor
+
+These can be fixed by adding the following line to the top of the Imakefile:
+    EXTRA_LOAD_FLAGS = -lm
+
+If you are building for Sun Solaris 2, you may get the additional undefineds:
+    inet_addr
+    socket
+    setsockopt
+    gethostbyname
+    shutdown
+    getservbyname
+    connect       
+
+These can be fixed by adding the following line to the top of the Imakefile:
+    EXTRA_LOAD_FLAGS = -lm -lnsl -lsocket
+
+Finally, if you are building for Sun OpenWindows Version 4, you may get the
+following undefineds:
+   _get_wmShellWidgetClass
+   _get_applicationShellWidgetClass
+
+This is a bug in Sun's X11 libraries, and can be corrected by obtaining patches
+100512-02 and 100573-03 from Sun.  As a short-term workaround, you can add the
+following to the top of the Imakefile, forcing x3270 to be statically linked:
+    CCOPTIONS = -Bstatic
+
+4.4 memmove
+
+If your C library includes the memmove() function, you can add the following to
+top if the Imakefile to take advantage of it:
+    EXTRA_DEFINES = -DMEMORY_MOVE=memmove
+
+5. Bugs Fixed and Enhancements Since v3.0
+
+5.1 APL Support (!)
+
+Prerequisite #1: Extended the special 3270 fonts to include all of the
+characters in the IBM U.S. EBCDIC character set (and the ISO Latin-1 set).
+
+Prerequisite #2: Added support for composite characters, e.g., pressing and
+releasing Compose, then C, then comma, produces a C-cedilla.
+
+Finally: Added support for APL through an additional font that replaces
+accented letters and special characters with APL characters, and with an
+additional keymap modifier and composite definitions.
+
+5.2 Cut/Paste
+
+Cut and paste were not supported correctly.  The insert-selection() action
+would paste each selection it was told to use, rather than just the first one
+found.
+
+The end-selection() action paid no attention to its parameters (it just used
+PRIMARY), so the selection type could not be modified in the app-defaults
+file.  It also neglected to relinquish the selection when the text was
+unhighlighted on the screen.
+
+The "ow" (OpenWindows) modifier in the app-defaults file has also been modified
+to use the OpenWindows CLIPBOARD selection.
+
+5.3 Telnet Port
+
+Added the ability to specify a numeric port number (e.g., x3270 -port 23).
+
+5.4 memcpy Fix
+
+Shortly before release, all references to bcopy() were changed to memcpy().
+Alas, memcpy() does not behave well with overlapping buffers.
+
+5.5 Miscellany
+
+Fixed some minor problems with missing bold fonts.
+
+The DELETE key, when pressed on a 1-character-wide field, caused fireworks.
+
+Implemented DeleteWord (^W) and DeleteField (^U) actions.  Restored the
+MoveCursor action and gave up on the notion of combining it with select-start.
+Note that this is an incompatibility with v3.0 -- MoveCursor is now
+Shift<Btn1Down>, rather than some unpredictable side-effect of cut-and-paste on
+plain <Btn1Down>.  I hope no one got used to the old functionality.
+
+Fixed a misnamed function key in the HP keymap.
+
+Fixed a Home key problem that had already been fixed in v2.65.
+
+Fixed a problem in the implementation of auto-skip fields.
+
+5.6 Bugs Fixed in Patch Set 1 (v3.0.1.1)
+
+Fix to Home key.  A previous bug fix was really a "bugswap", changing a key
+that sometimes malfunctioned into one that always malfunctioned.
+
+Fix for numeric port numbers (e.g., -port 23), which didn't work on little-
+endian machines.
+
+Fix for boneheaded font definition.
+
+Fix for symbol "DEC", which causes compile errors on DEC machines.
+
+Fix for redundant manpage install rule in Imakefile.
+
+5.7 Bugs Fixed in Patch Set 2 (v3.0.1.2)
+
+Fixed 'EWOULDBLOCK' crashes on network writes by restoring blocking mode on
+the socket; changed socket write errors from crashes to pop-up error messages.
+[Found by Rusty Wright.]
+
+Elminated the incorrect NULLing out of fields in response to PT orders.  It
+still isn't obvious exactly when this *should* happen, so this fix introduces
+another, more tolerable problem.  [Found by Alan Sengillo and Ilia Levi.]
+
+Put back v3.0's original combination of select-start and MoveCursor on the
+left mouse button, with a new action called "move-select."  You have to map
+this explicitly; the default is still to have select-start on Btn1 and
+MoveCursor on Shift-Btn1.  [Requested by Steve Lodin.]
+
+Added missing AID keys 21-24 to the ANSI-mode translation table.  [Found by
+Raymond Wiker.]
+
+Fixed subtle problems with multiple select targets.  [Found by Tjemsland Svein.]
+
+Fixed the cut/paste definitions in the "ow" keymap modifier, and removed
+redundant cursor-key definitions from the Sun keymaps, which kept Left2 and
+Right2 from working.  [Found by Tjemsland Svein and Raymond Wiker.]
+
+Fixed selections so they aren't given up with the screen changes.  [Found by
+Mike Bird.]
+
+Fixed a bug in Newline() which caused the cursor to sometimes land on a field
+attribute.  Finally implemented common code for this, so now I can break Tab,
+Dup, Home and auto-skip at the same time.  [Found by Mike Bird.]
+
+5.8 Enhancements in Patch Set 2 (v3.0.1.2)
+
+Implemented screen printing via new PrintText and PrintWindow actions.
+(HardPrint is an alias for PrintText for minimal compatibility with other
+versions.)  [Suggested by Bill Oliver and Laura Ambrose.]
+
+Added a "-once" option which causes x3270 to exit when a host disconnects.
+[Suggested by Ilia Levi.]
+
+Enhanced the "About x3270" popup to report all keymaps found, including
+"user" keymaps.  This should simplify keymap debugging somewhat.  [This has
+plauged quite a number of people.]
+
+Added keymap definitions for F11 and F12 under OpenWindows.  The keysym names
+are different (and incompatible) between X11R4/OpenWindows 3 and X11R5, so
+there are three, unmnemonically separate definitions.  [Found by Raymond Wiker
+and David St. Pierre.]
+
+Added the default charset to the app-defaults file.  [Mine!]
+
+Added three new actions: Erase (Unix-like backspace), ToggleInsert (obvious),
+and FieldEnd (go to end of field).  [Suggested by Raymond Wiker.]
+
+Added three new targets to Makefile.aux:
+
+    dryrun	Run x3270 in the current directory, getting fonts and
+		resources from the current directory.
+
+    ow3		Build x3270 under OpenWindows 3.0, for users without
+		xmkmf (or without one that works).
+
+    ow3.install	Install x3270 in /usr/openwin.
+
+5.9 Bug Fixes in Patch Set 3 (v3.0.1.3)
+
+Fixed typo which most compilers let pass.  [Reported by Marc Morin.]
+
+Fixed EWOULDBLOCK can't-ever-happen which apparently did.  [Reported by Marc
+Morin.]
+
+Fixed an error in the response to the READ BUFFER command, which wasn't
+properly encoding attribute bytes.  [Reported by Eric M. Boehm.]
+
+Fixed OpenWindows font targets in Makefile.aux.  [Fixed by Raymond A. Wiker.]
+
+Fixed a typo in X3270.ad.  [Found by Eric M. Boehm.]
+
+Fixed a spelling error in x3270.man.
+
+Properly fixed the problem with the nulling-out behavior of PT orders.
+Versions 1.2 through 3.0.1.1 did it too often; v3.0.1.2 didn't do it at all.
+[Identified by a number of people; primary help from Ilia Levi.]
+
+Corrected the handling of illegal buffer addresses.  [Reported by Soren B.
+Poulsen.]
+
+5.10 Enhancements in Patch Set 3 (v3.0.1.3)
+
+Filter the output of the "Trace 3270 DS" option so it doesn't generate huge
+lines.
+
+5.11 Fixes in v3.0.1.4
+
+If you hit CLEAR, then RESET, then any AID key before the host responded,
+x3270 would hang in a tight loop.
+
+The left and right cursor keys didn't work if the caps lock was on.
+
+PF20 and PF21 were swapped on the keypad.
+
+The Xt "-name" option caused havoc.
+
+=====
+
+Feel free to let me know what you think...
+
+				Paul Mattes
+				pdm@cnt.com

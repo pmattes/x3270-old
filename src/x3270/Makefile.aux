@@ -1,0 +1,103 @@
+# Auxiliary makefile for x3270
+
+all:
+	@echo "Must pick a specific make target."
+
+# Dry run: Run x3270 with everything (app-defaults, fonts) in the current
+# directory.
+
+dryrun:
+	mkfontdir .
+	xset +fp `pwd`/
+	xset fp rehash
+	XFILESEARCHPATH=X3270.ad ./x3270
+	xset -fp `pwd`/
+
+# Development tools.
+
+SOURCES = ansi.c apl.c ctlr.c keypad.c kybd.c menubar.c popups.c screen.c \
+	select.c tables.c status.c telnet.c x3270.c
+HEADERS = 3270.h 3270_enc.h globals.h telnet.h
+BITMAPS = keypad.bm dot.bm ky.bm gray.bm x3270.bm
+FONTS = 3270-12.bdf 3270-12b.bdf 3270.bdf 3270b.bdf 3270a.bdf 3270ab.bdf
+MISC = version.txt X3270.ad x3270.man ibm_hosts.man Imakefile Makefile.sampl \
+	README.3.0 Makefile.aux
+FILES = $(SOURCES) $(HEADERS) $(BITMAPS) $(FONTS) $(MISC)
+
+x3270.tar.Z: $(FILES)
+	tar -cf - $(FILES) | compress > $@
+
+x3270.uu: x3270.tar.Z
+	uuencode x3270.tar.Z < x3270.tar.Z > $@
+
+x3270.inflate: x3270.tar.Z
+	inflate x3270.tar.Z > $@
+
+# Sample makefile.
+
+Makefile.sampl: Imakefile
+	xmkmf
+	sed -e 's/\.sa\.\$$(SO[A-Z]*REV)$$/.a/' \
+	    -e 's/CCOPTIONS = .*/CCOPTIONS =/' Makefile >Makefile.sampl
+
+# Development tools.
+
+ID: $(SOURCES) $(HEADERS)
+	mkid $(SOURCES) $(HEADERS)
+
+tags: $(SOURCES) $(HEADERS)
+	ctags $(SOURCES) $(HEADERS)
+
+lessman:
+	tbl x3270.man | nroff -man | less
+
+###############################################################################
+# Build rules for Sun OpenWindows 3.  A lot easier than picking apart the
+# Imakefile if your xmkmf isn't set up right.
+###############################################################################
+
+OPENWINHOME=/usr/openwin
+CFLAGS = -O -I$(OPENWINHOME)/include
+OBJECTS = $(SOURCES:%.c=%.o)
+
+OWFONTOBJS = $(FONTS:%.bdf=%.fb)
+.bdf.fb:
+	$(OPENWINHOME)/bin/convertfont -d. -o `basename $@ .fb` $<
+.SUFFIXES: .bdf .fb $(SUFFIXES)
+
+LIBS = -lXaw -lXmu -lX11 -lXt -lXext -lX11 -lm
+
+# If you get the following ld error:
+#
+#     ld: Undefined symbol
+#       _get_wmShellWidgetClass
+#       _get_applicationShellWidgetClass
+#
+# then you need to get patches 100512-02 and 100573-03 from Sun.  In the
+# meantime, use the following LIBS definition as a workaround:
+#LIBS = -lXaw -Bstatic -lXmu -Bdynamic -lX11 -lXt -lXext -lX11 -lm
+
+# For Solaris 2.x (SunOS 5.x), uncomment the line below:
+#LIBS += -lnsl -lsocket
+
+x3270: $(OBJECTS) version.o
+	$(CC) -o x3270 $(OBJECTS) version.o -L$(OPENWINHOME)/lib $(LIBS)
+	@$(RM) version.o
+
+version.o: $(OBJECTS) version.txt
+	@(cat version.txt; echo "char *build = \"`date`\";") >version.c
+	@$(CC) -c version.c
+	@$(RM) version.c
+
+# Make x3270 for OpenWindows 3
+ow3: x3270 $(OWFONTOBJS)
+
+# Install x3270 under OpenWindows 3: assumes you want to put everything in
+# $OPENWINHOME.
+ow3.install: ow3
+	install -m 755 x3270 $(OPENWINHOME)/bin
+	cp $(OWFONTOBJS) $(OPENWINHOME)/lib/fonts
+	$(OPENWINHOME)/bin/mkfontdir $(OPENWINHOME)/lib/fonts
+	cp X3270.ad $(OPENWINHOME)/lib/app-defaults/X3270
+	cp x3270.man $(OPENWINHOME)/man/man1/x3270.1
+	cp ibm_hosts.man $(OPENWINHOME)/man/man5/ibm_hosts.5

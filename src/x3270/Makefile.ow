@@ -1,0 +1,49 @@
+# Makefile for OpenWindows v3
+
+VOBJS = ansi.o ctlr.o keypad.o kybd.o menubar.o popups.o screen.o \
+	select.o status.o tables.o telnet.o x3270.o
+OBJS = $(VOBJS) version.o
+FONTS = 327014.fb 3270bold14.fb 3270-1212.fb 3270-12bold12.fb
+SHELL = /bin/sh
+CFLAGS = -I/usr/openwin/include -O
+INSTALL_DIR = /usr/openwin
+
+# for Solaris, uncomment the following:
+# NETLIBS = -lnsl -lsocket
+
+all: x3270 $(FONTS) Families.list
+
+x3270: $(OBJS)
+	LD_LIBRARY_PATH=/usr/openwin/lib:/usr/lib; \
+	export LD_LIBRARY_PATH; \
+	$(CC) -o $@ $(OBJS) -lXaw -lXmu -lXt -lXext -lX11 -lm $(NETLIBS)
+
+version.o: $(VOBJS) version.txt
+	@echo "char *build = \"x3270 v`cat version.txt`, `date`\"; char *version = \"`cat version.txt`\";" >version.c
+	@$(CC) -c version.c
+	@$(RM) version.c
+
+327014.fb: 3270.bdf
+	convertfont -b -d. $?
+
+3270bold14.fb: 3270b.bdf
+	convertfont -b -d. $?
+
+3270-1212.fb: 3270-12.bdf
+	convertfont -b -d. $?
+
+3270-12bold12.fb: 3270-12b.bdf
+	convertfont -b -d. $?
+
+Families.list: $(FONTS)
+	bldfamily -d.
+
+# Rather dangerous install target -- puts everything in /usr/openwin.  If you
+# wish, change INSTALL_DIR.
+install: x3270 $(FONTS)
+	cp x3270 $(INSTALL_DIR)/bin/x3270
+	cp $(FONTS) $(INSTALL_DIR)/lib/fonts
+	bldfamily -d$(INSTALL_DIR)/lib/fonts
+	cp X3270.ad $(INSTALL_DIR)/lib/app-defaults/X3270
+	cp x3270.man $(INSTALL_DIR)/man/man1/x3270.1
+	cp ibm_hosts.man $(INSTALL_DIR)/man/man5/ibm_hosts.5

@@ -1,0 +1,19 @@
+Design for Combining MoveCursor and select-start
+
+There will be a new action, move-select, which is equivalent to the old
+select-start.  It will combine MoveCursor and select-start, and is intended to
+be bound to !<Btn1Down>.
+
+Its behavior will be:
+
+    - If a region is selected, unselect it.  Otherwise...
+
+    - First click down: Remember where the the cursor was and move the cursor.
+      Also, do the usual actions for select-start.
+
+    - Motion (select-extend): They didn't want to move the cursor.  Move the
+      cursor back, then do the usual motion action.  [Should we differentiate
+      between Btn3Down and BtnXMotion here?]
+
+    - Second click up: They didn't want to move the cursor.  Move it back, then
+      do the usual double-click action.
