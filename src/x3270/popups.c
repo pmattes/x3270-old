@@ -511,6 +511,12 @@ popup_rop(struct rop *rop, abort_callback_t *a, const char *fmt, va_list args)
 	}
 }
 
+static void
+error_exit(void)
+{
+	x3270_exit(0);
+}
+
 /* Pop up an error dialog. */
 void
 popup_an_error(const char *fmt, ...)
@@ -518,8 +524,17 @@ popup_an_error(const char *fmt, ...)
 	va_list args;
 
 	va_start(args, fmt);
-	popup_rop(&error_popup, NULL, fmt, args);
+	popup_rop(&error_popup, appres.reconnect? error_exit: NULL, fmt, args);
 	va_end(args);
+}
+
+/* Pop down an error dialog. */
+void
+popdown_an_error(void)
+{
+	if (error_popup.visible) {
+		XtPopdown(error_popup.shell);
+	}
 }
 
 /* Pop up an error dialog, based on an error number. */
@@ -549,6 +564,26 @@ popup_an_info(const char *fmt, ...)
 
 	va_start(args, fmt);
 	popup_rop(&info_popup, NULL, fmt, args);
+	va_end(args);
+}
+
+/*
+ * Produce a result of some sort.  If there is a script running, return it
+ * as the value; otherwise, pop it up as an info.
+ */
+void
+action_output(const char *fmt, ...)
+{
+	va_list args;
+
+	va_start(args, fmt);
+	if (sms_redirect()) {
+		char buf[4096];
+
+		(void) vsprintf(buf, fmt, args);
+		sms_info("%s", buf);
+	} else
+		popup_rop(&info_popup, NULL, fmt, args);
 	va_end(args);
 }
 

@@ -362,8 +362,7 @@ status_disp(void)
 	for (i = 0; i < SSZ; i++)
 		if (status_line[i].changed) {
 			status_render(i);
-			(void) MEMORY_MOVE(status_line[i].d2b,
-				   (char *) status_line[i].s2b,
+			(void) memmove(status_line[i].d2b, status_line[i].s2b,
 				   status_line[i].len * sizeof(XChar2b));
 			status_line[i].changed = False;
 		}
@@ -1050,7 +1049,7 @@ make_emsg(unsigned char prefix[], const char *key, int *len)
 	const char *text = get_message(key);
 	unsigned char *buf = (unsigned char *)XtMalloc(*len + strlen(text));
 
-	(void) MEMORY_MOVE((char *)buf, (char *)prefix, *len);
+	(void) memmove(buf, prefix, *len);
 	while (*text)
 		buf[(*len)++] = asc2cg[(int)*text++];
 

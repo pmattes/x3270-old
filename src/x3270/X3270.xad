@@ -105,7 +105,6 @@ x3270.schemeList:			Default 3279: default\n\
 !   Character sets listed on the Options menu
 x3270.charsetList:			U.S. English: us-intl\n\
 					Bracket: bracket\n\
-					GE-mapped Bracket: gebracket\n\
 					German: german\n\
 					Finnish: finnish\n\
 					United Kingdom: uk\n\
@@ -161,6 +160,7 @@ x3270.charsetList:			U.S. English: us-intl\n\
 ! x3270.bellVolume:			0
 ! x3270.charset:			bracket
 ! x3270.composeMap:			latin1
+! x3270.connectFileName:		~/.x3270connect
 ! x3270.doConfirms:			true
 ! x3270.debugTracing:			true
 ! x3270.disconnectClear:		false
@@ -226,8 +226,8 @@ x3270.traceCommand:			tail -f
 !
 ! Printer session options
 x3270.printer.command:			lpr
-x3270.printer.assocCommandLine:		pr3287 -assoc %L% -command %C% %H%
-x3270.printer.luCommandLine:		pr3287 -command %C% %L%@%H%
+x3270.printer.assocCommandLine:		pr3287 -assoc %L% -command "%C%" %H%
+x3270.printer.luCommandLine:		pr3287 -command "%C%" %L%@%H%
 !
 ! Translation table for the '@server' pseudo-keymap, which is the keymap
 ! you get by default (in addition to the 'base' keymap, below).  Maps server
@@ -799,6 +799,7 @@ x3270.keymap.icelandic: \
 !=============================================================================
 !
 x3270.errorPopup.title:				x3270 Error
+x3270.errorPopup*cancelButton.label:		Exit
 x3270.printerErrorPopup.title:			x3270 Printer Error
 #ifdef X3270_MENUS
 x3270.infoPopup.title:				x3270 Information
@@ -923,7 +924,6 @@ x3270.printerLuPopup*confirmButton.label:	Start Session
 x3270*optionsMenuButton.label:			Options
 x3270*optionsMenu.label:			Options
 x3270*connectMenuButton.label:			Connect
-x3270*reconnectButton.label:			Reconnect
 x3270*macrosMenuButton.label:			Macros
 x3270*macrosMenu.label:				Macros
 x3270*hostMenu.label:				Connect
@@ -966,7 +966,6 @@ x3270*saveOption.label:				Save Changed Options in File
 !
 ! Messages
 #ifdef X3270_MENUS
-x3270.message.reconnect:			Reconnect to
 x3270.message.processId:			Process ID:
 x3270.message.windowId:				Main window ID:
 x3270.message.model:				Model
@@ -1096,14 +1095,12 @@ x3270*menuBarContainer.borderColor:		grey40
 x3270*fileMenuButton*background:		grey
 x3270*optionsMenuButton*background:		grey
 x3270*connectMenuButton*background:		grey
-x3270*reconnectButton*background:		grey
 x3270*macrosMenuButton*background:		grey
 x3270*helpButton*background:			grey
 x3270*keypadButton*background:			grey
 x3270*fileMenuButton*borderColor:		grey
 x3270*optionsMenuButton*borderColor:		grey
 x3270*connectMenuButton*borderColor:		grey
-x3270*reconnectButton*borderColor:		grey
 x3270*macrosMenuButton*borderColor:		grey
 x3270*helpButton*borderColor:			grey
 #endif
@@ -1112,7 +1109,6 @@ x3270*helpButton*borderColor:			grey
 x3270*fileMenuButton*borderColor:		XtDefaultBackground
 x3270*optionsMenuButton*borderColor:		XtDefaultBackground
 x3270*connectMenuButton*borderColor:		XtDefaultBackground
-x3270*reconnectButton*borderColor:		XtDefaultBackground
 x3270*macrosMenuButton*borderColor:		XtDefaultBackground
 x3270*helpButton*borderColor:			XtDefaultBackground
 #endif
@@ -1121,7 +1117,6 @@ x3270*helpButton*borderColor:			XtDefaultBackground
 x3270*fileMenuButton*highlightThickness:	1
 x3270*optionsMenuButton*highlightThickness:	1
 x3270*connectMenuButton*highlightThickness:	1
-x3270*reconnectButton*highlightThickness:	1
 x3270*macrosMenuButton*highlightThickness:	1
 x3270*helpButton*highlightThickness:	1
 x3270*keypadButton*highlightThickness:		1
@@ -1130,7 +1125,6 @@ x3270*fileMenu*background:			grey
 x3270*exitMenu*background:			grey
 x3270*optionsMenu*background:			grey
 x3270*hostMenu*background:			grey
-x3270*reconnect*background:			grey
 x3270*macrosMenu*background:			grey
 x3270*togglesMenu*background:			grey
 x3270*fontsMenu*background:			grey
@@ -1652,14 +1646,6 @@ x3270.charset.oldibm: \
 	0xad: [			\n	0xba: Yacute		\n\
 	0xbd: ]			\n	0xbb: diaeresis		\n
 x3270.codepage.oldibm:		37
-!
-! EBCDIC character set map for hosts that use the standard U.S. English
-! character set, with X'BA' for '[' and X'BB' for ']', but insist on displaying
-! them as GE X'BA' and GE X'BB', which are the APL 'del' and 'delta'
-! characters.
-x3270.charset.gebracket: \
-	0x1ba: Yacute		\n	0x1bb: diaeresis	\n
-x3270.codepage.gebracket:	37
 !
 ! Each entry below is derived from IBM GA27-3831-03, Fourth Edition.
 ! Austrian/German (table 03)

@@ -126,11 +126,11 @@ scroll_save(int n, Boolean trim_blanks)
 	/* Save the screen contents. */
 	for (i = 0; i < n; i++) {
 		if (i < COLS) {
-			MEMORY_MOVE((char *)buf_save[scroll_next],
-			    (char *)screen_buf+(i*COLS),
+			(void) memmove(buf_save[scroll_next],
+			    screen_buf+(i*COLS),
 			    COLS);
-			MEMORY_MOVE((char *)ea_save[scroll_next],
-			    (char *)(ea_buf+(i*COLS)),
+			(void) memmove(ea_save[scroll_next],
+			    (ea_buf+(i*COLS)),
 			    COLS*sizeof(struct ea));
 			if (COLS < maxCOLS) {
 				(void) memset((char *)(buf_save[scroll_next] + COLS), '\0',
@@ -211,11 +211,11 @@ save_image(void)
 	if (!need_saving)
 		return;
 	for (i = 0; i < maxROWS; i++) {
-		MEMORY_MOVE((char *)buf_save[appres.save_lines+i],
-		            (char *)screen_buf + (i*COLS),
+		(void) memmove(buf_save[appres.save_lines+i],
+		            screen_buf + (i*COLS),
 		            COLS);
-		MEMORY_MOVE((char *)ea_save[appres.save_lines+i],
-		            (char *)(ea_buf + (i*COLS)),
+		(void) memmove(ea_save[appres.save_lines+i],
+		            (ea_buf + (i*COLS)),
 		            COLS*sizeof(struct ea));
 	}
 	need_saving = False;
@@ -274,18 +274,18 @@ sync_scroll(int sb)
 	/* Update the screen. */
 	for (i = 0; i < maxROWS; i++)
 		if (i < sb) {
-			MEMORY_MOVE((char *)screen_buf + (i*COLS),
-				    (char *)buf_save[(scroll_first+i) % appres.save_lines],
+			(void) memmove(screen_buf + (i*COLS),
+				    buf_save[(scroll_first+i) % appres.save_lines],
 				    COLS);
-			MEMORY_MOVE((char *)(ea_buf + (i*COLS)),
-				    (char *)ea_save[(scroll_first+i) % appres.save_lines],
+			(void) memmove((ea_buf + (i*COLS)),
+				    ea_save[(scroll_first+i) % appres.save_lines],
 				    COLS*sizeof(struct ea));
 		} else {
-			MEMORY_MOVE((char *)screen_buf + (i*COLS),
-				    (char *)buf_save[appres.save_lines+i-sb],
+			(void) memmove(screen_buf + (i*COLS),
+				    buf_save[appres.save_lines+i-sb],
 				    COLS);
-			MEMORY_MOVE((char *)(ea_buf + (i*COLS)),
-				    (char *)ea_save[appres.save_lines+i-sb],
+			(void) memmove((ea_buf + (i*COLS)),
+				    ea_save[appres.save_lines+i-sb],
 				    COLS*sizeof(struct ea));
 		}
 

@@ -14,9 +14,11 @@
 
 #include "globals.h"
 
-#if defined(X3270_DISPLAY) && defined(X3270_PRINTER) /*[*/
+#if (defined(C3270) || defined(X3270_DISPLAY)) && defined(X3270_PRINTER) /*[*/
+#if defined(X3270_DISPLAY) /*[*/
 #include <X11/StringDefs.h>
 #include <X11/Xaw/Dialog.h>
+#endif /*]*/
 #include <errno.h>
 #include <signal.h>
 #include <time.h>
@@ -35,6 +37,9 @@
 #include "printerc.h"
 #include "printc.h"
 #include "savec.h"
+#if defined(C3270) /*[*/
+#include "screenc.h"
+#endif /*]*/
 #include "tablesc.h"
 #include "telnetc.h"
 #include "trace_dsc.h"
@@ -44,7 +49,9 @@
 
 /* Statics */
 static int      printer_pid = -1;
+#if defined(X3270_DISPLAY) /*[*/
 static Widget	lu_shell = (Widget)NULL;
+#endif /*]*/
 static struct pr3o {
 	int fd;			/* file descriptor */
 	unsigned long input_id;	/* input ID */
@@ -82,8 +89,10 @@ printer_start(const char *lu)
 	int stderr_pipe[2];
 	static Boolean registered = False;
 
+#if defined(X3270_DISPLAY) /*[*/
 	/* Make sure the popups are initted. */
 	printer_popup_init();
+#endif /*]*/
 
 	/* Register interest in host connects and mode changes. */
 	if (!registered) {
@@ -183,9 +192,7 @@ printer_start(const char *lu)
 		buf1[1] = '\0';
 		(void) strcat(cmd_text, buf1);
 	}
-#if 0
-	fprintf(stderr, "command line: '%s'\n", cmd_text);
-#endif
+	trace_event("Printer command line: %s\n", cmd_text);
 
 	/* Make pipes for printer's stdout and stderr. */
 	if (pipe(stdout_pipe) < 0) {
@@ -268,6 +275,7 @@ printer_data(struct pr3o *p, Boolean is_err)
 			 * printer process said, and pop it up.
 			 */
 			p = &printer_stderr;
+			space = PRINTER_BUF - p->count - 1;
 			if (p->count && *(p->buf + p->count - 1) != '\n') {
 				*(p->buf + p->count) = '\n';
 				p->count++;
@@ -277,7 +285,7 @@ printer_data(struct pr3o *p, Boolean is_err)
 			p->count += strlen(exitmsg);
 			if (p->count >= PRINTER_BUF)
 				p->count = PRINTER_BUF - 1;
-			printer_dump(&printer_stderr, True, True);
+			printer_dump(p, True, True);
 		} else {
 			popup_an_error(exitmsg);
 		}
@@ -345,13 +353,22 @@ static void
 printer_dump(struct pr3o *p, Boolean is_err, Boolean is_dead)
 {
 	if (p->count) {
-		/* Strip any trailing newline. */
+		/*
+		 * Strip any trailing newline, and make sure the buffer is
+		 * NULL terminated.
+		 */
 		if (p->buf[p->count - 1] == '\n')
-			p->buf[p->count - 1] = '\0';
+			p->buf[--(p->count)] = '\0';
+		else if (p->buf[p->count])
+			p->buf[p->count] = '\0';
 
 		/* Dump it and clear the buffer. */
+#if defined(X3270_DISPLAY) /*[*/
 		popup_printer_output(is_err, is_dead? NULL: printer_stop,
 		    "%s", p->buf);
+#else /*][*/
+		action_output("%s", p->buf);
+#endif
 		p->count = 0;
 	}
 }
@@ -394,6 +411,7 @@ printer_stop(void)
 	st_changed(ST_PRINTER, False);
 }
 
+#if defined(X3270_DISPLAY) /*[*/
 /* Callback for "OK" button on printer specific-LU popup */
 static void
 lu_callback(Widget w, XtPointer client_data, XtPointer call_data unused)
@@ -411,6 +429,7 @@ lu_callback(Widget w, XtPointer client_data, XtPointer call_data unused)
 		lu = (char *)client_data;
 	printer_start(lu);
 }
+#endif /*]*/
 
 /* Host connect/disconnect/3270-mode event. */
 static void
@@ -426,6 +445,7 @@ printer_host_connect(Boolean connected unused)
 		printer_stop();
 }
 
+#if defined(X3270_DISPLAY) /*[*/
 /* Pop up the LU dialog box. */
 void
 printer_lu_dialog(void)
@@ -435,6 +455,7 @@ printer_lu_dialog(void)
 		    lu_callback, (XtCallbackProc)NULL, FORM_NO_WHITE);
 	popup_popup(lu_shell, XtGrabExclusive);
 }
+#endif /*]*/
 
 Boolean
 printer_running(void)

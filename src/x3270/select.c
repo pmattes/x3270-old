@@ -627,8 +627,7 @@ convert_sel(Widget w, Atom *selection, Atom *target, Atom *type,
 		*targetP++ = XA_COMPOUND_TEXT(display);
 		*targetP++ = XA_LENGTH(display);
 		*targetP++ = XA_LIST_LENGTH(display);
-		(void) MEMORY_MOVE((char *) targetP,
-				   (char *) std_targets,
+		(void) memmove(targetP,  std_targets,
 				   (int) (sizeof(Atom) * std_length));
 		XtFree((char *) std_targets);
 		*type = XA_ATOM;
@@ -645,7 +644,7 @@ convert_sel(Widget w, Atom *selection, Atom *target, Atom *type,
 			*type = XA_STRING;
 		*length = strlen(own_sel[i].buffer);
 		*value = XtMalloc(*length);
-		(void) MEMORY_MOVE(*value, own_sel[i].buffer, (int) *length);
+		(void) memmove(*value, own_sel[i].buffer, (int) *length);
 		*format = 8;
 		return True;
 	}
@@ -655,9 +654,9 @@ convert_sel(Widget w, Atom *selection, Atom *target, Atom *type,
 			*(long *)*value = 1;
 		else {
 			long temp = 1;
-			(void) MEMORY_MOVE((char *) *value,
-			                   ((char*) &temp) + sizeof(long) - 4,
-					   4);
+			(void) memmove(*value,
+					((char*) &temp) + sizeof(long) - 4,
+					4);
 		}
 		*type = XA_INTEGER;
 		*length = 1;
@@ -670,7 +669,7 @@ convert_sel(Widget w, Atom *selection, Atom *target, Atom *type,
 			*(long*)*value = strlen(own_sel[i].buffer);
 		else {
 			long temp = strlen(own_sel[i].buffer);
-			(void) MEMORY_MOVE((char *) *value,
+			(void) memmove(*value,
 			                   ((char *) &temp) + sizeof(long) - 4,
 					   4);
 		}
@@ -841,7 +840,7 @@ own_sels(Time t)
 			if (own_sel[j].buffer != CN)
 				XtFree(own_sel[j].buffer);
 			own_sel[j].buffer = XtMalloc(strlen(select_buf) + 1);
-			MEMORY_MOVE(own_sel[j].buffer, select_buf,
+			(void) memmove(own_sel[j].buffer, select_buf,
 			    strlen(select_buf) + 1);
 		} else {
 			XtWarning("Could not get selection");

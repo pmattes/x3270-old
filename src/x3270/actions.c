@@ -1,5 +1,5 @@
 /*
- * Modifications Copyright 1993, 1994, 1995, 1999 by Paul Mattes.
+ * Modifications Copyright 1993, 1994, 1995, 1999, 2000 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -39,6 +39,8 @@
 #if defined(X3270_DISPLAY) /*[*/
 #include "keypadc.h"
 #include "menubarc.h"
+#endif /*]*/
+#if defined(X3270_DISPLAY) || defined(C3270) /*[*/
 #include "screenc.h"
 #endif /*]*/
 
@@ -72,10 +74,13 @@ static Boolean know_mods = False;
 XtActionsRec actions[] = {
 #if defined(X3270_DISPLAY) /*[*/
 	{ "AltCursor",  	AltCursor_action },
+#endif /*]*/
+#if defined(X3270_DISPLAY) || defined(C3270) /*[*/
 	{ "Compose",		Compose_action },
+#endif /*]*/
+#if defined(X3270_DISPLAY) /*[*/
 	{ "Cut",		Cut_action },
 	{ "Default",		Default_action },
-	{ "Flip",		Flip_action },
 	{ "HandleMenu",		HandleMenu_action },
 	{ "HardPrint",		PrintText_action },
 	{ "HexString",		HexString_action },
@@ -83,6 +88,11 @@ XtActionsRec actions[] = {
 	{ "Keymap",		TemporaryKeymap_action },
 	{ PA_PFX "ConfigureNotify", PA_ConfigureNotify_action },
 	{ PA_END,		PA_End_action },
+#endif /*]*/
+#if defined(C3270) /*[*/
+	{ "Escape",		Escape_action },
+#endif /*]*/
+#if defined(X3270_DISPLAY) /*[*/
 	{ PA_PFX "EnterLeave",	PA_EnterLeave_action },
 	{ PA_PFX "Expose",	PA_Expose_action },
 	{ PA_PFX "Focus",	PA_Focus_action },
@@ -101,7 +111,12 @@ XtActionsRec actions[] = {
 	{ PA_PFX "confirm",	PA_confirm_action },
 	{ "PrintText",		PrintText_action },
 	{ "PrintWindow",	PrintWindow_action },
+#endif /*]*/
+#if defined(X3270_DISPLAY) || defined(C3270) /*[*/
+	{ "Flip",		Flip_action },
 	{ "Redraw",		Redraw_action },
+#endif /*]*/
+#if defined(X3270_DISPLAY) /*[*/
 	{ "SetFont",		SetFont_action },
 	{ "TemporaryKeymap",	TemporaryKeymap_action },
 # if defined(X3270_FT) && defined(X3270_MENUS) /*[*/
@@ -126,6 +141,9 @@ XtActionsRec actions[] = {
 	{ "BackTab",		BackTab_action },
 	{ "CircumNot",		CircumNot_action },
 	{ "Clear",		Clear_action },
+#if defined(C3270) /*[*/
+	{ "Close",		Disconnect_action },
+#endif /*]*/
 #if defined(X3270_SCRIPT) /*[*/
 	{ "CloseScript",	CloseScript_action },
 #endif /*]*/
@@ -154,6 +172,9 @@ XtActionsRec actions[] = {
 	{ "FieldMark",		FieldMark_action },
 	{ "FieldExit",		FieldExit_action },
 	{ "HexString",		HexString_action},
+#if defined(C3270) /*[*/
+	{ "Help",		Help_action},
+#endif/*]*/
 	{ "Home",		Home_action },
 	{ "Insert",		Insert_action },
 	{ "Interrupt",		Interrupt_action },
@@ -170,6 +191,9 @@ XtActionsRec actions[] = {
 #endif /*]*/
 	{ "Newline",		Newline_action },
 	{ "NextWord",		NextWord_action },
+#if defined(C3270) /*[*/
+	{ "Open",		Connect_action },
+#endif /*]*/
 	{ "PA",			PA_action },
 	{ "PF",			PF_action },
 #if defined(X3270_SCRIPT) /*[*/
@@ -189,6 +213,9 @@ XtActionsRec actions[] = {
 #if defined(X3270_SCRIPT) /*[*/
 	{ "Script",		Script_action },
 #endif /*]*/
+#if defined(C3270) /*[*/
+	{ "Show",		Show_action },
+#endif/*]*/
 #if defined(X3270_SCRIPT) || defined(TCL3270) /*[*/
 	{ "Snap",		Snap_action },
 #endif /*]*/
@@ -200,6 +227,9 @@ XtActionsRec actions[] = {
 	{ "Tab",		Tab_action },
 	{ "ToggleInsert",	ToggleInsert_action },
 	{ "ToggleReverse",	ToggleReverse_action },
+#if defined(C3270) /*[*/
+	{ "Trace",		Trace_action },
+#endif/*]*/
 #if defined(X3270_FT) /*[*/
 	{ "Transfer",		Transfer_action },
 #endif /*]*/
@@ -215,7 +245,8 @@ int actioncount = XtNumber(actions);
 enum iaction ia_cause;
 const char *ia_name[] = {
 	"String", "Paste", "Screen redraw", "Keypad", "Default", "Key",
-	"Macro", "Script", "Peek", "Typeahead", "File transfer"
+	"Macro", "Script", "Peek", "Typeahead", "File transfer", "Command",
+	"Keymap"
 };
 
 /*

@@ -420,8 +420,9 @@ PF_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 	if (check_usage(PF_action, *num_params, 1, 1) < 0)
 		return;
 	k = atoi(params[0]);
-	if (k > PF_SZ) {
-		popup_an_error("%s: invalid argument", action_name(PF_action));
+	if (k < 1 || k > PF_SZ) {
+		popup_an_error("%s: invalid argument '%s'",
+		    action_name(PF_action), params[0]);
 		return;
 	}
 	if (kybdlock & KL_OIA_MINUS)
@@ -2717,6 +2718,8 @@ static KeySym
 MyStringToKeysym(char *s, enum keytype *keytypep)
 {
 	KeySym k;
+	int cc;
+	char *ptr;
 
 #if defined(X3270_APL) /*[*/
 	if (!strncmp(s, "apl_", 4)) {
@@ -2748,6 +2751,15 @@ MyStringToKeysym(char *s, enum keytype *keytypep)
 		if (k > 0xff)
 			k = NoSymbol;
 	}
+
+	/* Allow arbitrary values, e.g., 0x03 for ^C. */
+	if (k == NoSymbol &&
+	    (cc = strtoul(s, &ptr, 0)) > 0 &&
+	    cc < 0xff &&
+	    ptr != s &&
+	    *ptr == '\0')
+		k = cc;
+
 	return k;
 }
 
@@ -2886,7 +2898,9 @@ PA_Shift_action(Widget w unused, XEvent *event unused, String *params unused,
 	XQueryKeymap(display, keys);
 	shift_event(state_from_keymap(keys));
 }
+#endif /*]*/
 
+#if defined(X3270_DISPLAY) || defined(C3270) /*[*/
 static Boolean
 build_composites(void)
 {
@@ -2973,8 +2987,9 @@ Compose_action(Widget w unused, XEvent *event, String *params, Cardinal *num_par
 		status_compose(True, 0, KT_STD);
 	}
 }
+#endif /*]*/
 
-
+#if defined(X3270_DISPLAY) /*[*/
 
 /*
  * Called by the toolkit for any key without special actions.

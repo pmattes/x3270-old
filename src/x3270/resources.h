@@ -1,5 +1,5 @@
 /*
- * Copyright 1995, 1996, 1999 by Paul Mattes.
+ * Copyright 1995, 1996, 1999, 2000 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -20,7 +20,6 @@
 #define ResAplFont		"aplFont"
 #define ResAplMode		"aplMode"
 #define ResAssocCommand		"printer.assocCommandLine"
-#define ResAttnLock		"attnLock"
 #define ResBaselevelTranslations	"baselevelTranslations"
 #define ResBellVolume		"bellVolume"
 #define ResBlankFill		"blankFill"
@@ -32,6 +31,7 @@
 #define ResColorBackground	"colorBackground"
 #define ResColorScheme		"colorScheme"
 #define ResComposeMap		"composeMap"
+#define ResConnectFileName	"connectFileName"
 #define ResCursorBlink		"cursorBlink"
 #define ResCursorColor		"cursorColor"
 #define ResCursorPos		"cursorPos"
@@ -139,7 +139,6 @@
 #define ClsAltCursor		"AltCursor"
 #define ClsAplFont		"AplFont"
 #define ClsAplMode		"AplMode"
-#define ClsAttnLock		"AttnLock"
 #define ClsBaselevelTranslations	"BaselevelTranslations"
 #define ClsBellVolume		"BellVolume"
 #define ClsBlankFill		"BlankFill"
@@ -149,6 +148,7 @@
 #define ClsColorBackground	"ColorBackground"
 #define ClsColorScheme		"ColorScheme"
 #define ClsComposeMap		"ComposeMap"
+#define ClsConnectFileName	"ConnectFileName"
 #define ClsCursorBlink		"CursorBlink"
 #define ClsCursorColor		"CursorColor"
 #define ClsCursorPos		"CursorPos"
@@ -232,6 +232,7 @@
 #define OptDsTrace		"-trace"
 #define OptEmulatorFont		"-efont"
 #define OptExtended		"-extended"
+#define OptHostsFile		"-hostsfile"
 #define OptIconName		"-iconname"
 #define OptIconX		"-iconx"
 #define OptIconY		"-icony"
@@ -263,6 +264,7 @@
 #define Apl			"apl"
 
 /* Resources that are gotten explicitly. */
+#define ResNvt			"nvt"
 #define ResPrintTextCommand	"printTextCommand"
 #define ResPrintWindowCommand	"printWindowCommand"
 #define ResResizeFontList	"resizeFontList"

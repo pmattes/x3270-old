@@ -73,12 +73,8 @@ static Widget  *charset_widgets;
 static void scheme_init(void);
 static void charsets_init(void);
 static void options_menu_init(Boolean regen, Position x, Position y);
-#if 0
-static void help_button_init(Boolean regen, Position x, Position y);
-#endif
 static void keypad_button_init(Position x, Position y);
 static void connect_menu_init(Boolean regen, Position x, Position y);
-static void reconnect_menu_init(Boolean regen, Position x, Position y);
 static void macros_menu_init(Boolean regen, Position x, Position y);
 static void file_menu_init(Boolean regen, Dimension x, Dimension y);
 static void Bye(Widget w, XtPointer client_data, XtPointer call_data);
@@ -258,11 +254,7 @@ menubar_init(Widget container, Dimension overall_width, Dimension current_width)
 
 	/* "Connect..." menu */
 
-	if (appres.reconnect)
-		reconnect_menu_init(mb_old != menubar_buttons,
-		    LEFT_MARGIN + CN_OFFSET*(KEY_WIDTH+2*BORDER+SPACING),
-		    TOP_MARGIN);
-	else
+	if (!appres.reconnect)
 		connect_menu_init(mb_old != menubar_buttons,
 		    LEFT_MARGIN + CN_OFFSET*(KEY_WIDTH+2*BORDER+SPACING),
 		    TOP_MARGIN);
@@ -272,16 +264,6 @@ menubar_init(Widget container, Dimension overall_width, Dimension current_width)
 	macros_menu_init(mb_old != menubar_buttons,
 	    LEFT_MARGIN + CN_OFFSET*(KEY_WIDTH+2*BORDER+SPACING),
 	    TOP_MARGIN);
-
-#if 0
-	/* "Help..." menu */
-
-	help_button_init(mb_old != menubar_buttons,
-	    (Position) (current_width - LEFT_MARGIN - (ky_width+8) -
-			    2*BORDER - 2*MENU_BORDER -
-			    SPACING - KEY_WIDTH - 2*BORDER),
-	    TOP_MARGIN);
-#endif
 
 	/* Keypad button */
 
@@ -339,24 +321,16 @@ menubar_connect(Boolean ignored unused)
 	}
 
 	/* Set up the connect menu. */
-	if (appres.reconnect) {
-		if (!PCONNECTED &&
-		    connect_button != (Widget)NULL &&
-		    auto_reconnect_disabled) {
-			XtMapWidget(connect_button);
-		}
-	} else {
-		if (connect_menu != (Widget)NULL) {
-			if (PCONNECTED && connect_button != (Widget)NULL)
-				XtUnmapWidget(connect_button);
-			else {
-				connect_menu_init(True,
-				    LEFT_MARGIN +
-					CN_OFFSET*(KEY_WIDTH+2*BORDER+SPACING),
-				    TOP_MARGIN);
-				if (menubar_buttons)
-					XtMapWidget(connect_button);
-			}
+	if (!appres.reconnect && connect_menu != (Widget)NULL) {
+		if (PCONNECTED && connect_button != (Widget)NULL)
+			XtUnmapWidget(connect_button);
+		else {
+			connect_menu_init(True,
+			    LEFT_MARGIN +
+				CN_OFFSET*(KEY_WIDTH+2*BORDER+SPACING),
+			    TOP_MARGIN);
+			if (menubar_buttons)
+				XtMapWidget(connect_button);
 		}
 	}
 
@@ -422,14 +396,6 @@ menubar_printer(Boolean printer_on)
 	XtVaSetValues(printer_off_button, XtNsensitive, printer_on, NULL);
 }
 #endif /*]*/
-
-/* External entry point to display the Reconnect button. */
-void
-menubar_show_reconnect(void)
-{
-	if (connect_button != (Widget)NULL)
-		XtMapWidget(connect_button);
-}
 
 void
 menubar_keypad_changed(void)
@@ -800,14 +766,6 @@ do_connect_popup(Widget w unused, XtPointer client_data unused,
 	popup_popup(connect_shell, XtGrabExclusive);
 }
 
-/* Called from the "Reconnect" button */
-static void
-do_reconnect(Widget w unused, XtPointer client_data unused,
-    XtPointer call_data unused)
-{
-	host_reconnect();
-}
-
 /*
  * Initialize the "Connect..." menu
  */
@@ -819,6 +777,8 @@ connect_menu_init(Boolean regen, Position x, Position y)
 	Boolean any_hosts = False;
 	struct host *h;
 	Boolean need_line = False;
+	int n_primary = 0;
+	int n_recent = 0;
 
 	if (regen && (connect_menu != (Widget)NULL)) {
 		XtDestroyWidget(connect_menu);
@@ -839,33 +799,44 @@ connect_menu_init(Boolean regen, Position x, Position y)
 	if (!menubar_buttons)
 		need_line = True;
 
-	/* Start off with an opportunity to reconnect */
-
-	if (reconnect_host != CN) {
-		char *buf;
-
-		if (need_line)
-			(void) XtVaCreateManagedWidget("space",
-			    cmeLineObjectClass, connect_menu, NULL);
-		buf = xs_buffer("%s %s", get_message("reconnect"),
-		    reconnect_host);
-		w = XtVaCreateManagedWidget(
-		    buf, cmeBSBObjectClass, connect_menu, 
-		    NULL);
-		XtFree(buf);
-		XtAddCallback(w, XtNcallback, do_reconnect, PN);
-		need_line = True;
-		n_hosts++;
-	}
-
 	/* Walk the host list from the file to produce the host menu */
 
 	for (h = hosts; h; h = h->next) {
-		if (h->entry_type != PRIMARY)
+		switch (h->entry_type) {
+		case ALIAS:
 			continue;
-		if (need_line && !any_hosts)
+		case PRIMARY:
+			/*
+			 * If there's already a 'recent' entry with the same
+			 * name, skip this one.
+			 */
+			{
+				struct host *j;
+
+				for (j = hosts;
+				     j != (struct host *)NULL;
+				     j = j->next) {
+					if (j->entry_type != RECENT) {
+						j = (struct host *)NULL;
+						break;
+					}
+					if (!strcmp(j->name, h->name))
+						break;
+				}
+				if (j != (struct host *)NULL)
+					continue;
+			}
+			n_primary++;
+			break;
+		case RECENT:
+			n_recent++;
+			break;
+		}
+		if ((need_line && !any_hosts) ||
+		    (n_recent > 0 && n_primary == 1)) {
 			(void) XtVaCreateManagedWidget("space",
 			    cmeLineObjectClass, connect_menu, NULL);
+		}
 		any_hosts = True;
 		w = XtVaCreateManagedWidget(
 		    h->name, cmeBSBObjectClass, connect_menu, 
@@ -919,56 +890,6 @@ connect_menu_init(Boolean regen, Position x, Position y)
 			XtAddCallback(connect_button, XtNcallback,
 			    do_connect_popup, NULL);
 		}
-	}
-}
-
-/*
- * Initialize the "Reconnect..." menu (used only with the -reconnect option)
- */
-static void
-reconnect_menu_init(Boolean regen, Position x, Position y)
-{
-	if (regen) {
-		if (connect_menu != (Widget)NULL) {
-			XtDestroyWidget(connect_menu);
-			connect_menu = (Widget)NULL;
-		}
-		if (connect_button != (Widget)NULL) {
-			XtDestroyWidget(connect_button);
-			connect_button = (Widget)NULL;
-		}
-	}
-
-	if (connect_menu != (Widget)NULL || connect_button != (Widget)NULL)
-		return;
-
-	if (menubar_buttons) {
-		/* Create the button on the menu bar. */
-		connect_button = XtVaCreateManagedWidget(
-		    "reconnectButton", commandWidgetClass,
-		    menu_parent,
-		    XtNx, x,
-		    XtNy, y,
-		    XtNwidth, KEY_WIDTH,
-		    XtNheight, KEY_HEIGHT,
-		    XtNmappedWhenManaged,
-			!PCONNECTED && auto_reconnect_disabled,
-		    NULL);
-		XtAddCallback(connect_button, XtNcallback, do_reconnect, NULL);
-	} else {
-		Widget w;
-
-		/* Create a menu to pop up with the mouse. */
-		connect_menu = XtVaCreatePopupShell(
-		    "hostMenu", complexMenuWidgetClass, menu_parent,
-		    menubar_buttons ? XtNlabel : NULL, NULL,
-		    NULL);
-		(void) XtVaCreateManagedWidget("space", cmeLineObjectClass,
-		    connect_menu, NULL);
-		w = XtVaCreateManagedWidget(
-		    "reconnectButton", cmeBSBObjectClass, connect_menu, 
-		    NULL);
-		XtAddCallback(w, XtNcallback, do_reconnect, PN);
 	}
 }
 
@@ -1037,52 +958,6 @@ macros_menu_init(Boolean regen, Position x, Position y)
 		    XtNmenuName, MACROS_MENU,
 		    NULL);
 }
-
-#if 0
-/* Pop up the a help browser. */
-static void
-render_help(Widget w, XtPointer client_data, XtPointer call_data)
-{
-	char *browser = getenv("BROWSER");
-	char *cmd;
-
-	if (browser == CN)
-		browser = "netscape";
-
-	cmd = xs_buffer("%s %s/html/README.html &", browser, LIBX3270DIR);
-	system(cmd);
-	XtFree(cmd);
-}
-
-/* Initialize or re-initialize the help button. */
-static void
-help_button_init(Boolean regen, Position x, Position y)
-{
-	static Widget help_button = (Widget)NULL;
-
-	if (regen && (help_button != (Widget)NULL)) {
-		XtDestroyWidget(help_button);
-		help_button = (Widget)NULL;
-	}
-
-	if (!menubar_buttons)
-		return;
-
-	if (help_button == (Widget)NULL) {
-		help_button = XtVaCreateManagedWidget(
-		    "helpButton", commandWidgetClass, menu_parent,
-		    XtNx, x,
-		    XtNy, y,
-		    XtNwidth, KEY_WIDTH,
-		    XtNheight, KEY_HEIGHT,
-		    NULL);
-		XtAddCallback(help_button, XtNcallback,
-		    render_help, NULL);
-	} else {
-		XtVaSetValues(help_button, XtNx, x, NULL);
-	}
-}
-#endif
 
 /* Called toggle the keypad */
 static void

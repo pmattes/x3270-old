@@ -156,6 +156,7 @@ main(int argc, char *argv[])
 	char *lu = NULL;
 	char *host = NULL;
 	char *port = "telnet";
+	int verbose = 0;
 	struct hostent *he;
 	struct in_addr ha;
 	struct servent *se;
@@ -174,15 +175,23 @@ main(int argc, char *argv[])
 		if (!strcmp(argv[i], "-daemon"))
 			bdaemon = 1;
 		else if (!strcmp(argv[i], "-assoc")) {
-			if (argc <= i + 1)
+			if (argc <= i + 1 || !argv[i + 1][0]) {
+				(void) fprintf(stderr,
+				    "Missing value for -assoc\n");
 				usage();
+			}
 			assoc = argv[i + 1];
 			i++;
 		} else if (!strcmp(argv[i], "-command")) {
-			if (argc <= i + 1)
+			if (argc <= i + 1 || !argv[i + 1][0]) {
+				(void) fprintf(stderr,
+				    "Missing value for -command\n");
 				usage();
+			}
 			command = argv[i + 1];
 			i++;
+		} else if (!strcmp(argv[i], "-v")) {
+			verbose = 1;
 		} else if (!strcmp(argv[i], "-trace")) {
 			tracing = 1;
 		} else if (!strcmp(argv[i], "--help")) {
@@ -279,6 +288,19 @@ main(int argc, char *argv[])
 	if (connect(s, (struct sockaddr *)&sin, sizeof(sin)) < 0) {
 		perror(host);
 		exit(1);
+	}
+
+	/* Say hello. */
+	if (verbose) {
+		(void) fprintf(stderr, "Connected to %s, port %u\n",
+		    inet_ntoa(sin.sin_addr),
+		    ntohs(sin.sin_port));
+		if (assoc != NULL)
+			(void) fprintf(stderr, "Associating with LU %s\n",
+			    assoc);
+		else
+			(void) fprintf(stderr, "Connecting to LU %s\n", lu);
+		(void) fprintf(stderr, "Command: %s\n", command);
 	}
 
 	/* Negotiate. */

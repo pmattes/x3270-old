@@ -15,12 +15,16 @@ x3270 3.2 is a reorganization of x3270 3.1, with some significant enhancements.
 It is intended to be the future development platform for x3270, with x3270
 3.1 continued only with bug fixes.
 <h2>
-<b>Changes in x3270 3.2.13g, 2. October 2000</b></h2>
+<b>Changes in x3270 3.2.14, 15. November 2000</b></h2>
 Fixed a crash when <b>-reconnect</b> is used and <b>x3270.menuBar</b> is
 <b>False</b>.
-<br>Added a 'gebracket' character set, for hosts that insist that the '[' and
-']' characters are GE X'BA' and GE X'BB', respectively.
 <br>Added documentation on how to get square brackets to display properly.
+<br>Added recent-connect list and connectFileName resource to control it.
+<br>Put accidental command output into a pop-up window.
+<br>Updated the man pages and synchronized the HTML versions.
+<br>Added NVT-mode keymaps via <b>x3270.keymap.</b><i>name</i><b>.nvt</b>.
+<br>Fixed a memory corruption problem associated with printer session termination.
+<br>Improved the behavior of the <b>-reconnect</b> option, when a host connection fails.
 <h2>
 <b>Changes in x3270 3.2.13, 24. September 2000</b></h2>
 Integrated <b>pr3287</b> into the x3270 release.

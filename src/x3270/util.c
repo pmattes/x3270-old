@@ -1,5 +1,5 @@
 /*
- * Copyright 1993, 1994, 1995, 1999 by Paul Mattes.
+ * Copyright 1993, 1994, 1995, 1999, 2000 by Paul Mattes.
  * Parts Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -21,43 +21,27 @@
 #include "utilc.h"
 
 /*
- * Internal version of sprintf that expands only %s's, and allocates its
- * own memory.
+ * Cheesy internal version of sprintf that allocates its own memory.
  */
 static char *
 xs_vsprintf(const char *fmt, va_list args)
 {
-	char c;
 	char *r;
-	int size;
-	char *s;
-	char nbuf[3];
-
-	size = strlen(fmt) + 1;
-	r = Malloc(size);
-	r[0] = '\0';
-	while ((c = *fmt++)) {
-		if (c == '%') {
-			if (*fmt == 's') {
-				s = va_arg(args, char *);
-				size += strlen(s);
-				r = Realloc(r, size);
-				(void) strcat(r, s);
-			} else {
-				nbuf[0] = '%';
-				nbuf[1] = *fmt;
-				nbuf[2] = '\0';
-				(void) strcat(r, nbuf);
-			}
-			fmt++;
-		} else {
-			nbuf[0] = c;
-			nbuf[1] = '\0';
-			(void) strcat(r, nbuf);
-		}
-	}
-
+#if defined(HAVE_VASPRINTF) /*[*/
+	(void) vasprintf(&r, fmt, args);
+	if (r == CN)
+		Error("Out of memory");
 	return r;
+#else /*][*/
+	char buf[16384];
+	int nc;
+
+	nc = vsprintf(buf, fmt, args);
+	if (nc > sizeof(buf))
+		Error("Internal buffer overflow");
+	r = Malloc(nc + 1);
+	return strcpy(r, buf);
+#endif /*]*/
 }
 
 /*
@@ -130,30 +114,6 @@ fcatv(FILE *f, char *s)
 		}
 	}
 }
-
-#if !defined(MEMORY_MOVE) /*[*/
-/*
- * A version of memcpy that handles overlaps
- */
-char *
-MEMORY_MOVE(register char *dst, register char *src, register int cnt)
-{
-	char *r = dst;
-
-	if (dst < src && dst + cnt - 1 >= src) {	/* overlap left */
-		while (cnt--)
-			*dst++ = *src++;
-	} else if (src < dst && src + cnt - 1 >= dst) {	/* overlap right */
-		dst += cnt;
-		src += cnt;
-		while (cnt--)
-			*--dst = *--src;
-	} else {					/* no overlap */ 
-		(void) memcpy(dst, src, cnt);
-	}
-	return r;
-}
-#endif /*]*/
 
 /*
  * Definition resource splitter, for resources of the repeating form:

@@ -32,12 +32,6 @@ x3270.aplFont		Default	3270-apl
     3270-12), but with special APL characters in place of accented (ISO
     Latin-1) characters.
 
-x3270.attnLock		Default false
-    When true, the Attn() action (the 3270 Attention key) will cause x3270 to
-    lock the keyboard after sending the TELNET BREAK sequence to the host,
-    waiting for the host to unlock it.  When false, x3270 will not lock the
-    keyboard in Attn().
-
 x3270.background	Default white		Switches: -bg, -rv
     The background color for menus, buttons, and on monochrome X displays, the
     emulator window.
@@ -156,6 +150,12 @@ x3270.composeMap.apl
     "keysym1 + keysym2 = keysym3", meaning "when the Compose key is pressed,
     followed by keysym1 and keysym2 (in either order), interpret it as
     keysym3."  The definitions are case-sensitive.
+
+x3270.connectFileName	Default ~/.x3270connect
+    Gives the name of the file to consult and store the recently-connected
+    host list in.  If given the value "none", no file will be read or
+    written.  Note that by default, this file is shared among all instances
+    of x3270 that run under the same username.
 
 x3270.cursorBlink	Default false		Switch -set cursorBlink
 						       -clear cursorBlink

@@ -1,5 +1,5 @@
 /*
- * Copyright 1996, 1999 by Paul Mattes.
+ * Copyright 1996, 1999, 2000 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -27,6 +27,7 @@
 #include "objects.h"
 #include "resources.h"
 
+#include "hostc.h"
 #include "keymapc.h"
 #include "keypadc.h"
 #include "kybdc.h"
@@ -43,12 +44,15 @@ static struct trans_list **last_trans = &trans_list;
 static struct trans_list *tkm_last;
 struct trans_list *temp_keymaps;	/* temporary keymap list */
 char *keymap_trace = CN;
+static char *last_keymap = CN;
+static Boolean last_nvt = False;
 
 static void setup_keymaps(const char *km, Boolean do_popup);
 static void add_keymap(const char *name, Boolean do_popup);
 static void add_trans(const char *name, char *translations, char *pathname,
     Boolean is_from_server);
 static char *get_file_keymap(const char *name, char **pathp);
+static void keymap_3270_mode(Boolean);
 
 /* Undocumented Xt function to convert translations to text. */
 extern String _XtPrintXlations(Widget w, XtTranslations xlations,
@@ -99,11 +103,36 @@ keymap_init(const char *km)
 	setup_keymaps(km, initted);
 	if (!initted) {
 		initted = True;
+		last_nvt = IN_ANSI;
+		register_schange(ST_3270_MODE, keymap_3270_mode);
+		register_schange(ST_CONNECT, keymap_3270_mode);
 	} else {
 		screen_set_keymap();
 		keypad_set_keymap();
 	}
 	km_regen();
+
+	/* Save the name(s) of the last keymap, so we can switch modes later. */
+	if (km != last_keymap) {
+		if (last_keymap != CN) {
+			Free(last_keymap);
+			last_keymap = CN;
+		}
+		if (km != CN)
+			last_keymap = NewString(km);
+	}
+}
+
+/*
+ * 3270/NVT mode change.
+ */
+static void
+keymap_3270_mode(Boolean ignored unused)
+{
+	if (last_nvt != IN_ANSI) {
+		last_nvt = IN_ANSI;
+		keymap_init(last_keymap);
+	}
 }
 
 /*
@@ -229,10 +258,10 @@ get_file_keymap(const char *name, char **pathp)
 static void
 add_keymap(const char *name, Boolean do_popup)
 {
-	char *translations;
-	char *buf;
+	char *translations, *translations_nvt;
+	char *buf, *buf_nvt;
 	int any = 0;
-	char *path;
+	char *path, *path_nvt;
 	Boolean is_from_server = False;
 
 	if (appres.key_map == (char *)NULL)
@@ -281,24 +310,54 @@ add_keymap(const char *name, Boolean do_popup)
 	}
 
 	/* Try for a file first, then resources. */
-	if ((translations = get_file_keymap(name, &path)) != CN) {
-		add_trans(name, translations, path, is_from_server);
-		XtFree(translations);
+	translations = get_file_keymap(name, &path);
+	buf_nvt = xs_buffer("%s.%s", name, ResNvt);
+	translations_nvt = get_file_keymap(buf_nvt, &path_nvt);
+	if (translations != CN || translations_nvt != CN) {
 		any++;
+		if (IN_ANSI && translations_nvt != CN)
+			add_trans(buf_nvt, translations_nvt, path_nvt,
+			    is_from_server);
+		else if (translations != CN)
+			add_trans(name, translations, path, is_from_server);
+		if (translations != CN)
+			XtFree(translations);
+		if (translations_nvt != CN)
+			XtFree(translations_nvt);
+		XtFree(buf_nvt);
 	} else {
+		XtFree(buf_nvt);
+
+		/* Shared keymap. */
 		buf = xs_buffer("%s.%s", ResKeymap, name);
-		if ((translations = get_resource(buf)) != CN) {
+		translations = get_resource(buf);
+		buf_nvt = xs_buffer("%s.%s.%s", ResKeymap, name, ResNvt);
+		translations_nvt = get_resource(buf_nvt);
+		if (translations != CN || translations_nvt != CN)
+			any++;
+		if (IN_ANSI && translations_nvt != CN)
+			add_trans(buf_nvt + strlen(ResKeymap) + 1,
+			    translations_nvt, CN, is_from_server);
+		else if (translations != CN)
 			add_trans(name, translations, CN, is_from_server);
-			any++;
-		}
 		XtFree(buf);
+		XtFree(buf_nvt);
+
+		/* User keymap */
 		buf = xs_buffer("%s.%s.%s", ResKeymap, name, ResUser);
-		if ((translations = get_resource(buf)) != CN) {
-			add_trans(buf + strlen(ResKeymap) + 1, translations,
-			    CN, is_from_server);
+		translations = get_resource(buf);
+		buf_nvt = xs_buffer("%s.%s.%s.%s", ResKeymap, name, ResNvt,
+		    ResUser);
+		translations_nvt = get_resource(buf_nvt);
+		if (translations != CN || translations_nvt != CN)
 			any++;
-		}
+		if (IN_ANSI && translations_nvt != CN)
+			add_trans(buf_nvt + strlen(ResKeymap) + 1,
+			    translations_nvt, CN, is_from_server);
+		else if (translations != CN)
+			add_trans(name, translations, CN, is_from_server);
 		XtFree(buf);
+		XtFree(buf_nvt);
 	}
 
 	if (!any) {

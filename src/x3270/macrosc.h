@@ -1,5 +1,5 @@
 /*
- * Copyright 1995, 1999 by Paul Mattes.
+ * Copyright 1995, 1999, 2000 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -19,6 +19,7 @@ struct macro_def {
 	struct macro_def	*next;
 };
 extern struct macro_def *macro_defs;
+extern Boolean macro_output;
 
 extern void abort_script(void);
 extern void AnsiText_action(Widget w, XEvent *event, String *params,
@@ -52,6 +53,9 @@ extern void peer_script_init(void);
 extern void ps_set(char *s, Boolean is_hex);
 extern void Printer_action(Widget w, XEvent *event, String *params,
     Cardinal *num_params);
+extern void push_command(char *);
+extern void push_keymap_action(char *);
+extern void push_macro(char *, Boolean);
 extern void Script_action(Widget w, XEvent *event, String *params,
     Cardinal *num_params);
 extern Boolean sms_active(void);
@@ -59,7 +63,7 @@ extern void sms_connect_wait(void);
 extern void sms_continue(void);
 extern void sms_error(char *msg);
 extern void sms_host_output(void);
-extern void sms_info(char *msg);
+extern void sms_info(const char *fmt, ...);
 extern void sms_init(void);
 extern Boolean sms_redirect(void);
 extern void sms_store(unsigned char c);

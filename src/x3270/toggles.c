@@ -1,5 +1,5 @@
 /*
- * Modifications Copyright 1993, 1994, 1995, 1996, 1999 by Paul Mattes.
+ * Modifications Copyright 1993, 1994, 1995, 1996, 1999, 2000 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -54,8 +54,10 @@ do_toggle(int ix)
 void
 initialize_toggles(void)
 {
-#if defined(X3270_DISPLAY) /*[*/
+#if defined(X3270_DISPLAY) || defined(C3270) /*[*/
 	appres.toggle[MONOCASE].upcall =         toggle_monocase;
+#endif /*]*/
+#if defined(X3270_DISPLAY) /*[*/
 	appres.toggle[ALT_CURSOR].upcall =       toggle_altCursor;
 	appres.toggle[CURSOR_BLINK].upcall =     toggle_cursorBlink;
 	appres.toggle[SHOW_TIMING].upcall =      toggle_showTiming;

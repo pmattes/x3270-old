@@ -24,7 +24,6 @@ extern void menubar_keypad_changed(void);
 extern Dimension menubar_qheight(Dimension container_width);
 extern void menubar_resize(Dimension width);
 extern void menubar_retoggle(struct toggle *t);
-extern void menubar_show_reconnect(void);
 extern void toggle_callback(Widget w, XtPointer userdata, XtPointer calldata);
 
 #else /*][*/
@@ -35,7 +34,6 @@ extern void toggle_callback(Widget w, XtPointer userdata, XtPointer calldata);
 #define menubar_qheight(n)	0
 #define menubar_resize(n)
 #define menubar_retoggle(t)
-#define menubar_show_reconnect()
 #define HandleMenu_action ignore_action
 
 #endif /*]*/

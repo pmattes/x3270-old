@@ -290,9 +290,7 @@ net_connect(const char *host, char *portname, Boolean ls, Boolean *pending)
 			popup_an_error("Unknown passthru host: %s", hn);
 			return -1;
 		}
-		(void) MEMORY_MOVE(passthru_haddr,
-			           (char *) hp->h_addr,
-				   hp->h_length);
+		(void) memmove(passthru_haddr, hp->h_addr, hp->h_length);
 		passthru_len = hp->h_length;
 
 		sp = getservbyname("telnet-passthru","tcp");
@@ -321,9 +319,7 @@ net_connect(const char *host, char *portname, Boolean ls, Boolean *pending)
 	(void) memset((char *) &haddr, 0, sizeof(haddr));
 	if (passthru_host) {
 		haddr.sin_family = AF_INET;
-		(void) MEMORY_MOVE((char *) &haddr.sin_addr,
-				   passthru_haddr,
-				   passthru_len);
+		(void) memmove(&haddr.sin_addr, passthru_haddr, passthru_len);
 		haddr.sin_port = passthru_port;
 	} else {
 #if defined(LOCAL_PROCESS) /*[*/
@@ -344,8 +340,7 @@ net_connect(const char *host, char *portname, Boolean ls, Boolean *pending)
 			}
 			else {
 				haddr.sin_family = hp->h_addrtype;
-				(void) MEMORY_MOVE((char *) &haddr.sin_addr,
-						   (char *) hp->h_addr,
+				(void) memmove(&haddr.sin_addr, hp->h_addr,
 						   hp->h_length);
 			}
 			haddr.sin_port = port;
@@ -1839,7 +1834,7 @@ do_lnext(char c)
 static void
 check_in3270(void)
 {
-	enum cstate new_cstate;
+	enum cstate new_cstate = NOT_CONNECTED;
 	static const char *state_name[] = {
 		"unconnected",
 		"pending",
@@ -2160,7 +2155,7 @@ net_output(void)
 			while (len && (iac = memchr(buf, IAC, len)) != CN) {
 				int ml = len - (iac - buf);
 
-				MEMORY_MOVE(iac + 1, iac, ml);
+				(void) memmove(iac + 1, iac, ml);
 				len -= iac - buf + 1;
 				buf = iac + 2;
 				obptr++;
@@ -2492,7 +2487,7 @@ parse_ctlchar(char *s)
 }
 #endif /*]*/
 
-#if defined(X3270_MENUS) /*[*/
+#if defined(X3270_MENUS) || defined(C3270) /*[*/
 /*
  * net_linemode_chars
  *	Report line-mode characters.

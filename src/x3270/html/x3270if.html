@@ -1,95 +1,104 @@
-<HTML>
-<TITLE>x3270if - command interface to x3270 and s3270</TITLE>
-<H1>x3270if - command interface to x3270 and s3270</H1>
-<H2>SYNOPSIS</H2>
-<B>x3270if</B> [<B>-v</B>] <I>action</I>[<B>(</B><I>param</I>[,...]<B>)</B>]
-<P><B>x3270if</B> [<B>-v</B>] <B>-s</B> <I>field</I>
-<H2>DESCRIPTION</H2>
-<B>x3270if</B>
-provides an interface between
-<I>x3270</I>(1) or <I>s3270</I>(1)
-and child processes run with the
-<B>Script()</B>
-action.
-<P>
-<B>x3270if</B>
-performs one of two functions: passing an action and optional parameters to
-<I>x3270</I> or <I>s3270</I>
-for execution, or reporting the value of one of
-<I>x3270</I>'s or <I>s3270</I>'s
-status fields.
-<P>
-The result of the command execution, or the value of the requested status
-field, is written to standard output.
-<H2>OPTIONS</H2>
-<DL>
-<DT>
-<B>-v</B>
-<DD>Turns on verbose debug messages, showing the literal data that is passed
-between
-<I>x3270</I> or <I>s3270</I>
-and
-<B>x3270if</B>.
-<DT>
-<B>-s</B> <I>field</I>
-<DD>Causes
-<B>3270if</B>
-to return the value of an
-<I>x3270</I> or <I>s3270</I>
-status field, rather than passing an action to be executed.
-<I>Field</I>
-is an integer in the range 0 through 11, indicating the desired status
-field.
+<html>
+<head>
+<title>x3270if Manual Page</title>
+<link HREF="http://www.w3.org/StyleSheets/Core/Steely" TYPE="text/css" REL="stylesheet">
+</head>
+<body>
+<h1>x3270if Manual Page</h1>
+<h2>Contents</h2>
+<blockquote>
+<a HREF="#Name">Name</a><br>
+<a HREF="#Synopsis">Synopsis</a><br>
+<a HREF="#Description">Description</a><br>
+<a HREF="#Options">Options</a><br>
+<a HREF="#Exit-Status">Exit Status</a><br>
+<a HREF="#Environment">Environment</a><br>
+<a HREF="#See-Also">See Also</a><br>
+<a HREF="#Copyright">Copyright</a><br>
+</blockquote>
+<a NAME="Name"></a><h2>Name</h2>
+x3270if - command interface to x3270, c3270 and s3270
+<a NAME="Synopsis"></a><h2>Synopsis</h2>
+<b>x3270if</b> [ <b>-v</b> ] <i>action</i> [ ( <i>param</i> [ ,... ] )
+]
+<br>
+<b>x3270if</b> [ <b>-v</b> ] <b>-s</b> <i>field</i>
+<br>
+<b>x3270if -i</b>
+<a NAME="Description"></a><h2>Description</h2>
+<b>x3270if</b> provides an interface between scripts and
+the 3270 emulators <i>x3270</i>, <i>c3270</i>, and <i>s3270</i>.
+.LP
+<b>x3270if</b> performs one of three functions.
+In <b>action mode</b> (the default), it passes a single action and optional
+parameters to the emulator for execution;
+the result of the command is written to standard output.
+In <b>status mode</b>, it reports to standard output the value of one of
+the emulator's status fields.
+In <b>iterative mode</b>, it forms a continuous conduit between a script and
+the emulator.
+<a NAME="Options"></a><h2>Options</h2>
+<dl><dt><b>-v</b></dt><dd>
+Turns on verbose debug messages, showing the literal data that is passed
+between the emulator and <b>x3270if</b>.
+<dt><b>-s</b> <i>field</i></dt><dd>
+Puts <b>x3270if</b> in status mode: it outputs the value of an emulator
+status field.
+<i>Field</i> is an integer in the range 0 through 11.
 The value 0 is a no-op and is used only to return exit status indicating the
-state of  <I>x3270</I> or <I>s3270</I>.
-The indices and meanings of each field are documented on the
-<A HREF="x3270-script.html"><I>x3270-script</I>(1)</A>
-manual page.
-</DL>
-<H2>EXIT STATUS</H2>
-If the requested
-<I>action</I>
-succeeds,
-<B>x3270if</B>
-exits with status 0.
-If the action fails,
-<B>x3270if</B>
-exits with status 1.
-If there is an operational error within
-<B>x3270if</B>
+state of the emulator.
+The indices 1-11 and meanings of each field are documented on the
+<a HREF="x3270-script.html"><i>x3270-script</i>(1)</a> manual page.
+<dt><b>-i</b></dt><dd>
+Puts <b>x3270if</b> in iterative mode.
+Data from <b>x3270if</b>'s standard input is copied to the
+emulator's script input; data from the
+emulator's script output is copied to
+<b>x3270if</b>'s standard output.
+<b>x3270if</b>
+runs until it detects end-of-file on its standard input or on the
+output from the emulator.
+(This mode exists primarily to give <i>expect</i>(1)
+a process to run, on systems which do not support bidirectional pipes.)
+</dl>
+<a NAME="Exit-Status"></a><h2>Exit Status</h2>
+In action mode, if the requested <i>action</i> succeeds,
+<b>x3270if</b> exits with status 0.
+If the action fails, <b>x3270if</b> exits with status 1.
+In iterative mode, <b>x3270if</b>
+exits with status 0 when it encounters end-of-file.
+If there is an operational error within <b>x3270if</b>
 itself, such as a command-line syntax error, missing environment
-variable, or closed pipe,
-<B>x3270if</B>
-exits with status 2.
-<H2>ENVIRONMENT</H2>
-<I>x3270</I> and <I>s3270</I>
+variable, or an unexpectedly closed pipe,
+<b>x3270if</b> exits with status 2.
+<a NAME="Environment"></a><h2>Environment</h2>
+<i>x3270</i>, <i>c3270</i>, and <i>s3270</i>
 use a pair of pipes for communication with each child process.
 The values of the file descriptors for these pipes are encoded as text
 in two environment variables, which are required by
-<B>x3270if</B>:
-<DL>
-<DT>
-<B>X3270OUTPUT</B>
-<DD>Output from
-<I>x3270</I> or <I>s3270</I>,
-input to the child process.
-<DT>
-<B>X3270INPUT</B>
-<DD>Input to
-<I>x3270</I> or <I>s3270</I>,
-output from the child process.
-</DL>
-<H2>SEE ALSO</H2>
-<A HREF="x3270-man.html"><I>x3270</I>(1)</A>,
-<A HREF="s3270-man.html"><I>s3270</I>(1)</A>,
-<A HREF="x3270-script.html"><I>x3270-script</I>(1)</A>
-<H2>COPYRIGHT</H2>
-Copyright &#169; 1995, 1999 by Paul Mattes.
-<P>
-Permission to use, copy, modify, and distribute this software and its
+<b>x3270if</b>:
+<dl><dt><b>X3270OUTPUT</b></dt><dd>
+Output from the emulator, input to the child process.
+<dt><b>X3270INPUT</b></dt><dd>
+Input to the emulator, output from the child process.
+</dl>
+<a NAME="See-Also"></a><h2>See Also</h2>
+<a HREF="x3270-man.html">x3270(1)</a>,
+<a HREF="c3270-man.html">c3270(1)</a>,
+<a HREF="s3270-man.html">s3270(1)</a>,
+<a HREF="x3270-script.html">x3270-script(1)</a>
+<a NAME="Copyright"></a><h2>Copyright</h2>
+Copyright &copy; 1999, 2000 by Paul Mattes.
+<blockquote>Permission to use, copy, modify, and distribute this software and its
 documentation for any purpose and without fee is hereby granted,
 provided that the above copyright notice appear in all copies and that
 both that copyright notice and this permission notice appear in
-supporting documentation.
-<HR>
-<ADDRESS>Last Modified 2. September 2000</ADDRESS>
+supporting documentation.</blockquote>
+<hr>
+<address>
+This HTML document and the accompanying troff document were generated with
+a set of write-only <b>m4</b> macros and the powerful <b>vi</b> editor.
+<br>Last modified 14 November 2000.
+</address>
+</body>
+</html>

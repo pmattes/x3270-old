@@ -57,7 +57,7 @@
 #include "utilc.h"
 #include "xioc.h"
 
-#if defined(SEPARATE_SELECT_H) /*[*/
+#if defined(HAVE_SYS_SELECT_H) /*[*/
 #include <sys/select.h>		/* fd_set declaration */
 #endif /*]*/
 
@@ -1233,8 +1233,7 @@ render_blanks(int baddr, int height, union sp *buffer)
 	    x, y - ss->ascent,
 	    (ss->char_width * COLS) + 1, (ss->char_height * height));
 
-	(void) MEMORY_MOVE((char *) &ss->image[baddr],
-			   (char *) &buffer[baddr],
+	(void) memmove(&ss->image[baddr], &buffer[baddr],
 	                   COLS * height *sizeof(union sp));
 }
 
@@ -1374,9 +1373,7 @@ resync_text(int baddr, int len, union sp *buffer)
 	}
 
 	/* The X display is now correct; update ss->image[]. */
-	(void) MEMORY_MOVE((char *) &ss->image[baddr],
-			   (char *) &buffer[baddr],
-	                   len*sizeof(union sp));
+	(void) memmove(&ss->image[baddr], &buffer[baddr], len*sizeof(union sp));
 }
 
 /*
@@ -1551,11 +1548,9 @@ screen_scroll(void)
 		return;
 
 	was_on = cursor_off();
-	(void) MEMORY_MOVE((char *)&ss->image[0], 
-	                   (char *)&ss->image[COLS],
+	(void) memmove(&ss->image[0], &ss->image[COLS],
 	                   (ROWS - 1) * COLS * sizeof(union sp));
-	(void) MEMORY_MOVE((char *)&temp_image[0], 
-	                   (char *)&temp_image[COLS],
+	(void) memmove(&temp_image[0], &temp_image[COLS],
 	                   (ROWS - 1) * COLS * sizeof(union sp));
 	(void) memset((char *)&ss->image[(ROWS - 1) * COLS], 0,
 	              COLS * sizeof(union sp));
@@ -3033,11 +3028,7 @@ ring_bell(void)
 	XSync(display, 0);
 	tv.tv_sec = 0;
 	tv.tv_usec = 125000;
-#if defined(SELECT_INT) /*[*/
-	(void) select(0, (int *)0, (int *)0, (int *)0, &tv);
-#else /*][*/
-	(void) select(0, (fd_set *)0, (fd_set *)0, (fd_set *)0, &tv);
-#endif /*]*/
+	(void) select(0, NULL, NULL, NULL, &tv);
 	XFillRectangle(display, ss->window, bgc,
 	    0, 0, ss->screen_width, ss->screen_height);
 	XSync(display, 0);

@@ -1,5 +1,5 @@
 /*
- * Copyright 1995, 1999 by Paul Mattes.
+ * Copyright 1995, 1999, 2000 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -25,6 +25,7 @@ enum form_type { FORM_NO_WHITE, FORM_NO_CC, FORM_AS_IS };
 /* abort callback */
 typedef void abort_callback_t(void);
 
+extern void action_output(const char *fmt, ...);
 extern Widget create_form_popup(const char *name, XtCallbackProc callback,
     XtCallbackProc callback2, enum form_type form_type);
 extern void error_popup_init(void);
@@ -35,6 +36,7 @@ extern void info_popup_init(void);
 extern void PA_confirm_action(Widget w, XEvent *event, String *params,
     Cardinal *num_params);
 extern void place_popup(Widget w, XtPointer client_data, XtPointer call_data);
+extern void popdown_an_error(void);
 extern void popup_an_errno(int errn, const char *fmt, ...);
 extern void popup_an_error(const char *fmt, ...);
 extern void popup_an_info(const char *fmt, ...);

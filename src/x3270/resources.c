@@ -1,5 +1,5 @@
 /*
- * Modifications Copyright 1993, 1994, 1995, 1996, 1999 by Paul Mattes.
+ * Modifications Copyright 1993, 1994, 1995, 1996, 1999, 2000 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -111,8 +111,6 @@ XtResource resources[] = {
 	  offset(typeahead), XtRString, ResTrue },
 	{ ResDebugTracing, ClsDebugTracing, XtRBoolean, sizeof(Boolean),
 	  offset(debug_tracing), XtRString, ResTrue },
-	{ ResAttnLock, ClsAttnLock, XtRBoolean, sizeof(Boolean),
-	  offset(attn_lock), XtRString, ResFalse },
 	{ ResDisconnectClear, ClsDisconnectClear, XtRBoolean, sizeof(Boolean),
 	  offset(disconnect_clear), XtRString, ResFalse },
 	{ ResHighlightBold, ClsHighlightBold, XtRBoolean, sizeof(Boolean),
@@ -177,6 +175,8 @@ XtResource resources[] = {
 	{ ResFtCommand, ClsFtCommand, XtRString, sizeof(String),
 	  offset(ft_command), XtRString, "ind$file" },
 #endif /*]*/
+	{ ResConnectFileName, ClsConnectFileName, XtRString, sizeof(String),
+	  offset(connectfile_name), XtRString, "~/.x3270connect" },
 	{ ResMonoCase, ClsMonoCase, XtRBoolean, sizeof(Boolean),
 	  toggle_offset(MONOCASE), XtRString, ResFalse },
 	{ ResAltCursor, ClsAltCursor, XtRBoolean, sizeof(Boolean),

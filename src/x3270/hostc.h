@@ -15,9 +15,10 @@
 struct host {
 	char *name;
 	char *hostname;
-	enum { PRIMARY, ALIAS } entry_type;
+	enum { PRIMARY, ALIAS, RECENT } entry_type;
 	char *loginstring;
-	struct host *next;
+	time_t connect_time;
+	struct host *prev, *next;
 };
 extern struct host *hosts;
 

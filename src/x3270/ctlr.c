@@ -1232,11 +1232,10 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 			}
 			do {
 				if (ra_ge)
-					ctlr_add(buffer_addr, ebc2cg_ge[*cp],
+					ctlr_add(buffer_addr, ebc2cg0[*cp],
 					    CS_GE);
 				else if (default_cs)
-					ctlr_add(buffer_addr, ebc2cg_ge[*cp],
-					    1);
+					ctlr_add(buffer_addr, ebc2cg0[*cp], 1);
 				else
 					ctlr_add(buffer_addr, ebc2cg[*cp], 0);
 				ctlr_add_fg(buffer_addr, default_fg);
@@ -1281,7 +1280,7 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 			trace_ds(see_ebc(*cp));
 			if (*cp)
 				trace_ds("'");
-			ctlr_add(buffer_addr, ebc2cg_ge[*cp], CS_GE);
+			ctlr_add(buffer_addr, ebc2cg0[*cp], CS_GE);
 			ctlr_add_fg(buffer_addr, default_fg);
 			ctlr_add_gr(buffer_addr, default_gr);
 			INC_BA(buffer_addr);
@@ -1721,8 +1720,7 @@ ctlr_bcopy(int baddr_from, int baddr_to, int count, int move_ea)
 	if (memcmp((char *) &screen_buf[baddr_from],
 	           (char *) &screen_buf[baddr_to],
 		   count)) {
-		(void) MEMORY_MOVE((char *) &screen_buf[baddr_to],
-			           (char *) &screen_buf[baddr_from],
+		(void) memmove(&screen_buf[baddr_to], &screen_buf[baddr_from],
 			           count);
 		REGION_CHANGED(baddr_to, baddr_to + count);
 		/*
@@ -1771,8 +1769,7 @@ ctlr_bcopy(int baddr_from, int baddr_to, int count, int move_ea)
 	if (move_ea && memcmp((char *) &ea_buf[baddr_from],
 			      (char *) &ea_buf[baddr_to],
 			      count*sizeof(struct ea))) {
-		(void) MEMORY_MOVE((char *) &ea_buf[baddr_to],
-		                   (char *) &ea_buf[baddr_from],
+		(void) memmove(&ea_buf[baddr_to], &ea_buf[baddr_from],
 			           count*sizeof(struct ea));
 		REGION_CHANGED(baddr_to, baddr_to + count);
 	}
@@ -1819,11 +1816,8 @@ ctlr_scroll(void)
 		screen_disp();
 
 	/* Move screen_buf and ea_buf. */
-	(void) MEMORY_MOVE((char *) &screen_buf[0],
-	    (char *) &screen_buf[COLS],
-	    qty);
-	(void) MEMORY_MOVE((char *) &ea_buf[0],
-	    (char *) &ea_buf[COLS],
+	(void) memmove(&screen_buf[0], &screen_buf[COLS], qty);
+	(void) memmove(&ea_buf[0], &ea_buf[COLS],
 	    qty * sizeof(struct ea));
 
 	/* Clear the last line. */

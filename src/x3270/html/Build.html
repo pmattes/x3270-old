@@ -2,7 +2,7 @@
 <html>
 <head>
    <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
-   <meta name="GENERATOR" content="Mozilla/4.74 [en] (Win98; U) [Netscape]">
+   <meta name="GENERATOR" content="Mozilla/4.73 [en]C-CCK-MCD   (WinNT; U) [Netscape]">
    <title>x3270 Build and Install Instructions</title>
 </head>
 <body>
@@ -17,12 +17,13 @@ any complete X11R6 or X11R5 implementation.
 <p>A "complete" R6 or R5 implementation means that <i>xmkmf</i> and <i>imake</i>
 are configured and installed on your system, and that the <tt>Xaw</tt>
 and <tt>Xmu</tt> libraries and header files are installed. Some vendors
-(HP and IBM in particular) consider these optional software and do not
-always install them.
+(HP, IBM, SCO) consider these optional software and do not always install
+them.
 <p>If you are running vanilla X11R6 or X11R5, then the build procedure
 is to ensure that your X11 <tt>bin</tt> directory is in your <tt>$PATH</tt>,
 then:
-<pre>&nbsp;&nbsp;&nbsp; xmkmf&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; # create a Makefile
+<pre>&nbsp;&nbsp;&nbsp; ./configure&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; # probe for system dependencies and create the Imakefile
+&nbsp;&nbsp;&nbsp; xmkmf&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; # create a Makefile
 &nbsp;&nbsp;&nbsp; make depend&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; # add dependency information
 &nbsp;&nbsp;&nbsp; make&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; # build x3270 and its fonts</pre>
 <i>x3270</i> prefers that its fonts be installed in order to run. However,
@@ -50,8 +51,8 @@ IBM RS/6000, AIX 3.2, X11R5</h2>
 AIX X11R5 does not include does not include <i>xmkmf</i> or <i>imake</i>,
 but it includes the source code for them. If these have not been built
 and installed on your system (<i>e.g.</i>, if there is no such file as
-<tt>/usr/bin/X11/imake</tt>),
-you must first build and install them by following the instructions in
+<tt>/usr/bin/X11/imake</tt>), you must first build and install them by
+following the instructions in
 <tt>/usr/lpp/X11/Xamples/README</tt>.
 <p>Once these have been installed, you can use the standard X11R5 build
 procedure above.
@@ -71,30 +72,20 @@ instructions.
 Sun Solaris 2.x</h2>
 Follow the instructions for Vanilla X11R6, with the following changes.
 <p><b>Do not use</b> Sun's "BSD-compatibility" C compiler, <tt>/usr/ucb/cc</tt>.
-This
-is good advice in general, and in particular, <i>x3270</i> will not build
-under it. Unfortunately, if you have installed Sun's unbundled C compiler,
-and have
+This is good advice in general, and in particular, <i>x3270</i> will not
+build under it. Unfortunately, if you have installed Sun's unbundled C
+compiler, and have
 <tt>/usr/ucb</tt> in your $PATH ahead of <tt>/usr/ccs/bin</tt>,
-then you will get <tt>/usr/ucb/cc</tt> by default. The fix for this is
-the command:
-<pre>&nbsp;&nbsp;&nbsp; make CC=/usr/ccs/bin/cc</pre>
-If you are using <i>gcc</i>, then Sun's <i>xmkmf</i> configuration puts
+then you will get <tt>/usr/ucb/cc</tt> by default. The fix is to install
+<tt>gcc</tt> (much preferred) or to have <tt>/usr/ccs/bin</tt> ahead of
+<tt>/usr/ucb</tt> in your $PATH.
+<p>If you are using <i>gcc</i>, then Sun's <i>xmkmf</i> configuration puts
 some compiler flags in the <tt>Makefile</tt> that are specific to Sun's
 unbundled C compiler, and you may get a number of harmless, but annoying
 error messages while compiling. To eliminate these, use the command:
 <pre>&nbsp;&nbsp;&nbsp; make CDEBUGFLAGS=-O "CCOPTIONS=-DSYSV -DSVR4"</pre>
-<i>xmkmf</i> also gets the path of the <i>install</i> program wrong. To
-install <i>x3270</i>, you must use the command:
-<pre>&nbsp;&nbsp;&nbsp; make INSTALL=/usr/ucb/install install</pre>
 To run <i>x3270</i>, you must have your <tt>LD_LIBRARY_PATH</tt> environment
 variable set properly. First, it must include <tt>/usr/openwin/lib</tt>.
-<h2>
-Systems Based on System V, Release 4</h2>
-Before running <i>xmkmf</i>, you must uncomment a line in the <tt>Imakefile</tt>
-to include the network libraries:
-<pre>&nbsp; EXTRA_LIBRARIES = -lnsl -lsocket</pre>
-
 <h2>
 Mixed X Environments</h2>
 If you are running a mixture of X environments, such as running a Sun XNews
@@ -128,14 +119,8 @@ Then tell your X server to use this directory:
 
 <h2>
 SCO Open Desktop 3</h2>
-You will need to edit a few files in order to build under SCO Open Desktop
-3.
-<p>In <tt>globals.h</tt>, remove the <tt>#define NO_SYS_TIME_H</tt> that
-is defined for <tt>sco</tt>.
-<p>In <tt>Imakefile</tt>, add:
-<pre>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; EXTRA_LIBRARIES = -lnsl_s -lsocket</pre>
-Also be aware that <i>x3270</i> requires the Athena Widgets library, which
-is available from sosco.sco.com.
+<i>x3270</i> requires the Athena Widgets library, which is available from
+sosco.sco.com.
 <h2>
 Using an app-defaults File</h2>
 Earlier versions of <i>x3270</i> required a separate <b>app-defaults</b>
@@ -152,16 +137,16 @@ app-defaults file compounds the above problems.
 <p>Starting with version 3.1.0.0, <i>x3270</i> no longer uses a separate
 app-defaults file. Instead, the file is compiled into <i>x3270</i> itself.
 If however, you prefer to have a separate app-defaults file, you can compile
-<i>x3270</i>
-to use it.
+<i>x3270</i> to use it.
 <p>First, you must decide whether you want app-defaults for a color display
 or a monochrome display. The default is color; if you want monochrome app-defaults
 you must edit <tt>Imakefile</tt> and un-comment the line under the comment
 "<tt>Rule for building a separate app-defaults file...</tt>".
-<p>Then you need to edit <tt>Imakefile</tt>, and un-comment the lines under
-the comment "<tt>To use a separate app-defaults file...</tt>". Then do
-the following:
-<pre>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; xmkmf
+<p>Then you need to edit <tt>Imakefile.in</tt>, and un-comment the lines
+under the comment "<tt>To use a separate app-defaults file...</tt>". Then
+do the following:
+<pre>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ./configure
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; xmkmf
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; make depend
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; make clean
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; make</pre>

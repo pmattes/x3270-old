@@ -1,137 +1,88 @@
-'\\" t
-.TH IBM_HOSTS 5 "12 March 1999"
-.SH NAME
-ibm_hosts \-
-host database for
-.B x3270
-.SH SYNOPSIS
+'\" t
+.TH IBM_HOSTS 5 "14 November 2000"
+.SH "NAME"
+ibm_hosts \- host database for x3270 and c3270
+.SH "SYNOPSIS"
 /usr/lib/X11/x3270/ibm_hosts
-.SH DESCRIPTION
-The
-.B ibm_hosts
+.SH "DESCRIPTION"
+The \fBibm_hosts\fP
 file contains information regarding IBM hosts on the network.
-An
-.I "IBM host"
-is a host which can communicate with a 3270 terminal emulator such as
-.B x3270
-or
-.B tn3270.
+An \fIIBM host\fP is a host which can communicate with a 3270 terminal
+emulator such as \fBx3270\fP or \fBc3270\fP.
 Each line defines a name in the following format
 (optional fields are shown in brackets):
-.nf
-
-	\fIname	type \fP[\fIopt\fP:]...[\fIluname\fP@]\fIhostname\fP[:\fIport\fP] [\fIactions\fP]
-
-.fi
+.LP
+\fIname\fP	\fItype\fP [\fIopt\fP:]...[\fIluname\fP@]\fIhostname\fP[:\fIport\fP] [\fIactions\fP]
+.LP
 Items are separated by any number of blanks and/or TAB characters.
-A line beginning with `#' is taken as a comment (note that `#' anywhere
-else on a line does
-.I not
-indicate a comment).
+A line beginning with # is taken as a comment (note that # anywhere
+else on a line does \fInot\fP indicate a comment).
 .LP
-The
-.I name
-field is a mnemonic used to identify the host.
+The \fIname\fP field is a mnemonic used to identify the host.
 .LP
-The
-.I
-type
-field is a keyword that indicates the type of entry.
-The value
-.B primary
-means that the
-.I name
+The \fItype\fP field is a keyword that indicates the type of entry.
+The value \fBprimary\fP means that the \fIname\fP
 will be included in host-selection menus that may be displayed by a
 3270 emulator.
-The value
-.B alias
-means that the
-.I name
+The value \fBalias\fP means that the \fIname\fP
 will not be included in menus, but will still be accepted as valid input
 when a host name is required.
 .LP
-The
-.I hostname
+The \fIhostname\fP
 field is the Internet hostname or dot-notation Internet address of the host.
 .LP
-The
-.I hostname
-can include ``s:'' or ``p:'' prefixes,
-.IR e . g .,
-.B s:finicky
-(see the
-.IR x3270 (1)
-man page for details).
-It can also include an LU name, separated by an ``@'' character,
-.IR e . g .,
-.BR oddlu@bluehost .
-Finally, it can include a non-default
-.I port
-number, appended to the
-.I hostname
-with
-a colon ``:'' character,
-.IR e . g .,
-.BR bluehost:97 .
-(For compatability with earlier versions of
-.IR x3270 ,
-the
-.I port
-can also be
-separated by a slash ``/'' character.)
+The \fIhostname\fP
+can include `s:' or `p:' prefixes, e.g., \fBs:finicky\fP
+(see the \fIx3270\fP(1) or
+\fIc3270\fP(1) man page sfor details).
+It can also  an LU name, separated by an `@' character, e.g.,
+\fBoddlu@bluehost\fP.
+Finally, it can  a non-default \fIport\fP number, appended to the
+\fIhostname\fP with a colon `:' character, e.g.,
+\fBbluehost:97\fP.
+(For compatability with earlier versions of \fIx3270\fP,
+the \fIport\fP can also be separated by a slash `/' character.)
 .LP
-The optional
-.I actions
+The optional \fIactions\fP
 field specifies actions to be taken once the connection is made and a
 data-entry field is defined.
-If the text looks like an action,
-.IR e . g .,
-.BR PF(1) ,
+If the text looks like an action, e.g.,
+\fBPF(1)\fP,
 it is unmodified; otherwise it is taken as the parameter to the
-.B String()
+\fBString()\fP
 action.
 The
-.I actions
+\fIactions\fP
 are not intended for entering usernames and passwords; rather they provide an
 automated way of specifying a front-end menu option.
-.SH EXAMPLE
+.SH "EXAMPLE"
 Given the following
-.B ibm_hosts
+\fBibm_hosts\fP
 file:
-.nf
+.LP
+.RS
+mvs	primary	mvs-host
+.br
+tso	alias	mvs-host
+.br
+mvs2	primary	mvs-host:4012
+.br
+vm	primary	vtam	Tab() String(3) Enter()
 
-	mvs	primary	mvs-host
-	tso	alias	mvs-host
-	mvs2	primary	mvs-host/4012
-	vm	primary	vtam	Tab() String(3) Enter()
-
-.fi
-An 3270 emulator will display four names
-.RB ( mvs ,
-.BR mvs2 ,
-.B afhost
-and
-.BR vm )
-on its hosts menu.
-The names
-.B mvs
-and
-.B tso
-will cause connections to the host
-.BR mvs-host.
-The name
-.B mvs2
-will also cause a connection to
-.BR mvs-host ,
+.RE
+A 3270 emulator will display four names (\fBmvs\fP, \fBmvs2\fP,
+\fBafhost\fP and \fBvm\fP) on its hosts menu.
+The names \fBmvs\fP and \fBtso\fP will cause connections to the host
+\fBmvs-host\fP.
+The name \fBmvs2\fP will also cause a connection to
+\fBmvs-host\fP,
 but to port 4012 rather than the emulator's default port (usually 23).
-The name
-.B vm
-will cause the 3270 emulator to connect to the host
-.B vtam
-(presumably some sort of host-selection front-end),
-enter the string ``3'' on the second data-entry field on the screen, and
-send the ENTER AID sequence.
-.SH FILES
+The name \fBvm\fP will cause the 3270 emulator to connect to the host
+\fBvtam\fP (presumably some sort of host-selection front-end),
+enter the string `3' on the second data-entry field on the screen, and
+send the Enter \s-1AID\s+1 sequence.
+.SH "FILES"
 /usr/lib/X11/x3270/ibm_hosts
 .SH "SEE ALSO"
-x3270(1)
+x3270(1),
+c3270(1)

@@ -75,7 +75,7 @@ write_structured_field(unsigned char buf[], int buflen)
 	unsigned char *cp = buf;
 	Boolean first = True;
 	enum pds rv = PDS_OKAY_NO_OUTPUT;
-	enum pds rv_this;
+	enum pds rv_this = PDS_OKAY_NO_OUTPUT;
 
 	/* Skip the WSF command itself. */
 	cp++;

@@ -1,6 +1,6 @@
 /*
- * Modifications Copyright 1996, 1999 by Paul Mattes.
- * Copyright Octover 1995 by Dick Altenbern.
+ * Modifications Copyright 1996, 1999, 2000 by Paul Mattes.
+ * Copyright October 1995 by Dick Altenbern.
  * Based in part on code Copyright 1993, 1994, 1995 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -1815,13 +1815,13 @@ Transfer_action(Widget w unused, XEvent *event, String *params,
 				return;
 			}
 			kwlen = eq - params[j];
-			if (!strncmp(params[j], tp[i].name, kwlen)
+			if (!strncasecmp(params[j], tp[i].name, kwlen)
 					&& !tp[i].name[kwlen]) {
 				if (tp[i].keyword[0]) {
 					for (k = 0;
 					     tp[i].keyword[k] != CN && k < 4;
 					     k++) {
-						if (!strcmp(eq + 1,
+						if (!strcasecmp(eq + 1,
 							tp[i].keyword[k])) {
 							break;
 						}
@@ -1872,16 +1872,16 @@ Transfer_action(Widget w unused, XEvent *event, String *params,
 	 * and should be made common.
 	 */
 
-	receive_flag = !strcmp(tp[PARM_DIRECTION].value, "receive");
-	append_flag = !strcmp(tp[PARM_EXIST].value, "append");
-	allow_overwrite = !strcmp(tp[PARM_EXIST].value, "replace");
-	ascii_flag = !strcmp(tp[PARM_MODE].value, "ascii");
-	cr_flag = !strcmp(tp[PARM_CR].value, "remove") ||
-		  !strcmp(tp[PARM_CR].value, "add");
-	vm_flag = !strcmp(tp[PARM_HOST].value, "vm");
+	receive_flag = !strcasecmp(tp[PARM_DIRECTION].value, "receive");
+	append_flag = !strcasecmp(tp[PARM_EXIST].value, "append");
+	allow_overwrite = !strcasecmp(tp[PARM_EXIST].value, "replace");
+	ascii_flag = !strcasecmp(tp[PARM_MODE].value, "ascii");
+	cr_flag = !strcasecmp(tp[PARM_CR].value, "remove") ||
+		  !strcasecmp(tp[PARM_CR].value, "add");
+	vm_flag = !strcasecmp(tp[PARM_HOST].value, "vm");
 	recfm = DEFAULT_RECFM;
 	for (k = 0; tp[PARM_RECFM].keyword[k] != CN && k < 4; k++) {
-		if (!strcmp(tp[PARM_RECFM].value,
+		if (!strcasecmp(tp[PARM_RECFM].value,
 			    tp[PARM_RECFM].keyword[k]))  {
 			recfm = (enum recfm)k;
 			break;
@@ -1889,7 +1889,7 @@ Transfer_action(Widget w unused, XEvent *event, String *params,
 	}
 	units = DEFAULT_UNITS;
 	for (k = 0; tp[PARM_ALLOCATION].keyword[k] != CN && k < 4; k++) {
-		if (!strcmp(tp[PARM_ALLOCATION].value,
+		if (!strcasecmp(tp[PARM_ALLOCATION].value,
 			    tp[PARM_ALLOCATION].keyword[k]))  {
 			units = (enum units)k;
 			break;

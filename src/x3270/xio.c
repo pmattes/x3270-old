@@ -1,5 +1,5 @@
 /*
- * Modifications Copyright 1993, 1994, 1995, 1996, 1999 by Paul Mattes.
+ * Modifications Copyright 1993, 1994, 1995, 1996, 1999, 2000 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -110,6 +110,9 @@ x3270_exit(int n)
 	/* Shut down the socket gracefully. */
 	host_disconnect(False);
 
+	/* Tell anyone else who's interested. */
+	st_changed(ST_EXITING, True);
+
 	exit(n);
 }
 
@@ -117,6 +120,7 @@ void
 Quit_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
 	action_debug(Quit_action, event, params, num_params);
-	if (!w || !CONNECTED)
+	if (!w || !CONNECTED) {
 		x3270_exit(0);
+	}
 }

@@ -1,7 +1,7 @@
 /* (from) $XConsortium: Sme.c,v 1.9 91/02/17 16:44:14 rws Exp $ */
 
 /*
- * Modifications Copyright 1995, 1999 by Paul Mattes.
+ * Modifications Copyright 1995, 1999, 2000 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that

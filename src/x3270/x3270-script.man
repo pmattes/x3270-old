@@ -1,120 +1,64 @@
-.TH X3270-SCRIPT 1 "26 August 2000"
-.SH NAME
-Scripting Facilities for x3270 and s3270
-.SH SYNOPSIS
-.B x3270
-.B \-script
-[
-.I x3270-options
-]
+'\" t
+.TH X3270-SCRIPT 1 "14 November 2000"
+.SH "NAME"
+Scripting Facilities for x3270, s3270 and c3270
+.SH "SYNOPSIS"
+\fBx3270\fP \fB\-script\fP [ \fIx3270-options\fP ]
 .br
-.B s3270
-[
-.I x3270-options
-]
+\fBs3270\fP [ \fIx3270-options\fP ]
 .br
-.B Script(
-.I command
-.B [
-.I , arg ...
-.B ] )
-.SH DESCRIPTION
-The
-.B x3270
-scripting facilities allow
-.B x3270
-and
-.B s3270
-to be operated under the control of another program.
+\fBScript\fP ( \fIcommand\fP [ ,\fIarg\fP... ] )
+.SH "DESCRIPTION"
+The \fBx3270\fP scripting facilities allow the interactive 3270 emulators
+\fBx3270\fP and \fBc3270\fP to be operated under the control of another
+program, and form the basis for the script-only emulator \fBs3270\fP.
 .PP
-There are two basic methods.
-The first is the
-.B "peer script"
-facility, invoked by the
-.B x3270
-.B \-script
-switch
-(
-.B s3270
-functions exclusively in script mode).
-This runs
-.B x3270
-or
-.B s3270
-as a child of another process.
+There are two basic scripting methods.
+The first is the \fBpeer script\fP facility, invoked by the \fBx3270\fP
+\fB\-script\fP switch, and the default mode for \fBs3270\fP.
+This runs \fBx3270\fP or \fBs3270\fP as a child of another process.
 Typically this would be a script using
-.IR expect (1)
+\fIexpect\fP(1), \fIperl\fP(1),
 or the co-process facility of the Korn Shell
-.IR ksh (1).
-When the
-.B \-script
-switch is given,
-.B x3270
-looks for commands on its standard input, and places the responses on
-standard output and standard error output.
+\fIksh\fP(1).
+Inthis mode, the emulator process looks for commands on its standard input,
+and places the responses on standard output and standard error output.
 .PP
-The second method is the
-.B "child script"
-facility, invoked by the
-.B Script()
-action.
-This runs a script as a child process of
-.B x3270
-or
-.B s3270.
-The child has access to pipes connected to
-.B x3270
-or
-.B s3270;
-.B x3270
-or
-.B s3270
+The second method is the \fBchild script\fP
+facility, invoked by the \fBScript\fP action in \fBx3270\fP, \fBc3270\fP,
+or \fBs3270\fP.
+This runs a script as a child process of the emulator.
+The child has access to pipes connected to the emulator; the emulator
 look for commands on one pipe, and places the responses on the other.
-(The file descriptor of the pipe for commands to
-.B x3270
-or
-.B s3270
+(The file descriptor of the pipe for commands to the emulator
 is passed in the environment variable X3270INPUT; the file descriptor
-of the pipe for responses from
-.B x3270
-or
-.B s3270
-is passed in the environment variable X3270OUTPUT.)
+of the pipe for responses from the emulator is passed in the environment
+variable X3270OUTPUT.)
 .PP
-(It is possible to mix the two methods: A script can invoke another script
-with the
-.B Script()
-action.
-Scripts may also be implicitly nested when a script invokes the
-.B Connect()
+It is possible to mix the two methods.
+A script can invoke another script with the \fBScript\fP action, and
+may also be implicitly nested when a script invokes the
+\fBConnect\fP
 action, and the
-.B ibm_hosts
-file specifies a login script for that host name.)
+\fBibm_hosts\fP
+file specifies a login script for that host name.
 .PP
-Commands are X actions; the syntax is the same as for the right-hand
-side of an X translation table (an
-.B x3270
-keymap), with two exceptions: only one action may appear per line, and
-if no parameters are needed by the action, the parentheses may be omitted.
+Commands are emulator \fIactions\fP; the syntax is the same as for the
+right-hand side of an Xt translation table entry (an \fBx3270\fP or
+\fBc3270\fP keymap).
+Unlike translation tables, action names are case-insensitive, can be
+uniquely abbreviated, and the parentheses may be omitted if there are
+no parameters.
 .PP
-Any
-.B x3270
-or
-.B s3270
-action may be specified.
-Several new actions have been defined for use by scripts, and the behavior
-of certain other actions (and of
-.B x3270
-in general) is different when an action is initiated by a script.
+Any emulator action may be specified.
+Several specific actions have been defined for use by scripts, and the behavior
+of certain other actions (and of the emulators in general) is different when
+an action is initiated by a script.
 .PP
 Some actions generate output; some may delay completion until the certain
 external events occur, such as the host unlocking the keyboard.
 The completion of every command is marked by a two-line message.
-The first line is the current status of
-.B x3270
-or
-.BR s3270 ,
-documented below.
+The first line is the current status of the emulator, documented below.
 If the command is successful, the second line is the string "ok"; otherwise it
 is the string "error".
 .SH "STATUS FORMAT"
@@ -122,53 +66,46 @@ The status message consists of 11 blank-separated fields:
 .TP
 1 Keyboard State
 If the keyboard is unlocked, the letter
-.BR U .
+\fBU\fP.
 If the keyboard is locked waiting for a response from the host, or if not
 connected to a host, the letter
-.BR L .
+\fBL\fP.
 If the keyboard is locked because of an operator error (field overflow,
 protected field, etc.), the letter
-.BR E .
+\fBE\fP.
 .TP
 2 Screen Formatting
 If the screen is formatted, the letter
-.BR F .
-If unformatted or in
-.SM ANSI
-mode,
-the letter
-.BR U .
+\fBF\fP.
+If unformatted or in \s-1NVT\s+1 mode, the letter \fBU\fP.
 .TP
 3 Field Protection
 If the field containing the cursor is protected, the letter
-.BR P .
+\fBP\fP.
 If unprotected or unformatted, the letter
-.BR U .
+\fBU\fP.
 .TP
 4 Connection State
 If connected to a host, the string
-.BI C( hostname ).
+\fBC(\fP\fIhostname\fP\fB)\fP.
 Otherwise, the letter
-.B N .
+\fBN\fP.
 .TP
 5 Emulator Mode
 If connected in 3270 mode, the letter
-.BR I .
-If connected in ANSI line mode, the letter
-.BR L .
-If connected in ANSI character mode, the letter
-.BR C .
+\fBI\fP.
+If connected in \s-1NVT\s+1 line mode, the letter
+\fBL\fP.
+If connected in \s-1NVT\s+1 character mode, the letter
+\fBC\fP.
 If not connected, the letter
-.BR N .
+\fBN\fP.
 .TP
 6 Model Number (2-5)
 .TP
 7 Number of Rows
 The current number of rows defined on the screen.
-The host can request that
-.B x3270
-or
-.B s3270
+The host can request that the emulator
 use a 24x80 screen, so this number may be smaller than the maximum number of
 rows possible with the current model.
 .TP
@@ -184,429 +121,372 @@ The current cursor column (zero-origin).
 .TP
 11 Window ID
 The X window identifier for the main
-.B x3270
+\fBx3270\fP
 window, in hexadecimal preceded by
-.BR 0x .
+\fB0x\fP.
 For
-.BR s3270,
+\fBs3270\fP and \fBc3270\fP,
 this is zero.
-.SH DIFFERENCES
-When an action is initiated by a script,
-.B x3270
-behaves in several different ways:
+.SH "DIFFERENCES"
+When an action is initiated by a script, the emulators
+behave in several different ways:
 .PP
-If an error occurs, the usual pop-up window does not appear.
+If an error occurs in processing an ection, the usual pop-up window does not
+appear.
 Instead, the text is written to standard error output.
 .PP
-If end-of-file is detected on standard input,
-.B x3270
-exits.
-(A script can exit without killing
-.B x3270
-by using the CloseScript action, below.)
+If end-of-file is detected on standard input, the emulator exits.
+(A script can exit without killing the emulator
+by using the \fBCloseScript\fP action, below.)
 Note that this applies to peer scripts only; end-of-file on the pipe
 connected to a child script simply causes the pipes to be closed and
 the
-.B Script()
+\fBScript\fP
 action to complete.
 .PP
-The
-.B Quit()
-action always causes
-.B x3270
-to exit.
+The \fBQuit\fP action always causes the emulator to exit.
 (When called from the keyboard, it will exit only if not connected to a host.)
 .PP
 The
-.BR Clear() ,
-.BR Enter() ,
-.BR PF() ,
+\fBClear\fP,
+\fBEnter\fP,
+\fBPF\fP,
 and
-.B PA()
+\fBPA\fP
 actions will not complete until the host
 unlocks the keyboard.
 If the parameter to a
-.B String()
+\fBString\fP
 action includes a code for one these actions,
 it will also wait for the keyboard to unlock before completing.
 Similarly, the
-.B Script()
+\fBScript\fP
 action does not complete until end-of-file is
 detected on the pipe or the
-.B CloseScript()
+\fBCloseScript\fP
 action is called by the child
 process.
-.SH "NEW ACTIONS"
+.SH "SCRIPT-SPECIFIC ACTIONS"
 The following actions have been defined or modified for use with scripts.
 (Note that unlike the display on the status line,
-.I row
+\fIrow\fP
 and
-.I col
+\fIcol\fP
 coordinates used in these actions use [0,0] as their origin, not [1,1]).
 .TP
-.B AnsiText()
+\fBAnsiText\fP
 Outputs whatever data that has been output by the host in
-.SM ANSI
-mode
+\s-1NVT\s+1 mode
 since the last time that
-.B AnsiText()
+\fBAnsiText\fP
 was called.
 The data is preceded by the string "data:\ ", and has had all control characters
 expanded into C backslash sequences.
 .IP
 This is a convenient way to capture
-.SM ANSI
+\s-1NVT\s+1
 mode output in a synchronous manner without trying to decode the screen
 contents.
 .TP
-.BI Ascii( row,col,rows,cols )
+\fBAscii\fP(\fIrow\fP,\fIcol\fP,\fIrows\fP,\fIcols\fP)
 .TP
-.BI Ascii( row,col,len )
+\fBAscii\fP(\fIrow\fP,\fIcol\fP,\fIlength\fP)
 .TP
-.BI Ascii( len )
+\fBAscii\fP(\fIlength\fP)
 .TP
-.B Ascii()
-Outputs an
-.SM ASCII
-text representation of the screen contents.
+\fBAscii\fP
+Outputs an \s-1ASCII\s+1 text representation of the screen contents.
 Each line is preceded by the string "data:\ ", and there are no control
 characters.
 .IP
 If four parameters are given, a rectangular region of the screen is output.
 .IP
 If three parameters are given,
-.I len
+\fIlength\fP
 characters are output, starting at the specified row and column.
 .IP
 If only the
-.I len
+\fIlength\fP
 parameter is given, that many characters are output, starting at the cursor
 position.
 .IP
 If no parameters are given, the entire screen is output.
 .TP
-.B AsciiField()
-Outputs an 
-.SM ASCII
-text representation of the field containing the cursor.
+\fBAsciiField\fP
+Outputs an \s-1ASCII\s+1 text representation of the field containing the cursor.
 The text is preceded by the string "data:\ ".
 .TP
-.BI Connect( hostname )
+\fBConnect\fP(\fIhostname\fP)
 Connects to a host.
-The command does not return until
-.B x3270
+The command does not return until the emulator
 is successfully connected in the proper mode, or the connection fails.
 .TP
-.BI CloseScript( status )
-Causes
-.B x3270
-to stop reading commands from the script.
-This is useful to allow a peer script to exit, with
-.B x3270
+\fBCloseScript\fP(\fIstatus\fP)
+Causes the emulator to stop reading commands from the script.
+This is useful to allow a peer script to exit, with the emulator
 proceeding interactively.
-(Without this command,
-.B x3270
+(Without this command, the emulator
 would exit when it detected end-of-file on standard input.)
 If the script was invoked by the
-.B Script()
+\fBScript\fP
 action, the optional
-.I status
+\fIstatus\fP
 is used as the return status of
-.B Script();
+\fBScript\fP;
 if nonzero,
-.B Script()
+\fBScript\fP
 will complete with an error, and if this script was invoked as part of
 login through the
-.B ibm_hosts
+\fBibm_hosts\fP
 file, the connection will be broken.
 .TP
-.BI ContinueScript( param )
+\fBContinueScript\fP(\fIparam\fP)
 Allows a script that is waiting in a
-.B PauseScript()
+\fBPauseScript\fP
 action, below, to continue.
 The
-.I param
+\fIparam\fP
 given is output by the
-.B PauseScript()
+\fBPauseScript\fP
 action.
 .TP
-.B Disconnect()
+\fBDisconnect\fP
 Disconnects from the host.
 .TP
-.BI Ebcdic( row,col,rows,cols )
+\fBEbcdic\fP(\fIrow\fP,\fIcol\fP,\fIrows\fP,\fIcols\fP)
 .TP
-.BI Ebcdic( row,col,len )
+\fBEbcdic\fP(\fIrow\fP,\fIcol\fP,\fIlength\fP)
 .TP
-.BI Ebcdic( len )
+\fBEbcdic\fP(\fIlength\fP)
 .TP
-.B Ebcdic()
+\fBEbcdic\fP
 The same function as
-.B Ascii()
+\fBAscii\fP
 above, except that rather than generating
-.SM ASCII
+\s-1ASCII\s+1
 text, each character is output as a hexadecimal
-.SM EBCDIC
+\s-1EBCDIC\s+1
 code, preceded by
-.BR 0x .
+\fB0x\fP.
 .TP
-.B EbcdicField()
+\fBEbcdicField\fP
 The same function as
-.B AsciiField()
+\fBAsciiField\fP
 above, except that it generates hexadecimal
-.SM EBCDIC
+\s-1EBCDIC\s+1
 codes.
 .TP
-.BI Info( message )
+\fBInfo\fP(\fImessage\fP)
 Pops up an informational message.
 .TP
-.BI Expect( text )
-.TP
-.BI Expect( text , timeout )
+\fBExpect\fP(\fItext\fP[,\fItimeout\fP])
 Pauses the script until the specified
-.I text
+\fItext\fP
 appears in the data stream from the host, or the specified
-.I timeout
+\fItimeout\fP
 (in seconds) expires.
 If no
-.I timeout
+\fItimeout\fP
 is specified, the default is 30 seconds.
-.I Text
+\fIText\fP
 can contain standard C-language escape (backslash) sequences.
 No wild-card characters or pattern anchor characters are understood.
-.B Expect()
+\fBExpect\fP
 is valid only in
-.SM ANSI
+\s-1NVT\s+1
 mode.
 .TP
-.BI MoveCursor( row,col )
+\fBMoveCursor\fP(\fIrow\fP,\fIcol\fP)
 Moves the cursor to the specified coordinates.
 .TP
-.B PauseScript()
+\fBPauseScript\fP
 Stops a script until the
-.B ContinueScript()
+\fBContinueScript\fP
 action, above, is executed.
 This allows a script to wait for user input and continue.
 Outputs the single parameter to
-.B ContinueScript().
+\fBContinueScript\fP.
 .TP
-.B Snap()
+\fBSnap\fP
 Saves a copy of the screen image and status in a temporary buffer.
 This copy can be queried with other
-.B Snap()
+\fBSnap\fP
 actions to allow a script to examine a consistent screen image, even when the
 host may be changing the image (or even the screen dimensions) dynamically.
 .TP
-.BR Snap(Ascii ,... )
-Performs the
-.B Ascii()
-action on the saved screen image.
+\fBSnap\fP(\fBAscii\fP,...)
+Performs the \fBAscii\fP action on the saved screen image.
 .TP
-.B Snap(Cols)
+\fBSnap\fP(\fBCols\fP)
 Returns the number of columns in the saved screen image.
 .TP
-.BR Snap(Ebcdic ,... )
-Performs the
-.B Ebcdic()
-action on the saved screen image.
+\fBSnap\fP(\fBEbcdic\fP,...):
+Performs the \fBEbcdic\fP action on the saved screen image.
 .TP
-.B Snap(Rows)
+\fBSnap\fP(\fBRows\fP)
 Returns the number of rows in the saved screen image.
 .TP
-.B Snap(Status)
+\fBSnap\fP(\fBStatus\fP)
 Returns the status line from when the screen was last saved.
 .TP
-.BI Transfer( keyword = value ,...)
+\fBTransfer\fP(\fIkeyword\fP=\fIvalue\fP,...)
 Invokes IND$FILE file transfer.
-Note that this action requires that the
-.B IND$FILE
-program be installed on the IBM host, and that the 3270 cursor
-be located in a field that will accept a TSO or VM/CMS command.
+See \s-1FILE TRANSFER\s+1 below.
+.TP
+\fBWait\fP(\fB3270Mode\fP)
+Used when communicating with a host that switches between
+\s-1NVT\s+1 mode and 3270 mode.
+Pauses the script or macro until the host negotiates 3270 mode, then waits for
+a formatted screen as above.
 .IP
+For backwards compatibility,
+\fBWait(3270)\fP
+is equivalent to
+\fBWait\fP(\fB3270Mode\fP)
+.TP
+\fBWait\fP(\fBDisconnect\fP)
+Pauses the script until the host disconnects.
+Often used to after sending a
+\fIlogoff\fP
+command to a \s-1VM/CMS\s+1 host, to ensure that the session is not unintentionally
+set to
+\fBdisconnected\fP
+state.
+.TP
+\fBWait\fP(\fBInputField\fP)
+A useful utility for use at the beginning of scripts and after the
+\fBConnect\fP action.
+In 3270 mode, waits until the screen is formatted, and the host has positioned
+the cursor on a modifiable field.
+In \s-1NVT\s+1 mode, waits until the host sends at least one byte of data.
+.IP
+For backwards compatibility,
+\fBWait\fP
+is equivalent to
+\fBWait\fP(\fBInputField\fP).
+.TP
+\fBWait\fP(\fBNVTMode\fP)
+Used when communicating with a host that switches between 3270 mode and
+\s-1NVT\s+1 mode.
+Pauses the script or macro until the host negotiates \s-1NVT\s+1
+mode, then waits for
+a byte from the host as above.
+.IP
+For backwards compatibility,
+\fBWait\fP(\fBansi\fP)
+is equivalent to
+\fBWait\fP(\fBNVTMode\fP).
+.TP
+\fBWait\fP(\fBOutput\fP)
+Pauses the script until the host sends further output.
+Used when the host unlocks the keyboard (allowing the script to proceed after
+an
+\fBEnter\fP,
+\fBPF\fP
+or
+\fBPA\fP
+action), but has not finished updating the screen.
+This action is usually invoked in a loop that uses the
+\fBAscii\fP
+or
+\fBEbcdic\fP
+action to scan the screen for some pattern that indicates that the host has
+fully processed the last command.
+.SH "FILE TRANSFER"
+The \fBTransfer\fP action implements \fBIND$FILE\fP file transfer.
+This action requires that the \fBIND$FILE\fP
+program be installed on the \s-1IBM\s+1 host, and that the 3270 cursor
+be located in a field that will accept a \s-1TSO\s+1 or \s-1VM/CMS\s+1 command.
+.LP
 Because of the complexity and number of options for file transfer, the
-parameters to the Transfer action take the unique form of
-.IR option = value ,
-and can appear in any order.
+parameters to the \fBTransfer\fP action take the unique form
+of \fIoption\fP=\fIvalue\fP, and can appear in any order.
 The options are:
-.IP
+.LP
 .TS
 l c l l.
 Option	Required?	Default	Other Values
 _
 Direction	No	send	receive
-HostFile	Yes
-LocalFile	Yes
+HostFile	Yes	\ 	\ 
+LocalFile	Yes	\ 	\ 
 Host	No	tso	vm
 Mode	No	ascii	binary
 Cr	No	remove	add, keep
 Exist	No	keep	replace, append
-Recfm	No		fixed, variable, undefined
-Lrecl	No
-Blksize	No
-Allocation	No		tracks, cylinders, avblock
-PrimarySpace	No
-SecondarySpace	No
+Recfm	No	\ 	fixed, variable, undefined
+Lrecl	No	\ 	\ 
+Blksize	No	\ 	\ 
+Allocation	No	\ 	tracks, cylinders, avblock
+PrimarySpace	No	\ 	\ 
+SecondarySpace	No	\ 	\ 
 .TE
-.IP
+.LP
 The option details are as follows.
-.RS
 .TP
-.B Direction
-.B send
-(the default) to send a file to the host,
-.B receive
-to receive a file from the host.
+\fBDirection\fP
+\fBsend\fP (the default) to send a file to the host,
+\fBreceive\fP to receive a file from the host.
 .TP
-.B HostFile
+\fBHostFile\fP
 The name of the file on the host.
 .TP
-.B LocalFile
+\fBLocalFile\fP
 The name of the file on the local workstation.
 .TP
-.B Host
-The type of host (which dictates the form of the
-.B IND$FILE
-command):
-.B tso
-(the default)
-or
-.BR vm .
+\fBHost\fP
+The type of host (which dictates the form of the \fBIND$FILE\fP command):
+\fBtso\fP (the default) or \fBvm\fP.
 .TP
-.B Mode
-Use
-.B ascii
-(the default) for a text file, which will be translated between EBCDIC and
-ASCII as necessary.
-Use
-.B binary
-for non-text files.
+\fBMode\fP
+Use \fBascii\fP (the default) for a text file, which will be translated
+between \s-1EBCDIC\s+1 and \s-1ASCII\s+1 as necessary.
+Use \fBbinary\fP for non-text files.
 .TP
-.B Cr
-Controls how Newline characters are handled when transferring
-.B Mode=ascii
-files.
-.B remove
-(the default) strips Newline characters in local files before transferring
-them to the host.
-.B add
-adds Newline characters to each host file record before transferring it to
-the local workstation.
-.B keep
-preserves Newline characters when transferring a local file to the host.
+\fBCr\fP
+Controls how \fBNewline\fP characters are handled when transferring
+\fBMode=ascii\fP files.
+\fBremove\fP (the default) strips \fBNewline\fP characters in local files
+before transferring them to the host.
+\fBadd\fP adds \fBNewline\fP characters to each host file record before
+transferring it to the local workstation.
+\fBkeep\fP preserves \fBNewline\fP characters when transferring a local file
+to the host.
 .TP
-.B Exist
+\fBExist\fP
 Controls what happens when the destination file already exists.
-.B keep
-(the default) preserves the file, causing the Transfer action to fail.
-.B replace
-overwrites the destination file with the source file.
-.B append
-appends the source file to the destination file.
+\fBkeep\fP (the default) preserves the file, causing the
+\fBTransfer\fP action to fail.
+\fBreplace\fP overwrites the destination file with the source file.
+\fBappend\fP appends the source file to the destination file.
 .TP
-.B Recfm
+\fBRecfm\fP
 Controls the record format of files created on the host.
-.B fixed
-creates a file with fixed-length records.
-.B variable
-creates a file with variable-length records.
-.B undefined
-creates a file with undefined-length records (TSO hosts only).
-The
-.B Lrecl
-option controls the record length or maximum record length for
-.B Recfm=fixed
-and
-.B Recfm=variable
-files, respectively.
+\fBfixed\fP creates a file with fixed-length records.
+\fBvariable\fP creates a file with variable-length records.
+\fBundefined\fP creates a file with undefined-length records (\s-1TSO\s+1 hosts only).
+The \fBLrecl\fP option controls the record length or maximum record length for
+\fBRecfm=fixed\fP and \fBRecfm=variable\fP files, respectively.
 .TP
-.B Lrecl
+\fBLrecl\fP
 Specifies the record length (or maximum record length) for files created on
 the host.
 .TP
-.B Blksize
-Specifies the block size for files created on the host.  (TSO hosts only.)
+\fBBlksize\fP
+Specifies the block size for files created on the host.  (\s-1TSO\s+1 hosts only.)
 .TP
-.B Allocation
-Specifies the units for the TSO host
-.B PrimarySpace
-and
-.B SecondarySpace
-options:
-.BR tracks ,
-.B cylinders
-or
-.BR avblock .
+\fBAllocation\fP
+Specifies the units for the \s-1TSO\s+1 host \fBPrimarySpace\fP and
+\fBSecondarySpace\fP options: \fBtracks\fP, \fBcylinders\fP or
+\fBavblock\fP.
 .TP
-.B PrimarySpace
-Primary allocation for a file created on a TSO host.
-The units are given by the
-.B Allocation
-option.
+\fBPrimarySpace\fP
+Primary allocation for a file created on a \s-1TSO\s+1 host.
+The units are given by the \fBAllocation\fP option.
 .TP
-.B SecondarySpace
-Secondary allocation for a file created on a TSO host.
-The units are given by the
-.B Allocation
-option.
-.RE
-.TP
-.B Wait(3270Mode)
-Used when communicating with a host that switches between ANSI mode and 3270
-mode.
-Pauses the script or macro until the host negotiates 3270 mode, then waits for
-a formatted screen as above.
-.IP
-For backwards compatibility,
-.B Wait(3270)
-is equivalent to
-.B Wait(3270Mode)
-.TP
-.B Wait(Disconnect)
-Pauses the script until the host disconnects.
-Often used to after sending a
-.I logoff
-command to a VM/CMS host, to ensure that the session is not unintentionally
-set to
-.B disconnected
-state.
-.TP
-.B Wait(InputField)
-A useful utility for use at the beginning of scripts and after the Connect()
-action.
-In 3270 mode, waits until the screen is formatted, and the host has positioned
-the cursor on a modifiable field.
-In ANSI mode, waits until the host sends at least one byte of data.
-.IP
-For backwards compatibility,
-.B Wait()
-is equivalent to
-.BR Wait(InputField) .
-.TP
-.BR Wait(NVTMode) .
-Used when communicating with a host that switches between 3270 mode and NVT
-mode.
-Pauses the script or macro until the host negotiates NVT mode, then waits for
-a byte from the host as above.
-.IP
-For backwards compatibility,
-.B Wait(ansi)
-is equivalent to
-.BR Wait(NVTMode) .
-.TP
-.B Wait(Output)
-Pauses the script until the host sends further output.
-Used when the host unlocks the keyboard (allowing the script to proceed after
-an
-.BR Enter ,
-.B PF
-or
-.B PA
-action), but has not finished updating the screen.
-This action is usually invoked in a loop that uses the
-.B Ascii
-or
-.B Ebcdic
-action to scan the screen for some pattern that indicates that the host has
-fully processed the last command.
+\fBSecondarySpace\fP
+Secondary allocation for a file created on a \s-1TSO\s+1 host.
+The units are given by the \fBAllocation\fP option.
 .SH "SEE ALSO"
 expect(1)
 .br
@@ -614,4 +494,8 @@ ksh(1)
 .br
 x3270(1)
 .br
+c3270(1)
+.br
 s3270(1)
+.SH "VERSION"
+Version 3.2.14a

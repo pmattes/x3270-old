@@ -1,5 +1,5 @@
 /*
- * Modifications Copyright 1993, 1994, 1995, 1996, 1999 by Paul Mattes.
+ * Modifications Copyright 1993, 1994, 1995, 1996, 1999, 2000 by Paul Mattes.
  * Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -69,6 +69,7 @@ typedef struct {
 	Boolean extended;
 	Boolean m3279;
 	Boolean modified_sel;
+	Boolean	once;
 #if defined(X3270_DISPLAY) /*[*/
 	Boolean visual_bell;
 	Boolean menubar;
@@ -79,7 +80,6 @@ typedef struct {
 	Boolean allow_resize;
 	Boolean no_other;
 	Boolean do_confirms;
-	Boolean	once;
 	Boolean reconnect;
 	Boolean visual_select;
 # if defined(X3270_KEYPAD) /*[*/
@@ -93,7 +93,6 @@ typedef struct {
 	Boolean oerr_lock;
 	Boolean	typeahead;
 	Boolean debug_tracing;
-	Boolean attn_lock;
 	Boolean disconnect_clear;
 	Boolean highlight_bold;
 	Boolean highlight_select;
@@ -102,11 +101,13 @@ typedef struct {
 #if defined(X3270_KEYPAD) /*[*/
 	char	*keypad;
 #endif /*]*/
+#if defined(X3270_DISPLAY) || defined(C3270) /*[*/
+	char	*key_map;
+	char	*compose_map;
+#endif /*]*/
 #if defined(X3270_DISPLAY) /*[*/
 	char	*efontname;
 	char	*afontname;
-	char	*key_map;
-	char	*compose_map;
 	char	*font_list;
 	char	*debug_font;
 	char	*icon_font;
@@ -140,6 +141,7 @@ typedef struct {
 #if defined(X3270_FT) /*[*/
 	char	*ft_command;
 #endif /*]*/
+	char	*connectfile_name;
 
 	/* Toggles */
 	struct toggle toggle[N_TOGGLES];

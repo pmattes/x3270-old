@@ -24,6 +24,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <signal.h>
+#include <stdarg.h>
 #include "3270ds.h"
 #include "appres.h"
 #include "ctlr.h"
@@ -55,6 +56,7 @@ extern int      linemode;
 
 /* Globals */
 struct macro_def *macro_defs = (struct macro_def *)NULL;
+Boolean		macro_output = False;
 
 /* Statics */
 typedef struct sms {
@@ -83,6 +85,8 @@ typedef struct sms {
 	enum sms_type {
 		ST_STRING,	/* string */
 		ST_MACRO,	/* macro */
+		ST_COMMAND,	/* interactive command */
+		ST_KEYMAP,	/* keyboard map */
 		ST_CHILD,	/* child process */
 		ST_PEER		/* peer (external) process */
 	} type;
@@ -91,6 +95,7 @@ typedef struct sms {
 	Boolean	is_login;
 	Boolean	is_hex;		/* flag for ST_STRING only */
 	Boolean output_wait_needed;
+	Boolean executing;	/* recursion avoidance */
 	FILE   *outfile;
 	int	infd;
 	int	pid;
@@ -130,8 +135,8 @@ static int      ansi_save_cnt = 0;
 static int      ansi_save_ix = 0;
 static char    *expect_text = CN;
 int		expect_len = 0;
-static const char *st_name[] = { "String", "Macro", "ChildScript",
-				 "PeerScript" };
+static const char *st_name[] = { "String", "Macro", "Command", "KeymapAction",
+				 "ChildScript", "PeerScript" };
 #define ST_sNAME(s)	st_name[(int)(s)->type]
 #define ST_NAME		ST_sNAME(sms)
 
@@ -153,6 +158,10 @@ static void sms_pop(Boolean can_exit);
 static void
 sms_connect(Boolean connected)
 {
+	/* Hack to ensure that disconnects don't cause infinite recursion. */
+	if (sms != SN && sms->executing)
+		return;
+
 	if (!connected) {
 		while (sms != SN && sms->is_login) {
 			if (sms->type == ST_CHILD && sms->pid > 0)
@@ -298,6 +307,7 @@ new_sms(enum sms_type type)
 	s->pid = -1;
 	s->expect_id = 0L;
 	s->output_wait_needed = False;
+	s->executing = False;
 
 	return s;
 }
@@ -478,10 +488,14 @@ execute_command(enum iaction cause, char *s, char **np)
 		ME_FUNCTION,	/* within action name */
 		ME_FUNCTIONx,	/* saw whitespace after action name */
 		ME_LPAREN,	/* saw left paren */
-		ME_PARM,	/* within unquoted parameter */
-		ME_QPARM,	/* within quoted parameter */
-		ME_BSL,		/* after backslash in quoted parameter */
-		ME_PARMx	/* saw whitespace after parameter */
+		ME_P_PARM,	/* paren: within unquoted parameter */
+		ME_P_QPARM,	/* paren: within quoted parameter */
+		ME_P_BSL,	/* paren: after backslash in quoted parameter */
+		ME_P_PARMx,	/* paren: saw whitespace after parameter */
+		ME_S_PARM,	/* space: within unquoted parameter */
+		ME_S_QPARM,	/* space: within quoted parameter */
+		ME_S_BSL,	/* space: after backslash in quoted parameter */
+		ME_S_PARMx	/* space: saw whitespace after parameter */
 	} state = ME_GND;
 	char c;
 	char aname[64+1];
@@ -489,15 +503,23 @@ execute_command(enum iaction cause, char *s, char **np)
 	int nx = 0;
 	Cardinal count = 0;
 	String params[64];
-	int i;
+	int i, any, exact;
 	int failreason = 0;
+	Boolean saw_paren = False;
 	static const char *fail_text[] = {
 		/*1*/ "Action name must begin with an alphanumeric character",
-		/*2*/ "Syntax error, \"(\" expected",
+		/*2*/ "Syntax error in action name",
 		/*3*/ "Syntax error, \")\" expected",
 		/*4*/ "Extra data after parameters"
 	};
 #define fail(n) { failreason = n; goto failure; }
+#define free_params() { \
+	if (cause == IA_MACRO || cause == IA_KEYMAP || cause == IA_COMMAND) { \
+		Cardinal j; \
+		for (j = 0; j < count; j++) \
+			Free(params[j]); \
+	} \
+}
 
 	parm[0] = '\0';
 	params[count] = parm;
@@ -513,49 +535,57 @@ execute_command(enum iaction cause, char *s, char **np)
 		} else
 			fail(1);
 		break;
-	    case ME_FUNCTION:
+	    case ME_FUNCTION:	/* within function name */
 		if (c == '(' || isspace(c)) {
 			aname[nx] = '\0';
 			if (c == '(') {
 				nx = 0;
 				state = ME_LPAREN;
+				saw_paren = True;
 			} else
 				state = ME_FUNCTIONx;
 		} else if (isalnum(c) || c == '_' || c == '-') {
 			if (nx < 64)
 				aname[nx++] = c;
-		} else
+		} else {
 			fail(2);
+		}
 		break;
-	    case ME_FUNCTIONx:
+	    case ME_FUNCTIONx:	/* space after function name */
 		if (isspace(c))
 			continue;
 		else if (c == '(') {
 			nx = 0;
 			state = ME_LPAREN;
-		} else
-			fail(2);
+		} else if (c == '"') {
+			nx = 0;
+			state = ME_S_QPARM;
+		}
+		else { state = ME_S_PARM;
+			nx = 0;
+			parm[nx++] = c;
+		}
 		break;
 	    case ME_LPAREN:
 		if (isspace(c))
 			continue;
 		else if (c == '"')
-			state = ME_QPARM;
+			state = ME_P_QPARM;
 		else if (c == ',') {
 			parm[nx++] = '\0';
 			params[++count] = &parm[nx];
 		} else if (c == ')')
 			goto success;
 		else {
-			state = ME_PARM;
+			state = ME_P_PARM;
 			parm[nx++] = c;
 		}
 		break;
-	    case ME_PARM:
+	    case ME_P_PARM:
 		if (isspace(c)) {
 			parm[nx++] = '\0';
 			params[++count] = &parm[nx];
-			state = ME_PARMx;
+			state = ME_P_PARMx;
 		} else if (c == ')') {
 			parm[nx] = '\0';
 			++count;
@@ -569,7 +599,7 @@ execute_command(enum iaction cause, char *s, char **np)
 				parm[nx++] = c;
 		}
 		break;
-	    case ME_BSL:
+	    case ME_P_BSL:
 		if (c == 'n' && nx < 1024)
 			parm[nx++] = '\n';
 		else {
@@ -578,19 +608,19 @@ execute_command(enum iaction cause, char *s, char **np)
 			if (nx < 1024)
 				parm[nx++] = c;
 		}
-		state = ME_QPARM;
+		state = ME_P_QPARM;
 		break;
-	    case ME_QPARM:
+	    case ME_P_QPARM:
 		if (c == '"') {
 			parm[nx++] = '\0';
 			params[++count] = &parm[nx];
-			state = ME_PARMx;
+			state = ME_P_PARMx;
 		} else if (c == '\\') {
-			state = ME_BSL;
+			state = ME_P_BSL;
 		} else if (nx < 1024)
 			parm[nx++] = c;
 		break;
-	    case ME_PARMx:
+	    case ME_P_PARMx:
 		if (isspace(c))
 			continue;
 		else if (c == ',')
@@ -600,19 +630,66 @@ execute_command(enum iaction cause, char *s, char **np)
 		else
 			fail(3);
 		break;
+	    case ME_S_PARM:
+		if (isspace(c)) {
+			parm[nx++] = '\0';
+			params[++count] = &parm[nx];
+			state = ME_S_PARMx;
+		} else {
+			if (nx < 1024)
+				parm[nx++] = c;
+		}
+		break;
+	    case ME_S_BSL:
+		if (c == 'n' && nx < 1024)
+			parm[nx++] = '\n';
+		else {
+			if (c != '"' && nx < 1024)
+				parm[nx++] = '\\';
+			if (nx < 1024)
+				parm[nx++] = c;
+		}
+		state = ME_S_QPARM;
+		break;
+	    case ME_S_QPARM:
+		if (c == '"') {
+			parm[nx++] = '\0';
+			params[++count] = &parm[nx];
+			state = ME_S_PARMx;
+		} else if (c == '\\') {
+			state = ME_S_BSL;
+		} else if (nx < 1024)
+			parm[nx++] = c;
+		break;
+	    case ME_S_PARMx:
+		if (isspace(c))
+			continue;
+		else if (c == '"')
+			state = ME_S_QPARM;
+		else {
+			parm[nx++] = c;
+			state = ME_S_PARM;
+		}
+		break;
 	}
 
 	/* Terminal state. */
 	switch (state) {
-	    case ME_FUNCTION:
+	    case ME_FUNCTION:	/* mid-function-name */
 		aname[nx] = '\0';
 		break;
-	    case ME_FUNCTIONx:
+	    case ME_FUNCTIONx:	/* space after function */
 		break;
-	    case ME_GND:
+	    case ME_GND:	/* nothing */
 		if (np)
 			*np = s - 1;
 		return EM_CONTINUE;
+	    case ME_S_PARMx:	/* space after space-style parameter */
+		break;
+	    case ME_S_PARM:	/* mid space-style parameter */
+		parm[nx++] = '\0';
+		params[++count] = &parm[nx];
+		break;
 	    default:
 		fail(3);
 	}
@@ -632,7 +709,7 @@ execute_command(enum iaction cause, char *s, char **np)
 		*np = s-1;
 
 	/* If it's a macro, do variable substitutions. */
-	if (cause == IA_MACRO) {
+	if (cause == IA_MACRO || cause == IA_KEYMAP || cause == IA_COMMAND) {
 		Cardinal j;
 
 		for (j = 0; j < count; j++)
@@ -640,31 +717,42 @@ execute_command(enum iaction cause, char *s, char **np)
 	}
 
 	/* Search the action list. */
-	if (!strncmp(aname, PA_PFX, strlen(PA_PFX))) {
+	if (!strncasecmp(aname, PA_PFX, strlen(PA_PFX))) {
 		popup_an_error("Invalid action: %s", aname);
+		free_params();
 		return EM_ERROR;
 	}
+	any = -1;
+	exact = -1;
 	for (i = 0; i < actioncount; i++) {
-		if (!strcmp(aname, actions[i].string)) {
-			ia_cause = cause;
-			(*actions[i].proc)((Widget)NULL, (XEvent *)NULL,
-				count ? params : (String *)NULL,
-				&count);
-			screen_disp();
+		if (!strcasecmp(aname, actions[i].string)) {
+			exact = any = i;
 			break;
 		}
 	}
-
-	/* If it's a macro, undo variable substitutions. */
-	if (cause == IA_MACRO) {
-		Cardinal j;
-
-		for (j = 0; j < count; j++)
-			Free(params[j]);
+	if (exact < 0) {
+		for (i = 0; i < actioncount; i++) {
+			if (!strncasecmp(aname, actions[i].string,
+			    strlen(aname))) {
+				if (any >= 0) {
+					popup_an_error("Ambiguous action name: "
+					    "%s", aname);
+					free_params();
+					return EM_ERROR;
+				}
+				any = i;
+			}
+		}
 	}
-
-	if (i >= actioncount) {
+	if (any >= 0) {
+		ia_cause = cause;
+		(*actions[any].proc)((Widget)NULL, (XEvent *)NULL,
+			count? params: (String *)NULL, &count);
+		free_params();
+		screen_disp();
+	} else {
 		popup_an_error("Unknown action: %s", aname);
+		free_params();
 		return EM_ERROR;
 	}
 
@@ -681,6 +769,7 @@ execute_command(enum iaction cause, char *s, char **np)
 	popup_an_error(fail_text[failreason-1]);
 	return EM_ERROR;
 #undef fail
+#undef free_params
 }
 
 /* Run the string at the top of the stack. */
@@ -765,8 +854,8 @@ run_macro(void)
 		if (!sms->success) {
 #if defined(X3270_TRACE) /*[*/
 			if (toggled(DS_TRACE))
-				(void) fprintf(tracef, "Macro[%d] failed\n",
-				    sms_depth);
+				(void) fprintf(tracef, "%s[%d] failed\n",
+				    ST_NAME, sms_depth);
 #endif /*]*/
 			/* Propogate it. */
 			if (sms->next != SN)
@@ -777,12 +866,16 @@ run_macro(void)
 		sms->state = SS_RUNNING;
 #if defined(X3270_TRACE) /*[*/
 		if (toggled(DS_TRACE))
-			(void) fprintf(tracef, "Macro[%d]: '%s'\n",
-			    sms_depth, a);
+			(void) fprintf(tracef, "%s[%d]: '%s'\n",
+			    ST_NAME, sms_depth, a);
 #endif /*]*/
 		s = sms;
 		s->success = True;
-		es = execute_command(IA_MACRO, a, &nextm);
+		s->executing = True;
+		es = execute_command((s->type == ST_MACRO)? IA_MACRO:
+		    ((s->type == ST_COMMAND)? IA_COMMAND: IA_KEYMAP),
+		    a, &nextm);
+		s->executing = False;
 		s->dptr = nextm;
 
 		/*
@@ -797,8 +890,8 @@ run_macro(void)
 		if (es == EM_ERROR) {
 #if defined(X3270_TRACE) /*[*/
 			if (toggled(DS_TRACE))
-				(void) fprintf(tracef, "Macro[%d] error\n",
-				    sms_depth);
+				(void) fprintf(tracef, "%s[%d] error\n",
+				    ST_NAME, sms_depth);
 #endif /*]*/
 			/* Propogate it. */
 			if (sms->next != SN)
@@ -828,11 +921,12 @@ run_macro(void)
 	sms_pop(False);
 }
 
-/* Push a macro on the stack. */
+/* Push a macro (macro, command or keymap action) on the stack. */
 static void
-push_macro(char *s, Boolean is_login)
+push_xmacro(enum sms_type type, char *s, Boolean is_login)
 {
-	if (!sms_push(ST_MACRO))
+	macro_output = False;
+	if (!sms_push(type))
 		return;
 	(void) strncpy(sms->msc, s, 1023);
 	sms->msc[1023] = '\0';
@@ -846,6 +940,27 @@ push_macro(char *s, Boolean is_login)
 		sms->state = SS_INCOMPLETE;
 	if (sms_depth == 1)
 		sms_continue();
+}
+
+/* Push a macro on the stack. */
+void
+push_macro(char *s, Boolean is_login)
+{
+	push_xmacro(ST_MACRO, s, is_login);
+}
+
+/* Push an interactive command on the stack. */
+void
+push_command(char *s)
+{
+	push_xmacro(ST_COMMAND, s, False);
+}
+
+/* Push an keymap action on the stack. */
+void
+push_keymap_action(char *s)
+{
+	push_xmacro(ST_KEYMAP, s, False);
 }
 
 /* Push a string on the stack. */
@@ -960,12 +1075,14 @@ run_script(void)
 			    sms_depth, cmd);
 #endif /*]*/
 		s = sms;
+		s->executing = True;
 		es = execute_command(IA_SCRIPT, cmd, (char **)NULL);
+		s->executing = False;
 
 		/* Move the rest of the buffer over. */
 		if (cmd_len < s->msc_len) {
 			s->msc_len -= cmd_len;
-			MEMORY_MOVE(s->msc, ptr, s->msc_len);
+			(void) memmove(s->msc, ptr, s->msc_len);
 		} else
 			s->msc_len = 0;
 
@@ -1027,9 +1144,16 @@ sms_error(char *msg)
 
 /* Generate a response to a script command. */
 void
-sms_info(char *msg)
+sms_info(const char *fmt, ...)
 {
 	char *nl;
+	char msgbuf[4096];
+	char *msg = msgbuf;
+	va_list args;
+
+	va_start(args, fmt);
+	vsprintf(msgbuf, fmt, args);
+	va_end(args);
 
 	do {
 		int nc;
@@ -1039,10 +1163,22 @@ sms_info(char *msg)
 			nc = nl - msg;
 		} else
 			nc = strlen(msg);
-		if (nc)
-			(void) fprintf(sms->outfile, "data: %.*s\n", nc, msg);
+		if (nc) {
+			switch (sms->type) {
+			case ST_PEER:
+			case ST_CHILD:
+				(void) fprintf(sms->outfile, "data: %.*s\n",
+				    nc, msg);
+				break;
+			default:
+				(void) printf("%.*s\n", nc, msg);
+				break;
+			}
+		}
 		msg = nl + 1;
 	} while (nl);
+
+	macro_output = True;
 }
 
 /* Process available input from a script. */
@@ -1179,6 +1315,8 @@ sms_continue(void)
 			run_string();
 			break;
 		    case ST_MACRO:
+		    case ST_COMMAND:
+		    case ST_KEYMAP:
 			run_macro();
 			break;
 		    case ST_PEER:
@@ -1200,6 +1338,11 @@ dump_range(int first, int len, Boolean in_ascii, unsigned char *buf,
 {
 	register int i;
 	Boolean any = False;
+	char *linebuf;
+	char *s;
+
+	linebuf = Malloc(maxCOLS * 3 + 1);
+	s = linebuf;
 
 	/*
 	 * The client has now 'looked' at the screen, so should they later
@@ -1214,24 +1357,27 @@ dump_range(int first, int len, Boolean in_ascii, unsigned char *buf,
 		unsigned char c;
 
 		if (i && !((first + i) % rel_cols)) {
-			(void) putc('\n', sms->outfile);
+			*s = '\0';
+			action_output(linebuf);
+			s = linebuf;
 			any = False;
 		}
-		if (!any) {
-			(void) fprintf(sms->outfile, "data: ");
+		if (!any)
 			any = True;
-		}
 		if (in_ascii) {
 			c = cg2asc[buf[first + i]];
-			(void) fprintf(sms->outfile, "%c", c ? c : ' ');
+			s += sprintf(s, "%c", c ? c : ' ');
 		} else {
-			(void) fprintf(sms->outfile, "%s%02x",
+			s += sprintf(s, "%s%02x",
 				i ? " " : "",
 				cg2ebc[buf[first + i]]);
 		}
 	}
-	if (any)
-		(void) fprintf(sms->outfile, "\n");
+	if (any) {
+		*s = '\0';
+		action_output(linebuf);
+	}
+	Free(linebuf);
 }
 
 static void
@@ -1540,15 +1686,15 @@ Snap_action(Widget w unused, XEvent *event unused, String *params,
 	if (!strcmp(params[0], "Status")) {
 		if (*num_params != 1)
 			popup_an_error("extra argument(s)");
-		(void) fprintf(sms->outfile, "data: %s\n", snap_status);
+		action_output("%s", snap_status);
 	} else if (!strcmp(params[0], "Rows")) {
 		if (*num_params != 1)
 			popup_an_error("extra argument(s)");
-		(void) fprintf(sms->outfile, "data: %d\n", snap_rows);
+		action_output("%d", snap_rows);
 	} else if (!strcmp(params[0], "Cols")) {
 		if (*num_params != 1)
 			popup_an_error("extra argument(s)");
-		(void) fprintf(sms->outfile, "data: %d\n", snap_cols);
+		action_output("%d", snap_cols);
 	} else if (!strcmp(params[0], action_name(Ascii_action))) {
 		dump_fixed(params + 1, *num_params - 1,
 			action_name(Ascii_action), True, snap_buf,
@@ -1658,7 +1804,7 @@ sms_redirect(void)
 	       (sms->state == SS_RUNNING || sms->state == SS_CONNECT_WAIT);
 }
 
-#if defined(X3270_MENUS) /*[*/
+#if defined(X3270_MENUS) || defined(C3270) /*[*/
 /* Return whether any scripts are active. */
 Boolean
 sms_active(void)
@@ -1812,32 +1958,34 @@ AnsiText_action(Widget w unused, XEvent *event unused, String *params unused,
 	register int i;
 	int ix;
 	unsigned char c;
+	char linebuf[ANSI_SAVE_SIZE * 4 + 1];
+	char *s = linebuf;
 
 	if (!ansi_save_cnt)
 		return;
-	(void) fprintf(sms->outfile, "data: ");
 	ix = (ansi_save_ix + ANSI_SAVE_SIZE - ansi_save_cnt) % ANSI_SAVE_SIZE;
 	for (i = 0; i < ansi_save_cnt; i++) {
 		c = ansi_save_buf[(ix + i) % ANSI_SAVE_SIZE];
 		if (!(c & ~0x1f)) switch (c) {
 		    case '\n':
-			(void) fprintf(sms->outfile, "\\n");
+			s += sprintf(s, "\\n");
 			break;
 		    case '\r':
-			(void) fprintf(sms->outfile, "\\r");
+			s += sprintf(s, "\\r");
 			break;
 		    case '\b':
-			(void) fprintf(sms->outfile, "\\b");
+			s += sprintf(s, "\\b");
 			break;
 		    default:
-			(void) fprintf(sms->outfile, "\\%03o", c);
+			s += sprintf(s, "\\%03o", c);
 			break;
 		} else if (c == '\\')
-			(void) fprintf(sms->outfile, "\\\\");
+			s += sprintf(s, "\\\\");
 		else
-			(void) putc((char)c, sms->outfile);
+			*s++ = (char)c;
 	}
-	(void) putc('\n', sms->outfile);
+	*s = '\0';
+	action_output(linebuf);
 	ansi_save_cnt = 0;
 	ansi_save_ix = 0;
 }
@@ -1877,7 +2025,7 @@ ContinueScript_action(Widget w, XEvent *event unused, String *params,
 		sms_continue();
 		return;
 	}
-	(void) fprintf(sms->outfile, "data: %s\n", params[0]);
+	action_output("%s", params[0]);
 	sms->state = SS_RUNNING;
 	sms_continue();
 }

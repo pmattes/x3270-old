@@ -28,7 +28,10 @@
 #include "utilc.h"
 #include "xioc.h"
 
-#define RECONNECT_MS	2000	/* 2 sec before reconnecting to host */
+#define RECONNECT_MS		2000	/* 2 sec before reconnecting to host */
+#define RECONNECT_ERR_MS	5000	/* 5 sec before reconnecting to host */
+
+#define MAX_RECENT	5
 
 enum cstate	cstate = NOT_CONNECTED;
 Boolean		std_ds_host = False;
@@ -39,7 +42,6 @@ char		luname[LUNAME_SIZE+1];
 char		*connected_lu = CN;
 char		*connected_type = CN;
 Boolean		ever_3270 = False;
-Boolean		auto_reconnect_disabled = False;
 
 char           *current_host = CN;
 char           *full_current_host = CN;
@@ -50,6 +52,11 @@ struct host *hosts = (struct host *)NULL;
 static struct host *last_host = (struct host *)NULL;
 static Boolean auto_reconnect_inprogress = False;
 static int net_sock = -1;
+static void save_recent(const char *);
+
+#if defined(X3270_DISPLAY) /*[*/
+static void try_reconnect(void);
+#endif /*]*/
 
 static char *
 stoken(char **s)
@@ -81,6 +88,7 @@ hostfile_init(void)
 	FILE *hf;
 	char buf[1024];
 	static Boolean hostfile_initted = False;
+	struct host *h;
 
 	if (hostfile_initted)
 		return;
@@ -90,56 +98,62 @@ hostfile_init(void)
 	if (appres.hostsfile == CN)
 		appres.hostsfile = xs_buffer("%s/ibm_hosts", LIBX3270DIR);
 	hf = fopen(appres.hostsfile, "r");
-	if (!hf)
-		return;
+	if (hf != (FILE *)NULL) {
+		while (fgets(buf, sizeof(buf), hf)) {
+			char *s = buf;
+			char *name, *entry_type, *hostname;
+			char *slash;
 
-	while (fgets(buf, 1024, hf)) {
-		char *s = buf;
-		char *name, *entry_type, *hostname;
-		struct host *h;
-		char *slash;
+			if (strlen(buf) > (unsigned)1 &&
+			    buf[strlen(buf) - 1] == '\n') {
+				buf[strlen(buf) - 1] = '\0';
+			}
+			while (isspace(*s))
+				s++;
+			if (!*s || *s == '#')
+				continue;
+			name = stoken(&s);
+			entry_type = stoken(&s);
+			hostname = stoken(&s);
+			if (!name || !entry_type || !hostname) {
+				xs_warning("Bad %s syntax, entry skipped",
+				    ResHostsFile);
+				continue;
+			}
+			h = (struct host *)Malloc(sizeof(*h));
+			h->name = NewString(name);
+			h->hostname = NewString(hostname);
 
-		if (strlen(buf) > (unsigned)1 && buf[strlen(buf) - 1] == '\n')
-			buf[strlen(buf) - 1] = '\0';
-		while (isspace(*s))
-			s++;
-		if (!*s || *s == '#')
-			continue;
-		name = stoken(&s);
-		entry_type = stoken(&s);
-		hostname = stoken(&s);
-		if (!name || !entry_type || !hostname) {
-			xs_warning("Bad %s syntax, entry skipped",
-			    ResHostsFile);
-			continue;
+			/*
+			 * Quick syntax extension to allow the hosts file to
+			 * specify a port as host/port.
+			 */
+			if ((slash = strchr(h->hostname, '/')))
+				*slash = ':';
+
+			if (!strcmp(entry_type, "primary"))
+				h->entry_type = PRIMARY;
+			else
+				h->entry_type = ALIAS;
+			if (*s)
+				h->loginstring = NewString(s);
+			else
+				h->loginstring = CN;
+			h->prev = last_host;
+			h->next = (struct host *)NULL;
+			if (last_host)
+				last_host->next = h;
+			else
+				hosts = h;
+			last_host = h;
 		}
-		h = (struct host *)Malloc(sizeof(*h));
-		h->name = NewString(name);
-		h->hostname = NewString(hostname);
-
-		/*
-		 * Quick syntax extension to allow the hosts file to
-		 * specify a port as host/port.
-		 */
-		if ((slash = strchr(h->hostname, '/')))
-			*slash = ':';
-
-		if (!strcmp(entry_type, "primary"))
-			h->entry_type = PRIMARY;
-		else
-			h->entry_type = ALIAS;
-		if (*s)
-			h->loginstring = NewString(s);
-		else
-			h->loginstring = CN;
-		h->next = (struct host *)0;
-		if (last_host)
-			last_host->next = h;
-		else
-			hosts = h;
-		last_host = h;
+		(void) fclose(hf);
 	}
-	(void) fclose(hf);
+
+	/*
+	 * Read the recent-connection file, and prepend it to the hosts list.
+	 */
+	save_recent(CN);
 }
 
 /*
@@ -152,12 +166,15 @@ hostfile_lookup(const char *name, char **hostname, char **loginstring)
 	struct host *h;
 
 	hostfile_init();
-	for (h = hosts; h; h = h->next)
-		if (! strcmp(name, h->name)) {
+	for (h = hosts; h != (struct host *)NULL; h = h->next) {
+		if (h->entry_type == RECENT)
+			continue;
+		if (!strcmp(name, h->name)) {
 			*hostname = h->hostname;
 			*loginstring = h->loginstring;
 			return 1;
 		}
+	}
 	return 0;
 }
 
@@ -307,6 +324,9 @@ host_connect(const char *n)
 		Free(reconnect_host);
 	reconnect_host = NewString(nb);
 
+	/* Remember this hostname in the recent connection list and file. */
+	save_recent(nb);
+
 #if defined(LOCAL_PROCESS) /*[*/
 	if ((localprocess_cmd = parse_localprocess(nb)) != CN) {
 		chost = localprocess_cmd;
@@ -371,12 +391,14 @@ host_connect(const char *n)
 		if (appres.once) {
 			/* Exit when the error pop-up pops down. */
 			exiting = True;
-		} else if (appres.reconnect) {
-			/* Put up the reconnect button. */
-			auto_reconnect_disabled = True;
-			menubar_show_reconnect();
+		}
+		else if (appres.reconnect) {
+			auto_reconnect_inprogress = True;
+			(void) AddTimeOut(RECONNECT_ERR_MS, try_reconnect);
 		}
 #endif /*]*/
+		/* Redundantly signal a disconnect. */
+		st_changed(ST_CONNECT, False);
 		return -1;
 	}
 
@@ -396,6 +418,8 @@ host_connect(const char *n)
 	} else {
 		cstate = CONNECTED_INITIAL;
 		st_changed(ST_CONNECT, True);
+		if (appres.reconnect && error_popup_visible())
+			popdown_an_error();
 	}
 
 	return 0;
@@ -427,9 +451,8 @@ host_reconnect(void)
 #endif /*]*/
 
 void
-host_disconnect(Boolean disable)
+host_disconnect(Boolean failed)
 {
-	auto_reconnect_disabled = disable;
 	if (CONNECTED || HALF_CONNECTED) {
 		x_remove_input();
 		net_disconnect();
@@ -447,11 +470,12 @@ host_disconnect(Boolean disable)
 				x3270_exit(0);
 				return;
 			}
-		} else if (appres.reconnect && !auto_reconnect_inprogress &&
-		    !auto_reconnect_disabled) {
+		} else if (appres.reconnect && !auto_reconnect_inprogress) {
 			/* Schedule an automatic reconnection. */
 			auto_reconnect_inprogress = True;
-			(void) AddTimeOut(RECONNECT_MS, try_reconnect);
+			(void) AddTimeOut(failed? RECONNECT_ERR_MS:
+						   RECONNECT_MS,
+					  try_reconnect);
 		}
 #endif /*]*/
 
@@ -489,6 +513,198 @@ host_connected(void)
 {
 	cstate = CONNECTED_INITIAL;
 	st_changed(ST_CONNECT, True);
+
+	if (appres.reconnect && error_popup_visible())
+		popdown_an_error();
+}
+
+/* Comparison function for the qsort. */
+static int
+host_compare(const void *e1, const void *e2)
+{
+	const struct host *h1 = *(const struct host **)e1;
+	const struct host *h2 = *(const struct host **)e2;
+	int r;
+
+	if (h1->connect_time > h2->connect_time)
+		r = -1;
+	else if (h1->connect_time < h2->connect_time)
+		r = 1;
+	else
+		r = 0;
+#if defined(CFDEBUG) /*[*/
+	printf("%s %ld %d %s %ld\n",
+	    h1->name, h1->connect_time,
+	    r,
+	    h2->name, h2->connect_time);
+#endif /*]*/
+	return r;
+}
+
+#if defined(CFDEBUG) /*[*/
+static void
+dump_array(const char *when, struct host **array, int nh)
+{
+	int i;
+
+	printf("%s\n", when);
+	for (i = 0; i < nh; i++) {
+		printf(" %15s %ld\n", array[i]->name, array[i]->connect_time);
+	}
+}
+#endif /*]*/
+
+/* Save the most recent host in the recent host list. */
+static void
+save_recent(const char *hn)
+{
+	char *lcf_name = CN;
+	FILE *lcf = (FILE *)NULL;
+	struct host *h;
+	struct host *rest = (struct host *)NULL;
+	int n_ent = 0;
+	struct host *h_array[(MAX_RECENT * 2) + 1];
+	int nh = 0;
+	int i, j;
+	time_t t = time((time_t *)NULL);
+
+	/* Allocate a new entry. */
+	if (hn != CN) {
+		h = (struct host *)Malloc(sizeof(*h));
+		h->name = NewString(hn);
+		h->hostname = NewString(hn);
+		h->entry_type = RECENT;
+		h->loginstring = CN;
+		h->connect_time = t;
+		h_array[nh++] = h;
+	}
+
+	/* Put the existing entries into the array. */
+	for (h = hosts; h != (struct host *)NULL; h = h->next) {
+		if (h->entry_type != RECENT)
+			break;
+		h_array[nh++] = h;
+	}
+
+	/* Save the ibm_hosts entries for later. */
+	rest = h;
+	if (rest != (struct host *)NULL)
+		rest->prev = (struct host *)NULL;
+
+	/*
+	 * Read the last-connection file, to capture the any changes made by
+	 * other instances of x3270.  
+	 */
+	if (appres.connectfile_name != CN &&
+	    strcasecmp(appres.connectfile_name, "none")) {
+		lcf_name = do_subst(appres.connectfile_name, True, True);
+		lcf = fopen(lcf_name, "r");
+	}
+	if (lcf != (FILE *)NULL) {
+		char buf[1024];
+
+		while (fgets(buf, sizeof(buf), lcf) != CN) {
+			int sl;
+			time_t connect_time;
+			char *ptr;
+
+			/* Pick apart the entry. */
+			sl = strlen(buf);
+			if (buf[sl - 1] == '\n')
+				buf[sl-- - 1] = '\0';
+			if (!sl ||
+			    buf[0] == '#' ||
+			    (connect_time = strtoul(buf, &ptr, 10)) == 0L ||
+			    ptr == buf ||
+			    *ptr != ' ' ||
+			    !*(ptr + 1))
+				continue;
+
+			h = (struct host *)Malloc(sizeof(*h));
+			h->name = NewString(ptr + 1);
+			h->hostname = NewString(ptr + 1);
+			h->entry_type = RECENT;
+			h->loginstring = CN;
+			h->connect_time = connect_time;
+			h_array[nh++] = h;
+			if (nh > (MAX_RECENT * 2) + 1)
+				break;
+		}
+		fclose(lcf);
+	}
+
+	/* Sort the array, in reverse order by connect time. */
+#if defined(CFDEBUG) /*[*/
+	dump_array("before", h_array, nh);
+#endif /*]*/
+	qsort(h_array, nh, sizeof(struct host *), host_compare);
+#if defined(CFDEBUG) /*[*/
+	dump_array("after", h_array, nh);
+#endif /*]*/
+
+	/*
+	 * Filter out duplicate host names, and limit the array to
+	 * MAX_RECENT entries total.
+	 */
+	hosts = (struct host *)NULL;
+	last_host = (struct host *)NULL;
+	for (i = 0; i < nh; i++) {
+		h = h_array[i];
+		if (h == (struct host *)NULL)
+			continue;
+		h->next = (struct host *)NULL;
+		if (last_host != (struct host *)NULL)
+			last_host->next = h;
+		h->prev = last_host;
+		last_host = h;
+		if (hosts == (struct host *)NULL)
+			hosts = h;
+		n_ent++;
+
+		/* Zap the duplicates. */
+		for (j = i+1; j < nh; j++) {
+			if (h_array[j] &&
+			    (n_ent >= MAX_RECENT ||
+			     !strcmp(h_array[i]->name, h_array[j]->name))) {
+#if defined(CFDEBUG) /*[*/
+				printf("%s is a dup of %s\n",
+				    h_array[j]->name, h_array[i]->name);
+#endif /*]*/
+				Free(h_array[j]->name);
+				Free(h_array[j]->hostname);
+				Free(h_array[j]);
+				h_array[j] = (struct host *)NULL;
+			}
+		}
+	}
+
+	/* Re-attach the ibm_hosts entries to the end. */
+	if (rest != (struct host *)NULL) {
+		if (last_host != (struct host *)NULL) {
+			last_host->next = rest;
+		} else {
+			hosts = rest;
+		}
+		rest->prev = last_host;
+	}
+
+	/* If there's been a change, rewrite the file. */
+	if (hn != CN &&
+	    appres.connectfile_name != CN &&
+	    strcasecmp(appres.connectfile_name, "none")) {
+		lcf = fopen(lcf_name, "w");
+		if (lcf != (FILE *)NULL) {
+			fprintf(lcf, "# Created %s# by %s\n", ctime(&t), build);
+			for (h = hosts; h != (struct host *)NULL; h = h->next) {
+				if (h->entry_type != RECENT)
+					break;
+				(void) fprintf(lcf, "%lu %s\n", h->connect_time,
+				    h->name);
+			}
+		}
+		fclose(lcf);
+		Free(lcf_name);
+	}
 }
 
 /* Support for state change callbacks. */

@@ -746,7 +746,10 @@ tracefile_on(int reason, enum toggle_type tt)
 		tracefile = tracefile_buf;
 	}
 
-	if (tt == TT_INITIAL) {
+#if defined(X3270_DISPLAY) /*[*/
+	if (tt == TT_INITIAL)
+#endif /*]*/
+	{
 		tracefile_callback((Widget)NULL, tracefile, PN);
 		return;
 	}

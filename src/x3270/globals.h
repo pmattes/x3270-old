@@ -15,41 +15,30 @@
 
 /* Optional parts. */
 #include "parts.h"
+#if defined(X3270_TN3270E) && !defined(X3270_ANSI) /*[*/
+#define X3270_ANSI	1	/* RFC2355 requires NVT mode */
+#endif /*]*/
 
 /*
- * OS-specific #defines.
+ * OS-specific #defines.  Except for the blocking-connect workarounds, these
+ * should be replaced with autoconf probes as soon as possible.
  */
 
 /*
- * SEPARATE_SELECT_H
- *   The definitions of the data structures for select() are in <select.h>.
- * NO_SYS_TIME_H
- *   Don't #include <sys/time.h>.
- * NO_MEMORY_H
- *   Don't #include <memory.h>.
  * LOCAL_TELNET_H
  *   #include a local copy of "telnet.h" rather then <arpa/telnet.h>
- * SELECT_INT
- *   select() takes (int *) arguments rather than (fd_set *) arguments.
  * BLOCKING_CONNECT_ONLY
  *   Use only blocking sockets.
  */
 #if defined(sco) /*[*/
 #define BLOCKING_CONNECT_ONLY	1
-#define NO_SYS_TIME_H		1
-#endif /*]*/
-
-#if defined(_IBMR2) || defined(_SEQUENT_) || defined(__QNX__) /*[*/
-#define SEPARATE_SELECT_H	1
 #endif /*]*/
 
 #if defined(apollo) /*[*/
 #define BLOCKING_CONNECT_ONLY	1
-#define NO_MEMORY_H		1
 #endif /*]*/
 
 #if defined(hpux) /*[*/
-#define SELECT_INT		1
 #define LOCAL_TELNET_H		1
 #endif /*]*/
 
@@ -74,25 +63,23 @@
 #include <unistd.h>			/* Unix system calls */
 #include <ctype.h>			/* Character classes */
 #include <string.h>			/* String manipulations */
-#if !defined(NO_MEMORY_H) /*[*/
-#include <memory.h>			/* Block moves and compares */
-#endif /*]*/
 #include <sys/types.h>			/* Basic system data types */
-#if !defined(NO_SYS_TIME_H) /*[*/
 #include <sys/time.h>			/* System time-related data types */
-#endif /*]*/
-#include "localdefs.h"
+#include "localdefs.h"			/* {s,tcl,c}3270-specific defines */
+#include "conf.h"			/* autoconf settings */
 
-#if defined(X3270_LOCAL_PROCESS) /*[*/
-#if defined(__FreeBSD__) /*[*/
+/* Local process (-e) header files. */
+#if defined(X3270_LOCAL_PROCESS) && defined(HAVE_LIBUTIL) /*[*/
+#define LOCAL_PROCESS	1
 #include <termios.h>
-#include <libutil.h>
-#define LOCAL_PROCESS    1
-#endif /*]*/
-#if defined(__linux__) /*[*/
-#include <termios.h>
+#if defined(HAVE_PTY_H) /*[*/
 #include <pty.h>
-#define LOCAL_PROCESS    1
+#endif /*]*/
+#if defined(HAVE_LIBUTIL_H) /*[*/
+#include <libutil.h>
+#endif /*]*/
+#if defined(HAVE_UTIL_H) /*[*/
+#include <util.h>
 #endif /*]*/
 #endif /*]*/
 
@@ -134,7 +121,6 @@ extern int		ov_cols, ov_rows;
 extern Boolean		passthru_host;
 extern char		*programname;
 extern char		*reconnect_host;
-extern Boolean		auto_reconnect_disabled;
 extern int		screen_depth;
 extern Boolean		scroll_initted;
 extern Boolean		shifted;
@@ -245,7 +231,8 @@ enum keytype { KT_STD, KT_GE };
 #define ST_LINE_MODE	3
 #define ST_REMODEL	4
 #define ST_PRINTER	5
-#define N_ST		6
+#define ST_EXITING	6
+#define N_ST		7
 
 /* Naming convention for private actions. */
 #define PA_PFX	"PA-"
@@ -265,14 +252,6 @@ enum keytype { KT_STD, KT_GE };
 #define ALL_CHANGE	0xffff	/* everything changed */
 
 /* Portability macros */
-
-/*   Replacement for memcpy that handles overlaps */
-
-#if defined(X3270_DISPLAY) /*[*/
-#include <X11/Xfuncs.h>
-#undef MEMORY_MOVE
-#define MEMORY_MOVE(to,from,cnt)	bcopy(from,to,cnt)
-#endif /*]*/
 
 /*   Equivalent of setlinebuf */
 

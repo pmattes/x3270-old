@@ -47,15 +47,9 @@ LOCAL_LIBRARIES = $(XAWLIB) $(XMULIB) $(XTOOLLIB) $(XLIB)
 EXTRA_DEFINES = -D_HPUX_SOURCE
 #endif
 
-/* For SVR4, uncomment the following: */
-/* EXTRA_LIBRARIES = -lnsl -lsocket */
-
-/* For Dynix/ptx, umcomment the following: */
-/* EXTRA_LIBRARIES = -lsocket -linet -lnsl */
-
-#if defined(LinuxArchitecture) || defined(FreeBSDArchitecture)
-EXTRA_LIBRARIES = -lutil
-#endif
+EXTRA_LIBRARIES = @LIBS@
+CC = @CC@
+INSTALL = @INSTALL@
 
 AllTarget($(FONTS) x3270 x3270if)
 
@@ -64,7 +58,6 @@ ComplexProgramTarget_2(x3270if,,)
 
 InstallManPage(x3270-script,$(MANDIR))
 InstallManPage(ibm_hosts,$(MANDIR))
-InstallManPage(pr3287,$(MANDIR))
 
 FontTarget(3270)
 FontTarget(3270b)
@@ -107,11 +100,7 @@ mkfb: mkfb.c parts.h
 
 /* Rule for building pr3287. */
 all::
-	-cd pr3287 && $(MAKE) $(MFLAGS) CC=$(CC) CDEBUGFLAGS="$(CDEBUGFLAGS)" EXTRA_LIBRARIES="$(EXTRA_LIBRARIES)"
-
-/* Clever pr3287 manpage hack. */
-pr3287.man: pr3287/pr3287.man
-	ln -s pr3287/pr3287.man pr3287.man
+	-cd pr3287 && $(MAKE) $(MFLAGS)
 
 /*
  * Rule for building the separate app-defaults file.  By default it builds
@@ -140,12 +129,11 @@ install:: $(HOSTSFILE)
 	@[ -r $(DESTDIR)$(LIBX3270DIR)/$(HOSTSFILE) ] || \
 	$(INSTALL) -c $(INSTDATFLAGS) $(HOSTSFILE) $(DESTDIR)$(LIBX3270DIR)/$(HOSTSFILE)
 
-/* Rule for installing pr3287. */
+/* Rules for installing pr3287. */
 install::
-	-cd pr3287 && \
-	  $(MAKE) $(MAKEFLAGS) INSTALL=$(INSTALL) \
-	  INSTALLFLAGS="$(INSTALLFLAGS) $(INSTBINFLAGS)" \
-	  INSTALLDIR=$(DESTDIR)$(BINDIR) install
+	-cd pr3287 && $(MAKE) $(MAKEFLAGS) install
+install.man::
+	-cd pr3287 && $(MAKE) $(MAKEFLAGS) install.man
 
 clean:: 
 	$(RM) $(FONTS) mkfb fallbacks.c

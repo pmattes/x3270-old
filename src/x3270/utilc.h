@@ -1,5 +1,5 @@
 /*
- * Copyright 1995, 1999 by Paul Mattes.
+ * Copyright 1995, 1999, 2000 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -12,6 +12,7 @@
  *		Global declarations for util.c.
  */
 
+extern void add_resource(const char *name, const char *value);
 extern char *ctl_see(int c);
 extern char *do_subst(const char *s, Boolean do_vars, Boolean do_tilde);
 extern void fcatv(FILE *f, char *s);
@@ -29,7 +30,4 @@ extern void RemoveInput(unsigned long);
 extern unsigned long AddTimeOut(unsigned long msec, void (*fn)(void));
 extern void RemoveTimeOut(unsigned long cookie);
 extern KeySym StringToKeysym(char *s);
-
-#if !defined(X3270_DISPLAY) /*[*/
-extern char *MEMORY_MOVE(char *dst, char *src, int cnt);
-#endif /*]*/
+extern char *KeysymToString(KeySym k);
