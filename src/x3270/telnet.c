@@ -1243,7 +1243,7 @@ tn3270e_current_opts(void)
 	static char text_buf[1024];
 	char *s = text_buf;
 
-	if (!e_funcs)
+	if (!e_funcs || !IN_E)
 		return CN;
 	for (i = 0; i < 32; i++) {
 		if (e_funcs & E_OPT(i))

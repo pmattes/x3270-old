@@ -70,7 +70,7 @@ static unsigned char pa_xlate[] = {
 #define PA_SZ	(sizeof(pa_xlate)/sizeof(pa_xlate[0]))
 static XtIntervalId unlock_id;
 #define UNLOCK_MS	350
-static Boolean key_Character(int cgcode, Boolean with_ge);
+static Boolean key_Character(int cgcode, Boolean with_ge, Boolean pasting);
 static Boolean flush_ta(void);
 static void key_AID(unsigned char aid_code);
 static void kybdlock_set(unsigned int bits, const char *cause);
@@ -483,6 +483,9 @@ Interrupt_action(Widget w unused, XEvent *event, String *params,
 
 
 
+#define GE_WFLAG	0x100
+#define PASTE_WFLAG	0x200
+
 /*ARGSUSED*/
 static void
 key_Character_wrapper(Widget w unused, XEvent *event unused, String *params,
@@ -490,17 +493,22 @@ key_Character_wrapper(Widget w unused, XEvent *event unused, String *params,
 {
 	int cgcode;
 	Boolean with_ge = False;
+	Boolean pasting = False;
 
 	cgcode = atoi(params[0]);
-	if (cgcode & 0x100) {
+	if (cgcode & GE_WFLAG) {
 		with_ge = True;
-		cgcode &= 0xff;
+		cgcode &= ~GE_WFLAG;
+	}
+	if (cgcode & PASTE_WFLAG) {
+		pasting = True;
+		cgcode &= ~PASTE_WFLAG;
 	}
 	trace_event(" %s -> Key(%s\"%s\")\n",
 	    ia_name[(int) ia_cause],
 	    with_ge ? "GE " : "",
 	    ctl_see((int) cg2asc[cgcode]));
-	(void) key_Character(cgcode, with_ge);
+	(void) key_Character(cgcode, with_ge, pasting);
 }
 
 /*
@@ -508,7 +516,7 @@ key_Character_wrapper(Widget w unused, XEvent *event unused, String *params,
  * insert-mode, protected fields and etc.
  */
 static Boolean
-key_Character(int cgcode, Boolean with_ge)
+key_Character(int cgcode, Boolean with_ge, Boolean pasting)
 {
 	register int	baddr, end_baddr;
 	register unsigned char	*fa;
@@ -517,7 +525,9 @@ key_Character(int cgcode, Boolean with_ge)
 	if (kybdlock) {
 		char code[64];
 
-		(void) sprintf(code, "%d", cgcode | (with_ge ? 0x100 : 0));
+		(void) sprintf(code, "%d", cgcode |
+			(with_ge ? GE_WFLAG : 0) |
+			(pasting ? PASTE_WFLAG : 0));
 		enq_ta(key_Character_wrapper, code, CN);
 		return False;
 	}
@@ -633,8 +643,12 @@ key_Character(int cgcode, Boolean with_ge)
 			INC_BA(baddr);
 	}
 
-	/* Implement auto-skip, and don't land on attribute bytes. */
-	if (cgcode != CG_dup) {
+	/*
+	 * Implement auto-skip, and don't land on attribute bytes.
+	 * This happens for all pasted data (even DUP), and for all
+	 * keyboard-generated data except DUP.
+	 */
+	if (pasting || (cgcode != CG_dup)) {
 		if (IS_FA(screen_buf[baddr]) &&
 		    FA_IS_SKIP(screen_buf[baddr]))
 			baddr = next_unprotected(baddr);
@@ -705,7 +719,7 @@ key_ACharacter(unsigned char c, enum keytype keytype, enum iaction cause)
 			trace_event("  dropped (control char)\n");
 			return;
 		}
-		(void) key_Character((int) asc2cg[c], keytype == KT_GE);
+		(void) key_Character((int) asc2cg[c], keytype == KT_GE, False);
 	}
 #if defined(X3270_ANSI) /*[*/
 	else if (IN_ANSI) {
@@ -1468,7 +1482,7 @@ Dup_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 	if (IN_ANSI)
 		return;
 #endif /*]*/
-	if (key_Character(CG_dup, False))
+	if (key_Character(CG_dup, False, False))
 		cursor_move(next_unprotected(cursor_addr));
 }
 
@@ -1489,7 +1503,7 @@ FieldMark_action(Widget w unused, XEvent *event, String *params, Cardinal *num_p
 	if (IN_ANSI)
 		return;
 #endif /*]*/
-	(void) key_Character(CG_fm, False);
+	(void) key_Character(CG_fm, False, False);
 }
 
 
@@ -2477,7 +2491,17 @@ emulate_input(char *s, int len, Boolean pasting)
 				continue;
 			}
 		    case XGE:	/* have seen ESC */
-			key_ACharacter((unsigned char) c, KT_GE, ia);
+			switch (c) {
+			    case ';':	/* FM */
+				key_Character(CG_fm, False, True);
+				break;
+			    case '*':	/* DUP */
+				key_Character(CG_dup, False, True);
+				break;
+			    default:
+				key_ACharacter((unsigned char) c, KT_GE, ia);
+				break;
+			}
 			state = BASE;
 			break;
 		}
@@ -2587,7 +2611,7 @@ hex_input(char *s)
 
 			c = (FROM_HEX(*t) * 16) + FROM_HEX(*(t + 1));
 			if (IN_3270)
-				key_Character(ebc2cg[c], escaped);
+				key_Character(ebc2cg[c], escaped, True);
 #if defined(X3270_ANSI) /*[*/
 			else
 				*tbuf++ = (unsigned char)c;

@@ -1,5 +1,5 @@
 '\" t
-.TH X3270 1 "15 May 2000"
+.TH X3270 1 "19 May 2000"
 .SH NAME
 x3270 \-
 .SM IBM
@@ -1315,6 +1315,7 @@ The complete list of special
 .SM APL
 keysyms is as follows.  Entries marked with an asterisk (*) represent
 simple aliases for standard \s-1EBCDIC\s+1 characters.
+Entries marked with an (S) represent Sharp APL charatcers.
 .PP
 .RS
 .TS
@@ -1325,6 +1326,8 @@ A underbar	41	apl_Aunderbar	Alt-A	A + underbar
 alpha	B0	apl_alpha	Alt-a
 B underbar	42	apl_Bunderbar	Alt-B	B + underbar
 bar	60*	apl_bar	-
+brace left	C0	apl_braceleft	Alt-{
+brace right	D0	apl_braceright	Alt-}
 C underbar	43	apl_Cunderbar	Alt-C	C + underbar
 circle	9D	apl_circle	Alt-o
 circle bar	ED	apl_circlebar		circle + bar
@@ -1333,6 +1336,7 @@ circle star	FD	apl_circlestar		circle + star
 circle stile	CD	apl_circlestile		circle + stile
 colon	7A*	apl_colon	:
 comma	6B*	apl_comma	,
+comma bar (S)	E5	apl_commabar		comma + bar
 D underbar	44	apl_Dunderbar	Alt-D	D + underbar
 del	BA	apl_del	Alt-g
 del stile	DC	apl_delstile		del + stile
@@ -1342,7 +1346,9 @@ delta stile	DD	apl_deltastile		delta + stile
 delta underbar	FC	apl_deltaunderbar		delta + underbar
 diamond	70	apl_diamond		up caret + down caret
 dieresis	72	apl_dieresis	Alt-1
+dieresis circle (S)	E5	apl_dieresiscircle		dieresis + circle
 dieresis dot	EC	apl_dieresisdot		dieresis + dot
+dieresis jot (S)	E4	apl_dieresisjot		dieresis + jot
 divide	B8	apl_divide	Alt-+
 dot	4B*	apl_dot	.
 down arrow	8B	apl_downarrow	Alt-u
@@ -1358,6 +1364,7 @@ epsilon	B1	apl_epsilon	Alt-e
 epsilon underbar	75	apl_epsilonunderbar		epsilon + underbar
 equal	7E*	apl_equal	'='
 equal underbar	E1	apl_equalunderbar		equal + underbar
+euro (S)	E7	apl_euro		C + =
 F underbar	46	apl_Funderbar	Alt-F	F + underbar
 G underbar	47	apl_Gunderbar	Alt-G	G + underbar
 greater	6E*	apl_greater	>
@@ -1555,4 +1562,4 @@ notice.
 .RE
 5250 Emulation Code copyright Minolta (Schweiz) AG, Beat Rubischon.
 .SH VERSION
-x3270 3.2.5
+x3270 3.2.6

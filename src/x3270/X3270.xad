@@ -1554,7 +1554,12 @@ x3270icon.translations:			#override \n\
 	apl_circle + asterisk	= apl_circlestar	\n\
 	apl_downtack + apl_jot	= apl_downtackjot	\n\
 	equal + underscore	= apl_equalunderbar	\n\
-	apl_quad + apl_quad	= apl_squad		\n
+	apl_quad + apl_quad	= apl_squad		\n\
+        apl_diaeresis + apl_jot	= apl_diaeresisjot	\n\
+        apl_diaeresis + apl_circle = apl_diaeresiscircle \n\
+        comma + minus		= apl_commabar		\n\
+        c + equal		= apl_euro		\n\
+        C + equal		= apl_euro		\n
 #endif
 !
 ! EBCDIC character sets.

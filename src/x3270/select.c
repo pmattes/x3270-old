@@ -767,7 +767,16 @@ onscreen_char(int baddr, Boolean *ge)
 		switch (ea_buf[baddr].cs) {
 		    case 0:
 		    default:
-			return cg2asc[screen_buf[baddr]];
+			switch (screen_buf[baddr]) {
+			    case CG_fm:
+				*ge = True;
+				return ';';
+			    case CG_dup:
+				*ge = True;
+				return '*';
+			    default:
+				return cg2asc[screen_buf[baddr]];
+			}
 		    case CS_GE:
 			if (screen_buf[baddr] == CG_Yacute)
 				return '[';

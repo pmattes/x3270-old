@@ -77,6 +77,8 @@ static struct {
 	{ "Zunderbar",		XK_Ntilde,		1 },
 	{ "alpha",		XK_asciicircum,		1 },
 	{ "bar",		XK_minus,		0 },
+	{ "braceleft",		XK_braceleft,		1 },
+	{ "braceright",		XK_braceright,		1 },
 	{ "bracketleft",	XK_Yacute,		1 },
 	{ "bracketright", 	XK_diaeresis,		1 },
 	{ "circle",		XK_cedilla,		1 },
@@ -86,6 +88,7 @@ static struct {
 	{ "circlestile",	XK_ograve,		1 },
 	{ "colon",		XK_colon,		0 },
 	{ "comma",		XK_comma,		0 },
+	{ "commabar",		XK_W,			1 }, /* soliton */
 	{ "del",		XK_bracketleft,		1 },
 	{ "delstile",		XK_udiaeresis,		1 },
 	{ "delta",		XK_bracketright,	1 },
@@ -93,7 +96,9 @@ static struct {
 	{ "deltaunderbar",	XK_Udiaeresis,		1 },
 	{ "deltilde",		XK_Ucircumflex,		1 },
 	{ "diaeresis",		XK_Ecircumflex,		1 },
+	{ "diaeresiscircle",	XK_V,			1 }, /* soliton */
 	{ "diaeresisdot",	XK_Odiaeresis,		1 },
+	{ "diaeresisjot",	XK_U,			1 }, /* soliton */
 	{ "diamond",		XK_oslash,		1 },
 	{ "dieresis",		XK_Ecircumflex,		1 },
 	{ "dieresisdot",	XK_Odiaeresis,		1 },
@@ -112,6 +117,7 @@ static struct {
 	{ "epsilonunderbar",	XK_Iacute,		1 },
 	{ "equal",		XK_equal,		0 },
 	{ "equalunderbar",	XK_backslash,		1 },
+	{ "euro",		XK_X,			1 }, /* soliton */
 	{ "greater",		XK_greater,		0 },
 	{ "iota",		XK_yen,			1 },
 	{ "iotaunderbar",	XK_Egrave,		1 },

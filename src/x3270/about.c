@@ -345,7 +345,7 @@ Copyright \251 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.\n\
 	 			get_message("tn3270eOpts"));
 			MAKE_LABEL(fbuf, 0);
 			MAKE_VALUE(eopts);
-		} else {
+		} else if (IN_E) {
 			(void) sprintf(fbuf, "  %s",
 				get_message("tn3270eNoOpts"));
 			MAKE_LABEL(fbuf, 0);

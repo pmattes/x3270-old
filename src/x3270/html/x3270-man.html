@@ -2,14 +2,14 @@
 <html>
 <head>
    <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
-   <meta name="GENERATOR" content="Mozilla/4.7 [en] (Win98; U) [Netscape]">
+   <meta name="GENERATOR" content="Mozilla/4.5 [en] (WinNT; U) [Netscape]">
    <title>x3270 - IBM host access tool</title>
 </head>
 <body>
 
 <h1>
-<img SRC="x3270.jpg"  align=CENTER> x3270 - IBM host
-access tool</h1>
+<img SRC="x3270.jpg"  align=CENTER>
+x3270 - IBM host access tool</h1>
 
 <h2>
 SYNOPSIS</h2>
@@ -1073,13 +1073,16 @@ non-APL characters. In particular, the APL `stile', `slope,' `tilde' and
 and `exclaim' characters. The APL characters are entered with the "Alt"
 key, and have slightly different appearances.
 <p>The complete list of special APL keysyms is as follows. Entries marked
-with an asterisk (*) represent simple aliases for standard EBCDIC characters.
+with an asterisk (*) represent simple aliases for standard EBCDIC characters.&nbsp;
+Entries marked with an (S) represent Sharp APL characters.
 <pre>&nbsp;APL Symbol&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Hex&nbsp; x3270 Keysym&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; x3270 Key x3270 Composed Keys
 &nbsp;------------------ ---- -------------------- --------- -------------------
 &nbsp;A underbar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 41&nbsp;&nbsp; apl_Aunderbar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Alt-A&nbsp;&nbsp;&nbsp;&nbsp; A + underbar
 &nbsp;alpha&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; B0&nbsp;&nbsp; apl_alpha&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Alt-a
 &nbsp;B underbar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 42&nbsp;&nbsp; apl_Bunderbar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Alt-B&nbsp;&nbsp;&nbsp;&nbsp; B + underbar
 &nbsp;bar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 60*&nbsp; apl_bar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; -
+&nbsp;brace left&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; C0&nbsp;&nbsp; apl_braceleft&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Alt-{
+&nbsp;brace right&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; D0&nbsp;&nbsp; apl_braceright&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Alt-}
 &nbsp;C underbar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 43&nbsp;&nbsp; apl_Cunderbar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Alt-C&nbsp;&nbsp;&nbsp;&nbsp; C + underbar
 &nbsp;circle&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 9D&nbsp;&nbsp; apl_circle&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Alt-o
 &nbsp;circle bar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ED&nbsp;&nbsp; apl_circlebar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; circle + bar
@@ -1088,6 +1091,7 @@ with an asterisk (*) represent simple aliases for standard EBCDIC characters.
 &nbsp;circle stile&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; CD&nbsp;&nbsp; apl_circlestile&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; circle + stile
 &nbsp;colon&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 7A*&nbsp; apl_colon&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; :
 &nbsp;comma&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 6B*&nbsp; apl_comma&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ,
+&nbsp;comma bar (S)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; E6&nbsp;&nbsp; apl_commabar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; , + bar
 &nbsp;D underbar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 44&nbsp;&nbsp; apl_Dunderbar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Alt-D&nbsp;&nbsp;&nbsp;&nbsp; D + underbar
 &nbsp;del&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; BA&nbsp;&nbsp; apl_del&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Alt-g
 &nbsp;del stile&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; DC&nbsp;&nbsp; apl_delstile&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; del + stile
@@ -1097,7 +1101,9 @@ with an asterisk (*) represent simple aliases for standard EBCDIC characters.
 &nbsp;delta underbar&nbsp;&nbsp;&nbsp;&nbsp; FC&nbsp;&nbsp; apl_deltaunderbar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; delta + underbar
 &nbsp;diamond&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 70&nbsp;&nbsp; apl_diamond&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; up caret + down caret
 &nbsp;dieresis&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 72&nbsp;&nbsp; apl_dieresis&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Alt-1
+&nbsp;dieresis circle (S)E5&nbsp;&nbsp; apl_dieresiscircle&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; dieresis + circle
 &nbsp;dieresis dot&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; EC&nbsp;&nbsp; apl_dieresisdot&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; dieresis + dot
+&nbsp;dieresis jot (S)&nbsp;&nbsp; E4&nbsp;&nbsp; apl_dieresisjot&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; dieresis + jot
 &nbsp;divide&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; B8&nbsp;&nbsp; apl_divide&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Alt-+
 &nbsp;dot&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 4B*&nbsp; apl_dot&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; .
 &nbsp;down arrow&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 8B&nbsp;&nbsp; apl_downarrow&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Alt-u
@@ -1113,6 +1119,7 @@ with an asterisk (*) represent simple aliases for standard EBCDIC characters.
 &nbsp;epsilon underbar&nbsp;&nbsp; 75&nbsp;&nbsp; apl_epsilonunderbar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; epsilon + underbar
 &nbsp;equal&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 7E*&nbsp; apl_equal&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; =
 &nbsp;equal underbar&nbsp;&nbsp;&nbsp;&nbsp; E1&nbsp;&nbsp; apl_equalunderbar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; equal + underbar
+&nbsp;euro (S)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; E7&nbsp;&nbsp; apl_euro&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; C + equal
 &nbsp;F underbar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 46&nbsp;&nbsp; apl_Funderbar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Alt-F&nbsp;&nbsp;&nbsp;&nbsp; F + underbar
 &nbsp;G underbar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 47&nbsp;&nbsp; apl_Gunderbar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Alt-G&nbsp;&nbsp;&nbsp;&nbsp; G + underbar
 &nbsp;greater&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 6E*&nbsp; apl_greater&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; >
@@ -1229,10 +1236,12 @@ through a firewall machine. When a <b>p:</b> is prepended to a hostname,
 <b>x3270</b>
 acts much like the
 <i>itelnet</i>(1) command. It contacts the machine named
-<b>internet-gateway</b> at the port defined in
+<b>internet-gateway</b>
+at the port defined in
 <b>/etc/services</b> as
-<b>telnet-passthru</b> (which defaults to 3514). It then passes the requested
-hostname and port to the <b>in.telnet-gw</b> server.
+<b>telnet-passthru</b> (which
+defaults to 3514). It then passes the requested hostname and port to the
+<b>in.telnet-gw</b> server.
 <h2>
 BUGS</h2>
 Cursor highlighting will not work with if you use the
@@ -1240,7 +1249,8 @@ Cursor highlighting will not work with if you use the
 option in your .twmrc file.
 <p>Pull-down menus may not work properly if the Caps Lock, Num Lock, Shift,
 Alt or Meta keys are pressed. This is a bug in the Athena menu widget and
-affects several other X applications as well.
+affects
+several other X applications as well.
 <h2>
 FILES</h2>
 /usr/lib/X11/x3270/ibm_hosts
@@ -1249,7 +1259,7 @@ SEE ALSO</h2>
 <i>telnet</i>(1)
 <br><i>tn3270</i>(1)
 <br><a href="ibm_hosts.html"><i>ibm_hosts</i>(5)</a>
-<br><i><a href="x3270-script.html">x3270-script</a></i><a href="x3270-script.html">(1)</a>
+<br><a href="x3270-script.html"><i>x3270-script</i>(1)</a>
 <br><i>X Toolkit Intrinsics</i>
 <br><i>Data Stream Programmer's Reference, IBM GA23-0059</i>
 <br><i>Character Set Reference, IBM GA27-3831</i>
@@ -1273,7 +1283,7 @@ notice.
 <p>5250 Emulation Code Copyright &copy; Minolta (Schweiz) AG, Beat Rubischon.
 <hr>
 <address>
-x3270 version 3.2.5, last modified 15. May 2000</address>
+x3270 version 3.2.6, last modified 19. May 2000</address>
 
 </body>
 </html>

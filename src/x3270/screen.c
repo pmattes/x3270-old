@@ -2948,8 +2948,12 @@ screen_newcharset(char *csname)
 {
 	if (!charset_init(csname))
 		popup_an_error("Cannot find charset \"%s\"", csname);
-	else
+	else {
+		screen_reinit(CHARSET_CHANGE);
 		charset_changed = True;
+		popup_an_info("The new character set will only be reflected\n"
+			"in new data from the host");
+	}
 }
 #endif /*]*/
 
