@@ -258,6 +258,7 @@ set_rows_cols(int mn, int ovc, int ovr)
 	/* Make sure that the current rows/cols are still 24x80. */
 	COLS = 80;
 	ROWS = 24;
+	screen_alt = False;
 }
 
 

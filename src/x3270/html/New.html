@@ -33,7 +33,6 @@ input, and X11 display output.</p>
   <li>Bug Fixes:
     <ul>
       <li>Fixed the <b>Transfer()</b> action, which didn't work at all.</li>
-       <b>xim</b>.</li>
       <li>Fixed the default primary/alternate screen size (it was alternate,
        it's supposed to be primary).</li>
       <li>Fixed c3270 color support with ncurses and 80/132 screen-size
@@ -49,6 +48,9 @@ input, and X11 display output.</p>
        x3270 is using a 3270 font.</li>
       <li>Fixed the display of DBCS blanks, which sometimes displayed as
        'undefined' characters.</li>
+      <li>Fixed DBCS character display with fonts whose maximum bounds are
+       larger than their reported line-spacing bounds.</li>
+      <li>Fixed <b>make depend</b>.</li>
     </ul>
   </li>
   <li>New Features:
@@ -58,7 +60,8 @@ input, and X11 display output.</p>
       map. (<i>Thanks to Marcelo Lemos for the change.</i>)</li>
      <li>Added new actions for improved mouse interactions, and made them the
       default.  Button 1 now moves the cursor, without the Shift key.</li>
-     <li>Added support for DBCS in pr3287.</li>
+      <li>Added support for DBCS in pr3287, but only when started from an
+       x3270 session.</li>
      <li>Added Don Russel's RPQNAMES support.</li>
     </ul>
   </li>

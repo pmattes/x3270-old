@@ -125,7 +125,7 @@ x3270.charsetList:			U.S. English (CP 37): us-intl\n\
 					Brazilian (CP 275): brazilian\n\
 #ifdef X3270_DBCS
 					Chinese Simplified (CP 836+837): simplified-chinese\n\
-					Chinese GB 18030 (CP 836+837): chinese-gb18030\n\
+					Chinese GB 18030 (CP 1388): chinese-gb18030\n\
 #endif
 					Finnish (CP 278): finnish\n\
 					French (CP 297): french\n\
@@ -2118,8 +2118,9 @@ x3270.charset.simplified-chinese: #table\n\
 ! dbcsConverters are ICU converter names, of the form:
 !  [host-SBCS-converter+]host-DBCS-converter,display-font-converter
 x3270.dbcsConverters.simplified-chinese: ibm-837_P100-2000,gb2312-1980
-! Simplified Chinese, using GB18030.
-x3270.codepage.chinese-gb18030: 0x04960344+0xffff0569
+! Simplified Chinese, using GB18030 and code page 1388 (same code page for
+! SBCS and DBCS).
+x3270.codepage.chinese-gb18030: 0xffff056c+0xffff056c
 x3270.displayCharset.chinese-gb18030: 3270cg-1a,3270cg-1,iso8859-1+gb18030.2000-1,iso10646-1
 x3270.charset.chinese-gb18030: #table\n\
    0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0 \
@@ -2138,7 +2139,7 @@ x3270.charset.chinese-gb18030: #table\n\
  125  74  75  76  77  78  79  80  81  82   0   0   0   0   0   0 \
   36   0  83  84  85  86  87  88  89  90   0   0   0   0   0   0 \
   48  49  50  51  52  53  54  55  56  57   0   0   0   0   0   0
-x3270.dbcsConverters.chinese-gb18030: ibm-1385_P100-1997,gb18030
+x3270.dbcsConverters.chinese-gb18030: ibm-1388_P103-2001+ibm-1388_P103-2001,gb18030
 ! Japanese.
 ! Note that the 'charset' definition applies only to the single-byte character
 ! set (1027), not the double-byte character set (300).

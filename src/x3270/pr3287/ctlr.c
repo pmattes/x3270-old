@@ -63,6 +63,8 @@ extern int ffskip;	/* skip FF orders at top of page */
 #define VISIBLE		0x01	/* visible field */
 #define INVISIBLE	0x02	/* invisible field */
 
+#define BUFSZ		4096
+
 static const char *ll_name[] = { "unformatted132", "formatted40", "formatted64", "formatted80" };
 static int ll_len[] = { 132, 40, 64, 80 };
 
@@ -107,6 +109,13 @@ static int pp;
 static int line;
 static Boolean scs_initted = False;
 static Boolean any_scs_output = False;
+static int scs_leftover_len = 0;
+static int scs_leftover_buf[256];
+static int scs_dbcs_subfield = 0;
+#if defined(X3270_DBCS) /*[*/
+static unsigned char scs_dbcs_c1 = 0;
+#endif /*]*/
+static unsigned scs_cs = 0;
 
 
 /*
@@ -570,6 +579,8 @@ init_scs_vert(void)
 static void
 init_scs(void)
 {
+	int i;
+
 	if (scs_initted)
 		return;
 
@@ -580,6 +591,21 @@ init_scs(void)
 	line = 1;
 	scs_any = 0;
 	(void) memset(linebuf, ' ', MAX_MPP+1);
+	for (i = 0; i < MAX_MPP+1; i++) {
+		if (trnbuf[i].malloc_len != 0) {
+			Free(trnbuf[i].buf);
+			trnbuf[i].buf = NULL;
+			trnbuf[i].malloc_len = 0;
+		}
+		trnbuf[i].data_len = 0;
+	}
+	scs_leftover_len = 0;
+	scs_dbcs_subfield = 0;
+#if defined(X3270_DBCS) /*[*/
+	scs_dbcs_c1 = 0;
+#endif /*]*/
+	scs_cs = 0;
+
 	scs_initted = True;
 }
 
@@ -783,33 +809,54 @@ add_scs_trn(unsigned char *cp, int cnt)
 	}
 
 	new_malloc_len = trnbuf[pp].data_len + cnt;
-	if (trnbuf[pp].malloc_len < new_malloc_len) {
-		trnbuf[pp].buf = Realloc(trnbuf[pp].buf, new_malloc_len);
-		trnbuf[pp].malloc_len = new_malloc_len;
+	while (trnbuf[pp].malloc_len < new_malloc_len) {
+		trnbuf[pp].malloc_len += BUFSZ;
+		trnbuf[pp].buf = Realloc(trnbuf[pp].buf,
+					 trnbuf[pp].malloc_len);
 	}
 	(void) memcpy(trnbuf[pp].buf + trnbuf[pp].data_len, cp, cnt);
 	trnbuf[pp].data_len += cnt;
+	any_scs_output = True;
 }
 
-/* Process a bufferful of SCS data. */
-enum pds
-process_scs(unsigned char *buf, int buflen)
+/*
+ * Process a bufferful of SCS data.
+ *
+ * Note that unlike a 3270 Write command, even though the record is bounded
+ * by an EOR, the SCS data are not guaranteed to be complete.
+ * 
+ * Rather than have a full FSM for every byte of every SCS order, we resort
+ * to the rather inefficient method of concatenating the previous, incomplete
+ * record with a copy of the new record, processing it as a contiguous
+ * buffer, and saving any incomplete order for next time.
+ */
+
+/*
+ * 'Internal' SCS function, called by process_scs() below with the previous
+ * leftover data plus the current buffer.
+ *
+ * If an incomplete order is detected, saves it in scs_leftover_buf for
+ * next time.
+ */
+static enum pds
+process_scs_contig(unsigned char *buf, int buflen)
 {
 	register unsigned char *cp;
 	int i;
 	int cnt;
 	int tab;
 	enum { NONE, DATA, ORDER } last = NONE;
-	int dbcs_subfield = 0;
-	unsigned cs = 0;
-#if defined(X3270_DBCS) /*[*/
-	unsigned char dbcs_c1 = 0;
-#endif /*]*/
 #	define END_TEXT(s) { \
 		if (last == DATA) \
 			trace_ds("'"); \
 		trace_ds(" " s); \
 		last = ORDER; \
+	}
+#	define LEFTOVER { \
+		trace_ds(" [pending]"); \
+		scs_leftover_len = buflen - (cp - buf); \
+		(void) memcpy(scs_leftover_buf, cp, scs_leftover_len); \
+		cp = buf + buflen; \
 	}
 
 	trace_ds("< ");
@@ -822,7 +869,7 @@ process_scs(unsigned char *buf, int buflen)
 			END_TEXT("BS");
 			if (pp != 1)
 				pp--;
-			if (dbcs_subfield && pp != 1)
+			if (scs_dbcs_subfield && pp != 1)
 				pp--;
 			break;
 		case SCS_CR:	/* carriage return */
@@ -903,10 +950,12 @@ process_scs(unsigned char *buf, int buflen)
 			break;
 		case SCS_GE:	/* graphic escape */
 			END_TEXT("GE");
+			if ((cp + 1) >= buf + buflen) {
+				LEFTOVER;
+				break;
+			}
 			/* Skip over the order. */
 			cp++;
-			if (cp >= buf + buflen)
-				break;	/* be gentle */
 			/* No support, so all characters are spaces. */
 			trace_ds(" %02x", *cp);
 			if (add_scs(' ') < 0)
@@ -914,27 +963,31 @@ process_scs(unsigned char *buf, int buflen)
 			break;
 		case SCS_SA:	/* set attribute */
 			END_TEXT("SA");
-			switch (*cp + 1) {
+			if ((cp + 2) >= buf + buflen) {
+				LEFTOVER;
+				break;
+			}
+			switch (*(cp + 1)) {
 			case SCS_SA_RESET:
 				trace_ds(" Reset(%02x)", *(cp + 2));
 #if defined(X3270_DBCS) /*[*/
-				dbcs_subfield = 0;
+				scs_dbcs_subfield = 0;
 #endif /*]*/
-				cs = 0;
+				scs_cs = 0;
 				break;
 			case SCS_SA_HIGHLIGHT:
 				trace_ds(" Highlight(%02x)", *(cp + 2));
 				break;
 			case SCS_SA_CS:
 				trace_ds(" CharacterSet(%02x)", *(cp + 2));
-				if (cs != *(cp + 2)) {
+				if (scs_cs != *(cp + 2)) {
 #if defined(X3270_DBCS) /*[*/
-					if (cs == 0xf8)
-						dbcs_subfield = 0;
+					if (scs_cs == 0xf8)
+						scs_dbcs_subfield = 0;
 					else if (*(cp + 2) == 0xf8)
-						dbcs_subfield = 1;
+						scs_dbcs_subfield = 1;
 #endif /*]*/
-					cs = *(cp + 2);
+					scs_cs = *(cp + 2);
 				}
 				break;
 			case SCS_SA_GRID:
@@ -950,28 +1003,39 @@ process_scs(unsigned char *buf, int buflen)
 			break;
 		case SCS_TRN:	/* transparent */
 			END_TEXT("TRN");
+			/* Make sure a length byte is present. */
+			if ((cp + 1) >= buf + buflen) {
+				LEFTOVER;
+				break;
+			}
 			/* Skip over the order. */
 			cp++;
-			/* Make sure a length byte is present. */
-			if (cp >= buf + buflen)
-				break;	/* be gentle */
 			/*
 			 * Next byte is the length of the transparent data,
 			 * not including the length byte itself.
 			 */
 			cnt = *cp;
+			if (cp + cnt - 1 >= buf + buflen) {
+				cp--;
+				LEFTOVER;
+				break;
+			}
 			trace_ds("(%d)", cnt);
 			/* Copy out the data literally. */
 			add_scs_trn(cp+1, cnt);
 			cp += cnt;
 #if defined(X3270_DBCS) /*[*/
-			dbcs_subfield = 0;
+			scs_dbcs_subfield = 0;
 #endif /*]*/
 			break;
 		case SCS_SET:	/* set... */
 			/* Skip over the first byte of the order. */
-			if (cp + 1 >= buf + buflen)
+			if (cp + 2 >= buf + buflen ||
+			    cp + *(cp + 2) - 1 >= buf + buflen) {
+				END_TEXT("SET");
+				LEFTOVER;
 				break;
+			}
 			switch (*++cp) {
 				case SCS_SHF:	/* set horizontal format */
 					END_TEXT("SHF");
@@ -981,8 +1045,6 @@ process_scs(unsigned char *buf, int buflen)
 					 * The length is next.  It includes the
 					 * length field itself.
 					 */
-					if (cp + 1 >= buf + buflen)
-						break;
 					cnt = *++cp;
 					trace_ds("(%d)", cnt);
 					if (cnt < 2)
@@ -1109,17 +1171,20 @@ process_scs(unsigned char *buf, int buflen)
 					}
 					break;
 				default:
-					break;	/* be gentle */
+					END_TEXT("SET(?");
+					trace_ds("%02x)", *cp);
+					cp += *(cp + 1);
+					break;
 			}
 			break;
 #if defined(X3270_DBCS) /*[*/
 		case SCS_SO:	/* DBCS subfield start */
 			END_TEXT("SO");
-			dbcs_subfield = 1;
+			scs_dbcs_subfield = 1;
 			break;
 		case SCS_SI:	/* DBCS subfield end */
 			END_TEXT("SI");
-			dbcs_subfield = 0;
+			scs_dbcs_subfield = 0;
 			break;
 #endif /*]*/
 		default:
@@ -1140,17 +1205,17 @@ process_scs(unsigned char *buf, int buflen)
 			else if (last == ORDER)
 				trace_ds(" '");
 #if defined(X3270_DBCS) /*[*/
-			if (dbcs_subfield && dbcs) {
-				if (dbcs_subfield % 2) {
-					dbcs_c1 = *cp;
+			if (scs_dbcs_subfield && dbcs) {
+				if (scs_dbcs_subfield % 2) {
+					scs_dbcs_c1 = *cp;
 				} else {
 					char mb[16];
 					int len;
 
-					len = dbcs_to_mb(dbcs_c1, *cp, mb);
+					len = dbcs_to_mb(scs_dbcs_c1, *cp, mb);
 					if (len < 0) {
 						trace_ds("?DBCS(X'%02x%02x')",
-								dbcs_c1, *cp);
+								scs_dbcs_c1, *cp);
 						if (add_scs(' ') < 0)
 							return PDS_FAILED;
 						if (add_scs(' ') < 0)
@@ -1181,7 +1246,7 @@ process_scs(unsigned char *buf, int buflen)
 						trace_ds("%s", mb);
 					}
 				}
-				dbcs_subfield++;
+				scs_dbcs_subfield++;
 				last = DATA;
 				break;
 			}
@@ -1200,6 +1265,31 @@ process_scs(unsigned char *buf, int buflen)
 	if (prflush() < 0)
 		return PDS_FAILED;
 	return PDS_OKAY_NO_OUTPUT;
+}
+
+/*
+ * 'External' SCS function.  Handles leftover data from any previous,
+ * incomplete SCS record.
+ */
+enum pds
+process_scs(unsigned char *buf, int buflen)
+{
+	enum pds r;
+
+	if (scs_leftover_len) {
+		unsigned char *contig = Malloc(scs_leftover_len + buflen);
+		int total_len;
+
+		(void) memcpy(contig, scs_leftover_buf, scs_leftover_len);
+		(void) memcpy(contig + scs_leftover_len, buf, buflen);
+		total_len = scs_leftover_len + buflen;
+		scs_leftover_len = 0;
+		r = process_scs_contig(contig, total_len);
+		Free(contig);
+	} else {
+		r = process_scs_contig(buf, buflen);
+	}
+	return r;
 }
 
 

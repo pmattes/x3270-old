@@ -190,8 +190,6 @@ static struct {
     int ascent;
     int descent;
     int xtra_width;
-    int xtra_height;
-    int ascent_fudge;	/* amount to add to nss-based y coordinate */
 } dbcs_font;
 static void xim_init(void);
 XIM im;
@@ -269,7 +267,6 @@ struct sstate {
 	int		ascent;
 	int		descent;
 	int		xtra_width;
-	int		xtra_height;
 	Boolean         standard_font;
 	Boolean		extended_3270font;
 	Boolean         font_8bit;
@@ -559,7 +556,14 @@ screen_reinit(unsigned cmask)
 	/* Compute SBCS/DBCS size differences. */
 #if defined(X3270_DBCS) /*[*/
 	if ((cmask & FONT_CHANGE) && dbcs) {
-		int wdiff, hdiff;
+		int wdiff, adiff, ddiff;
+
+#if defined(_ST) /*[*/
+		printf("nss ascent %d descent %d\n"
+		       "dbcs ascent %d descent %d\n",
+		       nss.ascent, nss.descent,
+		       dbcs_font.ascent, dbcs_font.descent);
+#endif /*]*/
 
 		/* Compute width difference. */
 		wdiff = (2 * nss.char_width) - dbcs_font.char_width;
@@ -591,37 +595,46 @@ screen_reinit(unsigned cmask)
 		nss.char_width += nss.xtra_width;
 		dbcs_font.char_width += dbcs_font.xtra_width;
 
-		/* Compute height difference. */
-		hdiff = nss.char_height - dbcs_font.char_height;
-		if (hdiff > 0) {
-			/* SBCS font is too tall. */
-			dbcs_font.xtra_height = hdiff;
-			dbcs_font.char_height += hdiff;
+		/*
+		 * Compute height difference, doing ascent and descent
+		 * separately.
+		 */
+		adiff = nss.ascent - dbcs_font.ascent;
+		if (adiff > 0) {
 #if defined(_ST) /*[*/
-			printf("SBCS taller %d\n", wdiff);
+			printf("SBCS higher by %d\n", adiff);
+			dbcs_font.ascent += adiff;
+			dbcs_font.char_height += adiff;
 #endif /*]*/
-		} else if (hdiff < 0) {
-			/*  SBCS font is too short. */
-			nss.xtra_height = -hdiff;
-			nss.char_height += -hdiff;
+		} else if (adiff < 0) {
 #if defined(_ST) /*[*/
-			printf("DBCS taller %d\n", -wdiff);
+			printf("DBCS higher by %d\n", -adiff);
+			nss.ascent += -adiff;
+			nss.char_height += -adiff;
 #endif /*]*/
 		} else {
-			dbcs_font.xtra_height = nss.xtra_height = 0;
 #if defined(_ST) /*[*/
-			printf("Height matches\n");
+			printf("Ascent matches\n");
 #endif /*]*/
 		}
-
-		/* Compute ascent/descent fudge. */
-		if (nss.ascent != dbcs_font.ascent) {
-			dbcs_font.ascent_fudge = nss.ascent - dbcs_font.ascent;
+		ddiff = nss.descent - dbcs_font.descent;
+		if (ddiff > 0) {
 #if defined(_ST) /*[*/
-			printf("Ascent fudge %d\n", dbcs_font.ascent_fudge);
+			printf("SBCS lower by %d\n", ddiff);
 #endif /*]*/
-		} else
-			dbcs_font.ascent_fudge = 0;
+			dbcs_font.descent += ddiff;
+			dbcs_font.char_height += ddiff;
+		} else if (ddiff < 0) {
+#if defined(_ST) /*[*/
+			printf("DBCS lower by %d\n", -ddiff);
+#endif /*]*/
+			nss.descent += -ddiff;
+			nss.char_height += -ddiff;
+		} else {
+#if defined(_ST) /*[*/
+			printf("Descent matches\n");
+#endif /*]*/
+		}
 	}
 #endif /*]*/
 
@@ -1915,8 +1928,7 @@ render_text(union sp *buffer, int baddr, int len, Boolean block_cursor,
 	    (n_sbcs && ss->xtra_width)
 #if defined(X3270_DBCS) /*[*/
 	     ||
-	    (n_dbcs &&
-	     (dbcs_font.xtra_width || dbcs_font.ascent_fudge))
+	    (n_dbcs && dbcs_font.xtra_width)
 #endif /*]*/
 	   ) {
 		int i, j;
@@ -1965,7 +1977,7 @@ render_text(union sp *buffer, int baddr, int len, Boolean block_cursor,
 						    display,
 						    ss->window, dgc,
 						    xn,
-						    y - dbcs_font.ascent_fudge,
+						    y,
 						    &text1,
 						    1);
 						xn += dbcs_font.char_width;
@@ -1973,7 +1985,7 @@ render_text(union sp *buffer, int baddr, int len, Boolean block_cursor,
 				} else {
 					XDrawText16(display,
 					    ss->window, dgc, xn,
-					    y - dbcs_font.ascent_fudge,
+					    y,
 					    &text[i], 1);
 					xn += dbcs_font.char_width *
 						text[i].nchars;
@@ -4063,10 +4075,10 @@ set_font_globals(XFontStruct *f, const char *ef, const char *fef, Font ff,
 				XFree(family_name);
 			}
 		}
+		dbcs_font.ascent = f->max_bounds.ascent;
+		dbcs_font.descent = f->max_bounds.descent;
 		dbcs_font.char_width  = fCHAR_WIDTH(f);
-		dbcs_font.char_height = fCHAR_HEIGHT(f);
-		dbcs_font.ascent = f->ascent;
-		dbcs_font.descent = f->descent;
+		dbcs_font.char_height = dbcs_font.ascent + dbcs_font.descent;
 		dbcs = True;
 		Replace(full_efontname_dbcs, XtNewString(fef));
 		return;
