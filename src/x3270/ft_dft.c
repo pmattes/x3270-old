@@ -26,6 +26,7 @@
 #include "kybdc.h"
 #include "ft_dftc.h"
 #include "ftc.h"
+#include "tablesc.h"
 #include "telnetc.h"
 #include "trace_dsc.h"
 #include "utilc.h"
@@ -236,6 +237,16 @@ dft_data_insert(struct data_buffer *data_bufr)
 		/* Write the data out to the file. */
 		int rv = 1;
 
+		if (ascii_flag) {
+			/* Filter. */
+			unsigned char *s = (unsigned char *)data_bufr->data;
+			unsigned len = my_length;
+
+			while (len--) {
+				*s = ft2asc[*s];
+				s++;
+			}
+		}
 		if (ascii_flag && cr_flag) {
 			char *s = (char *)data_bufr->data;
 			unsigned len = my_length;

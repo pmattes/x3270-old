@@ -24,3 +24,4 @@ extern unsigned char cg2uc[256];
 extern unsigned char ge2asc[256];
 extern unsigned char ge2cg8[256];
 extern unsigned char asc2uc[256];
+extern unsigned char ft2asc[256];

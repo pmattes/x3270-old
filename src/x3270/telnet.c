@@ -77,7 +77,6 @@ Boolean		local_process = False;
 char           *termtype;
 
 /* Externals */
-extern unsigned long inet_addr(const char *);
 extern struct timeval ds_ts;
 
 /* Statics */
@@ -1185,24 +1184,18 @@ tn3270e_negotiate(void)
 			    tn3270e_function_names(sbbuf+3, sblen-3));
 
 			e_rcvd = tn3270e_fdecode(sbbuf+3, sblen-3);
-			if (e_rcvd == e_funcs) {
-				/* Perfect.  Tell them so. */
+			if ((e_rcvd == e_funcs) || (e_funcs & ~e_rcvd)) {
+				/* They want what we want, or less.  Done. */
+				e_funcs = e_rcvd;
 				tn3270e_subneg_send(TN3270E_OP_IS, e_funcs);
-
 				tn3270e_negotiated = 1;
 				check_in3270();
 			} else {
-				/* Not quite perfect. */
-				if (e_funcs & ~e_rcvd) {
-					/* They've removed something. */
-					e_funcs &= e_rcvd;
-				}
 				/*
-				 * Otherwise, they've added something, and
-				 * we can't do that.  Just retransmit.
+				 * They want us to do something we can't.
+				 * Request the common subset.
 				 */
-
-				/* Tell them what we can do now. */
+				e_funcs &= e_rcvd;
 				tn3270e_subneg_send(TN3270E_OP_REQUEST,
 				    e_funcs);
 			}
@@ -1210,16 +1203,18 @@ tn3270e_negotiate(void)
 
 		case TN3270E_OP_IS:
 
-			/* They accept our last request. */
+			/* They accept our last request, or a subset thereof. */
 			vtrace_str("IS %s SE\n",
 			    tn3270e_function_names(sbbuf+3, sblen-3));
 			e_rcvd = tn3270e_fdecode(sbbuf+3, sblen-3);
 			if (e_rcvd != e_funcs) {
 				if (e_funcs & ~e_rcvd) {
-					/* They've removed something. */
-					e_funcs &= e_rcvd;
-					vtrace_str("Host illegally removed "
-						"function(s), continuing\n");
+					/*
+					 * They've removed something.  This is
+					 * technically illegal, but we can
+					 * live with it.
+					 */
+					e_funcs = e_rcvd;
 				} else {
 					/*
 					 * They've added something.  Abandon

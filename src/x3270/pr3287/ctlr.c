@@ -149,8 +149,6 @@ process_ds(unsigned char *buf, int buflen)
 		errmsg("Unknown 3270 Data Stream command: 0x%X", buf[0]);
 		return PDS_BAD_CMD;
 	}
-
-	return 0;
 }
 
 /*

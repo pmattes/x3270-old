@@ -519,8 +519,6 @@ process_ds(unsigned char *buf, int buflen)
 		    buf[0]);
 		return PDS_BAD_CMD;
 	}
-
-	return 0;
 }
 
 /*

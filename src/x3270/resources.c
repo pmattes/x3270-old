@@ -156,7 +156,7 @@ XtResource resources[] = {
 	{ ResIconLabelFont, ClsIconLabelFont, XtRString, sizeof(char *),
 	  offset(icon_label_font), XtRString, "8x13" },
 	{ ResNormalCursor, ClsNormalCursor, XtRCursor, sizeof(Cursor),
-	  offset(normal_mcursor), XtRString, "arrow" },
+	  offset(normal_mcursor), XtRString, "top_left_arrow" },
 	{ ResWaitCursor, ClsWaitCursor, XtRCursor, sizeof(Cursor),
 	  offset(wait_mcursor), XtRString, "watch" },
 	{ ResLockedCursor, ClsLockedCursor, XtRCursor, sizeof(Cursor),

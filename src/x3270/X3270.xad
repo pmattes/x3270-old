@@ -125,7 +125,7 @@ x3270.charsetList:			U.S. English: us-intl\n\
 ! x3270.boldColor:			cyan
 !
 !   Cursors
-! x3270.normalCursor:			arrow
+! x3270.normalCursor:			top_left_arrow
 ! x3270.waitCursor:			watch
 ! x3270.lockedCursor:			X_cursor
 !
