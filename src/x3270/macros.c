@@ -67,8 +67,10 @@ typedef struct sms {
 		SS_CONNECT_WAIT,/* command awaiting connection to complete */
 		SS_FT_WAIT,	/* command awaiting file transfer to complete */
 		SS_PAUSED,	/* stopped in PauseScript action */
-		SS_WAIT_ANSI,	/* awaiting completeion of Wait(ansi) */
-		SS_WAIT_3270,	/* awaiting completeion of Wait(3270) */
+		SS_WAIT_ANSI,	/* awaiting completion of Wait(ansi) */
+		SS_WAIT_3270,	/* awaiting completion of Wait(3270) */
+		SS_WAIT_OUTPUT,	/* awaiting completion of Wait(Output) */
+		SS_WAIT_DISC,	/* awaiting completion of Wait(Disconnect) */
 		SS_WAIT,	/* awaiting completion of Wait() */
 		SS_EXPECTING,	/* awaiting completion of Expect() */
 		SS_CLOSING	/* awaiting completion of Close() */
@@ -83,6 +85,7 @@ typedef struct sms {
 	Boolean	need_prompt;
 	Boolean	is_login;
 	Boolean	is_hex;		/* flag for ST_STRING only */
+	Boolean output_wait_needed;
 	FILE   *outfile;
 	int	infd;
 	int	pid;
@@ -91,6 +94,23 @@ typedef struct sms {
 #define SN	((sms_t *)NULL)
 static sms_t *sms = SN;
 static int sms_depth = 0;
+
+static const char *sms_state_name[] = {
+	"IDLE",
+	"INCOMPLETE",
+	"RUNNING",
+	"KBWAIT",
+	"CONNECT_WAIT",
+	"FT_WAIT",
+	"PAUSED",
+	"WAIT_ANSI",
+	"WAIT_3270",
+	"WAIT_OUTPUT",
+	"WAIT_DISC",
+	"WAIT",
+	"EXPECTING",
+	"CLOSING"
+};
 
 #if defined(X3270_MENUS) /*[*/
 static struct macro_def *macro_last = (struct macro_def *) NULL;
@@ -268,6 +288,7 @@ new_sms(enum sms_type type)
 	s->infd = -1;
 	s->pid = -1;
 	s->expect_id = 0L;
+	s->output_wait_needed = False;
 
 	return s;
 }
@@ -386,8 +407,8 @@ sms_pop(Boolean can_exit)
 		sms->state = SS_KBWAIT;
 #if defined(X3270_TRACE) /*[*/
 		if (toggled(DS_TRACE))
-			(void) fprintf(tracef, "%s[%d] implicitly paused %d\n",
-			    ST_NAME, sms_depth, sms->state);
+			(void) fprintf(tracef, "%s[%d] implicitly paused %s\n",
+			    ST_NAME, sms_depth, sms_state_name[sms->state]);
 #endif /*]*/
 	} else if (sms->state == SS_IDLE) {
 		/* The parent needs to be restarted. */
@@ -679,8 +700,9 @@ run_string(void)
 #if defined(X3270_TRACE) /*[*/
 			if (toggled(DS_TRACE))
 				(void) fprintf(tracef,
-				    "%s[%d] paused %d\n",
-				    ST_NAME, sms_depth, sms->state);
+				    "%s[%d] paused %s\n",
+				    ST_NAME, sms_depth,
+				    sms_state_name[sms->state]);
 #endif /*]*/
 		} else {
 			hex_input(sms->dptr);
@@ -694,8 +716,9 @@ run_string(void)
 #if defined(X3270_TRACE) /*[*/
 				if (toggled(DS_TRACE))
 					(void) fprintf(tracef,
-					    "%s[%d] paused %d\n",
-					    ST_NAME, sms_depth, sms->state);
+					    "%s[%d] paused %s\n",
+					    ST_NAME, sms_depth,
+					    sms_state_name[sms->state]);
 #endif /*]*/
 			}
 		} else {
@@ -778,8 +801,9 @@ run_macro(void)
 				sms->state = SS_KBWAIT;
 #if defined(X3270_TRACE) /*[*/
 			if (toggled(DS_TRACE))
-				(void) fprintf(tracef, "%s[%d] paused %d\n",
-				    ST_NAME, sms_depth, sms->state);
+				(void) fprintf(tracef, "%s[%d] paused %s\n",
+				    ST_NAME, sms_depth,
+				    sms_state_name[sms->state]);
 #endif /*]*/
 			sms->dptr = nextm;
 			return;
@@ -967,8 +991,9 @@ run_script(void)
 		else {
 #if defined(X3270_TRACE) /*[*/
 			if (toggled(DS_TRACE))
-				(void) fprintf(tracef, "%s[%d] paused %d\n",
-				    ST_NAME, sms_depth, sms->state);
+				(void) fprintf(tracef, "%s[%d] paused %s\n",
+				    ST_NAME, sms_depth,
+				    sms_state_name[sms->state]);
 #endif /*]*/
 		}
 	}
@@ -1031,6 +1056,11 @@ script_input(void)
 		return;
 	}
 	if (nr == 0) {	/* end of file */
+#if defined(X3270_TRACE) /*[*/
+		if (toggled(DS_TRACE))
+			(void) fprintf(tracef, "EOF %s[%d]\n",
+			    ST_NAME, sms_depth);
+#endif /*]*/
 		sms_pop(True);
 		sms_continue();
 		return;
@@ -1091,11 +1121,30 @@ sms_continue(void)
 			if (HALF_CONNECTED ||
 			    (CONNECTED && (kybdlock & KL_AWAITING_FIRST)))
 				return;
+			if (!CONNECTED) {
+				/* connection failed */
+				if (sms->need_prompt) {
+					script_prompt(False);
+					sms->need_prompt = False;
+				}
+				break;
+			}
 			break;
 
 		    case SS_FT_WAIT:
 			if (ft_state == FT_NONE)
 				break;
+			else
+				return;
+
+		    case SS_WAIT_OUTPUT:
+			return;
+
+		    case SS_WAIT_DISC:
+			if (!CONNECTED)
+				break;
+			else
+				return;
 
 		    case SS_PAUSED:
 			return;
@@ -1133,15 +1182,25 @@ sms_continue(void)
  */
 
 static void
-dump_range(int first, int len, Boolean in_ascii)
+dump_range(int first, int len, Boolean in_ascii, unsigned char *buf,
+    int rel_rows unused, int rel_cols)
 {
 	register int i;
 	Boolean any = False;
 
+	/*
+	 * The client has now 'looked' at the screen, so should they later
+	 * execute 'Wait(output)', they will actually need to wait for output
+	 * from the host.  output_wait_needed is cleared by sms_host_output,
+	 * which is called from the write logic in ctlr.c.
+	 */     
+	if (sms != SN && buf == screen_buf)
+		sms->output_wait_needed = True;
+
 	for (i = 0; i < len; i++) {
 		unsigned char c;
 
-		if (i && !((first + i) % COLS)) {
+		if (i && !((first + i) % rel_cols)) {
 			(void) putc('\n', sms->outfile);
 			any = False;
 		}
@@ -1150,19 +1209,21 @@ dump_range(int first, int len, Boolean in_ascii)
 			any = True;
 		}
 		if (in_ascii) {
-			c = cg2asc[screen_buf[first + i]];
+			c = cg2asc[buf[first + i]];
 			(void) fprintf(sms->outfile, "%c", c ? c : ' ');
 		} else {
 			(void) fprintf(sms->outfile, "%s%02x",
 				i ? " " : "",
-				cg2ebc[screen_buf[first + i]]);
+				cg2ebc[buf[first + i]]);
 		}
 	}
-	(void) fprintf(sms->outfile, "\n");
+	if (any)
+		(void) fprintf(sms->outfile, "\n");
 }
 
 static void
-dump_fixed(String params[], Cardinal count, const char *name, Boolean in_ascii)
+dump_fixed(String params[], Cardinal count, const char *name, Boolean in_ascii,
+    unsigned char *buf, int rel_rows, int rel_cols, int caddr)
 {
 	int row, col, len, rows = 0, cols = 0;
 
@@ -1170,11 +1231,11 @@ dump_fixed(String params[], Cardinal count, const char *name, Boolean in_ascii)
 	    case 0:	/* everything */
 		row = 0;
 		col = 0;
-		len = ROWS*COLS;
+		len = rel_rows*rel_cols;
 		break;
 	    case 1:	/* from cursor, for n */
-		row = cursor_addr / COLS;
-		col = cursor_addr % COLS;
+		row = caddr / rel_cols;
+		col = caddr % rel_cols;
 		len = atoi(params[0]);
 		break;
 	    case 3:	/* from (row,col), for n */
@@ -1195,21 +1256,23 @@ dump_fixed(String params[], Cardinal count, const char *name, Boolean in_ascii)
 	}
 
 	if (
-	    (row < 0 || row > ROWS || col < 0 || col > COLS || len < 0) ||
-	    ((count < 4)  && ((row * COLS) + col + len > ROWS * COLS)) ||
+	    (row < 0 || row > rel_rows || col < 0 || col > rel_cols || len < 0) ||
+	    ((count < 4)  && ((row * rel_cols) + col + len > rel_rows * rel_cols)) ||
 	    ((count == 4) && (cols < 0 || rows < 0 ||
-			      col + cols > COLS || row + rows > ROWS))
+			      col + cols > rel_cols || row + rows > rel_rows))
 	   ) {
 		popup_an_error("%s: Invalid argument", name);
 		return;
 	}
 	if (count < 4)
-		dump_range((row * COLS) + col, len, in_ascii);
+		dump_range((row * rel_cols) + col, len, in_ascii, buf,
+		    rel_rows, rel_cols);
 	else {
 		int i;
 
 		for (i = 0; i < rows; i++)
-			dump_range(((row+i) * COLS) + col, cols, in_ascii);
+			dump_range(((row+i) * rel_cols) + col, cols, in_ascii,
+			    buf, rel_rows, rel_cols);
 	}
 }
 
@@ -1238,14 +1301,15 @@ dump_field(Cardinal count, const char *name, Boolean in_ascii)
 		len++;
 		INC_BA(baddr);
 	} while (baddr != start);
-	dump_range(start, len, in_ascii);
+	dump_range(start, len, in_ascii, screen_buf, ROWS, COLS);
 }
 
 void
 Ascii_action(Widget w unused, XEvent *event unused, String *params,
     Cardinal *num_params)
 {
-	dump_fixed(params, *num_params, action_name(Ascii_action), True);
+	dump_fixed(params, *num_params, action_name(Ascii_action), True,
+		screen_buf, ROWS, COLS, cursor_addr);
 }
 
 void
@@ -1259,7 +1323,8 @@ void
 Ebcdic_action(Widget w unused, XEvent *event unused, String *params,
     Cardinal *num_params)
 {
-	dump_fixed(params, *num_params, action_name(Ebcdic_action), False);
+	dump_fixed(params, *num_params, action_name(Ebcdic_action), False,
+		screen_buf, ROWS, COLS, cursor_addr);
 }
 
 void
@@ -1298,16 +1363,16 @@ EbcdicField_action(Widget w unused, XEvent *event unused,
  * 11 cursor col
  * 12 main window id
  */
-
-static void
-script_prompt(Boolean success)
+static char *
+status_string(void)
 {
 	char kb_stat;
 	char fmt_stat;
 	char prot_stat;
-	char *connect_stat;
-	Boolean free_connect = False;
+	char *connect_stat = CN;
 	char em_mode;
+	char s[1024];
+	char *r;
 
 	if (!kybdlock)
 		kb_stat = 'U';
@@ -1333,10 +1398,9 @@ script_prompt(Boolean success)
 			prot_stat = 'U';
 	}
 
-	if (CONNECTED) {
+	if (CONNECTED)
 		connect_stat = xs_buffer("C(%s)", current_host);
-		free_connect = True;
-	} else
+	else
 		connect_stat = NewString("N");
 
 	if (CONNECTED) {
@@ -1352,8 +1416,8 @@ script_prompt(Boolean success)
 	} else
 		em_mode = 'N';
 
-	(void) fprintf(sms->outfile,
-	    "%c %c %c %s %c %d %d %d %d %d 0x%lx\n%s\n",
+	(void) sprintf(s,
+	    "%c %c %c %s %c %d %d %d %d %d 0x%lx",
 	    kb_stat,
 	    fmt_stat,
 	    prot_stat,
@@ -1363,19 +1427,131 @@ script_prompt(Boolean success)
 	    ROWS, COLS,
 	    cursor_addr / COLS, cursor_addr % COLS,
 #if defined(X3270_DISPLAY) /*[*/
-	    XtWindow(toplevel),
+	    XtWindow(toplevel)
 #else /*][*/
-	    0L,
+	    0L
 #endif /*]*/
-	    success ? "ok" : "error");
+	    );
 
+	r = NewString(s);
 	Free(connect_stat);
+	return r;
+}
 
+static void
+script_prompt(Boolean success)
+{
+	char *s;
+
+	s = status_string();
+	(void) fprintf(sms->outfile, "%s\n%s\n", s, success ? "ok" : "error");
 	(void) fflush(sms->outfile);
+	Free(s);
 }
 
 /*
- * Wait for the host to let us write onto the screen.
+ * "Snap" action, maintains a snapshot for consistent multi-field comparisons:
+ *
+ *  Snap
+ *	updates the saved image from the live image
+ *  Snap Rows
+ *	returns the number of rows
+ *  Snap Cols
+ *	returns the number of columns
+ *  Snap Staus
+ *  Snap Ascii ...
+ *  Snap AsciiField (not yet)
+ *  Snap Ebcdic ...
+ *  Snap EbcdicField (not yet)
+ *	runs the named command
+ */
+void
+Snap_action(Widget w unused, XEvent *event unused, String *params,
+    Cardinal *num_params)
+{
+	static char *snap_status = NULL;
+	static unsigned char *snap_buf = NULL;
+	static int snap_rows = 0;
+	static int snap_cols = 0;
+	static int snap_field_start = -1;
+	static int snap_field_length = -1;
+	static int snap_caddr = 0;
+
+	if (sms == SN || sms->state != SS_RUNNING) {
+		popup_an_error("%s: can only be called from scripts or macros",
+		    action_name(Snap_action));
+		return;
+	}
+
+	if (*num_params == 0) {
+		sms->output_wait_needed = True;
+		if (snap_status != NULL)
+			Free(snap_status);
+		snap_status = status_string();
+
+		if (snap_buf != NULL)
+			Free(snap_buf);
+		snap_buf = (unsigned char *)Malloc(ROWS*COLS);
+		(void) memcpy(snap_buf, screen_buf, ROWS*COLS);
+
+		snap_rows = ROWS;
+		snap_cols = COLS;
+
+		if (!formatted) {
+			snap_field_start = -1;
+			snap_field_length = -1;
+		} else {
+			unsigned char *fa;
+			int baddr;
+
+			snap_field_length = 0;
+			fa = get_field_attribute(cursor_addr);
+			snap_field_start = fa - screen_buf;
+			INC_BA(snap_field_start);
+			baddr = snap_field_start;
+			do {
+				if (IS_FA(screen_buf[baddr]))
+					break;
+				snap_field_length++;
+				INC_BA(baddr);
+			} while (baddr != snap_field_start);
+		}
+		snap_caddr = cursor_addr;
+		return;
+	}
+
+	if (snap_status == NULL) {
+		popup_an_error("No saved state");
+		return;
+	}
+	if (!strcmp(params[0], "Status")) {
+		if (*num_params != 1)
+			popup_an_error("extra argument(s)");
+		(void) fprintf(sms->outfile, "data: %s\n", snap_status);
+	} else if (!strcmp(params[0], "Rows")) {
+		if (*num_params != 1)
+			popup_an_error("extra argument(s)");
+		(void) fprintf(sms->outfile, "data: %d\n", snap_rows);
+	} else if (!strcmp(params[0], "Cols")) {
+		if (*num_params != 1)
+			popup_an_error("extra argument(s)");
+		(void) fprintf(sms->outfile, "data: %d\n", snap_cols);
+	} else if (!strcmp(params[0], action_name(Ascii_action))) {
+		dump_fixed(params + 1, *num_params - 1,
+			action_name(Ascii_action), True, snap_buf,
+			snap_rows, snap_cols, snap_caddr);
+	} else if (!strcmp(params[0], action_name(Ebcdic_action))) {
+		dump_fixed(params + 1, *num_params - 1,
+			action_name(Ebcdic_action), False, snap_buf,
+			snap_rows, snap_cols, snap_caddr);
+	} else {
+		popup_an_error("Unknown parameter to 'Snap': %s",
+			params[0]);
+	}
+}
+
+/*
+ * Wait for various conditions.
  */
 void
 Wait_action(Widget w unused, XEvent *event unused, String *params,
@@ -1391,14 +1567,27 @@ Wait_action(Widget w unused, XEvent *event unused, String *params,
 		return;
 	}
 	if (*num_params == 1) {
-		if (!strcmp(params[0], "ansi")) {
+		if (!strcmp(params[0], "NVTMode") ||
+		    !strcmp(params[0], "ansi")) {
 			if (!IN_ANSI)
 				next_state = SS_WAIT_ANSI;
-		} else if (!strcmp(params[0], "3270")) {
+		} else if (!strcmp(params[0], "3270Mode") ||
+			   !strcmp(params[0], "3270")) {
 			if (!IN_3270)
 			    next_state = SS_WAIT_3270;
-		} else {
-			popup_an_error("%s: parameter must be 'ansi' or '3270'",
+		} else if (!strcmp(params[0], "Output")) {
+			if (sms->output_wait_needed)
+				next_state = SS_WAIT_OUTPUT;
+			else
+				return;
+		} else if (!strcmp(params[0], "Disconnect")) {
+			if (CONNECTED)
+				next_state = SS_WAIT_DISC;
+			else
+				return;
+		} else if (strcmp(params[0], "InputField")) {
+			popup_an_error("%s: parameter must be 'ansi', '3270', "
+				"'Output' or 'Disconnect'",
 			action_name(Wait_action));
 			return;
 		}
@@ -1432,13 +1621,28 @@ sms_connect_wait(void)
 	}
 }
 
+/*
+ * Callback from ctlr.c, to indicate that the host has changed the screen.
+ */
+void
+sms_host_output(void)
+{
+	if (sms != SN) {
+		sms->output_wait_needed = False;
+		if (sms->state == SS_WAIT_OUTPUT) {
+			sms->state = SS_RUNNING;
+			sms_continue();
+		}
+	}
+}
+
 /* Return whether error pop-ups should be short-circuited. */
 Boolean
 sms_redirect(void)
 {
 	return sms != SN &&
 	       (sms->type == ST_CHILD || sms->type == ST_PEER) &&
-	       sms->state == SS_RUNNING;
+	       (sms->state == SS_RUNNING || sms->state == SS_CONNECT_WAIT);
 }
 
 #if defined(X3270_MENUS) /*[*/

@@ -156,6 +156,9 @@ XtActionsRec actions[] = {
 #if defined(X3270_SCRIPT) /*[*/
 	{ "Script",		Script_action },
 #endif /*]*/
+#if defined(X3270_SCRIPT) || defined(TCL3270) /*[*/
+	{ "Snap",		Snap_action },
+#endif /*]*/
 #if defined(TCL3270) /*[*/
 	{ "Status",		Status_action },
 #endif /*]*/
@@ -168,7 +171,7 @@ XtActionsRec actions[] = {
 	{ "Transfer",		Transfer_action },
 #endif /*]*/
 	{ "Up",			Up_action },
-#if defined(X3270_SCRIPT) /*[*/
+#if defined(X3270_SCRIPT) || defined(TCL3270) /*[*/
 	{ "Wait",		Wait_action },
 #endif /*]*/
 	{ "ignore",		ignore_action }

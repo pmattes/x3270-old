@@ -417,6 +417,9 @@ ctlr_erase(Boolean alt)
 
 	ctlr_clear(True);
 
+	/* Let a script go. */
+	sms_host_output();
+
 	if (alt == screen_alt)
 		return;
 
@@ -1144,6 +1147,8 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 			trace_ds(rcba(buffer_addr));
 			if (buffer_addr >= COLS * ROWS) {
 				trace_ds(" [invalid address, write command terminated]\n");
+				/* Let a script go. */
+				sms_host_output();
 				return;
 			}
 			current_fa = get_field_attribute(buffer_addr);
@@ -1221,6 +1226,8 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 				trace_ds("'");
 			if (baddr >= COLS * ROWS) {
 				trace_ds(" [invalid address, write command terminated]\n");
+				/* Let a script go. */
+				sms_host_output();
 				return;
 			}
 			do {
@@ -1248,6 +1255,8 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 			previous = ORDER;
 			if (baddr >= COLS * ROWS) {
 				trace_ds(" [invalid address, write command terminated]\n");
+				/* Let a script go. */
+				sms_host_output();
 				return;
 			}
 			do {
@@ -1480,6 +1489,9 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 	trace_primed = False;
 
 	ps_process();
+
+	/* Let a script go. */
+	sms_host_output();
 }
 
 #undef START_FIELDx
@@ -1536,6 +1548,9 @@ ctlr_write_sscp_lu(unsigned char buf[], int buflen)
 	/* Unlock the keyboard. */
 	aid = AID_NO;
 	do_reset(False);
+
+	/* Let a script go. */
+	sms_host_output();
 }
 
 /*

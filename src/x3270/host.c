@@ -282,8 +282,10 @@ host_connect(const char *n)
 	/* Skip leading blanks. */
 	while (*n == ' ')
 		n++;
-	if (!*n)
+	if (!*n) {
+		popup_an_error("Invalid (empty) hostname");
 		return -1;
+	}
 
 	/* Save in a modifiable buffer. */
 	(void) strcpy(nb, n);

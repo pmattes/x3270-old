@@ -10,8 +10,7 @@
 
 </PRE>
 <H2>SYNOPSIS</H2><PRE>
-       <B>tcl3270</B> [<I>script</I>] [<I>options</I>] [<I>host</I>]
-       <B>tcl3270</B> -- <I>host</I>
+       <B>tcl3270</B> [<I>script</I>] [<I>options</I>] [<I>host</I>] [-- <I>script-arg</I>...]
 
        <B>tcl3270</B>  opens  a  telnet  connection to an IBM host, then
        allows a tcl script to run the host login session.  It  is
@@ -61,6 +60,7 @@
 
               The  first  part is the <B>base</B> <B>model</B>, which is either
               <B>3278</B> or <B>3279</B>.  <B>3278</B>  specifies  a  monochrome  3270
+              display; <B>3279</B> specifies a color 3270 display.
               The  second  part is the <B>model</B> <B>number</B>, which speci-
               fies the number of rows and columns.   Model  4  is
               the default.
@@ -105,7 +105,7 @@
 
        <B>-set</B> <I>toggle</I>
               Sets the initial value of <I>toggle</I> to <B>true.</B>  The list
-              of toggle names is under MENUS below.
+              of toggle names is under TOGGLES below.
 
        <B>-tn</B> <I>name</I>
               Specifies  the terminal name to be transmitted over
@@ -117,11 +117,12 @@
               the hostname removes the <B>-E</B> from the terminal  name
               when connecting to such hosts.
 
-       <B>--</B>     A  no-op  option.   Because  of  a "feature" in how
-              libtcl parses command-line options, it is necessary
-              to  specify  <I>some</I>  option  if you want to specify a
-              hostname on the command line,  but  don't  want  to
-              specify a script name.
+       <B>-trace</B> Turns  on  data  stream  and event (script command)
+              tracing.
+
+       <B>--</B>     Terminates the list of <B>tcl3270</B>  options.   Whatever
+              follows  will  be  available  to  the script in the
+              <B>$argv</B> tcl variable.
 
 
 </PRE>
@@ -142,26 +143,26 @@
                         <B>icelandic</B>          -
                         <B>belgian</B>            -
 
-       The default character set is <B>bracket</B>, which is useful  for
-       common  IBM hosts which use EBCDIC codes 0xAD and 0xBD for
+       The  default character set is <B>bracket</B>, which is useful for
+       common IBM hosts which use EBCDIC codes 0xAD and 0xBD  for
        the `[' and `]' characters, respectively.
 
 
 </PRE>
 <H2>ANSI MODE</H2><PRE>
-       Some hosts use an ASCII  front-end  to  do  initial  login
+       Some  hosts  use  an  ASCII  front-end to do initial login
        negotiation, then later switch to 3270 mode.  <B>tcl3270</B> will
-       emulate an ANSI X.64 terminal until the host places it  in
+       emulate  an ANSI X.64 terminal until the host places it in
        3270 mode (telnet BINARY and SEND EOR modes).  This allows
-       <B>tcl3270</B> to be used to script standard TELNET  sessions  as
+       <B>tcl3270</B>  to  be used to script standard TELNET sessions as
        well.
 
-       If  the  host later negotiates to stop functioning in 3270
+       If the host later negotiates to stop functioning  in  3270
        mode, <B>tcl3270</B> will return to ANSI emulation.
 
-       When emulating an ANSI  terminal,  <B>tcl3270</B>  supports  both
+       When  emulating  an  ANSI  terminal, <B>tcl3270</B> supports both
        character-at-a-time mode and line mode operation.  When in
-       line mode, the special characters and operational  charac-
+       line  mode, the special characters and operational charac-
        teristics are defined as follows:
 
            Mode/Character                             Setting
@@ -180,25 +181,25 @@
 
 </PRE>
 <H2>TOGGLES</H2><PRE>
-       <B>tcl3270</B>  has  a  number of configurable modes which may be
+       <B>tcl3270</B> has a number of configurable modes  which  may  be
        selected by the -set and -clear options.
 
        <B>monoCase</B>
               If set, <B>tcl3270</B> operates in uppercase-only mode.
 
        <B>blankFill</B>
-              If set, <B>tcl3270</B> behaves in some un-3270-like  ways.
-              First,  when a character is typed into a field, all
-              nulls in the field to the left  of  that  character
-              are  changed  to  blanks.  This eliminates a common
-              3270 data-entry surprise.  Second, in insert  mode,
-              trailing  blanks in a field are treated like nulls,
-              eliminating the  annoying  ``lock-up''  that  often
+              If  set, <B>tcl3270</B> behaves in some un-3270-like ways.
+              First, when a character is typed into a field,  all
+              nulls  in  the  field to the left of that character
+              are changed to blanks.  This  eliminates  a  common
+              3270  data-entry surprise.  Second, in insert mode,
+              trailing blanks in a field are treated like  nulls,
+              eliminating  the  annoying  ``lock-up''  that often
               occurs when inserting into an field with (apparent)
               space at the end.
 
        <B>lineWrap</B>
-              If set, the ANSI  terminal  emulator  automatically
+              If  set,  the  ANSI terminal emulator automatically
               assumes a NEWLINE character when it reaches the end
               of a line.
 
@@ -255,6 +256,12 @@
        Reset                      reset locked keyboard
        Right                      move cursor right
        Right2                     move cursor right 2 positions
+       Snap                       save screen image
+       Snap Ascii                 report saved screen data (see <B>Ascii</B>)
+       Snap Cols                  report saved screen size
+       Snap Ebcdic                report saved screen data (see <B>Ebcdic</B>)
+       Snap Rows                  report saved screen size
+       Snap Status                report saved connection status
        Status                     report connection status
        String <I>string</I>              insert string
        SysReq                     System Request AID
@@ -262,6 +269,19 @@
        ToggleInsert               toggle insert mode
        Transfer <I>option</I>=<I>value</I>...   file transfer
        Up                         move cursor up
+       Wait 3270Mode              wait for 3270 mode
+       Wait Disconnect            wait for host to disconnect
+       Wait InputField            wait for valid input field
+       Wait NVTMode               wait for NVT mode
+       Wait Output                wait for more host output
+
+       Note:  For  backwards compatibility, the following aliases
+       are defined.
+       Alias       Equivalent To
+       ----------------------------
+       Wait        Wait InputField
+       Wait ansi   Wait NVTMode
+       Wait 3270   Wait 3270Mode
 
 
 </PRE>
@@ -283,6 +303,7 @@
               <B>Note:</B>  The  strings  are  in ASCII and converted to
               EBCDIC, so beware of inserting control codes.
 
+       There is also an alternate form  of  the  String  command,
        HexString,  which is used to enter non-printing data.  The
        argument to HexString is a string of  hexadecimal  digits,
        two  per  character.   A leading 0x or 0X is optional.  In
@@ -347,7 +368,7 @@
 
 </PRE>
 <H2>SCREEN CONTENTS COMMANDS</H2><PRE>
-       There are four commands  to  return  the  current  virtual
+       There are several commands to return the  current  virtual
        screen contents.  The <B>Ascii</B> and <B>AsciiField</B> commands return
        a region of the screen as an ASCII text.  The  <B>Ebcdic</B>  and
        <B>EbcdicField</B>  commands  return  a  region  of the screen as
@@ -373,9 +394,26 @@
               dinates  (<I>row</I>, <I>col</I>), length <I>len</I> bytes, is returned.
 
               If four arguments are given (<I>row</I>, <I>col</I>, <I>rows</I>, <I>cols</I>),
-              then  a rectangular region is returned, starting at
               zero-origin coordinates  (<I>row</I>,  <I>col</I>),  width  <I>rows</I>,
               length <I>cols</I>.
+
+       Note  that  is  it  possible  for  the  host to update the
+       screen, or even change the logical screen  dimensions,  at
+       any time.  If a script needs to access screen data when it
+       is possible that the host may be changing it (such  as  to
+       determine  when  certain commands complete), it should use
+       the <B>Snap</B> command.
+
+       Without arguments, <B>Snap</B> saves the screen image and  status
+       in a buffer.
+
+       The  command  <B>Snap</B> <B>Status</B>  returns  the saved status.  The
+       commands <B>Snap</B> <B>Cols</B> and  <B>Snap</B> <B>Rows</B>  return  the  number  of
+       columns  and rows in the saved screen image, respectively.
+       The commands <B>Snap</B> <B>Ascii</B> and <B>Snap</B> <B>Ebcdic</B> are  the  same  as
+       the <B>Ascii</B> and <B>Ebcdic</B> commands, repectively, but they oper-
+       ate on the saved buffer, rather than on  the  live  screen
+       image.
 
 
 </PRE>
@@ -411,7 +449,6 @@
 
        <B>Direction</B>
               <B>send</B> (the default) to send  a  file  to  the  host,
-              <B>receive</B> to receive a file from the host.
 
        <B>HostFile</B>
               The name of the file on the host.
@@ -448,6 +485,7 @@
               length  records.   <B>undefined</B>  creates  a  file with
               undefined-length records  (TSO  hosts  only).   The
               <B>Lrecl</B>  option controls the record length or maximum
+              record length for  <B>Recfm=fixed</B>  and  <B>Recfm=variable</B>
               files, respectively.
 
        <B>Lrecl</B>  Specifies  the  record  length  (or  maximum record
@@ -465,7 +503,6 @@
        <B>PrimarySpace</B>
               Primary  allocation  for  a  file  created on a TSO
               host.   The  units  are  given  by  the  <B>Allocation</B>
-              option.
 
        <B>SecondarySpace</B>
               Secondary  allocation  for  a file created on a TSO
@@ -637,7 +674,25 @@
 
 </PRE>
 <H2>VERSION</H2><PRE>
-       tcl3270 3.2.8
+       tcl3270 3.2.9
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

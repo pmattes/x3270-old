@@ -22,6 +22,7 @@
 #include "globals.h"
 #include <sys/wait.h>
 #include <signal.h>
+#include <errno.h>
 #include "appres.h"
 #include "3270ds.h"
 #include "resources.h"
@@ -93,8 +94,16 @@ main(int argc, char *argv[])
 	initialize_toggles();
 
 	/* Connect to the host. */
-	if (argc > 1)
-		(void) host_connect(cl_hostname);
+	if (cl_hostname != CN) {
+		if (host_connect(cl_hostname) < 0)
+			exit(1);
+		/* Wait for negotiations to complete or fail. */
+		while (!IN_ANSI && !IN_3270) {
+			(void) process_events(True);
+			if (!CONNECTED)
+				exit(1);
+		}
+	}
 
 	/* Prepare to run a peer script. */
 	peer_script_init();

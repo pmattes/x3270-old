@@ -454,6 +454,8 @@ see_qcode(unsigned char id)
 		return "ReplyModes";
 	    case QR_ALPHA_PART:
 		return "AlphanumericPartitions";
+	    case QR_DDM:
+		return "DistributedDataManagement";
 	    default:
 		(void) sprintf(buf, "unknown[0x%x]", id);
 		return buf;

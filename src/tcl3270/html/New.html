@@ -9,10 +9,30 @@
 
 <h1>
 tcl3270 Version 3.2 -- New Features and Bug Fixes</h1>
+
+<h2>
+<b>Changes in tcl3270 3.2.9, 26. June 2000</b></h2>
+Fixed requesting the wrong LU after switching between TN3270E and TN3270
+modes.
+<br>Added a new <b>Snap</b> command.
+<br>Added new <b>Wait Disconnect</b> and <b>Wait Output</b> commands.
+<br>Changed <b>Wait</b> to <b>Wait InputField</b>, <b>Wait 3270</b> to
+<b>Wait 3270Mode</b> and <b>Wait ansi</b> to <b>Wait NVTMode</b>. The old
+names are still supported for backwards-compatibility.
+<br>Fixed a problem with parameter processing in the <b>Transfer</b> command.
+<br>Catch empty hostnames.
+<br>Added stricter enforcement of user-specified LUs.
+<br>Catch failures of command-line-specified host connections.
+<br>Added <b>--</b> to separate tcl3270 options from script options, and
+pass those options to the script in $argv.
+<br>Added <b>-trace</b>.
+<br>Vastly improved tracing.
+<br>Fixed a nit in tracing Query Reply options.
 <h2>
 Changes in tcl3270 3.2.8, 1. June 2000</h2>
-Fixed a problem with initial host connection negotation and talking to a
-non-TN3270E host.
-<br>Added support for IND$FILE file transfers, via the new Transfer command.
+Fixed a problem with initial host connection negotation and talking to
+a non-TN3270E host.
+<br>Added support for IND$FILE file transfers, via the new <b>Transfer</b>
+command.
 </body>
 </html>

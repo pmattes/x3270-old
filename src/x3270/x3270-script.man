@@ -1,4 +1,4 @@
-.TH X3270-SCRIPT 1 "1 June 2000"
+.TH X3270-SCRIPT 1 "22 June 2000"
 .SH NAME
 Scripting Facilities for x3270 and s3270
 .SH SYNOPSIS
@@ -389,6 +389,32 @@ This allows a script to wait for user input and continue.
 Outputs the single parameter to
 .B ContinueScript().
 .TP
+.B Snap()
+Saves a copy of the screen image and status in a temporary buffer.
+This copy can be queried with other
+.B Snap()
+actions to allow a script to examine a consistent screen image, even when the
+host may be changing the image (or even the screen dimensions) dynamically.
+.TP
+.BR Snap(Ascii ,... )
+Performs the
+.B Ascii()
+action on the saved screen image.
+.TP
+.B Snap(Cols)
+Returns the number of columns in the saved screen image.
+.TP
+.BR Snap(Ebcdic ,... )
+Performs the
+.B Ebcdic()
+action on the saved screen image.
+.TP
+.B Snap(Rows)
+Returns the number of rows in the saved screen image.
+.TP
+.B Snap(Status)
+Returns the status line from when the screen was last saved.
+.TP
 .BI Transfer( keyword = value ,...)
 Invokes IND$FILE file transfer.
 Note that this action requires that the
@@ -523,24 +549,64 @@ The units are given by the
 option.
 .RE
 .TP
-.B Wait()
+.B Wait(3270Mode)
+Used when communicating with a host that switches between ANSI mode and 3270
+mode.
+Pauses the script or macro until the host negotiates 3270 mode, then waits for
+a formatted screen as above.
+.IP
+For backwards compatibility,
+.B Wait(3270)
+is equivalent to
+.B Wait(3270Mode)
+.TP
+.B Wait(Disconnect)
+Pauses the script until the host disconnects.
+Often used to after sending a
+.I logoff
+command to a VM/CMS host, to ensure that the session is not unintentionally
+set to
+.B disconnected
+state.
+.TP
+.B Wait(InputField)
 A useful utility for use at the beginning of scripts and after the Connect()
 action.
 In 3270 mode, waits until the screen is formatted, and the host has positioned
 the cursor on a modifiable field.
 In ANSI mode, waits until the host sends at least one byte of data.
+.IP
+For backwards compatibility,
+.B Wait()
+is equivalent to
+.BR Wait(InputField) .
 .TP
-.B Wait(3270)
-Used when communicating with a host that switches between ANSI mode and 3270
+.BR Wait(NVTMode) .
+Used when communicating with a host that switches between 3270 mode and NVT
 mode.
-Pauses the script or macro until the host negotiates 3270 mode, then waits for
-a formatted screen as above.
-.TP
-.B Wait(ansi)
-Used when communicating with a host that switches between 3270 mode and ANSI
-mode.
-Pauses the script or macro until the host negotiates ANSI mode, then waits for
+Pauses the script or macro until the host negotiates NVT mode, then waits for
 a byte from the host as above.
+.IP
+For backwards compatibility,
+.B Wait(ansi)
+is equivalent to
+.BR Wait(NVTMode) .
+.TP
+.B Wait(Output)
+Pauses the script until the host sends further output.
+Used when the host unlocks the keyboard (allowing the script to proceed after
+an
+.BR Enter ,
+.B PF
+or
+.B PA
+action), but has not finished updating the screen.
+This action is usually invoked in a loop that uses the
+.B Ascii
+or
+.B Ebcdic
+action to scan the screen for some pattern that indicates that the host has
+fully processed the last command.
 .SH "SEE ALSO"
 expect(1)
 .br

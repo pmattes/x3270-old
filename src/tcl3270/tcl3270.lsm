@@ -1,7 +1,7 @@
 Begin4
 Title:		tcl3270
-Version:	3.2.8
-Entered-date:	2000-06-01
+Version:	3.2.9
+Entered-date:	2000-06-26
 Description:	tcl-based scripted 3270 Emulator
 		Complete IBM 3278/3279 emulation, TN3270E support, structured
 		fields, color xterm emulation, highly configurable
@@ -11,6 +11,6 @@ Author:		Paul Mattes (Paul.Mattes@usa.net)
 		Robert Viduya
 Maintained-by:	Paul Mattes (Paul.Mattes@usa.net)
 Primary-site:	metalab.unc.edu /pub/Linux/system/network/misc/
-		147 KB tcl3270-3.2.8.tgz
+		152 KB tcl3270-3.2.9.tgz
 Copying-policy:	GPL
 End

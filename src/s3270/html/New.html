@@ -11,6 +11,23 @@
 s3270 Version 3.2 -- New Features and Bug Fixes</h1>
 s3270 is all-new code, based on the scripting functions of x3270 3.2.
 <h2>
+<b>Changes in x3270 3.2.9, 26. June 2000</b></h2>
+Fixed requesting the wrong LU after switching between TN3270E and TN3270
+modes.
+<br>Added a new <b>Snap()</b> action.
+<br>Added new <b>Wait(Disconnect)</b> and <b>Wait(Output)</b> actions.
+<br>Changed <b>Wait()</b> to <b>Wait(InputField)</b>, <b>Wait(3270)</b>
+to <b>Wait(3270Mode)</b> and <b>Wait(ansi)</b> to <b>Wait(NVTMode)</b>.
+The old names are still supported for backwards-compatibility.
+<br>Fixed a problem with parameter processing in the <b>Transfer()</b>
+action.
+<br>Catch empty hostnames.
+<br>Improved script tracing.
+<br>Added stricter enforcement of user-specified LUs.
+<br>Catch failures of command-line-specified host connections.
+<br>Added the <b>-trace </b>option.
+<br>Fixed a nit in tracing Query Reply options.
+<h2>
 Changes in s3270 3.2.7, 30. May 2000</h2>
 Fixed a number of TN3720E SSCP-LU emulation problems: Garbled host input,
 echoed input being overwritten by host output, keyboard locking inconsistencies.

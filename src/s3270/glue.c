@@ -46,6 +46,8 @@
 
 extern void usage(char *);
 
+#define LAST_ARG	"--"
+
 /* Statics */
 static void no_minus(char *arg);
 static void parse_options(int *argcp, char **argv);
@@ -90,6 +92,7 @@ parse_command_line(int argc, char **argv, char **cl_hostname)
 	int ovc, ovr;
 	char junk;
 	int sl;
+	int hn_argc;
 
 	/* Figure out who we are */
 	programname = strrchr(argv[0], '/');
@@ -116,8 +119,14 @@ parse_command_line(int argc, char **argv, char **cl_hostname)
 	/* Pick out the remaining -set and -clear toggle options. */
 	parse_set_clear(&argc, argv);
 
+	/* Now figure out if there's a hostname. */
+	for (hn_argc = 1; hn_argc < argc; hn_argc++) {
+		if (!strcmp(argv[hn_argc], LAST_ARG))
+			break;
+	}
+
 	/* Verify command-line syntax. */
-	switch (argc) {
+	switch (hn_argc) {
 	    case 1:
 		if (!appres.scripted)
 			usage(CN);
@@ -134,6 +143,15 @@ parse_command_line(int argc, char **argv, char **cl_hostname)
 	    default:
 		usage(CN);
 		break;
+	}
+
+	/* Delete the host name and any "--". */
+	if (argv[hn_argc] != CN && !strcmp(argv[hn_argc], LAST_ARG))
+		hn_argc++;
+	if (hn_argc > 1) {
+		for (i = 1; i < argc - hn_argc + 2; i++) {
+			argv[i] = argv[i + hn_argc - 1];
+		}
 	}
 
 	/* Sort out model, color and extended data stream modes. */
@@ -210,9 +228,10 @@ parse_options(int *argcp, char **argv)
 	int argc_out = 0;
 	char **argv_out = (char **) Malloc((*argcp + 1) * sizeof(char *));
 #       define offset(n) (void *)&appres.n
+#       define toggle_offset(index) offset(toggle[index].value)
 	static struct {
 		char *name;
-		enum { OPT_BOOLEAN, OPT_STRING, OPT_SKIP2, OPT_NOOP } type;
+		enum { OPT_BOOLEAN, OPT_STRING, OPT_SKIP2, OPT_DONE } type;
 		Boolean flag;
 		void *aoff;
 	} opts[] = {
@@ -225,7 +244,8 @@ parse_options(int *argcp, char **argv)
 		{ OptPort,     OPT_STRING,  False, offset(port) },
 		{ OptSet,      OPT_SKIP2,   False, NULL },
 		{ OptTermName, OPT_STRING,  False, offset(termname) },
-		{ "--",	       OPT_NOOP,    False, NULL },
+		{ OptDsTrace,  OPT_BOOLEAN, True,  toggle_offset(DS_TRACE) },
+		{ LAST_ARG,    OPT_DONE,    False, NULL },
 		{ CN,          OPT_SKIP2,   False, NULL }
 	};
 #	undef offset
@@ -285,13 +305,15 @@ parse_options(int *argcp, char **argv)
 				continue;
 			*(char **)opts[j].aoff = argv[++i];
 			break;
-		    case OPT_NOOP:
-			break;
 		    case OPT_SKIP2:
 			argv_out[argc_out++] = argv[i++];
 			if (i < *argcp)
 				argv_out[argc_out++] = argv[i];
 			continue;
+		    case OPT_DONE:
+			while (i < *argcp)
+				argv_out[argc_out++] = argv[i++];
+			break;
 		}
 	}
 	*argcp = argc_out;
@@ -299,6 +321,10 @@ parse_options(int *argcp, char **argv)
 	(void) memcpy((char *)argv, (char *)argv_out,
 	    (argc_out + 1) * sizeof(char *));
 	Free(argv_out);
+
+	/* One isn't very useful without the other. */
+	if (appres.toggle[DS_TRACE].value)
+		appres.toggle[EVENT_TRACE].value = True;
 }
 
 /*
@@ -375,9 +401,12 @@ popup_an_error(const char *fmt, ...)
 
 	va_start(args, fmt);
 	(void) vsprintf(vmsgbuf, fmt, args);
+	va_end(args);
 	if (sms_redirect()) {
 		sms_error(vmsgbuf);
 		return;
+	} else {
+		fprintf(stderr, "%s\n", vmsgbuf);
 	}
 }
 
@@ -390,6 +419,7 @@ popup_an_errno(int errn, const char *fmt, ...)
 
 	va_start(args, fmt);
 	(void) vsprintf(vmsgbuf, fmt, args);
+	va_end(args);
 	s = NewString(vmsgbuf);
 
 	if (errn > 0)

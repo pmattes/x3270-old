@@ -134,7 +134,7 @@ static void store3270in(unsigned char c);
 static void check_linemode(Boolean init);
 static int non_blocking(Boolean on);
 static void net_connected(void);
-static void tn3270e_negotiate(void);
+static int tn3270e_negotiate(void);
 static int process_eor(void);
 static const char *tn3270e_function_names(const unsigned char *, int);
 static void tn3270e_subneg_send(unsigned char, unsigned long);
@@ -464,6 +464,10 @@ setup_lus(void)
 	connected_type = CN;
 
 	if (!luname[0]) {
+		if (lus) {
+			Free(lus);
+			lus = (char **)NULL;
+		}
 		curr_lu = (char **)NULL;
 		try_lu = CN;
 		return;
@@ -483,8 +487,7 @@ setup_lus(void)
 	 * Allocate enough memory to construct an argv[] array for
 	 * the LUs.
 	 */
-	lus = (char **)Realloc(lus,
-	    (n_lus+1) * sizeof(char *) + strlen(luname) + 1);
+	lus = (char **)Malloc((n_lus+1) * sizeof(char *) + strlen(luname) + 1);
 
 	/* Copy each LU into the array. */
 	lu = (char *)(lus + n_lus + 1);
@@ -945,6 +948,12 @@ telnet_fsm(unsigned char c)
 
 				vtrace_str("%s %s\n", opt(sbbuf[0]),
 				    telquals[sbbuf[1]]);
+				if (lus != (char **)NULL && try_lu == CN) {
+					/* None of the LUs worked. */
+					popup_an_error("Cannot connect to "
+						"specified LU");
+					return -1;
+				}
 
 				tt_len = strlen(termtype);
 				if (try_lu != CN) {
@@ -973,7 +982,8 @@ telnet_fsm(unsigned char c)
 				next_lu();
 			} else if (myopts[TELOPT_TN3270E] &&
 				   sbbuf[0] == TELOPT_TN3270E) {
-				tn3270e_negotiate();
+				if (tn3270e_negotiate())
+					return -1;
 			}
 		} else {
 			telnet_state = TNS_SB;
@@ -985,7 +995,7 @@ telnet_fsm(unsigned char c)
 
 /* Send a TN3270E terminal type request. */
 static void
-tn3270e_request(void)
+tn3270e_request(Boolean use_next)
 {
 	int tt_len, tb_len;
 	char *tt_out;
@@ -1024,11 +1034,15 @@ tn3270e_request(void)
 
 	/* Prep for the next LU. */
 	connected_lu = try_lu;
-	next_lu();
+	if (use_next)
+		next_lu();
 }
 
-/* Negotiation TN3270E options. */
-static void
+/*
+ * Negotiation of TN3270E options.
+ * Returns 0 if okay, -1 if we have to give up altogether.
+ */
+static int
 tn3270e_negotiate(void)
 {
 #define LU_MAX	32
@@ -1054,7 +1068,7 @@ tn3270e_negotiate(void)
 			/* Host wants us to send our device type. */
 			vtrace_str("SEND DEVICE-TYPE SE\n");
 
-			tn3270e_request();
+			tn3270e_request(False);
 		} else {
 			vtrace_str("SEND ??%u SE\n", sbbuf[2]);
 		}
@@ -1115,19 +1129,12 @@ tn3270e_negotiate(void)
 
 			if (try_lu != CN) {
 				/* Try the next LU. */
-				tn3270e_request();
+				tn3270e_request(True);
 			} else {
-				/*
-				 * Give up on TN3270E mode, and hope the host
-				 * can handle our device type in TN3270 mode.
-				 */
-				myopts[TELOPT_TN3270E] = 0;
-				wont_opt[2] = TELOPT_TN3270E;
-				net_rawout(wont_opt, sizeof(wont_opt));
-				vtrace_str("SENT %s %s\n", cmd(WONT),
-				    opt(TELOPT_TN3270E));
-				check_in3270();
-				check_linemode(False);
+				/* No more LUs to try.  Give up. */
+				popup_an_error("Cannot connect to "
+					"specified LU");
+				return -1;
 			}
 
 			break;
@@ -1216,6 +1223,9 @@ tn3270e_negotiate(void)
 	default:
 		vtrace_str("??%u SE\n", sbbuf[1]);
 	}
+
+	/* Good enough for now. */
+	return 0;
 }
 
 /* Expand a string of TN3270E function codes into text. */
@@ -1839,9 +1849,21 @@ check_in3270(void)
 	}
 
 	if (new_cstate != cstate) {
+		int was_in_e = IN_E;
+
 		vtrace_str("Now operating in %s mode.\n",
 			state_name[new_cstate]);
 		host_in3270(new_cstate);
+
+		/*
+		 * If we've now switched between non-TN3270E mode and
+		 * TN3270E state, reset the LU list so we can try again
+		 * in the new mode.
+		 */
+		if (lus != (char **)NULL && was_in_e != IN_E) {
+			curr_lu = lus;
+			try_lu = *curr_lu;
+		}
 
 		/* Allocate the initial 3270 input buffer. */
 		if (new_cstate >= CONNECTED_INITIAL && !ibuf_size) {

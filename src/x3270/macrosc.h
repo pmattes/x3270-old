@@ -56,10 +56,15 @@ extern Boolean sms_active(void);
 extern void sms_connect_wait(void);
 extern void sms_continue(void);
 extern void sms_error(char *msg);
+extern void sms_host_output(void);
 extern void sms_info(char *msg);
 extern void sms_init(void);
 extern Boolean sms_redirect(void);
 extern void sms_store(unsigned char c);
+#if defined(X3270_SCRIPT) || defined(TCL3270) /*[*/
+extern void Snap_action(Widget w, XEvent *event, String *params,
+    Cardinal *num_params);
+#endif /*]*/
 #if defined(TCL3270) /*[*/
 extern void Status_action(Widget w, XEvent *event, String *params,
     Cardinal *num_params);

@@ -2832,7 +2832,7 @@ font_init(void)
 	struct font_list *f;
 	const char *ef, *emsg;
 
-	/* Parse the fontList resource. */
+	/* Parse the fontMenuList resource. */
 	if (!appres.font_list)
 		xs_error("No %s resource", ResFontList);
 	s = XtNewString(appres.font_list);

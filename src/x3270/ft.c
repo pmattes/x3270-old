@@ -1850,9 +1850,9 @@ Transfer_action(Widget w unused, XEvent *event, String *params,
 			int kwlen;
 
 			eq = strchr(params[j], '=');
-			if (eq == CN || eq == params[i] || !*(eq + 1)) {
+			if (eq == CN || eq == params[j] || !*(eq + 1)) {
 				popup_an_error("Invalid option syntax: '%s'",
-					params[i]);
+					params[j]);
 				return;
 			}
 			kwlen = eq - params[j];

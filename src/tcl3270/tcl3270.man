@@ -1,5 +1,5 @@
 '\" t
-.TH TCL3270 1 "19 June 2000"
+.TH TCL3270 1 "26 June 2000"
 .SH NAME
 tcl3270 \-
 .SM IBM
@@ -365,6 +365,12 @@ Quit	exit \fBtcl3270\fP
 Reset	reset locked keyboard
 Right	move cursor right
 Right2	move cursor right 2 positions
+Snap	save screen image
+Snap Ascii	report saved screen data (see \fBAscii\fP)
+Snap Cols	report saved screen size
+Snap Ebcdic	report saved screen data (see \fBEbcdic\fP)
+Snap Rows	report saved screen size
+Snap Status	report saved connection status
 Status	report connection status
 String \fIstring\fP	insert string
 SysReq	System Request AID
@@ -372,11 +378,21 @@ Tab	move cursor to next input field
 ToggleInsert	toggle insert mode
 Transfer \fIoption\fP=\fIvalue\fP...	file transfer
 Up	move cursor up
-Wait	wait for valid input field
-Wait 3270	wait for 3270 mode
-Wait ansi	wait for NVT mode
+Wait 3270Mode	wait for 3270 mode
 Wait Disconnect	wait for host to disconnect
+Wait InputField	wait for valid input field
+Wait NVTMode	wait for NVT mode
 Wait Output	wait for more host output
+.TE
+.PP
+Note: For backwards compatibility, the following aliases are defined.
+.TS
+l l.
+Alias	Equivalent To
+_
+Wait	Wait InputField
+Wait ansi	Wait NVTMode
+Wait 3270	Wait 3270Mode
 .TE
 .SH "STRING COMMAND"
 The arguments to String are one or more double-quoted strings which are
@@ -480,7 +496,7 @@ The current cursor row (zero-origin).
 Cursor Column
 The current cursor column (zero-origin).
 .SH "SCREEN CONTENTS COMMANDS"
-There are four commands to return the current virtual screen contents.
+There are several commands to return the current virtual screen contents.
 The
 .B Ascii
 and
@@ -541,6 +557,37 @@ width
 length
 .IR cols .
 .RE
+.PP
+Note that is it possible for the host to update the screen, or even change the
+logical screen dimensions, at any time.
+If a script needs to access screen data when it is possible that the host may
+be changing it (such as to determine when certain commands complete), it should
+use the
+.B Snap
+command.
+.PP
+Without arguments,
+.B Snap
+saves the screen image and status in a buffer.
+.PP
+The command
+.B Snap\ Status
+returns the saved status.
+The commands
+.B Snap\ Cols
+and
+.B Snap\ Rows
+return the number of columns and rows in the saved screen image, respectively.
+The commands
+.B Snap\ Ascii
+and
+.B Snap\ Ebcdic
+are the same as the
+.B Ascii
+and
+.B Ebcdic
+commands, repectively, but they operate on the saved buffer, rather than on the
+live screen image.
 .SH "TRANSFER COMMAND"
 The Transfer command is used to invoke IND$FILE file transfer.
 Note that this command requires that the
@@ -856,4 +903,4 @@ notice.
 .RE
 5250 Emulation Code copyright Minolta (Schweiz) AG, Beat Rubischon.
 .SH VERSION
-tcl3270 3.2.8
+tcl3270 3.2.9

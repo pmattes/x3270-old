@@ -15,12 +15,33 @@ x3270 3.2 is a reorganization of x3270 3.1, with some additional enhancements.&n
 It is intended to be the future development platform for x3270, with x3270
 3.1 continued only with bug fixes.
 <h2>
+<b>Changes in x3270 3.2.9, 26. June 2000</b></h2>
+Fixed requesting the wrong LU after switching between TN3270E and TN3270
+modes.
+<br>Changed the resource file format back to using "x3270" as a consistent
+prefix. Changed <b>x3270.fontList</b> to <b>x3270.fontMenuList</b> to avoid
+conflicts.
+<br>Fixed a typo in the <tt>sun_k5</tt> keymap.
+<br>Added a new <b>Snap()</b> action for scripts.
+<br>Added new <b>Wait(Disconnect)</b> and <b>Wait(Output)</b> actions for
+scripts.
+<br>Changed <b>Wait()</b> to <b>Wait(InputField)</b>, <b>Wait(3270)</b>
+to <b>Wait(3270Mode)</b> and <b>Wait(ansi)</b> to <b>Wait(NVTMode)</b>.
+The old names are still supported for backwards-compatibility.
+<br>Fixed a problem with parameter processing in the <b>Transfer()</b>
+action.
+<br>Improved script tracing.
+<br>Added stricter enforcement of user-specified LUs.
+<br>Fixed a nit in tracing Query Reply options.
+<h2>
 <b>Changes in x3270 3.2.8, 1. June 2000</b></h2>
-Fixed a problem with initial host connection negotation, when using a script (x3270 -script, s3270 or tcl3270) and talking to a non-TN3270E host.
+Fixed a problem with initial host connection negotation, when using a script
+(x3270 -script, s3270 or tcl3270) and talking to a non-TN3270E host.
 <br>Added lefttack and righttack definitions to the apl keymap.
-<br>Added support for IND$FILE file transfers in scripts, via the new Transfer action.
-<br>Added a disconnectClear resource to control clearing the screen after a
-host disconnect.
+<br>Added support for IND$FILE file transfers in scripts, via the new Transfer
+action.
+<br>Added a disconnectClear resource to control clearing the screen after
+a host disconnect.
 <h2>
 <b>Changes in x3270 3.2.7, 30. May 2000</b></h2>
 Fixed a problem with compiling kybd.c on X11R5.

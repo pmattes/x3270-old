@@ -26,7 +26,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tcl3270.c,v 1.3 2000/06/02 02:31:12 pdm Exp pdm $
+ * RCS: @(#) $Id: tcl3270.c,v 1.6 2000/06/22 20:30:27 pdm Exp $
  */
 
 /*
@@ -79,19 +79,72 @@ int *tclDummyMathPtr = (int *) matherr;
 static Tcl_ObjCmdProc x3270_cmd;
 static enum {
 	NOT_WAITING,		/* Not waiting */
-	WAITING_CONNECT,	/* Waiting for initial connection negotiation */
-	WAITING_3270,		/* Waiting for 3270 mode */
-	WAITING_ANSI,		/* Waiting for NVT mode */
-	WAITING_OUTPUT,		/* Waiting for host output */
-	WAITING_DISCONNECT	/* Waiting for host disconnect */
+	AWAITING_CONNECT,	/* Connect (negotiation completion) */
+	AWAITING_RESET,		/* Keyboard locked */
+	AWAITING_FT,		/* File transfer in progress */
+	AWAITING_INPUT,		/* Wait InputField */
+	AWAITING_3270,		/* Wait 3270Mode */
+	AWAITING_ANSI,		/* Wait NVTMode */
+	AWAITING_OUTPUT,	/* Wait Output */
+	AWAITING_DISCONNECT	/* Wait Disconnect */
 } waiting = NOT_WAITING;
+static const char *wait_name[] = {
+	"not waiting",
+	"connection incomplete",
+	"keyboard locked",
+	"file transfer in progress",
+	"need input field",
+	"need 3270 mode",
+	"need NVT mode",
+	"need host output",
+	"need host disconnect"
+};
+static const char *unwait_name[] = {
+	"wasn't waiting",
+	"connection complete",
+	"keyboard unlocked",
+	"file transfer complete",
+	"input field found",
+	"in 3270 mode",
+	"in NVT mode",
+	"host generated output",
+	"host disconnected"
+};
 static int cmd_ret;
+static char *action = NULL;
 
 /* Local prototypes. */
 static void ps_clear(void);
 static int tcl3270_main(int argc, char *argv[]);
 static void negotiate(void);
 static char *scatv(char *s);
+
+/* Macros.c stuff. */
+static Boolean in_cmd = False;
+static Tcl_Interp *sms_interp;
+static Boolean output_wait_needed = False;
+static char *pending_string = NULL;
+static char *pending_string_ptr = NULL;
+static Boolean pending_hex = False;
+
+/* Is the keyboard is locked due to user input? */
+#define KBWAIT	(kybdlock & (KL_OIA_LOCKED|KL_OIA_TWAIT|KL_DEFERRED_UNLOCK))
+
+/* Is it safe to continue a script waiting for an input field? */
+#define INPUT_OKAY ( \
+    IN_SSCP || \
+    (IN_3270 && formatted && cursor_addr && !KBWAIT) || \
+    (IN_ANSI && !(kybdlock & KL_AWAITING_FIRST)) \
+)
+
+/* Is is safe to continue a script waiting for the connection to complete? */
+#define CONNECT_DONE	(IN_SSCP || IN_3270 || IN_ANSI)
+
+/* Shorthand macro to unlock the current action. */
+#define UNBLOCK() { \
+	trace_event("Unblocked %s (%s)\n", action, unwait_name[waiting]); \
+	waiting = NOT_WAITING; \
+}
 
 
 /*
@@ -246,13 +299,17 @@ main_connect(Boolean ignored)
 		ctlr_erase(True);
 		/* Check for various wait conditions. */
 		switch (waiting) {
-		case WAITING_3270:
-			if (IN_3270)
-				waiting = NOT_WAITING;
+		case AWAITING_CONNECT:
+			if (CONNECT_DONE)
+				UNBLOCK();
 			break;
-		case WAITING_ANSI:
+		case AWAITING_3270:
+			if (IN_3270)
+				UNBLOCK();
+			break;
+		case AWAITING_ANSI:
 			if (IN_ANSI)
-				waiting = NOT_WAITING;
+				UNBLOCK();
 			break;
 		default:
 			/* Nothing we can figure out here. */
@@ -262,10 +319,18 @@ main_connect(Boolean ignored)
 		if (appres.disconnect_clear)
 			ctlr_erase(True);
 		ps_clear();
+
+		/* Cause (almost) any pending Wait command to fail. */
 		if (waiting != NOT_WAITING) {
-			if (waiting != WAITING_DISCONNECT)
+			if (waiting == AWAITING_DISCONNECT) {
+				UNBLOCK();
+			} else {
+				trace_event("Unblocked %s (was '%s') -- "
+					"failure\n", action,
+					wait_name[waiting]);
+				waiting = NOT_WAITING;
 				cmd_ret = TCL_ERROR;
-			waiting = NOT_WAITING;
+			}
 		}
 	}
 }
@@ -303,6 +368,7 @@ tcl3270_main(int argc, char *argv[])
 
 	/* Connect to the host, and wait for negotiation to complete. */
 	if (cl_hostname != CN) {
+		action = NewString("[initial connection]");
 		if (host_connect(cl_hostname) < 0)
 			exit(1);
 		if (CONNECTED || HALF_CONNECTED) {
@@ -317,30 +383,13 @@ tcl3270_main(int argc, char *argv[])
 
 /* Replacements for the logic in macros.c. */
 
-static Boolean in_cmd = False;
-static Tcl_Interp *sms_interp;
-static Boolean output_wait_needed = False;
-static char *pending_string = NULL;
-static char *pending_string_ptr = NULL;
-static Boolean pending_hex = False;
-
-#define KBWAIT	(HALF_CONNECTED || \
-		 (kybdlock & \
-		  (KL_AWAITING_FIRST|KL_OIA_TWAIT|KL_DEFERRED_UNLOCK)))
-#define CAN_PROCEED ( \
-    IN_SSCP || \
-    (IN_3270 && formatted && cursor_addr && !KBWAIT) || \
-    (IN_ANSI && !(kybdlock & KL_AWAITING_FIRST)) \
-)
 
 /* Process the pending string (set by the String command). */
 static void
 process_pending_string(void)
 {
-	if (pending_string_ptr == NULL || KBWAIT ||
-	    (waiting == WAITING_CONNECT && !CAN_PROCEED)) {
+	if (pending_string_ptr == NULL || waiting != NOT_WAITING)
 		return;
-	}
 
 	if (pending_hex) {
 		hex_input(pending_string_ptr);
@@ -355,6 +404,10 @@ process_pending_string(void)
 			return;
 		} else
 			ps_clear();
+	}
+	if (KBWAIT) {
+		trace_event("Blocked %s (keyboard locked)\n", action);
+		waiting = AWAITING_RESET;
 	}
 }
 
@@ -375,7 +428,6 @@ x3270_cmd(ClientData clientData, Tcl_Interp *interp, int objc,
 		Tcl_Obj *CONST objv[])
 {
 	int i, j;
-	char *action;
 	int count;
 	char **argv = NULL;
 
@@ -394,7 +446,9 @@ x3270_cmd(ClientData clientData, Tcl_Interp *interp, int objc,
 	}
 
 	/* Look up the action. */
-	action = Tcl_GetString(objv[0]);
+	if (action != NULL)
+		Free(action);
+	action = NewString(Tcl_GetString(objv[0]));
 	for (i = 0; i < actioncount; i++) {
 		if (!strcmp(action, actions[i].string))
 			break;
@@ -430,23 +484,40 @@ x3270_cmd(ClientData clientData, Tcl_Interp *interp, int objc,
 	cmd_ret = TCL_OK;
 	(*actions[i].proc)((Widget)NULL, (XEvent *)NULL, argv, &count);
 
+	/* Set implicit wait state. */
+	if (ft_state != FT_NONE)
+		waiting = AWAITING_FT;
+	else if (KBWAIT)
+		waiting = AWAITING_RESET;
+
+	if (waiting != NOT_WAITING)
+		trace_event("Blocked %s (%s)\n", action, wait_name[waiting]);
+
 	/*
 	 * Process responses and push any pending string, until
 	 * we can proceed.
 	 */
 	process_pending_string();
-	while (KBWAIT ||
-               waiting != NOT_WAITING ||
-	       ft_state != FT_NONE) {
+	while (waiting != NOT_WAITING) {
 
 		/* Process pending file I/O. */
 		(void) process_events(True);
 
-		/* Check for various wait conditions. */
+		/*
+		 * Check for the completion of output-related wait conditions.
+		 */
 		switch (waiting) {
-		case WAITING_CONNECT:
-			if (CAN_PROCEED)
-				waiting = NOT_WAITING;
+		case AWAITING_INPUT:
+			if (INPUT_OKAY)
+				UNBLOCK();
+			break;
+		case AWAITING_RESET:
+			if (!KBWAIT)
+				UNBLOCK();
+			break;
+		case AWAITING_FT:
+			if (ft_state == FT_NONE)
+				UNBLOCK();
 			break;
 		default:
 			break;
@@ -483,7 +554,7 @@ x3270_cmd(ClientData clientData, Tcl_Interp *interp, int objc,
 void
 negotiate(void)
 {
-	while (KBWAIT || (waiting == WAITING_CONNECT && !CAN_PROCEED)) {
+	while (KBWAIT || (waiting == AWAITING_CONNECT && !CONNECT_DONE)) {
 		(void) process_events(True);
 		if (!CONNECTED)
 			exit(1);
@@ -523,7 +594,7 @@ ps_set(char *s, Boolean is_hex)
 void
 sms_connect_wait(void)
 {
-	waiting = WAITING_CONNECT;
+	waiting = AWAITING_CONNECT;
 }
 
 /* Signal host output. */
@@ -531,8 +602,8 @@ void
 sms_host_output(void)
 {
 	/* Release the script, if it is waiting now. */
-	if (waiting == WAITING_OUTPUT)
-		waiting = NOT_WAITING;
+	if (waiting == AWAITING_OUTPUT)
+		UNBLOCK();
 
 	/* If there was no script waiting, ensure that it won't later. */
 	output_wait_needed = False;
@@ -554,7 +625,8 @@ sms_continue(void)
  */
 
 static void
-dump_range(int first, int len, Boolean in_ascii)
+dump_range(int first, int len, Boolean in_ascii, unsigned char *buf,
+    int rel_rows unused, int rel_cols)
 {
 	register int i;
 	Tcl_Obj *o = NULL;
@@ -566,12 +638,13 @@ dump_range(int first, int len, Boolean in_ascii)
 	 * from the host.  output_wait_needed is cleared by sms_host_output,
 	 * which is called from the write logic in ctlr.c.
 	 */
-	output_wait_needed = True;
+	if (buf == screen_buf)
+		output_wait_needed = True;
 
 	for (i = 0; i < len; i++) {
 		unsigned char c;
 
-		if (i && !((first + i) % COLS)) {
+		if (i && !((first + i) % rel_cols)) {
 			/* Done with this row. */
 			if (o == NULL)
 				o = Tcl_NewListObj(0, NULL);
@@ -585,7 +658,7 @@ dump_range(int first, int len, Boolean in_ascii)
 				row = Tcl_NewListObj(0, NULL);
 		}
 		if (in_ascii) {
-			c = cg2asc[screen_buf[first + i]];
+			c = cg2asc[buf[first + i]];
 			if (!c)
 				c = ' ';
 			Tcl_AppendToObj(row, &c, 1);
@@ -593,7 +666,7 @@ dump_range(int first, int len, Boolean in_ascii)
 			char s[5];
 
 			(void) sprintf(s, "0x%02x",
-				cg2ebc[screen_buf[first + i]]);
+				cg2ebc[buf[first + i]]);
 			Tcl_ListObjAppendElement(sms_interp, row,
 				Tcl_NewStringObj(s, 5));
 		}
@@ -610,7 +683,8 @@ dump_range(int first, int len, Boolean in_ascii)
 }
 
 static void
-dump_fixed(String params[], Cardinal count, const char *name, Boolean in_ascii)
+dump_fixed(String params[], Cardinal count, const char *name, Boolean in_ascii,
+	unsigned char *buf, int rel_rows, int rel_cols, int caddr)
 {
 	int row, col, len, rows = 0, cols = 0;
 
@@ -618,11 +692,11 @@ dump_fixed(String params[], Cardinal count, const char *name, Boolean in_ascii)
 	    case 0:	/* everything */
 		row = 0;
 		col = 0;
-		len = ROWS*COLS;
+		len = rel_rows*rel_cols;
 		break;
 	    case 1:	/* from cursor, for n */
-		row = cursor_addr / COLS;
-		col = cursor_addr % COLS;
+		row = caddr / rel_cols;
+		col = caddr % rel_cols;
 		len = atoi(params[0]);
 		break;
 	    case 3:	/* from (row,col), for n */
@@ -643,21 +717,23 @@ dump_fixed(String params[], Cardinal count, const char *name, Boolean in_ascii)
 	}
 
 	if (
-	    (row < 0 || row > ROWS || col < 0 || col > COLS || len < 0) ||
-	    ((count < 4)  && ((row * COLS) + col + len > ROWS * COLS)) ||
+	    (row < 0 || row > rel_rows || col < 0 || col > rel_cols || len < 0) ||
+	    ((count < 4)  && ((row * rel_cols) + col + len > rel_rows * rel_cols)) ||
 	    ((count == 4) && (cols < 0 || rows < 0 ||
-			      col + cols > COLS || row + rows > ROWS))
+			      col + cols > rel_cols || row + rows > rel_rows))
 	   ) {
 		popup_an_error("%s: Invalid argument", name);
 		return;
 	}
 	if (count < 4)
-		dump_range((row * COLS) + col, len, in_ascii);
+		dump_range((row * rel_cols) + col, len, in_ascii, buf,
+			rel_rows, rel_cols);
 	else {
 		int i;
 
 		for (i = 0; i < rows; i++)
-			dump_range(((row+i) * COLS) + col, cols, in_ascii);
+			dump_range(((row+i) * rel_cols) + col, cols, in_ascii,
+				buf, rel_rows, rel_cols);
 	}
 }
 
@@ -686,14 +762,15 @@ dump_field(Cardinal count, const char *name, Boolean in_ascii)
 		len++;
 		INC_BA(baddr);
 	} while (baddr != start);
-	dump_range(start, len, in_ascii);
+	dump_range(start, len, in_ascii, screen_buf, ROWS, COLS);
 }
 
 void
 Ascii_action(Widget w unused, XEvent *event unused, String *params,
     Cardinal *num_params)
 {
-	dump_fixed(params, *num_params, action_name(Ascii_action), True);
+	dump_fixed(params, *num_params, action_name(Ascii_action), True,
+		screen_buf, ROWS, COLS, cursor_addr);
 }
 
 void
@@ -707,7 +784,8 @@ void
 Ebcdic_action(Widget w unused, XEvent *event unused, String *params,
     Cardinal *num_params)
 {
-	dump_fixed(params, *num_params, action_name(Ebcdic_action), False);
+	dump_fixed(params, *num_params, action_name(Ebcdic_action), False,
+		screen_buf, ROWS, COLS, cursor_addr);
 }
 
 void
@@ -718,17 +796,16 @@ EbcdicField_action(Widget w unused, XEvent *event unused,
 }
 
 /* "Status" action, returns the s3270 prompt. */
-void
-Status_action(Widget w unused, XEvent *event unused, String *params,
-    Cardinal *num_params)
+static char *
+status_string(void)
 {
 	char kb_stat;
 	char fmt_stat;
 	char prot_stat;
-	char *connect_stat;
-	Boolean free_connect = False;
+	char *connect_stat = NULL;
 	char em_mode;
 	char s[1024];
+	char *r;
 
 	if (!kybdlock)
 		kb_stat = 'U';
@@ -754,10 +831,9 @@ Status_action(Widget w unused, XEvent *event unused, String *params,
 			prot_stat = 'U';
 	}
 
-	if (CONNECTED) {
+	if (CONNECTED)
 		connect_stat = xs_buffer("C(%s)", current_host);
-		free_connect = True;
-	} else
+	else
 		connect_stat = NewString("N");
 
 	if (CONNECTED) {
@@ -785,9 +861,118 @@ Status_action(Widget w unused, XEvent *event unused, String *params,
 	    model_num,
 	    ROWS, COLS,
 	    cursor_addr / COLS, cursor_addr % COLS);
-
-	Tcl_SetResult(sms_interp, s, TCL_VOLATILE);
+	r = NewString(s);
 	Free(connect_stat);
+	return r;
+}
+
+void
+Status_action(Widget w unused, XEvent *event unused, String *params,
+    Cardinal *num_params)
+{
+	char *s;
+
+	s = status_string();
+	Tcl_SetResult(sms_interp, s, TCL_VOLATILE);
+	Free(s);
+}
+
+/*
+ * "Snap" action, maintains a snapshot for consistent multi-field comparisons:
+ *
+ *  Snap
+ *	updates the saved image from the live image
+ *  Snap Rows
+ *	returns the number of rows
+ *  Snap Cols
+ *	returns the number of columns
+ *  Snap Staus
+ *  Snap Ascii ...
+ *  Snap AsciiField (not yet)
+ *  Snap Ebcdic ...
+ *  Snap EbcdicField (not yet)
+ *	runs the named command
+ */
+void
+Snap_action(Widget w unused, XEvent *event unused, String *params,
+    Cardinal *num_params)
+{
+	static char *snap_status = NULL;
+	static unsigned char *snap_buf = NULL;
+	static int snap_rows = 0;
+	static int snap_cols = 0;
+	static int snap_field_start = -1;
+	static int snap_field_length = -1;
+	static int snap_caddr = 0;
+	char nbuf[16];
+
+	if (*num_params == 0) {
+		output_wait_needed = True;
+		if (snap_status != NULL)
+			Free(snap_status);
+		snap_status = status_string();
+
+		if (snap_buf != NULL)
+			Free(snap_buf);
+		snap_buf = (unsigned char *)Malloc(ROWS*COLS);
+		(void) memcpy(snap_buf, screen_buf, ROWS*COLS);
+
+		snap_rows = ROWS;
+		snap_cols = COLS;
+
+		if (!formatted) {
+			snap_field_start = -1;
+			snap_field_length = -1;
+		} else {
+			unsigned char *fa;
+			int baddr;
+
+			snap_field_length = 0;
+			fa = get_field_attribute(cursor_addr);
+			snap_field_start = fa - screen_buf;
+			INC_BA(snap_field_start);
+			baddr = snap_field_start;
+			do {
+				if (IS_FA(screen_buf[baddr]))
+					break;
+				snap_field_length++;
+				INC_BA(baddr);
+			} while (baddr != snap_field_start);
+		}
+		snap_caddr = cursor_addr;
+		return;
+	}
+
+	if (snap_status == NULL) {
+		popup_an_error("No saved state");
+		return;
+	}
+	if (!strcmp(params[0], "Status")) {
+		if (*num_params != 1)
+			popup_an_error("extra argument(s)");
+		Tcl_SetResult(sms_interp, snap_status, TCL_VOLATILE);
+	} else if (!strcmp(params[0], "Rows")) {
+		if (*num_params != 1)
+			popup_an_error("extra argument(s)");
+		(void) sprintf(nbuf, "%d", snap_rows);
+		Tcl_SetResult(sms_interp, nbuf, TCL_VOLATILE);
+	} else if (!strcmp(params[0], "Cols")) {
+		if (*num_params != 1)
+			popup_an_error("extra argument(s)");
+		(void) sprintf(nbuf, "%d", snap_cols);
+		Tcl_SetResult(sms_interp, nbuf, TCL_VOLATILE);
+	} else if (!strcmp(params[0], "Ascii")) {
+		dump_fixed(params + 1, *num_params - 1,
+			action_name(Ascii_action), True, snap_buf,
+			snap_rows, snap_cols, snap_caddr);
+	} else if (!strcmp(params[0], "Ebcdic")) {
+		dump_fixed(params + 1, *num_params - 1,
+			action_name(Ebcdic_action), False, snap_buf,
+			snap_rows, snap_cols, snap_caddr);
+	} else {
+		popup_an_error("Unknown parameter to 'Snap': %s",
+			params[0]);
+	}
 }
 
 void
@@ -799,38 +984,48 @@ Wait_action(Widget w unused, XEvent *event unused, String *params,
 			popup_an_error("Not connected");
 			return;
 		}
-		if (!CAN_PROCEED)
-			waiting = WAITING_CONNECT;
+		if (!INPUT_OKAY)
+			waiting = AWAITING_INPUT;
 		return;
 	}
 	if (*num_params != 1) {
 		popup_an_error("Too many parameters");
 		return;
 	}
-	if (!strcasecmp(params[0], "Output")) {
+	if (!strcasecmp(params[0], "InputField")) {
+		/* Same as no parameters. */
+		if (!CONNECTED) {
+			popup_an_error("Not connected");
+			return;
+		}
+		if (!INPUT_OKAY)
+			waiting = AWAITING_INPUT;
+	} else if (!strcasecmp(params[0], "Output")) {
 		if (!CONNECTED) {
 			popup_an_error("Not connected");
 			return;
 		}
 		if (output_wait_needed)
-			waiting = WAITING_OUTPUT;
-	} else if (!strcasecmp(params[0], "3270")) {
+			waiting = AWAITING_OUTPUT;
+	} else if (!strcasecmp(params[0], "3270") ||
+		   !strcasecmp(params[0], "3270Mode")) {
 		if (!CONNECTED) {
 			popup_an_error("Not connected");
 			return;
 		}
 		if (!IN_3270)
-			waiting = WAITING_3270;
-	} else if (!strcasecmp(params[0], "ansi")) {
+			waiting = AWAITING_3270;
+	} else if (!strcasecmp(params[0], "ansi") ||
+		   !strcasecmp(params[0], "NVTMode")) {
 		if (!CONNECTED) {
 			popup_an_error("Not connected");
 			return;
 		}
 		if (!IN_ANSI)
-			waiting = WAITING_ANSI;
+			waiting = AWAITING_ANSI;
 	} else if (!strcasecmp(params[0], "Disconnect")) {
 		if (CONNECTED)
-			waiting = WAITING_DISCONNECT;
+			waiting = AWAITING_DISCONNECT;
 	} else {
 		popup_an_error("Unknown Wait type: %s", params[0]);
 	}

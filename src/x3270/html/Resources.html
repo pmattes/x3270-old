@@ -219,7 +219,7 @@ x3270.emulatorFont	Default 3270 (*)	Switch -efont
     all special symbols on the status line.
 
     (*) Actually, the default for emulatorFont is the value of the first font
-    in the x3270.fontList resource, below.
+    in the x3270.fontMenuList resource, below.
 
 x3270.eof		Default ^D
     Used in ANSI mode, when communicating in line-at-a-time mode (when x3270
@@ -257,7 +257,7 @@ x3270.extended		Default false		Switch -extended
 x3270.ftCommand		Default ind$file
     Defines the host command used to transfer files.
 
-x3270.fontList		Default: 3270 Font (14 point): 3270
+x3270.fontMenuList	Default: 3270 Font (14 point): 3270
 				 8-point Font: 3270gt8
 				 12-point Font: 3270-12
 				 16-point Font: 3270gt16
@@ -265,8 +265,10 @@ x3270.fontList		Default: 3270 Font (14 point): 3270
 				 24-point Font: 3270gt24
 				 32-point Font: 3270gt32
 				 Debug Font: 3270d
-The list of menu labels and font names that appear on the Options menu.
-The first name on the list is used as the default emulator font.
+    The list of menu labels and font names that appear on the Options menu.
+    The first name on the list is used as the default emulator font.
+    This resource was formerly called "fontList", but this apparently
+    conflicted with other programs' definitions.
 
 x3270.foreground	Default black		Switches: -fg, -rv
     The foreground color for menus, buttons, and on monochrome X displays, the

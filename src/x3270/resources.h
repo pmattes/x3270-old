@@ -43,7 +43,7 @@
 #define ResErase		"erase"
 #define ResEventTrace		"eventTrace"
 #define ResExtended		"extended"
-#define ResFontList		"fontList"
+#define ResFontList		"fontMenuList"
 #define ResFtCommand		"ftCommand"
 #define ResHostsFile		"hostsFile"
 #define ResIconFont		"iconFont"
