@@ -20,6 +20,7 @@ c3270 is a curses-based version of x3270 3.2.
    <li>Cleaned up some minor build problems on Linux and with later versions of
     the readline library.</li>
    <li>Allow <b>make depend</b> to work properly.</li>
+   <li>Fix an infinite loop when EOF is encountered from the keyboard.</li>
   </ul>
  </li>
  <li>New Features:
@@ -31,6 +32,12 @@ c3270 is a curses-based version of x3270 3.2.
     column mode.</li>
    <li>Can now specify action(s) to perform when a session has been idle for
     some period of time.</li>
+   <li>Added a <b>-cbreak</b> option to run the TTY driver in <i>cbreak</i>
+    mode instead of <i>raw</i> mode.  This allows some terminals which use
+    XOFF/XON flow control to work properly, but causes those and other
+    control characters to become unusable as c3270 control characters.</li>
+   <li>Added a <b>-secure</b> command-line option. (The functionality was
+    already present, but could only be enabled with a resource.)</li>
   </ul>
  </li>
 </ul>

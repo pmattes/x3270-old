@@ -1,5 +1,5 @@
 '\" t
-.TH c3270 1 "30 July 2002"
+.TH c3270 1 "02 November 2002"
 .SH "NAME"
 c3270 \-
 curses-based 
@@ -65,6 +65,17 @@ dim colors.
 Defines the dimensions and escape sequence for the alternate (132-column)
 screen mode.
 See \s-1SCREEN SIZE SWITCHING\s+1, below.
+.TP
+\fB\-cbreak\fP
+Causes \fBc3270\fP to operate in \fIcbreak\fP mode, instead of \fIraw\fP
+mode.
+In \fIcbreak\fP mode, the TTY driver will properly process XOFF and XON
+characters, which are required by some terminals for proper operation.
+However, those characters (usually ^S and ^Q), as well as the characters for
+\fBinterrupt\fP, \fBquit\fP, and \fBlnext\fP (usually ^C, ^\\
+and ^V respectively) will be seen by \fBc3270\fP only if preceded by
+the \fBlnext\fP character.
+The \fBsusp\fP character (usually ^Z) cannot be seen by \fBc3270\fP at all.
 .TP
 \fB\-charset\fP \fIname\fP
 Specifies an \s-1EBCDIC\s+1 host character set.
@@ -208,6 +219,10 @@ If \fIluname\fP is ".", then the printer session will be associated with the
 interactive terminal session (this requires that the host support TN3270E).
 Otherwise, the value is used as the explicit LU name to associate with the
 printer session.
+.TP
+\fB\-secure\fP
+Disables the interactive \fBc3270>\fP prompt.
+When used, a hostname must be provided on the command line.
 .TP
 \fB\-set\fP \fItoggle\fP
 Sets the initial value of \fItoggle\fP to \fBtrue\fP.
@@ -3154,7 +3169,7 @@ RFC 1646, TN3270 Extensions for LUname and Printer Selection
 RFC 2355, TN3270 Enhancements
 .SH "COPYRIGHTS"
 .LP
-Modifications Copyright 1993, 1994, 1995, 1996, 1997, 1999, 2000, 2001 by Paul Mattes.
+Modifications Copyright 1993, 1994, 1995, 1996, 1997, 1999, 2000, 2001, 2002 by Paul Mattes.
 .br
 Original X11 Port Copyright 1990 by Jeff Sparkes.
 .RS
@@ -3171,5 +3186,9 @@ Derivative works based on this software must incorporate this copyright
 notice.
 .RE
 5250 Emulation Code Copyright Minolta (Schweiz) AG, Beat Rubischon.
+.br
+c3270 is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
 .SH "VERSION"
-c3270 3.2.20alpha3
+c3270 3.2.20alpha4

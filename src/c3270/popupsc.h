@@ -5,6 +5,10 @@
  *  provided that the above copyright notice appear in all copies and that
  *  both that copyright notice and this permission notice appear in
  *  supporting documentation.
+ *
+ * c3270 is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
  */
 
 /* c3270 version of popupsc.h */

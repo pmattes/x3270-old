@@ -1,9 +1,13 @@
-# Copyright 1999, 2000, 2001 by Paul Mattes.
+# Copyright 1999, 2000, 2001, 2002 by Paul Mattes.
 #  Permission to use, copy, modify, and distribute this software and its
 #  documentation for any purpose and without fee is hereby granted,
 #  provided that the above copyright notice appear in all copies and that
 #  both that copyright notice and this permission notice appear in
 #  supporting documentation.
+#
+# c3270 is distributed in the hope that it will be useful, but WITHOUT ANY
+# WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
 
 # Makefile for c3270 (console-based 3270 emulator)
 
@@ -15,13 +19,13 @@ all:: c3270 x3270if
 @PR@	-cd pr3287 && $(MAKE)
 
 SRCS = actions.c ansi.c apl.c c3270.c charset.c child.c ctlr.c \
-	ft.c ft_cut.c ft_dft.c glue.c help.c host.c keymap.c kybd.c macros.c \
-	print.c printer.c resources.c screen.c see.c sf.c tables.c telnet.c \
-	toggles.c trace_ds.c util.c xio.c XtGlue.c
+	ft.c ft_cut.c ft_dft.c glue.c help.c host.c idle.c keymap.c kybd.c \
+	macros.c print.c printer.c resources.c screen.c see.c sf.c tables.c \
+	telnet.c toggles.c trace_ds.c util.c xio.c XtGlue.c
 VOBJS = actions.o ansi.o apl.o c3270.o charset.o child.o ctlr.o fallbacks.o \
-	ft.o ft_cut.o ft_dft.o glue.o help.o host.o keymap.o kybd.o macros.o \
-	print.o printer.o resources.o screen.o see.o sf.o tables.o telnet.o \
-	toggles.o trace_ds.o util.o xio.o XtGlue.o
+	ft.o ft_cut.o ft_dft.o glue.o help.o host.o idle.o keymap.o kybd.o \
+	macros.o print.o printer.o resources.o screen.o see.o sf.o tables.o \
+	telnet.o toggles.o trace_ds.o util.o xio.o XtGlue.o
 OBJS1 = $(VOBJS) version.o
 
 LIBDIR = @libdir@

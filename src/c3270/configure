@@ -2125,7 +2125,10 @@ solaris2*)	XANSI=-D__EXTENSIONS__
 		;;
 darwin*)	XPRECOMP=-no-cpp-precomp
 		;;
+aix*)		BROKEN_NEWTERM=1
+		;;
 esac
+
 
 
 
@@ -2549,6 +2552,16 @@ _ACEOF
 
 fi
 
+
+if test -n "$BROKEN_NEWTERM"
+then	if test $ac_cv_lib_ncurses_newterm = yes
+	then	:
+	else	cat >>confdefs.h <<\_ACEOF
+#define BROKEN_NEWTERM 1
+_ACEOF
+
+	fi
+fi
 
 ac_ext=c
 ac_cpp='$CPP $CPPFLAGS'
@@ -4858,6 +4871,7 @@ s,@host_os@,$host_os,;t t
 s,@XPOSIX@,$XPOSIX,;t t
 s,@XANSI@,$XANSI,;t t
 s,@XPRECOMP@,$XPRECOMP,;t t
+s,@BROKEN_NEWTERM@,$BROKEN_NEWTERM,;t t
 s,@PR@,$PR,;t t
 s,@CPP@,$CPP,;t t
 s,@LESSPATH@,$LESSPATH,;t t

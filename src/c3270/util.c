@@ -1,16 +1,21 @@
 /*
- * Copyright 1993, 1994, 1995, 1999, 2000, 2001 by Paul Mattes.
+ * Copyright 1993, 1994, 1995, 1999, 2000, 2001, 2002 by Paul Mattes.
  * Parts Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
  *  both that copyright notice and this permission notice appear in
  *  supporting documentation.
+ *
+ * x3270, c3270, s3270 and tcl3270 are distributed in the hope that they will
+ * be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the file LICENSE
+ * for more details.
  */
 
 /*
  *	util.c
- *		Utility functions for x3270
+ *		Utility functions for x3270/c3270/s3270/tcl3270
  */
 
 #include "globals.h"
@@ -570,7 +575,7 @@ get_host_fresource(const char *fmt, ...)
 		name_with_host = xs_buffer("host.%s.%s", reconnect_host, name);
 		r = get_resource(name_with_host);
 		Free(name_with_host);
-		if (r != CN);
+		if (r != CN)
 			return r;
 	}
 

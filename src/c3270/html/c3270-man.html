@@ -92,6 +92,16 @@ dim colors.
 Defines the dimensions and escape sequence for the alternate (132-column)
 screen mode.
 See <a HREF="#Screen-Size-Switching"><font size=-1>SCREEN SIZE SWITCHING</font></a>, below.
+<dt><b>-cbreak</b></dt><dd>
+Causes <b>c3270</b> to operate in <i>cbreak</i> mode, instead of <i>raw</i>
+mode.
+In <i>cbreak</i> mode, the TTY driver will properly process XOFF and XON
+characters, which are required by some terminals for proper operation.
+However, those characters (usually ^S and ^Q), as well as the characters for
+<b>interrupt</b>, <b>quit</b>, and <b>lnext</b> (usually ^C, ^&#92;
+and ^V respectively) will be seen by <b>c3270</b> only if preceded by
+the <b>lnext</b> character.
+The <b>susp</b> character (usually ^Z) cannot be seen by <b>c3270</b> at all.
 <dt><b>-charset</b> <i>name</i></dt><dd>
 Specifies an <font size=-1>EBCDIC</font> host character set.
 See <a HREF="#Character-Sets"><font size=-1>CHARACTER SETS</font></a> below.
@@ -163,6 +173,9 @@ If <i>luname</i> is ".", then the printer session will be associated with the
 interactive terminal session (this requires that the host support TN3270E).
 Otherwise, the value is used as the explicit LU name to associate with the
 printer session.
+<dt><b>-secure</b></dt><dd>
+Disables the interactive <b>c3270></b> prompt.
+When used, a hostname must be provided on the command line.
 <dt><b>-set</b> <i>toggle</i></dt><dd>
 Sets the initial value of <i>toggle</i> to <b>true</b>.
 The list of toggle names is under <a HREF="#Toggles"><font size=-1>TOGGLES</font></a>
@@ -887,7 +900,7 @@ RFC 1646, TN3270 Extensions for LUname and Printer Selection
 RFC 2355, TN3270 Enhancements
 <a NAME="Copyrights"></a><h2>Copyrights</h2>
 <p>
-Modifications Copyright &copy; 1993, 1994, 1995, 1996, 1997, 1999, 2000, 2001 by Paul Mattes.
+Modifications Copyright &copy; 1993, 1994, 1995, 1996, 1997, 1999, 2000, 2001, 2002 by Paul Mattes.
 <br>
 Original X11 Port Copyright &copy; 1990 by Jeff Sparkes.
 <blockquote>Permission to use, copy, modify, and distribute this software and its
@@ -900,13 +913,17 @@ Copyright &copy; 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.
 Derivative works based on this software must incorporate this copyright
 notice.</blockquote>
 5250 Emulation Code Copyright &copy; Minolta (Schweiz) AG, Beat Rubischon.
+<br>
+c3270 is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
 <a NAME="Version"></a><h2>Version</h2>
-c3270 3.2.20alpha3
+c3270 3.2.20alpha4
 <hr>
 <address>
 This HTML document and the accompanying troff document were generated with
 a set of write-only <b>m4</b> macros and the powerful <b>vi</b> editor.
-<br>Last modified 30 July 2002.
+<br>Last modified 02 November 2002.
 </address>
 </body>
 </html>

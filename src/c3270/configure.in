@@ -1,9 +1,13 @@
-dnl Copyright 2000, 2001 by Paul Mattes.
+dnl Copyright 2000, 2001, 2002 by Paul Mattes.
 dnl  Permission to use, copy, modify, and distribute this software and its
 dnl  documentation for any purpose and without fee is hereby granted,
 dnl  provided that the above copyright notice appear in all copies and that
 dnl  both that copyright notice and this permission notice appear in
 dnl  supporting documentation.
+dnl
+dnl c3270 is distributed in the hope that it will be useful, but WITHOUT ANY
+dnl WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+dnl FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
 
 dnl Process this file with autoconf to produce a configure script.
 AC_INIT(c3270.c)
@@ -28,10 +32,13 @@ solaris2*)	XANSI=-D__EXTENSIONS__
 		;;
 darwin*)	XPRECOMP=-no-cpp-precomp
 		;;
+aix*)		BROKEN_NEWTERM=1
+		;;
 esac
 AC_SUBST(XPOSIX)
 AC_SUBST(XANSI)
 AC_SUBST(XPRECOMP)
+AC_SUBST(BROKEN_NEWTERM)
 
 dnl Check for --without-readline
 AC_ARG_WITH(readline, [  --without-readline      Don't use the readline library])
@@ -56,6 +63,14 @@ AC_CHECK_LIB(readline, rl_initialize)
 fi
 AC_CHECK_LIB(nsl, gethostbyname)
 AC_CHECK_LIB(socket, socket)
+
+dnl If we're on AIX and have ncurses, cancel BROKEN_NEWTERM.
+if test -n "$BROKEN_NEWTERM"
+then	if test $ac_cv_lib_ncurses_newterm = yes
+	then	:
+	else	AC_DEFINE(BROKEN_NEWTERM,1)
+	fi
+fi
 
 dnl Checks for header files.
 dnl AC_HEADER_STDC

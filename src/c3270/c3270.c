@@ -1,5 +1,6 @@
 /*
- * Modifications Copyright 1993, 1994, 1995, 1996, 2000, 2001 by Paul Mattes.
+ * Modifications and original code Copyright 1993, 1994, 1995, 1996,
+ *  2000, 2001, 2002 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *   Permission to use, copy, modify, and distribute this software and its
  *   documentation for any purpose and without fee is hereby granted,
@@ -11,6 +12,10 @@
  *   All Rights Reserved.  GTRC hereby grants public use of this software.
  *   Derivative works based on this software must incorporate this copyright
  *   notice.
+ *
+ * c3270 is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
  */
 
 /*
@@ -34,6 +39,7 @@
 #include "ftc.h"
 #include "gluec.h"
 #include "hostc.h"
+#include "idlec.h"
 #include "keymapc.h"
 #include "kybdc.h"
 #include "macrosc.h"
@@ -122,6 +128,9 @@ static char *base_3270_keymap =
 "<Key>HOME: Home\n";
 
 Boolean any_error_output = False;
+Boolean escape_pending = False;
+Boolean stop_pending = False;
+Boolean dont_return = False;
 
 void
 usage(char *msg)
@@ -179,6 +188,7 @@ main(int argc, char *argv[])
 
 	screen_init();
 	kybd_init();
+	idle_init();
 	keymap_init();
 	hostfile_init();
 	hostfile_init();
@@ -240,6 +250,10 @@ main(int argc, char *argv[])
 	/* Process events forever. */
 	while (1) {
 		(void) process_events(True);
+		if (appres.cbreak_mode && escape_pending) {
+			escape_pending = False;
+			screen_suspend();
+		}
 		if (!CONNECTED) {
 			screen_suspend();
 			(void) printf("Disconnected.\n");
@@ -258,6 +272,32 @@ main(int argc, char *argv[])
 	}
 }
 
+/*
+ * SIGTSTP handler for use while a command is running.  Sets a flag so that
+ * c3270 will stop before the next c3270> prompt is printed.
+ */
+static void
+running_sigtstp_handler(int ignored unused)
+{
+	signal(SIGTSTP, SIG_IGN);
+	stop_pending = True;
+}
+
+/*
+ * SIGTSTP haandler for use while the c3270> prompt is being displayed.
+ * Acts immediately by setting SIGTSTP to the default and sending it to
+ * ourselves, but also sets a flag so that the user gets one free empty line
+ * of input before resuming the connection.
+ */
+static void
+prompt_sigtstp_handler(int ignored unused)
+{
+	if (CONNECTED)
+		dont_return = True;
+	signal(SIGTSTP, SIG_DFL);
+	kill(getpid(), SIGTSTP);
+}
+
 static void
 interact(void)
 {
@@ -273,6 +313,15 @@ interact(void)
 		return;
 	}
 
+	/* Handle SIGTSTP differently at the c3270> prompt. */
+	signal(SIGTSTP, SIG_DFL);
+
+	/*
+	 * Ignore SIGINT at the c3270> prompt.
+	 * I'm sure there's more we could do.
+	 */
+	signal(SIGINT, SIG_IGN);
+
 	for (;;) {
 		int sl;
 		char *s;
@@ -282,6 +331,18 @@ interact(void)
 		char buf[1024];
 #endif /*]*/
 
+		dont_return = False;
+
+		/* Process a pending stop now. */
+		if (stop_pending) {
+			stop_pending = False;
+			signal(SIGTSTP, SIG_DFL);
+			kill(getpid(), SIGTSTP);
+			continue;
+		}
+
+		/* Process SIGTSTPs immediately. */
+		signal(SIGTSTP, prompt_sigtstp_handler);
 #if defined(HAVE_LIBREADLINE) /*[*/
 		s = rl_s = readline("c3270> ");
 		if (s == CN) {
@@ -300,6 +361,9 @@ interact(void)
 		}
 		s = buf;
 #endif /*]*/
+		/* Defer SIGTSTP until the next prompt display. */
+		signal(SIGTSTP, running_sigtstp_handler);
+
 		while (isspace(*s))
 			s++;
 		sl = strlen(s);
@@ -308,8 +372,8 @@ interact(void)
 
 		/* A null command means go back. */
 		if (!sl) {
-			if (CONNECTED)
-				return;
+			if (CONNECTED && !dont_return)
+				break;
 			else
 				continue;
 		}
@@ -344,6 +408,10 @@ interact(void)
 		if (!macro_output && CONNECTED)
 			break;
 	}
+
+	/* Ignore SIGTSTP again. */
+	stop_pending = False;
+	signal(SIGTSTP, SIG_IGN);
 }
 
 /* A command is about to produce output.  Start the pager. */

@@ -1,10 +1,14 @@
 /*
- * Copyright 2000, 2001 by Paul Mattes.
+ * Copyright 2000, 2001, 2002 by Paul Mattes.
  *   Permission to use, copy, modify, and distribute this software and its
  *   documentation for any purpose and without fee is hereby granted,
  *   provided that the above copyright notice appear in all copies and that
  *   both that copyright notice and this permission notice appear in
  *   supporting documentation.
+ *
+ * c3270 is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
  */
 
 /*
@@ -14,6 +18,7 @@
  */
 
 #include "globals.h"
+#include <signal.h>
 #include "appres.h"
 #include "3270ds.h"
 #include "resources.h"
@@ -75,16 +80,19 @@ enum ts { TS_AUTO, TS_ON, TS_OFF };
 enum ts me_mode = TS_AUTO;
 enum ts ab_mode = TS_AUTO;
 
+#if defined(C3270_80_132) /*[*/
 struct screen_spec {
 	int rows, cols;
 	char *mode_switch;
 } screen_spec;
 struct screen_spec altscreen_spec, defscreen_spec;
+static SCREEN *def_screen = NULL, *alt_screen = NULL;
+static void parse_screen_spec(const char *str, struct screen_spec *spec);
+#endif /*]*/
 
 static int status_row = 0;	/* Row to display the status line on */
 static int status_skip = 0;	/* Row to blank above the status line */
 
-static SCREEN *def_screen = NULL, *alt_screen = NULL;
 static Boolean is_alt = True;
 
 static void kybd_input(void);
@@ -97,7 +105,6 @@ static int get_color_pair(int fg, int bg);
 static int color_from_fa(unsigned char);
 static void screen_init2(void);
 static Boolean ts_value(const char *s, enum ts *tsp);
-static void parse_screen_spec(const char *str, struct screen_spec *spec);
 
 /* Initialize the screen. */
 void
@@ -107,6 +114,18 @@ screen_init(void)
 	int want_ov_cols = ov_cols;
 	Boolean oversize = False;
 
+#if !defined(C3270_80_132) /*[*/
+	/* Disallow altscreen/defscreen. */
+	if ((appres.altscreen != CN) || (appres.defscreen != CN)) {
+		(void) fprintf(stderr, "altscreen/defscreen not supported\n");
+		exit(1);
+	}
+	/* Initialize curses. */
+	if (initscr() == NULL) {
+		(void) fprintf(stderr, "Can't initialize terminal.\n");
+		exit(1);
+	}
+#else /*][*/
 	/* Parse altscreen/defscreen. */
 	if ((appres.altscreen != CN) ^ (appres.defscreen != CN)) {
 		(void) fprintf(stderr,
@@ -156,6 +175,7 @@ screen_init(void)
 	}
 	if (appres.altscreen)
 		(void) set_term(alt_screen);
+#endif /*]*/
 
 	while (LINES < ROWS || COLS < cCOLS) {
 		char buf[2];
@@ -258,7 +278,10 @@ screen_init(void)
 static void
 setup_tty(void)
 {
-	raw();
+	if (appres.cbreak_mode)
+		cbreak();
+	else
+		raw();
 	noecho();
 	nonl();
 	intrflush(stdscr,FALSE);
@@ -267,6 +290,36 @@ setup_tty(void)
 	meta(stdscr, TRUE);
 	nodelay(stdscr, TRUE);
 	refresh();
+}
+
+/* SIGINT handler for curses cbreak mode. */
+static void
+sigint_handler(int ignored unused)
+{
+	extern Boolean escape_pending;
+
+	/* Ignore subsequent SIGINTs until we've processed this one. */
+	signal(SIGINT, SIG_IGN);
+
+	/* Mark an escape as pending. */
+	escape_pending = True;
+}
+
+/* SIGTSTP handler for curses cbreak mode. */
+static void
+sigtstp_handler(int ignored unused)
+{
+	extern Boolean escape_pending;
+	extern Boolean stop_pending;
+
+	/* Ignore subsequent SIGTSTPs until we've processed this one. */
+	signal(SIGTSTP, SIG_IGN);
+
+	/* Mark an escape and stop as pending. */
+	if (!escaped) {
+		escape_pending = True;
+		stop_pending = True;
+	}
 }
 
 /* Secondary screen initialization. */
@@ -284,14 +337,25 @@ screen_init2(void)
 	 * If we're using multiple screens, do it twice.
 	 */
 	setup_tty();
+#if defined(C3270_80_132) /*[*/
 	if (def_screen != NULL) {
 		set_term(def_screen);
 		setup_tty();
 		set_term(alt_screen);
 	}
+#endif /*]*/
 
 	/* Subscribe to input events. */
 	input_id = AddInput(0, kybd_input);
+
+	/* Catch or SIGINT. */
+	if (appres.cbreak_mode && !appres.secure) {
+		signal(SIGINT, sigint_handler);
+		signal(SIGTSTP, sigtstp_handler);
+	} else {
+		signal(SIGINT, SIG_IGN);
+		signal(SIGTSTP, SIG_IGN);
+	}
 }
 
 /*
@@ -367,6 +431,7 @@ screen_disp(Boolean erasing unused)
 	if (escaped)
 		return;
 
+#if defined(C3270_80_132) /*[*/
 	/* See if they've switched screens on us. */
 	if (def_screen != NULL && screen_alt != is_alt) {
 		if (screen_alt) {
@@ -382,7 +447,7 @@ screen_disp(Boolean erasing unused)
 			trace_event("Switching to default (%dx%d) screen.\n",
 			    defscreen_spec.rows, defscreen_spec.cols);
 			set_term(def_screen);
-			cur_spec = &altscreen_spec;
+			cur_spec = &defscreen_spec;
 		}
 
 		/* Figure out where the status line goes now, if it fits. */
@@ -402,6 +467,7 @@ screen_disp(Boolean erasing unused)
 		endwin();
 		erase();
 	}
+#endif /*]*/
 
 	fa = *get_field_attribute(0);
 	a = color_from_fa(fa);
@@ -693,6 +759,7 @@ screen_suspend(void)
 
 	if (!escaped) {
 		escaped = True;
+#if defined(C3270_80_132) /*[*/
 		if (def_screen != NULL) {
 			/*
 			 * Call endwin() for the last-defined screen
@@ -708,6 +775,7 @@ screen_suspend(void)
 			if (is_alt)
 				set_term(def_screen);
 		}
+#endif /*]*/
 
 		/*
 		 * Call endwin() for the only screen, or if there are multiple
@@ -727,6 +795,13 @@ void
 screen_resume(void)
 {
 	escaped = False;
+
+	/* Reinstate the SIGINT and SIGTSTP signal handlers. */
+	if (appres.cbreak_mode && !appres.secure) {
+		signal(SIGINT, sigint_handler);
+		signal(SIGTSTP, sigtstp_handler);
+	}
+#if defined(C3270_80_132) /*[*/
 	if (def_screen != NULL && is_alt) {
 		/*
 		 * When we suspended the screen, we switched to defscreen so
@@ -734,7 +809,8 @@ screen_resume(void)
 		 */
 		set_term(alt_screen);
 	}
-	screen_disp(False); /* in case something changed while we were escaped */
+#endif /*]*/
+	screen_disp(False);
 	refresh();
 	input_id = AddInput(0, kybd_input);
 }
@@ -889,12 +965,15 @@ draw_oia(void)
 {
 	int rmargin;
 
+#if defined(C3270_80_132) /*[*/
 	if (def_screen != NULL) {
 		if (is_alt)
 			rmargin = altscreen_spec.cols - 1;
 		else
 			rmargin = defscreen_spec.cols - 1;
-	} else {
+	} else
+#endif /*]*/
+	{
 		rmargin = maxCOLS - 1;
 	}
 
@@ -945,7 +1024,7 @@ draw_oia(void)
 
 	mvprintw(status_row, rmargin-25, "%s", oia_lu);
 	mvprintw(status_row, rmargin-7,
-	    "%03d/%03d", cursor_addr/COLS + 1, cursor_addr%COLS + 1);
+	    "%03d/%03d", cursor_addr/cCOLS + 1, cursor_addr%cCOLS + 1);
 }
 
 void
@@ -971,21 +1050,22 @@ screen_flip(void)
 	screen_disp(False);
 }
 
+#if defined(C3270_80_132) /*[*/
 /* Alt/default screen spec parsing. */
 static void
 parse_screen_spec(const char *str, struct screen_spec *spec)
 {
-	char msbuf[50];
+	char msbuf[3];
 	char *s, *t, c;
 	Boolean escaped = False;
 
-	if (sscanf(str, "%dx%d=%50s", &spec->rows, &spec->cols, msbuf) != 3) {
+	if (sscanf(str, "%dx%d=%2s", &spec->rows, &spec->cols, msbuf) != 3) {
 		(void) fprintf(stderr, "Invalid screen screen spec '%s', must "
 		    "be '<rows>x<cols>=<init_string>'\n", str);
 		exit(1);
 	}
-	spec->mode_switch = Malloc(strlen(msbuf));
-	s = msbuf;
+	s = strchr(str, '=') + 1;
+	spec->mode_switch = Malloc(strlen(s) + 1);
 	t = spec->mode_switch;
 	while ((c = *s++)) {
 		if (escaped) {
@@ -993,16 +1073,16 @@ parse_screen_spec(const char *str, struct screen_spec *spec)
 			case 'E':
 			    *t++ = 0x1b;
 			    break;
-			case '\n':
+			case 'n':
 			    *t++ = '\n';
 			    break;
-			case '\r':
+			case 'r':
 			    *t++ = '\r';
 			    break;
-			case '\b':
+			case 'b':
 			    *t++ = '\b';
 			    break;
-			case '\t':
+			case 't':
 			    *t++ = '\t';
 			    break;
 			case '\\':
@@ -1020,3 +1100,4 @@ parse_screen_spec(const char *str, struct screen_spec *spec)
 	}
 	*t = '\0';
 }
+#endif /*]*/

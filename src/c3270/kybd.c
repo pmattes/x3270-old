@@ -1,5 +1,6 @@
 /*
- * Modifications Copyright 1993, 1994, 1995, 1996, 1999, 2000, 2001 by Paul Mattes.
+ * Modifications Copyright 1993, 1994, 1995, 1996, 1999,
+ *  2000, 2001, 2002 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -11,6 +12,11 @@
  *  All Rights Reserved.  GTRC hereby grants public use of this software.
  *  Derivative works based on this software must incorporate this copyright
  *  notice.
+ *
+ * x3270, c3270, s3270 and tcl3270 are distributed in the hope that they will
+ * be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the file LICENSE
+ * for more details.
  */
 
 /*
@@ -42,6 +48,7 @@
 #include "ctlrc.h"
 #include "ftc.h"
 #include "hostc.h"
+#include "idlec.h"
 #include "keymapc.h"
 #include "keypadc.h"
 #include "kybdc.h"
@@ -73,15 +80,6 @@ static unsigned char pa_xlate[] = {
 #define PF_SZ	(sizeof(pf_xlate)/sizeof(pf_xlate[0]))
 #define PA_SZ	(sizeof(pa_xlate)/sizeof(pa_xlate[0]))
 static unsigned long unlock_id;
-#if defined(X3270_SCRIPT) /*[*/
-static char *idle_command = CN;
-static unsigned long idle_id;
-static unsigned long idle_ms;
-static Boolean idle_randomize = False;
-static Boolean idle_ticking = False;
-static void reset_idle_timer(void);
-#define IDLE_MS		(7L * 60L * 1000L)	/* 7 minutes */
-#endif /*]*/
 #define UNLOCK_MS	350
 static Boolean key_Character(int cgcode, Boolean with_ge, Boolean pasting);
 static Boolean flush_ta(void);
@@ -289,10 +287,6 @@ kybd_inhibit(Boolean inhibit)
 static void
 kybd_connect(Boolean connected)
 {
-#if defined(X3270_SCRIPT) /*[*/
-	char *idle_timeout = CN;
-#endif /*]*/
-
 	if (kybdlock & KL_DEFERRED_UNLOCK)
 		RemoveTimeOut(unlock_id);
 	kybdlock_clr(-1, "kybd_connect");
@@ -300,65 +294,9 @@ kybd_connect(Boolean connected)
 	if (connected) {
 		/* Wait for any output or a WCC(restore) from the host */
 		kybdlock_set(KL_AWAITING_FIRST, "kybd_connect");
-
-#if defined(X3270_SCRIPT) /*[*/
-		/* Calculate the idle timeout, based on the resource value. */
-		idle_command = get_host_fresource("%s", ResIdleCommand);
-		if (idle_command != CN) {
-			char *s;
-			unsigned long idle_n;
-			char *ptr;
-
-			idle_timeout = get_host_fresource("%s", ResIdleTimeout);
-			s = idle_timeout;
-
-			if (s == CN) {
-				idle_ms = IDLE_MS;
-				idle_randomize = True;
-				return;
-			}
-			if (*s == '~') {
-				idle_randomize = True;
-				s++;
-			}
-			idle_n = strtoul(s, &ptr, 0);
-			if (idle_n <= 0)
-				goto bad_idle;
-			switch (*ptr) {
-			    case 'H':
-			    case 'h':
-				idle_n *= 60L * 60L;
-				break;
-			    case 'M':
-			    case 'm':
-				idle_n *= 60L;
-				break;
-			    case 'S':
-			    case 's':
-				break;
-			    default:
-				goto bad_idle;
-			}
-			idle_ms = idle_n * 1000L;
-			srandom(time(NULL));
-		}
-		return;
-
-	    bad_idle:
-		popup_an_error("Invalid idle_timeout value '%s', disabling.",
-		    idle_timeout);
-		idle_ms = 0L;
-		idle_randomize = False;
-#endif /*]*/
 	} else {
 		kybdlock_set(KL_NOT_CONNECTED, "kybd_connect");
 		(void) flush_ta();
-#if defined(X3270_SCRIPT) /*[*/
-		if (idle_ticking) {
-			RemoveTimeOut(idle_id);
-			idle_ticking = False;
-		}
-#endif /*]*/
 	}
 }
 
@@ -422,48 +360,6 @@ operator_error(int error_type)
 	}
 }
 
-#if defined(X3270_SCRIPT) /*[*/
-/*
- * Idle timeout.
- */
-static void
-idle_timeout(void)
-{
-	trace_event("Idle timeout\n");
-	push_macro(idle_command, False);
-	reset_idle_timer();
-}
-
-/*
- * Reset the idle timer.
- */
-static void
-reset_idle_timer(void)
-{
-	if (idle_ms) {
-		unsigned long idle_ms_now;
-
-		if (idle_ticking) {
-			RemoveTimeOut(idle_id);
-			idle_ticking = False;
-		}
-		idle_ms_now = idle_ms;
-		if (idle_randomize) {
-			idle_ms_now = idle_ms;
-			if (random() % 2)
-				idle_ms_now += random() % (idle_ms / 10L);
-			else
-				idle_ms_now -= random() % (idle_ms / 10L);
-		}
-#if defined(DEBUG_IDLE_TIMEOUT) /*[*/
-		trace_event("Setting idle timeout to %lu\n", idle_ms_now);
-#endif /*]*/
-		idle_id = AddTimeOut(idle_ms_now, idle_timeout);
-		idle_ticking = True;
-	}
-}
-#endif /*]*/
-
 
 /*
  * Handle an AID (Attention IDentifier) key.  This is the common stuff that
@@ -512,9 +408,7 @@ key_AID(unsigned char aid_code)
 		insert_mode(False);
 		kybdlock_set(KL_OIA_TWAIT | KL_OIA_LOCKED, "key_AID");
 	}
-#if defined(X3270_SCRIPT) /*[*/
 	reset_idle_timer();
-#endif /*]*/
 	aid = aid_code;
 	ctlr_read_modified(aid, False);
 	ticking_start(False);
