@@ -1,6 +1,7 @@
-/*
+/*;
  * Copyright 1989 by Georgia Tech Research Corporation, Atlanta, GA.
  * Copyright 1988, 1989 by Robert Viduya.
+ * Copyright 1990 Jeff Sparkes.
  *
  *                         All Rights Reserved
  */
@@ -13,12 +14,13 @@
 #include <sys/types.h>
 #include <sys/time.h>
 #include <errno.h>
-#include <suntool/sunview.h>
-#include <suntool/canvas.h>
-#include <suntool/menu.h>
+#include <X11/Intrinsic.h>
+#include <X11/StringDefs.h>
+#include <X11/Shell.h>
 #include <stdio.h>
 #include "3270.h"
 #include "3270_enc.h"
+#include "X.h"
 
 /* ebcdic to 3270 character generator xlate table */
 
@@ -127,9 +129,6 @@ u_char	cg2ebc[256] = {
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 };
 
-#define ITIMER_NULL	((struct itimerval *) 0)
-#define TIMER_IVAL	250000L	/* usec's */
-
 /* code_table is used to translate buffer addresses to the 3270
  * datastream representation
  */
@@ -144,96 +143,165 @@ u_char	code_table[64] = {
     0xF8, 0xF9, 0x7A, 0x7B, 0x7C, 0x7D, 0x7E, 0x7F,
 };
 
-extern Frame		frame;
-Canvas			canvas;
-Pixwin			*pixwin;
-Cursor			cursor;
-Pixfont			*ibmfont;
+char defaultTranslations[] = "\
+	<Expose>:		Redraw()\n\
+	<Key>Return:		Enter()\n\
+	<Key>Linefeed:		Newline()\n\
+	<KeyPress>Caps_Lock:	ShiftOn()\n\
+	<KeyRelease>Caps_Lock:	ShiftOff()\n\
+	<KeyPress>Shift_L:	ShiftOn()\n\
+	<KeyRelease>Shift_L:	ShiftOff()\n\
+	<KeyPress>Shift_R:	ShiftOn()\n\
+	<KeyRelease>Shift_R:	ShiftOff()\n\
+	!Shift<Key>Tab:		BackTab()\n\
+	<Key>Tab:		Tab()\n\
+	<Key>Home:  		Home()\n\
+	<Key>Left:		Left()\n\
+	!Meta<Key>Left:		Left2()\n\
+	<Key>Right: 		Right()\n\
+	!Meta<Key>Right:	Right2()\n\
+	<Key>Up:		Up()\n\
+	<Key>Down:		Down()\n\
+	<Key>Delete: 		Delete()\n\
+	<Key>BackSpace: 	Left()\n\
+	<Btn1Down>:		MoveCursor()\n\
+	!Meta<Key>F1:		PF13()\n\
+	!Meta<Key>F2:		PF14()\n\
+	!Meta<Key>F3:		PF15()\n\
+	!Meta<Key>F4:		PF16()\n\
+	!Meta<Key>F5:		PF17()\n\
+	!Meta<Key>F6:		PF18()\n\
+	!Meta<Key>F7:		PF19()\n\
+	!Meta<Key>F8:		PF20()\n\
+	!Meta<Key>F9:		PF21()\n\
+	!Meta<Key>F10:		PF22()\n\
+	!Meta<Key>F11:		PF23()\n\
+	!Meta<Key>F12:		PF24()\n\
+	<Key>F1:		PF1()\n\
+	<Key>F2:		PF2()\n\
+	<Key>F3:		PF3()\n\
+	<Key>F4:		PF4()\n\
+	<Key>F5:		PF5()\n\
+	<Key>F6:		PF6()\n\
+	<Key>F7:		PF7()\n\
+	<Key>F8:		PF8()\n\
+	<Key>F9:		PF9()\n\
+	<Key>F10:		PF10()\n\
+	<Key>F11:		PF11()\n\
+	<Key>F12:		PF12()\n\
+	Meta<Key>c:		Clear()\n\
+	Meta<Key>r:		Reset()\n\
+	Meta<Key>1:		PA1()\n\
+	Meta<Key>2:		PA2()\n\
+	Meta<Key>i:		Insert()\n\
+	Meta<Key>d:		Delete()\n\
+	Meta<Key>h:		Home()\n\
+	Meta<Key>l:		Redraw()\n\
+	Ctrl<Key>h:		Left()\n\
+	:<Key>:			Default()";
+
+extern Display		*display;
+extern Widget		toplevel;
+extern XtAppContext	appcontext;
+extern int		foreground, background;	
+extern int		ROWS, COLS;
+Widget 			win;
+Window			w;
+extern Font		ibmfont;
+extern XFontStruct	*ibmfontinfo;
+GC			gc[4], invgc[4];
 int			cursor_addr, buffer_addr;
-bool			cursor_displayed = FALSE;
-bool			cursor_blink_on = TRUE;
-bool			cursor_alt = FALSE, cursor_blink = FALSE;
-bool			mono_case = FALSE;
+Bool			cursor_displayed = FALSE;
+Bool			cursor_alt = FALSE;
+Bool			mono_case = FALSE;
 
 /* the following are set from values in the 3270 font */
 int			char_width, char_height, char_base;
 
-u_char			screen_buf[ROWS * COLS];
-bool			formatted = FALSE;	/* set in screen_disp */
-struct itimerval	blink_timer;
+u_char			*screen_buf;
+u_char			*status_buf;
+u_char			*update_buf;
+static u_char		*blanks;
+Bool			formatted = FALSE;	/* set in screen_disp */
+Bool			status_dirty = FALSE;
+Bool			screen_dirty = FALSE;
 
 extern u_char	obuf[], *obptr;
 extern u_char	aid;
-
-Notify_value		timer ();
-extern Notify_value	canvas_event_proc ();
+extern u_char	*get_field_attribute();
 
 
 /*
  * Initialize the screen canvas.  Should only be called once.
  */
-screen_init ()
+screen_init (kbdtrans, usertrans)
+	char *kbdtrans, *usertrans;
 {
-    if ((ibmfont = pf_open (FONT3270)) == (Pixfont *) 0) {
-	perror ("3270tool: can't open 3270.font");
-	exit (1);
-    }
+    Arg	args[10];
+    int i = 0;
+    XtTranslations trans;
+
+    screen_buf = (u_char *)XtCalloc(sizeof(u_char), ROWS * COLS);
+    update_buf = (u_char *)XtCalloc(sizeof(u_char), ROWS * COLS);
+    status_buf = (u_char *)XtCalloc(sizeof(u_char), COLS);
+    blanks = (u_char *)XtCalloc(sizeof(u_char), COLS);
+
     char_width = CHAR_WIDTH;
     char_height = CHAR_HEIGHT;
     char_base = CHAR_BASE;
-    canvas = window_create (
-	frame, CANVAS,
-	CANVAS_AUTO_EXPAND,	FALSE,
-	CANVAS_AUTO_SHRINK,	FALSE,
-	CANVAS_HEIGHT,		ROW_TO_Y (ROWS + 1) + 4,
-	CANVAS_WIDTH,		COL_TO_X (COLS),
-	CANVAS_MARGIN,		0,
-	CANVAS_RETAINED,	TRUE,
-	WIN_HEIGHT,		ROW_TO_Y (ROWS + 1) + 4 + 0,
-	WIN_WIDTH,		COL_TO_X (COLS) + 0,
-	WIN_EVENT_PROC,		canvas_event_proc,
-	WIN_CONSUME_PICK_EVENTS,WIN_NO_EVENTS,
-				LOC_WINENTER,
-				LOC_WINEXIT,
-				WIN_MOUSE_BUTTONS,
-				WIN_UP_EVENTS,
-				0,
-	WIN_CONSUME_KBD_EVENTS,	WIN_NO_EVENTS,
-				KBD_USE,
-				KBD_DONE,
-				WIN_ASCII_EVENTS,
-				WIN_LEFT_KEYS,
-				WIN_RIGHT_KEYS,
-				WIN_TOP_KEYS,
-				0,
-	0
-    );
-    cursor = window_get (canvas, WIN_CURSOR);
-    cursor_set (cursor, CURSOR_OP, PIX_SRC^PIX_DST, 0);
-    window_set (canvas, WIN_CURSOR, cursor, 0);
-    window_fit (canvas);
-    window_fit (frame);
-    pixwin = canvas_pixwin (canvas);
-    pw_vector (
-	pixwin,
-	0, ROW_TO_Y (ROWS) + 2,
-	COL_TO_X (COLS), ROW_TO_Y (ROWS) + 2,
-	PIX_SET, 1
-    );
-    bzero ((char *) screen_buf, sizeof (screen_buf));
+
+    i = 0;
+    XtSetArg(args[i], XtNwidth, COL_TO_X(COLS)); i++;
+    XtSetArg(args[i], XtNheight, ROW_TO_Y(ROWS)+8); i++;
+    XtSetArg(args[i], XtNbaseWidth, COL_TO_X(COLS)); i++;
+    XtSetArg(args[i], XtNbaseHeight, ROW_TO_Y(ROWS)+8); i++;
+    XtSetArg(args[i], XtNminWidth, COL_TO_X(COLS)); i++;
+    XtSetArg(args[i], XtNminHeight, ROW_TO_Y(ROWS)+8); i++;
+    XtSetArg(args[i], XtNmaxWidth, COL_TO_X(COLS)); i++;
+    XtSetArg(args[i], XtNmaxHeight, ROW_TO_Y(ROWS)+8); i++;
+    XtSetValues(toplevel, args, i);
+
+    i = 0;
+    XtSetArg(args[i], XtNwidth, COL_TO_X(COLS)); i++;
+    XtSetArg(args[i], XtNheight, ROW_TO_Y(ROWS)+8); i++;
+    win = XtCreateManagedWidget("screen", widgetClass, toplevel, args, i);
+
+
+    if (appres.mono == False && DefaultDepthOfScreen(XtScreen(toplevel)) > 1) {
+	make_gc_pair(FA_INT_NORM_NSEL, appres.normal, appres.colorbg);
+	make_gc_pair(FA_INT_NORM_SEL,  appres.select, appres.colorbg);
+	make_gc_pair(FA_INT_HIGH_SEL,  appres.bold,   appres.colorbg);
+	make_gc_pair(FA_INT_ZERO_NSEL, appres.colorbg, appres.colorbg);
+        XtSetArg(args[i], XtNbackground, appres.colorbg); i++;
+    } else {
+	appres.mono = True;
+	make_gc_pair(FA_INT_NORM_NSEL, appres.foreground, appres.background);
+	make_gc_pair(FA_INT_NORM_SEL,  appres.foreground, appres.background);
+	make_gc_pair(FA_INT_HIGH_SEL,  appres.foreground, appres.background);
+	make_gc_pair(FA_INT_ZERO_NSEL, appres.background, appres.background);
+        XtSetArg(args[i], XtNbackground, appres.background); i++;
+    }
+    XtSetValues(win, args, i);
+    trans = XtParseTranslationTable(defaultTranslations);
+    XtOverrideTranslations(win, trans);
+    if (kbdtrans && *kbdtrans) {
+	trans = XtParseTranslationTable(kbdtrans);
+        XtOverrideTranslations(win, trans);
+    }
+    if (usertrans && *usertrans) {
+	trans = XtParseTranslationTable(usertrans);
+        XtOverrideTranslations(win, trans);
+    }
+    XtRealizeWidget(toplevel);
+    w = XtWindow(win);
+
     cursor_addr = 0;
     buffer_addr = 0;
-    pw_batch_on (pixwin);
-    screen_disp ();
-    cursor_on ();
     status_disp (0, CG_BOX4);
     status_disp (1, CG_UNDERA);
     status_disp (2, CG_BOXSOLID);
-    blink_timer.it_interval.tv_sec = 0;
-    blink_timer.it_interval.tv_usec = TIMER_IVAL;
-    blink_timer.it_value.tv_sec = 0;
-    blink_timer.it_value.tv_usec = TIMER_IVAL;
-    (void) notify_set_itimer_func (&blink_timer, timer, ITIMER_REAL, &blink_timer, ITIMER_NULL);
+    clear_text();
+    cursor_on ();
 }
 
 
@@ -243,97 +311,12 @@ screen_init ()
 status_disp (col, symbol)
 int	col, symbol;
 {
-    PW_CHAR (pixwin, COL_TO_X (col), ROW_TO_Y (ROWS) + 4, PIX_SRC, symbol);
-}
-
-
-/*
- * Timer function for implementing cursor blink.
- */
-/*ARGSUSED*/
-Notify_value
-timer (client, which)
-Notify_client	client;
-int		which;
-{
-    if (cursor_blink && cursor_displayed) {	/* blink the cursor */
-	cursor_blink_on = !cursor_blink_on;
-	if (cursor_alt)
-	    pw_writebackground (
-		pixwin,
-		COL_TO_X (BA_TO_COL (cursor_addr)),
-		ROW_TO_Y (BA_TO_ROW (cursor_addr)),
-		COL_TO_X (1),
-		ROW_TO_Y (1),
-		PIX_SET^PIX_DST
-	    );
-	else
-	    pw_writebackground (
-		pixwin,
-		COL_TO_X (BA_TO_COL (cursor_addr)),
-		ROW_TO_Y (BA_TO_ROW (cursor_addr) + 1) - 1,
-		COL_TO_X (1),
-		1,
-		PIX_SET^PIX_DST
-	    );
-    }
-    return (NOTIFY_DONE);
-}
-
-
-/*
- * Turn off the timer/cursor-blink so we can safely update the screen.
- */
-timer_hold ()
-{
-    (void) notify_set_itimer_func (&blink_timer, timer, ITIMER_REAL, ITIMER_NULL, ITIMER_NULL);
-    if (cursor_blink && cursor_displayed && !cursor_blink_on) {
-	cursor_blink_on = TRUE;
-	if (cursor_alt)
-	    pw_writebackground (
-		pixwin,
-		COL_TO_X (BA_TO_COL (cursor_addr)),
-		ROW_TO_Y (BA_TO_ROW (cursor_addr)),
-		COL_TO_X (1),
-		ROW_TO_Y (1),
-		PIX_SET^PIX_DST
-	    );
-	else
-	    pw_writebackground (
-		pixwin,
-		COL_TO_X (BA_TO_COL (cursor_addr)),
-		ROW_TO_Y (BA_TO_ROW (cursor_addr) + 1) - 1,
-		COL_TO_X (1),
-		1,
-		PIX_SET^PIX_DST
-	    );
-    }
-}
-
-
-/*
- * Turn on the timer/cursor-blink after we have safely updated the screen.
- */
-timer_release ()
-{
-    cursor_blink_on = TRUE;
-    blink_timer.it_interval.tv_sec = 0;
-    blink_timer.it_interval.tv_usec = TIMER_IVAL;
-    blink_timer.it_value.tv_sec = 0;
-    blink_timer.it_value.tv_usec = TIMER_IVAL;
-    (void) notify_set_itimer_func (&blink_timer, timer, ITIMER_REAL, &blink_timer, ITIMER_NULL);
-}
-
-
-/*
- * Toggle cursor blink
- */
-blink_cursor (on)
-bool	on;
-{
-    timer_hold ();
-    cursor_blink = on;
-    timer_release ();
+    status_buf[col] = symbol;
+    status_dirty = TRUE;
+    /*
+    XDrawImageString(display,w,gc[0], COL_TO_X(col), ROW_TO_Y(ROWS)+5, 
+	&(status_buf[col]), 1);
+    */
 }
 
 
@@ -342,31 +325,19 @@ bool	on;
  */
 cursor_off ()
 {
-    timer_hold ();
+    int  color;
+    u_char *fa = get_field_attribute(cursor_addr);
+
+    color = fa_color(*fa);
+    if (color == FA_INT_ZERO_NSEL)
+	color = FA_INT_NORM_SEL;
     if (cursor_displayed) {
 	cursor_displayed = FALSE;
-	pw_batch_on (pixwin);
-	if (cursor_alt)
-	    pw_writebackground (
-		pixwin,
-		COL_TO_X (BA_TO_COL (cursor_addr)),
-		ROW_TO_Y (BA_TO_ROW (cursor_addr)),
-		COL_TO_X (1),
-		ROW_TO_Y (1),
-		PIX_SET^PIX_DST
-	    );
+	if (!cursor_alt)
+	    put_cursor(cursor_addr, color, 0);
 	else
-	    pw_writebackground (
-		pixwin,
-		COL_TO_X (BA_TO_COL (cursor_addr)),
-		ROW_TO_Y (BA_TO_ROW (cursor_addr) + 1) - 1,
-		COL_TO_X (1),
-		1,
-		PIX_SET^PIX_DST
-	    );
+	    put_altcursor(cursor_addr, gc[color], 0);
     }
-    timer_release ();
-    clear_seln ();
 }
 
 
@@ -375,30 +346,19 @@ cursor_off ()
  */
 cursor_on ()
 {
-    timer_hold ();
+    int  color;
+    u_char *fa = get_field_attribute(cursor_addr);
+
+    color = fa_color(*fa);
+    if (color == FA_INT_ZERO_NSEL)
+	color = FA_INT_NORM_SEL;
     if (!cursor_displayed) {
-	if (cursor_alt)
-	    pw_writebackground (
-		pixwin,
-		COL_TO_X (BA_TO_COL (cursor_addr)),
-		ROW_TO_Y (BA_TO_ROW (cursor_addr)),
-		COL_TO_X (1),
-		ROW_TO_Y (1),
-		PIX_SET^PIX_DST
-	    );
-	else
-	    pw_writebackground (
-		pixwin,
-		COL_TO_X (BA_TO_COL (cursor_addr)),
-		ROW_TO_Y (BA_TO_ROW (cursor_addr) + 1) - 1,
-		COL_TO_X (1),
-		1,
-		PIX_SET^PIX_DST
-	    );
 	cursor_displayed = TRUE;
-	pw_batch_off (pixwin);
+	if (!cursor_alt)
+	    put_cursor(cursor_addr, color, 1);
+	else
+	    put_altcursor(cursor_addr, gc[color], 1);
     }
-    timer_release ();
 }
 
 
@@ -406,7 +366,7 @@ cursor_on ()
  * Toggle the cursor (block/underline).
  */
 alt_cursor (alt)
-bool	alt;
+Bool	alt;
 {
     if (alt != cursor_alt) {
 	cursor_off ();
@@ -422,119 +382,80 @@ bool	alt;
 cursor_move (baddr)
 int	baddr;
 {
-    timer_hold ();
-    if (cursor_displayed) {
-	if (cursor_alt)
-	    pw_writebackground (
-		pixwin,
-		COL_TO_X (BA_TO_COL (cursor_addr)),
-		ROW_TO_Y (BA_TO_ROW (cursor_addr)),
-		COL_TO_X (1),
-		ROW_TO_Y (1),
-		PIX_SET^PIX_DST
-	    );
-	else
-	    pw_writebackground (
-		pixwin,
-		COL_TO_X (BA_TO_COL (cursor_addr)),
-		ROW_TO_Y (BA_TO_ROW (cursor_addr) + 1) - 1,
-		COL_TO_X (1),
-		1,
-		PIX_SET^PIX_DST
-	    );
+    int	cflag = cursor_displayed;
+
+    if (cflag) {
+	cursor_off();
     }
     cursor_addr = baddr;
-    if (cursor_displayed) {
-	if (cursor_alt)
-	    pw_writebackground (
-		pixwin,
-		COL_TO_X (BA_TO_COL (cursor_addr)),
-		ROW_TO_Y (BA_TO_ROW (cursor_addr)),
-		COL_TO_X (1),
-		ROW_TO_Y (1),
-		PIX_SET^PIX_DST
-	    );
-	else
-	    pw_writebackground (
-		pixwin,
-		COL_TO_X (BA_TO_COL (cursor_addr)),
-		ROW_TO_Y (BA_TO_ROW (cursor_addr) + 1) - 1,
-		COL_TO_X (1),
-		1,
-		PIX_SET^PIX_DST
-	    );
+    if (cflag) {
+	cursor_on();
     }
-    timer_release ();
 }
 
 
 /*
  * Redraw the entire screen.
  */
+redraw(wid, event, params, num_params)
+	Widget	wid;
+	XEvent	*event;
+	String	*params;
+	Cardinal num_params;
+{
+    int 	i;
+    int		x, y, w, h;
+    int		start, end;
+
+    /* Only redraw as necessary for an expose event */
+    if (event && event->type == Expose) {
+	x = event->xexpose.x;
+	y = event->xexpose.y;
+	w = event->xexpose.width;
+	h = event->xexpose.height;
+	/*
+	printf("expose %d: %d,%d,%dx%d\n", event->xexpose.count, x, y, w, h);
+	*/
+	start = Y_TO_ROW(y);
+	start = start == 0 ? 0 : start - 1;
+	end = Y_TO_ROW(y+h);
+	end = end >= ROWS-1 ? ROWS-1 : end + 1;
+	for (i=start; i<end; i++) {
+	    int a, b;
+	    a = ROWCOL_TO_BA(i, X_TO_COL(x));
+	    b = X_TO_COL(w+char_width);
+	    bzero(&(update_buf[a]), b);
+	}
+    } else {
+	bzero(update_buf, ROWS*COLS);
+    }
+    screen_dirty = TRUE;
+    status_dirty = TRUE;
+    screen_disp ();
+}
+
+/*
+ * Redraw the dirty parts of the screen.
+ */
 screen_disp ()
 {
-    register int	baddr, sbaddr;
-    register u_char	ch;
-    bool		is_zero, is_high;
+    int 	i;
 
-    cursor_off ();
-    formatted = FALSE;
-    baddr = 0;
-    do {
-	if (IS_FA (screen_buf[baddr])) {
-	    formatted = TRUE;
-	    break;
-	}
-	INC_BA (baddr);
-    } while (baddr != 0);
-    if (formatted) {	/* formatted display */
-	sbaddr = baddr;
-	do {
-	    is_zero = FA_IS_ZERO (screen_buf[baddr]);
-	    is_high = FA_IS_HIGH (screen_buf[baddr]);
-	    do {	/* display the field */
-		INC_BA (baddr);
-		if (is_zero)
-		    ch = CG_BLANK;
-		else {
-		    ch = screen_buf[baddr];
-		    /* this if xlates lowercase to uppercase */
-		    if (mono_case && ((ch & 0xE0) == 0x40 || (ch & 0xE0) == 0x80))
-			ch |= 0x20;
-		}
-		PW_CHAR (
-		    pixwin,
-		    COL_TO_X (BA_TO_COL (baddr)),
-		    ROW_TO_Y (BA_TO_ROW (baddr)),
-		    PIX_SRC, ch
-		);
-		if (is_high)
-		    PW_CHAR (
-			pixwin,
-			COL_TO_X (BA_TO_COL (baddr)) + 1,
-			ROW_TO_Y (BA_TO_ROW (baddr)),
-			PIX_SRC|PIX_DST, ch
-		    );
-	    } while (!IS_FA (screen_buf[baddr]));
-	} while (baddr != sbaddr);
+    if (status_dirty) {
+        XDrawImageString(display,w,gc[0],0,ROW_TO_Y(ROWS)+5, status_buf, COLS);
+        status_dirty = FALSE;
     }
-    else {		/* unformatted display */
-	baddr = 0;
-	do {
-	    ch = screen_buf[baddr];
-	    /* this if xlates lowercase to uppercase */
-	    if (mono_case && ((ch & 0xE0) == 0x40 || (ch & 0xE0) == 0x80))
-		ch |= 0x20;
-	    PW_CHAR (
-		pixwin,
-		COL_TO_X (BA_TO_COL (baddr)),
-		ROW_TO_Y (BA_TO_ROW (baddr)),
-		PIX_SRC, ch
-	    );
-	    INC_BA (baddr);
-	} while (baddr != 0);
+    if (screen_dirty == FALSE)
+	return;
+    cursor_off ();
+    for (i=0; i< ROWS; i++) {
+        do_line(i*COLS);
     }
     cursor_on ();
+    /* XXXX */
+    XDrawLine(display, w, gc[0], 0, ROW_TO_Y(ROWS-1)+3, COL_TO_X(COLS), 
+	ROW_TO_Y(ROWS-1)+3);
+    screen_dirty = FALSE;
 }
 
 
@@ -573,46 +494,9 @@ register int	baddr;
 	if (IS_FA (screen_buf[baddr]))
 	    return (&(screen_buf[baddr]));
 	DEC_BA (baddr);
-    } while (baddr != sbaddr);
+    } while (baddr < sbaddr);
     fake_fa = 0xE0;
     return (&fake_fa);
-}
-
-
-/*
- * Update the character on the screen addressed by the given buffer address
- * from the off-screen buffer.
- */
-screen_update (baddr, fa)
-register int	baddr;
-u_char		fa;
-{
-    register u_char	ch;
-    bool		is_zero, is_high;
-
-    is_zero = FA_IS_ZERO (fa);
-    is_high = FA_IS_HIGH (fa);
-    if (is_zero)
-	ch = CG_BLANK;
-    else {
-	ch = screen_buf[baddr];
-	/* this if xlates lowercase to uppercase */
-	if (mono_case && ((ch & 0xE0) == 0x40 || (ch & 0xE0) == 0x80))
-	    ch |= 0x20;
-    }
-    PW_CHAR (
-	pixwin,
-	COL_TO_X (BA_TO_COL (baddr)),
-	ROW_TO_Y (BA_TO_ROW (baddr)),
-	PIX_SRC, ch
-    );
-    if (is_high)
-	PW_CHAR (
-	    pixwin,
-	    COL_TO_X (BA_TO_COL (baddr)) + 1,
-	    ROW_TO_Y (BA_TO_ROW (baddr)),
-	    PIX_SRC|PIX_DST, ch
-	);
 }
 
 
@@ -620,7 +504,7 @@ u_char		fa;
  * Toggle mono-/dual-case mode.
  */
 change_case (mono)
-bool	mono;
+Bool	mono;
 {
     if (mono_case != mono) {
 	mono_case = mono;
@@ -643,10 +527,9 @@ int	buflen;
 	case CMD_EWA:	/* erase/write alternate */
 	    /* on 3278-2, same as erase/write.  fallthrough */
 	case CMD_EW:	/* erase/write */
-	    bzero ((char *) screen_buf, sizeof (screen_buf));
 	    buffer_addr = 0;
-	    cursor_off ();
-	    pw_writebackground (pixwin, 0, 0, COL_TO_X (COLS), ROW_TO_Y (ROWS), PIX_CLR);
+	    /* cursor_off (); */
+	    clear_text();
 	    cursor_move (0);
 	    /* fallthrough into write */
 	case CMD_W:	/* write */
@@ -773,9 +656,10 @@ do_erase_all_unprotected ()
 {
     register int	baddr, sbaddr;
     u_char		fa;
-    bool		f;
+    Bool		f;
 
-    cursor_off ();
+    screen_dirty = TRUE;
+    /* cursor_off (); */
     if (formatted) {
 	/* find first field attribute */
 	baddr = 0;
@@ -797,8 +681,7 @@ do_erase_all_unprotected ()
 			f = TRUE;
 		    }
 		    if (!IS_FA (screen_buf[baddr])) {
-			screen_buf[baddr] = CG_NULLBLANK;
-			screen_update (baddr, fa);
+			screen_add(baddr, CG_NULLBLANK);
 		    }
 		} while (!IS_FA (screen_buf[baddr]));
 	    }
@@ -812,12 +695,11 @@ do_erase_all_unprotected ()
 	    cursor_move (0);
     }
     else {
-	bzero ((char *) screen_buf, sizeof (screen_buf));
-	pw_writebackground (pixwin, 0, 0, COL_TO_X (COLS), ROW_TO_Y (ROWS), PIX_CLR);
+	clear_text();
 	buffer_addr = 0;
 	cursor_move (0);
     }
-    cursor_on ();
+    /* cursor_on (); */
     aid = AID_NO;
     key_Reset ();
 }
@@ -833,8 +715,8 @@ int	buflen;
     register u_char	*cp;
     register int	baddr;
     u_char		*current_fa;
-    bool		last_cmd;
-    bool		wcc_keyboard_restore, wcc_sound_alarm;
+    Bool		last_cmd;
+    Bool		wcc_keyboard_restore, wcc_sound_alarm;
 
     buffer_addr = cursor_addr;
     wcc_sound_alarm = WCC_SOUND_ALARM (buf[1]);
@@ -847,16 +729,22 @@ int	buflen;
     status_disp (13, CG_CT);
     status_disp (14, CG_CE);
     status_disp (15, CG_CM);
+    /* This may take a while, so update status line. */
+    XDrawImageString(display,w,gc[0],0,ROW_TO_Y(ROWS)+5, status_buf, COLS);
+    XSync(display, 0);
+
     if (WCC_RESET_MDT (buf[1])) {
 	baddr = 0;
+        screen_dirty = TRUE;
 	do {
-	    if (IS_FA (screen_buf[baddr]))
+	    if (IS_FA (screen_buf[baddr])) {
 		screen_buf[baddr] &= ~FA_MODIFY;
+	    }
 	    INC_BA (baddr);
 	} while (baddr != 0);
     }
     last_cmd = TRUE;
-    cursor_off ();
+    /* cursor_off (); */
     current_fa = get_field_attribute (buffer_addr);
     for (cp = &buf[2]; cp < (buf + buflen); cp++) {
 	switch (*cp) {
@@ -865,6 +753,7 @@ int	buflen;
 		break;
 	    case ORDER_SF:	/* start field */
 		cp++;		/* skip field attribute */
+		screen_dirty = TRUE;
 		screen_buf[buffer_addr] = FA_BASE;
 		if (*cp & 0x20)
 		    screen_buf[buffer_addr] |= FA_PROTECT;
@@ -874,7 +763,6 @@ int	buflen;
 		    screen_buf[buffer_addr] |= FA_MODIFY;
 		screen_buf[buffer_addr] |= (*cp >> 2) & FA_INTENSITY;
 		current_fa = &(screen_buf[buffer_addr]);
-		screen_update (buffer_addr, *current_fa);
 		formatted = TRUE;
 		INC_BA (buffer_addr);
 		last_cmd = TRUE;
@@ -895,6 +783,7 @@ int	buflen;
 		break;
 	    case ORDER_PT:	/* program tab */
 		baddr = buffer_addr;
+		screen_dirty = TRUE;
 		while (TRUE) {
 		    if (IS_FA (screen_buf[baddr])
 		    &&  (!FA_IS_PROTECTED (screen_buf[baddr]))) {
@@ -903,8 +792,7 @@ int	buflen;
 			buffer_addr = baddr;
 			if (!last_cmd) {
 			    while (!IS_FA (screen_buf[baddr])) {
-				screen_buf[baddr] = CG_NULLBLANK;
-				screen_update (baddr, *current_fa);
+				screen_add(baddr, CG_NULLBLANK);
 				INC_BA (baddr);
 			    }
 			}
@@ -923,6 +811,7 @@ int	buflen;
 		break;
 	    case ORDER_RA:	/* repeat to address */
 		cp += 2;	/* skip buffer address */
+		screen_dirty = TRUE;
 		if ((*(cp-1) & 0xC0) == 0x00) /* 14-bit binary */
 		    baddr = ((*(cp-1) & 0x3F) << 8) | *cp;
 		else	/* 12-bit coded */
@@ -932,13 +821,11 @@ int	buflen;
 		if (*cp == ORDER_GE)
 		    cp++;
 		if (buffer_addr == baddr) {
-		    screen_buf[buffer_addr] = ebc2cg[*cp];
-		    screen_update (buffer_addr, *current_fa);
+		    screen_add(buffer_addr, ebc2cg[*cp]);
 		    INC_BA (buffer_addr);
 		}
 		while (buffer_addr != baddr) {
-		    screen_buf[buffer_addr] = ebc2cg[*cp];
-		    screen_update (buffer_addr, *current_fa);
+		    screen_add(buffer_addr, ebc2cg[*cp]);
 		    INC_BA (buffer_addr);
 		}
 		current_fa = get_field_attribute (buffer_addr);
@@ -946,6 +833,7 @@ int	buflen;
 		break;
 	    case ORDER_EUA:	/* erase unprotected to address */
 		cp += 2;	/* skip buffer address */
+		screen_dirty = TRUE;
 		if ((*(cp-1) & 0xC0) == 0x00) /* 14-bit binary */
 		    baddr = ((*(cp-1) & 0x3F) << 8) | *cp;
 		else	/* 12-bit coded */
@@ -955,8 +843,7 @@ int	buflen;
 		    if (IS_FA (screen_buf[buffer_addr]))
 			current_fa = &(screen_buf[buffer_addr]);
 		    else if (!FA_IS_PROTECTED (*current_fa)) {
-			screen_buf[buffer_addr] = CG_NULLBLANK;
-			screen_update (buffer_addr, *current_fa);
+			screen_add(buffer_addr, CG_NULLBLANK);
 		    }
 		    INC_BA (buffer_addr);
 		} while (buffer_addr != baddr);
@@ -969,19 +856,257 @@ int	buflen;
 		/* unsupported 3270 order */
 		break;
 	    default:	/* enter character */
-		screen_buf[buffer_addr] = ebc2cg[*cp];
-		screen_update (buffer_addr, *current_fa);
+		if (IS_FA(ebc2cg[*cp])) {
+			/* debug hook */
+		        last_cmd = FALSE;
+		}
+		screen_add(buffer_addr, ebc2cg[*cp]);
 		INC_BA (buffer_addr);
 		last_cmd = FALSE;
 		break;
 	}
     }
-    cursor_on ();
+    /* cursor_on (); */
     set_formatted ();
     if (wcc_keyboard_restore) {
 	key_Reset ();
 	aid = AID_NO;
     }
     if (wcc_sound_alarm)
-	window_bell (canvas);
+	XBell(display, 100);
+}
+
+put_cursor(baddr, color, on)
+	int baddr;
+	int color;
+	int on;
+{
+    int		x, y;
+    u_char 	*fa = get_field_attribute(baddr);
+    int		invis;
+
+    x = COL_TO_X(BA_TO_COL(baddr));
+    y = ROW_TO_Y(BA_TO_ROW(baddr));
+    invis = FA_IS_ZERO(*fa) || IS_FA(screen_buf[baddr]) || screen_buf[baddr] == 0 |
+		screen_buf[baddr] == 0x10;
+    if (on) {
+	if (invis) {
+	    XDrawImageString(display, w, invgc[color], x, y, blanks, 1);
+	} else {
+	    XDrawImageString(display, w, invgc[color], x, y, &(screen_buf[baddr]), 1);
+	}
+	if (appres.mono && FA_IS_HIGH(*fa) && !invis)
+	    XDrawString(display, w, invgc[color], x+1, y, &(screen_buf[baddr]), 1);
+    } else {
+	put_string(baddr, 1);
+    }
+}
+
+put_altcursor(baddr, gc, on)
+	int baddr;
+	GC gc;
+	int on;
+{
+    char 	str[2];
+    int		x, y;
+
+    put_string(baddr, 1);
+    if (on) {
+        str[0] = CG_COMMLO; str[1] = 0;
+        x = COL_TO_X(BA_TO_COL(baddr));
+        y = ROW_TO_Y(BA_TO_ROW(baddr));
+        XDrawString(display, w, gc, x, y+1, str, 1);
+        XDrawString(display, w, gc, x, y+2, str, 1);
+    }
+}
+
+put_string(baddr, len)
+	int baddr, len;
+{
+    put_string_gc(screen_buf, baddr, len, gc[fa_color(*get_field_attribute(baddr))]);
+}
+
+put_string_gc(buf, baddr, len, gc)
+	u_char *buf;
+	int baddr, len;
+	GC gc;
+{
+    u_char	*str, b[128];
+    u_char 	*fa, ch;
+    int		x, y, i;
+
+#if 0
+	extern u_char cg2asc[];
+
+	putchar('\n');
+	printf("address %d len %d", baddr, len);
+	for (i=0; i<len; i++) {
+	    ch = buf[i+baddr];
+	    putchar(cg2asc[ch]);
+	}
+#endif
+    if (mono_case) {
+	for (i=0; i<len; i++) {
+	    ch = buf[i+baddr];
+	    /* this if xlates lowercase to uppercase */
+	    if (mono_case && ((ch & 0xE0) == 0x40 || (ch & 0xE0) == 0x80))
+	       ch |= 0x20;
+	    b[i] = ch;
+	}
+	str = b;
+    } else
+	str = &(buf[baddr]);
+
+    fa = get_field_attribute(baddr);
+    x = COL_TO_X(BA_TO_COL(baddr));
+    y = ROW_TO_Y(BA_TO_ROW(baddr));
+
+    /* Clear the area first... kludge for R2 on HP's */
+    /*
+    XDrawImageString(display, w, gc, x, y, blanks, len);
+    */
+    XDrawImageString(display, w, gc, x, y, str, len);
+    if (appres.mono && (FA_IS_HIGH(*fa))) {
+       XDrawString(display, w, gc, x+1, y, str, len);
+    }
+}
+
+/*
+ * Clear the text (non-status) portion of the display.
+ */
+clear_text()
+{
+    int 	i;
+
+    screen_dirty = TRUE;
+    bzero(screen_buf, ROWS*COLS);
+}
+
+/* 
+ * Do one of line display.
+ */
+do_line (baddr)
+    register int baddr;
+{
+    register int	end, start, len;
+    int			i;
+
+    end = baddr + COLS;
+    if (end >= ROWS*COLS)
+	end = 0;
+
+    start = baddr;
+    len = 0;
+    while(baddr != end) {
+	if (marked(baddr)) {
+	    if (len == 0) {
+	        start = baddr;
+	        len = 1;
+	    } else {
+                len++;
+                if (IS_FA(screen_buf[baddr])) {
+	            put_string(start, len);
+		    unmark_chars(start, len);
+		    INC_BA(baddr);
+	            start = baddr;
+	            len = 0;
+		    continue;
+	        }
+	    }
+	} else if (len > 0) {
+            put_string(start, len);
+	    unmark_chars(start, len);
+	    len = 0;
+	}
+	INC_BA(baddr);
+    }
+    if (len > 0) {
+        put_string(start, len);
+	unmark_chars(start, len);
+    }
+}
+
+screen_add(baddr, c)
+	int	baddr;
+	u_char	c;
+{
+    if (screen_buf[baddr] != c) {
+	screen_buf[baddr] = c;
+	screen_dirty = TRUE;
+    }
+}
+
+make_gc_pair(i, fg, bg)
+    int		i;
+    Pixel 	fg, bg;
+{
+    static XGCValues xgcv;
+
+    xgcv.foreground = fg;
+    xgcv.background = bg;
+    xgcv.font = ibmfont;
+    gc[i] = XtGetGC(toplevel, GCForeground|GCBackground|GCFont, &xgcv);
+    xgcv.foreground = bg;
+    xgcv.background = fg;
+    invgc[i] = XtGetGC(toplevel, GCForeground|GCBackground|GCFont, &xgcv);
+}
+
+fa_color(fa)
+    u_char fa;
+{
+    int	rval = 0;
+
+    switch (fa & FA_INTENSITY) {
+    case FA_INT_NORM_NSEL:
+	rval = 0;
+        if (FA_IS_MODIFIED(fa))
+	    rval = 1;
+	break;
+    case FA_INT_NORM_SEL:
+	rval = 1;
+        if (FA_IS_MODIFIED(fa))
+	    rval = 1;
+	break;
+    case FA_INT_HIGH_SEL:
+	rval = 2;
+        if (FA_IS_MODIFIED(fa))
+	    rval = 1;
+	break;
+    case FA_INT_ZERO_NSEL:
+	rval = 3;
+	break;
+    }
+    return rval;
+}
+
+unmark_chars(start, len)
+	int start, len;
+{
+    memcpy(&(update_buf[start]), &(screen_buf[start]), len);
+}
+
+int
+marked(addr)
+	int addr;
+{
+    int	rval;
+
+    rval = (update_buf[addr] != screen_buf[addr]);
+
+    if (rval && IS_FA(screen_buf[addr]))
+	mark_field(addr);
+    return rval;
+}
+
+/* Mark the entire field as different from the screen_buf */
+mark_field(addr)
+{
+    int s_addr = addr;
+
+    update_buf[addr] = 1;
+    INC_BA(addr);
+    while (!IS_FA(screen_buf[addr]) && addr != s_addr) {
+        update_buf[addr] = 1;
+        INC_BA(addr);
+    }
 }

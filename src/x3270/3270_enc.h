@@ -1,6 +1,7 @@
 /*
  * Copyright 1989 by Georgia Tech Research Corporation, Atlanta, GA.
  * Copyright 1988, 1989 by Robert Viduya.
+ * Copyright 1990 Jeff Sparkes.
  *
  *                         All Rights Reserved
  */

@@ -1,6 +1,7 @@
 /*
  * Copyright 1989 by Georgia Tech Research Corporation, Atlanta, GA.
  * Copyright 1988, 1989 by Robert Viduya.
+ * Copyright 1990 Jeff Sparkes.
  *
  *                         All Rights Reserved
  */
@@ -35,17 +36,15 @@
 #define ORDER_GE	0x08	/* graphic escape */
 #define ORDER_YALE	0x2B	/* Yale sub command */
 
-/* screen dimensions */
-#define COLS	80
-#define ROWS	24
-
-#define CHAR_WIDTH	(ibmfont->pf_char[0x10].pc_pr->pr_size.x)
-#define CHAR_HEIGHT	(ibmfont->pf_char[0x10].pc_pr->pr_size.y)
-#define CHAR_BASE	(ibmfont->pf_char[0x10].pc_home.y)
+#define CHAR_WIDTH	(ibmfontinfo->max_bounds.rbearing + \
+			 ibmfontinfo->min_bounds.lbearing)
+#define CHAR_HEIGHT	(ibmfontinfo->max_bounds.ascent + \
+			 ibmfontinfo->max_bounds.descent)
+#define CHAR_BASE	(ibmfontinfo->max_bounds.descent)
 #define X_TO_COL(x_pos)	((x_pos) / char_width)
 #define Y_TO_ROW(y_pos)	((y_pos) / char_height)
 #define COL_TO_X(col)	((col) * char_width)
-#define ROW_TO_Y(row)	((row) * char_height)
+#define ROW_TO_Y(row)	(((row) * char_height) + char_height)
 #define ROW_TO_YC(row)	((row) * char_height - char_base)
 
 #define BA_TO_ROW(ba)		((ba) / COLS)
@@ -62,15 +61,6 @@
 	if (--ba < 0)			\
 	    ba = (COLS * ROWS) - 1;	\
     }
-
-
-#define PW_CHAR(pw,xcoord,ycoord,op,char)			\
-    pw_rop (							\
-	pw, xcoord, ycoord,					\
-	char_width, char_height,				\
-	op, ibmfont->pf_char[(char ? char : 0x10)].pc_pr, 0, 0	\
-    )
-
 
 /* field attribute definitions
  * 	The font used (3270.font) in ibmfont is based on the 3270 character
@@ -123,7 +113,6 @@
 	||						\
 	((c) & FA_INTENSITY) == FA_INT_HIGH_SEL		\
     )
-
 
 /* WCC definitions */
 #define WCC_START_PRINTER(c)	((c) & 0x08)

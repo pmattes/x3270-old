@@ -1,6 +1,7 @@
 /*
  * Copyright 1989 by Georgia Tech Research Corporation, Atlanta, GA.
  * Copyright 1988, 1989 by Robert Viduya.
+ * Copyright 1990 Jeff Sparkes.
  *
  *                         All Rights Reserved
  */
@@ -15,10 +16,13 @@
 #include <sys/socket.h>
 #include <sys/ioctl.h>
 #include <netinet/in.h>
+#ifndef hpux
 #include <arpa/telnet.h>
+#else
+#include "telnet.h"
+#endif
 #include <netdb.h>
 #include <fcntl.h>
-#include <suntool/sunview.h>
 #include <errno.h>
 #include <stdio.h>
 
@@ -29,6 +33,7 @@ u_char		ibuf[4*BUFSZ], *ibptr;		/* 3270 input buffer */
 u_char		obuf[4*BUFSZ], *obptr;		/* 3270 output buffer */
 u_char		netrbuf[BUFSZ];			/* network input buffer */
 u_char		sbbuf[1024], *sbptr;		/* telnet sub-option buffer */
+extern		int model_num;			/* 3270 model number */
 
 /* telnet states */
 #define TNS_DATA	0	/* receiving data */
@@ -47,10 +52,9 @@ static u_char	dont_opt[]	= { IAC, DONT, '_' };
 static u_char	will_opt[]	= { IAC, WILL, '_' };
 static u_char	wont_opt[]	= { IAC, WONT, '_' };
 static u_char	ttype_opt[]	= { IAC, SB, TELOPT_TTYPE, TELQUAL_IS,
-				    'I', 'B', 'M', '-', '3', '2', '7', '8', '-', '2',
+				    'I', 'B', 'M', '-', '3', '2', '7', '8', '-', '4',
 				    IAC, SE };
 
-extern Frame	frame;
 extern u_long	inet_addr ();
 
 
@@ -78,7 +82,7 @@ char	*host;
 
     /* get the tcp/ip service (telnet) */
     if ((sp = getservbyname ("telnet", "tcp")) == (struct servent *) 0) {
-	(void) fprintf (stderr, "3270tool: telnet/tcp - unknown service\n");
+	(void) fprintf (stderr, "x3270: telnet/tcp - unknown service\n");
 	exit (1);
     }
 
@@ -88,7 +92,7 @@ char	*host;
 	sin.sin_family = AF_INET;
 	sin.sin_addr.s_addr = inet_addr (host);
 	if (sin.sin_addr.s_addr == -1) {
-	    (void) fprintf (stderr, "3270tool: unknown host (%s)\n", host);
+	    (void) fprintf (stderr, "x3270: unknown host (%s)\n", host);
 	    exit (1);
 	}
     }
@@ -100,23 +104,36 @@ char	*host;
 
     /* create and establish a connection on the socket */
     if ((net = socket (AF_INET, SOCK_STREAM, 0)) == -1) {
-	perror ("3270tool: socket");
+	perror ("x3270: socket");
 	exit (1);
     }
     if (connect (net, (struct sockaddr *) &sin, sizeof (sin)) == -1) {
-	perror ("3270tool: connect");
+	perror ("x3270: connect");
 	exit (1);
     }
 
     /* set the socket to be asynchronous and non-delaying */
+#ifndef hpux
     i = FNDELAY | FASYNC;
     if (fcntl (net, F_SETFL, i) == -1) {
-	perror ("3270tool: fcntl");
+	perror ("x3270: fcntl");
 	exit (1);
     }
+#else  /* hpux */
+    i = O_NDELAY;
+    if (fcntl (net, F_SETFL, i) == -1) {
+	perror ("x3270: fcntl");
+	exit (1);
+    }
+    i = 1;
+    if (ioctl (net, FIOASYNC, (char *)&i) == -1) {
+	perror ("x3270: fcntl");
+	exit (1);
+    }
+#endif /* hpux */
     i = -getpid ();
     if (ioctl (net, SIOCSPGRP, &i) == -1) {
-	perror ("3270tool: ioctl");
+	perror ("x3270: ioctl");
 	exit (1);
     }
 
@@ -132,9 +149,7 @@ char	*host;
  *	and calls net_process to process the 3270 data stream.
  */
 /*ARGSUSED*/
-Notify_value
-net_input (client, fd)
-Notify_client	client;
+net_input (fd)
 int		fd;
 {
     register u_char	*cp;
@@ -206,9 +221,9 @@ int		fd;
 			    case TELOPT_BINARY:
 			    case TELOPT_EOR:
 			    case TELOPT_TTYPE:
-				(void) fprintf (stderr, "3270tool: Remote host won't do option 0%03o.\n", *cp);
-				(void) fprintf (stderr, "3270tool: Are you sure it's an IBM?\n");
-				window_done (frame);
+				(void) fprintf (stderr, "x3270: Remote host won't do option 0%03o.\n", *cp);
+				(void) fprintf (stderr, "x3270: Are you sure it's an IBM?\n");
+				exit(0);
 				break;
 			    default:
 				hisopts[*cp] = 0;
@@ -239,9 +254,9 @@ int		fd;
 			    case TELOPT_BINARY:
 			    case TELOPT_EOR:
 			    case TELOPT_TTYPE:
-				(void) fprintf (stderr, "3270tool: Remote host says don't do option 0%03o.\n", *cp);
-				(void) fprintf (stderr, "3270tool: Are you sure it's an IBM?\n");
-				window_done (frame);
+				(void) fprintf (stderr, "x3270: Remote host says don't do option 0%03o.\n", *cp);
+				(void) fprintf (stderr, "x3270: Are you sure it's an IBM?\n");
+				exit(0);
 				break;
 			    default:
 				myopts[*cp] = 0;
@@ -259,6 +274,7 @@ int		fd;
 			if (*cp == SE) {
 			    telnet_state = TNS_DATA;
 			    if (sbbuf[0] == TELOPT_TTYPE && sbbuf[1] == TELQUAL_SEND) {
+				ttype_opt[13] = model_num + '0';
 				(void) write (fd, (char *) ttype_opt, sizeof (ttype_opt));
 			    }
 			}
@@ -271,13 +287,13 @@ int		fd;
 	    }
 	}
 	else if (nr < 0 && errno != EWOULDBLOCK) {	/* got an error */
-	    perror ("3270tool: read(net)");
-	    window_done (frame);
+	    perror ("x3270: read(net)");
+	    exit(0);
 	}
     } while (nr > 0);
     if (br == 0)
-	window_done (frame);
-    return (NOTIFY_DONE);
+	exit(0);
+    return (0);
 }
 
 
@@ -295,7 +311,7 @@ int	buflen;
     buf[buflen++] = IAC;
     buf[buflen++] = EOR;
     if (write (net_sock, (char *) buf, buflen) != buflen) {
-	perror ("3270tool: write(net)");
-	window_done (frame);
+	perror ("x3270: write(net)");
+	exit(0);
     }
 }

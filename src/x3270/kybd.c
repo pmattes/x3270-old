@@ -1,6 +1,7 @@
 /*
  * Copyright 1989 by Georgia Tech Research Corporation, Atlanta, GA.
  * Copyright 1988, 1989 by Robert Viduya.
+ * Copyright 1990 Jeff Sparkes.
  *
  *                         All Rights Reserved
  */
@@ -10,15 +11,9 @@
  *		This module handles the keyboard for the 3270 emulator.
  */
 #include <sys/types.h>
-#include <suntool/sunview.h>
-#include <suntool/menu.h>
-#include <suntool/canvas.h>
-#include <suntool/seln.h>
-#include <suntool/panel.h>
-#include <sundev/kbio.h>
-#include <sundev/kbd.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <X11/Intrinsic.h>
 #include "3270.h"
 #include "3270_enc.h"
 
@@ -97,32 +92,25 @@ u_char	cg2asc[256] = {
 	' ',	' ',	' ',	' ',	' ',	' ',	' ',	' ',
 };
 
-bool		kybdlock = FALSE,	/* kybd locked */
+Bool		kybdlock = FALSE,	/* kybd locked */
 		insert = FALSE;		/* insert mode */
 u_char		aid = AID_NO;		/* current attention ID */
-Menu		Key_menu;
 
-extern u_char		screen_buf[ROWS * COLS];
+extern u_char		*screen_buf;
+extern Bool		screen_dirty;
+extern u_char		screen_get();
+extern u_char		*get_field_attribute();
 extern int		cursor_addr, buffer_addr;
-extern Pixwin		*pixwin;
-extern Canvas		canvas;
-extern Pixfont		*ibmfont;
-extern Frame		frame;
-extern int		net_sock;
-extern bool		formatted, cursor_alt, cursor_blink, mono_case;
-extern Seln_client	s_client;
+extern Bool		formatted, cursor_alt, mono_case;
 extern int		char_width, char_height, char_base;
-
-extern int	key_panel_toggle ();
-extern u_char	*get_field_attribute ();
-extern int	stuff_seln ();
+extern int		ROWS, COLS;
 
 
 /*
  * Toggle insert mode.
  */
 insert_mode (on)
-bool	on;
+	Bool on;
 {
     if (on) {
 	insert = TRUE;
@@ -135,31 +123,14 @@ bool	on;
 }
 
 
-/*
- * Update shift mode indicator.  Not used currently, until I can figure out
- * how to reliably read the state of the CAPS lock key.
- */
-update_shift ()
+shift_on()
 {
-    int		on, v;
+    status_disp (41, CG_UPSHIFT);
+}
 
-    v = (int) window_get (canvas, WIN_EVENT_STATE, SHIFT_LEFT);
-    printf ("SHIFT_LEFT=%d ", v);
-    on = v;
-
-    v = (int) window_get (canvas, WIN_EVENT_STATE, SHIFT_RIGHT);
-    printf ("SHIFT_RIGHT=%d ", v);
-    on |= v;
-
-    v = (int) window_get (canvas, WIN_EVENT_STATE, SHIFT_LOCK);
-    printf ("SHIFT_LOCK=%d ", v);
-    on |= v;
-
-    v = (int) window_get (canvas, WIN_EVENT_STATE, SHIFT_CAPSLOCK);
-    printf ("SHIFT_CAPSLOCK=%d\n", v);
-    on |= v;
-
-    status_disp (41, on ? CG_UPSHIFT : CG_BLANK);
+shift_off()
+{
+    status_disp (41, CG_BLANK);
 }
 
 
@@ -187,7 +158,7 @@ int	aid_code;
  * Handle an ordinary displayable character key.  Lots of stuff to handle
  * insert-mode, protected fields and etc.
  */
-bool
+Bool
 key_Character (cgcode)
 int	cgcode;
 {
@@ -238,27 +209,18 @@ int	cgcode;
 		    return (FALSE);
 		}
 		else {
-		    if (end_baddr > baddr)
+		    if (end_baddr > baddr) {
 			bcopy ((char *) &screen_buf[baddr], (char *) &screen_buf[baddr+1], end_baddr - baddr);
-		    else {
+		    } else {
 			bcopy ((char *) &screen_buf[0], (char *) &screen_buf[1], end_baddr);
 			screen_buf[0] = screen_buf[(ROWS * COLS) - 1];
 			bcopy ((char *) &screen_buf[baddr], (char *) &screen_buf[baddr+1], ((ROWS * COLS) - 1) - baddr);
 		    }
-		    screen_buf[baddr] = cgcode;
-		    cursor_off ();
-		    t_baddr = baddr;
-		    while (t_baddr != end_baddr) {
-			screen_update (t_baddr, *fa);
-			INC_BA (t_baddr);
-		    }
-		    screen_update (t_baddr, *fa);
+		    screen_add(baddr, cgcode);
 		}
 	    }
 	    else {
-		screen_buf[baddr] = cgcode;
-		cursor_off ();
-		screen_update (baddr, *fa);
+	        screen_add(baddr, cgcode);
 	    }
 	    INC_BA (baddr);
 	    if (IS_FA (screen_buf[baddr])) {
@@ -280,7 +242,7 @@ int	cgcode;
 		    INC_BA (baddr);
 	    }
 	    cursor_move (baddr);
-	    cursor_on ();
+	    /* cursor_on (); */
 	    *fa |= FA_MODIFY;
 	}
     }
@@ -293,7 +255,7 @@ int	cgcode;
  */
 key_AltCr ()
 {
-    alt_cursor ((bool) (!cursor_alt));
+    alt_cursor ((Bool) (!cursor_alt));
 }
 
 
@@ -302,7 +264,9 @@ key_AltCr ()
  */
 key_CursorBlink ()
 {
-    blink_cursor ((bool) (!cursor_blink));
+#if 0
+    blink_cursor ((Bool) (!cursor_blink));
+#endif
 }
 
 
@@ -311,7 +275,8 @@ key_CursorBlink ()
  */
 key_MonoCase ()
 {
-    change_case ((bool) (!mono_case));
+    change_case ((Bool) (!mono_case));
+    redraw(0, 0, 0, 0);
 }
 
 
@@ -320,12 +285,13 @@ key_MonoCase ()
  */
 key_FTab ()
 {
-    register int	baddr, nbaddr;
+    register int	baddr, nbaddr, count;
 
     if (kybdlock)
 	return;
     nbaddr = cursor_addr;
-    INC_BA (nbaddr);
+    if (!IS_FA(screen_buf[nbaddr]))
+        INC_BA (nbaddr);
     while (TRUE) {
 	baddr = nbaddr;
 	INC_BA (nbaddr);
@@ -333,10 +299,11 @@ key_FTab ()
 	&&  !FA_IS_PROTECTED (screen_buf[baddr])
 	&&  !IS_FA (screen_buf[nbaddr]))
 	    break;
-	if (baddr == cursor_addr) {
+	if (baddr == cursor_addr && count == 0) {
 	    cursor_move (0);
 	    return;
 	}
+	count++;
     }
     INC_BA (baddr);
     cursor_move (baddr);
@@ -400,7 +367,7 @@ key_Home ()
 
     if (kybdlock)
 	return;
-    fa = get_field_attribute (0);
+    fa = get_field_attribute ((ROWS*COLS)-1);
     if (!FA_IS_PROTECTED (*fa))
 	cursor_move (0);
     else {
@@ -913,14 +880,16 @@ key_SysReq ()
  */
 key_Clear ()
 {
+    extern Display *display;
+    extern Window w;
+
     if (kybdlock)
 	return;
-    bzero ((char *) screen_buf, sizeof (screen_buf));
     buffer_addr = 0;
-    cursor_off ();
-    pw_writebackground (pixwin, 0, 0, COL_TO_X (COLS), ROW_TO_Y (ROWS), PIX_CLR);
+    /* cursor_off (); */
+    clear_text();
     cursor_move (0);
-    cursor_on ();
+    /* cursor_on (); */
     key_AID (AID_CLEAR);
 }
 
@@ -947,13 +916,11 @@ key_CursorSelect ()
 	sel = fa + 1;
 	switch (*sel) {
 	    case CG_GREATER:		/* > */
-		*sel = CG_QUESTION;	/* change to ? */
-		screen_update (sel - screen_buf, *fa);
+		screen_add(sel, CG_QUESTION); /* change to ? */
 		*fa &= ~FA_MODIFY;	/* clear mdt */
 		break;
 	    case CG_QUESTION:		/* ? */
-		*sel = CG_GREATER;	/* change to > */
-		screen_update (sel - screen_buf, *fa);
+		screen_add(sel,CG_GREATER);	/* change to > */
 		*fa |= FA_MODIFY;	/* set mdt */
 		break;
 	    case CG_BLANK:		/* space */
@@ -997,23 +964,21 @@ key_EraseEOF ()
     }
     else {
 	if (formatted) {	/* erase to next field attribute */
-	    cursor_off ();
+	    /* cursor_off (); */
 	    do {
-		screen_buf[baddr] = CG_NULLBLANK;
-		screen_update (baddr, *fa);
+		screen_add(baddr, CG_NULLBLANK);
 		INC_BA (baddr);
 	    } while (!IS_FA (screen_buf[baddr]));
 	    *fa |= FA_MODIFY;
-	    cursor_on ();
+	    /* cursor_on (); */
 	}
 	else {	/* erase to end of screen */
-	    cursor_off ();
+	    /* cursor_off (); */
 	    do {
-		screen_buf[baddr] = CG_NULLBLANK;
-		screen_update (baddr, *fa);
+		screen_add(baddr, CG_NULLBLANK);
 		INC_BA (baddr);
 	    } while (baddr != 0);
-	    cursor_on ();
+	    /* cursor_on (); */
 	}
     }
 }
@@ -1026,11 +991,12 @@ key_EraseInput ()
 {
     register int	baddr, sbaddr;
     u_char		fa;
-    bool		f;
+    Bool		f;
+    extern 		Display *display;
+    extern 		Window w;
 
     if (kybdlock)
 	return;
-    cursor_off ();
     if (formatted) {
 	/* find first field attribute */
 	baddr = 0;
@@ -1052,8 +1018,7 @@ key_EraseInput ()
 			f = TRUE;
 		    }
 		    if (!IS_FA (screen_buf[baddr])) {
-			screen_buf[baddr] = CG_NULLBLANK;
-			screen_update (baddr, fa);
+			screen_add(baddr, CG_NULLBLANK);
 		    }
 		}
 		while (!IS_FA (screen_buf[baddr]));
@@ -1068,15 +1033,9 @@ key_EraseInput ()
 	    cursor_move (0);
     }
     else {
-	bzero ((char *) screen_buf, sizeof (screen_buf));
-	pw_writebackground (
-	    pixwin,
-	    0, 0, COL_TO_X (COLS), ROW_TO_Y (ROWS),
-	    PIX_CLR
-	);
+	clear_text();
 	cursor_move (0);
     }
-    cursor_on ();
 }
 
 
@@ -1109,22 +1068,15 @@ key_Delete ()
 		break;
 	} while (end_baddr != baddr);
 	DEC_BA (end_baddr);
-	if (end_baddr > baddr)
+	if (end_baddr > baddr) {
 	    bcopy ((char *) &screen_buf[baddr+1], (char *) &screen_buf[baddr], end_baddr - baddr);
-	else {
+	} else {
 	    bcopy ((char *) &screen_buf[baddr+1], (char *) &screen_buf[baddr], ((ROWS * COLS) - 1) - baddr);
-	    screen_buf[(ROWS * COLS) - 1] = screen_buf[0];
+	    screen_add((ROWS * COLS) - 1, screen_buf[0]);
 	    bcopy ((char *) &screen_buf[1], (char *) &screen_buf[0], end_baddr);
 	}
-	screen_buf[end_baddr] = CG_NULLBLANK;
-	cursor_off ();
-	t_baddr = baddr;
-	while (t_baddr != end_baddr) {
-	    screen_update (t_baddr, *fa);
-	    INC_BA (t_baddr);
-	}
-	screen_update (t_baddr, *fa);
-	cursor_on ();
+	screen_add(end_baddr, CG_NULLBLANK);
+	screen_dirty = TRUE;
     }
 }
 
@@ -1141,198 +1093,51 @@ key_Insert ()
 
 
 /*
- * Catch and dispatch events coming in from suntools.  There are currently
- * two versions of this routine, one for type 3 keyboards (on Sun3's) and
- * one for type 4 keyboards (on Sun 386i's).  This should really be revamped
- * and made more general using a user customizable key definition configuration
- * file.  Mouse actions are also handled in here.
+ * Call by the toolkit for any key without special actions.
  */
-/*ARGSUSED*/
-Notify_value
-canvas_event_proc (win, event, arg)
-Window	win;
-Event	*event;
-caddr_t	arg;
+Default (w, event, params, num_params)
+	Widget w;
+	XEvent *event;
+	String *params;
+	Cardinal num_params;
 {
     register int	baddr;
     int			cgcode;
+    char		buf[10];
 
-#ifdef DEBUG
-	printf (
-	    "event: code=%d, flags=0x%x, shiftmask=0x%x, x,y=%d,%d\n",
-	    event->ie_code, event->ie_flags, event->ie_shiftmask,
-	    event->ie_locx, event->ie_locy
-	);
-#endif
-    switch (event_id (event)) {
+    if (XLookupString(event, buf, 10, 0, 0) != 1) {
+	/* fprintf(stderr, "unknown key seq %s\n", buf); */
+	return;
+    }
+    key_Character(asc2cg[buf[0]]);
+    return 0;
+}
 
-	/* function keys on top of keyboard */
-#ifdef TYPE4KBD
-	case KEY_TOP(1):
-	    if (event_shiftmask (event) & META_SHIFT_MASK)
-	        key_AltCr ();
-	    else
-	        key_PF1 ();
-	    break;
-	case KEY_TOP(2):
-	    if (event_shiftmask (event) & META_SHIFT_MASK)
-		key_CursorBlink ();
-	    else
-		key_PF2 ();
-	    break;
-	case KEY_TOP(3):
-	    if (event_shiftmask (event) & META_SHIFT_MASK)
-		key_Reset ();
-	    else
-		key_PF3 ();
-	    break;
-	case KEY_TOP(4):
-	    key_PF4 ();
-	    break;
-	case KEY_TOP(5):
-	    key_PF5 ();
-	    break;
-	case KEY_TOP(6):
-	    key_PF6 ();
-	    break;
-	case KEY_TOP(7):
-	    key_PF7 ();
-	    break;
-	case KEY_TOP(8):
-	    key_PF8 ();
-	    break;
-	case KEY_TOP(9):
-	    if (event_shiftmask (event) & META_SHIFT_MASK)
-		key_MonoCase ();
-	    else
-		key_PF9 ();
-	    break;
-	case KEY_TOP(10):
-	    key_PF10 ();
-	    break;
-	case KEY_TOP(11):
-	    key_PF11 ();
-	    break;
-	case KEY_TOP(12):
-	    key_PF12 ();
-	    break;
-#else
-	case KEY_TOP(1):
-	    key_AltCr ();
-	    break;
-	case KEY_TOP(2):
-	    key_CursorBlink ();
-	    break;
-	case KEY_TOP(3):
-	    key_Reset ();
-	    break;
-	case KEY_TOP(9):
-	    key_MonoCase ();
-	    break;
-#endif
+/*
+ * Usually bound to left mouse button.
+ */
+movecursor(w, event, params, num_params)
+	Widget w;
+	XEvent *event;
+	String *params;
+	Cardinal num_params;
+{
+   register int baddr; 
 
-	/* function keys on right of keyboard */
-	case KEY_RIGHT(1):
-	    if (event_shiftmask (event) & META_SHIFT_MASK)
-		key_PA1 ();
-	    else
-		key_Dup ();
-	    break;
-	case KEY_RIGHT(2):
-	    if (event_shiftmask (event) & META_SHIFT_MASK)
-		key_PA2 ();
-	    else
-		key_FieldMark ();
-	    break;
-	case KEY_RIGHT(3):
-	    if (event_shiftmask (event) & META_SHIFT_MASK)
-		key_Clear ();
-	    else
-		key_CursorSelect ();
-	    break;
-	case KEY_RIGHT(4):
-	    if (event_shiftmask (event) & META_SHIFT_MASK)
-		key_PF13 ();
-	    else
-		key_EraseEOF ();
-	    break;
-	case KEY_RIGHT(5):
-	    if (event_shiftmask (event) & META_SHIFT_MASK)
-		key_PF14 ();
-	    else
-		key_EraseInput ();
-	    break;
-	case KEY_RIGHT(6):
-	    if (event_shiftmask (event) & META_SHIFT_MASK)
-		key_PF15 ();
-	    else
-		key_SysReq ();
-	    break;
-	case KEY_RIGHT(7):
-	    if (event_shiftmask (event) & META_SHIFT_MASK)
-		key_PF16 ();
-	    else
-		key_Delete ();
-	    break;
-	case KEY_RIGHT(8):
-	    if (event_shiftmask (event) & META_SHIFT_MASK)
-		key_PF17 ();
-	    else
-		key_Up ();
-	    break;
-	case KEY_RIGHT(9):
-	    if (event_shiftmask (event) & META_SHIFT_MASK)
-		key_PF18 ();
-	    else
-		key_Insert ();
-	    break;
-	case KEY_RIGHT(10):
-	    if (event_shiftmask (event) & META_SHIFT_MASK)
-		key_PF19 ();
-	    else
-		key_Left ();
-	    break;
-	case KEY_RIGHT(11):
-	    if (event_shiftmask (event) & META_SHIFT_MASK)
-		key_PF20 ();
-	    else
-		key_Home ();
-	    break;
-	case KEY_RIGHT(12):
-	    if (event_shiftmask (event) & META_SHIFT_MASK)
-		key_PF21 ();
-	    else
-		key_Right ();
-	    break;
-	case KEY_RIGHT(13):
-	    if (event_shiftmask (event) & META_SHIFT_MASK)
-		key_PF22 ();
-	    else
-		key_Left2 ();
-	    break;
-	case KEY_RIGHT(14):
-	    if (event_shiftmask (event) & META_SHIFT_MASK)
-		key_PF23 ();
-	    else
-		key_Down ();
-	    break;
-	case KEY_RIGHT(15):
-	    if (event_shiftmask (event) & META_SHIFT_MASK)
-		key_PF24 ();
-	    else
-		key_Right2 ();
-	    break;
+#define event_x(event) event->xbutton.x
+#define event_y(event) event->xbutton.y
 
-	/* mouse events */
-	case MS_LEFT:	/* left mouse move cursor under pointer */
-	    if (kybdlock)
-		return (NOTIFY_IGNORED);
-	    baddr = ROWCOL_TO_BA(Y_TO_ROW (event_y (event)), 
-				 X_TO_COL (event_x (event)));
-	    while (baddr >= (COLS * ROWS))
-		baddr -= COLS;
-	    cursor_move (baddr);
-	    break;
+    if (kybdlock)
+        return 0;
+
+    baddr = ROWCOL_TO_BA(Y_TO_ROW (event_y (event)), 
+			X_TO_COL (event_x (event)));
+    while (baddr >= (COLS * ROWS))
+    baddr -= COLS;
+    cursor_move (baddr);
+}
+
+#if 0
 	case MS_MIDDLE:	/* middle mouse sets selections */
 	    baddr = ROWCOL_TO_BA(Y_TO_ROW (event_y (event)), 
 				 X_TO_COL (event_x (event)));
@@ -1348,185 +1153,153 @@ caddr_t	arg;
 	    if (seln_acquire (s_client, SELN_CARET) != SELN_CARET)
 		fprintf (stderr, "can't acquire SELN_CARET!\n");
 	    break;
-
-#ifdef DEBUG
-	/* things we need to catch in order for stuff to work
-	 * right, but we don't need to do anything explicitely
-	 * with them.
-	 */
-	case LOC_RGNEXIT:
-	case KBD_USE:
-	case KBD_DONE:
-	case WIN_REPAINT:
-	case WIN_RESIZE:
-	    break;
-
-	/* the system seems to pass these on AFTER it's
-	 * finished processing them.  so we gotta ignore them.
-	 */
-	case KEY_LEFT(1):	/* STOP */
-	case KEY_LEFT(2):	/* AGAIN */
-	case KEY_LEFT(3):	/* PROPS */
-	case KEY_LEFT(4):	/* UNDO */
-	case KEY_LEFT(5):	/* EXPOSE */
-	case KEY_LEFT(6):	/* PUT */
-	case KEY_LEFT(7):	/* OPEN */
-	case KEY_LEFT(8):	/* GET */
-	case KEY_LEFT(9):	/* FIND */
-	case KEY_LEFT(10):	/* DELETE */
-	    break;
 #endif
 
-	/* miscellany (character keys) */
-	default:
-	    if ((event_shiftmask (event) & META_SHIFT_MASK)) {
-		event_set_id (event, (event_id (event) & ~0x80));
-		switch (event_id (event)) {
-		    case 0x7F:	/* delete */
-		    case 0x08:	/* backspace */
-			/* alt-delete or alt-backspace is home */
-			key_Home ();
-			break;
-		    case '1':
-			key_PF1 ();
-			break;
-		    case '2':
-			key_PF2 ();
-			break;
-		    case '3':
-			key_PF3 ();
-			break;
-		    case '4':
-			key_PF4 ();
-			break;
-		    case '5':
-			key_PF5 ();
-			break;
-		    case '6':
-			key_PF6 ();
-			break;
-		    case '7':
-			key_PF7 ();
-			break;
-		    case '8':
-			key_PF8 ();
-			break;
-		    case '9':
-			key_PF9 ();
-			break;
-		    case '0':
-			key_PF10 ();
-			break;
-		    case '-':
-			key_PF11 ();
-			break;
-		    case '=':
-			key_PF12 ();
-			break;
-		    default:
-			return (NOTIFY_IGNORED);
-			break;
-		}
-	    }
-	    else if ((event_id (event) >= ' ' && event_id (event) <= '~')
-	    ||  event_id (event) == 0x1B) {
-		/* if a printable key or the escape key */
-		if (event_id (event) == 0x1B
-		&&  (event_shiftmask (event) & SHIFTMASK) != 0) {
-		    /* fake shift-ESC to something unique */
-		    event_set_id (event, 0x1C);
-		}
-		cgcode = asc2cg[event_id (event)];
-		if (cgcode == CG_NULLBLANK)
-		    return (NOTIFY_IGNORED);
-		else
-		    (void) key_Character (cgcode);
-	    }
-	    else if (event_id (event) == 0x08)
-		key_Left ();
-	    else if (event_id (event) == 0x09)
-		key_FTab ();
-	    else if (event_id (event) == 0x0A)
-		key_Newline ();
-	    else if (event_id (event) == 0x0D)
-		key_Enter ();
-	    else if (event_id (event) == 0x7F)
-		key_BTab ();
-	    else {
-#ifdef DEBUG
-		fprintf (stderr, "unknown event: %d\n", event_id (event));
-#endif
-		return (NOTIFY_IGNORED);
-	    }
-	    break;
-    }
-    return (NOTIFY_DONE);
-}
-
-
-/*
- * Initialize the canvas menu.
- */
-menu_init ()
+void
+string(w, event, params, nparams)
+    Widget w;
+    XEvent *event;
+    String *params;
+    Cardinal *nparams;
 {
+    int		i;
+    char	c;
+    char	*s;
 
-    Key_menu = menu_create (
-	MENU_ITEM,
-	    MENU_STRING,		"Show/Hide Key Panel",
-	    MENU_ACTION_PROC,		key_panel_toggle,
-	    0,
-	MENU_PULLRIGHT_ITEM, "Other Keys", menu_create (
-	    MENU_ITEM,
-		MENU_STRING,		"Reset",
-		MENU_ACTION_PROC,	key_Reset,
-		0,
-	    MENU_ITEM,
-		MENU_STRING,		"Erase EOF",
-		MENU_ACTION_PROC,	key_EraseEOF,
-		0,
-	    MENU_ITEM,
-		MENU_STRING,		"Erase Inp",
-		MENU_ACTION_PROC,	key_EraseInput,
-		0,
-	    MENU_ITEM,
-		MENU_STRING,		"Delete",
-		MENU_ACTION_PROC,	key_Delete,
-		0,
-	    MENU_ITEM,
-		MENU_STRING,		"Insert",
-		MENU_ACTION_PROC,	key_Insert,
-		0,
-	    MENU_ITEM,
-		MENU_STRING,		"Dup",
-		MENU_ACTION_PROC,	key_Dup,
-		0,
-	    MENU_ITEM,
-		MENU_STRING,		"FM",
-		MENU_ACTION_PROC,	key_FieldMark,
-		0,
-	    MENU_ITEM,
-		MENU_STRING,		"CursorSel",
-		MENU_ACTION_PROC,	key_CursorSelect,
-		0,
-	    MENU_ITEM,
-		MENU_STRING,		"Alternate Cursor",
-		MENU_ACTION_PROC,	key_AltCr,
-		0,
-	    MENU_ITEM,
-		MENU_STRING,		"Cursor Blink",
-		MENU_ACTION_PROC,	key_CursorBlink,
-		0,
-	    MENU_ITEM,
-		MENU_STRING,		"Monocase",
-		MENU_ACTION_PROC,	key_MonoCase,
-		0,
-	    0
-	),
-	MENU_ITEM,
-	    MENU_STRING,		"Stuff",
-	    MENU_ACTION_PROC,		stuff_seln,
-	    0,
-	0
-    );
-
+    for (i=0; i<*nparams; i++) {
+	for (s=params[i]; *s; s++) {
+	    if ((s[0] == '0' || s[0] == '\\') && s[1] && s[1] == 'x') {
+		/* Read hex value */
+		if (s[2]) {
+		    c = s[2];
+		    if (s[3]) {
+			c *= 16;
+			c += s[3];
+			s += 2;
+		    } else {
+			XtWarning("incomplete hex number in String action");
+			s += 1;
+		    }
+		} else {
+		    XtWarning("incomplete hex number in String action");
+		    c = 0;
+		}
+		s += 2;
+	    } else if (s[0] == '\\' && s[1]) {
+		switch (s[1]) {
+		case 'a':
+		    XtWarning("bell unsupported in String action");
+		    continue;
+		case 'b':
+		    key_Left();
+		    continue;
+		case 'f':
+		    key_Clear();
+		    continue;
+		case 'n':
+		    key_Enter();
+		    continue;
+		case 'r':
+		    key_Newline();
+		    continue;
+		case 't':
+		    key_FTab();
+		    continue;
+		case 'v':
+		    XtWarning("vertical tab unsupported in String action");
+		    continue;
+		case '\\':
+		    c = '\\';
+		    break;
+		case '?':
+		    c = '\?';
+		    break;
+		case '\'':
+		    c = '\'';
+		    break;
+		case '\"':
+		    c = '\"';
+		    break;
+		case '0':
+		case '1':
+		case '2':
+		case '3':
+		case '4':
+		case '5':
+		case '6':
+		case '7':
+		    XtWarning("octal escape not supported in String action");
+		    c = 0;
+		    break;
+		default:
+		    XtWarning("unknown escape in String action");
+		    c = s[1];
+		}
+		s += 2;
+	    } else {
+	        c = asc2cg[*s];
+	    }
+            key_Character(c);
+	}
+    }
 }
+
+XtActionsRec actions[] = {
+	{ "Redraw",	(XtActionProc)redraw },
+	{ "Insert",	(XtActionProc)key_Insert },
+	{ "Enter",	(XtActionProc)key_Enter },
+	{ "AltCursor",  (XtActionProc)key_AltCr },
+	{ "MonoCase",	(XtActionProc)key_MonoCase },
+	{ "Tab",	(XtActionProc)key_FTab },
+	{ "BackTab",	(XtActionProc)key_BTab },
+	{ "Reset",	(XtActionProc)key_Reset },
+	{ "Home",	(XtActionProc)key_Home },
+	{ "Left",	(XtActionProc)key_Left },
+	{ "Left2", 	(XtActionProc)key_Left2 },
+	{ "Right",	(XtActionProc)key_Right },
+	{ "Right2",	(XtActionProc)key_Right2 },
+	{ "Up",		(XtActionProc)key_Up },
+	{ "Down",	(XtActionProc)key_Down },
+	{ "Newline",	(XtActionProc)key_Newline },
+	{ "Dup",	(XtActionProc)key_Dup },
+	{ "FieldMark",	(XtActionProc)key_FieldMark },
+	{ "PA1",	(XtActionProc)key_PA1 },
+	{ "PA2",	(XtActionProc)key_PA2 },
+	{ "SysReq",	(XtActionProc)key_SysReq },
+	{ "Clear",	(XtActionProc)key_Clear },
+	{ "CursorSelect", (XtActionProc)key_CursorSelect },
+	{ "EraseEOF",	(XtActionProc)key_EraseEOF },
+	{ "EraseInput", (XtActionProc)key_EraseInput },
+	{ "Delete", 	(XtActionProc)key_Delete },
+	{ "Default",	(XtActionProc)Default },
+	{ "MoveCursor", (XtActionProc)movecursor },
+	{ "String",	(XtActionProc)string },
+	{ "ShiftOn",	(XtActionProc)shift_on },
+	{ "ShiftOff",	(XtActionProc)shift_off },
+	{ "PF1",	(XtActionProc)key_PF1 },
+	{ "PF2",	(XtActionProc)key_PF2 },
+	{ "PF3",	(XtActionProc)key_PF3 },
+	{ "PF4",	(XtActionProc)key_PF4 },
+	{ "PF5",	(XtActionProc)key_PF5 },
+	{ "PF6",	(XtActionProc)key_PF6 },
+	{ "PF7",	(XtActionProc)key_PF7 },
+	{ "PF8",	(XtActionProc)key_PF8 },
+	{ "PF9",	(XtActionProc)key_PF9 },
+	{ "PF10",	(XtActionProc)key_PF10 },
+	{ "PF11",	(XtActionProc)key_PF11 },
+	{ "PF12",	(XtActionProc)key_PF12 },
+	{ "PF13",	(XtActionProc)key_PF13 },
+	{ "PF14",	(XtActionProc)key_PF14 },
+	{ "PF15",	(XtActionProc)key_PF15 },
+	{ "PF16",	(XtActionProc)key_PF16 },
+	{ "PF17",	(XtActionProc)key_PF17 },
+	{ "PF18",	(XtActionProc)key_PF18 },
+	{ "PF19",	(XtActionProc)key_PF19 },
+	{ "PF20",	(XtActionProc)key_PF20 },
+	{ "PF21",	(XtActionProc)key_PF21 },
+	{ "PF22",	(XtActionProc)key_PF22 },
+	{ "PF23",	(XtActionProc)key_PF23 },
+	{ "PF24",	(XtActionProc)key_PF24 },
+};
+
+int actioncount = XtNumber(actions);
