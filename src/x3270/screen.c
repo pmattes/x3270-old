@@ -1558,8 +1558,16 @@ render_text(union sp *buffer, int baddr, int len, Boolean block_cursor,
 			if (toggled(MONOCASE))
 				rt_buf[j].byte2 =
 				    xfmap[ebc2uc[buffer[i].bits.cc]];
-			else
+			else {
+#if defined(DEBUG_HACK)
+				if (buffer[i].bits.cc == EBC_so)
+					rt_buf[j].byte2 = xfmap[0x4c];
+				else if (buffer[i].bits.cc == EBC_si)
+					rt_buf[j].byte2 = xfmap[0x6e];
+				else
+#endif
 				rt_buf[j].byte2 = xfmap[buffer[i].bits.cc];
+			}
 			j++;
 			break;
 		    case CS_APL:	/* GE (apl) */
@@ -3554,6 +3562,7 @@ load_fixed_font(const char *names, const char *reqd_display_charsets)
 		return NewString("Must specify two font names (SBCS+DBCS)");
 	}
 
+#if defined(X3270_DBCS) /*[*/
 	/* If there's a DBCS font, load that first. */
 	if (name2 != CN) {
 		/* Load the second font. */
@@ -3568,6 +3577,7 @@ load_fixed_font(const char *names, const char *reqd_display_charsets)
 		dbcs_font = None;
 		dbcs = False;
 	}
+#endif /*]*/
 
 	/* Load the SBCS font. */
 	r = lff_single(name1, charset1, False);
@@ -3610,8 +3620,12 @@ lff_single(const char *name, const char *reqd_display_charset, Boolean is_dbcs)
 	}
 
 	matches = XListFontsWithInfo(display, name, 1000, &count, &f);
-	if (matches == (char **)NULL)
+	if (matches == (char **)NULL) {
+#if defined(DEBUG_FONTPICK) /*[*/
+		printf("Font '%s' not found\n", name);
+#endif /*]*/
 		return xs_buffer("Font %s\nnot found", name);
+	}
 #if defined(DEBUG_FONTPICK) /*[*/
 	printf("%d fonts found for '%s'\n", count, name);
 #endif /*]*/
@@ -3662,6 +3676,7 @@ lff_single(const char *name, const char *reqd_display_charset, Boolean is_dbcs)
 #endif /*]*/
 			}
 
+#if defined(X3270_DBCS) /*[*/
 			if (!is_dbcs && dbcs_font_struct != NULL) {
 				if (pixel_size ==
 					get_pixel_size(dbcs_font_struct) &&
@@ -3672,6 +3687,7 @@ lff_single(const char *name, const char *reqd_display_charset, Boolean is_dbcs)
 				} else
 					continue;
 			}
+#endif /*]*/
 			if (best < 0 ||
 			    (labs(pixel_size - 14L) <
 			     labs(best_pixel_size - 14L)) ||
@@ -3727,6 +3743,7 @@ set_font_globals(XFontStruct *f, const char *ef, const char *fef, Font ff,
 	unsigned long svalue;
 	int i;
 
+#if defined(X3270_DBCS) /*[*/
 	if (is_dbcs) {
 		/* Hack. */
 		dbcs_font_struct = f;
@@ -3735,6 +3752,7 @@ set_font_globals(XFontStruct *f, const char *ef, const char *fef, Font ff,
 		Replace(full_efontname_dbcs, XtNewString(fef));
 		return;
 	}
+#endif /*]*/
 	Replace(efontname, XtNewString(ef));
 	Replace(full_efontname, XtNewString(fef));
 

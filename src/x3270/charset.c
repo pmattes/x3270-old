@@ -77,6 +77,7 @@ charset_defaults(void)
 	(void) memcpy((char *)ebc2cg, (char *)ebc2cg0, 256);
 	(void) memcpy((char *)cg2ebc, (char *)cg2ebc0, 256);
 	(void) memcpy((char *)ebc2asc, (char *)ebc2asc0, 256);
+	(void) memcpy((char *)asc2ebc, (char *)asc2ebc0, 256);
 #if defined(X3270_FT) /*[*/
 	(void) memcpy((char *)ft2asc, (char *)ft2asc0, 256);
 	(void) memcpy((char *)asc2ft, (char *)asc2ft0, 256);
@@ -87,6 +88,7 @@ charset_defaults(void)
 static unsigned char save_ebc2cg[256];
 static unsigned char save_cg2ebc[256];
 static unsigned char save_ebc2asc[256];
+static unsigned char save_asc2ebc[256];
 #if defined(X3270_FT) /*[*/
 static unsigned char save_ft2asc[256];
 static unsigned char save_asc2ft[256];
@@ -98,6 +100,7 @@ save_charset(void)
 	(void) memcpy((char *)save_ebc2cg, (char *)ebc2cg, 256);
 	(void) memcpy((char *)save_cg2ebc, (char *)cg2ebc, 256);
 	(void) memcpy((char *)save_ebc2asc, (char *)ebc2asc, 256);
+	(void) memcpy((char *)save_asc2ebc, (char *)asc2ebc, 256);
 #if defined(X3270_FT) /*[*/
 	(void) memcpy((char *)save_ft2asc, (char *)ft2asc, 256);
 	(void) memcpy((char *)save_asc2ft, (char *)asc2ft, 256);
@@ -110,6 +113,7 @@ restore_charset(void)
 	(void) memcpy((char *)ebc2cg, (char *)save_ebc2cg, 256);
 	(void) memcpy((char *)cg2ebc, (char *)save_cg2ebc, 256);
 	(void) memcpy((char *)ebc2asc, (char *)save_ebc2asc, 256);
+	(void) memcpy((char *)asc2ebc, (char *)save_asc2ebc, 256);
 #if defined(X3270_FT) /*[*/
 	(void) memcpy((char *)ft2asc, (char *)save_ft2asc, 256);
 	(void) memcpy((char *)asc2ft, (char *)save_asc2ft, 256);
@@ -422,8 +426,11 @@ remap_one(unsigned char ebc, KeySym iso, remap_scope scope, Boolean one_way)
 				/* into a hole */
 				ebc2cg[ebc] = CG_boxsolid;
 			}
-			if (ebc > 0x40)
+			if (ebc > 0x40) {
 				ebc2asc[ebc] = iso;
+				if (!one_way)
+					asc2ebc[iso] = ebc;
+			}
 		}
 #if defined(X3270_FT) /*[*/
 		if (ebc > 0x40) {

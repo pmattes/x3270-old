@@ -909,8 +909,11 @@ onscreen_char(int baddr, Boolean *ge)
 {
 	static int osc_baddr;
 	static unsigned char fa;
+#if defined(X3270_DBCS) /*[*/
 	int baddr2;
 	unsigned char wc[2];
+	enum dbcs_why why;
+#endif /*]*/
 
 	/* If we aren't moving forward, all bets are off. */
 	if (osc_valid && baddr < osc_baddr)
@@ -939,6 +942,24 @@ onscreen_char(int baddr, Boolean *ge)
 	/* If it isn't visible, then make it a blank. */
 	if (FA_IS_ZERO(fa))
 		return ' ';
+
+#if defined(X3270_DBCS) /*[*/
+	/* Handle DBCS. */
+	switch (ctlr_lookleft_state(baddr, &why)) {
+	case DBCS_LEFT:
+	    baddr2 = baddr;
+	    INC_BA(baddr2);
+	    dbcs_to_wchar(ea_buf[baddr].cc, ea_buf[baddr2].cc, wc);
+	    return wc[0];
+	case DBCS_RIGHT:
+	    baddr2 = baddr;
+	    DEC_BA(baddr2);
+	    dbcs_to_wchar(ea_buf[baddr2].cc, ea_buf[baddr].cc, wc);
+	    return wc[1];
+	default:
+	    break;
+	}
+#endif /*]*/
 
 	switch (ea_buf[baddr].cs) {
 	    case CS_BASE:
@@ -970,30 +991,6 @@ onscreen_char(int baddr, Boolean *ge)
 	    case CS_LINEDRAW:
 		/* vt100 line-drawing character */
 		return ea_buf[baddr].cc + 0x5f;
-	    case CS_DBCS:
-#if defined(X3270_DBCS) /*[*/
-		switch (ctlr_dbcs_state(baddr)) {
-		case DBCS_LEFT:
-		case DBCS_LEFT_WRAP:
-		    baddr2 = baddr;
-		    INC_BA(baddr2);
-		    dbcs_to_wchar(ea_buf[baddr].cc, ea_buf[baddr2].cc, wc);
-		    return wc[0];
-		    break;
-		case DBCS_RIGHT:
-		case DBCS_RIGHT_WRAP:
-		    baddr2 = baddr;
-		    DEC_BA(baddr2);
-		    dbcs_to_wchar(ea_buf[baddr2].cc, ea_buf[baddr].cc, wc);
-		    return wc[1];
-		    break;
-		default:
-		    return 0;
-		}
-		return 0;
-#else /*][*/
-		return 0;
-#endif /*]*/
 	}
 }
 
@@ -1085,6 +1082,10 @@ grab_sel(int start, int end, Boolean really, Time t)
 
 	if (!ever_3270 && !toggled(RECTANGLE_SELECT)) {
 		/* Continuous selections */
+		if (IS_RIGHT(ctlr_dbcs_state(start)))
+			DEC_BA(start);
+		if (IS_LEFT(ctlr_dbcs_state(end)))
+			INC_BA(end);
 		for (i = start; i <= end; i++) {
 			SET_SELECT(i);
 			if (really) {
@@ -1126,6 +1127,10 @@ grab_sel(int start, int end, Boolean really, Time t)
 	} else {
 		/* Rectangular selections */
 		if (start_row == end_row) {
+			if (IS_RIGHT(ctlr_dbcs_state(start)))
+				DEC_BA(start);
+			if (IS_LEFT(ctlr_dbcs_state(end)))
+				INC_BA(end);
 			for (i = start; i <= end; i++) {
 				SET_SELECT(i);
 				if (really) {
@@ -1157,7 +1162,17 @@ grab_sel(int start, int end, Boolean really, Time t)
 			}
 
 			for (row = start_row; row <= end_row; row++) {
-				for (col = start_col; col <= end_col; col++) {
+				int sc = start_col;
+				int ec = end_col;
+
+				if (sc &&
+				    IS_RIGHT(ctlr_dbcs_state(row*COLS + sc)))
+					sc = sc - 1;
+				if (ec < COLS-1 &&
+				    IS_LEFT(ctlr_dbcs_state(row*COLS + ec)))
+					ec = ec + 1;
+
+				for (col = sc; col <= ec; col++) {
 					SET_SELECT(row*COLS + col);
 					if (really) {
 						osc = onscreen_char(row*COLS + col, &ge);

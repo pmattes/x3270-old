@@ -84,11 +84,14 @@ static unsigned char pa_xlate[] = {
 static unsigned long unlock_id;
 #define UNLOCK_MS	350
 static Boolean key_Character(int code, Boolean with_ge, Boolean pasting);
-static Boolean key_WCharacter(unsigned char code[]);
 static Boolean flush_ta(void);
 static void key_AID(unsigned char aid_code);
 static void kybdlock_set(unsigned int bits, const char *cause);
 static KeySym MyStringToKeysym(char *s, enum keytype *keytypep);
+
+#if defined(X3270_DBCS) /*[*/
+static Boolean key_WCharacter(unsigned char code[]);
+#endif /*]*/
 
 static int nxk = 0;
 static struct xks {
@@ -131,6 +134,8 @@ static char dxl[] = "0123456789abcdef";
 #define FROM_HEX(c)	(strchr(dxl, tolower(c)) - dxl)
 
 extern Widget *screen;
+
+#define KYBDLOCK_IS_OERR	(kybdlock && !(kybdlock & ~KL_OERR_MASK))
 
 
 /*
@@ -496,6 +501,100 @@ Interrupt_action(Widget w unused, XEvent *event, String *params,
 
 
 
+/*
+ * Prepare for an insert of 'count' bytes.
+ * Returns True if the insert is legal, False otherwise.
+ */
+static Boolean
+ins_prep(int faddr, int baddr, int count)
+{
+	int next_faddr;
+	int xaddr;
+	int need;
+	int ntb;
+	int tb_start = -1;
+	int copy_len;
+
+	/* Find the end of the field. */
+	if (faddr == -1) {
+		/* Unformatted.  Use the end of the line. */
+		next_faddr = (((baddr / COLS) + 1) * COLS) % (ROWS*COLS);
+	} else {
+		next_faddr = faddr;
+		INC_BA(next_faddr);
+		while (next_faddr != faddr && !ea_buf[next_faddr].fa) {
+			INC_BA(next_faddr);
+		}
+	}
+
+	/* Are there enough NULLs or trailing blanks available? */
+	xaddr = baddr;
+	need = count;
+	ntb = 0;
+	while (need && (xaddr != next_faddr)) {
+		if (ea_buf[xaddr].cc == EBC_null)
+			need--;
+		else if (toggled(BLANK_FILL) &&
+			 (ea_buf[xaddr].cc == EBC_space)) {
+			if (tb_start == -1)
+				tb_start = xaddr;
+			ntb++;
+		} else {
+			tb_start = -1;
+			ntb = 0;
+		}
+		INC_BA(xaddr);
+	}
+#if defined(_ST) /*[*/
+	printf("need %d at %d, tb_start at %d\n", count, baddr, tb_start);
+#endif /*]*/
+	if (need - ntb > 0) {
+		operator_error(KL_OERR_OVERFLOW);
+		return False;
+	}
+
+	/*
+	 * Shift the buffer to the right until we've consumed the available
+	 * (and needed) NULLs.
+	 */
+	need = count;
+	xaddr = baddr;
+	while (need && (xaddr != next_faddr)) {
+		int n_nulls = 0;
+		int first_null = -1;
+
+		while (need &&
+		       ((ea_buf[xaddr].cc == EBC_null) ||
+		        (tb_start >= 0 && xaddr >= tb_start))) {
+			need--;
+			n_nulls++;
+			if (first_null == -1)
+				first_null = xaddr;
+			INC_BA(xaddr);
+		}
+		if (n_nulls) {
+			int to;
+
+			/* Shift right n_nulls worth. */
+			copy_len = first_null - baddr;
+			if (copy_len < 0)
+				copy_len += ROWS*COLS;
+			to = (baddr + n_nulls) % (ROWS*COLS);
+#if defined(_ST) /*[*/
+			printf("found %d NULLs at %d\n", n_nulls, first_null);
+			printf("copying %d from %d to %d\n", copy_len, to,
+			    first_null);
+#endif /*]*/
+			if (copy_len)
+				ctlr_wrapping_memmove(to, baddr, copy_len);
+		}
+		INC_BA(xaddr);
+	}
+
+	return True;
+
+}
+
 #define GE_WFLAG	0x100
 #define PASTE_WFLAG	0x200
 
@@ -530,9 +629,9 @@ key_Character_wrapper(Widget w unused, XEvent *event unused, String *params,
 static Boolean
 key_Character(int code, Boolean with_ge, Boolean pasting)
 {
-	register int	baddr, end_baddr;
+	register int	baddr, faddr, xaddr;
 	register unsigned char	fa;
-	Boolean no_room = False;
+	enum dbcs_why why;
 
 	if (kybdlock) {
 		char codename[64];
@@ -544,6 +643,7 @@ key_Character(int code, Boolean with_ge, Boolean pasting)
 		return False;
 	}
 	baddr = cursor_addr;
+	faddr = find_field_attribute(baddr);
 	fa = get_field_attribute(baddr);
 	if (ea_buf[baddr].fa || FA_IS_PROTECTED(fa)) {
 		operator_error(KL_OERR_PROTECTED);
@@ -555,63 +655,148 @@ key_Character(int code, Boolean with_ge, Boolean pasting)
 		operator_error(KL_OERR_NUMERIC);
 		return False;
 	}
-	if (reverse || (insert && ea_buf[baddr].cc)) {
-		int last_blank = -1;
 
-		/* Find next null, next fa, or last blank */
-		end_baddr = baddr;
-		if (ea_buf[end_baddr].cc == EBC_space)
-			last_blank = end_baddr;
-		do {
-			INC_BA(end_baddr);
-			if (ea_buf[end_baddr].cc == EBC_space)
-				last_blank = end_baddr;
-			if (ea_buf[end_baddr].cc == EBC_null
-			    ||  ea_buf[end_baddr].fa)
-				break;
-		} while (end_baddr != baddr);
+	/* Can't put an SBCS in a DBCS field. */
+	if (ea_buf[faddr].cs == CS_DBCS) {
+		operator_error(KL_OERR_DBCS);
+		return False;
+	}
 
-		/* Pretend a trailing blank is a null, if desired. */
-		if (toggled(BLANK_FILL) && last_blank != -1) {
-			INC_BA(last_blank);
-			if (last_blank == end_baddr) {
-				DEC_BA(end_baddr);
-				ctlr_add(end_baddr, EBC_null, 0);
+	/* If it's an SI (end of DBCS subfield), move over one position. */
+	if (ea_buf[baddr].cc == EBC_si) {
+		INC_BA(baddr);
+		if (baddr == faddr) {
+			operator_error(KL_OERR_OVERFLOW);
+			return False;
+		}
+	}
+
+	/* Add the character. */
+	if (ea_buf[baddr].cc == EBC_so) {
+
+		if (insert) {
+			if (!ins_prep(faddr, baddr, 1))
+				return False;
+		} else {
+			Boolean was_si = False;
+
+			/*
+			 * Overwriting an SO (start of DBCS subfield).
+			 * If it's followed by an SI, replace the SO/SI
+			 * pair with x/space.  If not, replace it and
+			 * the following DBCS character with
+			 * x/space/SO.
+			 */
+			xaddr = baddr;
+			INC_BA(xaddr);
+			was_si = (ea_buf[xaddr].cc == EBC_si);
+			ctlr_add(xaddr, EBC_space, CS_BASE);
+			ctlr_add_fg(xaddr, 0);
+			ctlr_add_bg(xaddr, 0);
+			if (!was_si) {
+				INC_BA(xaddr);
+				ctlr_add(xaddr, EBC_so, CS_BASE);
+				ctlr_add_fg(xaddr, 0);
+				ctlr_add_bg(xaddr, 0);
 			}
 		}
 
-		/* Check for field overflow. */
-		if (ea_buf[end_baddr].cc != EBC_null) {
+	} else switch (ctlr_lookleft_state(baddr, &why)) {
+	case DBCS_RIGHT:
+		DEC_BA(baddr);
+		/* fall through... */
+	case DBCS_LEFT:
+		if (why == DBCS_ATTRIBUTE) {
 			if (insert) {
-				operator_error(KL_OERR_OVERFLOW);
-				return False;
-			} else {	/* reverse */
-				no_room = True;
+				if (!ins_prep(faddr, baddr, 1))
+					return False;
+			} else {
+				/*
+				 * Replace single DBCS char with
+				 * x/space.
+				 */
+				xaddr = baddr;
+				INC_BA(xaddr);
+				ctlr_add(xaddr, EBC_space, CS_BASE);
+				ctlr_add_fg(xaddr, 0);
+				ctlr_add_gr(xaddr, 0);
 			}
 		} else {
-			/* Shift data over. */
-			if (end_baddr > baddr) {
-				/* At least one byte to copy, no wrap. */
-				ctlr_bcopy(baddr, baddr+1, end_baddr - baddr,
-				    0);
-			} else if (end_baddr < baddr) {
-				/* At least one byte to copy, wraps to top. */
-				ctlr_bcopy(0, 1, end_baddr, 0);
-				ctlr_add(0, ea_buf[(ROWS * COLS) - 1].cc, 0);
-				ctlr_bcopy(baddr, baddr+1,
-				    ((ROWS * COLS) - 1) - baddr, 0);
+			Boolean was_si;
+
+			if (insert) {
+				/*
+				 * Inserting SBCS into a DBCS subfield.
+				 * If this is the first position, we
+				 * can just insert one character in
+				 * front of the SO.  Otherwise, we'll
+				 * need room for SI (to end subfield),
+				 * the character, and SO (to begin the
+				 * subfield again).
+				 */
+				xaddr = baddr;
+				DEC_BA(xaddr);
+				if (ea_buf[xaddr].cc == EBC_so) {
+					DEC_BA(baddr);
+					if (!ins_prep(faddr, baddr, 1))
+						return False;
+				} else {
+					if (!ins_prep(faddr, baddr, 3))
+						return False;
+					xaddr = baddr;
+					ctlr_add(xaddr, EBC_si,
+					    CS_BASE);
+					ctlr_add_fg(xaddr, 0);
+					ctlr_add_gr(xaddr, 0);
+					INC_BA(xaddr);
+					INC_BA(baddr);
+					INC_BA(xaddr);
+					ctlr_add(xaddr, EBC_so,
+					    CS_BASE);
+					ctlr_add_fg(xaddr, 0);
+					ctlr_add_gr(xaddr, 0);
+				}
+			} else {
+				/* Overwriting part of a subfield. */
+				xaddr = baddr;
+				ctlr_add(xaddr, EBC_si, CS_BASE);
+				ctlr_add_fg(xaddr, 0);
+				ctlr_add_gr(xaddr, 0);
+				INC_BA(xaddr);
+				INC_BA(baddr);
+				INC_BA(xaddr);
+				was_si = (ea_buf[xaddr].cc == EBC_si);
+				ctlr_add(xaddr, EBC_space, CS_BASE);
+				ctlr_add_fg(xaddr, 0);
+				ctlr_add_gr(xaddr, 0);
+				if (!was_si) {
+					INC_BA(xaddr);
+					ctlr_add(xaddr, EBC_so,
+					    CS_BASE);
+					ctlr_add_fg(xaddr, 0);
+					ctlr_add_gr(xaddr, 0);
+				}
 			}
 		}
-
+		break;
+	default:
+	case DBCS_NONE:
+		if (insert && !ins_prep(faddr, baddr, 1))
+			return False;
+		break;
 	}
+	ctlr_add(baddr, (unsigned char)code,
+	    (unsigned char)(with_ge ? CS_GE : 0));
+	ctlr_add_fg(baddr, 0);
+	ctlr_add_gr(baddr, 0);
+	INC_BA(baddr);
 
 	/* Replace leading nulls with blanks, if desired. */
 	if (formatted && toggled(BLANK_FILL)) {
-		int		baddr_sof = find_field_attribute(cursor_addr);
 		register int	baddr_fill = baddr;
 
 		DEC_BA(baddr_fill);
-		while (baddr_fill != baddr_sof) {
+		while (baddr_fill != faddr) {
 
 			/* Check for backward line wrap. */
 			if ((baddr_fill % COLS) == COLS - 1) {
@@ -622,7 +807,7 @@ key_Character(int code, Boolean with_ge, Boolean pasting)
 				 * Check the field within the preceeding line
 				 * for NULLs.
 				 */
-				while (baddr_scan != baddr_sof) {
+				while (baddr_scan != faddr) {
 					if (ea_buf[baddr_scan].cc != EBC_null) {
 						aborted = False;
 						break;
@@ -639,20 +824,6 @@ key_Character(int code, Boolean with_ge, Boolean pasting)
 				ctlr_add(baddr_fill, EBC_space, 0);
 			DEC_BA(baddr_fill);
 		}
-	}
-
-	/* Add the character. */
-	if (no_room) {
-		do {
-			INC_BA(baddr);
-		} while (!ea_buf[baddr].fa);
-	} else {
-		ctlr_add(baddr, (unsigned char)code,
-		    (unsigned char)(with_ge ? CS_GE : 0));
-		ctlr_add_fg(baddr, 0);
-		ctlr_add_gr(baddr, 0);
-		if (!reverse)
-			INC_BA(baddr);
 	}
 
 	mdt_set(cursor_addr);
@@ -672,9 +843,11 @@ key_Character(int code, Boolean with_ge, Boolean pasting)
 		cursor_move(baddr);
 	}
 
+	(void) ctlr_dbcs_postprocess();
 	return True;
 }
 
+#if defined(X3270_DBCS) /*[*/
 static void
 key_WCharacter_wrapper(Widget w unused, XEvent *event unused, String *params,
     Cardinal *num_params unused)
@@ -699,6 +872,10 @@ key_WCharacter(unsigned char code[])
 	int baddr;
 	register unsigned char fa;
 	int faddr;
+	enum dbcs_state d;
+	int xaddr;
+	Boolean done = False;
+	extern unsigned char reply_mode; /* XXX */
 
 	if (kybdlock) {
 		char codename[64];
@@ -708,6 +885,14 @@ key_WCharacter(unsigned char code[])
 		return False;
 	}
 
+	/* In DBCS mode? */
+	if (!dbcs) {
+		trace_event("DBCS character received when not in DBCS mode, "
+		    "ignoring.\n");
+		return True;
+	}
+
+	/* In ANSI mode? */
 	if (IN_ANSI) {
 	    unsigned char wc[2];
 
@@ -733,39 +918,142 @@ key_WCharacter(unsigned char code[])
 		return False;
 	}
 
+	/* Check for insert mode. */
+
 	/*
-	 * See if this field can accept a DBCS character.
-	 * The rules for this are, umm, arcane.
+	 * Figure our what to do based on the DBCS state of the buffer.
+	 * Leaves baddr pointing to the next unmodified position.
 	 */
-	switch (ctlr_dbcs_state(cursor_addr)) {
-	default:
-	case DBCS_DEAD:
-		/* ??? */
-		break;
-	case DBCS_NONE:
-		/* see if the field allows SI/SO insertion */
-		operator_error(KL_OERR_PROTECTED);
-		/* XXX: Should be KL_OERR_DBCS */
-		return False;
-	case DBCS_LEFT:
-	case DBCS_LEFT_WRAP:
-		/* Easy. */
-		break;
+	switch (d = ctlr_dbcs_state(baddr)) {
 	case DBCS_RIGHT:
 	case DBCS_RIGHT_WRAP:
-		/* Almost as easy. */
+		/* Back up one position and process it as a LEFT. */
 		DEC_BA(baddr);
-		break;
-	case DBCS_SI:
-		/* If the field has room, we can move the SI. */
+		/* fall through... */
+	case DBCS_LEFT:
+	case DBCS_LEFT_WRAP:
+		/* Overwrite the existing character. */
+		if (insert) {
+			if (!ins_prep(faddr, baddr, 2)) {
+				return False;
+			}
+		}
+		ctlr_add(baddr, code[0], ea_buf[baddr].cs);
+		INC_BA(baddr);
+		ctlr_add(baddr, code[1], ea_buf[baddr].cs);
+		INC_BA(baddr);
+		done = True;
 		break;
 	case DBCS_SB:
-		/* Ditto the SO. */
+		/* Back up one position and process it as an SI. */
+		DEC_BA(baddr);
+		/* fall through... */
+	case DBCS_SI:
+		/* Make sure there's room to extend the subfield. */
+		/* XXX: Make sure we don't create SI, SI. */
+		if (insert) {
+			if (!ins_prep(faddr, baddr, 2)) {
+				return False;
+			}
+		} else {
+			xaddr = baddr;
+			INC_BA(xaddr);
+			if (ea_buf[xaddr].fa)
+				break;
+			INC_BA(xaddr);
+			if (ea_buf[xaddr].fa)
+				break;
+		}
+		ctlr_add(baddr, code[0], ea_buf[baddr].cs);
+		INC_BA(baddr);
+		ctlr_add(baddr, code[1], ea_buf[baddr].cs);
+		INC_BA(baddr);
+		ctlr_add(baddr, EBC_si, ea_buf[baddr].cs);
+		done = True;
+		break;
+	case DBCS_DEAD:
+		break;
+	case DBCS_NONE:
+		/* Can we add SO/SI to this field? */
+		if (ea_buf[faddr].ic) {
+			/* Is there room? */
+			if (insert) {
+				if (!ins_prep(faddr, baddr, 4)) {
+					return False;
+				}
+			} else {
+				xaddr = baddr;
+				INC_BA(xaddr); /* C0 */
+				if (ea_buf[xaddr].fa)
+					break;
+				INC_BA(xaddr); /* C1 */
+				if (ea_buf[xaddr].fa)
+					break;
+				INC_BA(xaddr); /* SI */
+				if (ea_buf[xaddr].fa)
+					break;
+			}
+			/* Yes, add it. */
+			ctlr_add(baddr, EBC_so, ea_buf[baddr].cs);
+			INC_BA(baddr);
+			ctlr_add(baddr, code[0], ea_buf[baddr].cs);
+			INC_BA(baddr);
+			ctlr_add(baddr, code[1], ea_buf[baddr].cs);
+			INC_BA(baddr);
+			ctlr_add(baddr, EBC_si, ea_buf[baddr].cs);
+			done = True;
+		} else if (reply_mode == SF_SRM_CHAR) {
+			/* Use the character attribute. */
+			if (insert) {
+				if (!ins_prep(faddr, baddr, 2)) {
+					return False;
+				}
+			} else {
+				xaddr = baddr;
+				INC_BA(xaddr);
+				if (ea_buf[xaddr].fa)
+					break;
+			}
+			ctlr_add(baddr, code[0], CS_DBCS);
+			INC_BA(baddr);
+			ctlr_add(baddr, code[1], CS_DBCS);
+			INC_BA(baddr);
+			done = True;
+		}
 		break;
 	}
 
-	return True;
+	if (done) {
+		/* Implement blank fill mode. */
+		if (toggled(BLANK_FILL)) {
+			xaddr = faddr;
+			INC_BA(xaddr);
+			while (xaddr != baddr) {
+				if (ea_buf[xaddr].cc == EBC_null)
+					ctlr_add(xaddr, EBC_space, CS_BASE);
+				else
+					break;
+				INC_BA(xaddr);
+			}
+		}
+
+		mdt_set(cursor_addr);
+		/* Implement auto-skip. */
+		while (ea_buf[baddr].fa) {
+			if (FA_IS_SKIP(ea_buf[baddr].cc))
+				baddr = next_unprotected(baddr);
+			else
+				INC_BA(baddr);
+		}
+		cursor_move(baddr);
+		(void) ctlr_dbcs_postprocess();
+		return True;
+	} else {
+		operator_error(KL_OERR_DBCS);
+		return False;
+	}
 }
+#endif /*]*/
 
 /*
  * Handle an ordinary character key, given an ASCII code.
@@ -879,8 +1167,8 @@ Tab_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 {
 	action_debug(Tab_action, event, params, num_params);
 	if (kybdlock) {
-		if (kybdlock == KL_OERR_PROTECTED) {
-			kybdlock_clr(KL_OERR_PROTECTED, "Tab");
+		if (KYBDLOCK_IS_OERR) {
+			kybdlock_clr(KL_OERR_MASK, "Tab");
 			status_reset();
 		} else {
 			enq_ta(Tab_action, CN, CN);
@@ -909,8 +1197,8 @@ BackTab_action(Widget w unused, XEvent *event, String *params,
 
 	action_debug(BackTab_action, event, params, num_params);
 	if (kybdlock) {
-		if (kybdlock == KL_OERR_PROTECTED) {
-			kybdlock_clr(KL_OERR_PROTECTED, "BackTab");
+		if (KYBDLOCK_IS_OERR) {
+			kybdlock_clr(KL_OERR_MASK, "BackTab");
 			status_reset();
 		} else {
 			enq_ta(BackTab_action, CN, CN);
@@ -1079,8 +1367,8 @@ Left_action(Widget w unused, XEvent *event, String *params,
 {
 	action_debug(Left_action, event, params, num_params);
 	if (kybdlock) {
-		if (kybdlock == KL_OERR_PROTECTED) {
-			kybdlock_clr(KL_OERR_PROTECTED, "Left");
+		if (KYBDLOCK_IS_OERR) {
+			kybdlock_clr(KL_OERR_MASK, "Left");
 			status_reset();
 		} else {
 			enq_ta(Left_action, CN, CN);
@@ -1291,8 +1579,8 @@ Right_action(Widget w unused, XEvent *event, String *params,
 
 	action_debug(Right_action, event, params, num_params);
 	if (kybdlock) {
-		if (kybdlock == KL_OERR_PROTECTED) {
-			kybdlock_clr(KL_OERR_PROTECTED, "Right");
+		if (KYBDLOCK_IS_OERR) {
+			kybdlock_clr(KL_OERR_MASK, "Right");
 			status_reset();
 		} else {
 			enq_ta(Right_action, CN, CN);
@@ -1329,8 +1617,8 @@ Left2_action(Widget w unused, XEvent *event, String *params,
 
 	action_debug(Left2_action, event, params, num_params);
 	if (kybdlock) {
-		if (kybdlock == KL_OERR_PROTECTED) {
-			kybdlock_clr(KL_OERR_PROTECTED, "Left2");
+		if (KYBDLOCK_IS_OERR) {
+			kybdlock_clr(KL_OERR_MASK, "Left2");
 			status_reset();
 		} else {
 			enq_ta(Left2_action, CN, CN);
@@ -1434,8 +1722,8 @@ Right2_action(Widget w unused, XEvent *event, String *params,
 
 	action_debug(Right2_action, event, params, num_params);
 	if (kybdlock) {
-		if (kybdlock == KL_OERR_PROTECTED) {
-			kybdlock_clr(KL_OERR_PROTECTED, "Right2");
+		if (KYBDLOCK_IS_OERR) {
+			kybdlock_clr(KL_OERR_MASK, "Right2");
 			status_reset();
 		} else {
 			enq_ta(Right2_action, CN, CN);
@@ -1581,8 +1869,8 @@ Up_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 
 	action_debug(Up_action, event, params, num_params);
 	if (kybdlock) {
-		if (kybdlock == KL_OERR_PROTECTED) {
-			kybdlock_clr(KL_OERR_PROTECTED, "Up");
+		if (KYBDLOCK_IS_OERR) {
+			kybdlock_clr(KL_OERR_MASK, "Up");
 			status_reset();
 		} else {
 			enq_ta(Up_action, CN, CN);
@@ -1612,8 +1900,8 @@ Down_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params
 
 	action_debug(Down_action, event, params, num_params);
 	if (kybdlock) {
-		if (kybdlock == KL_OERR_PROTECTED) {
-			kybdlock_clr(KL_OERR_PROTECTED, "Down");
+		if (KYBDLOCK_IS_OERR) {
+			kybdlock_clr(KL_OERR_MASK, "Down");
 			status_reset();
 		} else {
 			enq_ta(Down_action, CN, CN);
@@ -2522,8 +2810,12 @@ int
 emulate_input(char *s, int len, Boolean pasting)
 {
 	char c;
-	enum { BASE, DBCS1, BACKSLASH, BACKX, BACKP, BACKPA, BACKPF, OCTAL, HEX,
-	       XGE } state = BASE;
+	enum { BASE,
+#if defined(X3270_DBCS) /*[*/
+	       DBCS1,
+#endif /*]*/
+	       BACKSLASH, BACKX, BACKP, BACKPA, BACKPF, OCTAL, HEX, XGE
+	} state = BASE;
 	int literal = 0;
 	int nc = 0;
 	enum iaction ia = pasting ? IA_PASTE : IA_STRING;
@@ -2822,6 +3114,8 @@ emulate_input(char *s, int len, Boolean pasting)
 	}
 
 	switch (state) {
+	    case BASE:
+		break;
 	    case OCTAL:
 	    case HEX:
 		key_ACharacter((unsigned char) literal, KT_STD, ia);
@@ -2839,13 +3133,16 @@ emulate_input(char *s, int len, Boolean pasting)
 			state = BASE;
 		}
 		break;
-	    default:
+#if defined(X3270_DBCS) /*[*/
+	    case DBCS1:
+		/* We could say something here, but we won't. */
 		break;
-	}
-
-	if (state != BASE)
+#endif /*]*/
+	    default:
 		popup_an_error("%s: Missing data after \\",
 		    action_name(String_action));
+		break;
+	}
 
 	return len;
 }

@@ -1063,6 +1063,7 @@ x3270.message.byte:				byte
 x3270.message.bytes:				bytes
 x3270.message.record:				record
 x3270.message.records:				records
+x3270.message.statusDbcs:			DBCS
 x3270.message.statusNotConnected:		Not Connected
 x3270.message.statusTwait:			Wait
 x3270.message.statusSyswait:			System
@@ -2003,6 +2004,6 @@ x3270.charset.thai: #table\n\
 ! Note that the 'charset' definition applies only to the single-byte character
 ! set (836), not the double-byte character set (837).
 x3270.codepage.simplified-chinese: 0x04960344+0xffff0345
-x3270.displayCharset.simplified-chinese: iso8859-1+gb2312.1980-0
+x3270.displayCharset.simplified-chinese: 3270cg-1a,iso8859-1+gb2312.1980-0
 x3270.charset.simplified-chinese: \n
 x3270.dbcsConverters.simplified-chinese: ibm-837_P100-2000,gb2312-1980

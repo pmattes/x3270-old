@@ -1,5 +1,5 @@
 '\" t
-.TH x3270 1 "27 September 2002"
+.TH x3270 1 "04 October 2002"
 .SH "NAME"
 x3270 \-
 \s-1IBM\s+1 host access tool
@@ -5663,4 +5663,4 @@ x3270 is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
 .SH "VERSION"
-x3270 3.2.20-dbcs-alpha1
+x3270 3.2.20-dbcs-alpha2

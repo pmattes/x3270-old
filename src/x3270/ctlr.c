@@ -1873,7 +1873,7 @@ ctlr_lookleft_state(int baddr, enum dbcs_why *why)
 {
 	int faddr;
 	int fdist;
-	int xbaddr;
+	int xaddr;
 	Boolean si = False;
 #define	AT_END(f, b) \
 	(((f) < 0 && (b) == ROWS*COLS - 1) || \
@@ -1889,8 +1889,8 @@ ctlr_lookleft_state(int baddr, enum dbcs_why *why)
 	 */
 	if (ea_buf[faddr].cs == CS_DBCS) {
 		*why = DBCS_FIELD;
-		fdist = baddr + ROWS*COLS - faddr;
-		return (fdist % 2)? DBCS_RIGHT: DBCS_LEFT;
+		fdist = (baddr + ROWS*COLS) - faddr;
+		return (fdist % 2)? DBCS_LEFT: DBCS_RIGHT;
 	}
 
 	/*
@@ -1901,16 +1901,16 @@ ctlr_lookleft_state(int baddr, enum dbcs_why *why)
 	if (ea_buf[baddr].cs == CS_DBCS) {
 		if (ea_buf[baddr].cc == EBC_so || ea_buf[baddr].cc == EBC_si)
 			return DBCS_NONE;
-		xbaddr = baddr;
-		while (!AT_END(faddr, xbaddr) &&
-		       ea_buf[xbaddr].cs == CS_DBCS &&
-		       ea_buf[xbaddr].cc != EBC_so &&
-		       ea_buf[xbaddr].cc != EBC_si) {
-			DEC_BA(xbaddr);
+		xaddr = baddr;
+		while (!AT_END(faddr, xaddr) &&
+		       ea_buf[xaddr].cs == CS_DBCS &&
+		       ea_buf[xaddr].cc != EBC_so &&
+		       ea_buf[xaddr].cc != EBC_si) {
+			DEC_BA(xaddr);
 		}
 		*why = DBCS_ATTRIBUTE;
-		fdist = xbaddr + ROWS*COLS - faddr;
-		return (fdist % 2)? DBCS_RIGHT: DBCS_LEFT;
+		fdist = (baddr + ROWS*COLS) - xaddr;
+		return (fdist % 2)? DBCS_LEFT: DBCS_RIGHT;
 	}
 
 	/*
@@ -1920,20 +1920,20 @@ ctlr_lookleft_state(int baddr, enum dbcs_why *why)
 	 */
 	if (ea_buf[baddr].cc == EBC_so || ea_buf[baddr].cc == EBC_si)
 		return DBCS_NONE;
-	xbaddr = baddr;
-	while (!AT_END(faddr, xbaddr)) {
-		if (ea_buf[xbaddr].cc == EBC_si)
+	xaddr = baddr;
+	while (!AT_END(faddr, xaddr)) {
+		if (ea_buf[xaddr].cc == EBC_si)
 			si = True;
-		else if (ea_buf[xbaddr].cc == EBC_so) {
+		else if (ea_buf[xaddr].cc == EBC_so) {
 			if (si)
 				si = False;
 			else {
 				*why = DBCS_SUBFIELD;
-				fdist = xbaddr + ROWS*COLS - faddr;
+				fdist = (baddr + ROWS*COLS) - xaddr;
 				return (fdist % 2)? DBCS_LEFT: DBCS_RIGHT;
 			}
 		}
-		DEC_BA(xbaddr);
+		DEC_BA(xaddr);
 	}
 
 	/* Nada. */
@@ -2339,6 +2339,41 @@ ctlr_add_ic(int baddr, unsigned char ic)
 }
 
 /*
+ * Wrapping bersion of ctlr_bcopy.
+ */
+void
+ctlr_wrapping_memmove(int baddr_to, int baddr_from, int count)
+{
+	/*
+	 * The 'to' region, the 'from' region, or both can wrap the screen,
+	 * and can overlap each other.  memmove() is smart enough to deal with
+	 * overlaps, but not across a screen wrap.
+	 *
+	 * It's faster to figure out if none of this is true, then do a slow
+	 * location-at-a-time version only if it happens.
+	 */
+	if (baddr_from + count <= ROWS*COLS &&
+	    baddr_to + count <= ROWS*COLS) {
+		ctlr_bcopy(baddr_from, baddr_to, count, True);
+	} else {
+		int i, from, to;
+
+		for (i = 0; i < count; i++) {
+		    if (baddr_to > baddr_from) {
+			/* Shifting right, move left. */
+			to = (baddr_to + count - 1 - i) % ROWS*COLS;
+			from = (baddr_from + count - 1 - i) % ROWS*COLS;
+		    } else {
+			/* Shifting left, move right. */
+			to = (baddr_to + i) % ROWS*COLS;
+			from = (baddr_from + i) % ROWS*COLS;
+		    }
+		    ctlr_bcopy(from, to, 1, True);
+		}
+	}
+}
+
+/*
  * Copy a block of characters in the 3270 buffer, optionally including all of
  * the extended attributes.  (The character set, which is actually kept in the
  * extended attributes, is considered part of the characters here.)
@@ -2505,6 +2540,7 @@ ctlr_shrink(void)
 	screen_disp(False);
 }
 
+#if defined(X3270_DBCS) /*[*/
 /*
  * DBCS state query.
  * Returns:
@@ -2523,6 +2559,7 @@ ctlr_dbcs_state(int baddr)
 {
 	return ea_buf[baddr].db;
 }
+#endif /*]*/
 
 
 /*
