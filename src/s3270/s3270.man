@@ -1,5 +1,5 @@
 '\" t
-.TH S3270 1 "15 May 2000"
+.TH S3270 1 "1 June 2000"
 .SH NAME
 s3270 \-
 .SM IBM
@@ -7,7 +7,7 @@ host access tool
 .SH SYNOPSIS
 .B s3270
 .RI [ options ]
-.RI [[ prefix :]...[ LUname @] hostname [: port ]]
+.RI [ host ]
 .SH DESCRIPTION
 .B s3270
 opens a telnet connection to an
@@ -16,7 +16,15 @@ host, then allows a script to run the host login session.  It
 is derived from
 .IR x3270 ,
 an X-windows IBM 3270 emulator.
+It supports both the "standard" 3270 TELNET protocol and the TN3270E protocol,
+except for printers, and supports IND$FILE file transfer.
 .LP
+The full syntax for
+.I host
+is:
+.RS
+.RI [[ prefix :]...[ LUname @] hostname [: port ]]
+.RE
 Prepending a
 .B p:
 onto
@@ -65,8 +73,7 @@ understands the following options:
 Sets up
 .SM APL
 mode.
-This is actually an abbreviation for several options.
-See
+Also see
 .SM "APL SUPPORT"
 below.
 .TP
@@ -243,7 +250,6 @@ When emulating an
 terminal,
 .B s3270
 supports both character-at-a-time mode and line mode operation.
-You may select the mode with a menu option.
 When in line mode, the special characters and operational characteristics are
 defined as follows:
 .PP
@@ -267,12 +273,12 @@ End of file	^D
 .B s3270
 has a number of configurable modes which may be selected by the -set and -clear options.
 .TP
-.B Monocase
+.B monoCase
 If set,
 .B s3270
 operates in uppercase-only mode.
 .TP
-.B Blank Fill
+.B blankFill
 If set,
 .B s3270
 behaves in some un-3270-like ways.
@@ -283,28 +289,12 @@ Second, in insert mode, trailing blanks in a field are treated like nulls,
 eliminating the annoying ``lock-up'' that often occurs when inserting into an
 field with (apparent) space at the end.
 .TP
-.B Wraparound
+.B lineWrap
 If set, the
 .SM ANSI
 terminal emulator automatically assumes a
 .SM NEWLINE
 character when it reaches the end of a line.
-.PP
-The names of the toggles for use with the
-.B -set
-and
-.B -clear
-options are as follows:
-.LP
-.TS
-center;
-l l .
-Menu Option	Name
-_
-Monocase	monoCase
-Blank Fill	blankFill
-Wraparound	lineWrap
-.TE
 .SH ACTIONS
 .B s3270
 supports the following basic actions:
@@ -355,15 +345,15 @@ String(\fIstring\fP)	insert string (simple macro facility)
 SysReq	System Request AID
 Tab	move cursor to next input field
 ToggleInsert	toggle insert mode
+Transfer \fIoption\fP=\fIvalue\fP...	file transfer
 Up	move cursor up
 .TE
 .RE
 .SH "SCRIPTS"
-There are several types of scripting functions available.
+There are several types of nested scripting functions available.
 .TP
 .B The String() Action
-The simplest method for macros is provided via the String action, which can
-be bound to any key in a keymap.
+The simplest method for macros is provided via the String action.
 The arguments to String() are one or more double-quoted strings which are
 inserted directly as if typed.
 The C backslash conventions are honored as follows.
@@ -386,11 +376,6 @@ l l.
 .TE
 .RE
 .IP
-An example action would be:
-.RS 1i
-Meta<Key>p: String("probs clearrdr\en")
-.RE
-.IP
 .B Note:
 The strings are in
 .SM ASCII
@@ -398,9 +383,6 @@ and converted to
 .SM EBCDIC,
 so beware of inserting
 control codes.
-Also, a backslash before a
-.B p
-must be doubled so it will not be removed when resource files are read.
 .IP
 There is also an alternate form of the String action, HexString, which is
 used to enter non-printing data.
@@ -585,6 +567,8 @@ Character Set Reference, IBM GA27\-3831
 RFC 1576, TN3270 Current Practices
 .br
 RFC 1646, TN3270 Extensions for LUname and Printer Selection
+.br
+RFC 2355, TN3270 Enhancements
 .SH COPYRIGHTS
 .LP
 Modifications Copyright 1993, 1994, 1995, 1996, 1997, 2000 by Paul Mattes.
@@ -605,4 +589,4 @@ notice.
 .RE
 5250 Emulation Code copyright Minolta (Schweiz) AG, Beat Rubischon.
 .SH VERSION
-s3270 3.2.5
+s3270 3.2.8

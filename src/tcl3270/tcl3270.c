@@ -26,7 +26,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tcl3270.c,v 1.1 2000/05/30 01:45:09 pdm Exp $
+ * RCS: @(#) $Id: tcl3270.c,v 1.3 2000/06/02 02:31:12 pdm Exp $
  */
 
 /*
@@ -49,6 +49,7 @@
 #include "ansic.h"
 #include "charsetc.h"
 #include "ctlrc.h"
+#include "ftc.h"
 #include "hostc.h"
 #include "keymapc.h"
 #include "kybdc.h"
@@ -215,8 +216,11 @@ main_connect(Boolean ignored)
 {
 	if (CONNECTED)
 		ctlr_erase(True);
-	else
+	else {
+		if (appres.disconnect_clear)
+			ctlr_erase(True);
 		ps_clear();
+	}
 }
 
 /* Initialization procedure for tcl3270. */
@@ -233,6 +237,7 @@ tcl3270_main(int argc, char *argv[])
 	ctlr_reinit(-1);
 	kybd_init();
 	ansi_init();
+	ft_init();
 
 	register_schange(ST_CONNECT, main_connect);
 	register_schange(ST_3270_MODE, main_connect);
@@ -327,6 +332,10 @@ x3270_cmd(ClientData clientData, Tcl_Interp *interp, int objc,
 	int count;
 	char **argv = NULL;
 
+	/* Set up ugly global variables. */
+	in_cmd = True;
+	sms_interp = interp;
+
 	/* Synchronously run any pending I/O's and timeouts.  Ugly. */
 	while (process_events(False))
 		;
@@ -359,9 +368,7 @@ x3270_cmd(ClientData clientData, Tcl_Interp *interp, int objc,
 		}
 	}
 
-	/* Set up the ugly global variables and run the action. */
-	in_cmd = True;
-	sms_interp = interp;
+	/* Set up more ugly global variables and run the action. */
 	cmd_ret = TCL_OK;
 	(*actions[i].proc)((Widget)NULL, (XEvent *)NULL, argv, &count);
 
@@ -370,7 +377,9 @@ x3270_cmd(ClientData clientData, Tcl_Interp *interp, int objc,
 	 * we can proceed.
 	 */
 	process_pending_string();
-	while (KBWAIT || (connect_waiting && !CAN_PROCEED)) {
+	while (KBWAIT ||
+	        (connect_waiting && !CAN_PROCEED) ||
+	       ft_state != FT_NONE) {
 		(void) process_events(True);
 		process_pending_string();
 	}
@@ -667,4 +676,11 @@ Status_action(Widget w unused, XEvent *event unused, String *params,
 
 	Tcl_SetResult(sms_interp, s, TCL_VOLATILE);
 	Free(connect_stat);
+}
+
+/* Generate a response to a script command. */
+void
+sms_info(char *msg)
+{
+	Tcl_SetResult(sms_interp, msg, TCL_VOLATILE);
 }

@@ -207,7 +207,7 @@ dft_data_insert(struct data_buffer *data_bufr)
 		unsigned char *dollarp;
 
 		/* Get storage to copy the message. */
-		msgp = (unsigned char *)XtMalloc(my_length + 1);
+		msgp = (unsigned char *)Malloc(my_length + 1);
 
 		/* Copy the message. */
 		memcpy(msgp, data_bufr->data, my_length);
@@ -221,16 +221,16 @@ dft_data_insert(struct data_buffer *data_bufr)
 
 		/* If transfer completed ok, use our msg. */
 		if (memcmp(msgp, END_TRANSFER, strlen(END_TRANSFER)) == 0) {
-			XtFree((XtPointer)msgp);
+			Free(msgp);
 			ft_complete((String)NULL);
 		} else if (ft_state == FT_ABORT_SENT && abort_string != CN) {
-			XtFree((XtPointer)msgp);
+			Free(msgp);
 			ft_complete(abort_string);
-			XtFree(abort_string);
+			Free(abort_string);
 			abort_string = CN;
 		} else {
 			ft_complete((char *)msgp);
-			XtFree((XtPointer)msgp);
+			Free(msgp);
 		}
 	} else if (my_length > 0) {
 		/* Write the data out to the file. */
@@ -270,7 +270,7 @@ dft_data_insert(struct data_buffer *data_bufr)
 			    strerror(errno));
 
 			dft_abort(buf, TR_DATA_INSERT);
-			XtFree(buf);
+			Free(buf);
 		}
 
 		/* Add up amount transferred. */
@@ -458,8 +458,8 @@ static void
 dft_abort(const char *s, unsigned short code)
 {
 	if (abort_string != CN)
-		XtFree(abort_string);
-	abort_string = XtNewString(s);
+		Free(abort_string);
+	abort_string = NewString(s);
 
 	trace_ds("> WriteStructuredField FileTransferData Error\n");
 

@@ -32,6 +32,7 @@
 
 #include "actionsc.h"
 #include "ctlrc.h"
+#include "ftc.h"
 #include "hostc.h"
 #include "kybdc.h"
 #include "macrosc.h"
@@ -64,6 +65,7 @@ typedef struct sms {
 		SS_RUNNING,	/* command executing */
 		SS_KBWAIT,	/* command awaiting keyboard unlock */
 		SS_CONNECT_WAIT,/* command awaiting connection to complete */
+		SS_FT_WAIT,	/* command awaiting file transfer to complete */
 		SS_PAUSED,	/* stopped in PauseScript action */
 		SS_WAIT_ANSI,	/* awaiting completeion of Wait(ansi) */
 		SS_WAIT_3270,	/* awaiting completeion of Wait(3270) */
@@ -636,6 +638,8 @@ execute_command(enum iaction cause, char *s, char **np)
 		return EM_ERROR;
 	}
 
+	if (ft_state != FT_NONE)
+		sms->state = SS_FT_WAIT;
 	if (KBWAIT)
 		return EM_PAUSE;
 	else
@@ -985,6 +989,26 @@ sms_error(char *msg)
 		host_disconnect(True);
 }
 
+/* Generate a response to a script command. */
+void
+sms_info(char *msg)
+{
+	char *nl;
+
+	do {
+		int nc;
+
+		nl = strchr(msg, '\n');
+		if (nl != CN) {
+			nc = nl - msg;
+		} else
+			nc = strlen(msg);
+		if (nc)
+			(void) fprintf(sms->outfile, "data: %.*s\n", nc, msg);
+		msg = nl + 1;
+	} while (nl);
+}
+
 /* Process available input from a script. */
 static void
 script_input(void)
@@ -1068,6 +1092,10 @@ sms_continue(void)
 			    (CONNECTED && (kybdlock & KL_AWAITING_FIRST)))
 				return;
 			break;
+
+		    case SS_FT_WAIT:
+			if (ft_state == FT_NONE)
+				break;
 
 		    case SS_PAUSED:
 			return;
@@ -1337,7 +1365,7 @@ script_prompt(Boolean success)
 #if defined(X3270_DISPLAY) /*[*/
 	    XtWindow(toplevel),
 #else /*][*/
-	    0,
+	    0L,
 #endif /*]*/
 	    success ? "ok" : "error");
 

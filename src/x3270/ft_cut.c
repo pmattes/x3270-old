@@ -305,7 +305,7 @@ cut_control_code(void)
 			buf = saved_errmsg;
 			saved_errmsg = CN;
 		} else {
-			bp = buf = XtMalloc(81);
+			bp = buf = Malloc(81);
 			for (i = 0; i < 80; i++)
 				*bp++ = cg2asc[screen_buf[O_CC_MESSAGE + i]];
 			*bp-- = '\0';
@@ -319,7 +319,7 @@ cut_control_code(void)
 				strcpy(buf, get_message("ftHostCancel"));
 		}
 		ft_complete(buf);
-		XtFree(buf);
+		Free(buf);
 		break;
 	    default:
 		trace_ds("unknown 0x%04x\n", code);
@@ -367,7 +367,7 @@ cut_data_request(void)
 		msg = xs_buffer("read(%s): %s", ft_local_filename,
 		    strerror(errno));
 		cut_abort(msg, SC_ABORT_FILE);
-		XtFree(msg);
+		Free(msg);
 		return;
 	}
 
@@ -467,7 +467,7 @@ cut_data(void)
 		msg = xs_buffer("write(%s): %s", ft_local_filename,
 		    strerror(errno));
 		cut_abort(msg, SC_ABORT_FILE);
-		XtFree(msg);
+		Free(msg);
 	} else {
 		ft_length += conv_length;
 		ft_update_length();
@@ -493,8 +493,8 @@ cut_abort(const char *s, unsigned short reason)
 {
 	/* Save the error message. */
 	if (saved_errmsg != CN)
-		XtFree(saved_errmsg);
-	saved_errmsg = XtNewString(s);
+		Free(saved_errmsg);
+	saved_errmsg = NewString(s);
 
 	/* Send the abort sequence. */
 	ctlr_add(RO_FRAME_TYPE, ebc2cg[RFT_CONTROL_CODE], 0);

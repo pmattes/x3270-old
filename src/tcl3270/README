@@ -15,16 +15,12 @@ FAQ
      Frequently Asked Questions (what to do when something goes wrong)
 New
      What's new in this release
-Bugs
-     What's broken in this release
-Wishlist
-     What isn't in this release
-Y2K
-     Year 2000 Compliance Statement
 
-There is also a hypertext version of the tcl3270 man page.  Updates to
-tcl3270, as well as the current status of development and bugs, are
-available from the x3270 Web Page,
+There is also a hypertext version of the tcl3270 man page.  Please read
+Build before going ahead and building the program.  Also, if you have a
+problem, scan through FAQ; there are lots of interesting answers there.
+Updates to tcl3270, as well as the current status of development and bugs,
+ are available from the x3270 Web Page,
 http://www.geocities.com/SiliconValley/Peaks/7814.
 
 Feel free to send comments, criticism, suggestions, complaints, etc., to

@@ -59,7 +59,7 @@ usage(char *msg)
 static void
 main_connect(Boolean ignored)
 {       
-	if (CONNECTED)
+	if (CONNECTED || appres.disconnect_clear)
                 ctlr_erase(True);
 } 
 

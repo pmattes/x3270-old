@@ -1,0 +1,23 @@
+<HTML>
+<TITLE>tcl3270 Build and Install Instructions</TITLE>
+<H1>tcl3270 Build and Install Instructions</H1>
+
+To build tcl3270, type:
+<PRE>
+    make
+</PRE>
+To install tcl3270 in the default install directory (/usr/local), type:
+<PRE>
+    make install
+</PRE>
+To install in a different directory, add an INSTALLDIR= clause to the
+make command, e.g.:
+<PRE>
+    make install INSTALLDIR=/tools
+</PRE>
+Note that tcl3270 uses tcl 8.2, and assumes that tcl has been installed in
+/usr/local/include and /usr/local/lib.  If you have a different version of tcl,
+or it is installed in different directories, you may need to edit the Makefile
+before building tcl3270.
+<P>
+tcl3270 has <B>not</B> been tested with earlier versions of tcl.

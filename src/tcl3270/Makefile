@@ -14,11 +14,11 @@ TCL_INCDIR = /usr/local/include/tcl8.2
 TCL_LIBDIR = /usr/local/lib
 TCL_LIB = tcl82
 
-SRCS = actions.c ansi.c apl.c charset.c ctlr.c glue.c host.c kybd.c \
-	print.c resources.c sf.c tables.c tcl3270.c telnet.c \
+SRCS = actions.c ansi.c apl.c charset.c ctlr.c ft.c ft_cut.c ft_dft.c glue.c \
+	host.c kybd.c print.c resources.c sf.c tables.c tcl3270.c telnet.c \
 	toggles.c trace_ds.c util.c xio.c XtGlue.c
-VOBJS = actions.o ansi.o apl.o charset.o ctlr.o glue.o host.o kybd.o \
-	print.o resources.o sf.o tables.o tcl3270.o telnet.o \
+VOBJS = actions.o ansi.o apl.o charset.o ctlr.o ft.o ft_cut.o ft_dft.o glue.o \
+	host.o kybd.o print.o resources.o sf.o tables.o tcl3270.o telnet.o \
 	toggles.o trace_ds.o util.o xio.o XtGlue.o
 OBJS1 = $(VOBJS) version.o
 

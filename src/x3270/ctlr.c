@@ -601,7 +601,8 @@ ctlr_read_modified(unsigned char aid_byte, Boolean all)
 	    case AID_PA2:
 	    case AID_PA3:
 	    case AID_CLEAR:
-		short_read = True;
+		if (!all)
+			short_read = True;
 		/* fall through... */
 
 	    case AID_SELECT:			/* No data on READ MODIFIED */

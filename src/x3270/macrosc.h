@@ -56,6 +56,7 @@ extern Boolean sms_active(void);
 extern void sms_connect_wait(void);
 extern void sms_continue(void);
 extern void sms_error(char *msg);
+extern void sms_info(char *msg);
 extern void sms_init(void);
 extern Boolean sms_redirect(void);
 extern void sms_store(unsigned char c);

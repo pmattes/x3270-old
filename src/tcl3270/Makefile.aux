@@ -14,20 +14,19 @@ all:
 
 # Development tools.
 
-SOURCES = XtGlue.c actions.c ansi.c apl.c charset.c ctlr.c glue.c host.c \
-	kybd.c print.c resources.c sf.c tables.c tcl3270.c telnet.c \
-	toggles.c trace_ds.c util.c xio.c
+SOURCES = XtGlue.c actions.c ansi.c apl.c charset.c ctlr.c glue.c ft.c \
+	ft_cut.c ft_dft.c host.c kybd.c print.c resources.c sf.c tables.c \
+	tcl3270.c telnet.c toggles.c trace_ds.c util.c xio.c
 HEADERS = 3270ds.h actionsc.h ansic.h aplc.h appres.h cg.h charsetc.h ctlr.h \
-	ctlrc.h ftc.h globals.h hostc.h keymapc.h keypadc.h kybdc.h \
-	localdefs.h macrosc.h menubarc.h objects.h parts.h popupsc.h printc.h \
-	resources.h savec.h screen.h screenc.h scrollc.h selectc.h sfc.h \
-	statusc.h tablesc.h telnet.h telnetc.h tn3270e.h togglesc.h \
-	trace_dsc.h utilc.h xioc.h X11/keysym.h
+	ctlrc.h ftc.h ft_cutc.h ft_cut_ds.h ft_dftc.h ft_dft_ds.h globals.h \
+	hostc.h keymapc.h keypadc.h kybdc.h localdefs.h macrosc.h menubarc.h \
+	objects.h parts.h popupsc.h printc.h resources.h savec.h screen.h \
+	screenc.h scrollc.h selectc.h sfc.h statusc.h tablesc.h telnet.h \
+	telnetc.h tn3270e.h togglesc.h trace_dsc.h utilc.h xioc.h X11/keysym.h
 MISC = version.txt tcl3270.man mkversion.sh \
 	Makefile Makefile.aux README tcl3270.lsm
-#HTML = html/Bugs.html html/Build.html html/FAQ.html html/Intro.html \
-#	html/Lineage.html html/New.html html/README.html html/Wishlist.html \
-#	html/tcl3270-man.html html/x3270.xbm
+HTML = html/Build.html html/FAQ.html html/Intro.html html/Lineage.html \
+	html/New.html html/README.html html/tcl3270-man.html
 FILES = $(SOURCES) $(HEADERS) $(MISC) $(HTML)
 
 tarlist: Makefile.aux

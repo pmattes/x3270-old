@@ -1,14 +1,19 @@
 '\" t
-.TH S3270 1 "27 May 2000"
+.TH TCL3270 1 "1 June 2000"
 .SH NAME
 tcl3270 \-
 .SM IBM
 host access tool
 .SH SYNOPSIS
 .B tcl3270
+.RI [ script ]
 .RI [ options ]
-.RI [[ prefix :]...[ LUname @] hostname [: port ]]
-.SH DESCRIPTION
+.RI [ host ]
+.br
+.B tcl3270
+\-\-
+.I host
+.LP
 .B tcl3270
 opens a telnet connection to an
 .SM IBM
@@ -17,8 +22,16 @@ is derived from
 .IR x3270 ,
 an X-windows IBM 3270 emulator.
 It supports both the "standard" 3270 TELNET protocol and the TN3270E protocol,
-except for printers.
+except for printers, and supports
+.B IND$FILE
+file transfer.
 .LP
+The full syntax for
+.I host
+is:
+.RS
+.RI [ prefix :]...[ LUname @] hostname [: port ]
+.RE
 Prepending a
 .B p:
 onto
@@ -67,8 +80,7 @@ understands the following options:
 Sets up
 .SM APL
 mode.
-This is actually an abbreviation for several options.
-See
+Also see
 .SM "APL SUPPORT"
 below.
 .TP
@@ -180,10 +192,18 @@ Some hosts are confused by the
 suffix on the terminal name, and will ignore the extra screen area on
 models 3, 4 and 5.
 Prepending an
-.B :s
-on the hostname removes the
+.B s:
+onto the hostname removes the
 .B \-E
 from the terminal name when connecting to such hosts.
+.TP
+.B \-\-
+A no-op option.
+Because of a "feature" in how libtcl parses command-line options, it is
+necessary to specify
+.I some
+option if you want to specify a hostname on the command line, but don't want
+to specify a script name.
 .SH "CHARACTER SETS"
 The
 .B \-charset
@@ -245,7 +265,6 @@ When emulating an
 terminal,
 .B tcl3270
 supports both character-at-a-time mode and line mode operation.
-You may select the mode with a menu option.
 When in line mode, the special characters and operational characteristics are
 defined as follows:
 .PP
@@ -269,12 +288,12 @@ End of file	^D
 .B tcl3270
 has a number of configurable modes which may be selected by the -set and -clear options.
 .TP
-.B Monocase
+.B monoCase
 If set,
 .B tcl3270
 operates in uppercase-only mode.
 .TP
-.B Blank Fill
+.B blankFill
 If set,
 .B tcl3270
 behaves in some un-3270-like ways.
@@ -285,36 +304,24 @@ Second, in insert mode, trailing blanks in a field are treated like nulls,
 eliminating the annoying ``lock-up'' that often occurs when inserting into an
 field with (apparent) space at the end.
 .TP
-.B Wraparound
+.B lineWrap
 If set, the
 .SM ANSI
 terminal emulator automatically assumes a
 .SM NEWLINE
 character when it reaches the end of a line.
-.PP
-The names of the toggles for use with the
-.B -set
-and
-.B -clear
-options are as follows:
-.LP
-.TS
-center;
-l l .
-Menu Option	Name
-_
-Monocase	monoCase
-Blank Fill	blankFill
-Wraparound	lineWrap
-.TE
-.SH ACTIONS
+.SH COMMANDS
 .B tcl3270
 supports the following additional tcl commands:
 .PP
-.RS
 .TS
 l l
 .
+Ascii	return entire screen contents in ASCII
+Ascii \fIlen\fP	return screen contents at cursor, in ASCII
+Ascii \fIrow col len\fP	return screen contents in ASCII
+Ascii \fIrow col rows cols\fP	return screen region in ASCII
+AsciiField	return current field in ASCII
 Attn	attention key
 BackSpace	move cursor left (or send ASCII BS)
 BackTab	tab to start of previous input field
@@ -329,6 +336,11 @@ DeleteWord	delete the current or previous word
 Disconnect	disconnect from the host
 Down	move cursor down
 Dup	duplicate field
+Ebcdic	return entire screen contents in EBCDIC
+Ebcdic \fIlen\fP	return screen contents at cursor, in EBCDIC
+Ebcdic \fIrow col len\fP	return screen contents in EBCDIC
+Ebcdic \fIrow col rows cols\fP	return screen region in EBCDIC
+EbcdicField	return current field in EBCDIC
 Enter	Enter AID (or send ASCII CR)
 Erase	erase previous character (or send ASCII BS)
 EraseEOF	erase to end of current field
@@ -358,9 +370,9 @@ String \fIstring\fP	insert string
 SysReq	System Request AID
 Tab	move cursor to next input field
 ToggleInsert	toggle insert mode
+Transfer \fIoption\fP=\fIvalue\fP...	file transfer
 Up	move cursor up
 .TE
-.RE
 .SH "STRING COMMAND"
 The arguments to String are one or more double-quoted strings which are
 inserted directly as if typed.
@@ -401,7 +413,260 @@ entered into the current field.
 In ANSI mode, the hexadecimal data represent ASCII characters, which are sent
 directly to the host.
 .SH "STATUS COMMAND"
-Blah, blah.
+The result of the Status command consists of 11 blank-separated fields:
+.TP
+Keyboard State
+If the keyboard is unlocked, the letter
+.BR U .
+If the keyboard is locked waiting for a response from the host, or if not
+connected to a host, the letter
+.BR L .
+If the keyboard is locked because of an operator error (field overflow,
+protected field, etc.), the letter
+.BR E .
+.TP
+Screen Formatting
+If the screen is formatted, the letter
+.BR F .
+If unformatted or in
+.SM ANSI
+mode,
+the letter
+.BR U .
+.TP
+Field Protection
+If the field containing the cursor is protected, the letter
+.BR P .
+If unprotected or unformatted, the letter
+.BR U .
+.TP
+Connection State
+If connected to a host, the string
+.BI C( hostname ).
+Otherwise, the letter
+.B N .
+.TP
+Emulator Mode
+If connected in 3270 mode, the letter
+.BR I .
+If connected in ANSI line mode, the letter
+.BR L .
+If connected in ANSI character mode, the letter
+.BR C .
+If not connected, the letter
+.BR N .
+.TP
+Model Number (2-5)
+.TP
+Number of Rows
+The current number of rows defined on the screen.
+The host can request that
+.B tcl3270
+use a 24x80 screen, so this number may be smaller than the maximum number of
+rows possible with the current model.
+.TP
+Number of Columns
+The current number of columns defined on the screen, subject to the same
+difference for rows, above.
+.TP
+Cursor Row
+The current cursor row (zero-origin).
+.TP
+Cursor Column
+The current cursor column (zero-origin).
+.SH "SCREEN CONTENTS COMMANDS"
+There are four commands to return the current virtual screen contents.
+The
+.B Ascii
+and
+.B AsciiField
+commands return a region of the screen as an ASCII text.
+The
+.B Ebcdic
+and
+.B EbcdicField
+commands return a region of the screen as EBCDIC bytes, with each character
+represented as a 2-digit hexadecimal string, prefixed by
+.BR 0x .
+.PP
+The
+.B AsciiField
+and
+.B EbcdicField
+commands return the contents of the field on the screen which contains the
+cursor.
+.PP
+The
+.B Ascii
+and
+.B Ebcdic
+commands return abitrary regions of the virtual screen.
+They take the same arguments:
+.RS
+.PP
+If no arguments are given, then entire screen contents are returned.
+.PP
+If one argument is given
+.RI ( len ),
+the region of the screen starting at the cursor,
+.I len
+bytes long is returned.
+.PP
+If three arguments are given
+.RI ( row ,
+.IR col ,
+.IR len ),
+the region of the screen starting at zero-origin coordinates
+.RI ( row ,
+.IR col ),
+length
+.I len
+bytes, is returned.
+.PP
+If four arguments are given
+.RI ( row ,
+.IR col ,
+.IR rows ,
+.IR cols ),
+then a rectangular region is returned, starting at zero-origin coordinates
+.RI ( row ,
+.IR col ),
+width
+.IR rows ,
+length
+.IR cols .
+.RE
+.SH "TRANSFER COMMAND"
+The Transfer command is used to invoke IND$FILE file transfer.
+Note that this command requires that the
+.B IND$FILE
+program be installed on the IBM host, and that the 3270 cursor
+be located in a field that will accept a TSO or VM/CMS command.
+.PP
+Because of the complexity and number of options for file transfer, the
+parameters to the Transfer command take the unique form of
+.IR option = value ,
+and can appear in any order.
+The options are:
+.PP
+.TS
+l c l l.
+Option	Required?	Default	Other Values
+_
+Direction	No	send	receive
+HostFile	Yes
+LocalFile	Yes
+Host	No	tso	vm
+Mode	No	ascii	binary
+Cr	No	remove	add, keep
+Exist	No	keep	replace, append
+Recfm	No		fixed, variable, undefined
+Lrecl	No
+Blksize	No
+Allocation	No		tracks, cylinders, avblock
+PrimarySpace	No
+SecondarySpace	No
+.TE
+.PP
+The option details are as follows.
+.TP
+.B Direction
+.B send
+(the default) to send a file to the host,
+.B receive
+to receive a file from the host.
+.TP
+.B HostFile
+The name of the file on the host.
+.TP
+.B LocalFile
+The name of the file on the local workstation.
+.TP
+.B Host
+The type of host (which dictates the form of the
+.B IND$FILE
+command):
+.B tso
+(the default)
+or
+.BR vm .
+.TP
+.B Mode
+Use
+.B ascii
+(the default) for a text file, which will be translated between EBCDCIC and
+ASCII as necessary.
+Use
+.B binary
+for non-text files.
+.TP
+.B Cr
+Controls how Newline characters are handled when transferring
+.B Mode=ascii
+files.
+.B remove
+(the default) strips Newline characters in local files before transferring
+them to the host.
+.B add
+adds Newline characters to each host file record before transferring it to
+the local workstation.
+.B keep
+preserves Newline characters when transferring a local file to the host.
+.TP
+.B Exist
+Controls what happens when the destination file already exists.
+.B keep
+(the default) preserves the file, causing the Transfer command to fail.
+.B replace
+overwrites the destination file with the source file.
+.B append
+appends the source file to the destination file.
+.TP
+.B Recfm
+Controls the record format of files created on the host.
+.B fixed
+creates a file with fixed-length records.
+.B variable
+creates a file with variable-length records.
+.B undefined
+creates a file with undefined-length records (TSO hosts only).
+The
+.B Lrecl
+option controls the record length or maximum record length for
+.B Recfm=fixed
+and
+.B Recfm=variable
+files, respectively.
+.TP
+.B Lrecl
+Specifies the record length (or maximum record length) for files created on
+the host.
+.TP
+.B Blksize
+Specifies the block size for files created on the host.  (TSO hosts only.)
+.TP
+.B Allocation
+Specifies the units for the TSO host
+.B PrimarySpace
+and
+.B SecondarySpace
+options:
+.BR tracks ,
+.B cylinders
+or
+.BR avblock .
+.TP
+.B PrimarySpace
+Primary allocation for a file created on a TSO host.
+The units are given by the
+.B Allocation
+option.
+.TP
+.B SecondarySpace
+Secondary allocation for a file created on a TSO host.
+The units are given by the
+.B Allocation
+option.
 .SH "APL SUPPORT"
 .B tcl3270
 supports the full
@@ -553,7 +818,7 @@ It then passes the requested hostname and port to the
 .B in.telnet-gw
 server.
 .SH "SEE ALSO"
-telnet(1), tn3270(1), ibm_hosts(5), x3270(1), x3270-script(1)
+tcl(1), telnet(1), tn3270(1), ibm_hosts(5), x3270(1)
 .br
 X Toolkit Intrinsics
 .br
@@ -564,6 +829,8 @@ Character Set Reference, IBM GA27\-3831
 RFC 1576, TN3270 Current Practices
 .br
 RFC 1646, TN3270 Extensions for LUname and Printer Selection
+.br
+RFC 2355, TN3270 Enhancements
 .SH COPYRIGHTS
 .LP
 Modifications Copyright 1993, 1994, 1995, 1996, 1997, 2000 by Paul Mattes.
@@ -584,4 +851,4 @@ notice.
 .RE
 5250 Emulation Code copyright Minolta (Schweiz) AG, Beat Rubischon.
 .SH VERSION
-tcl3270 3.2.7
+tcl3270 3.2.8

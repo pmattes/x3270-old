@@ -108,6 +108,19 @@ static struct {
 0xac: @			\n	0xbe: \\		\n\
 0x7d: '			\n	0x8c: `			\n\
 0x6a: |			\n" },
+	{ "message.ftComplete",
+"Transfer complete, %i bytes transferred\n\
+%.2lg Kbytes/sec in %s mode" },
+	{ "message.ftUnable",	"Cannot begin transfer" },
+	{ "message.ftUserCancel",	"Transfer cancelled by user" },
+	{ "message.ftHostCancel",	"Transfer cancelled by host" },
+	{ "message.ftCutUnknownFrame",	"Unknown frame type from host" },
+	{ "message.ftCutUnknownControl",	"Unknown FT control code from host" },
+	{ "message.ftCutRetransmit",	"Transmission error" },
+	{ "message.ftCutConversionError",	"Data conversion error" },
+	{ "message.ftCutOversize",	"Illegal frame length" },
+	{ "message.ftDisconnected",	"Host disconnected, transfer cancelled" },
+	{ "message.ftNot3270",	"Not in 3270 mode, transfer cancelled" },
 	{ (char *)NULL, (char *)NULL }
 };
 

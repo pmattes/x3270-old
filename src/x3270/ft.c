@@ -18,6 +18,7 @@
 
 #if defined(X3270_FT) /*[*/
 
+#if defined(X3270_DISPLAY) /*[*/
 #include <X11/StringDefs.h>
 #include <X11/Xaw/Toggle.h>
 #include <X11/Xaw/Command.h>
@@ -28,6 +29,7 @@
 #include <X11/Xaw/TextSink.h>
 #include <X11/Xaw/AsciiSrc.h>
 #include <X11/Xaw/AsciiSink.h>
+#endif /*]*/
 #include <errno.h>
 
 #if XtSpecificationRelease < 5 /*[*/
@@ -41,6 +43,7 @@
 #include "ftc.h"
 #include "hostc.h"
 #include "kybdc.h"
+#include "macrosc.h"
 #include "objects.h"
 #include "popupsc.h"
 #include "telnetc.h"
@@ -49,30 +52,36 @@
 /* Macros. */
 #define eos(s)	strchr((s), '\0')
 
+#if defined(X3270_DISPLAY) /*[*/
 #define FILE_WIDTH	300	/* width of file name widgets */
 #define MARGIN		3	/* distance from margins to widgets */
 #define CLOSE_VGAP	0	/* distance between paired toggles */
 #define FAR_VGAP	10	/* distance between single toggles and groups */
 #define BUTTON_GAP	5	/* horizontal distance between buttons */
 #define COLUMN_GAP	40	/* distance between columns */
+#endif /*]*/
 
 #define BN	(Boolean *)NULL
 
 /* Externals. */
+#if defined(X3270_DISPLAY) /*[*/
 extern Pixmap diamond;
 extern Pixmap no_diamond;
 extern Pixmap null;
 extern Pixmap dot;
+#endif /*]*/
 
 /* Globals. */
 enum ft_state ft_state = FT_NONE;	/* File transfer state */
 char *ft_local_filename;		/* Local file to transfer to/from */
+char *ft_host_filename;			/* Host file to transfer to/from */
 FILE *ft_local_file = (FILE *)NULL;	/* File descriptor for local file */
 Boolean ascii_flag = True;		/* Convert to ascii */
 Boolean cr_flag = True;			/* Add crlf to each line */
 unsigned long ft_length = 0;		/* Length of transfer */
 
 /* Statics. */
+#if defined(X3270_DISPLAY) /*[*/
 static Widget ft_dialog, ft_shell, local_file, host_file;
 static Widget lrecl_widget, blksize_widget;
 static Widget primspace_widget, secspace_widget;
@@ -80,11 +89,13 @@ static Widget send_toggle, receive_toggle;
 static Widget vm_toggle, tso_toggle;
 static Widget ascii_toggle, binary_toggle;
 static Widget cr_widget;
+#endif /*]*/
 
 static Boolean receive_flag = True;	/* Current transfer is receive */
 static Boolean append_flag = False;	/* Append transfer */
 static Boolean vm_flag = False;		/* VM Transfer flag */
 
+#if defined(X3270_DISPLAY) /*[*/
 struct toggle_list {			/* List of toggle widgets */
 	Widget *widgets;
 };
@@ -92,33 +103,43 @@ static Widget recfm_options[5];
 static Widget units_options[5];
 static struct toggle_list recfm_toggles = { recfm_options };
 static struct toggle_list units_toggles = { units_options };
+#endif /*]*/
 
 static enum recfm {
 	DEFAULT_RECFM, FIXED, VARIABLE, UNDEFINED
 } recfm = DEFAULT_RECFM;
+#if defined(X3270_DISPLAY) /*[*/
 static Boolean recfm_default = True;
 static enum recfm r_default_recfm = DEFAULT_RECFM;
 static enum recfm r_fixed = FIXED;
 static enum recfm r_variable = VARIABLE;
 static enum recfm r_undefined = UNDEFINED;
+#endif /*]*/
 
 static enum units {
 	DEFAULT_UNITS, TRACKS, CYLINDERS, AVBLOCK
 } units = DEFAULT_UNITS;
+#if defined(X3270_DISPLAY) /*[*/
 static Boolean units_default = True;
 static enum units u_default_units = DEFAULT_UNITS;
 static enum units u_tracks = TRACKS;
 static enum units u_cylinders = CYLINDERS;
 static enum units u_avblock = AVBLOCK;
+#endif /*]*/
 
 typedef enum { T_NUMERIC, T_HOSTFILE, T_UNIXFILE } text_t;
+#if defined(X3270_DISPLAY) /*[*/
 static text_t t_numeric = T_NUMERIC;
 static text_t t_hostfile = T_HOSTFILE;
 static text_t t_unixfile = T_UNIXFILE;
+#endif /*]*/
 
+#if defined(X3270_DISPLAY) /*[*/
 static Boolean s_true = True;
 static Boolean s_false = False;
+#endif /*]*/
 static Boolean allow_overwrite = False;
+#if defined(X3270_DISPLAY) /*[*/
 typedef struct sr {
 	struct sr *next;
 	Widget w;
@@ -137,11 +158,16 @@ sr_t *sr_last = (sr_t *)NULL;
 static Widget progress_shell, from_file, to_file;
 static Widget ft_status, waiting, aborting;
 static String status_string;
+#endif /*]*/
 static struct timeval t0;		/* Starting time */
 static Boolean ft_is_cut;		/* File transfer is CUT-style */
 
+#if defined(X3270_DISPLAY) /*[*/
 static Widget overwrite_shell;
+#endif /*]*/
+static Boolean ft_is_action;
 
+#if defined(X3270_DISPLAY) /*[*/
 static void apply_bitmap(Widget w, Pixmap p);
 static void check_sensitivity(Boolean *bvar);
 static void flip_toggles(struct toggle_list *toggle_list, Widget w);
@@ -179,11 +205,23 @@ static void toggle_receive(Widget w, XtPointer client_data,
     XtPointer call_data);
 static void toggle_vm(Widget w, XtPointer client_data, XtPointer call_data);
 static void units_callback(Widget w, XtPointer user_data, XtPointer call_data);
+#endif /*]*/
 static void ft_connected(Boolean ignored);
 static void ft_in3270(Boolean ignored);
 
 /* Main external entry point. */
 
+#if !defined(X3270_DISPLAY) /*[*/
+void
+ft_init(void)
+{
+	/* Register for state changes. */
+	register_schange(ST_CONNECT, ft_connected);
+	register_schange(ST_3270_MODE, ft_in3270);
+}
+#endif /*]*/
+
+#if defined(X3270_DISPLAY) /*[*/
 /* "File Transfer" dialog. */
 
 /*
@@ -201,7 +239,6 @@ popup_ft(Widget w unused, XtPointer call_parms unused,
 	/* Pop it up. */
 	popup_popup(ft_shell, XtGrabNone);
 }
-
 
 /* Initialize the transfer pop-up. */
 static void
@@ -722,8 +759,6 @@ ft_popup_init(void)
 	XtAddCallback(cancel_button, XtNcallback, ft_cancel, 0);
 }
 
-
-
 /* Callbacks for all the transfer widgets. */
 
 /* Transfer pop-up popping up. */
@@ -887,11 +922,12 @@ ft_start(void)
 	char *cmd;
 	String lrecl, blksize, primspace, secspace;
 	unsigned flen;
-	char *host_filename;
+
+	ft_is_action = False;
 
 	/* Get the host file from its widget */
-	XtVaGetValues(host_file, XtNstring, &host_filename, NULL);
-	if (!*host_filename)
+	XtVaGetValues(host_file, XtNstring, &ft_host_filename, NULL);
+	if (!*ft_host_filename)
 		return 0;
 	/* XXX: probably more validation to do here */
 
@@ -1023,7 +1059,7 @@ ft_start(void)
 	/* Build the whole command. */
 	cmd = xs_buffer("%s %s %s%s\\n",
 	    appres.ft_command,
-	    receive_flag ? "get" : "put", host_filename, op);
+	    receive_flag ? "get" : "put", ft_host_filename, op);
 
 	/* Erase the line and enter the command. */
 	flen = kybd_prime();
@@ -1159,13 +1195,10 @@ static void
 progress_popup_callback(Widget w unused, XtPointer client_data unused,
 	XtPointer call_data unused)
 {
-	String hf, lf;
-
-	XtVaGetValues(host_file, XtNstring, &hf, NULL);
-	XtVaGetValues(local_file, XtNstring, &lf, NULL);
-
-	XtVaSetValues(from_file, XtNlabel, receive_flag ? hf : lf, NULL);
-	XtVaSetValues(to_file, XtNlabel, receive_flag ? lf : hf, NULL);
+	XtVaSetValues(from_file, XtNlabel,
+	    receive_flag ? ft_host_filename : ft_local_filename, NULL);
+	XtVaSetValues(to_file, XtNlabel,
+	    receive_flag ? ft_local_filename : ft_host_filename, NULL);
 
 	switch (ft_state) {
 	    case FT_AWAIT_ACK:
@@ -1313,6 +1346,7 @@ overwrite_popdown(Widget w unused, XtPointer client_data unused,
 	XtDestroyWidget(overwrite_shell);
 	overwrite_shell = (Widget)NULL;
 }
+#endif /*]*/
 
 /* External entry points called by ft_dft and ft_cut. */
 
@@ -1328,12 +1362,14 @@ ft_complete(const char *errmsg)
 	/* Clean up the state. */
 	ft_state = FT_NONE;
 
+#if defined(X3270_DISPLAY) /*[*/
 	/* Pop down the in-progress shell. */
 	XtPopdown(progress_shell);
+#endif /*]*/
 
 	/* Pop up the text. */
 	if (errmsg != CN) {
-		char *msg_copy = XtNewString(errmsg);
+		char *msg_copy = NewString(errmsg);
 
 		/* Make sure the error message will fit on the display. */
 		if (strlen(msg_copy) > 50 && strchr(msg_copy, '\n') == CN) {
@@ -1345,7 +1381,7 @@ ft_complete(const char *errmsg)
 				*s = '\n';	/* yikes! */
 		}
 		popup_an_error(msg_copy);
-		XtFree(msg_copy);
+		Free(msg_copy);
 	} else {
 		struct timeval t1;
 		double kbytes_sec;
@@ -1355,11 +1391,18 @@ ft_complete(const char *errmsg)
 		kbytes_sec = (double)ft_length / 1024.0 /
 			((double)(t1.tv_sec - t0.tv_sec) + 
 			 (double)(t1.tv_usec - t0.tv_usec) / 1.0e6);
-		buf = XtMalloc(256);
+		buf = Malloc(256);
 		(void) sprintf(buf, get_message("ftComplete"), ft_length,
 		    kbytes_sec, ft_is_cut ? "CUT" : "DFT");
-		popup_an_info(buf);
-		XtFree(buf);
+		if (ft_is_action) {
+			sms_info(buf);
+			sms_continue();
+		}
+#if defined(X3270_DISPLAY) /*[*/
+		else
+			popup_an_info(buf);
+#endif /*]*/
+		Free(buf);
 	}
 }
 
@@ -1367,12 +1410,14 @@ ft_complete(const char *errmsg)
 void
 ft_update_length(void)
 {
+#if defined(X3270_DISPLAY) /*[*/
 	char text_string[80];
 
 	/* Format the message */
 	sprintf(text_string, status_string, ft_length);
 
 	XtVaSetValues(ft_status, XtNlabel, text_string, NULL);
+#endif /*]*/
 }
 
 /* Process a transfer acknowledgement. */
@@ -1385,9 +1430,13 @@ ft_running(Boolean is_cut)
 	(void) gettimeofday(&t0, (struct timezone *)NULL);
 	ft_length = 0;
 
+#if defined(X3270_DISPLAY) /*[*/
 	XtUnmapWidget(waiting);
+#endif /*]*/
 	ft_update_length();
+#if defined(X3270_DISPLAY) /*[*/
 	XtMapWidget(ft_status);
+#endif /*]*/
 }
 
 /* Process a protocol-generated abort. */
@@ -1396,9 +1445,11 @@ ft_aborting(void)
 {
 	if (ft_state == FT_RUNNING || ft_state == FT_ABORT_WAIT) {
 		ft_state = FT_ABORT_SENT;
+#if defined(X3270_DISPLAY) /*[*/
 		XtUnmapWidget(waiting);
 		XtUnmapWidget(ft_status);
 		XtMapWidget(aborting);
+#endif /*]*/
 	}
 }
 
@@ -1418,6 +1469,7 @@ ft_in3270(Boolean ignored unused)
 		ft_complete(get_message("ftNot3270"));
 }
 
+#if defined(X3270_DISPLAY) /*[*/
 /* Support functions for dialogs. */
 
 /* Match one dimension of two widgets. */
@@ -1698,6 +1750,325 @@ PA_dialog_focus_action(Widget w, XEvent *event unused, String *parms unused,
 	s->has_focus = True;
 	XawTextDisplayCaret(w, True);
 	XtSetKeyboardFocus(ft_dialog, w);
+}
+#endif /*]*/
+
+/*
+ * Script/macro action for file transfer.
+ *  Transfer(option=value[,...])
+ *  Options are:
+ *   Direction=send|receive	default receive
+ *   HostFile=name		required
+ *   LocalFile=name			required
+ *   Host=[tso|vm]		default tso
+ *   Mode=[ascii|binary]	default ascii
+ *   Cr=[add|remove|keep]	default add/remove
+ *   Exist=[keep|replace|append]	default keep
+ *   Recfm=[default|fixed|variable|undefined] default default
+ *   Lrecl=n			no default
+ *   Blksize=n			no default
+ *   Allocation=[default|tracks|cylinders|avblock] default default
+ *   PrimarySpace=n		no default
+ *   SecondarySpace=n		no default
+ */
+struct {
+	const char *name;
+	char *value;
+	const char *keyword[4];
+} tp[] = {
+	{ "Direction",		CN, { "receive", "send" } },
+	{ "HostFile" },
+	{ "LocalFile" },
+	{ "Host",		CN, { "tso", "vm" } },
+	{ "Mode",		CN, { "ascii", "binary" } },
+	{ "Cr",			CN, { "remove",	"add", "keep" } },
+	{ "Exist",		CN, { "keep", "replace", "append" } },
+	{ "Recfm",		CN, { "default", "fixed", "variable",
+				      "undefined" } },
+	{ "Lrecl" },
+	{ "Blksize" },
+	{ "Allocation",		CN, { "default", "tracks", "cylinders",
+				      "avblock" } },
+	{ "PrimarySpace" },
+	{ "SecondarySpace" },
+	{ CN }
+};
+#define PARM_DIRECTION		0
+#define PARM_HOST_FILE		1
+#define PARM_LOCAL_FILE		2
+#define PARM_HOST		3
+#define PARM_MODE		4
+#define PARM_CR			5
+#define PARM_EXIST		6
+#define PARM_RECFM		7
+#define PARM_LRECL		8
+#define PARM_BLKSIZE		9
+#define PARM_ALLOCATION		10
+#define PARM_PRIMARY_SPACE	11
+#define PARM_SECONDARY_SPACE	12
+#define N_PARMS			(PARM_SECONDARY_SPACE + 1)
+
+void  
+Transfer_action(Widget w unused, XEvent *event, String *params,
+    Cardinal *num_params)
+{
+	int i, k;
+	Cardinal j;
+	long l;
+	char *ptr;
+
+	char opts[80];
+	char *op = opts + 1;
+	char *cmd;
+	unsigned flen;
+
+        action_debug(Transfer_action, event, params, num_params);
+
+	ft_is_action = True;
+
+	/* Make sure we're connected. */
+	if (!IN_3270) {
+		popup_an_error("Not connected");
+		return;
+	}
+
+	/* Set everything to the default. */
+	for (i = 0; i < N_PARMS; i++) {
+		if (tp[i].value != CN)
+			Free(tp[i].value);
+		if (tp[i].keyword[0] != CN)
+			tp[i].value =
+				NewString(tp[i].keyword[0]);
+		else
+			tp[i].value = CN;
+	}
+
+	/* See what they specified. */
+	for (j = 0; j < *num_params; j++) {
+		for (i = 0; i < N_PARMS; i++) {
+			char *eq;
+			int kwlen;
+
+			eq = strchr(params[j], '=');
+			if (eq == CN || eq == params[i] || !*(eq + 1)) {
+				popup_an_error("Invalid option syntax: '%s'",
+					params[i]);
+				return;
+			}
+			kwlen = eq - params[j];
+			if (!strncmp(params[j], tp[i].name, kwlen)
+					&& !tp[i].name[kwlen]) {
+				if (tp[i].keyword[0]) {
+					for (k = 0;
+					     tp[i].keyword[k] != CN && k < 4;
+					     k++) {
+						if (!strcmp(eq + 1,
+							tp[i].keyword[k])) {
+							break;
+						}
+					}
+					if (k >= 4 ||
+					    tp[i].keyword[k] == CN) {
+						popup_an_error("Invalid option "
+							"value: '%s'", eq + 1);
+						return;
+					}
+				} else switch (i) {
+				    case PARM_LRECL:
+				    case PARM_BLKSIZE:
+				    case PARM_PRIMARY_SPACE:
+				    case PARM_SECONDARY_SPACE:
+					l = strtol(eq + 1, &ptr, 10);
+					if (ptr == eq + 1 || !*ptr) {
+						popup_an_error("Invalid option "
+							"value: '%s'", eq + 1);
+						return;
+					}
+					break;
+				    default:
+					break;
+				}
+				tp[i].value = NewString(eq + 1);
+				break;
+			}
+		}
+		if (i >= N_PARMS) {
+			popup_an_error("Unknown option: %s", params[j]);
+			return;
+		}
+	}
+
+	/* Check for required values. */
+	if (tp[PARM_HOST_FILE].value == CN) {
+		popup_an_error("Missing 'HostFile' option");
+		return;
+	}
+	if (tp[PARM_LOCAL_FILE].value == CN) {
+		popup_an_error("Missing 'LocalFile' option");
+		return;
+	}
+
+	/*
+	 * Start the transfer.  Much of this is duplicated from ft_start()
+	 * and should be made common.
+	 */
+
+	receive_flag = !strcmp(tp[PARM_DIRECTION].value, "receive");
+	append_flag = !strcmp(tp[PARM_EXIST].value, "append");
+	allow_overwrite = !strcmp(tp[PARM_EXIST].value, "replace");
+	ascii_flag = !strcmp(tp[PARM_MODE].value, "ascii");
+	cr_flag = !strcmp(tp[PARM_CR].value, "remove") ||
+		  !strcmp(tp[PARM_CR].value, "add");
+	vm_flag = !strcmp(tp[PARM_HOST].value, "vm");
+	recfm = DEFAULT_RECFM;
+	for (k = 0; tp[PARM_RECFM].keyword[k] != CN && k < 4; k++) {
+		if (!strcmp(tp[PARM_RECFM].value,
+			    tp[PARM_RECFM].keyword[k]))  {
+			recfm = (enum recfm)k;
+			break;
+		}
+	}
+	units = DEFAULT_UNITS;
+	for (k = 0; tp[PARM_ALLOCATION].keyword[k] != CN && k < 4; k++) {
+		if (!strcmp(tp[PARM_ALLOCATION].value,
+			    tp[PARM_ALLOCATION].keyword[k]))  {
+			units = (enum units)k;
+			break;
+		}
+	}
+
+	ft_host_filename = tp[PARM_HOST_FILE].value;
+	ft_local_filename = tp[PARM_LOCAL_FILE].value;
+
+	/* See if the local file can be overwritten. */
+	if (receive_flag && !append_flag && !allow_overwrite) {
+		ft_local_file = fopen(ft_local_filename, "r");
+		if (ft_local_file != (FILE *)NULL) {
+			(void) fclose(ft_local_file);
+			popup_an_error("File exists");
+			return;
+		}
+	}
+
+	/* Open the local file. */
+	ft_local_file = fopen(ft_local_filename,
+	    receive_flag ?
+		(append_flag ? "a" : "w" ) :
+		"r");
+	if (ft_local_file == (FILE *)NULL) {
+		popup_an_errno(errno, "Open(%s)", ft_local_filename);
+		return;
+	}
+
+	/* Build the ind$file command */
+	op[0] = '\0';
+	if (ascii_flag)
+		strcat(op, " ascii");
+	if (cr_flag)
+		strcat(op, " crlf");
+	if (append_flag && !receive_flag)
+		strcat(op, " append");
+	if (!receive_flag) {
+		if (!vm_flag) {
+			if (recfm != DEFAULT_RECFM) {
+				/* RECFM Entered, process */
+				strcat(op, " recfm(");
+				switch (recfm) {
+				    case FIXED:
+					strcat(op, "f");
+					break;
+				    case VARIABLE:
+					strcat(op, "v");
+					break;
+				    case UNDEFINED:
+					strcat(op, "u");
+					break;
+				    default:
+					break;
+				};
+				strcat(op, ")");
+				if (tp[PARM_LRECL].value != CN)
+					sprintf(eos(op), " lrecl(%s)",
+					    tp[PARM_LRECL].value);
+				if (tp[PARM_BLKSIZE].value != CN)
+					sprintf(eos(op), " blksize(%s)",
+					    tp[PARM_BLKSIZE].value);
+			}
+			if (units != DEFAULT_UNITS) {
+				/* Space Entered, processs it */
+				switch (units) {
+				    case TRACKS:
+					strcat(op, " tracks");
+					break;
+				    case CYLINDERS:
+					strcat(op, " cylinders");
+					break;
+				    case AVBLOCK:
+					strcat(op, " avblock");
+					break;
+				    default:
+					break;
+				};
+				if (tp[PARM_PRIMARY_SPACE].value != CN) {
+					sprintf(eos(op), " space(%s",
+					    tp[PARM_PRIMARY_SPACE].value);
+					if (tp[PARM_SECONDARY_SPACE].value)
+						sprintf(eos(op), ",%s",
+						    tp[PARM_SECONDARY_SPACE].value);
+					strcat(op, ")");
+				}
+			}
+		} else {
+			if (recfm != DEFAULT_RECFM) {
+				strcat(op, " recfm ");
+				switch (recfm) {
+				    case FIXED:
+					strcat(op, "f");
+					break;
+				    case VARIABLE:
+					strcat(op, "v");
+					break;
+				    default:
+					break;
+				};
+
+				if (tp[PARM_LRECL].value)
+					sprintf(eos(op), " lrecl %s",
+					    tp[PARM_LRECL].value);
+			}
+		}
+	}
+
+	/* Insert the '(' for VM options. */
+	if (strlen(op) > 0 && vm_flag) {
+		opts[0] = ' ';
+		opts[1] = '(';
+		op = opts;
+	}
+
+	/* Build the whole command. */
+	cmd = xs_buffer("%s %s %s%s\\n",
+	    appres.ft_command,
+	    receive_flag ? "get" : "put", ft_host_filename, op);
+
+	/* Erase the line and enter the command. */
+	flen = kybd_prime();
+	if (!flen || flen < strlen(cmd) - 1) {
+		Free(cmd);
+		popup_an_error(get_message("ftUnable"));
+		return;
+	}
+	(void) emulate_input(cmd, strlen(cmd), False);
+	Free(cmd);
+
+	/* Get this thing started. */
+	ft_state = FT_AWAIT_ACK;
+	ft_is_cut = False;
+
+	/* Start tracking it. */
+#if defined(X3270_DISPLAY) /*[*/
+	popup_progress();
+#endif /*]*/
 }
 
 #endif /*]*/

@@ -1,4 +1,4 @@
-.TH X3270-SCRIPT 1 "1 March 1999"
+.TH X3270-SCRIPT 1 "1 June 2000"
 .SH NAME
 Scripting Facilities for x3270 and s3270
 .SH SYNOPSIS
@@ -388,6 +388,140 @@ action, above, is executed.
 This allows a script to wait for user input and continue.
 Outputs the single parameter to
 .B ContinueScript().
+.TP
+.BI Transfer( keyword = value ,...)
+Invokes IND$FILE file transfer.
+Note that this action requires that the
+.B IND$FILE
+program be installed on the IBM host, and that the 3270 cursor
+be located in a field that will accept a TSO or VM/CMS command.
+.IP
+Because of the complexity and number of options for file transfer, the
+parameters to the Transfer action take the unique form of
+.IR option = value ,
+and can appear in any order.
+The options are:
+.IP
+.TS
+l c l l.
+Option	Required?	Default	Other Values
+_
+Direction	No	send	receive
+HostFile	Yes
+LocalFile	Yes
+Host	No	tso	vm
+Mode	No	ascii	binary
+Cr	No	remove	add, keep
+Exist	No	keep	replace, append
+Recfm	No		fixed, variable, undefined
+Lrecl	No
+Blksize	No
+Allocation	No		tracks, cylinders, avblock
+PrimarySpace	No
+SecondarySpace	No
+.TE
+.IP
+The option details are as follows.
+.RS
+.TP
+.B Direction
+.B send
+(the default) to send a file to the host,
+.B receive
+to receive a file from the host.
+.TP
+.B HostFile
+The name of the file on the host.
+.TP
+.B LocalFile
+The name of the file on the local workstation.
+.TP
+.B Host
+The type of host (which dictates the form of the
+.B IND$FILE
+command):
+.B tso
+(the default)
+or
+.BR vm .
+.TP
+.B Mode
+Use
+.B ascii
+(the default) for a text file, which will be translated between EBCDIC and
+ASCII as necessary.
+Use
+.B binary
+for non-text files.
+.TP
+.B Cr
+Controls how Newline characters are handled when transferring
+.B Mode=ascii
+files.
+.B remove
+(the default) strips Newline characters in local files before transferring
+them to the host.
+.B add
+adds Newline characters to each host file record before transferring it to
+the local workstation.
+.B keep
+preserves Newline characters when transferring a local file to the host.
+.TP
+.B Exist
+Controls what happens when the destination file already exists.
+.B keep
+(the default) preserves the file, causing the Transfer action to fail.
+.B replace
+overwrites the destination file with the source file.
+.B append
+appends the source file to the destination file.
+.TP
+.B Recfm
+Controls the record format of files created on the host.
+.B fixed
+creates a file with fixed-length records.
+.B variable
+creates a file with variable-length records.
+.B undefined
+creates a file with undefined-length records (TSO hosts only).
+The
+.B Lrecl
+option controls the record length or maximum record length for
+.B Recfm=fixed
+and
+.B Recfm=variable
+files, respectively.
+.TP
+.B Lrecl
+Specifies the record length (or maximum record length) for files created on
+the host.
+.TP
+.B Blksize
+Specifies the block size for files created on the host.  (TSO hosts only.)
+.TP
+.B Allocation
+Specifies the units for the TSO host
+.B PrimarySpace
+and
+.B SecondarySpace
+options:
+.BR tracks ,
+.B cylinders
+or
+.BR avblock .
+.TP
+.B PrimarySpace
+Primary allocation for a file created on a TSO host.
+The units are given by the
+.B Allocation
+option.
+.TP
+.B SecondarySpace
+Secondary allocation for a file created on a TSO host.
+The units are given by the
+.B Allocation
+option.
+.RE
 .TP
 .B Wait()
 A useful utility for use at the beginning of scripts and after the Connect()

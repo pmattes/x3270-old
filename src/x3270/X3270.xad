@@ -160,6 +160,7 @@
 ! *.composeMap:				latin1
 ! *.doConfirms:				true
 ! *.debugTracing:			true
+! *.disconnectClear:			false
 ! *.hostsFile:				/usr/lib/X11/x3270/ibm_hosts
 ! *.invertKeypadShift:			false
 ! *.keymap:
@@ -1560,7 +1561,9 @@ x3270icon.translations:			#override \n\
         apl_diaeresis + apl_circle = apl_diaeresiscircle \n\
         comma + minus		= apl_commabar		\n\
         c + equal		= apl_euro		\n\
-        C + equal		= apl_euro		\n
+        C + equal		= apl_euro		\n\
+	minus + parenleft	= apl_lefttack		\n\
+	minus + parenright	= apl_righttack		\n
 #endif
 !
 ! EBCDIC character sets.

@@ -759,8 +759,11 @@ screen_connect(Boolean ignored unused)
 			scroll_round();
 		cursor_on();
 		schedule_cursor_blink();
-	} else
+	} else {
+		if (appres.disconnect_clear)
+			ctlr_erase(True);
 		(void) cursor_off();
+	}
 
 	mcursor_normal();
 }

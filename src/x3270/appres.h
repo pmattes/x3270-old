@@ -93,6 +93,7 @@ typedef struct {
 	Boolean	typeahead;
 	Boolean debug_tracing;
 	Boolean attn_lock;
+	Boolean disconnect_clear;
 
 	/* Named resources */
 #if defined(X3270_KEYPAD) /*[*/

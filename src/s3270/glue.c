@@ -212,7 +212,7 @@ parse_options(int *argcp, char **argv)
 #       define offset(n) (void *)&appres.n
 	static struct {
 		char *name;
-		enum { OPT_BOOLEAN, OPT_STRING, OPT_SKIP2 } type;
+		enum { OPT_BOOLEAN, OPT_STRING, OPT_SKIP2, OPT_NOOP } type;
 		Boolean flag;
 		void *aoff;
 	} opts[] = {
@@ -225,6 +225,7 @@ parse_options(int *argcp, char **argv)
 		{ OptPort,     OPT_STRING,  False, offset(port) },
 		{ OptSet,      OPT_SKIP2,   False, NULL },
 		{ OptTermName, OPT_STRING,  False, offset(termname) },
+		{ "--",	       OPT_NOOP,    False, NULL },
 		{ CN,          OPT_SKIP2,   False, NULL }
 	};
 #	undef offset
@@ -250,6 +251,7 @@ parse_options(int *argcp, char **argv)
 	appres.macros = CN;
 	appres.trace_dir = "/tmp";
 	appres.oversize = CN;
+	appres.ft_command = "ind$file";
 
 	appres.icrnl = False;
 	appres.inlcr = False;
@@ -282,6 +284,8 @@ parse_options(int *argcp, char **argv)
 			if (i == *argcp - 1)	/* missing arg */
 				continue;
 			*(char **)opts[j].aoff = argv[++i];
+			break;
+		    case OPT_NOOP:
 			break;
 		    case OPT_SKIP2:
 			argv_out[argc_out++] = argv[i++];

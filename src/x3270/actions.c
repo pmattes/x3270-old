@@ -33,8 +33,10 @@
 #include "utilc.h"
 #include "xioc.h"
 
-#if defined(X3270_DISPLAY) /*[*/
+#if defined(X3270_FT) /*[*/
 #include "ftc.h"
+#endif /*]*/
+#if defined(X3270_DISPLAY) /*[*/
 #include "keypadc.h"
 #include "menubarc.h"
 #include "screenc.h"
@@ -162,6 +164,9 @@ XtActionsRec actions[] = {
 	{ "Tab",		Tab_action },
 	{ "ToggleInsert",	ToggleInsert_action },
 	{ "ToggleReverse",	ToggleReverse_action },
+#if defined(X3270_FT) /*[*/
+	{ "Transfer",		Transfer_action },
+#endif /*]*/
 	{ "Up",			Up_action },
 #if defined(X3270_SCRIPT) /*[*/
 	{ "Wait",		Wait_action },

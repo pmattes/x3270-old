@@ -2900,7 +2900,7 @@ static Boolean
 build_composites(void)
 {
 	char *cname;
-	char *c, *c0;
+	char *c, *c0, *c1;
 	char *ln;
 	char ksname[3][64];
 	char junk[2];
@@ -2922,7 +2922,7 @@ build_composites(void)
 		return False;
 	}
 	Free(cname);
-	c = NewString(c0);	/* will be modified by strtok */
+	c1 = c = NewString(c0);	/* will be modified by strtok */
 	while ((ln = strtok(c, "\n"))) {
 		Boolean okay = True;
 
@@ -2955,7 +2955,7 @@ build_composites(void)
 		cp->translation.keytype = a[2];
 		n_composites++;
 	}
-	Free(c0);
+	Free(c1);
 	return True;
 }
 

@@ -111,6 +111,8 @@ XtResource resources[] = {
 	  offset(debug_tracing), XtRString, ResTrue },
 	{ ResAttnLock, ClsAttnLock, XtRBoolean, sizeof(Boolean),
 	  offset(attn_lock), XtRString, ResFalse },
+	{ ResDisconnectClear, ClsDisconnectClear, XtRBoolean, sizeof(Boolean),
+	  offset(disconnect_clear), XtRString, ResFalse },
 	{ ResBellVolume, ClsBellVolume, XtRInt, sizeof(int),
 	  offset(bell_volume), XtRString, "0" },
 	{ ResOversize, ClsOversize, XtRString, sizeof(char *),

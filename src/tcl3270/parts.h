@@ -15,3 +15,4 @@
 #define X3270_TRACE	1	/* data stream and X event tracing */
 #define X3270_ANSI	1	/* ANSI mode */
 #define X3270_APL	1	/* APL keysym support */
+#define X3270_FT	1	/* file transfer */

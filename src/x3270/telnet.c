@@ -1831,6 +1831,9 @@ check_in3270(void)
 	           hisopts[TELOPT_BINARY] &&
 	           hisopts[TELOPT_EOR]) {
 		new_cstate = CONNECTED_3270;
+	} else if (cstate == CONNECTED_INITIAL) {
+		/* Nothing has happened, yet. */
+		return;
 	} else {
 		new_cstate = CONNECTED_ANSI;
 	}
