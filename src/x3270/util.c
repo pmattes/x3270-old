@@ -1,5 +1,5 @@
 /*
- * Copyright 1993, 1994, 1995 by Paul Mattes.
+ * Copyright 1993, 1994, 1995, 1999 by Paul Mattes.
  * Parts Copyright 1990 by Jeff Sparkes.
  *   Permission to use, copy, modify, and distribute this software and its
  *   documentation for any purpose and without fee is hereby granted,
@@ -581,13 +581,20 @@ int	c;
  * sys_errlist[], so our declaration has to be conditional.
  */
 
+#if defined(__STDC__)
+const
+#endif
 char *
 local_strerror(e)
 int e;
 {
 	extern int sys_nerr;
 #if !defined(__FreeBSD__)
+#if !defined(linux)
 	extern char *sys_errlist[];
+#else
+	extern const char *sys_errlist[];
+#endif
 #endif
 
 	if (e < 0 || e >= sys_nerr)

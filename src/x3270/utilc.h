@@ -1,5 +1,5 @@
 /*
- * Copyright 1995 by Paul Mattes.
+ * Copyright 1995, 1999 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -16,7 +16,11 @@ extern char *ctl_see();
 extern char *do_subst();
 extern char *get_message();
 extern char *get_resource();
+#if defined(__STDC__)
+extern const char *local_strerror();
+#else
 extern char *local_strerror();
+#endif
 extern int split_dresource();
 extern int split_lresource();
 #if defined(__STDC__)

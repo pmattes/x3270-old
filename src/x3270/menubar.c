@@ -1,5 +1,5 @@
 /*
- * Copyright 1993, 1994, 1995, 1996 by Paul Mattes.
+ * Copyright 1993, 1994, 1995, 1996, 1999 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -1571,10 +1571,10 @@ hostfile_init()
 
 		/*
 		 * Quick syntax extension to allow the hosts file to
-		 * specify a port as host/port.
+		 * specify a port as host/port (backwards compat).
 		 */
-		if ((slash = strchr(h->hostname, '/')))
-			*slash = ' ';
+		if ((slash = strrchr(h->hostname, '/')))
+			*slash = ':';
 
 		if (!strcmp(entry_type, "primary"))
 			h->entry_type = PRIMARY;

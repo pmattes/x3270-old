@@ -1,5 +1,5 @@
 /*
- * Copyright 1995 by Paul Mattes.
+ * Copyright 1995, 1999 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -29,6 +29,7 @@ extern void net_disconnect();
 extern void net_exception();
 extern void net_hexansi_out();
 extern void net_input();
+extern void net_interrupt();
 extern void net_linemode();
 extern struct ctl_char *net_linemode_chars();
 extern void net_output();

@@ -1,21 +1,21 @@
 x3270 Version 3.1.1 -- New Features and Bug Fixes
 
-x3270 3.1.1.6 is functionally identical to x3270 3.1.0.7, with the following
-exceptions:
+x3270 3.1.1.8 is functionally identical to x3270 3.1.0.7, with the
+following exceptions:
 
 IND$FILE File Transfer Support
 
-File transfer with IBM hosts is now supported using the IND$FILE protocol. A
-new File menu item, File Transfer, initiates a transfer.
+File transfer with IBM hosts is now supported using the IND$FILE protocol.
+A new File menu item, File Transfer, initiates a transfer.
 
 The IND$FILE program must be installed on the IBM host, and the 3270 cursor
 must be positioned on a field which can accept a TSO or VM/CMS command.
 
 A pop-up menu allows the file names and transfer options to be specified.
 
-Both types of file transfer are supported and automatically recognized: CUT,
-expanding the data into displayable characters a screenful at a time, and
-DFT, exchanging binary data with Structured Fields.
+Both types of file transfer are supported and automatically recognized:
+CUT, expanding the data into displayable characters a screenful at a time,
+and DFT, exchanging binary data with Structured Fields.
 
 This code was created in collaboration with Dick Altenbern.
 
@@ -58,8 +58,8 @@ Changes Since x3270 3.1.1.3
    * Completed support for the 3270 Character Set attribute. (Bug #350)
    * Fixed a number of minor 3270 protocol and keyboard interaction bugs.
    * Restored the PauseScript() and ContinueScript() actions.
-   * Fixed an error in the documentation of the child script interface. (Bug
-     #356)
+   * Fixed an error in the documentation of the child script interface.
+     (Bug #356)
    * Extended the operation of the x3270.modifiedSel option to 3279 (full
      color) mode.
 
@@ -71,8 +71,8 @@ Changes Since x3270 3.1.1.4
    * Replaced silent rejection of illegal oversize dimensions with real
      error messages. (Bug #358)
    * Fixed a missing backslash on the man page.
-   * Fixed problems with trying to build X3270.ad with gcc. (Partial fix for
-     bug #360)
+   * Fixed problems with trying to build X3270.ad with gcc. (Partial fix
+     for bug #360)
 
 Changes Since x3270 3.1.1.5
 
@@ -83,3 +83,25 @@ Changes Since x3270 3.1.1.5
      login macro.
    * Added x3270.lsm (Linux Software Map).
    * Fixed X3270.ad generation problem. (Bug #360)
+
+Changes Since x3270 3.1.1.6
+
+   * Fixed a problem with the Enter key on the "sun_k5" keymap. (Bug #363)
+   * Added a HexString() action, to allow input of non-printing data.
+   * Fixed a problem with cutting and pasting APL characters. (Bug #364)
+   * Implemented Wait(ansi) and Wait(3270) actions, to allow synchronizing
+     with host mode-change operations.
+   * Improved TELNET option negotiation logic, and added support for the
+     TELNET Timing Mark option. (Bug #365)
+   * Added Beat Rubischon's 5250 keymap and FieldExit() action.
+   * Fixed a problem with parsing the ibm_hosts file when the last line
+     doesn't end with a newline. (Bug #366)
+   * Updated the dryrun script to get Sun LD_LIBRARY_PATH right.
+
+Changes Since x3270 3.1.1.7
+
+   * Added support for LU names. (Original code courtesy of Michael Knigge)
+   * Added support for standard "host:port" notation.
+   * Updated the contact e-mail addresses and LSM entry.
+   * Added the AS/400 Interrupt() action, and copyright changes suggested
+     by Carey Evans.

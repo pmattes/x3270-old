@@ -1,5 +1,5 @@
 /*
- * Modifications Copyright 1993, 1994, 1995, 1996 by Paul Mattes.
+ * Modifications Copyright 1993, 1994, 1995, 1996, 1999 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -494,6 +494,24 @@ Cardinal *num_params;
 		ticking_start(False);
 		status_ctlr_done();
 	}
+}
+
+/*  
+ * IAC IP, which works for 5250 System Request and interrupts the program
+ * on an AS/400, even when the keyboard is locked.
+ */
+/*ARGSUSED*/
+void
+Interrupt_action(w, event, params, num_params)
+Widget w;
+XEvent *event;
+String *params;
+Cardinal *num_params;
+{
+	action_debug(Interrupt_action, event, params, num_params);
+	if (!IN_3270)
+		return;
+	net_interrupt();
 }
 
 

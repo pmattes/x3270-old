@@ -1,5 +1,5 @@
 /*
- * Modifications Copyright 1993, 1994, 1995, 1996 by Paul Mattes.
+ * Modifications Copyright 1993, 1994, 1995, 1996, 1999 by Paul Mattes.
  * Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -93,6 +93,7 @@ extern char		full_model_name[];
 extern Pixmap		gray;
 extern Pixel		keypadbg_pixel;
 extern Boolean		*latin1_font;
+extern char		luname[];
 extern int		maxCOLS;
 extern int		maxROWS;
 extern char		*model_name;

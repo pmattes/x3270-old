@@ -1,5 +1,5 @@
 /*
- * Copyright 1995 by Paul Mattes.
+ * Copyright 1995, 1999 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -54,6 +54,7 @@ extern void Home_action();
 extern void ignore_action();
 extern void Insert_action();
 extern void insert_selection_action();
+extern void Interrupt_action();
 extern void Keymap_action();
 extern void Key_action();
 extern void Left2_action();

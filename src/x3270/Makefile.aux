@@ -32,12 +32,12 @@ MISC = version.txt X3270.xad x3270.man x3270-script.man ibm_hosts.man \
 	Examples/peer_script.ksh Examples/peer_script.sh Playback/playback.c \
 	Playback/playback.man Playback/Makefile README x3270.lsm
 DOCS = Docs/Attributes Docs/FAQ Docs/Lineage Docs/Resources Docs/Bugs \
-	Docs/Build Docs/Charset Docs/Intro Docs/Wishlist Docs/New
+	Docs/Build Docs/Charset Docs/Intro Docs/Wishlist Docs/New Docs/Y2K
 HTML = html/README.html html/Attributes.html html/FAQ.html html/Lineage.html \
 	html/Resources.html html/Bugs.html html/Build.html \
 	html/Charset.html html/Intro.html html/Wishlist.html \
-	html/New.html html/x3270.man.html html/x3270-script.html \
-	html/ibm_hosts.html html/x3270.xbm html/x3270if.html
+	html/New.html html/Y2K.html html/x3270.man.html html/x3270-script.html \
+	html/ibm_hosts.html html/x3270.xbm html/x3270.jpg html/x3270if.html
 
 FILES = $(SOURCES) $(HEADERS) $(BITMAPS) $(FONTS) $(MISC) $(DOCS) $(HTML)
 
@@ -59,18 +59,8 @@ x3270.tar: $(FILES) tarlist
 	tar -ch -T tarlist -f x3270.tar
 	rm -f $(TARDIR)
 
-x3270.tar.Z: x3270.tar
-	compress < x3270.tar > $@
-
-x3270.tar.gz: x3270.tar
+x3270.tgz: x3270.tar
 	gzip < x3270.tar > $@
-
-x3270.uu: x3270.tar.gz
-	. version.txt; \
-	uuencode x3270.tar.gz x3270-$$version.tar.gz < x3270.tar.gz > $@
-
-x3270.inflate: x3270.tar.Z
-	inflate x3270.tar.Z > $@
 
 lint:
 	lint -abhxz $(SOURCES) -DLIBX3270DIR=\"/usr/lib/X11/x3270\" 2>&1 | \

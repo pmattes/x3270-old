@@ -3,7 +3,7 @@
 
 <H1>x3270 Version 3.1.1 -- New Features and Bug Fixes</H1>
 
-x3270 3.1.1.6 is functionally identical to x3270 3.1.0.7, with the following
+x3270 3.1.1.8 is functionally identical to x3270 3.1.0.7, with the following
 exceptions:
 <H2>IND$FILE File Transfer Support</H2>
 File transfer with IBM hosts is now supported using the IND$FILE protocol.
@@ -77,4 +77,26 @@ messages.  (Bug #358)
 macro.
 <LI>Added x3270.lsm (Linux Software Map).
 <LI>Fixed X3270.ad generation problem.  (Bug #360)
+</UL>
+<H2>Changes Since x3270 3.1.1.6</H2>
+<UL>
+<LI>Fixed a problem with the Enter key on the "sun_k5" keymap.  (Bug #363)
+<LI>Added a HexString() action, to allow input of non-printing data.
+<LI>Fixed a problem with cutting and pasting APL characters.  (Bug #364)
+<LI>Implemented Wait(ansi) and Wait(3270) actions, to allow synchronizing with
+host mode-change operations.
+<LI>Improved TELNET option negotiation logic, and added support for the TELNET
+Timing Mark option.  (Bug #365)
+<LI>Added Beat Rubischon's 5250 keymap and FieldExit() action.
+<LI>Fixed a problem with parsing the ibm_hosts file when the last line doesn't
+end with a newline.  (Bug #366)
+<LI>Updated the dryrun script to get Sun LD_LIBRARY_PATH right.
+</UL>
+<H2>Changes Since x3270 3.1.1.7</H2>
+<UL>
+<LI>Added support for LU names.  (Original code courtesy of Michael Knigge)
+<LI>Added support for standard "host:port" notation.
+<LI>Updated the contact e-mail addresses and LSM entry.
+<LI>Added the AS/400 Interrupt() action, and copyright changes suggested by
+Carey Evans.
 </UL>

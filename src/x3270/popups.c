@@ -1,5 +1,5 @@
 /*
- * Copyright 1993, 1994, 1995 by Paul Mattes.
+ * Copyright 1993, 1994, 1995, 1999 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -500,7 +500,11 @@ va_dcl
 	char *s;
 	extern int sys_nerr;
 #if !defined(__FreeBSD__)
+#if !defined(linux)
 	extern char *sys_errlist[];
+#else
+	extern const char *sys_errlist[];
+#endif
 #endif
 
 #if defined(__STDC__)

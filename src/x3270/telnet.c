@@ -1,5 +1,5 @@
 /*
- * Modifications Copyright 1993, 1994, 1995 by Paul Mattes.
+ * Modifications Copyright 1993, 1994, 1995, 1999 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -124,7 +124,6 @@ static void     check_in3270();
 static void     store3270in();
 static void     check_linemode();
 static char     parse_ctlchar();
-static void     net_interrupt();
 static int      non_blocking();
 static void     net_connected();
 static void     trace_str();
@@ -715,26 +714,34 @@ unsigned char c;
 		if (c == SE) {
 			telnet_state = TNS_DATA;
 			if (sbbuf[0] == TELOPT_TTYPE && sbbuf[1] == TELQUAL_SEND) {
+				int tt_len, tb_len;
 				char *tt_out;
 
 				(void) sprintf(trace_msg, "%s %s\n",
 				    opt(sbbuf[0]), telquals[sbbuf[1]]);
 				trace_str(trace_msg);
 
-				tt_out = XtMalloc(4 + strlen(termtype) + 2 + 1);
-				(void) sprintf(tt_out, "%c%c%c%c%s%c%c",
+				tt_len = strlen(termtype);
+				if (luname[0])
+					tt_len += strlen(luname) + 1;
+
+				tb_len = 4 + tt_len + 2;
+				tt_out = XtMalloc(tb_len + 1);
+				(void) sprintf(tt_out, "%c%c%c%c%s%s%s%c%c",
 				    IAC, SB, TELOPT_TTYPE, TELQUAL_IS,
 				    termtype,
+				    luname[0] ? "@" : "", luname,
 				    IAC, SE);
-				net_rawout((unsigned char *)tt_out,
-					   4 + strlen(termtype) + 2);
-				XtFree(tt_out);
+				net_rawout((unsigned char *)tt_out, tb_len);
 
 				(void) sprintf(trace_msg,
-				    "SENT %s %s %s %s %s\n",
+				    "SENT %s %s %s %.*s %s\n",
 				    cmd(SB), opt(TELOPT_TTYPE),
-				    telquals[TELQUAL_IS], termtype, cmd(SE));
+				    telquals[TELQUAL_IS],
+				    tt_len, tt_out + 4,
+				    cmd(SE));
 				trace_str(trace_msg);
+				XtFree(tt_out);
 			}
 		} else {
 			*sbptr = c;	/* just stuff it */
@@ -1558,7 +1565,7 @@ net_break()
  *	Send telnet IP.
  *
  */
-static void
+void
 net_interrupt()
 {
 	static unsigned char buf[] = { IAC, IP };

@@ -1,5 +1,5 @@
 /*
- * Modifications Copyright 1993, 1994, 1995, 1996 by Paul Mattes.
+ * Modifications Copyright 1993, 1994, 1995, 1996, 1999 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *   Permission to use, copy, modify, and distribute this software and its
  *   documentation for any purpose and without fee is hereby granted,
@@ -99,6 +99,8 @@ enum cstate	cstate = NOT_CONNECTED;
 Boolean		ansi_host = False;
 Boolean		std_ds_host = False;
 Boolean		passthru_host = False;
+#define		LUNAME_SIZE	16
+char		luname[LUNAME_SIZE+1];
 Boolean		ever_3270 = False;
 Boolean		exiting = False;
 Boolean		reconnect_disabled = False;
@@ -373,7 +375,7 @@ char *msg;
 {
 	if (msg != CN)
 		XtWarning(msg);
-	xs_error("Usage: %s [options] [[ps:]hostname [port]]", programname);
+	xs_error("Usage: %s [options] [[ps:][LUname@]hostname[:port]]", programname);
 }
 
 static void
@@ -481,7 +483,7 @@ char	*argv[];
 	    case 3:
 		no_minus(argv[1]);
 		no_minus(argv[2]);
-		cl_hostname = xs_buffer("%s %s", argv[1], argv[2]);
+		cl_hostname = xs_buffer("%s:%s", argv[1], argv[2]);
 		break;
 	    default:
 		usage(CN);
@@ -734,13 +736,16 @@ char	*argv[];
 
 
 static char *
-strip_qual(s, ansi, std_ds, passthru)
+strip_qual(s, ansi, std_ds, passthru, luname)
 char *s;
 Boolean *ansi;
 Boolean *std_ds;
 Boolean *passthru;
+char *luname;
 {
 	for (;;) {
+		char *at;
+
 		if (!strncmp(s, "a:", 2) || !strncmp(s, "A:", 2)) {
 			if (ansi != (Boolean *) NULL)
 				*ansi = True;
@@ -757,6 +762,18 @@ Boolean *passthru;
 			if (passthru != (Boolean *) NULL)
 				*passthru = True;
 			s += 2;
+			continue;
+		}
+		if ((at = strchr(s, '@')) != NULL) {
+			if (at != s && luname != CN) {
+				int nc = at - s;
+
+				if (nc > LUNAME_SIZE)
+					nc = LUNAME_SIZE;
+				(void) strncpy(luname, s, nc);
+				luname[nc] = '\0';
+			}
+			s = at + 1;
 			continue;
 		}
 		break;
@@ -782,7 +799,7 @@ char	*n;
 	char *s;		/* temporary */
 	char *target_name;
 	char *ps = CN;
-	char *port;
+	char *colon, *space, *port = CN;
 	Boolean pending;
 
 	if (CONNECTED || reconnecting)
@@ -806,8 +823,9 @@ char	*n;
 	ansi_host = False;
 	std_ds_host = False;
 	passthru_host = False;
+	luname[0] = '\0';
 	if (!(s = strip_qual(nb, &ansi_host, &std_ds_host,
-	    &passthru_host)))
+	    &passthru_host, luname)))
 		return -1;
 
 	/* Look up the name in the hosts file. */
@@ -816,17 +834,35 @@ char	*n;
 		/* Rescan for qualifiers. */
 		(void) strcpy(nb, target_name);
 		if (!(s = strip_qual(nb, &ansi_host, &std_ds_host,
-		    &passthru_host)))
+		    &passthru_host, luname)))
 			return -1;
 	}
 
 	/* Split off any port number. */
-	if ((port = strchr(s, ' '))) {
-		*port++ = '\0';
-		while (*port == ' ')
-			port++;
+	colon = strrchr(s, ':');
+	space = strrchr(s, ' ');
+	if (colon != CN && space != CN) {
+		/* Do nothing, fail below. */
+	} else if (colon != CN) {
+		if (colon == strchr(s, ':')) {
+			*colon++ = '\0';
+			while (*colon == ' ')
+				colon++;
+			port = colon;
+		}
+	} else if (space != CN) {
+		if (space == strchr(s, ' ')) {
+			*space++ = '\0';
+			while (*space == ' ')
+				space++;
+			port = space;
+		}
 	} else
 		port = appres.port;
+	if (port == CN) {
+		popup_an_error("Invalid hostname/port specification");
+		return -1;
+	}
 
 	/* Store the name in globals, even if we fail. */
 	if (n != full_current_host) {
@@ -835,7 +871,7 @@ char	*n;
 		full_current_host = XtNewString(n);
 	}
 	current_host = strip_qual(full_current_host, (Boolean *) NULL,
-	    (Boolean *) NULL, (Boolean *) NULL);
+	    (Boolean *) NULL, (Boolean *) NULL, (char *) NULL);
 
 	/* Attempt contact. */
 	ever_3270 = False;

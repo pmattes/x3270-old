@@ -1,5 +1,5 @@
 /*
- * Modifications Copyright 1993, 1994, 1995 by Paul Mattes.
+ * Modifications Copyright 1993, 1994, 1995, 1999 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -78,6 +78,7 @@ XtActionsRec actions[] = {
 	{ "Home",		(XtActionProc)Home_action },
 	{ "Info",		(XtActionProc)Info_action },
 	{ "Insert",		(XtActionProc)Insert_action },
+	{ "Interrupt",		(XtActionProc)Interrupt_action },
 	{ "Key",		(XtActionProc)Key_action },
 	{ "Keymap",		(XtActionProc)Keymap_action },
 	{ "KeymapEvent",	(XtActionProc)KeymapEvent_action },

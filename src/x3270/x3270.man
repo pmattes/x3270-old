@@ -1,20 +1,13 @@
 '\" t
-.TH X3270 1 "25 September 1997"
+.TH X3270 1 "15 March 1999"
 .SH NAME
 x3270 \-
 .SM IBM
 host access tool
 .SH SYNOPSIS
 .B x3270
-[
-.I options
-] [ [
-.IB prefix:
-]
-.I hostname
-[
-.I port
-] ]
+.RI [ options ]
+.RI [[ prefix :]...[ LUname @] hostname [: port ]]
 .SH DESCRIPTION
 .B x3270
 opens a telnet connection to an
@@ -48,13 +41,28 @@ See
 .B \-tn
 below for further information.
 .LP
+A specific LU name to use may be specified by prepending it to the
+.I hostname
+with an
+.RB `` @ ''.
+.LP
 The port to connect to defaults to
 .BR telnet .
 This can be overridden with the
 .RI \- port
-option, or by specifying a
+option, or by appending a
 .I port
-on the command line.
+to the
+.I hostname
+with a colon
+.RB `` : ''.
+(For compatability with previous versions of
+.I x3270
+and with
+.IR tn3270 ,
+the
+.I port
+may also be specified as a second, separate argument.)
 .SH OPTIONS
 .B x3270 
 is a toolkit based program, so it understands standard options and resources.
@@ -1051,6 +1059,7 @@ HandleMenu(\fIname\fP)	pop up a menu
 HexString(\fIhex_digits\fP)	insert control-character string
 Home	move cursor to first input field
 Insert	set insert mode
+Interrupt	send TELNET IP to host
 Key(\fIkeysym\fP)	insert key \fIkeysym\fP
 Keymap(\fIkeymap\fP)	toggle alternate \fIkeymap\fP (or remove with \fBNone\fP)
 Left	move cursor left
@@ -1504,9 +1513,13 @@ X Toolkit Intrinsics
 Data Stream Programmer's Reference, IBM GA23\-0059
 .br
 Character Set Reference, IBM GA27\-3831
+.br
+RFC 1576, TN3270 Current Practices
+.br
+RFC 1646, TN3270 Extensions for LUname and Printer Selection
 .SH COPYRIGHTS
 .LP
-Modifications Copyright 1993, 1994, 1995, 1996, 1997 by Paul Mattes.
+Modifications Copyright 1993, 1994, 1995, 1996, 1997, 1999 by Paul Mattes.
 .br
 Original X11 Port Copyright 1990 by Jeff Sparkes.
 .RS
@@ -1524,4 +1537,4 @@ notice.
 .RE
 5250 Emulation Code copyright Minolta (Schweiz) AG, Beat Rubischon.
 .SH VERSION
-x3270 3.1.1.7
+x3270 3.1.1.8

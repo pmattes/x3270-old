@@ -612,7 +612,8 @@ x3270.keymap.5250: \
 	<Key>F10:		PA(1) PF(10)\n\
 	<Key>F11:		PA(1) PF(11)\n\
 	<Key>F12:		PA(1) PF(12)\n\
-	<Key>Insert:		ToggleInsert()\n
+	<Key>Insert:		ToggleInsert()\n\
+	Shift<Key>Escape:	Interrupt()\n
 ! Keymap modifier for keyboards which lack a Meta key, such as the RS/6000.
 x3270.keymap.alt: \
 	:Alt<Key>Left:		Left2()\n\
@@ -838,6 +839,7 @@ x3270.message.pseudoColor:			pseudo-color
 x3270.message.extendedDs:			extended data stream
 x3270.message.standardDs:			standard data stream
 x3270.message.terminalName:			Terminal name:
+x3270.message.luName:				LU name:
 x3270.message.emulatorFont:			Emulator font:
 x3270.message.fullFont:				full ISO 8859-1 font
 x3270.message.asciiFont:			7-bit ASCII X font
