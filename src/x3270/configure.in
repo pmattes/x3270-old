@@ -1,9 +1,13 @@
-dnl Copyright 2000, 2001 by Paul Mattes.
+dnl Copyright 2000, 2001, 2002 by Paul Mattes.
 dnl  Permission to use, copy, modify, and distribute this software and its
 dnl  documentation for any purpose and without fee is hereby granted,
 dnl  provided that the above copyright notice appear in all copies and that
 dnl  both that copyright notice and this permission notice appear in
 dnl  supporting documentation.
+dnl 
+dnl x3270 is distributed in the hope that it will be useful, but WITHOUT ANY
+dnl WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+dnl FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
 
 dnl Process this file with autoconf to produce a configure script.
 AC_INIT(main.c)
@@ -93,6 +97,18 @@ case "$enable_apl" in
 ""|yes)	AC_DEFINE(X3270_APL,1)
 	;;
 esac
+AC_ARG_ENABLE(dbcs,[  --enable-dbcs           include DBCS support])
+case "$enable_dbcs" in
+yes)	AC_DEFINE(X3270_DBCS,1)
+	WIDE_C=wide.c
+	WIDE_O=wide.o
+	INSTALL_CNV="#define INSTALL_CNV 1";
+	;;
+*)	INSTALL_CNV="#undef INSTALL_CNV";
+esac
+AC_SUBST(WIDE_C)
+AC_SUBST(WIDE_O)
+AC_SUBST(INSTALL_CNV)
 AC_ARG_ENABLE(ft,[  --disable-ft            leave out file transfer support])
 case "$enable_ft" in
 ""|yes)	AC_DEFINE(X3270_FT,1)
@@ -169,6 +185,12 @@ AC_CHECK_FUNCS(vasprintf)
 AC_CHECK_FUNC(strtok_r,,AC_LIBOBJ(strtok_r)
 AC_DEFINE(NEED_STRTOK_R))
 AC_FUNC_FSEEKO
+
+dnl Check for -licui18n last.
+if test "$enable_dbcs" = "yes"
+then	AC_CHECK_LIB(icui18n, ucnv_open_2_2, , [AC_MSG_ERROR(Can't find libicui18n)], $HACK_LIBS)
+fi
+AC_SUBST(HACK_LIBS)
 
 dnl Check for xmkmkf
 AC_CHECK_PROG(xmkmf_found,xmkmf,found,notfound)

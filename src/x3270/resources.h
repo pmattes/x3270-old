@@ -1,15 +1,20 @@
 /*
- * Copyright 1995, 1996, 1999, 2000, 2001 by Paul Mattes.
+ * Copyright 1995, 1996, 1999, 2000, 2001, 2002 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
  *  both that copyright notice and this permission notice appear in
  *  supporting documentation.
+ *
+ * x3270, c3270, s3270 and tcl3270 are distributed in the hope that they will
+ * be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the file LICENSE
+ * for more details.
  */
 
 /*
  *	resources.h
- *		x3270 resource and option names.
+ *		x3270/c3270/s3270/tcl3270 resource and option names.
  */
 
 /* Resources. */
@@ -41,6 +46,7 @@
 #define ResCursorBlink		"cursorBlink"
 #define ResCursorColor		"cursorColor"
 #define ResCursorPos		"cursorPos"
+#define ResDbcsConverters	"dbcsConverters"
 #define ResDebugFont		"debugFont"
 #define ResDebugTracing		"debugTracing"
 #define ResDefScreen		"defScreen"
@@ -61,6 +67,7 @@
 #define ResIconLabelFont	"iconLabelFont"
 #define ResIcrnl		"icrnl"
 #define ResIdleCommand		"idleCommand"
+#define ResIdleCommandEnabled	"idleCommandEnabled"
 #define ResIdleTimeout		"idleTimeout"
 #define ResInlcr		"inlcr"
 #define ResInputColor		"inputColor"
@@ -190,6 +197,7 @@
 #define ClsIconLabelFont	"IconLabelFont"
 #define ClsIcrnl		"Icrnl"
 #define ClsIdleCommand		"IdleCommand"
+#define ClsIdleCommandEnabled	"IdleCommandEnabled"
 #define ClsIdleTimeout		"IdleTimeout"
 #define ClsInlcr		"Inlcr"
 #define ClsInputColor		"InputColor"

@@ -1,5 +1,6 @@
 /*
- * Modifications Copyright 1993, 1994, 1995, 1996, 1999, 2000, 2001 by Paul Mattes.
+ * Modifications Copyright 1993, 1994, 1995, 1996, 1999,
+ *  2000, 2001, 2002 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -11,6 +12,11 @@
  *  All Rights Reserved.  GTRC hereby grants public use of this software.
  *  Derivative works based on this software must incorporate this copyright
  *  notice.
+ *
+ * x3270, c3270, s3270 and tcl3270 are distributed in the hope that they will
+ * be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the file LICENSE
+ * for more details.
  */
 
 /*
@@ -27,7 +33,6 @@
 #include "appres.h"
 #include "ctlr.h"
 #include "screen.h"
-#include "cg.h"
 #include "resources.h"
 
 #include "ctlrc.h"
@@ -59,8 +64,9 @@ int             model_num;
 int             cursor_addr, buffer_addr;
 Boolean         screen_alt = True;	/* alternate screen? */
 Boolean         is_altbuffer = False;
-unsigned char  *screen_buf;	/* 3270 display buffer */
-struct ea      *ea_buf;		/* 3270 extended attribute buffer */
+struct ea      *ea_buf;		/* 3270 device buffer */
+				/* ea_buf[-1] is the dummy default field
+				   attribute */
 Boolean         formatted = False;	/* set in screen_disp */
 Boolean         screen_changed = False;
 int             first_changed = -1;
@@ -68,23 +74,23 @@ int             last_changed = -1;
 unsigned char   reply_mode = SF_SRM_FIELD;
 int             crm_nattr = 0;
 unsigned char   crm_attr[16];
+Boolean		dbcs = False;
 
 /* Statics */
-static unsigned char *ascreen_buf;	/* alternate 3270 display buffer */
 static struct ea *aea_buf;	/* alternate 3270 extended attribute buffer */
 static unsigned char *zero_buf;	/* empty buffer, for area clears */
 static void set_formatted(void);
 static void ctlr_blanks(void);
-static unsigned char fake_fa;
-static struct ea fake_ea;
 static Boolean  trace_primed = False;
 static unsigned char default_fg;
 static unsigned char default_gr;
 static unsigned char default_cs;
+static unsigned char default_ic;
 static void	ctlr_half_connect(Boolean ignored);
 static void	ctlr_connect(Boolean ignored);
 static int	sscp_start;
 static void ticking_stop(void);
+static void ctlr_add_ic(int baddr, unsigned char ic);
 
 /*
  * code_table is used to translate buffer addresses and attributes to the 3270
@@ -101,7 +107,7 @@ static unsigned char	code_table[64] = {
 	0xF8, 0xF9, 0x7A, 0x7B, 0x7C, 0x7D, 0x7E, 0x7F,
 };
 
-#define IsBlank(c)	((c == CG_null) || (c == CG_space))
+#define IsBlank(c)	((c == EBC_null) || (c == EBC_space))
 
 #define ALL_CHANGED	{ \
 	screen_changed = True; \
@@ -127,6 +133,7 @@ static unsigned char	code_table[64] = {
 		*(ptr)++ = code_table[(addr) & 0x3F]; \
 	} \
     }
+
 
 /*
  * Initialize the emulated 3270 hardware.
@@ -147,16 +154,16 @@ ctlr_reinit(unsigned cmask)
 {
 	if (cmask & MODEL_CHANGE) {
 		/* Allocate buffers */
-		Replace(screen_buf,
-		    (unsigned char *)Calloc(sizeof(unsigned char),
-					    maxROWS * maxCOLS));
-		Replace(ea_buf, (struct ea *)Calloc(sizeof(struct ea),
-						    maxROWS * maxCOLS));
-		Replace(ascreen_buf,
-		    (unsigned char *)Calloc(sizeof(unsigned char),
-					    maxROWS * maxCOLS));
-		Replace(aea_buf, (struct ea *)Calloc(sizeof(struct ea),
-						     maxROWS * maxCOLS));
+		if (ea_buf)
+			Free((char *)(ea_buf - 1));
+		ea_buf = (struct ea *)Calloc(sizeof(struct ea),
+					     (maxROWS * maxCOLS) + 1);
+		ea_buf++;
+		if (aea_buf)
+			Free((char *)(aea_buf - 1));
+		aea_buf = (struct ea *)Calloc(sizeof(struct ea),
+					      (maxROWS * maxCOLS) + 1);
+		aea_buf++;
 		Replace(zero_buf, (unsigned char *)Calloc(sizeof(struct ea),
 							  maxROWS * maxCOLS));
 		cursor_addr = 0;
@@ -261,7 +268,7 @@ set_formatted(void)
 	formatted = False;
 	baddr = 0;
 	do {
-		if (IS_FA(screen_buf[baddr])) {
+		if (ea_buf[baddr].fa) {
 			formatted = True;
 			break;
 		}
@@ -289,9 +296,9 @@ ctlr_connect(Boolean ignored unused)
 	status_untiming();
 
 	if (ever_3270)
-		fake_fa = 0xE0;
+		ea_buf[-1].fa = FA_PRINTABLE | FA_MODIFY;
 	else
-		fake_fa = 0xC4;
+		ea_buf[-1].fa = FA_PRINTABLE | FA_PROTECT;
 	if (!IN_3270 || (IN_SSCP && (kybdlock & KL_OIA_TWAIT))) {
 		kybdlock_clr(KL_OIA_TWAIT, "ctlr_connect");
 		status_reset();
@@ -300,30 +307,42 @@ ctlr_connect(Boolean ignored unused)
 	default_fg = 0x00;
 	default_gr = 0x00;
 	default_cs = 0x00;
+	default_ic = 0x00;
 	reply_mode = SF_SRM_FIELD;
 	crm_nattr = 0;
 }
 
 
+
+/*
+ * Find the buffer address of the field attribute for a given buffer address.
+ * Returns -1 if the screen isn't formatted.
+ */
+int
+find_field_attribute(int baddr)
+{
+	int sbaddr;
+
+	if (!formatted)
+		return -1;
+
+	sbaddr = baddr;    
+	do {   
+		if (ea_buf[baddr].fa)
+			return baddr;
+		DEC_BA(baddr);
+	} while (baddr != sbaddr);
+	return -1;
+}
+
 /*
  * Find the field attribute for the given buffer address.  Return its address
  * rather than its value.
  */
-unsigned char *
+unsigned char
 get_field_attribute(register int baddr)
 {
-	int	sbaddr;
-
-	if (!formatted)
-		return &fake_fa;
-
-	sbaddr = baddr;
-	do {
-		if (IS_FA(screen_buf[baddr]))
-			return &(screen_buf[baddr]);
-		DEC_BA(baddr);
-	} while (baddr != sbaddr);
-	return &fake_fa;
+	return ea_buf[find_field_attribute(baddr)].fa;
 }
 
 /*
@@ -333,19 +352,20 @@ get_field_attribute(register int baddr)
  * Returns True if an attribute is found, False if boundary hit.
  */
 Boolean
-get_bounded_field_attribute(register int baddr, register int bound, unsigned char *fa_out)
+get_bounded_field_attribute(register int baddr, register int bound,
+    unsigned char *fa_out)
 {
 	int	sbaddr;
 
 	if (!formatted) {
-		*fa_out = fake_fa;
+		*fa_out = ea_buf[-1].fa;
 		return True;
 	}
 
 	sbaddr = baddr;
 	do {
-		if (IS_FA(screen_buf[baddr])) {
-			*fa_out = screen_buf[baddr];
+		if (ea_buf[baddr].fa) {
+			*fa_out = ea_buf[baddr].fa;
 			return True;
 		}
 		DEC_BA(baddr);
@@ -353,7 +373,7 @@ get_bounded_field_attribute(register int baddr, register int bound, unsigned cha
 
 	/* Screen is unformatted (and 'formatted' is inaccurate). */
 	if (baddr == sbaddr) {
-		*fa_out = fake_fa;
+		*fa_out = ea_buf[-1].fa;
 		return True;
 	}
 
@@ -366,12 +386,9 @@ get_bounded_field_attribute(register int baddr, register int bound, unsigned cha
  * extended attribute structure.
  */
 struct ea *
-fa2ea(unsigned char *fa)
+fa2ea(int baddr)
 {
-	if (fa == &fake_fa)
-		return &fake_ea;
-	else
-		return &ea_buf[fa - screen_buf];
+	return &ea_buf[baddr];
 }
 
 /*
@@ -388,9 +405,9 @@ next_unprotected(int baddr0)
 	do {
 		baddr = nbaddr;
 		INC_BA(nbaddr);
-		if (IS_FA(screen_buf[baddr]) &&
-		    !FA_IS_PROTECTED(screen_buf[baddr]) &&
-		    !IS_FA(screen_buf[nbaddr]))
+		if (ea_buf[baddr].fa &&
+		    !FA_IS_PROTECTED(ea_buf[baddr].fa) &&
+		    !ea_buf[nbaddr].fa)
 			return nbaddr;
 	} while (nbaddr != baddr0);
 	return 0;
@@ -442,6 +459,8 @@ ctlr_erase(Boolean alt)
 enum pds
 process_ds(unsigned char *buf, int buflen)
 {
+	enum pds rv;
+
 	if (!buflen)
 		return PDS_OKAY_NO_OUTPUT;
 
@@ -460,20 +479,23 @@ process_ds(unsigned char *buf, int buflen)
 	case SNA_CMD_EWA:
 		trace_ds("EraseWriteAlternate");
 		ctlr_erase(True);
-		ctlr_write(buf, buflen, True);
+		if ((rv = ctlr_write(buf, buflen, True)) < 0)
+			return rv;
 		return PDS_OKAY_NO_OUTPUT;
 		break;
 	case CMD_EW:	/* erase/write */
 	case SNA_CMD_EW:
 		trace_ds("EraseWrite");
 		ctlr_erase(False);
-		ctlr_write(buf, buflen, True);
+		if ((rv = ctlr_write(buf, buflen, True)) < 0)
+			return rv;
 		return PDS_OKAY_NO_OUTPUT;
 		break;
 	case CMD_W:	/* write */
 	case SNA_CMD_W:
 		trace_ds("Write");
-		ctlr_write(buf, buflen, False);
+		if ((rv = ctlr_write(buf, buflen, False)) < 0)
+			return rv;
 		return PDS_OKAY_NO_OUTPUT;
 		break;
 	case CMD_RB:	/* read buffer */
@@ -530,6 +552,23 @@ insert_sa1(unsigned char attr, unsigned char value, unsigned char *currentp, Boo
 	*anyp = False;
 }
 
+/*
+ * Translate an internal character set number to a 3270DS characte set number.
+ */
+static unsigned char
+host_cs(unsigned char cs)
+{
+	switch (cs & CS_MASK) {
+	case CS_APL:
+	case CS_LINEDRAW:
+	    return 0xf0 | (cs & CS_MASK);
+	case CS_DBCS:
+	    return 0xf8;
+	default:
+	    return 0;
+	}
+}
+
 static void
 insert_sa(int baddr, unsigned char *current_fgp, unsigned char *current_grp, unsigned char *current_csp, Boolean *anyp)
 {
@@ -547,12 +586,8 @@ insert_sa(int baddr, unsigned char *current_fgp, unsigned char *current_grp, uns
 		insert_sa1(XA_HIGHLIGHTING, gr, current_grp, anyp);
 	}
 	if (memchr((char *)crm_attr, XA_CHARSET, crm_nattr)) {
-		unsigned char cs;
-
-		cs = ea_buf[baddr].cs & CS_MASK;
-		if (cs)
-			cs |= 0xf0;
-		insert_sa1(XA_CHARSET, cs, current_csp, anyp);
+		insert_sa1(XA_CHARSET, host_cs(ea_buf[baddr].cs), current_csp,
+			   anyp);
 	}
 }
 
@@ -620,13 +655,13 @@ ctlr_read_modified(unsigned char aid_byte, Boolean all)
 	if (formatted) {
 		/* find first field attribute */
 		do {
-			if (IS_FA(screen_buf[baddr]))
+			if (ea_buf[baddr].fa)
 				break;
 			INC_BA(baddr);
 		} while (baddr != 0);
 		sbaddr = baddr;
 		do {
-			if (FA_IS_MODIFIED(screen_buf[baddr])) {
+			if (FA_IS_MODIFIED(ea_buf[baddr].fa)) {
 				Boolean	any = False;
 
 				INC_BA(baddr);
@@ -634,9 +669,9 @@ ctlr_read_modified(unsigned char aid_byte, Boolean all)
 				*obptr++ = ORDER_SBA;
 				ENCODE_BADDR(obptr, baddr);
 				trace_ds(" SetBufferAddress%s", rcba(baddr));
-				while (!IS_FA(screen_buf[baddr])) {
+				while (!ea_buf[baddr].fa) {
 					if (send_data &&
-					    screen_buf[baddr]) {
+					    ea_buf[baddr].cc) {
 						insert_sa(baddr,
 						    &current_fg,
 						    &current_gr,
@@ -651,10 +686,11 @@ ctlr_read_modified(unsigned char aid_byte, Boolean all)
 							any = False;
 						}
 						space3270out(1);
-						*obptr++ = cg2ebc[screen_buf[baddr]];
+						*obptr++ = ea_buf[baddr].cc;
 						if (!any)
 							trace_ds(" '");
-						trace_ds("%s", see_ebc(cg2ebc[screen_buf[baddr]]));
+						trace_ds("%s",
+						    see_ebc(ea_buf[baddr].cc));
 						any = True;
 					}
 					INC_BA(baddr);
@@ -665,7 +701,7 @@ ctlr_read_modified(unsigned char aid_byte, Boolean all)
 			else {	/* not modified - skip */
 				do {
 					INC_BA(baddr);
-				} while (!IS_FA(screen_buf[baddr]));
+				} while (!ea_buf[baddr].fa);
 			}
 		} while (baddr != sbaddr);
 	} else {
@@ -680,7 +716,7 @@ ctlr_read_modified(unsigned char aid_byte, Boolean all)
 			baddr = sscp_start;
 
 		do {
-			if (screen_buf[baddr]) {
+			if (ea_buf[baddr].cc) {
 				insert_sa(baddr,
 				    &current_fg,
 				    &current_gr,
@@ -695,10 +731,10 @@ ctlr_read_modified(unsigned char aid_byte, Boolean all)
 					any = False;
 				}
 				space3270out(1);
-				*obptr++ = cg2ebc[screen_buf[baddr]];
+				*obptr++ = ea_buf[baddr].cc;
 				if (!any)
 					trace_ds("'");
-				trace_ds(see_ebc(cg2ebc[screen_buf[baddr]]));
+				trace_ds(see_ebc(ea_buf[baddr].cc));
 				any = True;
 				nbytes++;
 			}
@@ -763,7 +799,7 @@ ctlr_read_buffer(unsigned char aid_byte)
 
 	baddr = 0;
 	do {
-		if (IS_FA(screen_buf[baddr])) {
+		if (ea_buf[baddr].fa) {
 			if (reply_mode == SF_SRM_FIELD) {
 				space3270out(2);
 				*obptr++ = ORDER_SF;
@@ -774,7 +810,7 @@ ctlr_read_buffer(unsigned char aid_byte)
 				*obptr++ = 1; /* for now */
 				*obptr++ = XA_3270;
 			}
-			fa = calc_fa(screen_buf[baddr]);
+			fa = calc_fa(ea_buf[baddr].fa);
 			*obptr++ = code_table[fa];
 			if (any)
 				trace_ds("'");
@@ -801,10 +837,9 @@ ctlr_read_buffer(unsigned char aid_byte)
 				if (ea_buf[baddr].cs & CS_MASK) {
 					space3270out(2);
 					*obptr++ = XA_CHARSET;
-					*obptr++ =
-					    (ea_buf[baddr].cs & CS_MASK) | 0xf0;
+					*obptr++ = host_cs(ea_buf[baddr].cs);
 					trace_ds("%s", see_efa(XA_CHARSET,
-					    (ea_buf[baddr].cs & CS_MASK) | 0xf0));
+					    host_cs(ea_buf[baddr].cs)));
 					(*(obuf + attr_count))++;
 				}
 			}
@@ -824,18 +859,18 @@ ctlr_read_buffer(unsigned char aid_byte)
 				any = False;
 			}
 			space3270out(1);
-			*obptr++ = cg2ebc[screen_buf[baddr]];
-			if (cg2ebc[screen_buf[baddr]] <= 0x3f ||
-			    cg2ebc[screen_buf[baddr]] == 0xff) {
+			*obptr++ = ea_buf[baddr].cc;
+			if (ea_buf[baddr].cc <= 0x3f ||
+			    ea_buf[baddr].cc == 0xff) {
 				if (any)
 					trace_ds("'");
 
-				trace_ds(" %s", see_ebc(cg2ebc[screen_buf[baddr]]));
+				trace_ds(" %s", see_ebc(ea_buf[baddr].cc));
 				any = False;
 			} else {
 				if (!any)
 					trace_ds(" '");
-				trace_ds("%s", see_ebc(cg2ebc[screen_buf[baddr]]));
+				trace_ds("%s", see_ebc(ea_buf[baddr].cc));
 				any = True;
 			}
 		}
@@ -867,13 +902,13 @@ ctlr_snap_buffer(void)
 	*obptr++ = code_table[0];
 
 	do {
-		if (IS_FA(screen_buf[baddr])) {
+		if (ea_buf[baddr].fa) {
 			space3270out(4);
 			*obptr++ = ORDER_SFE;
 			attr_count = obptr - obuf;
 			*obptr++ = 1; /* for now */
 			*obptr++ = XA_3270;
-			*obptr++ = code_table[calc_fa(screen_buf[baddr])];
+			*obptr++ = code_table[calc_fa(ea_buf[baddr].cc)];
 			if (ea_buf[baddr].fg) {
 				space3270out(2);
 				*obptr++ = XA_FOREGROUND;
@@ -889,7 +924,7 @@ ctlr_snap_buffer(void)
 			if (ea_buf[baddr].cs & CS_MASK) {
 				space3270out(2);
 				*obptr++ = XA_CHARSET;
-				*obptr++ = (ea_buf[baddr].cs & CS_MASK) | 0xf0;
+				*obptr++ = host_cs(ea_buf[baddr].cs);
 				(*(obuf + attr_count))++;
 			}
 		} else {
@@ -913,7 +948,7 @@ ctlr_snap_buffer(void)
 			}
 			av = ea_buf[baddr].cs & CS_MASK;
 			if (av)
-				av |= 0xf0;
+				av = host_cs(av);
 			if (current_cs != av) {
 				current_cs = av;
 				space3270out(3);
@@ -926,7 +961,7 @@ ctlr_snap_buffer(void)
 				*obptr++ = ORDER_GE;
 			}
 			space3270out(1);
-			*obptr++ = cg2ebc[screen_buf[baddr]];
+			*obptr++ = ea_buf[baddr].cc;
 		}
 		INC_BA(baddr);
 	} while (baddr != 0);
@@ -981,31 +1016,31 @@ ctlr_erase_all_unprotected(void)
 		/* find first field attribute */
 		baddr = 0;
 		do {
-			if (IS_FA(screen_buf[baddr]))
+			if (ea_buf[baddr].fa)
 				break;
 			INC_BA(baddr);
 		} while (baddr != 0);
 		sbaddr = baddr;
 		f = False;
 		do {
-			fa = screen_buf[baddr];
+			fa = ea_buf[baddr].fa;
 			if (!FA_IS_PROTECTED(fa)) {
-				mdt_clear(&screen_buf[baddr]);
+				mdt_clear(baddr);
 				do {
 					INC_BA(baddr);
 					if (!f) {
 						cursor_move(baddr);
 						f = True;
 					}
-					if (!IS_FA(screen_buf[baddr])) {
-						ctlr_add(baddr, CG_null, 0);
+					if (!ea_buf[baddr].fa) {
+						ctlr_add(baddr, EBC_null, 0);
 					}
-				} while (!IS_FA(screen_buf[baddr]));
+				} while (!ea_buf[baddr].fa);
 			}
 			else {
 				do {
 					INC_BA(baddr);
-				} while (!IS_FA(screen_buf[baddr]));
+				} while (!ea_buf[baddr].fa);
 			}
 		} while (baddr != sbaddr);
 		if (!f)
@@ -1022,13 +1057,12 @@ ctlr_erase_all_unprotected(void)
 /*
  * Process a 3270 Write command.
  */
-void
+enum pds
 ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 {
 	register unsigned char	*cp;
 	register int	baddr;
-	unsigned char	*current_fa;
-	unsigned char	new_attr;
+	unsigned char	current_fa;
 	Boolean		last_cmd;
 	Boolean		last_zpt;
 	Boolean		wcc_keyboard_restore, wcc_sound_alarm;
@@ -1039,40 +1073,41 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 	unsigned char	efa_fg;
 	unsigned char	efa_gr;
 	unsigned char	efa_cs;
+	unsigned char	efa_ic;
 	const char	*paren = "(";
 	enum { NONE, ORDER, SBA, TEXT, NULLCH } previous = NONE;
+	enum pds	rv = PDS_OKAY_NO_OUTPUT;
+	int		fa_addr;
+	Boolean		add_dbcs;
+	unsigned char	add_c1, add_c2;
+	enum dbcs_state	d;
+	enum dbcs_why	why;
+	Boolean		aborted = False;
 
 #define END_TEXT0	{ if (previous == TEXT) trace_ds("'"); }
 #define END_TEXT(cmd)	{ END_TEXT0; trace_ds(" %s", cmd); }
 
-#define ATTR2FA(attr) \
-	(FA_BASE | \
-	 (((attr) & 0x20) ? FA_PROTECT : 0) | \
-	 (((attr) & 0x10) ? FA_NUMERIC : 0) | \
-	 (((attr) & 0x01) ? FA_MODIFY : 0) | \
-	 (((attr) >> 2) & FA_INTENSITY))
-#define START_FIELDx(fa) { \
-			current_fa = &(screen_buf[buffer_addr]); \
-			ctlr_add(buffer_addr, fa, 0); \
+/* XXX: Should there be a ctlr_add_cs call here? */
+#define START_FIELD(fa) { \
+			current_fa = fa; \
+			ctlr_add_fa(buffer_addr, fa); \
+			ctlr_add_cs(buffer_addr, 0); \
 			ctlr_add_fg(buffer_addr, 0); \
 			ctlr_add_gr(buffer_addr, 0); \
+			ctlr_add_ic(buffer_addr, 0); \
 			trace_ds(see_attr(fa)); \
 			formatted = True; \
-		}
-#define START_FIELD0	{ START_FIELDx(FA_BASE); }
-#define START_FIELD(attr) { \
-			new_attr = ATTR2FA(attr); \
-			START_FIELDx(new_attr); \
 		}
 
 	kybd_inhibit(False);
 
 	if (buflen < 2)
-		return;
+		return PDS_BAD_CMD;
 
 	default_fg = 0;
 	default_gr = 0;
 	default_cs = 0;
+	default_ic = 0;
 	trace_primed = True;
 	buffer_addr = cursor_addr;
 	if (WCC_RESET(buf[1])) {
@@ -1101,8 +1136,8 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 		if (appres.modified_sel)
 			ALL_CHANGED;
 		do {
-			if (IS_FA(screen_buf[baddr])) {
-				mdt_clear(&screen_buf[baddr]);
+			if (ea_buf[baddr].fa) {
+				mdt_clear(baddr);
 			}
 			INC_BA(baddr);
 		} while (baddr != 0);
@@ -1113,7 +1148,15 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 	last_cmd = True;
 	last_zpt = False;
 	current_fa = get_field_attribute(buffer_addr);
-	for (cp = &buf[2]; cp < (buf + buflen); cp++) {
+
+#define ABORT_WRITE(s) { \
+	trace_ds(" [" s "; write aborted]\n"); \
+	rv = PDS_BAD_ADDR; \
+	aborted = True; \
+	break; \
+} \
+
+	for (cp = &buf[2]; !aborted && cp < (buf + buflen); cp++) {
 		switch (*cp) {
 		case ORDER_SF:	/* start field */
 			END_TEXT("StartField");
@@ -1134,10 +1177,7 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 			previous = SBA;
 			trace_ds(rcba(buffer_addr));
 			if (buffer_addr >= COLS * ROWS) {
-				trace_ds(" [invalid address, write command terminated]\n");
-				/* Let a script go. */
-				sms_host_output();
-				return;
+				ABORT_WRITE("invalid SBA address");
 			}
 			current_fa = get_field_attribute(buffer_addr);
 			last_cmd = True;
@@ -1160,8 +1200,8 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 			 * of an unprotected field, simply advance one
 			 * position.
 			 */
-			if (IS_FA(screen_buf[buffer_addr]) &&
-			    !FA_IS_PROTECTED(screen_buf[buffer_addr])) {
+			if (ea_buf[buffer_addr].fa &&
+			    !FA_IS_PROTECTED(ea_buf[buffer_addr].fa)) {
 				INC_BA(buffer_addr);
 				last_zpt = False;
 				last_cmd = True;
@@ -1179,12 +1219,13 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 			 * if protected -- if the PT doesn't follow a command
 			 * or order, or (honestly) if the last order we saw was
 			 * a null-filling PT that left the buffer address at 0.
+			 * XXX: There's some funky DBCS rule here.
 			 */
 			if (!last_cmd || last_zpt) {
 				trace_ds("(nulling)");
 				while ((buffer_addr != baddr) &&
-				       (!IS_FA(screen_buf[buffer_addr]))) {
-					ctlr_add(buffer_addr, CG_null, 0);
+				       (!ea_buf[buffer_addr].fa)) {
+					ctlr_add(buffer_addr, EBC_null, 0);
 					INC_BA(buffer_addr);
 				}
 				if (baddr == 0)
@@ -1200,35 +1241,88 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 			baddr = DECODE_BADDR(*(cp-1), *cp);
 			trace_ds(rcba(baddr));
 			cp++;		/* skip char to repeat */
-			if (*cp == ORDER_GE){
-				ra_ge = True;
-				trace_ds("GraphicEscape");
-				cp++;
-			} else
-				ra_ge = False;
+			add_dbcs = False;
+			ra_ge = False;
 			previous = ORDER;
-			if (*cp)
-				trace_ds("'");
-			trace_ds("%s", see_ebc(*cp));
-			if (*cp)
-				trace_ds("'");
+			if (dbcs) {
+				d = ctlr_lookleft_state(buffer_addr, &why);
+				if (d == DBCS_RIGHT) {
+					ABORT_WRITE("RA over right half of DBCS character");
+				}
+				if (default_cs == CS_DBCS || d == DBCS_LEFT) {
+					add_dbcs = TRUE;
+				}
+			}
+			if (add_dbcs) {
+				if ((baddr - buffer_addr) % 2) {
+					ABORT_WRITE("DBCS RA with odd length");
+				}
+				add_c1 = *cp;
+				cp++;
+				if (cp >= buf + buflen) {
+					ABORT_WRITE("missing second half of DBCS character");
+				}
+				add_c2 = *cp;
+				if (add_c1 == EBC_null) {
+					switch (add_c2) {
+					case EBC_null:
+					case EBC_nl:
+					case EBC_em:
+					case EBC_ff:
+					case EBC_cr:
+					case EBC_dup:
+					case EBC_fm:
+						break;
+					default:
+						ABORT_WRITE("DBCS RA control character");
+					}
+				} else if (add_c1 < 0x40 || add_c1 > 0xfe ||
+					   add_c2 < 0x40 || add_c2 > 0xfe) {
+					ABORT_WRITE("invalid DBCS RA character");
+				   }
+			} else {
+				if (*cp == ORDER_GE) {
+					ra_ge = True;
+					trace_ds("GraphicEscape");
+					cp++;
+				}
+				add_c1 = *cp;
+				if (add_c1)
+					trace_ds("'");
+				trace_ds("%s", see_ebc(add_c1));
+				if (add_c1)
+					trace_ds("'");
+			}
 			if (baddr >= COLS * ROWS) {
-				trace_ds(" [invalid address, write command terminated]\n");
-				/* Let a script go. */
-				sms_host_output();
-				return;
+				ABORT_WRITE("invalid RA address");
 			}
 			do {
-				if (ra_ge)
-					ctlr_add(buffer_addr, ebc2cg0[*cp],
-					    CS_GE);
-				else if (default_cs)
-					ctlr_add(buffer_addr, ebc2cg0[*cp], 1);
-				else
-					ctlr_add(buffer_addr, ebc2cg[*cp], 0);
+				if (add_dbcs) {
+					ctlr_add(buffer_addr, add_c1,
+					    default_cs);
+				} else {
+					if (ra_ge)
+						ctlr_add(buffer_addr, add_c1,
+						    CS_GE);
+					else if (default_cs)
+						ctlr_add(buffer_addr, add_c1,
+						    default_cs);
+					else
+						ctlr_add(buffer_addr, add_c1,
+						    0);
+				}
 				ctlr_add_fg(buffer_addr, default_fg);
 				ctlr_add_gr(buffer_addr, default_gr);
+				ctlr_add_ic(buffer_addr, default_ic);
 				INC_BA(buffer_addr);
+				if (add_dbcs) {
+					ctlr_add(buffer_addr, add_c2,
+					    default_cs);
+					ctlr_add_fg(buffer_addr, default_fg);
+					ctlr_add_gr(buffer_addr, default_gr);
+					ctlr_add_ic(buffer_addr, default_ic);
+					INC_BA(buffer_addr);
+				}
 			} while (buffer_addr != baddr);
 			current_fa = get_field_attribute(buffer_addr);
 			last_cmd = True;
@@ -1242,16 +1336,22 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 				trace_ds(rcba(baddr));
 			previous = ORDER;
 			if (baddr >= COLS * ROWS) {
-				trace_ds(" [invalid address, write command terminated]\n");
-				/* Let a script go. */
-				sms_host_output();
-				return;
+				ABORT_WRITE("invalid EUA address");
+			}
+			d = ctlr_lookleft_state(buffer_addr, &why);
+			if (d == DBCS_RIGHT) {
+				ABORT_WRITE("EUA overwriting right half of DBCS character");
+			}
+			d = ctlr_lookleft_state(baddr, &why);
+			if (d == DBCS_LEFT) {
+				ABORT_WRITE("EUA overwriting left half of DBCS character");
 			}
 			do {
-				if (IS_FA(screen_buf[buffer_addr]))
-					current_fa = &(screen_buf[buffer_addr]);
-				else if (!FA_IS_PROTECTED(*current_fa)) {
-					ctlr_add(buffer_addr, CG_null, 0);
+				if (ea_buf[buffer_addr].fa)
+					current_fa = ea_buf[buffer_addr].fa;
+				else if (!FA_IS_PROTECTED(current_fa)) {
+					ctlr_add(buffer_addr, EBC_null,
+					    CS_BASE);
 				}
 				INC_BA(buffer_addr);
 			} while (buffer_addr != baddr);
@@ -1260,6 +1360,7 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 			last_zpt = False;
 			break;
 		case ORDER_GE:	/* graphic escape */
+			/* XXX: DBCS? */
 			END_TEXT("GraphicEscape ");
 			cp++;		/* skip char */
 			previous = ORDER;
@@ -1268,9 +1369,10 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 			trace_ds("%s", see_ebc(*cp));
 			if (*cp)
 				trace_ds("'");
-			ctlr_add(buffer_addr, ebc2cg0[*cp], CS_GE);
+			ctlr_add(buffer_addr, *cp, CS_GE);
 			ctlr_add_fg(buffer_addr, default_fg);
 			ctlr_add_gr(buffer_addr, default_gr);
+			ctlr_add_ic(buffer_addr, default_ic);
 			INC_BA(buffer_addr);
 			current_fa = get_field_attribute(buffer_addr);
 			last_cmd = False;
@@ -1283,17 +1385,14 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 			previous = ORDER;
 			cp++;
 			na = *cp;
-			if (IS_FA(screen_buf[buffer_addr])) {
+			if (ea_buf[buffer_addr].fa) {
 				for (i = 0; i < (int)na; i++) {
 					cp++;
 					if (*cp == XA_3270) {
 						trace_ds(" 3270");
 						cp++;
-						new_attr = ATTR2FA(*cp);
-						ctlr_add(buffer_addr,
-						    new_attr,
-						    0);
-						trace_ds(see_attr(new_attr));
+						ctlr_add_fa(buffer_addr, *cp);
+						trace_ds(see_attr(*cp));
 					} else if (*cp == XA_FOREGROUND) {
 						trace_ds("%s",
 						    see_efa(*cp,
@@ -1315,13 +1414,21 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 							*(cp + 1)));
 						cp++;
 						if (*cp == 0xf1)
-							cs = 1;
-						ctlr_add(buffer_addr,
-						    screen_buf[buffer_addr], cs);
+							cs = CS_APL;
+						else if (*cp == 0xf8)
+							cs = CS_DBCS;
+						ctlr_add_cs(buffer_addr, cs);
 					} else if (*cp == XA_ALL) {
 						trace_ds("%s",
 						    see_efa(*cp,
 							*(cp + 1)));
+						cp++;
+					} else if (*cp == XA_INPUT_CONTROL) {
+						trace_ds("%s",
+						    see_efa(*cp,
+							*(cp + 1)));
+						ctlr_add_ic(buffer_addr,
+						    (*(cp + 1) == 1));
 						cp++;
 					} else {
 						trace_ds("%s[unsupported]", see_efa(*cp, *(cp + 1)));
@@ -1345,6 +1452,7 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 			efa_fg = 0;
 			efa_gr = 0;
 			efa_cs = 0;
+			efa_ic = 0;
 			for (i = 0; i < (int)na; i++) {
 				cp++;
 				if (*cp == XA_3270) {
@@ -1365,9 +1473,17 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 					trace_ds("%s", see_efa(*cp, *(cp + 1)));
 					cp++;
 					if (*cp == 0xf1)
-						efa_cs = 1;
+						efa_cs = CS_APL;
+					else if (*cp == 0xf8)
+						efa_cs = CS_DBCS;
+					else
+						efa_cs = CS_BASE;
 				} else if (*cp == XA_ALL) {
 					trace_ds("%s", see_efa(*cp, *(cp + 1)));
+					cp++;
+				} else if (*cp == XA_INPUT_CONTROL) {
+					trace_ds("%s", see_efa(*cp, *(cp + 1)));
+					efa_ic = (*(cp + 1) == 1);
 					cp++;
 				} else {
 					trace_ds("%s[unsupported]", see_efa(*cp, *(cp + 1)));
@@ -1375,10 +1491,11 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 				}
 			}
 			if (!any_fa)
-				START_FIELD0;
-			ctlr_add(buffer_addr, screen_buf[buffer_addr], efa_cs);
+				START_FIELD(0);
+			ctlr_add_cs(buffer_addr, efa_cs);
 			ctlr_add_fg(buffer_addr, efa_fg);
 			ctlr_add_gr(buffer_addr, efa_gr);
+			ctlr_add_ic(buffer_addr, efa_ic);
 			INC_BA(buffer_addr);
 			last_cmd = True;
 			last_zpt = False;
@@ -1399,9 +1516,26 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 				default_fg = 0;
 				default_gr = 0;
 				default_cs = 0;
+				default_ic = 0;
 			} else if (*cp == XA_CHARSET) {
 				trace_ds("%s", see_efa(*cp, *(cp + 1)));
-				default_cs = (*(cp + 1) == 0xf1) ? 1 : 0;
+				switch (*(cp + 1)) {
+				case 0xf1:
+				    default_cs = CS_APL;
+				    break;
+				case 0xf8:
+				    default_cs = CS_DBCS;
+				    break;
+				default:
+				    default_cs = CS_BASE;
+				    break;
+				}
+			} else if (*cp == XA_INPUT_CONTROL) {
+				trace_ds("%s", see_efa(*cp, *(cp + 1)));
+				if (*(cp + 1) == 1)
+					default_ic = 1;
+				else
+					default_ic = 0;
 			} else
 				trace_ds("%s[unsupported]",
 				    see_efa(*cp, *(cp + 1)));
@@ -1419,27 +1553,133 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 		case FCORDER_EO:
 			END_TEXT(see_ebc(*cp));
 			previous = ORDER;
-			ctlr_add(buffer_addr, ebc2cg[*cp], default_cs);
+			d = ctlr_lookleft_state(buffer_addr, &why);
+			if (default_cs == CS_DBCS || d != DBCS_NONE) {
+				ABORT_WRITE("invalid format control order in DBCS field");
+			}
+			ctlr_add(buffer_addr, *cp, default_cs);
 			ctlr_add_fg(buffer_addr, default_fg);
 			ctlr_add_gr(buffer_addr, default_gr);
+			ctlr_add_ic(buffer_addr, default_ic);
 			INC_BA(buffer_addr);
 			last_cmd = True;
 			last_zpt = False;
 			break;
-		case FCORDER_NULL:
-			END_TEXT("NULL");
-			previous = NULLCH;
-			ctlr_add(buffer_addr, ebc2cg[*cp], default_cs);
+		case FCORDER_SO:
+			/* Look left for errors. */
+			END_TEXT(see_ebc(*cp));
+			d = ctlr_lookleft_state(buffer_addr, &why);
+			if (d == DBCS_RIGHT) {
+				ABORT_WRITE("SO overwriting right half of DBCS character");
+			}
+			if (d != DBCS_NONE && why == DBCS_FIELD) {
+				ABORT_WRITE("SO in DBCS field");
+			}
+			if (d != DBCS_NONE && why == DBCS_SUBFIELD) {
+				ABORT_WRITE("double SO");
+			}
+			/* All is well. */
+			previous = ORDER;
+			ctlr_add(buffer_addr, *cp, default_cs);
 			ctlr_add_fg(buffer_addr, default_fg);
 			ctlr_add_gr(buffer_addr, default_gr);
+			ctlr_add_ic(buffer_addr, default_ic);
 			INC_BA(buffer_addr);
+			last_cmd = True;
+			last_zpt = False;
+			break;
+		case FCORDER_SI:
+			/* Look left for errors. */
+			END_TEXT(see_ebc(*cp));
+			d = ctlr_lookleft_state(buffer_addr, &why);
+			if (d == DBCS_RIGHT) {
+				ABORT_WRITE("SI overwriting right half of DBCS character");
+			}
+			if (d != DBCS_NONE && why == DBCS_FIELD) {
+				ABORT_WRITE("SI in DBCS field");
+			}
+			fa_addr = find_field_attribute(buffer_addr);
+			baddr = buffer_addr;
+			DEC_BA(baddr);
+			while (!aborted &&
+			       ((fa_addr >= 0 && baddr != fa_addr) ||
+			        (fa_addr < 0 && baddr != ROWS*COLS - 1))) {
+				if (ea_buf[baddr].cc == FCORDER_SI) {
+					ABORT_WRITE("double SI");
+				}
+				if (ea_buf[baddr].cc == FCORDER_SO)
+					break;
+				DEC_BA(baddr);
+			}
+			if (aborted)
+				break;
+			if (ea_buf[baddr].cc != FCORDER_SO) {
+				ABORT_WRITE("SI without SO");
+			}
+			/* All is well. */
+			previous = ORDER;
+			ctlr_add(buffer_addr, *cp, default_cs);
+			ctlr_add_fg(buffer_addr, default_fg);
+			ctlr_add_gr(buffer_addr, default_gr);
+			ctlr_add_ic(buffer_addr, default_ic);
+			INC_BA(buffer_addr);
+			last_cmd = True;
+			last_zpt = False;
+			break;
+		case FCORDER_NULL:	/* NULL or DBCS control char */
+			END_TEXT("NULL");
+			previous = NULLCH;
+			add_dbcs = False;
+			d = ctlr_lookleft_state(buffer_addr, &why);
+			if (d == DBCS_RIGHT) {
+				ABORT_WRITE("NULL overwriting right half of DBCS character");
+			}
+			if (d != DBCS_NONE || default_cs == CS_DBCS) {
+				add_c1 = EBC_null;
+				cp++;
+				if (cp >= buf + buflen) {
+					ABORT_WRITE("missing second half of DBCS character");
+				}
+				add_c2 = *cp;
+				switch (add_c2) {
+				case EBC_null:
+				case EBC_nl:
+				case EBC_em:
+				case EBC_ff:
+				case EBC_cr:
+				case EBC_dup:
+				case EBC_fm:
+					break;
+				default:
+					ABORT_WRITE("invalid DBCS control character");
+					break;
+				}
+				if (aborted)
+					break;
+				add_dbcs = True;
+			} else {
+				add_c1 = *cp;
+			}
+			ctlr_add(buffer_addr, add_c1, default_cs);
+			ctlr_add_fg(buffer_addr, default_fg);
+			ctlr_add_gr(buffer_addr, default_gr);
+			ctlr_add_gr(buffer_addr, default_ic);
+			INC_BA(buffer_addr);
+			if (add_dbcs) {
+				ctlr_add(buffer_addr, add_c2, default_cs);
+				ctlr_add_fg(buffer_addr, default_fg);
+				ctlr_add_gr(buffer_addr, default_gr);
+				ctlr_add_gr(buffer_addr, default_ic);
+				INC_BA(buffer_addr);
+			}
 			last_cmd = False;
 			last_zpt = False;
 			break;
 		default:	/* enter character */
 			if (*cp <= 0x3F) {
-				END_TEXT("ILLEGAL_ORDER");
-				trace_ds("%s", see_ebc(*cp));
+				END_TEXT("UnsupportedOrder");
+				trace_ds("(%02X)", *cp);
+				previous = ORDER;
 				last_cmd = True;
 				last_zpt = False;
 				break;
@@ -1448,10 +1688,39 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 				trace_ds(" '");
 			previous = TEXT;
 			trace_ds("%s", see_ebc(*cp));
-			ctlr_add(buffer_addr, ebc2cg[*cp], default_cs);
+			add_dbcs = False;
+			d = ctlr_lookleft_state(buffer_addr, &why);
+			if (d == DBCS_RIGHT) {
+				ABORT_WRITE("overwriting right half of DBCS character");
+			}
+			if (d != DBCS_NONE || default_cs == CS_DBCS) {
+				add_c1 = *cp;
+				cp++;
+				if (cp >= buf + buflen) {
+					ABORT_WRITE("missing second half of DBCS character");
+				}
+				add_c2 = *cp;
+				trace_ds("%s", see_ebc(add_c2));
+				if (add_c1 < 0x40 || add_c1 > 0xfe ||
+				    add_c2 < 0x40 || add_c2 > 0xfe) {
+					ABORT_WRITE("invalid DBCS character");
+			       }
+			       add_dbcs = True;
+			} else {
+				add_c1 = *cp;
+			}
+			ctlr_add(buffer_addr, add_c1, default_cs);
 			ctlr_add_fg(buffer_addr, default_fg);
 			ctlr_add_gr(buffer_addr, default_gr);
+			ctlr_add_gr(buffer_addr, default_ic);
 			INC_BA(buffer_addr);
+			if (add_dbcs) {
+				ctlr_add(buffer_addr, add_c2, default_cs);
+				ctlr_add_fg(buffer_addr, default_fg);
+				ctlr_add_gr(buffer_addr, default_gr);
+				ctlr_add_gr(buffer_addr, default_ic);
+				INC_BA(buffer_addr);
+			}
 			last_cmd = False;
 			last_zpt = False;
 			break;
@@ -1470,12 +1739,19 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 	if (wcc_sound_alarm)
 		ring_bell();
 
+	/* Set up the DBCS state. */
+	if (ctlr_dbcs_postprocess() < 0 && rv == PDS_OKAY_NO_OUTPUT)
+		rv = PDS_BAD_ADDR;
+
 	trace_primed = False;
 
 	ps_process();
 
 	/* Let a script go. */
 	sms_host_output();
+
+	/* Tell 'em what happened. */
+	return rv;
 }
 
 #undef START_FIELDx
@@ -1483,6 +1759,7 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 #undef START_FIELD
 #undef END_TEXT0
 #undef END_TEXT
+#undef ABORT_WRITE
 
 /*
  * Write SSCP-LU data, which is quite a bit dumber than regular 3270
@@ -1496,7 +1773,6 @@ ctlr_write_sscp_lu(unsigned char buf[], int buflen)
 	int s_row;
 	unsigned char c;
 	int baddr;
-	unsigned char fa;
 
 	/*
 	 * The 3174 Functionl Description says that anything but NL, NULL, FM,
@@ -1515,22 +1791,24 @@ ctlr_write_sscp_lu(unsigned char buf[], int buflen)
 			 */
 			s_row = buffer_addr / COLS;
 			while ((buffer_addr / COLS) == s_row) {
-				ctlr_add(buffer_addr, ebc2cg[0], default_cs);
+				ctlr_add(buffer_addr, EBC_null, default_cs);
 				ctlr_add_fg(buffer_addr, default_fg);
 				ctlr_add_gr(buffer_addr, default_gr);
+				ctlr_add_ic(buffer_addr, default_ic);
 				INC_BA(buffer_addr);
 			}
 			break;
 
-		case ORDER_SF:	/* some hosts forget their talking SSCP-LU */
+		case ORDER_SF:
+			/* Some hosts forget they're talking SSCP-LU. */
 			cp++;
 			i++;
-			fa = ATTR2FA(*cp);
 			trace_ds(" StartField%s %s [translated to space]\n",
-			    rcba(buffer_addr), see_attr(fa));
-			ctlr_add(buffer_addr, CG_space, default_cs);
+			    rcba(buffer_addr), see_attr(*cp));
+			ctlr_add(buffer_addr, EBC_space, default_cs);
 			ctlr_add_fg(buffer_addr, default_fg);
 			ctlr_add_gr(buffer_addr, default_gr);
+			ctlr_add_ic(buffer_addr, default_ic);
 			INC_BA(buffer_addr);
 			break;
 		case ORDER_IC:
@@ -1549,31 +1827,21 @@ ctlr_write_sscp_lu(unsigned char buf[], int buflen)
 			if (++i >= buflen)
 				break;
 			if (*cp <= 0x40)
-				c = CG_space;
+				c = EBC_space;
 			else
-				c = ebc2cg0[*cp];
+				c = *cp;
 			ctlr_add(buffer_addr, c, CS_GE);
 			ctlr_add_fg(buffer_addr, default_fg);
 			ctlr_add_gr(buffer_addr, default_gr);
+			ctlr_add_ic(buffer_addr, default_ic);
 			INC_BA(buffer_addr);
 			break;
 
 		default:
-			if (*cp == FCORDER_NULL)
-				c = CG_space;
-			else if (*cp == FCORDER_FM)
-				c = CG_asterisk;
-			else if (*cp == FCORDER_DUP)
-				c = CG_semicolon;
-			else if (*cp < 0x40) {
-				trace_ds(" X'%02x') [translated to space]\n",
-				    *cp);
-				c = CG_space; /* technically not necessary */
-			} else
-				c = ebc2cg[*cp];
-			ctlr_add(buffer_addr, c, default_cs);
+			ctlr_add(buffer_addr, *cp, default_cs);
 			ctlr_add_fg(buffer_addr, default_fg);
 			ctlr_add_gr(buffer_addr, default_gr);
+			ctlr_add_ic(buffer_addr, default_ic);
 			INC_BA(buffer_addr);
 			break;
 		}
@@ -1588,6 +1856,276 @@ ctlr_write_sscp_lu(unsigned char buf[], int buflen)
 	/* Let a script go. */
 	sms_host_output();
 }
+
+#if defined(X3270_DBCS) /*[*/
+
+/*
+ * Determine the DBCS state of a buffer location strictly by looking left.
+ * Used only to validate write operations.
+ * Returns only DBCS_LEFT, DBCS_RIGHT or DBCS_NONE.
+ * Also returns whether the location is part of a DBCS field (SFE with the
+ *  DBCS character set), DBCS subfield (to the right of an SO within a non-DBCS
+ *  field), or DBCS attribute (has the DBCS character set extended attribute
+ *  within a non-DBCS field).
+ */
+enum dbcs_state
+ctlr_lookleft_state(int baddr, enum dbcs_why *why)
+{
+	int faddr;
+	int fdist;
+	int xbaddr;
+	Boolean si = False;
+#define	AT_END(f, b) \
+	(((f) < 0 && (b) == ROWS*COLS - 1) || \
+	 ((f) >= 0 && (b) == (f)))
+
+	/* Find the field attribute, if any. */
+	faddr = find_field_attribute(baddr);
+
+	/*
+	 * First in precedence is a DBCS field.
+	 * DBCS SA and SO/SI inside a DBCS field are errors, but are considered
+	 * defective DBCS characters.
+	 */
+	if (ea_buf[faddr].cs == CS_DBCS) {
+		*why = DBCS_FIELD;
+		fdist = baddr + ROWS*COLS - faddr;
+		return (fdist % 2)? DBCS_RIGHT: DBCS_LEFT;
+	}
+
+	/*
+	 * The DBCS attribute takes precedence next.
+	 * SO and SI can appear within such a region, but they are single-byte
+	 * characters which effectively split it.
+	 */
+	if (ea_buf[baddr].cs == CS_DBCS) {
+		if (ea_buf[baddr].cc == EBC_so || ea_buf[baddr].cc == EBC_si)
+			return DBCS_NONE;
+		xbaddr = baddr;
+		while (!AT_END(faddr, xbaddr) &&
+		       ea_buf[xbaddr].cs == CS_DBCS &&
+		       ea_buf[xbaddr].cc != EBC_so &&
+		       ea_buf[xbaddr].cc != EBC_si) {
+			DEC_BA(xbaddr);
+		}
+		*why = DBCS_ATTRIBUTE;
+		fdist = xbaddr + ROWS*COLS - faddr;
+		return (fdist % 2)? DBCS_RIGHT: DBCS_LEFT;
+	}
+
+	/*
+	 * Finally, look for a SO.
+	 * SO and SI are not DBCS themselves, and for lookleft purposes,
+	 * the SO by itself (with or without a matching SI) is sufficient.
+	 */
+	if (ea_buf[baddr].cc == EBC_so || ea_buf[baddr].cc == EBC_si)
+		return DBCS_NONE;
+	xbaddr = baddr;
+	while (!AT_END(faddr, xbaddr)) {
+		if (ea_buf[xbaddr].cc == EBC_si)
+			si = True;
+		else if (ea_buf[xbaddr].cc == EBC_so) {
+			if (si)
+				si = False;
+			else {
+				*why = DBCS_SUBFIELD;
+				fdist = xbaddr + ROWS*COLS - faddr;
+				return (fdist % 2)? DBCS_LEFT: DBCS_RIGHT;
+			}
+		}
+		DEC_BA(xbaddr);
+	}
+
+	/* Nada. */
+	return DBCS_NONE;
+}
+
+static Boolean
+valid_dbcs_char(unsigned char c1, unsigned char c2)
+{
+	if (c1 >= 0x40 && c1 < 0xff && c2 >= 0x40 && c2 < 0xff)
+		return True;
+	if (c1 != 0x00 || c2 < 0x40 || c2 >= 0xff)
+		return False;
+	switch (c2) {
+	case EBC_null:
+	case EBC_nl:
+	case EBC_em:
+	case EBC_ff:
+	case EBC_cr:
+	case EBC_dup:
+	case EBC_fm:
+		return True;
+	default:
+		return False;
+	}
+}
+
+/*
+ * Post-process DBCS state in the buffer.
+ * This has two purposes:
+ *
+ * - Required post-processing validation, per the data stream spec, which can
+ *   cause the write operation to be rejected.
+ * - Setting up the value of the all the db fields in ea_buf.
+ *
+ * This function is called at the end of every 3270 write operation, and also
+ * after each batch of NVT write operations.  It could also be called after
+ * significant keyboard operations, but that might be too expensive.
+ *
+ * Returns 0 for success, -1 for failure.
+ */
+int
+ctlr_dbcs_postprocess(void)
+{
+	int baddr;		/* current buffer address */
+	int faddr0;		/* address of first field attribute */
+	int faddr;		/* address of current field attribute */
+	int last_baddr;		/* last buffer address to search */
+	int pbaddr = -1;	/* previous buffer address */
+	int dbaddr = -1;	/* first data position of current DBCS (sub-)
+				   field */
+	Boolean so = False, si = False;
+	Boolean dbcs_field = False;
+	int rc = 0;
+
+	/*
+	 * Find the field attribute for location 0.  If unformatted, it's the
+	 * dummy at -1.  Also compute the starting and ending points for the
+	 * scan: the first location after that field attribute.
+	 */
+	faddr0 = find_field_attribute(0);
+	baddr = faddr0;
+	INC_BA(baddr);
+	if (faddr0 < 0)
+		last_baddr = 0;
+	else
+		last_baddr = faddr0;
+	faddr = faddr0;
+	dbcs_field = (ea_buf[faddr].cs & CS_MASK) == CS_DBCS;
+
+	do {
+		if (ea_buf[baddr].fa) {
+			faddr = baddr;
+			ea_buf[faddr].db = DBCS_NONE;
+			dbcs_field = (ea_buf[faddr].cs & CS_MASK) == CS_DBCS;
+			if (dbcs_field) {
+				dbaddr = baddr;
+				INC_BA(dbaddr);
+			} else {
+				dbaddr = -1;
+			}
+			/*
+			 * An SI followed by a field attribute shouldn't be
+			 * displayed with a wide cursor.
+			 */
+			if (pbaddr >= 0 && ea_buf[pbaddr].db == DBCS_SI)
+				ea_buf[pbaddr].db = DBCS_NONE;
+		} else {
+			switch (ea_buf[baddr].cc) {
+			case EBC_so:
+			    /* Two SO's or SO in DBCS field are invalid. */
+			    if (so || dbcs_field) {
+				    trace_ds("Postprocess: Invalid SO found "
+					"at %s\n", rcba(baddr));
+				    rc = -1;
+			    } else {
+				    dbaddr = baddr;
+				    INC_BA(dbaddr);
+			    }
+			    ea_buf[baddr].db = DBCS_NONE;
+			    so = True;
+			    si = False;
+			    break;
+			case EBC_si:
+			    /* Two SI's or SI in DBCS field are invalid. */
+			    if (si || dbcs_field) {
+				    trace_ds("Postprocess: Invalid SO found "
+					"at %s\n", rcba(baddr));
+				    rc = -1;
+				    ea_buf[baddr].db = DBCS_NONE;
+			    } else {
+				    ea_buf[baddr].db = DBCS_SI;
+			    }
+			    dbaddr = -1;
+			    si = True;
+			    so = False;
+			    break;
+			default:
+			    /* Non-base CS in DBCS subfield is invalid. */
+			    if (so && ea_buf[baddr].cs != CS_BASE) {
+				    trace_ds("Postprocess: Invalid character "
+					"set found at %s\n", rcba(baddr));
+				    rc = -1;
+				    ea_buf[baddr].cs = CS_BASE;
+			    }
+			    if ((ea_buf[baddr].cs & CS_MASK) == CS_DBCS) {
+				    /*
+				     * Beginning or continuation of an SA DBCS
+				     * subfield.
+				     */
+				    if (dbaddr < 0) {
+					    dbaddr = baddr;
+				    }
+			    } else if (!so && !dbcs_field) {
+				    /*
+				     * End of SA DBCS subfield.
+				     */
+				    dbaddr = -1;
+			    }
+			    if (dbaddr >= 0) {
+				    /*
+				     * Turn invalid characters into spaces,
+				     * silently.
+				     */
+				    if ((baddr + ROWS*COLS - dbaddr) % 2) {
+					    if (!valid_dbcs_char(
+							ea_buf[pbaddr].cc,
+							ea_buf[baddr].cc)) {
+						    ea_buf[pbaddr].cc =
+							EBC_space;
+						    ea_buf[baddr].cc =
+							EBC_space;
+					    }
+					    MAKE_RIGHT(baddr);
+				    } else {
+					    MAKE_LEFT(baddr);
+				    }
+			    } else
+				    ea_buf[baddr].db = DBCS_NONE;
+			    break;
+			}
+		}
+
+		/*
+		 * Check for dead positions.
+		 * Turn them into NULLs, silently.
+		 */
+		if (pbaddr >= 0 &&
+		    IS_LEFT(ea_buf[pbaddr].db) &&
+		    !IS_RIGHT(ea_buf[baddr].db)) {
+			if (!ea_buf[baddr].fa) {
+				trace_ds("Postprocess: Dead position at %s\n",
+				    rcba(pbaddr));
+				rc = -1;
+			}
+			ea_buf[pbaddr].cc = EBC_null;
+			ea_buf[pbaddr].db = DBCS_DEAD;
+		}
+
+		/* Check for SB's, which follow SIs. */
+		if (pbaddr >= 0 && ea_buf[pbaddr].db == DBCS_SI)
+			ea_buf[baddr].db = DBCS_SB;
+
+		/* Save this position as the previous and increment. */
+		pbaddr = baddr;
+		INC_BA(baddr);
+
+	} while (baddr != last_baddr);
+
+	return rc;
+}
+#endif /*]*/
 
 /*
  * Process pending input.
@@ -1606,7 +2144,7 @@ ps_process(void)
 	    !screen_alt &&              /* 24x80 screen */
 	    !kybdlock &&                /* keyboard not locked */
 	    /* magic field */
-	    IS_FA(screen_buf[1919]) && FA_IS_SKIP(screen_buf[1919])) {
+	    ea_buf[1919].fa && FA_IS_SKIP(ea_buf[1919].fa)) {
 		ft_cut_data();
 	}
 #endif /*]*/
@@ -1618,13 +2156,10 @@ ps_process(void)
 Boolean
 ctlr_any_data(void)
 {
-	register unsigned char *c = screen_buf;
 	register int i;
-	register unsigned char oc;
 
 	for (i = 0; i < ROWS*COLS; i++) {
-		oc = *c++;
-		if (!IS_FA(oc) && !IsBlank(oc))
+		if (!IsBlank(ea_buf[i].cc))
 			return True;
 	}
 	return False;
@@ -1650,7 +2185,6 @@ ctlr_clear(Boolean can_snap)
 #endif /*]*/
 
 	/* Clear the screen. */
-	(void) memset((char *)screen_buf, 0, ROWS*COLS);
 	(void) memset((char *)ea_buf, 0, ROWS*COLS*sizeof(struct ea));
 	ALL_CHANGED;
 	cursor_move(0);
@@ -1659,6 +2193,7 @@ ctlr_clear(Boolean can_snap)
 	formatted = False;
 	default_fg = 0;
 	default_gr = 0;
+	default_ic = 0;
 	sscp_start = 0;
 }
 
@@ -1668,7 +2203,12 @@ ctlr_clear(Boolean can_snap)
 static void
 ctlr_blanks(void)
 {
-	(void) memset((char *)screen_buf, CG_space, ROWS*COLS);
+	int baddr;
+
+	for (baddr = 0; baddr < ROWS*COLS; baddr++) {
+		if (!ea_buf[baddr].fa)
+			ea_buf[baddr].cc = EBC_space;
+	}
 	ALL_CHANGED;
 	cursor_move(0);
 	buffer_addr = 0;
@@ -1679,13 +2219,15 @@ ctlr_blanks(void)
 
 /*
  * Change a character in the 3270 buffer.
+ * Removes any field attribute defined at that location.
  */
 void
 ctlr_add(int baddr, unsigned char c, unsigned char cs)
 {
 	unsigned char oc;
 
-	if ((oc = screen_buf[baddr]) != c || ea_buf[baddr].cs != cs) {
+	if (ea_buf[baddr].fa ||
+	    ((oc = ea_buf[baddr].cc) != c || ea_buf[baddr].cs != cs)) {
 		if (trace_primed && !IsBlank(oc)) {
 #if defined(X3270_TRACE) /*[*/
 			if (toggled(SCREEN_TRACE))
@@ -1697,7 +2239,38 @@ ctlr_add(int baddr, unsigned char c, unsigned char cs)
 		if (SELECTED(baddr))
 			unselect(baddr, 1);
 		ONE_CHANGED(baddr);
-		screen_buf[baddr] = c;
+		ea_buf[baddr].cc = c;
+		ea_buf[baddr].cs = cs;
+		ea_buf[baddr].fa = 0;
+	}
+}
+
+/* 
+ * Set a field attribute in the 3270 buffer.
+ */
+void
+ctlr_add_fa(int baddr, unsigned char fa)
+{
+	/* Put a null in the display buffer. */
+	ctlr_add(baddr, EBC_null, 0);
+
+	/*
+	 * Store the new attribute, setting the 'printable' bits so that the
+	 * value will be non-zero.
+	 */
+	ea_buf[baddr].fa = FA_PRINTABLE | (fa & FA_MASK);
+}
+
+/* 
+ * Change the character set for a field in the 3270 buffer.
+ */
+void
+ctlr_add_cs(int baddr, unsigned char cs)
+{
+	if (ea_buf[baddr].cs != cs) {
+		if (SELECTED(baddr))
+			unselect(baddr, 1);
+		ONE_CHANGED(baddr);
 		ea_buf[baddr].cs = cs;
 	}
 }
@@ -1757,6 +2330,15 @@ ctlr_add_bg(int baddr, unsigned char color)
 #endif /*]*/
 
 /*
+ * Change the input control bit for a character in the 3270 buffer.
+ */
+static void
+ctlr_add_ic(int baddr, unsigned char ic)
+{
+	ea_buf[baddr].ic = ic;
+}
+
+/*
  * Copy a block of characters in the 3270 buffer, optionally including all of
  * the extended attributes.  (The character set, which is actually kept in the
  * extended attributes, is considered part of the characters here.)
@@ -1765,11 +2347,11 @@ void
 ctlr_bcopy(int baddr_from, int baddr_to, int count, int move_ea)
 {
 	/* Move the characters. */
-	if (memcmp((char *) &screen_buf[baddr_from],
-	           (char *) &screen_buf[baddr_to],
-		   count)) {
-		(void) memmove(&screen_buf[baddr_to], &screen_buf[baddr_from],
-			           count);
+	if (memcmp((char *) &ea_buf[baddr_from],
+	           (char *) &ea_buf[baddr_to],
+		   count * sizeof(struct ea))) {
+		(void) memmove(&ea_buf[baddr_to], &ea_buf[baddr_from],
+			           count * sizeof(struct ea));
 		REGION_CHANGED(baddr_to, baddr_to + count);
 		/*
 		 * For the time being, if any selected text shifts around on
@@ -1780,47 +2362,7 @@ ctlr_bcopy(int baddr_from, int baddr_to, int count, int move_ea)
 		if (area_is_selected(baddr_to, count))
 			unselect(baddr_to, count);
 	}
-
-	/*
-	 * If we aren't supposed to move all the extended attributes, move
-	 * the character sets separately.
-	 */
-	if (!move_ea) {
-		int i;
-		int any = 0;
-		int start, end, inc;
-
-		if (baddr_to < baddr_from || baddr_from + count < baddr_to) {
-			/* Scan forward. */
-			start = 0;
-			end = count + 1;
-			inc = 1;
-		} else {
-			/* Scan backward. */
-			start = count - 1;
-			end = -1;
-			inc = -1;
-		}
-
-		for (i = start; i != end; i += inc) {
-			if (ea_buf[baddr_to+i].cs != ea_buf[baddr_from+i].cs) {
-				ea_buf[baddr_to+i].cs = ea_buf[baddr_from+i].cs;
-				REGION_CHANGED(baddr_to + i, baddr_to + i + 1);
-				any++;
-			}
-		}
-		if (any && area_is_selected(baddr_to, count))
-			unselect(baddr_to, count);
-	}
-
-	/* Move extended attributes. */
-	if (move_ea && memcmp((char *) &ea_buf[baddr_from],
-			      (char *) &ea_buf[baddr_to],
-			      count*sizeof(struct ea))) {
-		(void) memmove(&ea_buf[baddr_to], &ea_buf[baddr_from],
-			           count*sizeof(struct ea));
-		REGION_CHANGED(baddr_to, baddr_to + count);
-	}
+	/* XXX: What about move_ea? */
 }
 
 #if defined(X3270_ANSI) /*[*/
@@ -1831,16 +2373,15 @@ ctlr_bcopy(int baddr_from, int baddr_to, int count, int move_ea)
 void
 ctlr_aclear(int baddr, int count, int clear_ea)
 {
-	if (memcmp((char *) &screen_buf[baddr], (char *) zero_buf, count)) {
-		(void) memset((char *) &screen_buf[baddr], 0, count);
+	if (memcmp((char *) &ea_buf[baddr], (char *) zero_buf,
+		    count * sizeof(struct ea))) {
+		(void) memset((char *) &ea_buf[baddr], 0,
+				count * sizeof(struct ea));
 		REGION_CHANGED(baddr, baddr + count);
 		if (area_is_selected(baddr, count))
 			unselect(baddr, count);
 	}
-	if (clear_ea && memcmp((char *) &ea_buf[baddr], (char *) zero_buf, count*sizeof(struct ea))) {
-		(void) memset((char *) &ea_buf[baddr], 0, count*sizeof(struct ea));
-		REGION_CHANGED(baddr, baddr + count);
-	}
+	/* XXX: What about clear_ea? */
 }
 
 /*
@@ -1863,13 +2404,11 @@ ctlr_scroll(void)
 	if (!obscured && screen_changed)
 		screen_disp(False);
 
-	/* Move screen_buf and ea_buf. */
-	(void) memmove(&screen_buf[0], &screen_buf[COLS], qty);
+	/* Move ea_buf. */
 	(void) memmove(&ea_buf[0], &ea_buf[COLS],
 	    qty * sizeof(struct ea));
 
 	/* Clear the last line. */
-	(void) memset((char *) &screen_buf[qty], 0, COLS);
 	(void) memset((char *) &ea_buf[qty], 0, COLS * sizeof(struct ea));
 
 	/* Update the screen. */
@@ -1897,14 +2436,9 @@ ctlr_changed(int bstart, int bend)
 void
 ctlr_altbuffer(Boolean alt)
 {
-	unsigned char *stmp;
 	struct ea *etmp;
 
 	if (alt != is_altbuffer) {
-
-		stmp = screen_buf;
-		screen_buf = ascreen_buf;
-		ascreen_buf = stmp;
 
 		etmp = ea_buf;
 		ea_buf = aea_buf;
@@ -1928,23 +2462,29 @@ ctlr_altbuffer(Boolean alt)
  * Set or clear the MDT on an attribute
  */
 void
-mdt_set(unsigned char *fa)
+mdt_set(int baddr)
 {
-	if (*fa & FA_MODIFY)
-		return;
-	*fa |= FA_MODIFY;
-	if (appres.modified_sel)
-		ALL_CHANGED;
+	int faddr;
+
+	faddr = find_field_attribute(baddr);
+	if (faddr >= 0 && !(ea_buf[faddr].fa & FA_MODIFY)) {
+		ea_buf[faddr].fa |= FA_MODIFY;
+		if (appres.modified_sel)
+			ALL_CHANGED;
+	}
 }
 
 void
-mdt_clear(unsigned char *fa)
+mdt_clear(int baddr)
 {
-	if (!(*fa & FA_MODIFY))
-		return;
-	*fa &= ~FA_MODIFY;
-	if (appres.modified_sel)
-		ALL_CHANGED;
+	int faddr;
+
+	faddr = find_field_attribute(baddr);
+	if (faddr >= 0 && (ea_buf[faddr].fa & FA_MODIFY)) {
+		ea_buf[faddr].fa &= ~FA_MODIFY;
+		if (appres.modified_sel)
+			ALL_CHANGED;
+	}
 }
 
 
@@ -1954,11 +2494,34 @@ mdt_clear(unsigned char *fa)
 void
 ctlr_shrink(void)
 {
-	(void) memset((char *)screen_buf,
-	    *debugging_font ? CG_space : CG_null,
-	    ROWS*COLS);
+	int baddr;
+
+	for (baddr = 0; baddr < ROWS*COLS; baddr++) {
+		if (!ea_buf[baddr].fa)
+			ea_buf[baddr].cc =
+			    *debugging_font? EBC_space : EBC_null;
+	}
 	ALL_CHANGED;
 	screen_disp(False);
+}
+
+/*
+ * DBCS state query.
+ * Returns:
+ *  DBCS_NONE:	Buffer position is SBCS.
+ *  DBCS_LEFT:	Buffer position is left half of a DBCS character.
+ *  DBCS_RIGHT:	Buffer position is right half of a DBCS character.
+ *  DBCS_SI:    Buffer position is the SI terminating a DBCS subfield (treated
+ *		as DBCS_LEFT for wide cursor tests)
+ *  DBCS_SB:	Buffer position is an SBCS character after an SI (treated as
+ *		DBCS_RIGHT for wide cursor tests)
+ *
+ * Takes line-wrapping into account, which probably isn't done all that well.
+ */
+enum dbcs_state
+ctlr_dbcs_state(int baddr)
+{
+	return ea_buf[baddr].db;
 }
 
 

@@ -8,6 +8,10 @@
  *  both that copyright notice and this permission notice appear in
  *  supporting documentation.
  *
+ * x3270 is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
+ *
  * Copyright 1989 Massachusetts Institute of Technology
  *
  * Permission to use, copy, modify, distribute, and sell this software and its

@@ -1,10 +1,14 @@
 /*
- * Copyright 1993, 1994, 1995, 1996, 1999, 2000, 2001 by Paul Mattes.
+ * Copyright 1993, 1994, 1995, 1996, 1999, 2000, 2001, 2002 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
  *  both that copyright notice and this permission notice appear in
  *  supporting documentation.
+ *
+ * x3270 is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
  */
 
 /*
@@ -34,6 +38,7 @@
 #include "charsetc.h"
 #include "ftc.h"
 #include "hostc.h"
+#include "idlec.h"
 #include "keymapc.h"
 #include "keypadc.h"
 #include "kybdc.h"
@@ -110,6 +115,7 @@ static void menubar_charset(Boolean ignored unused);
 #define NO_BANG(s)	(((s)[0] == '!')? (s) + 1: (s))
 
 #include "dot.bm"
+#include "no_dot.bm"
 #include "arrow.bm"
 #include "diamond.bm"
 #include "no_diamond.bm"
@@ -151,9 +157,13 @@ static Widget   keypad_option_button;
 static Widget	script_abort_button;
 static Widget	scheme_button;
 static Widget   connect_menu;
+#if defined(X3270_SCRIPT) /*[*/
+static Widget	idle_button;
+#endif /*]*/
 
 static Pixmap   arrow;
 Pixmap	dot;
+Pixmap	no_dot;
 Pixmap	diamond;
 Pixmap	no_diamond;
 Pixmap	null;
@@ -214,6 +224,8 @@ menubar_init(Widget container, Dimension overall_width, Dimension current_width)
 		/* Create bitmaps. */
 		dot = XCreateBitmapFromData(display, root_window,
 		    (char *) dot_bits, dot_width, dot_height);
+		no_dot = XCreateBitmapFromData(display, root_window,
+		    (char *) no_dot_bits, no_dot_width, no_dot_height);
 		arrow = XCreateBitmapFromData(display, root_window,
 		    (char *) arrow_bits, arrow_width, arrow_height);
 		diamond = XCreateBitmapFromData(display, root_window,
@@ -476,6 +488,12 @@ menubar_in3270(Boolean in3270)
 		XtVaSetValues(appres.toggle[RECTANGLE_SELECT].w[0],
 		    XtNsensitive, !in3270,
 		    NULL);
+#if defined(X3270_SCRIPT) /*[*/
+	if (idle_button != (Widget)NULL)
+		XtVaSetValues(idle_button,
+		    XtNsensitive, in3270,
+		    NULL);
+#endif /*]*/
 }
 
 /* Called when we switch between ANSI line and character. */
@@ -1257,7 +1275,7 @@ keymap_button_callback(Widget w unused, XtPointer client_data,
 	if (s != CN && !*s)
 		s = CN;
 	XtPopdown(keymap_shell);
-	keymap_init(s);
+	keymap_init(s, True);
 }
 
 /* Callback from the "Keymap" menu option */
@@ -1270,6 +1288,16 @@ do_keymap(Widget w unused, XtPointer userdata unused, XtPointer calldata unused)
 		    FORM_NO_WHITE);
 	popup_popup(keymap_shell, XtGrabExclusive);
 }
+
+#if defined(X3270_SCRIPT) /*[*/
+/* Callback from the "Idle Command" menu option */
+static void
+do_idle_command(Widget w unused, XtPointer userdata unused,
+    XtPointer calldata unused)
+{
+	popup_idle();
+}
+#endif /*]*/
 
 /* Called to change telnet modes */
 static void
@@ -1768,6 +1796,18 @@ options_menu_init(Boolean regen, Position x, Position y)
 	    "keymapDisplayOption", cmeBSBObjectClass, options_menu,
 	    NULL);
 	XtAddCallback(w, XtNcallback, do_keymap_display, NULL);
+
+#if defined(X3270_SCRIPT) /*[*/
+	/* Create the "Idle Command" option */
+	(void) XtVaCreateManagedWidget("space", cmeLineObjectClass,
+	    options_menu,
+	    NULL);
+	idle_button = XtVaCreateManagedWidget(
+	    "idleCommandOption", cmeBSBObjectClass, options_menu,
+	    XtNsensitive, IN_3270,
+	    NULL);
+	XtAddCallback(idle_button, XtNcallback, do_idle_command, NULL);
+#endif /*]*/
 
 	if (menubar_buttons) {
 		options_menu_button = XtVaCreateManagedWidget(

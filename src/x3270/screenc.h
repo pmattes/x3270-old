@@ -1,10 +1,14 @@
 /*
- * Copyright 1995, 1996, 1999, 2001 by Paul Mattes.
+ * Copyright 1995, 1996, 1999, 2001, 2002 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
  *  both that copyright notice and this permission notice appear in
  *  supporting documentation.
+ *
+ * x3270 is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
  */
 
 /*
@@ -13,6 +17,7 @@
  */
 
 extern const char *efont_charset;
+extern const char *efont_charset_dbcs;
 extern Boolean efont_matches;
 extern Dimension main_width;
 
@@ -59,8 +64,8 @@ extern GC screen_gc(int color);
 extern void screen_init(void);
 extern GC screen_invgc(int color);
 extern void screen_m3279(Boolean m3279);
-extern Boolean screen_new_display_charset(const char *display_charset,
-    const char *csname);
+extern Boolean screen_new_display_charsets(const char *display_charsets,
+    const char *csnames);
 extern void screen_newcharset(char *csname);
 extern void screen_newfont(char *fontname, Boolean do_popup, Boolean is_cs);
 extern void screen_newscheme(char *s);

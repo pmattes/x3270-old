@@ -20,6 +20,11 @@ COMMENT " Permission is granted to distribute freely or to modify and"
 COMMENT " distribute freely any materials and information contained herein as"
 COMMENT " long as the above copyright and all terms associated with it remain"
 COMMENT " intact."
+COMMENT ""
+COMMENT "x3270 is distributed in the hope that it will be useful, but WITHOUT"
+COMMENT "ANY WARRANTY; without even the implied warranty of MERCHANTABILITY"
+COMMENT "or FITNESS FOR A PARTICULAR PURPOSE.  See the file LICENSE for more"
+COMMENT "details."
 FONT 3270gt12
 SIZE 12 72 72
 FONTBOUNDINGBOX 7 12 0 -3

@@ -1,5 +1,6 @@
 /*
- * Modifications Copyright 1993, 1994, 1995, 1999, 2000, 2001 by Paul Mattes.
+ * Modifications Copyright 1993, 1994, 1995, 1999,
+ *  2000, 2001, 2002 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -11,6 +12,11 @@
  *  All Rights Reserved.  GTRC hereby grants public use of this software.
  *  Derivative works based on this software must incorporate this copyright
  *  notice.
+ *
+ * x3270, c3270, s3270 and tcl3270 are distributed in the hope that they will
+ * be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the file LICENSE
+ * for more details.
  */
 
 /*
@@ -653,6 +659,7 @@ net_input(void)
 		} else {
 #endif /*]*/
 			if (telnet_fsm(*cp)) {
+				(void) ctlr_dbcs_postprocess();
 				host_disconnect(True);
 				return;
 			}
@@ -662,6 +669,9 @@ net_input(void)
 	}
 
 #if defined(X3270_ANSI) /*[*/
+	if (IN_ANSI) {
+		(void) ctlr_dbcs_postprocess();
+	}
 	if (ansi_data) {
 		trace_dsn("\n");
 		ansi_data = 0;
@@ -2237,7 +2247,7 @@ tn3270e_ack(void)
 
 /* Send a TN3270E negative response to the server. */
 static void
-tn3270e_nak(enum pds rv unused)
+tn3270e_nak(enum pds rv)
 {
 	unsigned char rsp_buf[9];
 	tn3270e_header *h, *h_in;
@@ -2253,7 +2263,15 @@ tn3270e_nak(enum pds rv unused)
 	h->seq_number[1] = h_in->seq_number[1];
 	if (h->seq_number[1] == IAC)
 		rsp_buf[rsp_len++] = IAC;
-	rsp_buf[rsp_len++] = TN3270E_NEG_COMMAND_REJECT;
+	switch (rv) {
+	default:
+	case PDS_BAD_CMD:
+		rsp_buf[rsp_len++] = TN3270E_NEG_COMMAND_REJECT;
+		break;
+	case PDS_BAD_ADDR:
+		rsp_buf[rsp_len++] = TN3270E_NEG_OPERATION_CHECK;
+		break;
+	}
 	rsp_buf[rsp_len++] = IAC;
 	rsp_buf[rsp_len++] = EOR;
 	trace_dsn("SENT TN3270E(RESPONSE NEGATIVE-RESPONSE %u) "

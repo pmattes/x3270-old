@@ -1,10 +1,15 @@
 /*
- * Copyright 1995, 1996, 1999, 2000, 2001 by Paul Mattes.
+ * Copyright 1995, 1996, 1999, 2000, 2001, 2002 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
  *  both that copyright notice and this permission notice appear in
  *  supporting documentation.
+ *
+ * x3270, c3270, s3270 and tcl3270 are distributed in the hope that they will
+ * be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the file LICENSE
+ * for more details.
  */
 
 /*
@@ -42,8 +47,9 @@ unsigned n_mono = 0;		/* number of mono definitions */
 #define MODE_APL	0x00000040
 #define MODE_PRINTER	0x00000080
 #define MODE_STANDALONE	0x00000100
+#define MODE_SCRIPT	0x00000200
 
-#define MODEMASK	0x000001ff
+#define MODEMASK	0x000003ff
 
 struct {
 	unsigned long ifdefs;
@@ -64,7 +70,8 @@ struct {
 	{ "X3270_KEYPAD", MODE_KEYPAD },
 	{ "X3270_APL", MODE_APL },
 	{ "X3270_PRINTER", MODE_PRINTER },
-	{ "STANDALONE", MODE_STANDALONE }
+	{ "STANDALONE", MODE_STANDALONE },
+	{ "X3270_SCRIPT", MODE_SCRIPT }
 };
 #define NPARTS	(sizeof(parts)/sizeof(parts[0]))
 
@@ -108,6 +115,12 @@ unsigned long is_defined =
 |
 #if defined(X3270_PRINTER)
 	MODE_PRINTER
+#else
+	0
+#endif
+|
+#if defined(X3270_SCRIPT)
+	MODE_SCRIPT
 #else
 	0
 #endif

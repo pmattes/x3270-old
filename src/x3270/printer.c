@@ -1,10 +1,15 @@
 /*
- * Copyright 2000 by Paul Mattes.
+ * Copyright 2000, 2002 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
  *  both that copyright notice and this permission notice appear in
  *  supporting documentation.
+ *
+ * x3270, c3270, s3270 and tcl3270 are distributed in the hope that they will
+ * be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the file LICENSE
+ * for more details.
  */
 
 /*
@@ -494,8 +499,10 @@ static void
 printer_host_connect(Boolean connected unused)
 {
 	if (IN_3270) {
-		if (appres.printer_lu != CN && !printer_running()) {
-			if (!strcmp(appres.printer_lu, ".")) {
+		char *printer_lu = get_host_fresource("%s", ResPrinterLu);
+
+		if (printer_lu != CN && !printer_running()) {
+			if (!strcmp(printer_lu, ".")) {
 				if (IN_TN3270E) {
 					/* Associate with TN3270E session. */
 					trace_dsn("Starting associated printer "
@@ -505,12 +512,12 @@ printer_host_connect(Boolean connected unused)
 			} else {
 				/* Specific LU. */
 				trace_dsn("Starting %s printer session.\n",
-				    appres.printer_lu);
-				printer_start(appres.printer_lu);
+				    printer_lu);
+				printer_start(printer_lu);
 			}
 		} else if (!IN_E &&
-			   appres.printer_lu != CN &&
-			   !strcmp(appres.printer_lu, ".") &&
+			   printer_lu != CN &&
+			   !strcmp(printer_lu, ".") &&
 			   printer_running()) {
 
 			/* Stop an automatic associated printer. */

@@ -1,0 +1,44 @@
+This is the first Alpha release of DBCS support for x3270.  It is for debug
+and integration purposes only.
+
+Prerequisites
+-------------
+x3270 DBCS support requires the IBM ICU library, version 2.2.  It is available
+from IBM at
+    http://oss.software.ibm.com/icu/
+x3270 supports ONLY ICU version 2.2.
+
+How to Configure DBCS Support
+-----------------------------
+DBCS support is turned on with the '--enable-dbcs' option.
+pr3287 is not supported in this release, so the '--without-pr3287' option is
+ mandatory.
+The installation directory for ICU must be passed explicitly to the configure
+script.  The example below assumes the default of /usr/local.
+
+Typical DBCS configure options would be:
+
+    ./configure --without-pr3287 --enable-dbcs \
+	CPPFLAGS=-I/usr/local/include LDFLAGS=-L/usr/local/lib
+
+How to Run x3270 in DBCS Mode
+-----------------------------
+DBCS is an attribute of the host character set you select.  This may be
+selected from the command line, or from the Options->Character set menu
+option.
+
+For example, Simplified Chinese is selected via the option
+'-charset simplified-chinese'.
+
+Languages and Code Pages Supported
+----------------------------------
+ Charset Name       Code Pages X11 Fonts     Workstation Encoding
+ ------------------ ---------- ------------- ---------------------
+ simplified-chinese 836, 837   gb2312-1980.0 EUC-CN (GB 3212-1980)
+
+Known Limitations
+-----------------
+Pasting DBCS input works in NVT mode, but not yet in 3270 mode.
+Input methods (XIM) are not integrated yet.
+pr3287 does not work.
+The crosshair cursor does not work correctly.

@@ -11,6 +11,10 @@
  *  All Rights Reserved.  GTRC hereby grants public use of this software.
  *  Derivative works based on this software must incorporate this copyright
  *  notice.
+ *
+ * x3270 is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
  */
 
 /*
@@ -55,7 +59,7 @@
  */
 union sp {
 	struct {
-		unsigned cg  : 8;	/* character code */
+		unsigned cc  : 8;	/* character code */
 		unsigned sel : 1;	/* selection status */
 		unsigned fg  : 6;	/* foreground color (flag/inv/0-15) */
 		unsigned gr  : 4;	/* graphic rendition */

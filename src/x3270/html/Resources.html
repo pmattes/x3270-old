@@ -366,12 +366,15 @@ x3270.icrnl		Default true
     Controls whether input carriage returns are mapped to newlines.
 
 x3270.idleCommand
+x3270.idleCommandEnabled	Default false
 x3270.idleTimeout	Default ~7m
     When idleCommand is defined, it specifies a command to execute after a
     period of keyboard inactivity (no AID keys pressed).  idleCommand can be
-    an arbitrary sequence of x3270 actions, but is usually a call to the PF()
-    action.  idleTimeout specifies the inactivity interval.  If it begins with
-    a tilde ("~"), the time will be randomly varied +/-10% from the value
+    an arbitrary sequence of x3270 actions, but it should include an action
+    which generates an AID (PF(), PA(), Clear() or Enter()).
+    idleCommandEnabled must be set to "true" in order for the idleCommand to
+    take effect.  idleTimeout specifies the inactivity interval.  If it begins
+    with a tilde ("~"), the time will be randomly varied +/-10% from the value
     specified.  If the values ends in 'h', it specifies hours; if it ends in
     'm' is specifies minutes; if it ends in 's' or does not have an
     alphanumeric suffix, it specifies seconds.

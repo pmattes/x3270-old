@@ -5,6 +5,11 @@
 !  both that copyright notice and this permission notice appear in
 !  supporting documentation.
 !
+! x3270, c3270, s3270 and tcl3270 are distributed in the hope that they will
+! be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the file LICENSE
+! for more details.
+!
 ! x3270 app-defaults file.  This file is generally compiled into x3270, rather
 ! than installed.
 !
@@ -111,6 +116,7 @@ x3270.charsetList:			U.S. English (CP 37): us-intl\n\
 					Belgian (CP 500): belgian\n\
 					Belgian w/Euro (CP 1148): belgian-euro\n\
 					Brazilian (CP 275): brazilian\n\
+					Chinese Simplified (CP 836+837): simplified-chinese\n\
 					Finnish (CP 278): finnish\n\
 					Finnish w/Euro (CP 1143): finnish-euro\n\
 					French (CP 297): french\n\
@@ -873,6 +879,9 @@ x3270.ftPopup.title:				x3270 File Transfer
 x3270.ftProgressPopup.title:			x3270 File Transfer
 x3270.ftOverwritePopup.title:			x3270 File Transfer
 #endif
+#ifdef X3270_SCRIPT
+x3270.idlePopup.title:				x3270 Idle Command
+#endif
 x3270.kmPopup.title:				x3270 Keymap
 x3270*confirmButton.label:			OK
 x3270.printerErrorPopup*cancelButton.label:	Abort Printer
@@ -939,6 +948,13 @@ x3270.ftProgressPopup*waiting.label:		Waiting for host acknowledgment...
 x3270.ftProgressPopup*status.label:		%lu bytes transferred
 x3270.ftProgressPopup*aborting.label:		Aborting transfer...
 #endif
+#ifdef X3270_SCRIPT
+x3270.idlePopup*justify:			left
+x3270.idlePopup*command.label:			Command(s)
+x3270.idlePopup*timeout.label:			Timeout
+x3270.idlePopup*enable.label:			Enable
+x3270.idlePopup*disable.label:			Disable
+#endif
 #ifdef X3270_PRINTER
 x3270.printerLuPopup.title:			x3270 Printer Session
 x3270.printerLuPopup.dialog.label:		Enter LU Name
@@ -959,6 +975,7 @@ x3270*modelsOption.label:			Screen Size
 x3270*colorsOption.label:			Color Scheme
 x3270*charsetOption.label:			Character Set
 x3270*keymapOption.label:			Change Keymap...
+x3270*idleCommandOption.label:			Configure Idle Command
 x3270*keypadOption.label:			Keypad
 x3270*monocaseOption.label:			Monocase
 x3270*cursorBlinkOption.label:			Blinking Cursor
@@ -1004,11 +1021,14 @@ x3270.message.standardDs:			standard data stream
 x3270.message.terminalName:			Terminal name:
 x3270.message.luName:				LU name:
 x3270.message.emulatorFont:			Emulator font:
+x3270.message.emulatorFontDbcs:			DBCS emulator font:
 x3270.message.xFont:				standard X11 font
 x3270.message.cgFont:				special 3270 CG font
 x3270.message.characterSet:			Host EBCDIC character set:
+x3270.message.characterSetDbcs:			Host EBCDIC DBCS character set:
 x3270.message.defaultCharacterSet:		Default (us) EBCDIC character set
 x3270.message.displayCharacterSet:		Display character set:
+x3270.message.displayCharacterSetDbcs:		DBCS display character set:
 x3270.message.require:				require
 x3270.message.have:				have
 x3270.message.keyboardMap:			Keyboard map:
@@ -1416,6 +1436,15 @@ x3270.ftPopup.translations: \
 x3270.ftOverwritePopup.translations: \
 	<Message>WM_PROTOCOLS:		PA-WMProtocols()
 x3270.ftPopup*value.translations:	#override \n\
+	<Key>Return:			PA-dialog-next()\n\
+	<Key>Tab:			PA-dialog-next()\n\
+	<Btn1Down>:			PA-dialog-focus() select-start()\n\
+	Ctrl<Key>U:			select-all(DUMMY) delete-selection()
+#endif
+#ifdef X3270_SCRIPT
+x3270.idlePopup.translations: \
+	<Message>WM_PROTOCOLS:		PA-WMProtocols()
+x3270.idlePopup*value.translations:	#override \n\
 	<Key>Return:			PA-dialog-next()\n\
 	<Key>Tab:			PA-dialog-next()\n\
 	<Btn1Down>:			PA-dialog-focus() select-start()\n\
@@ -1970,3 +1999,10 @@ x3270.charset.thai: #table\n\
  125  74  75  76  77  78  79  80  81  82 218 224 225 226 227 228 \
   92 159  83  84  85  86  87  88  89  90 229 230 231 232 233 234 \
   48  49  50  51  52  53  54  55  56  57 235 236 237 253 254 255
+! Simplified Chinese.
+! Note that the 'charset' definition applies only to the single-byte character
+! set (836), not the double-byte character set (837).
+x3270.codepage.simplified-chinese: 0x04960344+0xffff0345
+x3270.displayCharset.simplified-chinese: iso8859-1+gb2312.1980-0
+x3270.charset.simplified-chinese: \n
+x3270.dbcsConverters.simplified-chinese: ibm-837_P100-2000,gb2312-1980

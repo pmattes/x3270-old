@@ -11,6 +11,10 @@
  *   All Rights Reserved.  GTRC hereby grants public use of this software.
  *   Derivative works based on this software must incorporate this copyright
  *   notice.
+ *
+ * x3270 is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
  */
 
 /*

@@ -1,5 +1,5 @@
 /*
- * Modifications Copyright 1993, 1994, 1995, 1996, 1999 by Paul Mattes.
+ * Modifications Copyright 1993, 1994, 1995, 1996, 1999, 2001 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -11,6 +11,11 @@
  *  All Rights Reserved.  GTRC hereby grants public use of this software.
  *  Derivative works based on this software must incorporate this copyright
  *  notice.
+ *
+ * x3270, c3270, s3270 and tcl3270 are distributed in the hope that they will
+ * be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the file LICENSE
+ * for more details.
  */
 
 /*
@@ -20,6 +25,9 @@
 
 extern Boolean charset_changed;
 extern unsigned long cgcsgid;
+#if defined(X3270_DBCS) /*[*/
+extern unsigned long cgcsgid_dbcs;
+#endif /*]*/
 extern char *default_display_charset;
 enum cs_result { CS_OKAY, CS_NOTFOUND, CS_BAD, CS_PREREQ };
 extern enum cs_result charset_init(char *csname);

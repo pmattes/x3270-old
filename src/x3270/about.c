@@ -1,10 +1,14 @@
 /*
- * Copyright 1993, 1994, 1995, 1999, 2000, 2001 by Paul Mattes.
+ * Copyright 1993, 1994, 1995, 1999, 2000, 2001, 2002 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
  *  both that copyright notice and this permission notice appear in
  *  supporting documentation.
+ *
+ * x3270 is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
  */
 
 /*
@@ -206,7 +210,8 @@ popup_about(void)
 	w = left_anchor;
 	left_anchor = NULL;
 
-	MAKE_SMALL("Modifications Copyright \251 1993, 1994, 1995, 1996, 1997, 1999, 2000, 2001 by Paul Mattes.\n\
+	MAKE_SMALL("Modifications and original code Copyright \251 1993, 1994, 1995, 1996, 1997, 1999,\n\
+  2000, 2001, 2002 by Paul Mattes.\n\
 Original X11 Port Copyright \251 1990 by Jeff Sparkes.\n\
 File transfer code Copyright \251 1995 by Dick Altenbern.\n\
 Includes IAC IP patch by Carey Evans, 1998.\n\
@@ -217,7 +222,11 @@ Includes IAC IP patch by Carey Evans, 1998.\n\
 \n\
 Copyright \251 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.\n\
  All Rights Reserved.  GTRC hereby grants public use of this software.  Derivative\n\
- works based on this software must incorporate this copyright notice.", 4);
+ works based on this software must incorporate this copyright notice.\n\
+\n\
+x3270 is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;\n\
+without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR\n\
+PURPOSE.  See the file LICENSE for more details.", 4);
 
 	(void) sprintf(fbuf, "%s %s: %d %s x %d %s, %s, %s",
 	    get_message("model"), model_name,
@@ -248,6 +257,13 @@ Copyright \251 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.\n\
 	MAKE_LABEL(xbuf, 0);
 	XtFree(xbuf);
 
+#if defined(X3270_DBCS) /*[*/
+	if (dbcs) {
+		MAKE_LABEL(get_message("emulatorFontDbcs"), 4);
+		MAKE_VALUE(full_efontname_dbcs);
+	}
+#endif /*]*/
+
 	MAKE_LABEL(get_message("displayCharacterSet"), 4);
 	if (!efont_matches) {
 		xbuf = xs_buffer("ascii-7 (%s %s, %s %s)",
@@ -258,6 +274,12 @@ Copyright \251 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.\n\
 	} else {
 		MAKE_VALUE(efont_charset);
 	}
+#if defined(X3270_DBCS) /*[*/
+	if (dbcs) {
+		MAKE_LABEL(get_message("displayCharacterSetDbcs"), 4);
+		MAKE_VALUE(efont_charset_dbcs);
+	}
+#endif /*]*/
 
 	MAKE_LABEL(get_message("characterSet"), 4);
 	xbuf = xs_buffer("%s (base %u, code page %u)",
@@ -265,6 +287,16 @@ Copyright \251 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.\n\
 	    cgcsgid & 0xffff);
 	MAKE_VALUE(xbuf);
 	XtFree(xbuf);
+#if defined(X3270_DBCS) /*[*/
+	if (dbcs) {
+		MAKE_LABEL(get_message("characterSetDbcs"), 4);
+		xbuf = xs_buffer("base %u, code page %u",
+		    (cgcsgid_dbcs >> 16) & 0xffff,
+		    cgcsgid_dbcs & 0xffff);
+		MAKE_VALUE(xbuf);
+		XtFree(xbuf);
+	}
+#endif /*]*/
 
 	if (trans_list != (struct trans_list *)NULL ||
 	    temp_keymaps != (struct trans_list *)NULL) {

@@ -1,5 +1,5 @@
 /*
- * Modifications Copyright 1996, 1999, 2000, 2001 by Paul Mattes.
+ * Modifications Copyright 1996, 1999, 2000, 2001, 2002 by Paul Mattes.
  * Copyright Octover 1995 by Dick Altenbern.
  * Based in part on code Copyright 1993, 1994, 1995 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
@@ -7,6 +7,11 @@
  *  provided that the above copyright notice appear in all copies and that
  *  both that copyright notice and this permission notice appear in
  *  supporting documentation.
+ *
+ * x3270, c3270, s3270 and tcl3270 are distributed in the hope that they will
+ * be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the file LICENSE
+ * for more details.
  */
 
 /*

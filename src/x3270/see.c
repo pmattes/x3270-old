@@ -5,6 +5,11 @@
  *  provided that the above copyright notice appear in all copies and that
  *  both that copyright notice and this permission notice appear in
  *  supporting documentation.
+ *
+ * x3270, c3270, s3270, tcl3270 and pr3287 are distributed in the hope that
+ * they will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * file LICENSE for more details.
  */
 
 /*
@@ -59,6 +64,10 @@ see_ebc(unsigned char ch)
 		return "EM";
 	    case FCORDER_EO:
 		return "EO";
+	    case FCORDER_SI:
+		return "SI";
+	    case FCORDER_SO:
+		return "SO";
 	}
 	if (ebc2asc[ch])
 		(void) sprintf(buf, "%c", ebc2asc[ch]);
@@ -154,40 +163,40 @@ see_attr(unsigned char fa)
 
 	buf[0] = '\0';
 
-	if (fa & 0x04) {
+	if (fa & FA_PROTECT) {
 		(void) strcat(buf, paren);
 		(void) strcat(buf, "protected");
 		paren = ",";
-		if (fa & 0x08) {
+		if (fa & FA_NUMERIC) {
 			(void) strcat(buf, paren);
 			(void) strcat(buf, "skip");
 			paren = ",";
 		}
-	} else if (fa & 0x08) {
+	} else if (fa & FA_NUMERIC) {
 		(void) strcat(buf, paren);
 		(void) strcat(buf, "numeric");
 		paren = ",";
 	}
-	switch (fa & 0x03) {
-	case 0:
+	switch (fa & FA_INTENSITY) {
+	case FA_INT_NORM_NSEL:
 		break;
-	case 1:
+	case FA_INT_NORM_SEL:
 		(void) strcat(buf, paren);
 		(void) strcat(buf, "detectable");
 		paren = ",";
 		break;
-	case 2:
+	case FA_INT_HIGH_SEL:
 		(void) strcat(buf, paren);
 		(void) strcat(buf, "intensified");
 		paren = ",";
 		break;
-	case 3:
+	case FA_INT_ZERO_NSEL:
 		(void) strcat(buf, paren);
 		(void) strcat(buf, "nondisplay");
 		paren = ",";
 		break;
 	}
-	if (fa & 0x20) {
+	if (fa & FA_MODIFY) {
 		(void) strcat(buf, paren);
 		(void) strcat(buf, "modified");
 		paren = ",";
@@ -331,6 +340,19 @@ see_outline(unsigned char setting)
 	return buf;
 }
 
+static const char *
+see_input_control(unsigned char setting)
+{
+	switch (setting) {
+	    case XAI_DISABLED:
+		return "disabled";
+	    case XAI_ENABLED:
+		return "enabled";
+	    default:
+		return unknown(setting);
+	}
+}
+
 const char *
 see_efa(unsigned char efa, unsigned char value)
 {
@@ -362,10 +384,16 @@ see_efa(unsigned char efa, unsigned char value)
 		(void) sprintf(buf, " background(%s)", see_color(value));
 		break;
 	    case XA_TRANSPARENCY:
-		(void) sprintf(buf, " transparency(%s)", see_transparency(value));
+		(void) sprintf(buf, " transparency(%s)",
+		    see_transparency(value));
+		break;
+	    case XA_INPUT_CONTROL:
+		(void) sprintf(buf, " input-control(%s)",
+		    see_input_control(value));
 		break;
 	    default:
 		(void) sprintf(buf, " %s[0x%x]", unknown(efa), value);
+		break;
 	}
 	return buf;
 }
@@ -417,6 +445,8 @@ see_qcode(unsigned char id)
 		return "Highlighting";
 	    case QR_REPLY_MODES:
 		return "ReplyModes";
+	    case QR_DBCS_ASIA:
+		return "DbcsAsia";
 	    case QR_ALPHA_PART:
 		return "AlphanumericPartitions";
 	    case QR_DDM:

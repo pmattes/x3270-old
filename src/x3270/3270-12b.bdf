@@ -12,6 +12,11 @@ COMMENT " its documentation for any purpose and without fee is hereby"
 COMMENT " granted, provided that the above copyright notice appear in all"
 COMMENT " copies and that both that copyright notice and this permission"
 COMMENT " notice appear in supporting documentation."
+COMMENT ""
+COMMENT "x3270 is distributed in the hope that it will be useful, but WITHOUT"
+COMMENT "ANY WARRANTY; without even the implied warranty of MERCHANTABILITY"
+COMMENT "or FITNESS FOR A PARTICULAR PURPOSE.  See the file LICENSE for more"
+COMMENT "details."
 FONT 3270-12bold
 SIZE 12 72 72
 FONTBOUNDINGBOX 7 12 0 -2

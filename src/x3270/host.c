@@ -1,10 +1,15 @@
 /*
- * Copyright 1993, 1994, 1995, 1996, 1999, 2000, 2001 by Paul Mattes.
+ * Copyright 1993, 1994, 1995, 1996, 1999, 2000, 2001, 2002 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
  *  both that copyright notice and this permission notice appear in
  *  supporting documentation.
+ *
+ * x3270, c3270, s3270 and tcl3270 are distributed in the hope that they will
+ * be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the file LICENSE
+ * for more details.
  */
 
 /*
@@ -46,9 +51,7 @@ Boolean		ever_3270 = False;
 char           *current_host = CN;
 char           *full_current_host = CN;
 unsigned short  current_port;
-#if defined(X3270_DISPLAY) /*[*/
 char	       *reconnect_host = CN;
-#endif /*]*/
 
 struct host *hosts = (struct host *)NULL;
 static struct host *last_host = (struct host *)NULL;
@@ -386,10 +389,8 @@ host_connect(const char *n)
 	while (*s == ' ')
 		*s-- = '\0';
 
-#if defined(X3270_DISPLAY) /*[*/
 	/* Remember this hostname, as the last hostname we connected to. */
 	Replace(reconnect_host, NewString(nb));
-#endif /*]*/
 
 	/* Remember this hostname in the recent connection list and file. */
 	save_recent(nb);

@@ -1,10 +1,15 @@
 /*
- * Copyright 1994, 1995, 1999, 2000 by Paul Mattes.
+ * Copyright 1994, 1995, 1999, 2000, 2002 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
  *  both that copyright notice and this permission notice appear in
  *  supporting documentation.
+ *
+ * x3270, c3270, s3270 and tcl3270 are distributed in the hope that they will
+ * be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the file LICENSE
+ * for more details.
  */
 
 /*
@@ -55,27 +60,25 @@ Boolean
 fprint_screen(FILE *f, Boolean even_if_empty)
 {
 	register int i;
-	unsigned char e;
 	char c;
 	int ns = 0;
 	int nr = 0;
 	Boolean any = False;
-	unsigned char fa = *get_field_attribute(0);
+	unsigned char fa = get_field_attribute(0);
 
 	for (i = 0; i < ROWS*COLS; i++) {
 		if (i && !(i % COLS)) {
 			nr++;
 			ns = 0;
 		}
-		e = screen_buf[i];
-		if (IS_FA(e)) {
+		if (ea_buf[i].fa) {
 			c = ' ';
-			fa = screen_buf[i];
+			fa = ea_buf[i].fa;
 		}
 		if (FA_IS_ZERO(fa))
 			c = ' ';
 		else
-			c = cg2asc[e];
+			c = ebc2asc[ea_buf[i].cc];
 		if (c == ' ')
 			ns++;
 		else {

@@ -1,11 +1,14 @@
 /*
- * Copyright 2000, 2001 by Paul Mattes.
+ * Copyright 2000, 2001, 2002 by Paul Mattes.
  *   Permission to use, copy, modify, and distribute this software and its
  *   documentation for any purpose and without fee is hereby granted,
  *   provided that the above copyright notice appear in all copies and that
  *   both that copyright notice and this permission notice appear in
  *   supporting documentation.
  *
+ * x3270 is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
  */
 
 /*
@@ -20,6 +23,7 @@
 #undef HAVE_LIBUTIL
 #undef HAVE_LIBSOCKET
 #undef HAVE_LIBREADLINE
+#undef HAVE_LIBICUI18N
 
 /* Header files. */
 #undef HAVE_SYS_SELECT_H
@@ -39,6 +43,7 @@
 /* Optional parts. */
 #undef X3270_ANSI
 #undef X3270_APL
+#undef X3270_DBCS
 #undef X3270_FT
 #undef X3270_KEYPAD
 #undef X3270_LOCAL_PROCESS

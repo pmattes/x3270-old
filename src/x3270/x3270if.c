@@ -1,14 +1,19 @@
 /*
- * Copyright 1995, 1996, 1999, 2000, 2001 by Paul Mattes.
+ * Copyright 1995, 1996, 1999, 2000, 2001, 2002 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
  *  both that copyright notice and this permission notice appear in
  *  supporting documentation.
+ *
+ * x3270, c3270, and s3270 are distributed in the hope that they will
+ * be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the file LICENSE
+ * for more details.
  */
 
 /*
- * Script interface utility for x3270.
+ * Script interface utility for x3270, c3270 and s3270.
  *
  * Accesses an x3270 command stream on the file descriptors defined by the
  * environment variables X3270OUTPUT (output from x3270, input to script) and
@@ -23,7 +28,9 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
+#if defined(HAVE_SYS_SELECT_H) /*[*/
 #include <sys/select.h>
+#endif /*]*/
 #if defined(HAVE_GETOPT_H) /*[*/
 #include <getopt.h>
 #endif /*]*/

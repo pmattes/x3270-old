@@ -1,5 +1,5 @@
 '\" t
-.TH x3270 1 "24 July 2002"
+.TH x3270 1 "27 September 2002"
 .SH "NAME"
 x3270 \-
 \s-1IBM\s+1 host access tool
@@ -5641,7 +5641,7 @@ RFC 1646, TN3270 Extensions for LUname and Printer Selection
 RFC 2355, TN3270 Enhancements
 .SH "COPYRIGHTS"
 .LP
-Modifications Copyright 1993, 1994, 1995, 1996, 1997, 1999, 2000, 2001 by Paul Mattes.
+Modifications Copyright 1993, 1994, 1995, 1996, 1997, 1999, 2000, 2001, 2002 by Paul Mattes.
 .br
 Original X11 Port Copyright 1990 by Jeff Sparkes.
 .RS
@@ -5658,5 +5658,9 @@ Derivative works based on this software must incorporate this copyright
 notice.
 .RE
 5250 Emulation Code Copyright Minolta (Schweiz) AG, Beat Rubischon.
+.br
+x3270 is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
 .SH "VERSION"
-x3270 3.2.20alpha1
+x3270 3.2.20-dbcs-alpha1

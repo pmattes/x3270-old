@@ -6,6 +6,10 @@
 #  both that copyright notice and this permission notice appear in
 #  supporting documentation.
 #
+# x3270 is distributed in the hope that it will be useful, but WITHOUT ANY
+# WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
+#
 # Create version.o from version.txt
 #set -x
 

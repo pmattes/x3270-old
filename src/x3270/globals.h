@@ -1,16 +1,22 @@
 /*
- * Modifications Copyright 1993, 1994, 1995, 1996, 1999, 2000, 2001 by Paul Mattes.
+ * Modifications Copyright 1993, 1994, 1995, 1996, 1999,
+ *  2000, 2001, 2002 by Paul Mattes.
  * Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
  *  both that copyright notice and this permission notice appear in
  *  supporting documentation.
+ *
+ * x3270, c3270, s3270 and tcl3270 are distributed in the hope that they will
+ * be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the file LICENSE
+ * for more details.
  */
 
 /*
  *	globals.h
- *		Common definitions for x3270.
+ *		Common definitions for x3270, c3270, s3270 and tcl3270.
  */
 
 /* Autoconf settings. */
@@ -110,6 +116,9 @@ extern char		*connected_lu;
 extern char		*connected_type;
 extern char		*current_host;
 extern unsigned short	current_port;
+#if defined(X3270_DBCS) /*[*/
+extern Boolean		dbcs;
+#endif /*]*/
 extern Boolean		*debugging_font;
 extern char		*efontname;
 extern Boolean		ever_3270;
@@ -119,6 +128,9 @@ extern Boolean		*font_8bit;
 extern Boolean		flipped;
 extern char		*full_current_host;
 extern char		*full_efontname;
+#if defined(X3270_DBCS) /*[*/
+extern char		*full_efontname_dbcs;
+#endif /*]*/
 extern char		full_model_name[];
 extern char		*funky_font;
 extern char		*hostname;
@@ -195,10 +207,14 @@ extern struct toggle_name toggle_names[];
 
 /*   extended attributes */
 struct ea {
+	unsigned char cc;	/* EBCDIC or ASCII character code */
+	unsigned char fa;	/* field attribute, it nonzero */
 	unsigned char fg;	/* foreground color (0x00 or 0xf<n>) */
 	unsigned char bg;	/* background color (0x00 or 0xf<n>) */
 	unsigned char gr;	/* ANSI graphics rendition bits */
 	unsigned char cs;	/* character set (GE flag, or 0..2) */
+	unsigned char ic;	/* input control (DBCS) */
+	unsigned char db;	/* DBCS state */
 };
 #define GR_BLINK	0x01
 #define GR_REVERSE	0x02
@@ -206,6 +222,10 @@ struct ea {
 #define GR_INTENSIFY	0x08
 
 #define CS_MASK		0x03	/* mask for specific character sets */
+#define CS_BASE		0x00	/*  base character set (X'00') */
+#define CS_APL		0x01	/*  APL character set (X'01' or GE) */
+#define CS_LINEDRAW	0x02	/*  DEC line-drawing character set (ANSI) */
+#define CS_DBCS		0x03	/*  DBCS character set (X'F8') */
 #define CS_GE		0x04	/* cs flag for Graphic Escape */
 
 /*   translation lists */

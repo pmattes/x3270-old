@@ -11,6 +11,10 @@
  *  All Rights Reserved.  GTRC hereby grants public use of this software.
  *  Derivative works based on this software must incorporate this copyright
  *  notice.
+ *
+ * x3270 is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
  */
 
 /*
@@ -59,6 +63,9 @@
 #include "trace_dsc.h"
 #include "utilc.h"
 #include "xioc.h"
+#if defined(X3270_DBCS) /*[*/
+#include "widec.h"
+#endif /*]*/
 
 #if defined(HAVE_SYS_SELECT_H) /*[*/
 #include <sys/select.h>		/* fd_set declaration */
@@ -68,7 +75,6 @@
 #include "wait.bm"
 
 #define SCROLLBAR_WIDTH	15
-/* #define _ST */
 
 #define NO_BANG(s)	(((s)[0] == '!')? (s)+1: (s))
 
@@ -102,8 +108,10 @@ struct font_list *font_list = (struct font_list *) NULL;
 int             font_count = 0;
 char	       *efontname;
 const char     *efont_charset;
+const char     *efont_charset_dbcs;
 Boolean		efont_matches = True;
 char	       *full_efontname;
+char	       *full_efontname_dbcs;
 
 /* Statics */
 static Boolean	allow_resize;
@@ -150,8 +158,7 @@ static XtTranslations screen_t00 = NULL;
 static XtTranslations screen_t0 = NULL;
 static XtTranslations container_t00 = NULL;
 static XtTranslations container_t0 = NULL;
-static unsigned char    *rt_buf8 = (unsigned char *) NULL;
-static XChar2b *rt_buf16 = (XChar2b *) NULL;
+static XChar2b *rt_buf = (XChar2b *) NULL;
 static char    *color_name[16] = {
     (char *)NULL, (char *)NULL, (char *)NULL, (char *)NULL,
     (char *)NULL, (char *)NULL, (char *)NULL, (char *)NULL,
@@ -168,6 +175,11 @@ static Boolean  icon_inverted = False;
 static Widget	icon_shell;
 
 static struct font_list *font_last = (struct font_list *) NULL;
+
+#if defined(X3270_DBCS) /*[*/
+static Font dbcs_font = None;
+static XFontStruct *dbcs_font_struct = NULL;
+#endif /*]*/
 
 /* Globals for undoing reconfigurations. */
 static enum {
@@ -196,12 +208,13 @@ static unsigned char blank_map[32];
 enum fallback_color { FB_WHITE, FB_BLACK };
 static enum fallback_color ibm_fb = FB_WHITE;
 
-static char *required_display_charset;
+static char *required_display_charsets;
 
 #define CROSSABLE	(toggled(CROSSHAIR) && IN_3270 && \
 			 cursor_enabled && crosshair_enabled)
-#define CROSSED(b)	((BA_TO_COL(b) == BA_TO_COL(cursor_addr)) || \
-			 (BA_TO_ROW(b) == BA_TO_ROW(cursor_addr)))
+#define CROSSED(b)	((BA_TO_COL(b) == cursor_col) || \
+			 (BA_TO_COL(b) == cd_col) || \
+			 (BA_TO_ROW(b) == cursor_row))
 
 /*
  * The screen state structure.  This structure is swapped whenever we switch
@@ -248,7 +261,12 @@ static struct sstate *ss = &nss;
 #define SET_ODD(odd, n)	(odd)[(n) / BPW] |= 1 << ((n) % BPW)
 #define IS_ODD(odd, n)	((odd)[(n) / BPW] & 1 << ((n) % BPW))
 
-#define WHICH_CHAR(f, n) (((n) < (f)->min_char_or_byte2 || (n) > (f)->max_char_or_byte2)? (f)->default_char: (n))
+#define DEFAULT_CHAR(f) (((f)->default_char >= (f)->min_char_or_byte2 && \
+			  (f)->default_char <= (f)->max_char_or_byte2)? \
+			    (f)->default_char: 32)
+#define WHICH_CHAR(f, n) (((n) < (f)->min_char_or_byte2 || \
+			   (n) > (f)->max_char_or_byte2)? \
+			    DEFAULT_CHAR(f) : (n))
 #define PER_CHAR(f, n)	((f)->per_char[WHICH_CHAR(f, n) - (f)->min_char_or_byte2])
 
 /* Globals based on nss, used mostly by status and select routines. */
@@ -297,7 +315,7 @@ static GC get_selgc(struct sstate *s, int color);
 static void default_color_scheme(void);
 static Boolean xfer_color_scheme(char *cs, Boolean do_popup);
 static void set_font_globals(XFontStruct *f, const char *ef, const char *fef,
-    Font ff);
+    Font ff, Boolean is_dbcs);
 static void screen_connect(Boolean ignored);
 static void configure_stable(XtPointer closure, XtIntervalId *id);
 static void cancel_blink(void);
@@ -307,10 +325,15 @@ static void screen_reinit(unsigned cmask);
 static void aicon_font_init(void);
 static void aicon_size(Dimension *iw, Dimension *ih);
 static void invert_icon(Boolean inverted);
-static char *load_fixed_font(const char *name, const char *reqd_charset);
+static char *lff_single(const char *name, const char *reqd_display_charset,
+    Boolean is_dbcs);
+static char *load_fixed_font(const char *names, const char *reqd_charsets);
 static void lock_icon(enum mcursor_state state);
 static char *expand_cslist(const char *s);
 static const char *name2cs_3270(const char *name);
+#if defined(X3270_DBCS) /*[*/
+static void xlate_dbcs(unsigned char, unsigned char, XChar2b *);
+#endif /*]*/
 
 /* Resize font list. */
 struct rsfont {
@@ -414,16 +437,9 @@ screen_init(void)
 
 	/* Initialize the blank map. */
 	(void) memset((char *)blank_map, '\0', sizeof(blank_map));
-	BKM_SET(CG_null);
-	BKM_SET(CG_nobreakspace);
-	BKM_SET(CG_ff);
-	BKM_SET(CG_cr);
-	BKM_SET(CG_nl);
-	BKM_SET(CG_em);
-	BKM_SET(CG_space);
-	for (i = 0; i <= 0xf; i++) {
-		BKM_SET(0xc0 + i);
-		BKM_SET(0xe0 + i);
+	for (i = 0; i < 256; i++) {
+		if (ebc2asc[i] == 0x20 || ebc2asc[i] == 0xa0)
+			BKM_SET(i);
 	}
 
 	/* Register state change callbacks. */
@@ -488,8 +504,7 @@ screen_reinit(unsigned cmask)
 							 maxROWS*maxCOLS));
 
 		/* render_text buffers */
-		Replace(rt_buf8, (unsigned char *)XtMalloc(maxCOLS));
-		Replace(rt_buf16,
+		Replace(rt_buf,
 		    (XChar2b *)XtMalloc(maxCOLS * sizeof(XChar2b)));
 	} else
 		(void) memset((char *) nss.image, 0,
@@ -775,7 +790,7 @@ toggle_scrollBar(struct toggle *t unused, enum toggle_type tt unused)
 static void
 screen_connect(Boolean ignored unused)
 {
-	if (!screen_buf)
+	if (ea_buf == NULL)
 		return;		/* too soon */
 
 	if (CONNECTED) {
@@ -1135,7 +1150,7 @@ do_redraw(Widget w, XEvent *event, String *params unused,
 				c0 = ROWCOL_TO_BA(row, startcol);
 
 				for (i = 0; i < ncols; i++)
-					ss->image[c0 + i].bits.cg = CG_space;
+					ss->image[c0 + i].bits.cc = EBC_space;
 			}
 		}
 					    
@@ -1147,7 +1162,7 @@ do_redraw(Widget w, XEvent *event, String *params unused,
 		              (maxROWS*maxCOLS) * sizeof(union sp));
 		if (ss->debugging_font)
 			for (i = 0; i < maxROWS*maxCOLS; i++)
-				ss->image[i].bits.cg = CG_space;
+				ss->image[i].bits.cc = EBC_space;
 		ss->copied = False;
 	}
 	ctlr_changed(0, ROWS*COLS);
@@ -1307,7 +1322,7 @@ empty_space(register union sp *buffer, int len)
 		if (buffer->bits.gr ||
 		    buffer->bits.sel ||
 		    (buffer->bits.fg & INVERT_MASK) ||
-		    !BKM_ISSET(buffer->bits.cg))
+		    !BKM_ISSET(buffer->bits.cc))
 			return False;
 	}
 	return True;
@@ -1329,6 +1344,21 @@ resync_text(int baddr, int len, union sp *buffer)
 #if defined(_ST) /*[*/
 	(void) printf("resync_text(baddr=%s, len=%d)\n", rcba(baddr), len);
 #endif /*]*/
+
+	/*
+	 * If the region begins on the right half of a DBCS character, back
+	 * up one.
+	 */
+	if (baddr % COLS) {
+		enum dbcs_state d;
+
+		d = ctlr_dbcs_state(baddr);
+		if (IS_RIGHT(d)) {
+			baddr--;
+			len++;
+		}
+	}
+
 	if (!ever) {
 		union sp b;
 
@@ -1378,13 +1408,13 @@ resync_text(int baddr, int len, union sp *buffer)
 		/* Note the characteristics of the beginning of the region. */
 		attrs = buffer[baddr].word & cmask;
 		has_gr = (buffer[baddr].word & gmask) != 0;
-		empty = !has_gr && BKM_ISSET(buffer[baddr].bits.cg);
+		empty = !has_gr && BKM_ISSET(buffer[baddr].bits.cc);
 
 		for (i = 0; i < len; i++) {
 			/* Note the characteristics of this character. */
 			attrs2 = buffer[baddr+i].word & cmask;
 			has_gr2 = (buffer[baddr+i].word & gmask) != 0;
-			empty2 = !has_gr2 && BKM_ISSET(buffer[baddr+i].bits.cg);
+			empty2 = !has_gr2 && BKM_ISSET(buffer[baddr+i].bits.cc);
 
 			/* If this character has exactly the same attributes
 			   as the current region, simply add it, noting that
@@ -1414,6 +1444,10 @@ resync_text(int baddr, int len, union sp *buffer)
 
 			/* Dump the region and start a new one with this
 			   character. */
+#if defined(_ST) /*[*/
+			printf("%s:%d: rt%s\n", __FUNCTION__, __LINE__,
+			    rcba(baddr+i0));
+#endif /*]*/
 			render_text(&buffer[baddr+i0], baddr+i0, i - i0, False,
 			    &ra);
 			attrs = attrs2;
@@ -1424,6 +1458,9 @@ resync_text(int baddr, int len, union sp *buffer)
 		}
 
 		/* Dump the remainder of the region. */
+#if defined(_ST) /*[*/
+		printf("%s:%d: rt%s\n", __FUNCTION__, __LINE__, rcba(baddr+i0));
+#endif /*]*/
 		render_text(&buffer[baddr+i0], baddr+i0, len - i0, False, &ra);
 	}
 
@@ -1443,103 +1480,135 @@ render_text(union sp *buffer, int baddr, int len, Boolean block_cursor,
 	GC dgc = (GC)None;	/* drawing text */
 	GC cleargc = (GC)None;	/* clearing under undersized characters */
 	int sel = attrs->bits.sel;
-	register int i;
+	register int i, j;
 	Boolean one_at_a_time = False;
+	register unsigned char *xfmap = ss->xfmap;
+	XTextItem16 text[64]; /* fixed size is a hack */
+	int n_texts = -1;
+	Boolean in_dbcs = False;
+	int clear_len = 0;
 
 #if defined(_ST) /*[*/
 	(void) printf("render_text(baddr=%s, len=%d)\n", rcba(baddr), len);
 #endif /*]*/
 
-	if (ss->standard_font) {		/* Standard X font */
-		register unsigned char *xfmap = ss->xfmap;
-
-		if (toggled(MONOCASE)) {
-			for (i = 0; i < len; i++) {
-				switch (buffer[i].bits.cs) {
-				    case 0:
-					rt_buf8[i] =
-					    asc2uc[xfmap[buffer[i].bits.cg]];
-					break;
-				    case 1:
-					rt_buf8[i] = ge2asc[buffer[i].bits.cg];
-					break;
-				    case 2:
-					rt_buf8[i] = buffer[i].bits.cg;
-					break;
-				}
-			}
-		} else for (i = 0; i < len; i++) {
-			switch (buffer[i].bits.cs) {
-			    case 0:
-				rt_buf8[i] = xfmap[buffer[i].bits.cg];
-				break;
-			    case 1:
-				rt_buf8[i] = ge2asc[buffer[i].bits.cg];
-				break;
-			    case 2:
-				rt_buf8[i] = buffer[i].bits.cg;
-				break;
-			}
-		}
-	} else if (ss->extended_3270font) {	/* 16-bit (new) x3270 font */
-		if (toggled(MONOCASE)) {
-			for (i = 0; i < len; i++) {
-				rt_buf16[i].byte1 = buffer[i].bits.cs;
-				switch (buffer[i].bits.cs) {
-				    case 0:
-					rt_buf16[i].byte2 =
-					    cg2uc[buffer[i].bits.cg];
-					break;
-				    case 1:
-				    case 2:
-					rt_buf16[i].byte2 = buffer[i].bits.cg;
-					break;
-				}
-			}
-		} else
-			for (i = 0; i < len; i++) {
-				rt_buf16[i].byte1 = buffer[i].bits.cs;
-				rt_buf16[i].byte2 = buffer[i].bits.cg;
-			}
-	} else {				/* 8-bit (old) x3270 font */
-		if (toggled(MONOCASE)) {
-			for (i = 0; i < len; i++) {
-				switch (buffer[i].bits.cs) {
-				    case 0:
-					rt_buf8[i] =
-					    cg2uc[buffer[i].bits.cg];
-					break;
-				    case 1:
-					rt_buf8[i] =
-					    ge2cg8[buffer[i].bits.cg];
-					break;
-				    case 2:
-					rt_buf8[i] = CG_boxsolid;
-					break;
-				}
-			}
-		} else
-			for (i = 0; i < len; i++) {
-				switch (buffer[i].bits.cs) {
-				    case 0:
-					rt_buf8[i] = buffer[i].bits.cg;
-					break;
-				    case 1:
-					rt_buf8[i] =
-					    ge2cg8[buffer[i].bits.cg];
-					break;
-				    case 2:
-					rt_buf8[i] = CG_boxsolid;
-					break;
-				}
-			}
+	/*
+	 * If the region starts with the right-hand side of a DBCS, back off
+	 * one column.
+	 */
+	switch (ctlr_dbcs_state(baddr)) {
+	case DBCS_RIGHT:
+	    /*
+	     * Lots of assumptions -- the buffer really does go back one byte,
+	     * and baddr is greater than zero.
+	     */
+#if defined(_ST) /*[*/
+	    (void) printf("render_text: backing off\n");
+#endif /*]*/
+	    buffer--;
+	    baddr--;
+	    len++;
+	    break;
+	default:
+	    break;
 	}
+
+	for (i = 0, j = 0; i < len; i++) {
+#if defined(X3270_DBCS) /*[*/
+		if (buffer[i].bits.cs != CS_DBCS || !dbcs) {
+#endif /*]*/
+			if (n_texts < 0 || in_dbcs) {
+				/* Switch from nothing or DBCS, to SBCS. */
+#if defined(_ST) /*[*/
+				fprintf(stderr, "SBCS starts at %s\n",
+				    rcba(baddr + i));
+#endif /*]*/
+				in_dbcs = False;
+				n_texts++;
+				text[n_texts].chars = &rt_buf[j];
+				text[n_texts].nchars = 0;
+				text[n_texts].delta = 0;
+				text[n_texts].font = ss->fid;
+			}
+			/* In SBCS. */
+			clear_len += ss->char_width;
+#if defined(X3270_DBCS) /*[*/
+		} else {
+			if (n_texts < 0 || !in_dbcs) {
+				/* Switch from nothing or SBCS, to DBCS. */
+#if defined(_ST) /*[*/
+				fprintf(stderr, "DBCS starts at %s\n",
+				    rcba(baddr + i));
+#endif /*]*/
+				in_dbcs = True;
+				n_texts++;
+				text[n_texts].chars = &rt_buf[j];
+				text[n_texts].nchars = 0;
+				text[n_texts].delta = 0;
+				text[n_texts].font = dbcs_font;
+			}
+			/* In DBCS. */
+			clear_len += 2 * ss->char_width;
+		}
+#endif /*]*/
+
+		switch (buffer[i].bits.cs) {
+		    case CS_BASE:	/* latin-1 */
+			rt_buf[j].byte1 = 0;
+			if (toggled(MONOCASE))
+				rt_buf[j].byte2 =
+				    xfmap[ebc2uc[buffer[i].bits.cc]];
+			else
+				rt_buf[j].byte2 = xfmap[buffer[i].bits.cc];
+			j++;
+			break;
+		    case CS_APL:	/* GE (apl) */
+			if (ss->extended_3270font) {
+				rt_buf[j].byte1 = 1;
+				rt_buf[j].byte2 = ebc2asc0[buffer[i].bits.cc];
+				 /* XXX: Wrong. */
+			} else {
+				rt_buf[j].byte1 = 0;
+				rt_buf[j].byte2 = ge2asc[buffer[i].bits.cc];
+				 /* XXX: Quite likely wrong. */
+			}
+			j++;
+			break;
+		    case CS_LINEDRAW:	/* DEC line drawing */
+			rt_buf[j].byte1 = 0;
+			rt_buf[j].byte2 = buffer[i].bits.cc;
+			j++;
+			 /* XXX: Needs to be verified. */
+			break;
+		    case CS_DBCS:	/* DBCS */
+#if defined(X3270_DBCS) /*[*/
+			if (dbcs) {
+				xlate_dbcs(buffer[i].bits.cc,
+					   buffer[i+1].bits.cc,
+					   &rt_buf[j]);
+				/* Skip the next byte as well. */
+				i++;
+			} else {
+				rt_buf[j].byte1 = 0;
+				rt_buf[j].byte2 = xfmap[EBC_space];
+			}
+#else /*][*/
+			rt_buf[j].byte1 = 0;
+			rt_buf[j].byte2 = xfmap[EBC_space];
+#endif /*]*/
+			j++;
+			break;
+		}
+		text[n_texts].nchars++;
+	}
+	n_texts++;
 
 	/* Check for one-at-a-time mode. */
 	if (ss->funky_font) {
 		for (i = 0; i < len; i++) {
-			if (IS_ODD(ss->odd_width, rt_buf8[i]) ||
-			    IS_ODD(ss->odd_lbearing, rt_buf8[i])) {
+			if (!rt_buf[i].byte1 &&
+			    (IS_ODD(ss->odd_width, rt_buf[i].byte2) ||
+			     IS_ODD(ss->odd_lbearing, rt_buf[i].byte2))) {
 				one_at_a_time = True;
 				break;
 			}
@@ -1580,52 +1649,78 @@ render_text(union sp *buffer, int baddr, int len, Boolean block_cursor,
 	}
 
 	/* Draw the text */
+#if 0
 	if (one_at_a_time) {
 
 		/* Blank out the background, */
 		XFillRectangle(display, ss->window,
 			cleargc,
 			x, y - ss->ascent,
-			ss->char_width * len, ss->char_height);
+			clear_len, ss->char_height);
 
 		/* Draw text one character at a time. */
 		for (i = 0; i < len; i++) {
 			x = ssCOL_TO_X(BA_TO_COL(baddr));
 			y = ssROW_TO_Y(BA_TO_ROW(baddr));
 
-			if (IS_ODD(ss->odd_lbearing, rt_buf8[i]))
-				x -= PER_CHAR(ss->font, rt_buf8[i]).lbearing;
+			if (!rt_buf[i].byte1 &&
+			    IS_ODD(ss->odd_lbearing, rt_buf[i].byte2))
+				x -= PER_CHAR(ss->font, rt_buf[i].byte2).lbearing;
 
-			XDrawImageString(display, ss->window, dgc, x, y,
-			    (char *)&rt_buf8[i], 1);
+			XDrawImageString16(display, ss->window, dgc, x, y,
+			    &rt_buf[i], 1);
 			if (ss->overstrike &&
 			    ((attrs->bits.gr & GR_INTENSIFY) ||
 			     ((appres.mono ||
 			       (!appres.m3279 && appres.highlight_bold)) &&
 			      ((color & BASE_MASK) == FA_INT_HIGH_SEL)))) {
-				XDrawString(display, ss->window, dgc, x+1, y,
-				    (char *)&rt_buf8[i], 1);
+				XDrawString16(display, ss->window, dgc, x+1, y,
+				    &rt_buf[i], 1);
 			}
 			baddr++;
 		}
-	} else {
-		if (ss->extended_3270font)
-			XDrawImageString16(display, ss->window, dgc, x, y, rt_buf16,
-			    len);
-		else
-			XDrawImageString(display, ss->window, dgc, x, y,
-			    (char *)rt_buf8, len);
+	} else
+#endif
+	{
+		XFillRectangle(display, ss->window,
+			cleargc,
+			x, y - ss->ascent,
+			clear_len, ss->char_height);
+#if defined(_ST) /*[*/
+		{
+			int k, l;
+
+			for (k = 0; k < n_texts; k++) {
+				printf("text[%d]: %d chars, %s:", k,
+				    text[k].nchars,
+				    (text[k].font == dbcs_font)?
+					"dbcs": "sbcs");
+				for (l = 0; l < text[k].nchars; l++) {
+				    printf(" %02x%02x", text[k].chars[l].byte1,
+					text[k].chars[l].byte2);
+				}
+				printf("\n");
+			}
+		}
+#endif /*]*/
+		XDrawText16(display, ss->window, dgc, x, y, text, n_texts);
 		if (ss->overstrike &&
 		    ((attrs->bits.gr & GR_INTENSIFY) ||
 		     ((appres.mono || (!appres.m3279 && appres.highlight_bold)) &&
 		      ((color & BASE_MASK) == FA_INT_HIGH_SEL)))) {
-			if (ss->extended_3270font)
-				XDrawString16(display, ss->window, dgc, x+1, y,
-				    rt_buf16, len);
-			else
-				XDrawString(display, ss->window, dgc, x+1, y,
-				    (char *)rt_buf8, len);
+			XDrawText16(display, ss->window, dgc, x+1, y,
+			    text, n_texts);
 		}
+#if 0
+		XDrawImageString16(display, ss->window, dgc, x, y, rt_buf, len);
+		if (ss->overstrike &&
+		    ((attrs->bits.gr & GR_INTENSIFY) ||
+		     ((appres.mono || (!appres.m3279 && appres.highlight_bold)) &&
+		      ((color & BASE_MASK) == FA_INT_HIGH_SEL)))) {
+			XDrawString16(display, ss->window, dgc, x+1, y,
+			    rt_buf, len);
+		}
+#endif
 	}
 
 	if (attrs->bits.gr & GR_UNDERLINE)
@@ -1634,7 +1729,7 @@ render_text(union sp *buffer, int baddr, int len, Boolean block_cursor,
 		    dgc,
 		    x,
 		    y - ss->ascent + ss->char_height - 1,
-		    x + ss->char_width * len,
+		    x + clear_len,
 		    y - ss->ascent + ss->char_height - 1);
 }
 
@@ -1649,9 +1744,9 @@ screen_obscured(void)
 /*
  * Scroll the screen image one row.
  *
- * This is the optimized path from ctlr_scroll(); it assumes that
- * screen_buf[] and ea_buf[] have already been modified and that the screen
- * can be brought into sync by hammering ss->image and the bitmap.
+ * This is the optimized path from ctlr_scroll(); it assumes that ea_buf[] has
+ * already been modified and that the screen can be brought into sync by
+ * hammering ss->image and the bitmap.
  */
 void
 screen_scroll(void)
@@ -1712,21 +1807,47 @@ screen_flip(void)
 }
 
 /*
- * "Draw" screen_buf into a buffer
+ * "Draw" ea_buf into a buffer
  */
 static void
 draw_fields(union sp *buffer, int first, int last)
 {
 	int	baddr = 0;
-	unsigned char	*fap;
+	int	faddr;
 	unsigned char	fa;
 	struct ea       *field_ea;
-	struct ea	*char_ea = ea_buf;
-	unsigned char	*sbp = screen_buf;
+	struct ea	*sbp = ea_buf;
 	int	field_color;
 	int	zero;
 	Boolean	any_blink = False;
 	int	crossable = CROSSABLE;
+	enum dbcs_state d;
+	int	cd_col;
+	int	cursor_col, cursor_row;
+
+	/* Set up cd_addr for wide crosshairs. */
+	if (crossable) {
+		cursor_col = BA_TO_COL(cursor_addr);
+		cursor_row = BA_TO_ROW(cursor_addr);
+		cd_col = cursor_col;
+		switch (ctlr_dbcs_state(cursor_addr)) {
+		case DBCS_NONE:
+		case DBCS_DEAD:
+		case DBCS_LEFT_WRAP:
+		case DBCS_RIGHT_WRAP:
+		    break;
+		case DBCS_LEFT:
+		case DBCS_SI:
+		    if (cursor_col != (COLS - 1))
+			    cd_col = cursor_col + 1;
+		    break;
+		case DBCS_RIGHT:
+		case DBCS_SB: /* XXX */
+		    if (cursor_col)
+			    cd_col = cursor_col - 1;
+		    break;
+		}
+	}
 
 	/* If there is any blinking text, override the suggested boundaries. */
 	if (text_blinkers_exist) {
@@ -1737,13 +1858,12 @@ draw_fields(union sp *buffer, int first, int last)
 	/* Adjust pointers to start of region. */
 	if (first > 0) {
 		baddr += first;
-		char_ea += first;
 		sbp += first;
 		buffer += first;
 	}
-	fap = get_field_attribute(baddr);
-	fa = *fap;
-	field_ea = fa2ea(fap);
+	faddr = find_field_attribute(baddr);
+	fa = ea_buf[faddr].fa;
+	field_ea = fa2ea(faddr);
 
 	/* Adjust end of region. */
 	if (last == -1 || last >= ROWS*COLS)
@@ -1756,31 +1876,32 @@ draw_fields(union sp *buffer, int first, int last)
 		field_color = fa_color(fa);
 
 	do {
-		unsigned char	c = *sbp;
+		unsigned char	c = sbp->cc;
 		union sp	b;
 		Boolean		reverse = False;
+		Boolean		is_selected = False;
 
 		b.word = 0;	/* clear out all fields */
 
-		if (IS_FA(c)) {
-			fa = c;
-			field_ea = char_ea;
+		if (ea_buf[baddr].fa) {
+			fa = ea_buf[baddr].fa;
+			field_ea = sbp;
 			zero = FA_IS_ZERO(fa);
 			if (field_ea->fg && (!appres.modified_sel || !FA_IS_MODIFIED(fa)))
 				field_color = field_ea->fg & COLOR_MASK;
 			else
 				field_color = fa_color(fa);
 			if (ss->debugging_font) {
-				b.bits.cg = c;
+				b.bits.cc = c;
 				if (appres.m3279 || !zero)
 					b.bits.fg = field_color;
-			} /* otherwise, CG_null in color 0 */
+			} /* otherwise, EBC_null in color 0 */
 		} else {
 			unsigned short gr;
 			int e_color;
 
 			/* Find the right graphic rendition. */
-			gr = char_ea->gr;
+			gr = sbp->gr;
 			if (!gr)
 				gr = field_ea->gr;
 			if (gr & GR_BLINK)
@@ -1789,8 +1910,8 @@ draw_fields(union sp *buffer, int first, int last)
 				gr |= GR_INTENSIFY;
 
 			/* Find the right color. */
-			if (char_ea->fg)
-				e_color = char_ea->fg & COLOR_MASK;
+			if (sbp->fg)
+				e_color = sbp->fg & COLOR_MASK;
 			else if (appres.mono && (gr & GR_INTENSIFY))
 				e_color = fa_color(FA_INT_HIGH_SEL);
 			else
@@ -1803,10 +1924,13 @@ draw_fields(union sp *buffer, int first, int last)
 				b.bits.fg = e_color;
 
 			/* Find the right character and character set. */
+			d = ctlr_dbcs_state(baddr);
 			if (zero) {
 				if (ss->debugging_font)
-					b.bits.cg = CG_space;
-			} else if ((c != CG_null && c != CG_space) ||
+					b.bits.cc = EBC_space;
+			} else if ((c != EBC_null && c != EBC_space &&
+				    d != DBCS_DEAD && d != DBCS_LEFT_WRAP &&
+				    d != DBCS_RIGHT_WRAP) ||
 			           (gr & (GR_REVERSE | GR_UNDERLINE)) ||
 				   ss->debugging_font) {
 
@@ -1817,36 +1941,94 @@ draw_fields(union sp *buffer, int first, int last)
 				 * spaces.
 				 */
 				if (!text_blinking_on && (gr & GR_BLINK))
-					b.bits.cg = CG_space;
+					b.bits.cc = EBC_space;
 				else {
-					b.bits.cg = c;
-					if (char_ea->cs)
-						b.bits.cs = char_ea->cs;
+					enum dbcs_state d;
+
+					b.bits.cc = c;
+					if (sbp->cs)
+						b.bits.cs = sbp->cs;
 					else
 						b.bits.cs = field_ea->cs;
 					if (b.bits.cs & CS_GE)
 						b.bits.cs = 1;
-					else
+					else if ((b.bits.cs & CS_MASK) !=
+						    CS_DBCS ||
+						 d != DBCS_NONE)
 						b.bits.cs &= CS_MASK;
+					else
+						b.bits.cs = CS_BASE;
 				}
 
-			} /* otherwise, CG_null */
+			} /* otherwise, EBC_null */
 
 			b.bits.gr = gr & (GR_UNDERLINE | GR_INTENSIFY);
+
+			/* Check for SI/SO. */
+			if (d == DBCS_LEFT || d == DBCS_RIGHT)
+				b.bits.cs = CS_DBCS;
 		}
+
+		/*
+		 * Compute selection state.  A cell is also considered selected
+		 * if it is part of a double-byte character and the other half
+		 * of the character is selected.
+		 */
+		is_selected = (SELECTED(baddr) != 0);
+		switch (ctlr_dbcs_state(baddr)) {
+		case DBCS_NONE:
+		case DBCS_DEAD:
+		case DBCS_LEFT_WRAP:
+		case DBCS_RIGHT_WRAP:
+		    break;
+		case DBCS_LEFT:
+		case DBCS_SI:
+		    if ((baddr % COLS) != (COLS - 1) &&
+			SELECTED(baddr + 1))
+			    is_selected = True;
+		    break;
+		case DBCS_RIGHT:
+		case DBCS_SB: /* XXX */
+		    if ((baddr % COLS) && SELECTED(baddr - 1))
+			    is_selected = True;
+		    break;
+		}
+
+		/*
+		 * XOR the crosshair cursor with selections.
+		 */
 		if (crossable) {
-			if ((SELECTED(baddr) != 0) ^
-			    (CROSSED(baddr) && !reverse))
+			if (is_selected ^ (CROSSED(baddr) && !reverse))
 				b.bits.sel = 1;
 		} else {
-			if (SELECTED(baddr) != 0)
+			if (is_selected)
 				b.bits.sel = 1;
 		}
+		if (b.bits.sel) {
+			switch (ctlr_dbcs_state(baddr)) {
+			case DBCS_NONE:
+			case DBCS_DEAD:
+			case DBCS_LEFT_WRAP:
+			case DBCS_RIGHT_WRAP:
+			    break;
+			case DBCS_LEFT:
+			case DBCS_SI:
+			    if ((baddr % COLS) != (COLS - 1) &&
+				SELECTED(baddr + 1))
+				    b.bits.sel = 1;
+			    break;
+			case DBCS_RIGHT:
+			case DBCS_SB: /* XXX */
+			    if ((baddr % COLS) && SELECTED(baddr - 1))
+				    b.bits.sel = 1;
+			    break;
+			}
+		}
+
 		if (!flipped)
 			*buffer++ = b;
 		else
 			*(buffer + fl_baddr(baddr)) = b;
-		char_ea++;
 		sbp++;
 		INC_BA(baddr);
 	} while (baddr != last);
@@ -1991,20 +2173,22 @@ fl_baddr(int baddr)
 static int
 char_color(int baddr)
 {
-	unsigned char *fa;
+	int faddr;
+	unsigned char fa;
 	int color;
 
-	fa = get_field_attribute(baddr);
+	faddr = find_field_attribute(baddr);
+	fa = ea_buf[faddr].fa;
 
 	/*
 	 * Find the color of the character or the field.
 	 */
 	if (ea_buf[baddr].fg)
 		color = ea_buf[baddr].fg & COLOR_MASK;
-	else if (fa2ea(fa)->fg && (!appres.modified_sel || !FA_IS_MODIFIED(*fa)))
-		color = fa2ea(fa)->fg & COLOR_MASK;
+	else if (fa2ea(faddr)->fg && (!appres.modified_sel || !FA_IS_MODIFIED(fa)))
+		color = fa2ea(faddr)->fg & COLOR_MASK;
 	else
-		color = fa_color(*fa);
+		color = fa_color(fa);
 
 	/*
 	 * Now apply reverse video.
@@ -2013,8 +2197,8 @@ char_color(int baddr)
 	 *  If the buffer is a field attribute and we aren't using the
 	 *  debug font, it's displayed as a blank; don't invert.
 	 */
-	if (!((IS_FA(screen_buf[baddr]) && !ss->debugging_font)) &&
-	    ((ea_buf[baddr].gr & GR_REVERSE) || (fa2ea(fa)->gr & GR_REVERSE)))
+	if (!((ea_buf[baddr].fa && !ss->debugging_font)) &&
+	    ((ea_buf[baddr].gr & GR_REVERSE) || (fa2ea(faddr)->gr & GR_REVERSE)))
 		color = INVERT_COLOR(color);
 
 	/*
@@ -2049,51 +2233,88 @@ cursor_gc(int baddr)
 static void
 redraw_char(int baddr, Boolean invert)
 {
-	union sp buffer;
-	unsigned char *fa;
+	enum dbcs_state d;
+	union sp buffer[2];
+	int faddr;
+	unsigned char fa;
 	int gr;
 	int blank_it = 0;
+	int baddr2;
+	int len = 1;
+
+	/*
+	 * Figure out the DBCS state of this position.  If it's the right-hand
+	 * side of a DBCS character, repaint the left side instead.
+	 */
+	switch ((d = ctlr_dbcs_state(baddr))) {
+	case DBCS_LEFT:
+	case DBCS_SI:
+	    len = 2;
+	    break;
+	case DBCS_RIGHT:
+	    len = 2;
+	    DEC_BA(baddr);
+	    break;
+	default:
+	    break;
+	}
 
 	if (!invert) {
 		int flb = fl_baddr(baddr);
 
 		/* Simply put back what belongs there. */
-		render_text(&ss->image[flb], flb, 1, False, &ss->image[flb]);
+#if defined(_ST) /*[*/
+		printf("%s:%d: rt%s\n", __FUNCTION__, __LINE__, rcba(flb));
+#endif /*]*/
+		render_text(&ss->image[flb], flb, len, False, &ss->image[flb]);
 		return;
 	}
+
+	baddr2 = baddr;
+	INC_BA(baddr2);
 
 	/*
 	 * Fabricate the right thing.
 	 * ss->image isn't going to help, because it may contain shortcuts
 	 *  for faster display, so we have to construct a buffer to use.
 	 */
-	buffer.word = 0L;
-	buffer.bits.cg = screen_buf[baddr];
-	buffer.bits.cs = ea_buf[baddr].cs;
-	if (buffer.bits.cs & CS_GE)
-		buffer.bits.cs = 1;
+	buffer[0].word = 0L;
+	buffer[0].bits.cc = ea_buf[baddr].cc;
+	buffer[0].bits.cs = ea_buf[baddr].cs;
+	if (buffer[0].bits.cs & CS_GE)
+		buffer[0].bits.cs = 1;
 	else
-		buffer.bits.cs &= CS_MASK;
-	fa = get_field_attribute(baddr);
+		buffer[0].bits.cs &= CS_MASK;
+
+	faddr = find_field_attribute(baddr);
+	if (d == DBCS_LEFT || d == DBCS_RIGHT)
+		buffer[0].bits.cs = CS_DBCS;
+	fa = ea_buf[faddr].fa;
 	gr = ea_buf[baddr].gr;
 	if (!gr)
-		gr = fa2ea(fa)->gr;
-	if (IS_FA(screen_buf[baddr])) {
+		gr = fa2ea(faddr)->gr;
+	if (ea_buf[baddr].fa) {
 		if (!ss->debugging_font)
 			blank_it = 1;
-	} else if (FA_IS_ZERO(*fa)) {
+	} else if (FA_IS_ZERO(fa)) {
 		blank_it = 1;
 	} else if (text_blinkers_exist && !text_blinking_on) {
 		if (gr & GR_BLINK)
 			blank_it = 1;
 	}
 	if (blank_it) {
-		buffer.bits.cg = CG_space;
-		buffer.bits.cs = 0;
+		buffer[0].bits.cc = EBC_space;
+		buffer[0].bits.cs = 0;
 	}
-	buffer.bits.fg = char_color(baddr);
-	buffer.bits.gr |= (gr & GR_INTENSIFY);
-	render_text(&buffer, fl_baddr(baddr), 1, True, &buffer);
+	buffer[0].bits.fg = char_color(baddr);
+	buffer[0].bits.gr |= (gr & GR_INTENSIFY);
+	if (len == 2) {
+		buffer[1].word = buffer[0].word;
+		if (!blank_it)
+			buffer[1].bits.cc = ea_buf[baddr2].cc;
+	}
+	render_text(buffer, fl_baddr(baddr), len, True, buffer);
+
 }
 
 /*
@@ -2102,13 +2323,31 @@ redraw_char(int baddr, Boolean invert)
 static void
 hollow_cursor(int baddr)
 {
+	Dimension cwidth;
+	enum dbcs_state d;
+
+	d = ctlr_dbcs_state(baddr);
+
+	switch (d) {
+	case DBCS_RIGHT:
+	    DEC_BA(baddr);
+	    /* fall through... */
+	case DBCS_LEFT:
+	case DBCS_SI:
+	    cwidth = (2 * ss->char_width) - 1;
+	    break;
+	default:
+	    cwidth = ss->char_width - 1;
+	    break;
+	}
+
 	XDrawRectangle(display,
 	    ss->window,
 	    cursor_gc(baddr),
 	    ssCOL_TO_X(BA_TO_COL(fl_baddr(baddr))),
 	    ssROW_TO_Y(BA_TO_ROW(baddr)) - ss->ascent +
 		(appres.mono ? 1 : 0),
-	    ss->char_width - 1,
+	    cwidth,
 	    ss->char_height - (appres.mono ? 2 : 1));
 }
 
@@ -2118,13 +2357,31 @@ hollow_cursor(int baddr)
 static void
 underscore_cursor(int baddr)
 {
+	Dimension cwidth;
+	enum dbcs_state d;
+
+	d = ctlr_dbcs_state(baddr);
+
+	switch (d) {
+	case DBCS_RIGHT:
+	    DEC_BA(baddr);
+	    /* fall through... */
+	case DBCS_LEFT:
+	case DBCS_SI:
+	    cwidth = (2 * ss->char_width) - 1;
+	    break;
+	default:
+	    cwidth = ss->char_width - 1;
+	    break;
+	}
+
 	XDrawRectangle(display,
 	    ss->window,
 	    cursor_gc(baddr),
 	    ssCOL_TO_X(BA_TO_COL(fl_baddr(baddr))),
 	    ssROW_TO_Y(BA_TO_ROW(baddr)) - ss->ascent +
 		ss->char_height - 2,
-	    ss->char_width - 1,
+	    cwidth,
 	    1);
 }
 
@@ -2134,6 +2391,8 @@ underscore_cursor(int baddr)
 static void
 small_inv_cursor(int baddr)
 {
+	/* XXX: DBCS? */
+
 	XFillRectangle(display,
 	    ss->window,
 	    ss->mcgc,
@@ -2653,6 +2912,9 @@ make_gc_set(struct sstate *s, int i, Pixel fg, Pixel bg)
 static int
 fa_color(unsigned char fa)
 {
+#	define DEFCOLOR_MAP(f) \
+		((((f) & FA_PROTECT) >> 4) | (((f) & FA_INT_HIGH_SEL) >> 3))
+
 	if (appres.m3279) {
 		/*
 		 * Color indices are the low-order 4 bits of a 3279 color
@@ -2667,7 +2929,7 @@ fa_color(unsigned char fa)
 			return GC_NONDEFAULT |
 				(appres.visual_select_color & 0xf);
 		} else {
-			return field_colors[(fa >> 1) & 0x03];
+			return field_colors[DEFCOLOR_MAP(fa)];
 		}
 	} else {
 		/*
@@ -2677,7 +2939,7 @@ fa_color(unsigned char fa)
 		    (appres.modified_sel && FA_IS_MODIFIED(fa)))
 			return GC_NONDEFAULT | FA_INT_NORM_SEL;
 		else
-			return GC_NONDEFAULT | (fa & FA_INTENSITY);
+			return GC_NONDEFAULT |  ((fa >> 2) & 0x3);
 	}
 }
 
@@ -2917,7 +3179,7 @@ split_font_list_entry(char *entry, char **menu_name, Boolean *noauto,
  *	screen_reinit(FONT_CHANGE)
  */
 Boolean
-screen_new_display_charset(const char *display_charset, const char *csname)
+screen_new_display_charsets(const char *display_charsets, const char *csnames)
 {
 	char *rl;
 	char *s0, *s;
@@ -2925,8 +3187,10 @@ screen_new_display_charset(const char *display_charset, const char *csname)
 	char *lff;
 	Boolean font_found = False;
 
-	/* If the emulator font already implements that charset, we're done. */
-	if (efont_charset != CN && !strcmp(display_charset, efont_charset))
+	/*
+	 * If the emulator fonts already implement those charsets, we're done.
+	 */
+	if (efont_charset != CN && !strcmp(display_charsets, efont_charset))
 		goto done;
 
 	/*
@@ -2934,7 +3198,7 @@ screen_new_display_charset(const char *display_charset, const char *csname)
 	 * see if it implements the right charset.
 	 */
 	if (efontname == CN && appres.efontname != CN) {
-		lff = load_fixed_font(appres.efontname, display_charset);
+		lff = load_fixed_font(appres.efontname, display_charsets);
 		if (lff != CN) {
 			if (strcmp(appres.efontname, "3270")) {
 				popup_an_error(lff);
@@ -2949,7 +3213,7 @@ screen_new_display_charset(const char *display_charset, const char *csname)
 	 */
 	if (fontname == CN) {
 		rl = get_fresource("%s.%s", ResEmulatorFontList,
-				    display_charset);
+				    display_charsets);
 		if (rl != CN) {
 			s0 = s = NewString(rl);
 			while (!font_found &&
@@ -2962,7 +3226,7 @@ screen_new_display_charset(const char *display_charset, const char *csname)
 				if (noauto || !*fn)
 					continue;
 
-				lff = load_fixed_font(fn, display_charset);
+				lff = load_fixed_font(fn, display_charsets);
 				if (lff != CN) {
 					Free(lff);
 				} else
@@ -2972,11 +3236,11 @@ screen_new_display_charset(const char *display_charset, const char *csname)
 		}
 
 		if (!font_found &&
-		    (!strcasecmp(display_charset, default_display_charset) ||
-		     !strcasecmp(display_charset, "iso8859-1"))) {
+		    (!strcasecmp(display_charsets, default_display_charset) ||
+		     !strcasecmp(display_charsets, "iso8859-1"))) {
 			/* Try "fixed". */
 			if ((lff = load_fixed_font("!fixed",
-			    display_charset)) == CN) {
+			    display_charsets)) == CN) {
 				font_found = True;
 			} else {
 				/* Fatal. */
@@ -2993,12 +3257,23 @@ screen_new_display_charset(const char *display_charset, const char *csname)
 			char *buf;
 			char *lasts;
 
-			buf = cs_dup = NewString(display_charset);
-			while (!font_found && (cs = strtok_r(buf, ",", &lasts)) != CN) {
+			buf = cs_dup = NewString(display_charsets);
+			while (!font_found &&
+			       (cs = strtok_r(buf, ",", &lasts)) != CN) {
 				char *wild;
+				char *part1 = CN, *part2 = CN;
+				int n_parts = 1;
 
 				buf = CN;
-				wild = xs_buffer("*-r-*-c-*-%s", cs);
+				n_parts = split_dbcs_resource(cs, '+',
+					    &part1, &part2);
+				if (n_parts == 2) {
+					wild = xs_buffer(
+					    "*-r-*-c-*-%s+*-r-*-c-*-%s",
+					    part1, part2);
+				} else {
+					wild = xs_buffer("*-r-*-c-*-%s", cs);
+				}
 				lff = load_fixed_font(wild, cs);
 				if (lff != CN)
 					Free(lff);
@@ -3006,7 +3281,14 @@ screen_new_display_charset(const char *display_charset, const char *csname)
 					font_found = True;
 				Free(wild);
 				if (!font_found) {
-					wild = xs_buffer("*-r-*-m-*-%s", cs);
+					if (n_parts == 2) {
+						wild = xs_buffer(
+						    "*-r-*-c-*-%s+*-r-*-c-*-%s",
+						    part1, part2);
+					} else {
+						wild = xs_buffer("*-r-*-m-*-%s",
+								    cs);
+					}
 					lff = load_fixed_font(wild, cs);
 					if (lff != CN)
 						Free(lff);
@@ -3014,12 +3296,16 @@ screen_new_display_charset(const char *display_charset, const char *csname)
 						font_found = True;
 					Free(wild);
 				}
+				if (part1 != CN)
+					Free(part1);
+				if (part2 != CN)
+					Free(part2);
 			}
 			Free(cs_dup);
 		}
 
 		if (!font_found) {
-			char *xs = expand_cslist(display_charset);
+			char *xs = expand_cslist(display_charsets);
 
 			popup_an_error("No %s fonts found", xs);
 			Free(xs);
@@ -3030,28 +3316,28 @@ screen_new_display_charset(const char *display_charset, const char *csname)
 
     done:
 	/* Set the appropriate global. */
-	Replace(required_display_charset,
-	    display_charset? NewString(display_charset): CN);
-	init_rsfonts(required_display_charset);
+	Replace(required_display_charsets,
+	    display_charsets? NewString(display_charsets): CN);
+	init_rsfonts(required_display_charsets);
 
 	return True;
 }
 
 void
-screen_newfont(char *fontname, Boolean do_popup, Boolean is_cs)
+screen_newfont(char *fontnames, Boolean do_popup, Boolean is_cs)
 {
 	char *old_font;
 	char *lff;
 
 	/* Do nothing, successfully. */
-	if (!is_cs && efontname && !strcmp(fontname, efontname))
+	if (!is_cs && efontname && !strcmp(fontnames, efontname))
 		return;
 
 	/* Save the old font before trying the new one. */
 	old_font = XtNewString(efontname);
 
 	/* Try the new one. */
-	if ((lff = load_fixed_font(fontname, required_display_charset)) != CN) {
+	if ((lff = load_fixed_font(fontnames, required_display_charsets)) != CN) {
 		if (do_popup)
 			popup_an_error(lff);
 		Free(lff);
@@ -3244,7 +3530,62 @@ get_weight(XFontStruct *f)
  * Returns NULL (okay) or an error message.
  */
 static char *
-load_fixed_font(const char *name, const char *reqd_display_charset)
+load_fixed_font(const char *names, const char *reqd_display_charsets)
+{
+	int num_names = 1, num_cs = 1;
+	char *name1 = CN, *name2 = CN;
+	char *charset1 = CN, *charset2 = CN;
+	char *r;
+
+#if defined(DEBUG_FONTPICK) /*[*/
+	fprintf(stderr, "load_fixed_font(%s, %s)\n",
+	    names, reqd_display_charsets);
+#endif /*]*/
+
+	/* Split out the names and character sets. */
+	num_names = split_dbcs_resource(names, '+', &name1, &name2);
+	num_cs = split_dbcs_resource(reqd_display_charsets, '+', &charset1,
+			&charset2);
+	if (num_names == 1 && num_cs >= 2) {
+		Free(name1);
+		Free(name2);
+		Free(charset1);
+		Free(charset2);
+		return NewString("Must specify two font names (SBCS+DBCS)");
+	}
+
+	/* If there's a DBCS font, load that first. */
+	if (name2 != CN) {
+		/* Load the second font. */
+		r = lff_single(name2, charset2, True);
+		if (r != CN) {
+			Free(name1);
+			Free(charset1);
+			return r;
+		}
+	} else {
+		dbcs_font_struct = NULL;
+		dbcs_font = None;
+		dbcs = False;
+	}
+
+	/* Load the SBCS font. */
+	r = lff_single(name1, charset1, False);
+
+	/* Free the split-out names and return the final result. */
+	Free(name1);
+	Free(name2);
+	Free(charset1);
+	Free(charset2);
+	return r;
+}
+
+/*
+ * Load and query one font.
+ * Returns NULL (okay) or an error message.
+ */
+static char *
+lff_single(const char *name, const char *reqd_display_charset, Boolean is_dbcs)
 {
 	XFontStruct *f, *g;
 	char **matches;
@@ -3257,6 +3598,11 @@ load_fixed_font(const char *name, const char *reqd_display_charset)
 	const char *best_weight = CN;
 	unsigned long best_pixel_size = 0L;
 	Boolean scalable;
+
+#if defined(DEBUG_FONTPICK) /*[*/
+	fprintf(stderr, "lff_single: name %s, cs %s, %s\n", name,
+	    reqd_display_charset, is_dbcs? "dbcs": "sbcs");
+#endif /*]*/
 
 	if (*name == '!') {
 		name++;
@@ -3304,7 +3650,11 @@ load_fixed_font(const char *name, const char *reqd_display_charset)
 			const char *wname = CN;
 
 			/* Correct. */
-			Replace(efont_charset, font_csname);
+			if (is_dbcs) {
+				Replace(efont_charset_dbcs, font_csname);
+			} else {
+				Replace(efont_charset, font_csname);
+			}
 			if (w) {
 				wname = XGetAtomName(display, w);
 #if defined(DEBUG_FONTPICK) /*[*/
@@ -3312,6 +3662,16 @@ load_fixed_font(const char *name, const char *reqd_display_charset)
 #endif /*]*/
 			}
 
+			if (!is_dbcs && dbcs_font_struct != NULL) {
+				if (pixel_size ==
+					get_pixel_size(dbcs_font_struct) &&
+				    f[i].max_bounds.width ==
+					dbcs_font_struct->max_bounds.width / 2) {
+					best = i;
+					break;
+				} else
+					continue;
+			}
 			if (best < 0 ||
 			    (labs(pixel_size - 14L) <
 			     labs(best_pixel_size - 14L)) ||
@@ -3342,7 +3702,7 @@ load_fixed_font(const char *name, const char *reqd_display_charset)
 	}
 
 	g = XLoadQueryFont(display, matches[best]);
-	set_font_globals(g, name, matches[best], g->fid);
+	set_font_globals(g, name, matches[best], g->fid, is_dbcs);
 	XFreeFontInfo(matches, f, count);
 	return CN;
 }
@@ -3353,7 +3713,7 @@ load_fixed_font(const char *name, const char *reqd_display_charset)
 char *
 display_charset(void)
 {
-	return (required_display_charset != CN)? required_display_charset:
+	return (required_display_charsets != CN)? required_display_charsets:
 	    					 default_display_charset;
 }
 
@@ -3361,11 +3721,20 @@ display_charset(void)
  * Set globals based on font name and info
  */
 static void
-set_font_globals(XFontStruct *f, const char *ef, const char *fef, Font ff)
+set_font_globals(XFontStruct *f, const char *ef, const char *fef, Font ff,
+    Boolean is_dbcs)
 {
 	unsigned long svalue;
 	int i;
 
+	if (is_dbcs) {
+		/* Hack. */
+		dbcs_font_struct = f;
+		dbcs_font = f->fid;
+		dbcs = True;
+		Replace(full_efontname_dbcs, XtNewString(fef));
+		return;
+	}
 	Replace(efontname, XtNewString(ef));
 	Replace(full_efontname, XtNewString(fef));
 
@@ -3391,7 +3760,7 @@ set_font_globals(XFontStruct *f, const char *ef, const char *fef, Font ff)
 	if (nss.standard_font) {
 		nss.extended_3270font = False;
 		nss.font_8bit = efont_matches;
-		nss.xfmap = nss.font_8bit ? cg2asc : cg2asc7;
+		nss.xfmap = nss.font_8bit ? ebc2asc : ebc2asc7;
 		nss.debugging_font = False;
 	} else {
 #if defined(BROKEN_MACH32)
@@ -3401,7 +3770,7 @@ set_font_globals(XFontStruct *f, const char *ef, const char *fef, Font ff)
 			f->max_char_or_byte2 > 255;
 #endif
 		nss.font_8bit = False;
-		nss.xfmap = (unsigned char *)NULL;
+		nss.xfmap = ebc2cg;
 		nss.debugging_font = !strcmp(efontname, "3270d");
 	}
 
@@ -3524,8 +3893,6 @@ screen_newcharset(char *csname)
 		st_changed(ST_CHARSET, True);
 		screen_reinit(CHARSET_CHANGE | FONT_CHANGE);
 		charset_changed = True;
-		popup_an_info("The new character set will only be reflected\n"
-			"in new data from the host");
 		break;
 	    case CS_NOTFOUND:
 		Free(old_charset);
@@ -3699,7 +4066,7 @@ aicon_font_init(void)
 	iss.font_8bit = False;
 	iss.debugging_font = False;
 	iss.obscured = True;
-	iss.xfmap = cg2asc7;
+	iss.xfmap = ebc2asc7;
 	if (appres.label_icon) {
 		matches = XListFontsWithInfo(display, appres.icon_label_font,
 		    1, &count, &ailabel_font);
@@ -3978,7 +4345,7 @@ init_rsfonts(char *charset_name)
 			if (matches == (char **)NULL)
 				continue;
 			r = (struct rsfont *)XtMalloc(sizeof(*r));
-			r->name = font;
+			r->name = XtNewString(font);
 			r->width = fCHAR_WIDTH(fs);
 			r->height = fCHAR_HEIGHT(fs);
 			XFreeFontInfo(matches, fs, count);
@@ -4398,7 +4765,7 @@ PA_GraphicsExpose_action(Widget w unused, XEvent *event unused,
 		              (maxROWS*maxCOLS) * sizeof(union sp));
 		if (ss->debugging_font)
 			for (i = 0; i < maxROWS*maxCOLS; i++)
-				ss->image[i].bits.cg = CG_space;
+				ss->image[i].bits.cc = EBC_space;
 		ctlr_changed(0, ROWS*COLS);
 		cursor_changed = True;
 
@@ -4469,3 +4836,26 @@ name2cs_3270(const char *name)
 	}
 	return NULL;
 }
+
+#if defined(X3270_DBCS) /*[*/
+static void
+xlate_dbcs(unsigned char c0, unsigned char c1, XChar2b *r)
+{
+	unsigned char wc[2];
+
+	/* First, handle special cases. */
+	if (c0 < 0x41 || c0 == 0xff) {
+		r->byte1 = 0;
+		r->byte2 = 0;
+	} else {
+		/* Translate from DBCS to X11 EUC. */
+		dbcs_to_wchar(c0, c1, wc);
+		r->byte1 = wc[0] & 0x7f;
+		r->byte2 = wc[1] & 0x7f;
+	}
+#if defined(_ST) /*[*/
+	printf("EBC %02x%02x -> EUC X11 %02x%02x\n",
+		c0, c1, r->byte1, r->byte2);
+#endif /*]*/
+}
+#endif /*]*/

@@ -1,10 +1,15 @@
 /*
- * Copyright 1993, 1994, 1995, 1996, 1999, 2000, 2001 by Paul Mattes.
+ * Copyright 1993, 1994, 1995, 1996, 1999, 2000, 2001, 2002 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
  *  both that copyright notice and this permission notice appear in
  *  supporting documentation.
+ *
+ * x3270, c3270, s3270 and tcl3270 are distributed in the hope that they will
+ * be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the file LICENSE
+ * for more details.
  */
 
 /*
@@ -1314,7 +1319,7 @@ sms_continue(void)
  */
 
 static void
-dump_range(int first, int len, Boolean in_ascii, unsigned char *buf,
+dump_range(int first, int len, Boolean in_ascii, struct ea *buf,
     int rel_rows unused, int rel_cols)
 {
 	register int i;
@@ -1331,7 +1336,7 @@ dump_range(int first, int len, Boolean in_ascii, unsigned char *buf,
 	 * host.  output_wait_needed is cleared by sms_host_output,
 	 * which is called from the write logic in ctlr.c.
 	 */     
-	if (sms != SN && buf == screen_buf)
+	if (sms != SN && buf == ea_buf)
 		sms->output_wait_needed = True;
 
 	for (i = 0; i < len; i++) {
@@ -1346,12 +1351,12 @@ dump_range(int first, int len, Boolean in_ascii, unsigned char *buf,
 		if (!any)
 			any = True;
 		if (in_ascii) {
-			c = cg2asc[buf[first + i]];
+			c = ebc2asc[buf[first + i].cc];
 			s += sprintf(s, "%c", c ? c : ' ');
 		} else {
 			s += sprintf(s, "%s%02x",
 				i ? " " : "",
-				cg2ebc[buf[first + i]]);
+				buf[first + i].cc);
 		}
 	}
 	if (any) {
@@ -1363,7 +1368,7 @@ dump_range(int first, int len, Boolean in_ascii, unsigned char *buf,
 
 static void
 dump_fixed(String params[], Cardinal count, const char *name, Boolean in_ascii,
-    unsigned char *buf, int rel_rows, int rel_cols, int caddr)
+    struct ea *buf, int rel_rows, int rel_cols, int caddr)
 {
 	int row, col, len, rows = 0, cols = 0;
 
@@ -1419,7 +1424,8 @@ dump_fixed(String params[], Cardinal count, const char *name, Boolean in_ascii,
 static void
 dump_field(Cardinal count, const char *name, Boolean in_ascii)
 {
-	unsigned char *fa;
+	int faddr;
+	unsigned char fa;
 	int start, baddr;
 	int len = 0;
 
@@ -1431,17 +1437,18 @@ dump_field(Cardinal count, const char *name, Boolean in_ascii)
 		popup_an_error("%s: Screen is not formatted", name);
 		return;
 	}
+	faddr = find_field_attribute(cursor_addr);
 	fa = get_field_attribute(cursor_addr);
-	start = fa - screen_buf;
+	start = faddr;
 	INC_BA(start);
 	baddr = start;
 	do {
-		if (IS_FA(screen_buf[baddr]))
+		if (ea_buf[baddr].fa)
 			break;
 		len++;
 		INC_BA(baddr);
 	} while (baddr != start);
-	dump_range(start, len, in_ascii, screen_buf, ROWS, COLS);
+	dump_range(start, len, in_ascii, ea_buf, ROWS, COLS);
 }
 
 void
@@ -1449,7 +1456,7 @@ Ascii_action(Widget w unused, XEvent *event unused, String *params,
     Cardinal *num_params)
 {
 	dump_fixed(params, *num_params, action_name(Ascii_action), True,
-		screen_buf, ROWS, COLS, cursor_addr);
+		ea_buf, ROWS, COLS, cursor_addr);
 }
 
 void
@@ -1464,7 +1471,7 @@ Ebcdic_action(Widget w unused, XEvent *event unused, String *params,
     Cardinal *num_params)
 {
 	dump_fixed(params, *num_params, action_name(Ebcdic_action), False,
-		screen_buf, ROWS, COLS, cursor_addr);
+		ea_buf, ROWS, COLS, cursor_addr);
 }
 
 void
@@ -1529,10 +1536,10 @@ status_string(void)
 	if (!formatted)
 		prot_stat = 'U';
 	else {
-		unsigned char *fa;
+		unsigned char fa;
 
 		fa = get_field_attribute(cursor_addr);
-		if (FA_IS_PROTECTED(*fa))
+		if (FA_IS_PROTECTED(fa))
 			prot_stat = 'P';
 		else
 			prot_stat = 'U';
@@ -1599,7 +1606,7 @@ script_prompt(Boolean success)
 
 /* Save the state of the screen for Snap queries. */
 static char *snap_status = NULL;
-static unsigned char *snap_buf = NULL;
+static struct ea *snap_buf = NULL;
 static int snap_rows = 0;
 static int snap_cols = 0;
 static int snap_field_start = -1;
@@ -1612,8 +1619,8 @@ snap_save(void)
 	sms->output_wait_needed = True;
 	Replace(snap_status, status_string());
 
-	Replace(snap_buf, (unsigned char *)Malloc(ROWS*COLS));
-	(void) memcpy(snap_buf, screen_buf, ROWS*COLS);
+	Replace(snap_buf, (struct ea *)Malloc(ROWS*COLS*sizeof(struct ea)));
+	(void) memcpy(snap_buf, ea_buf, ROWS*COLS*sizeof(struct ea));
 
 	snap_rows = ROWS;
 	snap_cols = COLS;
@@ -1622,16 +1629,14 @@ snap_save(void)
 		snap_field_start = -1;
 		snap_field_length = -1;
 	} else {
-		unsigned char *fa;
 		int baddr;
 
 		snap_field_length = 0;
-		fa = get_field_attribute(cursor_addr);
-		snap_field_start = fa - screen_buf;
+		snap_field_start = find_field_attribute(cursor_addr);
 		INC_BA(snap_field_start);
 		baddr = snap_field_start;
 		do {
-			if (IS_FA(screen_buf[baddr]))
+			if (ea_buf[baddr].fa)
 				break;
 			snap_field_length++;
 			INC_BA(baddr);

@@ -1,16 +1,21 @@
 /*
- * Copyright 1993, 1994, 1995, 1999, 2000, 2001 by Paul Mattes.
+ * Copyright 1993, 1994, 1995, 1999, 2000, 2001, 2002 by Paul Mattes.
  * Parts Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
  *  both that copyright notice and this permission notice appear in
  *  supporting documentation.
+ *
+ * x3270, c3270, s3270 and tcl3270 are distributed in the hope that they will
+ * be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the file LICENSE
+ * for more details.
  */
 
 /*
  *	util.c
- *		Utility functions for x3270
+ *		Utility functions for x3270/c3270/s3270/tcl3270
  */
 
 #include "globals.h"
@@ -236,6 +241,79 @@ split_dresource(char **st, char **left, char **right)
 
 	/* Done. */
 	return 1;
+}
+
+/*
+ * Split a DBCS resource into its parts.
+ * Returns the number of parts found:
+ *	-1 error (empty sub-field)
+ *	 0 nothing found
+ *	 1 one and just one thing found
+ *	 2 two things found
+ *	 3 more than two things found
+ */
+int
+split_dbcs_resource(const char *value, char sep, char **part1, char **part2)
+{
+	int n_parts = 0;
+	const char *s = value;
+	const char *f_start = CN;	/* start of sub-field */
+	const char *f_end = CN;		/* end of sub-field */
+	char c;
+	char **rp;
+
+	*part1 = CN;
+	*part2 = CN;
+
+	for( ; ; ) {
+		c = *s;
+		if (c == sep || c == '\0') {
+			if (f_start == CN)
+				return -1;
+			if (f_end == CN)
+				f_end = s;
+			if (f_end == f_start) {
+				if (c == sep) {
+					if (*part1) {
+						Free(*part1);
+						*part1 = NULL;
+					}
+					if (*part2) {
+						Free(*part2);
+						*part2 = NULL;
+					}
+					return -1;
+				} else
+					return n_parts;
+			}
+			switch (n_parts) {
+			case 0:
+				rp = part1;
+				break;
+			case 1:
+				rp = part2;
+				break;
+			default:
+				return 3;
+			}
+			*rp = Malloc(f_end - f_start + 1);
+			strncpy(*rp, f_start, f_end - f_start);
+			(*rp)[f_end - f_start] = '\0';
+			f_end = CN;
+			f_start = CN;
+			n_parts++;
+			if (c == '\0')
+				return n_parts;
+		} else if (isspace(c)) {
+			if (f_end == CN)
+				f_end = s;
+		} else {
+			if (f_start == CN)
+				f_start = s;
+			f_end = CN;
+		}
+		s++;
+	}
 }
 
 #if defined(X3270_DISPLAY) /*[*/
@@ -542,6 +620,39 @@ get_fresource(const char *fmt, ...)
 	va_start(args, fmt);
 	name = xs_vsprintf(fmt, args);
 	va_end(args);
+	r = get_resource(name);
+	Free(name);
+	return r;
+}
+
+/*
+ * A version of get_resource that tries to find a host-specific definition
+ * first, then finds the non-host version.
+ */
+char *
+get_host_fresource(const char *fmt, ...)
+{
+	va_list args;
+	char *name;
+	char *r;
+
+	/* Format what they want. */
+	va_start(args, fmt);
+	name = xs_vsprintf(fmt, args);
+	va_end(args);
+
+	/* If we're connected, try by-host first. */
+	if (PCONNECTED) {
+		char *name_with_host;
+
+		name_with_host = xs_buffer("host.%s.%s", reconnect_host, name);
+		r = get_resource(name_with_host);
+		Free(name_with_host);
+		if (r != CN)
+			return r;
+	}
+
+	/* Try without. */
 	r = get_resource(name);
 	Free(name);
 	return r;

@@ -206,6 +206,9 @@ process(FILE *f, int s)
 			} else if (!strncmp(buf, "r", 1)) {	/* step record */
 				if (!step(f, s, 1))
 					break;
+			} else if (!strncmp(buf, "t", 1)) {	/* to mark */
+				if (!step(f, s, 2))
+					break;
 			} else if (!strncmp(buf, "e", 1)) {	/* to EOF */
 				FD_ZERO(&rfds);
 				while (step(f, s, 1)) {
@@ -222,6 +225,7 @@ process(FILE *f, int s)
 				(void) printf("\
 s: step line\n\
 r: step record\n\
+t: to mark\n\
 e: play to EOF\n\
 q: quit\n\
 d: disconnect\n\
@@ -250,6 +254,7 @@ step(FILE *f, int s, int to_eor)
 	static int again = 0;
 	char obuf[BSIZE];
 	char *cp = obuf;
+	int at_mark = 0;
 #	define NO_FDISP { if (fdisp) { printf("\n"); fdisp = 0; } }
 
     top:
@@ -269,6 +274,11 @@ step(FILE *f, int s, int to_eor)
 				pstate = BASE;
 			break;
 		    case BASE:
+			if (c == '+' && (to_eor == 2)) {
+				/* Hit the mark. */
+				at_mark = 1;
+				goto run_it;
+			}
 			if (c == '<')
 				pstate = LESS;
 			else {
@@ -343,7 +353,7 @@ step(FILE *f, int s, int to_eor)
 					break;
 				    case T_IAC:
 					if (*(unsigned char *)cp == EOR &&
-					    to_eor)
+					    (to_eor == 1))
 						at_eor = 1;
 					tstate = T_NONE;
 					break;
@@ -386,10 +396,14 @@ step(FILE *f, int s, int to_eor)
 		return 0;
 	}
 
-	if (to_eor &&
+	if ((to_eor == 1) &&
 	    (cp - obuf < 2 ||
 	    (unsigned char)obuf[cp - obuf - 2] != IAC ||
 	    (unsigned char)obuf[cp - obuf - 1] != EOR)) {
+		cp = obuf;
+		goto top;
+	}
+	if (to_eor == 2 && !at_mark) {
 		cp = obuf;
 		goto top;
 	}

@@ -1,5 +1,5 @@
 /*
- * Modifications Copyright 1996, 1999, 2000, 2001 by Paul Mattes.
+ * Modifications Copyright 1996, 1999, 2000, 2001, 2002 by Paul Mattes.
  * Copyright October 1995 by Dick Altenbern.
  * Based in part on code Copyright 1993, 1994, 1995 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
@@ -7,6 +7,11 @@
  *  provided that the above copyright notice appear in all copies and that
  *  both that copyright notice and this permission notice appear in
  *  supporting documentation.
+ *
+ * x3270, c3270, s3270 and tcl3270 are distributed in the hope that they will
+ * be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the file LICENSE
+ * for more details.
  */
 
 /*
@@ -37,6 +42,7 @@
 #include "ft_cutc.h"
 #include "ft_dftc.h"
 #include "ftc.h"
+#include "dialogc.h"
 #include "hostc.h"
 #include "kybdc.h"
 #include "macrosc.h"
@@ -44,10 +50,6 @@
 #include "popupsc.h"
 #include "telnetc.h"
 #include "utilc.h"
-
-#if defined(X3270_DISPLAY) && defined(X3270_MENUS) /*[*/
-#include "no_dot.bm"
-#endif /*]*/
 
 /* Macros. */
 #define eos(s)	strchr((s), '\0')
@@ -69,6 +71,7 @@ extern Pixmap diamond;
 extern Pixmap no_diamond;
 extern Pixmap null;
 extern Pixmap dot;
+extern Pixmap no_dot;
 #endif /*]*/
 
 /* Globals. */
@@ -91,7 +94,6 @@ static Widget vm_toggle, tso_toggle;
 static Widget ascii_toggle, binary_toggle;
 static Widget cr_widget;
 static Widget remap_widget;
-static Pixmap no_dot;
 #endif /*]*/
 
 static char *ft_host_filename;		/* Host file to transfer to/from */
@@ -100,9 +102,6 @@ static Boolean append_flag = False;	/* Append transfer */
 static Boolean vm_flag = False;		/* VM Transfer flag */
 
 #if defined(X3270_DISPLAY) && defined(X3270_MENUS) /*[*/
-struct toggle_list {			/* List of toggle widgets */
-	Widget *widgets;
-};
 static Widget recfm_options[5];
 static Widget units_options[5];
 static struct toggle_list recfm_toggles = { recfm_options };
@@ -131,33 +130,9 @@ static enum units u_cylinders = CYLINDERS;
 static enum units u_avblock = AVBLOCK;
 #endif /*]*/
 
-typedef enum { T_NUMERIC, T_HOSTFILE, T_UNIXFILE } text_t;
-#if defined(X3270_DISPLAY) && defined(X3270_MENUS) /*[*/
-static text_t t_numeric = T_NUMERIC;
-static text_t t_hostfile = T_HOSTFILE;
-static text_t t_unixfile = T_UNIXFILE;
-#endif /*]*/
-
-#if defined(X3270_DISPLAY) && defined(X3270_MENUS) /*[*/
-static Boolean s_true = True;
-static Boolean s_false = False;
-#endif /*]*/
 static Boolean allow_overwrite = False;
 #if defined(X3270_DISPLAY) && defined(X3270_MENUS) /*[*/
-typedef struct sr {
-	struct sr *next;
-	Widget w;
-	Boolean *bvar1;
-	Boolean bval1;
-	Boolean *bvar2;
-	Boolean bval2;
-	Boolean *bvar3;
-	Boolean bval3;
-	Boolean is_value;
-	Boolean has_focus;
-} sr_t;
-static sr_t *sr = (sr_t *)NULL;
-static sr_t *sr_last = (sr_t *)NULL;
+static sr_t *ft_sr = (sr_t *)NULL;
 
 static Widget progress_shell, from_file, to_file;
 static Widget ft_status, waiting, aborting;
@@ -172,10 +147,6 @@ static Widget overwrite_shell;
 static Boolean ft_is_action;
 
 #if defined(X3270_DISPLAY) && defined(X3270_MENUS) /*[*/
-static void apply_bitmap(Widget w, Pixmap p);
-static void check_sensitivity(Boolean *bvar);
-static void flip_toggles(struct toggle_list *toggle_list, Widget w);
-static void focus_next(sr_t *s);
 static void ft_cancel(Widget w, XtPointer client_data, XtPointer call_data);
 static void ft_popup_callback(Widget w, XtPointer client_data,
     XtPointer call_data);
@@ -183,7 +154,6 @@ static void ft_popup_init(void);
 static int ft_start(void);
 static void ft_start_callback(Widget w, XtPointer call_parms,
     XtPointer call_data);
-static void match_dimension(Widget w1, Widget w2, const char *n);
 static void overwrite_cancel_callback(Widget w, XtPointer client_data,
     XtPointer call_data);
 static void overwrite_okay_callback(Widget w, XtPointer client_data,
@@ -199,9 +169,6 @@ static void progress_popup_callback(Widget w, XtPointer client_data,
     XtPointer call_data);
 static void progress_popup_init(void);
 static void recfm_callback(Widget w, XtPointer user_data, XtPointer call_data);
-static void register_sensitivity(Widget w, Boolean *bvar1, Boolean bval1,
-    Boolean *bvar2, Boolean bval2, Boolean *bvar3, Boolean bval3);
-static void text_callback(Widget w, XtPointer client_data, XtPointer call_data);
 static void toggle_append(Widget w, XtPointer client_data, XtPointer call_data);
 static void toggle_ascii(Widget w, XtPointer client_data, XtPointer call_data);
 static void toggle_cr(Widget w, XtPointer client_data, XtPointer call_data);
@@ -242,6 +209,7 @@ popup_ft(Widget w unused, XtPointer call_parms unused,
 		ft_popup_init();
 
 	/* Pop it up. */
+	dialog_set(&ft_sr, ft_dialog);
 	popup_popup(ft_shell, XtGrabNone);
 }
 
@@ -264,9 +232,8 @@ ft_popup_init(void)
 	register_schange(ST_CONNECT, ft_connected);
 	register_schange(ST_3270_MODE, ft_in3270);
 
-	/* Create bitmap. */
-	no_dot = XCreateBitmapFromData(display, root_window,
-	    (char *) no_dot_bits, no_dot_width, no_dot_height);
+	/* Prep the dialog functions. */
+	dialog_set(&ft_sr, ft_dialog);
 
 	/* Create the menu shell. */
 	ft_shell = XtVaCreatePopupShell(
@@ -297,14 +264,14 @@ ft_popup_init(void)
 	    XtNfromHoriz, local_label,
 	    XtNhorizDistance, 0,
 	    NULL);
-	match_dimension(local_label, local_file, XtNheight);
+	dialog_match_dimension(local_label, local_file, XtNheight);
 	w = XawTextGetSource(local_file);
 	if (w == NULL)
 		XtWarning("Cannot find text source in dialog");
 	else
-		XtAddCallback(w, XtNcallback, text_callback,
+		XtAddCallback(w, XtNcallback, dialog_text_callback,
 		    (XtPointer)&t_unixfile);
-	register_sensitivity(local_file,
+	dialog_register_sensitivity(local_file,
 	    BN, False,
 	    BN, False,
 	    BN, False);
@@ -326,15 +293,15 @@ ft_popup_init(void)
 	    XtNfromHoriz, host_label,
 	    XtNhorizDistance, 0,
 	    NULL);
-	match_dimension(host_label, host_file, XtNheight);
-	match_dimension(local_label, host_label, XtNwidth);
+	dialog_match_dimension(host_label, host_file, XtNheight);
+	dialog_match_dimension(local_label, host_label, XtNwidth);
 	w = XawTextGetSource(host_file);
 	if (w == NULL)
 		XtWarning("Cannot find text source in dialog");
 	else
-		XtAddCallback(w, XtNcallback, text_callback,
+		XtAddCallback(w, XtNcallback, dialog_text_callback,
 		    (XtPointer)&t_hostfile);
-	register_sensitivity(host_file,
+	dialog_register_sensitivity(host_file,
 	    BN, False,
 	    BN, False,
 	    BN, False);
@@ -349,7 +316,7 @@ ft_popup_init(void)
 	    XtNhorizDistance, MARGIN,
 	    XtNborderWidth, 0,
 	    NULL);
-	apply_bitmap(send_toggle, receive_flag ? no_diamond : diamond);
+	dialog_apply_bitmap(send_toggle, receive_flag ? no_diamond : diamond);
 	XtAddCallback(send_toggle, XtNcallback, toggle_receive,
 	    (XtPointer)&s_false);
 	receive_toggle = XtVaCreateManagedWidget(
@@ -359,7 +326,7 @@ ft_popup_init(void)
 	    XtNhorizDistance, MARGIN,
 	    XtNborderWidth, 0,
 	    NULL);
-	apply_bitmap(receive_toggle, receive_flag ? diamond : no_diamond);
+	dialog_apply_bitmap(receive_toggle, receive_flag ? diamond : no_diamond);
 	XtAddCallback(receive_toggle, XtNcallback, toggle_receive,
 	    (XtPointer)&s_true);
 
@@ -371,7 +338,7 @@ ft_popup_init(void)
 	    XtNhorizDistance, MARGIN,
 	    XtNborderWidth, 0,
 	    NULL);
-	apply_bitmap(ascii_toggle, ascii_flag ? diamond : no_diamond);
+	dialog_apply_bitmap(ascii_toggle, ascii_flag ? diamond : no_diamond);
 	XtAddCallback(ascii_toggle, XtNcallback, toggle_ascii,
 	    (XtPointer)&s_true);
 	binary_toggle = XtVaCreateManagedWidget(
@@ -381,7 +348,7 @@ ft_popup_init(void)
 	    XtNhorizDistance, MARGIN,
 	    XtNborderWidth, 0,
 	    NULL);
-	apply_bitmap(binary_toggle, ascii_flag ? no_diamond : diamond);
+	dialog_apply_bitmap(binary_toggle, ascii_flag ? no_diamond : diamond);
 	XtAddCallback(binary_toggle, XtNcallback, toggle_ascii,
 	    (XtPointer)&s_false);
 
@@ -393,7 +360,7 @@ ft_popup_init(void)
 	    XtNhorizDistance, MARGIN,
 	    XtNborderWidth, 0,
 	    NULL);
-	apply_bitmap(append_widget, append_flag ? dot : no_dot);
+	dialog_apply_bitmap(append_widget, append_flag ? dot : no_dot);
 	XtAddCallback(append_widget, XtNcallback, toggle_append, NULL);
 
 	/* Set up the recfm group. */
@@ -404,7 +371,7 @@ ft_popup_init(void)
 	    XtNhorizDistance, MARGIN,
 	    XtNborderWidth, 0,
 	    NULL);
-	register_sensitivity(recfm_label,
+	dialog_register_sensitivity(recfm_label,
 	    &receive_flag, False,
 	    BN, False,
 	    BN, False);
@@ -416,11 +383,11 @@ ft_popup_init(void)
 	    XtNhorizDistance, MARGIN,
 	    XtNborderWidth, 0,
 	    NULL);
-	apply_bitmap(recfm_options[0],
+	dialog_apply_bitmap(recfm_options[0],
 	    (recfm == DEFAULT_RECFM) ? diamond : no_diamond);
 	XtAddCallback(recfm_options[0], XtNcallback, recfm_callback,
 	    (XtPointer)&r_default_recfm);
-	register_sensitivity(recfm_options[0],
+	dialog_register_sensitivity(recfm_options[0],
 	    &receive_flag, False,
 	    BN, False,
 	    BN, False);
@@ -432,11 +399,11 @@ ft_popup_init(void)
 	    XtNhorizDistance, MARGIN,
 	    XtNborderWidth, 0,
 	    NULL);
-	apply_bitmap(recfm_options[1],
+	dialog_apply_bitmap(recfm_options[1],
 	    (recfm == FIXED) ? diamond : no_diamond);
 	XtAddCallback(recfm_options[1], XtNcallback, recfm_callback,
 	    (XtPointer)&r_fixed);
-	register_sensitivity(recfm_options[1],
+	dialog_register_sensitivity(recfm_options[1],
 	    &receive_flag, False,
 	    BN, False,
 	    BN, False);
@@ -448,11 +415,11 @@ ft_popup_init(void)
 	    XtNhorizDistance, MARGIN,
 	    XtNborderWidth, 0,
 	    NULL);
-	apply_bitmap(recfm_options[2],
+	dialog_apply_bitmap(recfm_options[2],
 	    (recfm == VARIABLE) ? diamond : no_diamond);
 	XtAddCallback(recfm_options[2], XtNcallback, recfm_callback,
 	    (XtPointer)&r_variable);
-	register_sensitivity(recfm_options[2],
+	dialog_register_sensitivity(recfm_options[2],
 	    &receive_flag, False,
 	    BN, False,
 	    BN, False);
@@ -464,11 +431,11 @@ ft_popup_init(void)
 	    XtNhorizDistance, MARGIN,
 	    XtNborderWidth, 0,
 	    NULL);
-	apply_bitmap(recfm_options[3],
+	dialog_apply_bitmap(recfm_options[3],
 	    (recfm == UNDEFINED) ? diamond : no_diamond);
 	XtAddCallback(recfm_options[3], XtNcallback, recfm_callback,
 	    (XtPointer)&r_undefined);
-	register_sensitivity(recfm_options[3],
+	dialog_register_sensitivity(recfm_options[3],
 	    &receive_flag, False,
 	    &vm_flag, False,
 	    BN, False);
@@ -480,7 +447,7 @@ ft_popup_init(void)
 	    XtNhorizDistance, MARGIN,
 	    XtNborderWidth, 0,
 	    NULL);
-	register_sensitivity(lrecl_label,
+	dialog_register_sensitivity(lrecl_label,
 	    &receive_flag, False,
 	    &recfm_default, False,
 	    BN, False);
@@ -494,14 +461,14 @@ ft_popup_init(void)
 	    XtNeditType, XawtextEdit,
 	    XtNdisplayCaret, False,
 	    NULL);
-	match_dimension(lrecl_label, lrecl_widget, XtNheight);
+	dialog_match_dimension(lrecl_label, lrecl_widget, XtNheight);
 	w = XawTextGetSource(lrecl_widget);
 	if (w == NULL)
 		XtWarning("Cannot find text source in dialog");
 	else
-		XtAddCallback(w, XtNcallback, text_callback,
+		XtAddCallback(w, XtNcallback, dialog_text_callback,
 		    (XtPointer)&t_numeric);
-	register_sensitivity(lrecl_widget,
+	dialog_register_sensitivity(lrecl_widget,
 	    &receive_flag, False,
 	    &recfm_default, False,
 	    BN, False);
@@ -513,8 +480,8 @@ ft_popup_init(void)
 	    XtNhorizDistance, MARGIN,
 	    XtNborderWidth, 0,
 	    NULL);
-	match_dimension(blksize_label, lrecl_label, XtNwidth);
-	register_sensitivity(blksize_label,
+	dialog_match_dimension(blksize_label, lrecl_label, XtNwidth);
+	dialog_register_sensitivity(blksize_label,
 	    &receive_flag, False,
 	    &recfm_default, False,
 	    BN, False);
@@ -528,14 +495,14 @@ ft_popup_init(void)
 	    XtNeditType, XawtextEdit,
 	    XtNdisplayCaret, False,
 	    NULL);
-	match_dimension(blksize_label, blksize_widget, XtNheight);
+	dialog_match_dimension(blksize_label, blksize_widget, XtNheight);
 	w = XawTextGetSource(blksize_widget);
 	if (w == NULL)
 		XtWarning("Cannot find text source in dialog");
 	else
-		XtAddCallback(w, XtNcallback, text_callback,
+		XtAddCallback(w, XtNcallback, dialog_text_callback,
 		    (XtPointer)&t_numeric);
-	register_sensitivity(blksize_widget,
+	dialog_register_sensitivity(blksize_widget,
 	    &receive_flag, False,
 	    &recfm_default, False,
 	    BN, False);
@@ -568,7 +535,7 @@ ft_popup_init(void)
 	    XtNhorizDistance, COLUMN_GAP,
 	    XtNborderWidth, 0,
 	    NULL);
-	apply_bitmap(vm_toggle, vm_flag ? diamond : no_diamond);
+	dialog_apply_bitmap(vm_toggle, vm_flag ? diamond : no_diamond);
 	XtAddCallback(vm_toggle, XtNcallback, toggle_vm, (XtPointer)&s_true);
 	tso_toggle =  XtVaCreateManagedWidget(
 	    "tso", commandWidgetClass, ft_dialog,
@@ -578,7 +545,7 @@ ft_popup_init(void)
 	    XtNhorizDistance, COLUMN_GAP,
 	    XtNborderWidth, 0,
 	    NULL);
-	apply_bitmap(tso_toggle, vm_flag ? no_diamond : diamond);
+	dialog_apply_bitmap(tso_toggle, vm_flag ? no_diamond : diamond);
 	XtAddCallback(tso_toggle, XtNcallback, toggle_vm, (XtPointer)&s_false);
 
 	/* Create CR toggle. */
@@ -590,9 +557,9 @@ ft_popup_init(void)
 	    XtNhorizDistance, COLUMN_GAP,
 	    XtNborderWidth, 0,
 	    NULL);
-	apply_bitmap(cr_widget, cr_flag ? dot : no_dot);
+	dialog_apply_bitmap(cr_widget, cr_flag ? dot : no_dot);
 	XtAddCallback(cr_widget, XtNcallback, toggle_cr, 0);
-	register_sensitivity(cr_widget,
+	dialog_register_sensitivity(cr_widget,
 	    BN, False,
 	    BN, False,
 	    BN, False);
@@ -606,9 +573,9 @@ ft_popup_init(void)
 	    XtNhorizDistance, COLUMN_GAP,
 	    XtNborderWidth, 0,
 	    NULL);
-	apply_bitmap(remap_widget, remap_flag ? dot : no_dot);
+	dialog_apply_bitmap(remap_widget, remap_flag ? dot : no_dot);
 	XtAddCallback(remap_widget, XtNcallback, toggle_remap, NULL);
-	register_sensitivity(remap_widget,
+	dialog_register_sensitivity(remap_widget,
 	    &ascii_flag, True,
 	    BN, False,
 	    BN, False);
@@ -622,7 +589,7 @@ ft_popup_init(void)
 	    XtNhorizDistance, COLUMN_GAP,
 	    XtNborderWidth, 0,
 	    NULL);
-	register_sensitivity(units_label,
+	dialog_register_sensitivity(units_label,
 	    &receive_flag, False,
 	    &vm_flag, False,
 	    BN, False);
@@ -635,11 +602,11 @@ ft_popup_init(void)
 	    XtNhorizDistance, COLUMN_GAP,
 	    XtNborderWidth, 0,
 	    NULL);
-	apply_bitmap(units_options[0],
+	dialog_apply_bitmap(units_options[0],
 	    (units == DEFAULT_UNITS) ? diamond : no_diamond);
 	XtAddCallback(units_options[0], XtNcallback,
 	    units_callback, (XtPointer)&u_default_units);
-	register_sensitivity(units_options[0],
+	dialog_register_sensitivity(units_options[0],
 	    &receive_flag, False,
 	    &vm_flag, False,
 	    BN, False);
@@ -652,11 +619,11 @@ ft_popup_init(void)
 	    XtNhorizDistance, COLUMN_GAP,
 	    XtNborderWidth, 0,
 	    NULL);
-	apply_bitmap(units_options[1],
+	dialog_apply_bitmap(units_options[1],
 	    (units == TRACKS) ? diamond : no_diamond);
 	XtAddCallback(units_options[1], XtNcallback,
 	    units_callback, (XtPointer)&u_tracks);
-	register_sensitivity(units_options[1],
+	dialog_register_sensitivity(units_options[1],
 	    &receive_flag, False,
 	    &vm_flag, False,
 	    BN, False);
@@ -669,11 +636,11 @@ ft_popup_init(void)
 	    XtNhorizDistance, COLUMN_GAP,
 	    XtNborderWidth, 0,
 	    NULL);
-	apply_bitmap(units_options[2],
+	dialog_apply_bitmap(units_options[2],
 	    (units == CYLINDERS) ? diamond : no_diamond);
 	XtAddCallback(units_options[2], XtNcallback,
 	    units_callback, (XtPointer)&u_cylinders);
-	register_sensitivity(units_options[2],
+	dialog_register_sensitivity(units_options[2],
 	    &receive_flag, False,
 	    &vm_flag, False,
 	    BN, False);
@@ -686,11 +653,11 @@ ft_popup_init(void)
 	    XtNhorizDistance, COLUMN_GAP,
 	    XtNborderWidth, 0,
 	    NULL);
-	apply_bitmap(units_options[3],
+	dialog_apply_bitmap(units_options[3],
 	    (units == AVBLOCK) ? diamond : no_diamond);
 	XtAddCallback(units_options[3], XtNcallback,
 	    units_callback, (XtPointer)&u_avblock);
-	register_sensitivity(units_options[3],
+	dialog_register_sensitivity(units_options[3],
 	    &receive_flag, False,
 	    &vm_flag, False,
 	    BN, False);
@@ -703,7 +670,7 @@ ft_popup_init(void)
 	    XtNhorizDistance, COLUMN_GAP,
 	    XtNborderWidth, 0,
 	    NULL);
-	register_sensitivity(primspace_label,
+	dialog_register_sensitivity(primspace_label,
 	    &receive_flag, False,
 	    &vm_flag, False,
 	    &units_default, False);
@@ -717,14 +684,14 @@ ft_popup_init(void)
 	    XtNeditType, XawtextEdit,
 	    XtNdisplayCaret, False,
 	    NULL);
-	match_dimension(primspace_label, primspace_widget, XtNheight);
+	dialog_match_dimension(primspace_label, primspace_widget, XtNheight);
 	w = XawTextGetSource(primspace_widget);
 	if (w == NULL)
 		XtWarning("Cannot find text source in dialog");
 	else
-		XtAddCallback(w, XtNcallback, text_callback,
+		XtAddCallback(w, XtNcallback, dialog_text_callback,
 		    (XtPointer)&t_numeric);
-	register_sensitivity(primspace_widget,
+	dialog_register_sensitivity(primspace_widget,
 	    &receive_flag, False,
 	    &vm_flag, False,
 	    &units_default, False);
@@ -737,8 +704,8 @@ ft_popup_init(void)
 	    XtNhorizDistance, COLUMN_GAP,
 	    XtNborderWidth, 0,
 	    NULL);
-	match_dimension(primspace_label, secspace_label, XtNwidth);
-	register_sensitivity(secspace_label,
+	dialog_match_dimension(primspace_label, secspace_label, XtNwidth);
+	dialog_register_sensitivity(secspace_label,
 	    &receive_flag, False,
 	    &vm_flag, False,
 	    &units_default, False);
@@ -752,14 +719,14 @@ ft_popup_init(void)
 	    XtNeditType, XawtextEdit,
 	    XtNdisplayCaret, False,
 	    NULL);
-	match_dimension(secspace_label, secspace_widget, XtNheight);
+	dialog_match_dimension(secspace_label, secspace_widget, XtNheight);
 	w = XawTextGetSource(secspace_widget);
 	if (w == NULL)
 		XtWarning("Cannot find text source in dialog");
 	else
-		XtAddCallback(w, XtNcallback, text_callback,
+		XtAddCallback(w, XtNcallback, dialog_text_callback,
 		    (XtPointer)&t_numeric);
-	register_sensitivity(secspace_widget,
+	dialog_register_sensitivity(secspace_widget,
 	    &receive_flag, False,
 	    &vm_flag, False,
 	    &units_default, False);
@@ -813,8 +780,8 @@ recfm_callback(Widget w, XtPointer user_data, XtPointer call_data unused)
 {
 	recfm = *(enum recfm *)user_data;
 	recfm_default = (recfm == DEFAULT_RECFM);
-	check_sensitivity(&recfm_default);
-	flip_toggles(&recfm_toggles, w);
+	dialog_check_sensitivity(&recfm_default);
+	dialog_flip_toggles(&recfm_toggles, w);
 }
 
 /* Units options. */
@@ -823,8 +790,8 @@ units_callback(Widget w, XtPointer user_data, XtPointer call_data unused)
 {
 	units = *(enum units *)user_data;
 	units_default = (units == DEFAULT_UNITS);
-	check_sensitivity(&units_default);
-	flip_toggles(&units_toggles, w);
+	dialog_check_sensitivity(&units_default);
+	dialog_flip_toggles(&units_toggles, w);
 }
 
 /* OK button pushed. */
@@ -838,13 +805,6 @@ ft_start_callback(Widget w unused, XtPointer call_parms unused,
 	}
 }
 
-/* Mark a toggle. */
-static void
-mark_toggle(Widget w, Pixmap p)
-{
-	XtVaSetValues(w, XtNleftBitmap, p, NULL);
-}
-
 /* Send/receive options. */
 static void
 toggle_receive(Widget w unused, XtPointer client_data,
@@ -854,9 +814,9 @@ toggle_receive(Widget w unused, XtPointer client_data,
 	receive_flag = *(Boolean *)client_data;
 
 	/* Change the widget states. */
-	mark_toggle(receive_toggle, receive_flag ? diamond : no_diamond);
-	mark_toggle(send_toggle, receive_flag ? no_diamond : diamond);
-	check_sensitivity(&receive_flag);
+	dialog_mark_toggle(receive_toggle, receive_flag ? diamond : no_diamond);
+	dialog_mark_toggle(send_toggle, receive_flag ? no_diamond : diamond);
+	dialog_check_sensitivity(&receive_flag);
 }
 
 /* Ascii/binary options. */
@@ -867,13 +827,13 @@ toggle_ascii(Widget w unused, XtPointer client_data, XtPointer call_data unused)
 	ascii_flag = *(Boolean *)client_data;
 
 	/* Change the widget states. */
-	mark_toggle(ascii_toggle, ascii_flag ? diamond : no_diamond);
-	mark_toggle(binary_toggle, ascii_flag ? no_diamond : diamond);
+	dialog_mark_toggle(ascii_toggle, ascii_flag ? diamond : no_diamond);
+	dialog_mark_toggle(binary_toggle, ascii_flag ? no_diamond : diamond);
 	cr_flag = ascii_flag;
 	remap_flag = ascii_flag;
-	mark_toggle(cr_widget, cr_flag ? dot : no_dot);
-	mark_toggle(remap_widget, remap_flag ? dot : no_dot);
-	check_sensitivity(&ascii_flag);
+	dialog_mark_toggle(cr_widget, cr_flag ? dot : no_dot);
+	dialog_mark_toggle(remap_widget, remap_flag ? dot : no_dot);
+	dialog_check_sensitivity(&ascii_flag);
 }
 
 /* CR option. */
@@ -883,7 +843,7 @@ toggle_cr(Widget w, XtPointer client_data unused, XtPointer call_data unused)
 	/* Toggle the cr flag */
 	cr_flag = !cr_flag;
 
-	mark_toggle(w, cr_flag ? dot : no_dot);
+	dialog_mark_toggle(w, cr_flag ? dot : no_dot);
 }
 
 /* Append option. */
@@ -894,7 +854,7 @@ toggle_append(Widget w, XtPointer client_data unused,
 	/* Toggle Append Flag */
 	append_flag = !append_flag;
 
-	mark_toggle(w, append_flag ? dot : no_dot);
+	dialog_mark_toggle(w, append_flag ? dot : no_dot);
 }
 
 /* Remap option. */
@@ -905,7 +865,7 @@ toggle_remap(Widget w, XtPointer client_data unused,
 	/* Toggle Remap Flag */
 	remap_flag = !remap_flag;
 
-	mark_toggle(w, remap_flag ? dot : no_dot);
+	dialog_mark_toggle(w, remap_flag ? dot : no_dot);
 }
 
 /* TSO/VM option. */
@@ -917,18 +877,18 @@ toggle_vm(Widget w unused, XtPointer client_data unused,
 	vm_flag = *(Boolean *)client_data;
 
 	/* Change the widget states. */
-	mark_toggle(vm_toggle, vm_flag ? diamond : no_diamond);
-	mark_toggle(tso_toggle, vm_flag ? no_diamond : diamond);
+	dialog_mark_toggle(vm_toggle, vm_flag ? diamond : no_diamond);
+	dialog_mark_toggle(tso_toggle, vm_flag ? no_diamond : diamond);
 
 	if (vm_flag) {
 		if (recfm == UNDEFINED) {
 			recfm = DEFAULT_RECFM;
 			recfm_default = True;
-			flip_toggles(&recfm_toggles,
+			dialog_flip_toggles(&recfm_toggles,
 			    recfm_toggles.widgets[0]);
 		}
 	}
-	check_sensitivity(&vm_flag);
+	dialog_check_sensitivity(&vm_flag);
 }
 
 /*
@@ -1149,7 +1109,7 @@ progress_popup_init(void)
 	    XtNfromHoriz, from_label,
 	    XtNhorizDistance, 0,
 	    NULL);
-	match_dimension(from_label, from_file, XtNheight);
+	dialog_match_dimension(from_label, from_file, XtNheight);
 
 	to_label = XtVaCreateManagedWidget(
 	    "toLabel", labelWidgetClass, progress_pop,
@@ -1166,9 +1126,9 @@ progress_popup_init(void)
 	    XtNfromHoriz, to_label,
 	    XtNhorizDistance, 0,
 	    NULL);
-	match_dimension(to_label, to_file, XtNheight);
+	dialog_match_dimension(to_label, to_file, XtNheight);
 
-	match_dimension(from_label, to_label, XtNwidth);
+	dialog_match_dimension(from_label, to_label, XtNwidth);
 
 	waiting = XtVaCreateManagedWidget(
 	    "waiting", labelWidgetClass, progress_pop,
@@ -1490,270 +1450,6 @@ ft_in3270(Boolean ignored unused)
 	if (!IN_3270 && ft_state != FT_NONE)
 		ft_complete(get_message("ftNot3270"));
 }
-
-#if defined(X3270_DISPLAY) && defined(X3270_MENUS) /*[*/
-/* Support functions for dialogs. */
-
-/* Match one dimension of two widgets. */
-static void
-match_dimension(Widget w1, Widget w2, const char *n)
-{
-	Dimension h1, h2;
-	Dimension b1, b2;
-
-	XtVaGetValues(w1, n, &h1, XtNborderWidth, &b1, NULL);
-	XtVaGetValues(w2, n, &h2, XtNborderWidth, &b2, NULL);
-	h1 += 2 * b1;
-	h2 += 2 * b2;
-	if (h1 > h2)
-		XtVaSetValues(w2, n, h1 - (2 * b2), NULL);
-	else if (h2 > h1)
-		XtVaSetValues(w1, n, h2 - (2 * b1), NULL);
-}
-
-/* Apply a bitmap to a widget. */
-static void
-apply_bitmap(Widget w, Pixmap p)
-{
-	Dimension d1;
-
-	XtVaGetValues(w, XtNheight, &d1, NULL);
-	if (d1 < 10)
-		XtVaSetValues(w, XtNheight, 10, NULL);
-	XtVaSetValues(w, XtNleftBitmap, p, NULL);
-}
-
-/* Flip a multi-valued toggle. */
-static void
-flip_toggles(struct toggle_list *toggle_list, Widget w)
-{
-	int i;
-
-	/* Flip the widget w to on, and the rest to off. */
-	for (i = 0; toggle_list->widgets[i] != (Widget)NULL; i++) {
-		/* Process each widget in the list */
-		mark_toggle(*(toggle_list->widgets+i),
-		    (*(toggle_list->widgets+i) == w) ? diamond : no_diamond);
-	}
-}
-
-/*
- * Callback for text source changes.  Edits the text to ensure it meets the
- * specified criteria.
- */
-static void
-text_callback(Widget w, XtPointer client_data, XtPointer call_data unused)
-{
-	XawTextBlock b;		/* firstPos, length, ptr, format */
-	static XawTextBlock nullb = { 0, 0, NULL };
-	XawTextPosition pos = 0;
-	int i;
-	text_t t = *(text_t *)client_data;
-	static Boolean called_back = False;
-
-	if (called_back)
-		return;
-	else
-		called_back = True;
-
-	while (1) {
-		Boolean replaced = False;
-
-		XawTextSourceRead(w, pos, &b, 1024);
-		if (b.length <= 0)
-			break;
-		nullb.format = b.format;
-		for (i = 0; i < b.length; i++) {
-			Boolean bad = False;
-			char c = *(b.ptr + i);
-
-			switch (t) {
-			    case T_NUMERIC:
-				/* Only numbers. */
-				bad = !isdigit(c);
-				break;
-			    case T_HOSTFILE:
-				/*
-				 * Only printing characters and spaces; no
-				 * leading or trailing blanks.
-				 */
-				bad = !isprint(c) || (!pos && !i && c == ' ');
-				break;
-			    case T_UNIXFILE:
-				/* Only printing characters. */
-				bad = !isgraph(c);
-				break;
-			}
-			if (bad) {
-				XawTextSourceReplace(w, pos + i, pos + i + 1,
-				    &nullb);
-				pos = 0;
-				replaced = True;
-				break;
-			}
-		}
-		if (replaced)
-			continue; /* rescan the same block */
-		pos += b.length;
-		if (b.length < 1024)
-			break;
-	}
-	called_back = False;
-}
-
-/* Register widget sensitivity, based on zero to three Booleans. */
-static void
-register_sensitivity(Widget w, Boolean *bvar1, Boolean bval1, Boolean *bvar2,
-    Boolean bval2, Boolean *bvar3, Boolean bval3)
-{
-	sr_t *s;
-	Boolean f;
-
-	/* Allocate a structure. */
-	s = (sr_t *)XtMalloc(sizeof(sr_t));
-	s->w = w;
-	s->bvar1 = bvar1;
-	s->bval1 = bval1;
-	s->bvar2 = bvar2;
-	s->bval2 = bval2;
-	s->bvar3 = bvar3;
-	s->bval3 = bval3;
-	s->is_value = !strcmp(XtName(w), "value");
-	s->has_focus = False;
-
-	/* Link it onto the chain. */
-	s->next = (sr_t *)NULL;
-	if (sr_last != (sr_t *)NULL)
-		sr_last->next = s;
-	else
-		sr = s;
-	sr_last = s;
-
-	/* Set up the initial widget sensitivity. */
-	if (bvar1 == (Boolean *)NULL)
-		f = True;
-	else {
-		f = (*bvar1 == bval1);
-		if (bvar2 != (Boolean *)NULL)
-			f &= (*bvar2 == bval2);
-		if (bvar3 != (Boolean *)NULL)
-			f &= (*bvar3 == bval3);
-	}
-	XtVaSetValues(w, XtNsensitive, f, NULL);
-}
-
-/* Scan the list of registered widgets for a sensitivity change. */
-static void
-check_sensitivity(Boolean *bvar)
-{
-	sr_t *s;
-
-	for (s = sr; s != (sr_t *)NULL; s = s->next) {
-		if (s->bvar1 == bvar || s->bvar2 == bvar || s->bvar3 == bvar) {
-			Boolean f;
-
-			f = (s->bvar1 != (Boolean *)NULL &&
-			     (*s->bvar1 == s->bval1));
-			if (s->bvar2 != (Boolean *)NULL)
-				f &= (*s->bvar2 == s->bval2);
-			if (s->bvar3 != (Boolean *)NULL)
-				f &= (*s->bvar3 == s->bval3);
-			XtVaSetValues(s->w, XtNsensitive, f, NULL);
-
-			/* If it is now insensitive, move the focus. */
-			if (!f && s->is_value && s->has_focus)
-				focus_next(s);
-		}
-	}
-}
-
-/* Move the input focus to the next sensitive value field. */
-static void
-focus_next(sr_t *s)
-{
-	sr_t *t;
-	Boolean sen;
-
-	/* Defocus this widget. */
-	s->has_focus = False;
-	XawTextDisplayCaret(s->w, False);
-
-	/* Search after. */
-	for (t = s->next; t != (sr_t *)NULL; t = t->next) {
-		if (t->is_value) {
-			XtVaGetValues(t->w, XtNsensitive, &sen, NULL);
-			if (sen)
-				break;
-		}
-	}
-
-	/* Wrap and search before. */
-	if (t == (sr_t *)NULL)
-		for (t = sr; t != s && t != (sr_t *)NULL; t = t->next) {
-			if (t->is_value) {
-				XtVaGetValues(t->w, XtNsensitive, &sen, NULL);
-				if (sen)
-					break;
-			}
-		}
-
-	/* Move the focus. */
-	if (t != (sr_t *)NULL && t != s) {
-		t->has_focus = True;
-		XawTextDisplayCaret(t->w, True);
-		XtSetKeyboardFocus(ft_dialog, t->w);
-	}
-}
-
-/* Dialog action procedures. */
-
-/* Proceed to the next input field. */
-void
-PA_dialog_next_action(Widget w, XEvent *event unused, String *parms unused,
-	Cardinal *num_parms unused)
-{
-	sr_t *s;
-
-	for (s = sr; s != (sr_t *)NULL; s = s->next) {
-		if (s->w == w) {
-			focus_next(s);
-			return;
-		}
-	}
-}
-
-/* Set keyboard focus to an input field. */
-void
-PA_dialog_focus_action(Widget w, XEvent *event unused, String *parms unused,
-	Cardinal *num_parms unused)
-{
-	sr_t *s;
-
-	/* Remove the focus from the widget that has it now. */
-	for (s = sr; s != (sr_t *)NULL; s = s->next) {
-		if (s->has_focus) {
-			if (s->w == w)
-				return;
-			s->has_focus = False;
-			XawTextDisplayCaret(s->w, False);
-			break;
-		}
-	}
-
-	/* Find this object. */
-	for (s = sr; s != (sr_t *)NULL; s = s->next) {
-		if (s->w == w)
-			break;
-	}
-	if (s == (sr_t *)NULL)
-		return;
-
-	/* Give it the focus. */
-	s->has_focus = True;
-	XawTextDisplayCaret(w, True);
-	XtSetKeyboardFocus(ft_dialog, w);
-}
-#endif /*]*/
 
 /*
  * Script/macro action for file transfer.

@@ -1,5 +1,6 @@
 /*
- * Modifications Copyright 1993, 1994, 1995, 1996, 1999, 2000, 2001 by Paul Mattes.
+ * Modifications Copyright 1993, 1994, 1995, 1996, 1999,
+ *  2000, 2001 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -11,6 +12,11 @@
  *  All Rights Reserved.  GTRC hereby grants public use of this software.
  *  Derivative works based on this software must incorporate this copyright
  *  notice.
+ *
+ * x3270, c3270, s3270 and tcl3270 are distributed in the hope that they will
+ * be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the file LICENSE
+ * for more details.
  */
 
 /*
@@ -32,6 +38,7 @@
 #endif /*]*/
 #include "tablesc.h"
 #include "utilc.h"
+#include "widec.h"
 
 #include <errno.h>
 
@@ -43,6 +50,7 @@ Boolean charset_changed = False;
 #define DEFAULT_CGEN	0x02b90000
 #define DEFAULT_CSET	0x00000025
 unsigned long cgcsgid = DEFAULT_CGEN | DEFAULT_CSET;
+unsigned long cgcsgid_dbcs = 0L;
 char *default_display_charset = "3270cg-1a,3270cg-1,iso8859-1";
 
 /* Statics. */
@@ -56,7 +64,8 @@ static void remap_one(unsigned char ebc, KeySym iso, remap_scope scope,
 static enum cs_result check_charset(void);
 static char *char_if_ascii7(unsigned long l);
 #endif /*]*/
-static void set_cgcsgid(char *spec);
+static void set_cgcsgids(char *spec);
+static int set_cgcsgid(char *spec, unsigned long *idp);
 static void set_charset_name(char *csname);
 
 static char *charset_name = CN;
@@ -127,10 +136,10 @@ charset_init(char *csname)
 	/* Do nothing, successfully. */
 	if (csname == CN || !strcasecmp(csname, "us")) {
 		charset_defaults();
-		set_cgcsgid(CN);
+		set_cgcsgids(CN);
 		set_charset_name(CN);
 #if defined(X3270_DISPLAY) /*[*/
-		(void) screen_new_display_charset(default_display_charset,
+		(void) screen_new_display_charsets(default_display_charset,
 		    "us");
 #endif /*]*/
 		return CS_OKAY;
@@ -176,13 +185,19 @@ charset_init(char *csname)
 
 	if (rc != CS_OKAY)
 		restore_charset();
+#if defined(X3270_DBCS) /*[*/
+	else if (wide_init(csname) < 0) {
+		restore_charset();
+		return CS_NOTFOUND;
+	}
+#endif /*]*/
 
 	return rc;
 }
 
-/* Set the global CGCSGID. */
-static void
-set_cgcsgid(char *spec)
+/* Set a CGCSGID.  Return 0 for success, -1 for failure. */
+static int
+set_cgcsgid(char *spec, unsigned long *r)
 {
 	unsigned long cp;
 	char *ptr;
@@ -192,11 +207,61 @@ set_cgcsgid(char *spec)
 	    ptr != spec &&
 	    *ptr == '\0') {
 		if (!(cp & ~0xffffL))
-			cgcsgid = DEFAULT_CGEN | cp;
+			*r = DEFAULT_CGEN | cp;
 		else
-			cgcsgid = cp;
+			*r = cp;
+		return 0;
 	} else
-		cgcsgid = DEFAULT_CGEN | DEFAULT_CSET;
+		return -1;
+}
+
+/* Set the CGCSGIDs. */
+static void
+set_cgcsgids(char *spec)
+{
+	int n_ids = 0;
+	char *spec_copy;
+	char *buf;
+	char *token;
+
+	if (spec != CN) {
+		buf = spec_copy = NewString(spec);
+		while (n_ids >= 0 && (token = strtok(buf, "+")) != CN) {
+			unsigned long *idp = NULL;
+
+			buf = CN;
+			switch (n_ids) {
+			case 0:
+			    idp = &cgcsgid;
+			    break;
+#if defined(X3270_DBCS) /*[*/
+			case 1:
+			    idp = &cgcsgid_dbcs;
+			    break;
+#endif /*]*/
+			default:
+			    popup_an_error("Extra CGCSGID(s), ignoring");
+			    break;
+			}
+			if (idp == NULL)
+				break;
+			if (set_cgcsgid(token, idp) < 0) {
+				popup_an_error("Invalid CGCSGID '%s', ignoring",
+				    token);
+				n_ids = -1;
+				break;
+			}
+			n_ids++;
+		}
+		Free(spec_copy);
+		if (n_ids > 0)
+			return;
+	}
+
+	cgcsgid = DEFAULT_CGEN | DEFAULT_CSET;
+#if defined(X3270_DBCS) /*[*/
+	cgcsgid_dbcs = 0L;
+#endif /*]*/
 }
 
 /* Set the global charset name. */
@@ -234,15 +299,40 @@ resource_charset(char *csname, char *cs, char *ftcs)
 	}
 
 	rcs = get_fresource("%s.%s", ResDisplayCharset, csname);
+
+	/* Isolate the pieces. */
+	if (rcs != CN) {
+		char *rcs_copy, *buf, *token;
+		int n_rcs = 0;
+
+		buf = rcs_copy = NewString(rcs);
+		while ((token = strtok(buf, "+")) != CN) {
+			buf = CN;
+			switch (n_rcs) {
+			case 0:
+#if defined(X3270_DBCS) /*[*/
+			case 1:
+#endif /*]*/
+			    break;
+			default:
+			    popup_an_error("Extra %s value(s), ignoring",
+				ResDisplayCharset);
+			    break;
+			}
+			n_rcs++;
+		}
+	}
+
 #if defined(X3270_DISPLAY) /*[*/
-	if (!screen_new_display_charset(
-		    rcs? rcs: default_display_charset, csname)) {
+	if (!screen_new_display_charsets(
+		    rcs? rcs: default_display_charset,
+		    csname)) {
 		return CS_PREREQ;
 	}
 #endif /*]*/
 
 	/* Set up the cgcsgid. */
-	set_cgcsgid(get_fresource("%s.%s", ResCodepage, csname));
+	set_cgcsgids(get_fresource("%s.%s", ResCodepage, csname));
 
 	/* Set up the character set name. */
 	set_charset_name(csname);

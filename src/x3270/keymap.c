@@ -1,10 +1,14 @@
 /*
- * Copyright 1996, 1999, 2000, 2001 by Paul Mattes.
+ * Copyright 1996, 1999, 2000, 2001, 2002 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
  *  both that copyright notice and this permission notice appear in
  *  supporting documentation.
+ *
+ * x3270 is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
  */
 
 /*
@@ -95,7 +99,7 @@ static void km_regen(void);
 
 /* Keymap initialization. */
 void
-keymap_init(const char *km)
+keymap_init(const char *km, Boolean interactive)
 {
 	static Boolean initted = False;
 
@@ -103,7 +107,7 @@ keymap_init(const char *km)
 		if ((km = (char *)getenv("KEYMAP")) == CN)
 			if ((km = (char *)getenv("KEYBD")) == CN)
 				km = "@server";
-	setup_keymaps(km, initted);
+	setup_keymaps(km, interactive);
 	if (!initted) {
 		initted = True;
 		last_nvt = IN_ANSI;
@@ -131,7 +135,9 @@ keymap_3270_mode(Boolean ignored unused)
 	if (last_nvt != IN_ANSI || last_3270 != IN_3270) {
 		last_nvt = IN_ANSI;
 		last_3270 = IN_3270;
-		keymap_init(last_keymap);
+
+		/* Switch between 3270 and NVT keymaps. */
+		keymap_init(last_keymap, False);
 	}
 }
 
@@ -148,12 +154,8 @@ setup_keymaps(const char *km, Boolean do_popup)
 	/* Make sure it starts with "base". */
 	if (km == CN)
 		km = "base";
-	else {
-		char *k = XtMalloc(5 + strlen(km) + 1);
-
-		(void) sprintf(k, "base,%s", km);
-		km = k;
-	}
+	else
+		km = xs_buffer("base,%s", km);
 
 	if (do_popup)
 		keymap_changed = True;
@@ -263,13 +265,15 @@ add_keymap(const char *name, Boolean do_popup)
 	char *path, *path_nvt, *path_3270;
 	Boolean is_from_server = False;
 
-	if (appres.key_map == (char *)NULL)
-		appres.key_map = XtNewString(name);
-	else {
-		char *t = xs_buffer("%s,%s", appres.key_map, name);
+	if (strcmp(name, "base")) {
+		if (appres.key_map == (char *)NULL)
+			appres.key_map = XtNewString(name);
+		else {
+			char *t = xs_buffer("%s,%s", appres.key_map, name);
 
-		XtFree(appres.key_map);
-		appres.key_map = t;
+			XtFree(appres.key_map);
+			appres.key_map = t;
+		}
 	}
 
 	/* Translate '@server' to a vendor-specific keymap. */

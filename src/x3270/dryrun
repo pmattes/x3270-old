@@ -6,6 +6,10 @@
 #  both that copyright notice and this permission notice appear in
 #  supporting documentation.
 #
+# x3270 is distributed in the hope that it will be useful, but WITHOUT ANY
+# WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
+#
 # Run x3270 from the current directory
 
 # Bomb on any error
@@ -32,6 +36,10 @@ export LD_LIBRARY_PATH
 # Set up the PATH to include pr3287.
 PATH=$PATH:$d/pr3287
 export PATH
+
+# Set up ICU_DATA, for DBCS translations.
+ICU_DATA=.:$ICU_DATA
+export ICU_DATA
 
 # Run x3270, pointing it to the current directory for its configuration files
 set +e

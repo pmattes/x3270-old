@@ -5,6 +5,11 @@
  *  provided that the above copyright notice appear in all copies and that
  *  both that copyright notice and this permission notice appear in
  *  supporting documentation.
+ *
+ * x3270, c3270, s3270 and tcl3270 are distributed in the hope that they will
+ * be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the file LICENSE
+ * for more details.
  */
 
 /*
@@ -22,6 +27,9 @@
 
 #include "appres.h"
 #include "ctlr.h"
+#if defined(X3270_DBCS) /*[*/
+#include "3270ds.h"
+#endif /*]*/
 
 #include "ansic.h"
 #include "ctlrc.h"
@@ -31,6 +39,9 @@
 #include "tablesc.h"
 #include "telnetc.h"
 #include "trace_dsc.h"
+#if defined(X3270_DBCS) /*[*/
+#include "widec.h"
+#endif /*]*/
 
 #define	SC	1	/* save cursor position */
 #define RC	2	/* restore cursor position */
@@ -413,6 +424,10 @@ static unsigned char *tabs = (unsigned char *) NULL;
 static char	gnnames[] = "()*+";
 static char	csnames[] = "0AB";
 static int	cs_to_change;
+#if defined(X3270_DBCS) /*[*/
+static unsigned char dbcs_c1 = 0;
+static int	dbcs_cursor1 = 0;
+#endif /*]*/
 
 static Boolean  held_wrap = False;
 
@@ -931,6 +946,12 @@ static enum state
 ansi_printing(int ig1 unused, int ig2 unused)
 {
 	int nc;
+	unsigned char ebc_ch;
+	int default_cs = CS_BASE;
+#if defined(X3270_DBCS) /*[*/
+	enum dbcs_state d;
+	Boolean preserve_right = False;
+#endif /*]*/
 
 	if (held_wrap) {
 		PWRAP;
@@ -943,18 +964,75 @@ ansi_printing(int ig1 unused, int ig2 unused)
 	    case CSD_LD:	/* line drawing "0" */
 		if (ansi_ch >= 0x5f && ansi_ch <= 0x7e)
 			ctlr_add(cursor_addr, (unsigned char)(ansi_ch - 0x5f),
-			    2);
+			    CS_LINEDRAW);
 		else
-			ctlr_add(cursor_addr, asc2cg[ansi_ch], 0);
+			ctlr_add(cursor_addr, asc2ebc[ansi_ch], CS_BASE);
 		break;
 	    case CSD_UK:	/* UK "A" */
 		if (ansi_ch == '#')
-			ctlr_add(cursor_addr, 0x1e, 2);
+			ctlr_add(cursor_addr, 0x1e, CS_LINEDRAW);
 		else
-			ctlr_add(cursor_addr, asc2cg[ansi_ch], 0);
+			ctlr_add(cursor_addr, asc2ebc[ansi_ch], CS_BASE);
 		break;
 	    case CSD_US:	/* US "B" */
-		ctlr_add(cursor_addr, asc2cg[ansi_ch], 0);
+		ebc_ch = asc2ebc[ansi_ch];
+#if defined(X3270_DBCS) /*[*/
+		d = ctlr_dbcs_state(cursor_addr);
+		if (dbcs) {
+			if (ansi_ch & 0x80) {
+				if (dbcs_c1) {
+					unsigned char ebc[2];
+
+					/* Store the left-hand side. */
+					wchar_to_dbcs(dbcs_c1, ansi_ch, ebc);
+					ctlr_add(dbcs_cursor1, ebc[0], CS_DBCS);
+					ctlr_add_gr(dbcs_cursor1, gr);
+					ctlr_add_fg(dbcs_cursor1, fg);
+					ctlr_add_bg(dbcs_cursor1, bg);
+
+					/*
+					 * Set up the right-hand side to be
+					 * stored below.
+					 */
+					ebc_ch = ebc[1];
+					default_cs = CS_DBCS;
+					dbcs_c1 = 0;
+					preserve_right = True;
+				} else {
+					dbcs_c1 = ansi_ch;
+					dbcs_cursor1 = cursor_addr;
+					ebc_ch = EBC_space;
+				}
+			} else
+				dbcs_c1 = 0;
+		}
+
+		/* Handle conflicts with existing DBCS characters. */
+		if (!preserve_right &&
+		    (d == DBCS_RIGHT || d == DBCS_RIGHT_WRAP)) {
+			int xaddr;
+
+			xaddr = cursor_addr;
+			DEC_BA(xaddr);
+			ctlr_add(xaddr, EBC_space, CS_BASE);
+			ea_buf[xaddr].db = DBCS_NONE;
+			ea_buf[cursor_addr].db = DBCS_NONE;
+		}
+		if (d == DBCS_LEFT || d == DBCS_LEFT_WRAP) {
+			int xaddr;
+
+			xaddr = cursor_addr;
+			INC_BA(xaddr);
+			ctlr_add(xaddr, EBC_space, CS_BASE);
+			ea_buf[xaddr].db = DBCS_NONE;
+			ea_buf[cursor_addr].db = DBCS_NONE;
+		}
+#endif /*]*/
+		ctlr_add(cursor_addr, ebc_ch, default_cs);
+#if defined(X3270_DBCS) /*[*/
+		if (default_cs == CS_DBCS)
+			(void) ctlr_dbcs_postprocess();
+#endif /*]*/
 		break;
 	}
 	once_cset = -1;
@@ -1409,6 +1487,10 @@ ansi_process(unsigned int c)
 #endif /*]*/
 
 	state = (*ansi_fn[st[(int)state][c]])(n[0], n[1]);
+#if defined(X3270_DBCS) /*[*/
+	if (state != DATA)
+		dbcs_c1 = 0;
+#endif /*]*/
 }
 
 void

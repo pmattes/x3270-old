@@ -1,16 +1,23 @@
 /*
- * Modifications Copyright 1993, 1994, 1995, 1996, 1999, 2000, 2001 by Paul Mattes.
+ * Modifications Copyright 1993, 1994, 1995, 1996, 1999,
+ *   2000, 2001, 2002 by Paul Mattes.
  * Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
  *  both that copyright notice and this permission notice appear in
  *  supporting documentation.
+ *
+ * x3270, c3270, s3270 and tcl3270 are distributed in the hope that they will
+ * be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the file LICENSE
+ * for more details.
  */
 
 /*
  *	appres.h
- *		Application resource definitions for x3270.
+ *		Application resource definitions for x3270, c3270, s3270 and
+ *		tcl3270.
  */
 
 /* Toggles */
@@ -162,6 +169,7 @@ typedef struct {
 #endif /*]*/
 	char	*connectfile_name;
 	char	*idle_command;
+	Boolean idle_command_enabled;
 	char	*idle_timeout;
 
 	/* Toggles */
