@@ -295,35 +295,59 @@ This allows a script to wait for user input and continue.
 Outputs the single parameter to
 <b>ContinueScript</b>.
 <dt><b>Snap</b></dt><dd>
+Equivalent to <b>Snap</b>(<b>Save</b>) (see <a HREF="#save">below</a>).
+<dt><b>Snap</b>(<b>Ascii</b>,...)</dt><dd>
+Performs the <b>Ascii</b> action on the saved screen image.
+<dt><b>Snap</b>(<b>Cols</b>)</dt><dd>
+Returns the number of columns in the saved screen image.
+<dt><b>Snap</b>(<b>Ebcdic</b>,...)</dt><dd>
+Performs the <b>Ebcdic</b> action on the saved screen image.
+<dt><b>Snap</b>(<b>Rows</b>)</dt><dd>
+Returns the number of rows in the saved screen image.
+<a NAME="save"></a><dt><b>Snap</b>(<b>Save</b>)</dt><dd>
 Saves a copy of the screen image and status in a temporary buffer.
 This copy can be queried with other
 <b>Snap</b>
 actions to allow a script to examine a consistent screen image, even when the
 host may be changing the image (or even the screen dimensions) dynamically.
-<dt><b>Snap</b>(<b>Ascii</b>,...)</dt><dd>
-Performs the <b>Ascii</b> action on the saved screen image.
-<dt><b>Snap</b>(<b>Cols</b>)</dt><dd>
-Returns the number of columns in the saved screen image.
-<dt><b>Snap</b>(<b>Ebcdic</b>,...)</dt><dd>:
-Performs the <b>Ebcdic</b> action on the saved screen image.
-<dt><b>Snap</b>(<b>Rows</b>)</dt><dd>
-Returns the number of rows in the saved screen image.
 <dt><b>Snap</b>(<b>Status</b>)</dt><dd>
 Returns the status line from when the screen was last saved.
+<dt><b>Snap</b>(<b>Wait</b>[,<i>timeout</i>],<b>Output</b>)</dt><dd>
+Pauses the script until the host sends further output, then updates the snap
+buffer with the new screen contents.
+Used when the host unlocks the keyboard (allowing the script to proceed after
+an
+<b>Enter</b>,
+<b>PF</b>
+or
+<b>PA</b>
+action), but has not finished updating the screen.
+This action is usually invoked in a loop that uses the
+<b>Snap</b>(<b>Ascii</b>)
+or
+<b>Snap</b>(<b>Ebcdic</b>)
+action to scan the screen for some pattern that indicates that the host has
+fully processed the last command.
+<p>
+The optional <i>timeout</i> parameter specifies a number of seconds to wait
+before failing the <b>Snap</b> action.  The default is to wait forever.
 <dt><b>Transfer</b>(<i>keyword</i>=<i>value</i>,...)</dt><dd>
 Invokes IND$FILE file transfer.
 See <a HREF="#File-Transfer"><font size=-1>FILE TRANSFER</font></a> below.
-<dt><b>Wait</b>(<b>3270Mode</b>)</dt><dd>
+<dt><b>Wait</b>([<i>timeout</i>,] <b>3270Mode</b>)</dt><dd>
 Used when communicating with a host that switches between
 <font size=-1>NVT</font> mode and 3270 mode.
 Pauses the script or macro until the host negotiates 3270 mode, then waits for
 a formatted screen as above.
 <p>
+The optional <i>timeout</i> parameter specifies a number of seconds to wait
+before failing the <b>Wait</b> action.  The default is to wait forever.
+<p>
 For backwards compatibility,
 <b>Wait(3270)</b>
 is equivalent to
 <b>Wait</b>(<b>3270Mode</b>)
-<dt><b>Wait</b>(<b>Disconnect</b>)</dt><dd>
+<dt><b>Wait</b>([<i>timeout</i>,] <b>Disconnect</b>)</dt><dd>
 Pauses the script until the host disconnects.
 Often used to after sending a
 <i>logoff</i>
@@ -331,29 +355,38 @@ command to a <font size=-1>VM/CMS</font> host, to ensure that the session is not
 set to
 <b>disconnected</b>
 state.
-<dt><b>Wait</b>(<b>InputField</b>)</dt><dd>
+<p>
+The optional <i>timeout</i> parameter specifies a number of seconds to wait
+before failing the <b>Wait</b> action.  The default is to wait forever.
+<dt><b>Wait</b>([<i>timeout</i>,] <b>InputField</b>)</dt><dd>
 A useful utility for use at the beginning of scripts and after the
 <b>Connect</b> action.
 In 3270 mode, waits until the screen is formatted, and the host has positioned
 the cursor on a modifiable field.
 In <font size=-1>NVT</font> mode, waits until the host sends at least one byte of data.
 <p>
+The optional <i>timeout</i> parameter specifies a number of seconds to wait
+before failing the <b>Wait</b> action.  The default is to wait forever.
+<p>
 For backwards compatibility,
 <b>Wait</b>
 is equivalent to
 <b>Wait</b>(<b>InputField</b>).
-<dt><b>Wait</b>(<b>NVTMode</b>)</dt><dd>
+<dt><b>Wait</b>([<i>timeout</i>,] <b>NVTMode</b>)</dt><dd>
 Used when communicating with a host that switches between 3270 mode and
 <font size=-1>NVT</font> mode.
 Pauses the script or macro until the host negotiates <font size=-1>NVT</font>
 mode, then waits for
 a byte from the host as above.
 <p>
+The optional <i>timeout</i> parameter specifies a number of seconds to wait
+before failing the <b>Wait</b> action.  The default is to wait forever.
+<p>
 For backwards compatibility,
 <b>Wait</b>(<b>ansi</b>)
 is equivalent to
 <b>Wait</b>(<b>NVTMode</b>).
-<dt><b>Wait</b>(<b>Output</b>)</dt><dd>
+<dt><b>Wait</b>([<i>timeout</i>,] <b>Output</b>)</dt><dd>
 Pauses the script until the host sends further output.
 Used when the host unlocks the keyboard (allowing the script to proceed after
 an
@@ -368,6 +401,9 @@ or
 <b>Ebcdic</b>
 action to scan the screen for some pattern that indicates that the host has
 fully processed the last command.
+<p>
+The optional <i>timeout</i> parameter specifies a number of seconds to wait
+before failing the <b>Wait</b> action.  The default is to wait forever.
 </dl>
 <a NAME="File-Transfer"></a><h2>File Transfer</h2>
 The <b>Transfer</b> action implements <b>IND$FILE</b> file transfer.
@@ -462,12 +498,12 @@ ksh(1)
 <br>
 <a HREF="s3270-man.html">s3270(1)</a>
 <a NAME="Version"></a><h2>Version</h2>
-Version 3.2.15
+Version 3.2.16n
 <hr>
 <address>
 This HTML document and the accompanying troff document were generated with
 a set of write-only <b>m4</b> macros and the powerful <b>vi</b> editor.
-<br>Last modified 26 December 2000.
+<br>Last modified 15 February 2001.
 </address>
 </body>
 </html>

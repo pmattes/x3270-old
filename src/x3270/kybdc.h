@@ -90,9 +90,9 @@ extern void Left_action(Widget w, XEvent *event, String *params,
     Cardinal *num_params);
 extern void MonoCase_action(Widget w, XEvent *event, String *params,
     Cardinal *num_params);
-extern void MoveCursor_action(Widget w, XEvent *event, String *params,
+extern void MouseSelect_action(Widget w, XEvent *event, String *params,
     Cardinal *num_params);
-extern void MoveCursorSelect_action(Widget w, XEvent *event, String *params,
+extern void MoveCursor_action(Widget w, XEvent *event, String *params,
     Cardinal *num_params);
 extern void Newline_action(Widget w, XEvent *event, String *params,
     Cardinal *num_params);

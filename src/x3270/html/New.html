@@ -15,6 +15,34 @@ New Features in x3270 3.2
 x3270 3.2 is a reorganization of x3270 3.1, with some significant enhancements.
 It is intended to be the future development platform for x3270, with x3270
 3.1 continued only with bug fixes.
+<h2>Changes in x3270 3.2.16, xx. February 2001</h2>
+<ul>
+ <li>Added a timeout parameter to the scripting <b>Wait</b> action.</li>
+ <li>Added <b>Snap(Wait Output)</b>.</li>
+ <li>Fixed the MAKEFLAGS/MFLAGS problems in the Imakefile template.</li>
+ <li>Added a <tt>--without-pr3287</tt> option to the configure script, to
+  avoid building pr3287.</li>
+ <li>Added a <tt>--with-fontdir=<i>xxx</i></tt> option to the configure
+  script, to specify a different font installation directory.</li>
+ <li>Resolved some build problems on HP/UX.</li>
+ <li>Added an Italian character set.<li>
+ <li>Corrected the behavior of the <b>start-extend</b> action (usually bound
+  to <b>Btn3Down</b>) when doing rectangular selections.</li>
+ <li>Added <b>KybdSelect</b> and <b>Unselect</b> actions to allow the keyboard
+  to be used to control selections. <b>KybdSelect</b> is mapped to the Shifted
+  cursor keys.</li>
+ <li>Removed the mapping of the "<b>^</b> key to "<b>&not;</b>" in 3270 mode,
+  replacing it with an unconditional mapping of Meta-"<b>^</b>" to
+  "<b>&not;</b>".</li>
+ <li>Replaced the <b>MoveCursorSelect</b> action with the <b>MouseSelect</b>
+  action, and corrected the behavior of pen selections in general.</li>
+ <li>Corrected the mapping of the mouse cursor location to character cells
+  when processing selections, select-pen emulation, and cursor movement.</li>
+ <li>Stopped locking the keyboard for invalid select-pen operations.</li>
+ <li>Changed the default visualSelect color to 6 (yellow).</li>
+ <li>Save the emulator font in response to a WM_SAVE_YOURSELT message.</li>
+ <li>Fixed a kybd.c build problem on X11R5.</li>
+</ul>
 <h2>Changes in x3270 3.2.15, 26. December 2000</h2>
 <ul>
 <li>Improved documentation formatting.</li>

@@ -178,8 +178,10 @@ no_minus(char *arg)
 int
 main(int argc, char *argv[])
 {
+#if !defined(USE_APP_DEFAULTS) /*[*/
 	char	*dname;
 	int	i;
+#endif /*]*/
 	Atom	protocols[2];
 	char	*cl_hostname = CN;
 	int	ovc, ovr;

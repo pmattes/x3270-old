@@ -242,6 +242,16 @@ If the value <b>none</b>
 is given, then traces will be piped directly to the monitor window, and no
 file will be created.
 </dl>
+<p>
+After reading resource definitions from the X server
+and any standandard X11 resource definition files
+(<b>$HOME/.Xdefaults</b>, etc.), <b>x3270</b> will read definitions
+from the file <b>$HOME/.x3270pro</b>.
+This file contains local customizations and is also used to save changed
+options by the <b>Save Changed Options in File</b> menu option.
+<p>
+Note that <b>-xrm</b> options override any definitions in
+the <b>.x3270pro</b> file.
 <a NAME="Fonts"></a><h2>Fonts</h2>
 By default, <b>x3270</b> does not use the "*font" resource for its main
 window.
@@ -298,6 +308,7 @@ Available sets include:
 <tr><td ><center>hebrew*</center></td>	<td ><center>-</center></td></tr>
 <tr><td ><center>icelandic</center></td>	<td ><center>-</center></td></tr>
 <tr><td ><center>belgian</center></td>	<td ><center>-</center></td></tr>
+<tr><td ><center>italian</center></td>	<td ><center>-</center></td></tr>
 <tr><td ><center>greek**</center></td>	<td ><center>-</center></td></tr>
 </table>
 <p>
@@ -730,10 +741,14 @@ is in <font size=-1>NVT</font> mode.
 <tr><td >&lt;Key>Tab</td>	<td >Tab()</td></tr>
 <tr><td >&lt;Key>Home</td>	<td >Home()</td></tr>
 <tr><td >Meta&lt;Key>Left</td>	<td >PreviousWord()</td></tr>
+<tr><td >Shift&lt;Key>Left</td>	<td >KybdSelect(Left,PRIMARY)</td></tr>
 <tr><td >&lt;Key>Left</td>	<td >Left()</td></tr>
 <tr><td >Meta&lt;Key>Right</td>	<td >NextWord()</td></tr>
+<tr><td >Shift&lt;Key>Right</td>	<td >KybdSelect(Right,PRIMARY)</td></tr>
 <tr><td >&lt;Key>Right</td>	<td >Right()</td></tr>
+<tr><td >Shift&lt;Key>Up</td>	<td >KybdSelect(Up,PRIMARY)</td></tr>
 <tr><td >&lt;Key>Up</td>	<td >Up()</td></tr>
+<tr><td >Shift&lt;Key>Down</td>	<td >KybdSelect(Down,PRIMARY)</td></tr>
 <tr><td >&lt;Key>Down</td>	<td >Down()</td></tr>
 <tr><td >&lt;Key>Insert</td>	<td >Insert()</td></tr>
 <tr><td >&lt;Key>Delete</td>	<td >Delete()</td></tr>
@@ -741,7 +756,7 @@ is in <font size=-1>NVT</font> mode.
 <tr><td >Ctrl&lt;Btn1Down></td>	<td >HandleMenu(quitMenu)</td></tr>
 <tr><td >Ctrl&lt;Btn2Down></td>	<td >HandleMenu(optionsMenu)</td></tr>
 <tr><td >Ctrl&lt;Btn3Down></td>	<td >HandleMenu(hostMenu)</td></tr>
-<tr><td >Ctrl Shift&lt;Btn1Down></td>	<td >MoveCursorSelect()</td></tr>
+<tr><td >Ctrl Shift&lt;Btn1Down></td>	<td >MouseSelect()</td></tr>
 <tr><td >Shift&lt;Btn1Down></td>	<td >MoveCursor()</td></tr>
 <tr><td >&lt;Btn1Down></td>	<td >select-start()</td></tr>
 <tr><td >&lt;Btn1Motion></td>	<td >select-extend()</td></tr>
@@ -790,7 +805,7 @@ is in <font size=-1>NVT</font> mode.
 <tr><td >Meta&lt;Key>r</td>	<td >Reset()</td></tr>
 <tr><td >Ctrl&lt;Key>u</td>	<td >DeleteField()</td></tr>
 <tr><td >Ctrl&lt;Key>w</td>	<td >DeleteWord()</td></tr>
-<tr><td >:&lt;Key>asciicircum</td>	<td >CircumNot()</td></tr>
+<tr><td >:Meta&lt;Key>asciicircum</td>	<td >Key(notsign)</td></tr>
 <tr><td >:&lt;Key></td>	<td >Default()</td></tr>
 </table>
 <p>
@@ -865,6 +880,7 @@ and are not documented here.
 <tr><td >Key(<i>keysym</i>)</td>	<td >insert key <i>keysym</i></td></tr>
 <tr><td >Key(0x<i>xx</i>)</td>	<td >insert key with <font size=-1>ASCII</font> code <i>xx</i></td></tr>
 <tr><td >Keymap(<i>keymap</i>)</td>	<td >toggle alternate <i>keymap</i> (or remove with <b>None</b>)</td></tr>
+<tr><td >KybdSelect(<i>direction</i>[,<i>atom</i>...])</td>	<td >Extend selection by one row or column</td></tr>)
 <tr><td >Left</td>	<td >move cursor left</td></tr>
 <tr><td >Left2</td>	<td >move cursor left 2 positions</td></tr>
 <tr><td >Macro(<i>macro</i>)</td>	<td >run a macro</td></tr>
@@ -894,6 +910,7 @@ and are not documented here.
 <tr><td >ToggleInsert</td>	<td >toggle insert mode</td></tr>
 <tr><td >ToggleReverse</td>	<td >toggle reverse-input mode</td></tr>
 <tr><td >Transfer(<i>option</i>=<i>value</i>...)</td>	<td >file transfer</td></tr>
+<tr><td >Unselect</td>	<td >release selection</td></tr>
 <tr><td >Up</td>	<td >move cursor up</td></tr>
 
 <tr><td COLSPAN="2">(the following are similar to xterm)</td></tr>
@@ -1246,6 +1263,9 @@ It then passes the requested hostname and port to the
 <b>in.telnet-gw</b> server.
 <a NAME="Files"></a><h2>Files</h2>
 /usr/lib/X11/x3270/ibm_hosts
+<br>
+$HOME/.x3270pro
+
 <a NAME="See-Also"></a><h2>See Also</h2>
 <a HREF="s3270-man.html">s3270(1)</a>, <a HREF="c3270-man.html">c3270(1)</a>, <a HREF="tcl3270-man.html">tcl3270(1)</a>, <a HREF="ibm_hosts.html">ibm_hosts(5)</a>, <a HREF="x3270-script.html">x3270-script(1)</a>, <a HREF="pr3287-man.html">pr3287(1)</a>, telnet(1), tn3270(1)
 <br>
@@ -1276,12 +1296,12 @@ Derivative works based on this software must incorporate this copyright
 notice.</blockquote>
 5250 Emulation Code Copyright &copy; Minolta (Schweiz) AG, Beat Rubischon.
 <a NAME="Version"></a><h2>Version</h2>
-x3270 3.2.15
+x3270 3.2.16n
 <hr>
 <address>
 This HTML document and the accompanying troff document were generated with
 a set of write-only <b>m4</b> macros and the powerful <b>vi</b> editor.
-<br>Last modified 26 December 2000.
+<br>Last modified 15 February 2001.
 </address>
 </body>
 </html>

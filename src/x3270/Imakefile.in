@@ -36,7 +36,7 @@ LOCAL_LIBRARIES = $(XAWLIB) $(XMULIB) $(XTOOLLIB) $(XLIB)
                   FontObj(3270gt24) FontObj(3270gt24b) \
                   FontObj(3270gt32) FontObj(3270gt32b)
 
-    FONTINSTDIR = $(FONTDIR)/misc
+    FONTINSTDIR = @IFONTDIR@
 
     LIBX3270DIR = $(LIBDIR)/x3270
       HOSTSFILE = ibm_hosts
@@ -89,7 +89,7 @@ fallbacks.c: mkfb X3270.xad
 	./mkfb X3270.xad $@
 
 mkfb: mkfb.c parts.h
-	$(CC) -o mkfb mkfb.c
+	$(CC) $(CDEBUGFLAGS) -o mkfb mkfb.c
 
 @DEFINE_UAD@
 #ifdef USE_APP_DEFAULTS
@@ -99,16 +99,19 @@ all:: X3270.ad
 #endif
 EXTRA_DEFINES = $(HP_DEFINE) $(AD_DEFINE)
 
+@DEFINE_PR3287@
+#ifdef PR3287
 /* Rule for building pr3287. */
 all::
-	-cd pr3287 && $(MAKE) $(MFLAGS)
+	-cd pr3287 && $(MAKE)
+#endif
 
 /* Rule for building the separate app-defaults file. */
 X3270.ad: X3270.xad qcpp
 	$(RM) $@
 	./qcpp @UAD_FLAGS@ X3270.xad $@
 qcpp: qcpp.c
-	$(CC) -o $@ qcpp.c
+	$(CC) $(CDEBUGFLAGS) -o $@ qcpp.c
 
 /* Extra install rule to regenerate misc/fonts.dir */
 install:: $(DESTDIR)$(FONTINSTDIR)/fonts.dir
@@ -124,12 +127,16 @@ install:: $(HOSTSFILE)
 	@[ -r $(DESTDIR)$(LIBX3270DIR)/$(HOSTSFILE) ] || \
 	$(INSTALL) -c $(INSTDATFLAGS) $(HOSTSFILE) $(DESTDIR)$(LIBX3270DIR)/$(HOSTSFILE)
 
+#ifdef PR3287
 /* Rules for installing pr3287. */
 install::
-	-cd pr3287 && $(MAKE) $(MAKEFLAGS) install
+	-cd pr3287 && $(MAKE) install
 install.man::
-	-cd pr3287 && $(MAKE) $(MAKEFLAGS) install.man
+	-cd pr3287 && $(MAKE) install.man
+#endif
 
 clean:: 
-	$(RM) $(FONTS) mkfb fallbacks.c
-	cd pr3287 && $(MAKE) $(MAKEFLAGS) clean
+	$(RM) $(FONTS) qcpp mkfb fallbacks.c
+#ifdef PR3287
+	-cd pr3287 && $(MAKE) clean
+#endif

@@ -1,5 +1,5 @@
 '\" t
-.TH x3270 1 "26 December 2000"
+.TH x3270 1 "15 February 2001"
 .SH "NAME"
 x3270 \-
 \s-1IBM\s+1 host access tool
@@ -236,6 +236,16 @@ is given, then traces will be written to standard output.
 If the value \fBnone\fP
 is given, then traces will be piped directly to the monitor window, and no
 file will be created.
+.LP
+After reading resource definitions from the X server
+and any standandard X11 resource definition files
+(\fB$HOME/.Xdefaults\fP, etc.), \fBx3270\fP will read definitions
+from the file \fB$HOME/.x3270pro\fP.
+This file contains local customizations and is also used to save changed
+options by the \fBSave Changed Options in File\fP menu option.
+.LP
+Note that \fB\-xrm\fP options override any definitions in
+the \fB.x3270pro\fP file.
 .SH "FONTS"
 By default, \fBx3270\fP does not use the "*font" resource for its main
 window.
@@ -295,6 +305,7 @@ french	30
 hebrew*	\-
 icelandic	\-
 belgian	\-
+italian	\-
 greek**	\-
 .TE
 .IP
@@ -769,10 +780,14 @@ Shift<Key>Tab	BackTab()
 <Key>Tab	Tab()
 <Key>Home	Home()
 Meta<Key>Left	PreviousWord()
+Shift<Key>Left	KybdSelect(Left,PRIMARY)
 <Key>Left	Left()
 Meta<Key>Right	NextWord()
+Shift<Key>Right	KybdSelect(Right,PRIMARY)
 <Key>Right	Right()
+Shift<Key>Up	KybdSelect(Up,PRIMARY)
 <Key>Up	Up()
+Shift<Key>Down	KybdSelect(Down,PRIMARY)
 <Key>Down	Down()
 <Key>Insert	Insert()
 <Key>Delete	Delete()
@@ -780,7 +795,7 @@ Meta<Key>Right	NextWord()
 Ctrl<Btn1Down>	HandleMenu(quitMenu)
 Ctrl<Btn2Down>	HandleMenu(optionsMenu)
 Ctrl<Btn3Down>	HandleMenu(hostMenu)
-Ctrl Shift<Btn1Down>	MoveCursorSelect()
+Ctrl Shift<Btn1Down>	MouseSelect()
 Shift<Btn1Down>	MoveCursor()
 <Btn1Down>	select\-start()
 <Btn1Motion>	select\-extend()
@@ -829,7 +844,7 @@ Meta<Key>q	Quit()
 Meta<Key>r	Reset()
 Ctrl<Key>u	DeleteField()
 Ctrl<Key>w	DeleteWord()
-:<Key>asciicircum	CircumNot()
+:Meta<Key>asciicircum	Key(notsign)
 :<Key>	Default()
 .TE
 .PP
@@ -908,6 +923,7 @@ Interrupt	send \s-1TELNET IP\s+1 to host
 Key(\fIkeysym\fP)	insert key \fIkeysym\fP
 Key(0x\fIxx\fP)	insert key with \s-1ASCII\s+1 code \fIxx\fP
 Keymap(\fIkeymap\fP)	toggle alternate \fIkeymap\fP (or remove with \fBNone\fP)
+KybdSelect(\fIdirection\fP[,\fIatom\fP...])	Extend selection by one row or column)
 Left	move cursor left
 Left2	move cursor left 2 positions
 Macro(\fImacro\fP)	run a macro
@@ -937,6 +953,7 @@ Tab	move cursor to next input field
 ToggleInsert	toggle insert mode
 ToggleReverse	toggle reverse-input mode
 Transfer(\fIoption\fP=\fIvalue\fP...)	file transfer
+Unselect	release selection
 Up	move cursor up
 _
 (the following are similar to xterm)
@@ -1310,6 +1327,9 @@ It then passes the requested hostname and port to the
 \fBin.telnet-gw\fP server.
 .SH "FILES"
 /usr/lib/X11/x3270/ibm_hosts
+.br
+$HOME/.x3270pro
+
 .SH "SEE ALSO"
 s3270(1), c3270(1), tcl3270(1), ibm_hosts(5), x3270-script(1), pr3287(1), telnet(1), tn3270(1)
 .br
@@ -1344,4 +1364,4 @@ notice.
 .RE
 5250 Emulation Code Copyright Minolta (Schweiz) AG, Beat Rubischon.
 .SH "VERSION"
-x3270 3.2.15
+x3270 3.2.16n

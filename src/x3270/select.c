@@ -56,6 +56,9 @@
 #include "tablesc.h"
 #include "utilc.h"
 
+#define Max(x, y)	(((x) > (y))? (x): (y))
+#define Min(x, y)	(((x) < (y))? (x): (y))
+
 /*
  * Mouse side.
  */
@@ -103,7 +106,7 @@ extern Widget  *screen;
 		x = COLS - 1;		\
 	if (flipped)			\
 		x = (COLS - x) - 1;	\
-	y = Y_TO_ROW(event_y(event));	\
+	y = Y_TO_ROW(event_y(event) - *descent);	\
 	if (y <= 0)			\
 		y = 0;			\
 	if (y >= ROWS)			\
@@ -268,9 +271,14 @@ select_start_action(Widget w, XEvent *event, String *params,
 	int x, y;
 	register int baddr;
 
+	action_debug(select_start_action, event, params, num_params);
+	if (event == NULL) {
+		popup_an_error("%s can only be used as a keymap action",
+		    action_name(select_start_action));
+		return;
+	}
 	if (w != *screen)
 		return;
-	action_debug(select_start_action, event, params, num_params);
 	BOUNDED_XY(event, x, y);
 	baddr = ROWCOL_TO_BA(y, x);
 	f_start = f_end = v_start = v_end = baddr;
@@ -297,9 +305,14 @@ move_select_action(Widget w, XEvent *event, String *params,
 	int x, y;
 	register int baddr;
 
+	action_debug(move_select_action, event, params, num_params);
+	if (event == NULL) {
+		popup_an_error("%s can only be used as a keymap action",
+		    action_name(move_select_action));
+		return;
+	}
 	if (w != *screen)
 		return;
-	action_debug(move_select_action, event, params, num_params);
 	BOUNDED_XY(event, x, y);
 	baddr = ROWCOL_TO_BA(y, x);
 
@@ -334,24 +347,64 @@ start_extend_action(Widget w, XEvent *event, String *params,
 {
 	int x, y;
 	int baddr;
+	Boolean continuous = (!ever_3270 && !toggled(RECTANGLE_SELECT));
 
+	action_debug(start_extend_action, event, params, num_params);
+	if (event == NULL) {
+		popup_an_error("%s can only be used as a keymap action",
+		    action_name(start_extend_action));
+		return;
+	}
 	if (w != *screen)
 		return;
-	action_debug(start_extend_action, event, params, num_params);
 
 	down1_time = 0L;
 
 	BOUNDED_XY(event, x, y);
 	baddr = ROWCOL_TO_BA(y, x);
 
-	if (baddr < f_start)
-		v_start = baddr;		/* extend above */
-	else if (baddr > f_end)
-		v_end = baddr;			/* extend below */
-	else if (baddr - f_start > f_end - baddr)
-		v_end = baddr;			/* shrink end */
-	else
-		v_start = baddr;		/* shrink start */
+	if (continuous) {
+		/* Think linearly. */
+		if (baddr < f_start)
+			v_start = baddr;
+		else if (baddr > f_end)
+			v_end = baddr;
+		else if (baddr - f_start > f_end - baddr)
+			v_end = baddr;
+		else
+			v_start = baddr;
+	} else {
+		/* Think rectangularly. */
+		int nrow = baddr / COLS;
+		int ncol = baddr % COLS;
+		int vrow_ul = v_start / COLS;
+		int vrow_lr = v_end / COLS;
+		int vcol_ul = Min(v_start % COLS, v_end % COLS);
+		int vcol_lr = Max(v_start % COLS, v_end % COLS);
+
+		/* Set up the row. */
+		if (nrow <= vrow_ul)
+			vrow_ul = nrow;
+		else if (nrow >= vrow_lr)
+			vrow_lr = nrow;
+		else if (nrow - vrow_ul > vrow_lr - nrow)
+			vrow_lr = nrow;
+		else
+			vrow_ul = nrow;
+
+		/* Set up the column. */
+		if (ncol <= vcol_ul)
+			vcol_ul = ncol;
+		else if (ncol >= vcol_lr)
+			vcol_lr = ncol;
+		else if (ncol - vcol_ul > vcol_lr - ncol)
+			vcol_lr = ncol;
+		else
+			vcol_ul = ncol;
+
+		v_start = (vrow_ul * COLS) + vcol_ul;
+		v_end = (vrow_lr * COLS) + vcol_lr;
+	}
 
 	grab_sel(v_start, v_end, True, event_time(event));
 	saw_motion = 1;
@@ -369,9 +422,14 @@ select_extend_action(Widget w, XEvent *event, String *params,
 	int x, y;
 	int baddr;
 
+	action_debug(select_extend_action, event, params, num_params);
+	if (event == NULL) {
+		popup_an_error("%s can only be used as a keymap action",
+		    action_name(select_extend_action));
+		return;
+	}
 	if (w != *screen)
 		return;
-	action_debug(select_extend_action, event, params, num_params);
 
 	/* Ignore initial drag events if are too near. */
 	if (down1_time != 0L &&
@@ -432,6 +490,13 @@ select_end_action(Widget w unused, XEvent *event, String *params,
 	int x, y;
 
 	action_debug(select_end_action, event, params, num_params);
+	if (event == NULL) {
+		popup_an_error("%s can only be used as a keymap action",
+		    action_name(select_end_action));
+		return;
+	}
+	if (w != *screen)
+		return;
 
 	if (n_owned == -1) {
 		for (i = 0; i < NS; i++)
@@ -507,23 +572,21 @@ set_select_action(Widget w unused, XEvent *event, String *params,
 	if (*num_params == 0)
 		want_sel[0] = XA_PRIMARY;
 	own_sels(event_time(event));
+	any_selected = False; /* a useful lie */
 }
 
 /*
- * Called from the MoveCursor action with no parameters, to move the cursor
- * to the mouse cursor location.
+ * Translate the mouse position to a buffer address.
  */
-void
-move_cursor_to_mouse(Widget w, XEvent *event)
+int
+mouse_baddr(Widget w, XEvent *event)
 {
 	int x, y;
-	register int baddr;
 
 	if (w != *screen)
-		return;
+		return 0;
 	BOUNDED_XY(event, x, y);
-	baddr = ROWCOL_TO_BA(y, x);
-	cursor_move(baddr);
+	return ROWCOL_TO_BA(y, x);
 }
 
 /*
@@ -566,6 +629,113 @@ Cut_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 			ctlr_add(baddr, repl, 0);
 
 	XtFree((XtPointer)target);
+}
+
+/*
+ * KybdSelect action.  Extends the selection area in the indicated direction.
+ */
+void
+KybdSelect_action(Widget w unused, XEvent *event, String *params,
+    Cardinal *num_params)
+{
+	enum { UP, DOWN, LEFT, RIGHT } direction;
+	int x_start, x_end;
+	int i;
+
+	action_debug(KybdSelect_action, event, params, num_params);
+	if (event == NULL) {
+		popup_an_error("%s can only be used as a keymap action",
+		    action_name(select_start_action));
+		return;
+	}
+	if (w != *screen)
+		return;
+
+	if (*num_params < 1) {
+		popup_an_error("%s requires one argument",
+		    action_name(KybdSelect_action));
+		return;
+	}
+	if (!strcasecmp(params[0], "Up")) {
+		direction = UP;
+	} else if (!strcasecmp(params[0], "Down")) {
+		direction = DOWN;
+	} else if (!strcasecmp(params[0], "Left")) {
+		direction = LEFT;
+	} else if (!strcasecmp(params[0], "Right")) {
+		direction = RIGHT;
+	} else {
+		popup_an_error("%s first argument must be Up, Down, Left, or "
+		    "Right", action_name(KybdSelect_action));
+		return;
+	}
+
+	if (!any_selected)
+		x_start = x_end = cursor_addr;
+	else {
+		if (f_start < f_end) {
+			x_start = f_start;
+			x_end = f_end;
+		} else {
+			x_start = f_end;
+			x_end = f_start;
+		}
+	}
+
+	switch (direction) {
+	    case UP:
+		if (!(x_start / COLS))
+			return;
+		x_start -= COLS;
+		break;
+	    case DOWN:
+		if ((x_end / COLS) == ROWS - 1)
+			return;
+		x_end += COLS;
+		break;
+	    case LEFT:
+		if (!(x_start % COLS))
+			return;
+		x_start--;
+		break;
+	    case RIGHT:
+		if ((x_end % COLS) == COLS - 1)
+			return;
+		x_end++;
+		break;
+	}
+
+	/* Figure out the atoms they want. */
+	if (n_owned == -1) {
+		for (i = 0; i < NS; i++)
+			own_sel[i].atom = None;
+		n_owned = 0;
+	}
+	for (i = 1; i < NS; i++)
+		if (i < *num_params)
+			want_sel[i] = XInternAtom(display, params[i], False);
+		else
+			want_sel[i] = None;
+	if (*num_params == 1)
+		want_sel[0] = XA_PRIMARY;
+
+	/* Grab the selection. */
+	f_start = v_start = x_start;
+	f_end = v_end = x_end;
+	grab_sel(f_start, f_end, True, event_time(event));
+}
+
+/*
+ * unselect action.  Removes a selection.
+ */
+void
+Unselect_action(Widget w unused, XEvent *event, String *params,
+    Cardinal *num_params)
+{
+	action_debug(Unselect_action, event, params, num_params);
+
+	/* It's just cosmetic. */
+	unselect(0, ROWS*COLS);
 }
 
 
@@ -1046,7 +1216,7 @@ insert_selection_action(Widget w, XEvent *event, String *params,
 	for (i = 0; i < *num_params; i++) {
 		a = XInternAtom(display, params[i], True);
 		if (a == None) {
-			popup_an_error("%s: no atom for selection",
+			popup_an_error("%s: No atom for selection",
 			    action_name(insert_selection_action));
 			continue;
 		}

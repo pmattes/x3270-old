@@ -332,7 +332,7 @@ main(int argc, char *argv[])
 	    emit_text:
 		continued = 0;
 		white = 0;
-		while (c = *s++) {
+		while ((c = *s++) != '\0') {
 			if (c == ' ' || c == '\t')
 				white++;
 			else if (white) {

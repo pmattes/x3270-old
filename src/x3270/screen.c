@@ -776,7 +776,7 @@ set_mcursor(void)
 		XDefineCursor(display, nss.window, appres.locked_mcursor);
 		break;
 	    case NORMAL:
-		XUndefineCursor(display, nss.window);
+		XDefineCursor(display, nss.window, appres.normal_mcursor);
 		break;
 	    case WAIT:
 		XDefineCursor(display, nss.window, appres.wait_mcursor);

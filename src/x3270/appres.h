@@ -148,6 +148,7 @@ typedef struct {
 
 #if defined(X3270_DISPLAY) /*[*/
 	/* Simple widget resources */
+	Cursor	normal_mcursor;
 	Cursor	wait_mcursor;
 	Cursor	locked_mcursor;
 #endif /*]*/

@@ -37,7 +37,7 @@
 #define NL	3	/* new line */
 #define UP	4	/* cursor up */
 #define	E2	5	/* second level of ESC processing */
-#define RS	6	/* reset */
+#define rS	6	/* reset */
 #define IC	7	/* insert chars */
 #define DN	8	/* cursor down */
 #define RT	9	/* cursor right */
@@ -241,7 +241,7 @@ static unsigned char st[7][256] = {
 /* 30 */	0, 0, 0, 0, 0, 0, 0,SC,RC, 0, 0, 0, 0, 0, 0, 0,
 /* 40 */	0, 0, 0, 0, 0,NL, 0, 0,TS, 0, 0, 0, 0,RI,S2,S3,
 /* 50 */	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,E2, 0,TM, 0, 0,
-/* 60 */	0, 0, 0,RS, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,G2,G3,
+/* 60 */	0, 0, 0,rS, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,G2,G3,
 /* 70 */	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 /* 80 */	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 /* 90 */	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,

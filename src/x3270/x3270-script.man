@@ -1,5 +1,5 @@
 '\" t
-.TH X3270-SCRIPT 1 "26 December 2000"
+.TH X3270-SCRIPT 1 "15 February 2001"
 .SH "NAME"
 Scripting Facilities for x3270, s3270 and c3270
 .SH "SYNOPSIS"
@@ -308,11 +308,7 @@ Outputs the single parameter to
 \fBContinueScript\fP.
 .TP
 \fBSnap\fP
-Saves a copy of the screen image and status in a temporary buffer.
-This copy can be queried with other
-\fBSnap\fP
-actions to allow a script to examine a consistent screen image, even when the
-host may be changing the image (or even the screen dimensions) dynamically.
+Equivalent to \fBSnap\fP(\fBSave\fP) (see below).
 .TP
 \fBSnap\fP(\fBAscii\fP,...)
 Performs the \fBAscii\fP action on the saved screen image.
@@ -320,31 +316,61 @@ Performs the \fBAscii\fP action on the saved screen image.
 \fBSnap\fP(\fBCols\fP)
 Returns the number of columns in the saved screen image.
 .TP
-\fBSnap\fP(\fBEbcdic\fP,...):
+\fBSnap\fP(\fBEbcdic\fP,...)
 Performs the \fBEbcdic\fP action on the saved screen image.
 .TP
 \fBSnap\fP(\fBRows\fP)
 Returns the number of rows in the saved screen image.
 .TP
+\fBSnap\fP(\fBSave\fP)
+Saves a copy of the screen image and status in a temporary buffer.
+This copy can be queried with other
+\fBSnap\fP
+actions to allow a script to examine a consistent screen image, even when the
+host may be changing the image (or even the screen dimensions) dynamically.
+.TP
 \fBSnap\fP(\fBStatus\fP)
 Returns the status line from when the screen was last saved.
+.TP
+\fBSnap\fP(\fBWait\fP[,\fItimeout\fP],\fBOutput\fP)
+Pauses the script until the host sends further output, then updates the snap
+buffer with the new screen contents.
+Used when the host unlocks the keyboard (allowing the script to proceed after
+an
+\fBEnter\fP,
+\fBPF\fP
+or
+\fBPA\fP
+action), but has not finished updating the screen.
+This action is usually invoked in a loop that uses the
+\fBSnap\fP(\fBAscii\fP)
+or
+\fBSnap\fP(\fBEbcdic\fP)
+action to scan the screen for some pattern that indicates that the host has
+fully processed the last command.
+.IP
+The optional \fItimeout\fP parameter specifies a number of seconds to wait
+before failing the \fBSnap\fP action.  The default is to wait forever.
 .TP
 \fBTransfer\fP(\fIkeyword\fP=\fIvalue\fP,...)
 Invokes IND$FILE file transfer.
 See \s-1FILE TRANSFER\s+1 below.
 .TP
-\fBWait\fP(\fB3270Mode\fP)
+\fBWait\fP([\fItimeout\fP,] \fB3270Mode\fP)
 Used when communicating with a host that switches between
 \s-1NVT\s+1 mode and 3270 mode.
 Pauses the script or macro until the host negotiates 3270 mode, then waits for
 a formatted screen as above.
+.IP
+The optional \fItimeout\fP parameter specifies a number of seconds to wait
+before failing the \fBWait\fP action.  The default is to wait forever.
 .IP
 For backwards compatibility,
 \fBWait(3270)\fP
 is equivalent to
 \fBWait\fP(\fB3270Mode\fP)
 .TP
-\fBWait\fP(\fBDisconnect\fP)
+\fBWait\fP([\fItimeout\fP,] \fBDisconnect\fP)
 Pauses the script until the host disconnects.
 Often used to after sending a
 \fIlogoff\fP
@@ -352,32 +378,41 @@ command to a \s-1VM/CMS\s+1 host, to ensure that the session is not unintentiona
 set to
 \fBdisconnected\fP
 state.
+.IP
+The optional \fItimeout\fP parameter specifies a number of seconds to wait
+before failing the \fBWait\fP action.  The default is to wait forever.
 .TP
-\fBWait\fP(\fBInputField\fP)
+\fBWait\fP([\fItimeout\fP,] \fBInputField\fP)
 A useful utility for use at the beginning of scripts and after the
 \fBConnect\fP action.
 In 3270 mode, waits until the screen is formatted, and the host has positioned
 the cursor on a modifiable field.
 In \s-1NVT\s+1 mode, waits until the host sends at least one byte of data.
 .IP
+The optional \fItimeout\fP parameter specifies a number of seconds to wait
+before failing the \fBWait\fP action.  The default is to wait forever.
+.IP
 For backwards compatibility,
 \fBWait\fP
 is equivalent to
 \fBWait\fP(\fBInputField\fP).
 .TP
-\fBWait\fP(\fBNVTMode\fP)
+\fBWait\fP([\fItimeout\fP,] \fBNVTMode\fP)
 Used when communicating with a host that switches between 3270 mode and
 \s-1NVT\s+1 mode.
 Pauses the script or macro until the host negotiates \s-1NVT\s+1
 mode, then waits for
 a byte from the host as above.
 .IP
+The optional \fItimeout\fP parameter specifies a number of seconds to wait
+before failing the \fBWait\fP action.  The default is to wait forever.
+.IP
 For backwards compatibility,
 \fBWait\fP(\fBansi\fP)
 is equivalent to
 \fBWait\fP(\fBNVTMode\fP).
 .TP
-\fBWait\fP(\fBOutput\fP)
+\fBWait\fP([\fItimeout\fP,] \fBOutput\fP)
 Pauses the script until the host sends further output.
 Used when the host unlocks the keyboard (allowing the script to proceed after
 an
@@ -392,6 +427,9 @@ or
 \fBEbcdic\fP
 action to scan the screen for some pattern that indicates that the host has
 fully processed the last command.
+.IP
+The optional \fItimeout\fP parameter specifies a number of seconds to wait
+before failing the \fBWait\fP action.  The default is to wait forever.
 .SH "FILE TRANSFER"
 The \fBTransfer\fP action implements \fBIND$FILE\fP file transfer.
 This action requires that the \fBIND$FILE\fP
@@ -498,4 +536,4 @@ c3270(1)
 .br
 s3270(1)
 .SH "VERSION"
-Version 3.2.15
+Version 3.2.16n

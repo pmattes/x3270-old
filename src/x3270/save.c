@@ -245,6 +245,22 @@ save_model(void)
 	}
 }
 
+/* Save the emulator font. */
+static void
+save_efont(void)
+{
+	int ix;
+
+	if (!efont_changed)
+		return;
+	if ((ix = cmd_srch(OptEmulatorFont)) && strcmp(tmp_cmd[ix], efontname))
+		cmd_replace(ix + 1, efontname);
+	else {
+		cmd_append(OptEmulatorFont);
+		cmd_append(efontname);
+	}
+}
+
 #if defined(X3270_KEYPAD) /*[*/
 /* Save the keypad state. */
 static void
@@ -470,6 +486,7 @@ save_yourself(void)
 	save_icon();
 	save_keymap();
 	save_model();
+	save_efont();
 #if defined(X3270_KEYPAD) /*[*/
 	save_keypad();
 #endif /*]*/

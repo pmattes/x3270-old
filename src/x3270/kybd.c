@@ -120,6 +120,8 @@ static struct ta {
 static char dxl[] = "0123456789abcdef";
 #define FROM_HEX(c)	(strchr(dxl, tolower(c)) - dxl)
 
+extern Widget *screen;
+
 
 /*
  * Put an action on the typeahead queue.
@@ -421,7 +423,7 @@ PF_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 		return;
 	k = atoi(params[0]);
 	if (k < 1 || k > PF_SZ) {
-		popup_an_error("%s: invalid argument '%s'",
+		popup_an_error("%s: Invalid argument '%s'",
 		    action_name(PF_action), params[0]);
 		return;
 	}
@@ -442,9 +444,9 @@ PA_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 	if (check_usage(PA_action, *num_params, 1, 1) < 0)
 		return;
 	k = atoi(params[0]);
-	if (k > PA_SZ) {
-		popup_an_error("%s: invalid argument %d",
-		    action_name(PA_action), k);
+	if (k < 1 || k > PA_SZ) {
+		popup_an_error("%s: Invalid argument '%s'",
+		    action_name(PA_action), params[0]);
 		return;
 	}
 	if (kybdlock & KL_OIA_MINUS)
@@ -1554,22 +1556,27 @@ Clear_action(Widget w unused, XEvent *event, String *params, Cardinal *num_param
 
 /*
  * Cursor Select key (light pen simulator).
- * Assumes that the current field has already been validated for selectability.
  */
 static void
-lightpen_select(void)
+lightpen_select(int baddr)
 {
 	register unsigned char	*fa, *sel;
+	int designator;
 
-	fa = get_field_attribute(cursor_addr);
+	fa = get_field_attribute(baddr);
+	if (!FA_IS_SEL(*fa)) {
+		ring_bell();
+		return;
+	}
 	sel = fa + 1;
+	designator = sel - screen_buf;
 	switch (*sel) {
 	    case CG_greater:		/* > */
-		ctlr_add(cursor_addr, CG_question, 0); /* change to ? */
+		ctlr_add(designator, CG_question, 0); /* change to ? */
 		mdt_clear(fa);
 		break;
 	    case CG_question:		/* ? */
-		ctlr_add(cursor_addr, CG_greater, 0);	/* change to > */
+		ctlr_add(designator, CG_greater, 0);	/* change to > */
 		mdt_set(fa);
 		break;
 	    case CG_space:		/* space */
@@ -1582,7 +1589,8 @@ lightpen_select(void)
 		key_AID(AID_ENTER);
 		break;
 	    default:
-		operator_error(KL_OERR_PROTECTED);
+		ring_bell();
+		break;
 	}
 }
 
@@ -1593,8 +1601,6 @@ void
 CursorSelect_action(Widget w unused, XEvent *event, String *params,
     Cardinal *num_params)
 {
-	register unsigned char *fa;
-
 	action_debug(CursorSelect_action, event, params, num_params);
 	if (kybdlock) {
 		enq_ta(CursorSelect_action, CN, CN);
@@ -1605,40 +1611,27 @@ CursorSelect_action(Widget w unused, XEvent *event, String *params,
 	if (IN_ANSI)
 		return;
 #endif /*]*/
-	fa = get_field_attribute(cursor_addr);
-	if (!FA_IS_SEL(*fa)) {
-		operator_error(KL_OERR_PROTECTED);
-		return;
-	}
-	lightpen_select();
+	lightpen_select(cursor_addr);
 }
 
 #if defined(X3270_DISPLAY) /*[*/
 /*
- * Cursor Select mouse action (light pen simulator), including cursor movement.
+ * Cursor Select mouse action (light pen simulator).
  */
 void
-MoveCursorSelect_action(Widget w unused, XEvent *event, String *params,
+MouseSelect_action(Widget w, XEvent *event, String *params,
     Cardinal *num_params)
 {
-	register unsigned char *fa;
-
-	action_debug(MoveCursorSelect_action, event, params, num_params);
-	if (kybdlock) {
-		enq_ta(MoveCursorSelect_action, CN, CN);
+	action_debug(MouseSelect_action, event, params, num_params);
+	if (w != *screen)
 		return;
-	}
+	if (kybdlock)
+		return;
 #if defined(X3270_ANSI) /*[*/
 	if (IN_ANSI)
 		return;
 #endif /*]*/
-	move_cursor_to_mouse(w, event);
-	fa = get_field_attribute(cursor_addr);
-	if (!FA_IS_SEL(*fa)) {
-		operator_error(KL_OERR_PROTECTED);
-		return;
-	}
-	lightpen_select();
+	lightpen_select(mouse_baddr(w, event));
 }
 #endif /*]*/
 
@@ -2001,7 +1994,7 @@ FieldEnd_action(Widget w unused, XEvent *event, String *params, Cardinal *num_pa
  * mouse cursor position, or to an absolute location.
  */
 void
-MoveCursor_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
+MoveCursor_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
 	register int baddr;
 	int row, col;
@@ -2017,7 +2010,9 @@ MoveCursor_action(Widget w unused, XEvent *event, String *params, Cardinal *num_
 	switch (*num_params) {
 #if defined(X3270_DISPLAY) /*[*/
 	    case 0:		/* mouse click, presumably */
-		move_cursor_to_mouse(w, event);
+		if (w != *screen)
+			return;
+		cursor_move(mouse_baddr(w, event));
 		break;
 #endif /*]*/
 	    case 2:		/* probably a macro call */
@@ -2035,7 +2030,7 @@ MoveCursor_action(Widget w unused, XEvent *event, String *params, Cardinal *num_
 		cursor_move(baddr);
 		break;
 	    default:		/* couln't say */
-		popup_an_error("%s: illegal argument count",
+		popup_an_error("%s requires 0 or 2 arguments",
 		    action_name(MoveCursor_action));
 		break;
 	}
@@ -2360,7 +2355,7 @@ emulate_input(char *s, int len, Boolean pasting)
 		    case BACKSLASH:	/* last character was a backslash */
 			switch (c) {
 			    case 'a':
-				popup_an_error("%s: bell not supported",
+				popup_an_error("%s: Bell not supported",
 				    action_name(String_action));
 				state = BASE;
 				break;
@@ -2394,7 +2389,7 @@ emulate_input(char *s, int len, Boolean pasting)
 				state = BASE;
 				break;
 			    case 'v':
-				popup_an_error("%s: vertical tab not supported",
+				popup_an_error("%s: Vertical tab not supported",
 				    action_name(String_action));
 				state = BASE;
 				break;
@@ -2435,7 +2430,7 @@ emulate_input(char *s, int len, Boolean pasting)
 				state = BACKPF;
 				break;
 			    default:
-				popup_an_error("%s: unknown character after \\p",
+				popup_an_error("%s: Unknown character after \\p",
 				    action_name(String_action));
 				state = BASE;
 				break;
@@ -2446,7 +2441,7 @@ emulate_input(char *s, int len, Boolean pasting)
 				literal = (literal * 10) + (c - '0');
 				nc++;
 			} else if (!nc) {
-				popup_an_error("%s: unknown character after \\pf",
+				popup_an_error("%s: Unknown character after \\pf",
 				    action_name(String_action));
 				state = BASE;
 			} else {
@@ -2462,7 +2457,7 @@ emulate_input(char *s, int len, Boolean pasting)
 				literal = (literal * 10) + (c - '0');
 				nc++;
 			} else if (!nc) {
-				popup_an_error("%s: unknown character after \\pa",
+				popup_an_error("%s: Unknown character after \\pa",
 				    action_name(String_action));
 				state = BASE;
 			} else {
@@ -2480,7 +2475,7 @@ emulate_input(char *s, int len, Boolean pasting)
 				nc = 0;
 				continue;
 			} else {
-				popup_an_error("%s: missing hex digits after \\x",
+				popup_an_error("%s: Missing hex digits after \\x",
 				    action_name(String_action));
 				state = BASE;
 				continue;
@@ -2549,7 +2544,7 @@ emulate_input(char *s, int len, Boolean pasting)
 	}
 
 	if (state != BASE)
-		popup_an_error("%s: missing data after \\",
+		popup_an_error("%s: Missing data after \\",
 		    action_name(String_action));
 
 	return len;
@@ -3071,6 +3066,7 @@ Default_action(Widget w unused, XEvent *event, String *params, Cardinal *num_par
 			action_internal(SysReq_action, IA_DEFAULT, CN, CN);
 			break;
 
+#if defined(XK_3270_Duplicate) /*[*/
 		    /* Funky 3270 keysyms. */
 		    case XK_3270_Duplicate:
 			action_internal(Dup_action, IA_DEFAULT, CN, CN);
@@ -3118,6 +3114,7 @@ Default_action(Widget w unused, XEvent *event, String *params, Cardinal *num_par
 		    case XK_3270_Enter:
 			action_internal(Enter_action, IA_DEFAULT, CN, CN);
 			break;
+#endif /*]*/
 
 #if defined(X3270_APL) /*[*/
 		    /* Funky APL keysyms. */
@@ -3234,7 +3231,7 @@ TemporaryKeymap_action(Widget w unused, XEvent *event, String *params, Cardinal 
 	}
 
 	if (temporary_keymap(params[0]) < 0)
-		popup_an_error("%s: can't find %s %s",
+		popup_an_error("%s: Can't find %s %s",
 		    action_name(TemporaryKeymap_action), ResKeymap, params[0]);
 }
 

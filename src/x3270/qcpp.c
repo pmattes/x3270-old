@@ -17,6 +17,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #define MAX_NEST	50
 
@@ -27,17 +28,15 @@ char *me;
 int color = 0;
 
 void
-usage()
+usage(void)
 {
 	fprintf(stderr, "usage: %s [-DCOLOR] [-UCOLOR] [infile [outfile]]\n",
 	    me);
 	exit(1);
 }
 
-void
-main(argc, argv)
-int argc;
-char *argv[];
+int
+main(int argc, char *argv[])
 {
 	int c;
 	char buf[1024];
@@ -185,5 +184,5 @@ char *argv[];
 	if (o != stdout)
 		fclose(o);
 
-	exit(0);
+	return 0;
 }

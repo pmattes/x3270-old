@@ -179,16 +179,19 @@ XtActionsRec actions[] = {
 	{ "Insert",		Insert_action },
 	{ "Interrupt",		Interrupt_action },
 	{ "Key",		Key_action },
+#if defined(X3270_DISPLAY) /*[*/
+	{ "KybdSelect",		KybdSelect_action },
+#endif /*]*/
 	{ "Left",		Left_action },
 	{ "Left2", 		Left2_action },
 #if defined(X3270_SCRIPT) /*[*/
 	{ "Macro", 		Macro_action },
 #endif /*]*/
 	{ "MonoCase",		MonoCase_action },
-	{ "MoveCursor",		MoveCursor_action },
 #if defined(X3270_DISPLAY) /*[*/
-	{ "MoveCursorSelect",	MoveCursorSelect_action },
+	{ "MouseSelect",	MouseSelect_action },
 #endif /*]*/
+	{ "MoveCursor",		MoveCursor_action },
 	{ "Newline",		Newline_action },
 	{ "NextWord",		NextWord_action },
 #if defined(C3270) /*[*/
@@ -232,6 +235,9 @@ XtActionsRec actions[] = {
 #endif/*]*/
 #if defined(X3270_FT) /*[*/
 	{ "Transfer",		Transfer_action },
+#endif /*]*/
+#if defined(X3270_DISPLAY) /*[*/
+	{ "Unselect",		Unselect_action },
 #endif /*]*/
 	{ "Up",			Up_action },
 #if defined(X3270_SCRIPT) || defined(TCL3270) /*[*/
@@ -450,10 +456,10 @@ check_usage(XtActionProc action, Cardinal nargs, Cardinal nargs_min,
 	if (nargs >= nargs_min && nargs <= nargs_max)
 		return 0;
 	if (nargs_min == nargs_max)
-		popup_an_error("%s() requires %d argument%s",
+		popup_an_error("%s requires %d argument%s",
 		    action_name(action), nargs_min, nargs_min == 1 ? "" : "s");
 	else
-		popup_an_error("%s() requires %d or %d arguments",
+		popup_an_error("%s requires %d or %d arguments",
 		    action_name(action), nargs_min, nargs_max);
 	return -1;
 }

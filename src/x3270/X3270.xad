@@ -105,15 +105,16 @@ x3270.schemeList:			Default 3279: default\n\
 !   Character sets listed on the Options menu
 x3270.charsetList:			U.S. English: us-intl\n\
 					Bracket: bracket\n\
-					German: german\n\
-					Finnish: finnish\n\
-					United Kingdom: uk\n\
-					Norwegian: norwegian\n\
-					French: french\n\
-					Hebrew: hebrew\n\
-					Greek: greek\n\
 					Belgian: belgian\n\
-					Icelandic: icelandic\n
+					Finnish: finnish\n\
+					French: french\n\
+					German: german\n\
+					Greek: greek\n\
+					Hebrew: hebrew\n\
+					Icelandic: icelandic\n\
+					Italian: italian\n\
+					Norwegian: norwegian\n\
+					United Kingdom: uk\n
 #endif
 !
 !   Pseudo-colors for 3278 mode
@@ -124,6 +125,7 @@ x3270.charsetList:			U.S. English: us-intl\n\
 ! x3270.boldColor:			cyan
 !
 !   Cursors
+! x3270.normalCursor:			arrow
 ! x3270.waitCursor:			watch
 ! x3270.lockedCursor:			X_cursor
 !
@@ -250,7 +252,7 @@ x3270.keymap.base: \
 	:Meta<Key>Left:			PreviousWord()\n\
 	:Meta<Key>Right:			NextWord()\n\
 	:<Key>BackSpace: 		BackSpace()\n\
-	:Ctrl Shift<Btn1Down>:		MoveCursorSelect()\n\
+	:Ctrl Shift<Btn1Down>:		MouseSelect()\n\
 	Ctrl<Btn1Down>:			HandleMenu(fileMenu)\n\
 	Ctrl<Btn2Down>:			HandleMenu(optionsMenu)\n\
 	Ctrl<Btn3Down>:			HandleMenu(hostMenu,macrosMenu)\n\
@@ -263,6 +265,10 @@ x3270.keymap.base: \
 	<Btn3Down>:			start-extend()\n\
 	<Btn3Motion>:			select-extend()\n\
 	~Shift<BtnUp>:			select-end(PRIMARY)\n\
+	Shift<Key>Up:			KybdSelect(Up,PRIMARY)\n\
+	Shift<Key>Down:			KybdSelect(Down,PRIMARY)\n\
+	Shift<Key>Left:			KybdSelect(Left,PRIMARY)\n\
+	Shift<Key>Right:		KybdSelect(Right,PRIMARY)\n\
 	:Meta<Key>F1:			PF(13)\n\
 	:Meta<Key>F2:			PF(14)\n\
 	:Meta<Key>F3:			PF(15)\n\
@@ -305,7 +311,7 @@ x3270.keymap.base: \
 	Meta<Key>r:			Reset()\n\
 	Ctrl<Key>u:			DeleteField()\n\
 	Ctrl<Key>w:			DeleteWord()\n\
-	:<Key>asciicircum:		CircumNot()\n
+	:Meta<Key>asciicircum:		Key(notsign)\n
 !
 ! Start of keyboard-specific mappings.
 !
@@ -1789,3 +1795,19 @@ x3270.charset.greek: \
 	0x73: ¹		\n	0x75: º		\n\
 	0x76: ¼		\n	0x77: ¾		\n\
 	0x78: ¿		\n
+! Italian, courtesy of Claudio Maniscalco and Daniele Patoner
+x3270.charset.italian: \
+	0x44: braceleft		\n\	0x48: backslash		\n\
+	0x4a: degree		\n\	0x4f: exclam		\n\
+	0x51: bracketright	\n\	0x54: braceright	\n\
+	0x58: asciitilde	\n\	0x5a: eacute		\n\
+	0x5f: asciicircum	\n\	0x6a: ograve		\n\
+	0x7b: sterling		\n\	0x7c: section		\n\
+	0x79: ugrave		\n\	0x90: bracketleft	\n\
+	0xa1: igrave		\n\	0xb0: cent		\n\
+	0xb1: numbersign	\n\	0xb5: at		\n\
+	0xba: notsign		\n\	0xbb: bar		\n\
+	0xc0: agrave		\n\	0xcd: brokenbar		\n\
+	0xd0: egrave		\n\	0xdd: grave		\n\
+	0xe0: ccedilla		\n
+x3270.codepage.italian: 280

@@ -77,6 +77,7 @@ typedef struct sms {
 		SS_WAIT_ANSI,	/* awaiting completion of Wait(ansi) */
 		SS_WAIT_3270,	/* awaiting completion of Wait(3270) */
 		SS_WAIT_OUTPUT,	/* awaiting completion of Wait(Output) */
+		SS_SWAIT_OUTPUT,/* awaiting completion of Snap(Wait) */
 		SS_WAIT_DISC,	/* awaiting completion of Wait(Disconnect) */
 		SS_WAIT,	/* awaiting completion of Wait() */
 		SS_EXPECTING,	/* awaiting completion of Expect() */
@@ -100,6 +101,7 @@ typedef struct sms {
 	int	infd;
 	int	pid;
 	unsigned long expect_id;
+	unsigned long wait_id;
 } sms_t;
 #define SN	((sms_t *)NULL)
 static sms_t *sms = SN;
@@ -119,6 +121,7 @@ static const char *sms_state_name[] = {
 	"WAIT_ANSI",
 	"WAIT_3270",
 	"WAIT_OUTPUT",
+	"SWAIT_OUTPUT",
 	"WAIT_DISC",
 	"WAIT",
 	"EXPECTING",
@@ -143,6 +146,7 @@ static const char *st_name[] = { "String", "Macro", "Command", "KeymapAction",
 static void script_prompt(Boolean success);
 static void script_input(void);
 static void sms_pop(Boolean can_exit);
+static void wait_timed_out(void);
 
 /* Macro that defines that the keyboard is locked due to user input. */
 #define KBWAIT	(kybdlock & (KL_OIA_LOCKED|KL_OIA_TWAIT|KL_DEFERRED_UNLOCK))
@@ -306,6 +310,7 @@ new_sms(enum sms_type type)
 	s->infd = -1;
 	s->pid = -1;
 	s->expect_id = 0L;
+	s->wait_id = 0L;
 	s->output_wait_needed = False;
 	s->executing = False;
 
@@ -407,9 +412,11 @@ sms_pop(Boolean can_exit)
 		(void) close(sms->infd);
 	}
 
-	/* Cancel any pending Expect() timeout. */
+	/* Cancel any pending timeouts. */
 	if (sms->expect_id != 0L)
 		RemoveTimeOut(sms->expect_id);
+	if (sms->wait_id != 0L)
+		RemoveTimeOut(sms->wait_id);
 
 	/* Release the memory. */
 	s = sms;
@@ -1287,6 +1294,7 @@ sms_continue(void)
 #endif /*]*/
 
 		    case SS_WAIT_OUTPUT:
+		    case SS_SWAIT_OUTPUT:
 			return;
 
 		    case SS_WAIT_DISC:
@@ -1309,6 +1317,11 @@ sms_continue(void)
 		/* Restart the sms. */
 
 		sms->state = SS_IDLE;
+
+		if (sms->wait_id != 0L) {
+			RemoveTimeOut(sms->wait_id);
+			sms->wait_id = 0L;
+		}
 
 		switch (sms->type) {
 		    case ST_STRING:
@@ -1345,9 +1358,9 @@ dump_range(int first, int len, Boolean in_ascii, unsigned char *buf,
 	s = linebuf;
 
 	/*
-	 * The client has now 'looked' at the screen, so should they later
-	 * execute 'Wait(output)', they will actually need to wait for output
-	 * from the host.  output_wait_needed is cleared by sms_host_output,
+	 * If the client has looked at the live screen, then if they later
+	 * execute 'Wait(output)', they will need to wait for output from the
+	 * host.  output_wait_needed is cleared by sms_host_output,
 	 * which is called from the write logic in ctlr.c.
 	 */     
 	if (sms != SN && buf == screen_buf)
@@ -1608,10 +1621,57 @@ script_prompt(Boolean success)
 	Free(s);
 }
 
+/* Save the state of the screen for Snap queries. */
+static char *snap_status = NULL;
+static unsigned char *snap_buf = NULL;
+static int snap_rows = 0;
+static int snap_cols = 0;
+static int snap_field_start = -1;
+static int snap_field_length = -1;
+static int snap_caddr = 0;
+
+static void
+snap_save(void)
+{
+	sms->output_wait_needed = True;
+	if (snap_status != NULL)
+		Free(snap_status);
+	snap_status = status_string();
+
+	if (snap_buf != NULL)
+		Free(snap_buf);
+	snap_buf = (unsigned char *)Malloc(ROWS*COLS);
+	(void) memcpy(snap_buf, screen_buf, ROWS*COLS);
+
+	snap_rows = ROWS;
+	snap_cols = COLS;
+
+	if (!formatted) {
+		snap_field_start = -1;
+		snap_field_length = -1;
+	} else {
+		unsigned char *fa;
+		int baddr;
+
+		snap_field_length = 0;
+		fa = get_field_attribute(cursor_addr);
+		snap_field_start = fa - screen_buf;
+		INC_BA(snap_field_start);
+		baddr = snap_field_start;
+		do {
+			if (IS_FA(screen_buf[baddr]))
+				break;
+			snap_field_length++;
+			INC_BA(baddr);
+		} while (baddr != snap_field_start);
+	}
+	snap_caddr = cursor_addr;
+}
+
 /*
  * "Snap" action, maintains a snapshot for consistent multi-field comparisons:
  *
- *  Snap
+ *  Snap [Save]
  *	updates the saved image from the live image
  *  Snap Rows
  *	returns the number of rows
@@ -1623,89 +1683,142 @@ script_prompt(Boolean success)
  *  Snap Ebcdic ...
  *  Snap EbcdicField (not yet)
  *	runs the named command
+ *  Snap Wait [tmo] Output
+ *      wait for the screen to change, then do a Snap Save
  */
 void
 Snap_action(Widget w unused, XEvent *event unused, String *params,
     Cardinal *num_params)
 {
-	static char *snap_status = NULL;
-	static unsigned char *snap_buf = NULL;
-	static int snap_rows = 0;
-	static int snap_cols = 0;
-	static int snap_field_start = -1;
-	static int snap_field_length = -1;
-	static int snap_caddr = 0;
-
 	if (sms == SN || sms->state != SS_RUNNING) {
-		popup_an_error("%s: can only be called from scripts or macros",
+		popup_an_error("%s can only be called from scripts or macros",
 		    action_name(Snap_action));
 		return;
 	}
 
 	if (*num_params == 0) {
-		sms->output_wait_needed = True;
-		if (snap_status != NULL)
-			Free(snap_status);
-		snap_status = status_string();
+		snap_save();
+		return;
+	}
 
-		if (snap_buf != NULL)
-			Free(snap_buf);
-		snap_buf = (unsigned char *)Malloc(ROWS*COLS);
-		(void) memcpy(snap_buf, screen_buf, ROWS*COLS);
+	/* Handle 'Snap Wait' separately. */
+	if (!strcasecmp(params[0], action_name(Wait_action))) {
+		unsigned long tmo;
+		char *ptr;
+		int maxp = 0;
 
-		snap_rows = ROWS;
-		snap_cols = COLS;
-
-		if (!formatted) {
-			snap_field_start = -1;
-			snap_field_length = -1;
+		if (*num_params > 1 &&
+		    (tmo = strtoul(params[1], &ptr, 10)) > 0 &&
+		    ptr != params[0] &&
+		    *ptr == '\0') {
+			maxp = 3;
 		} else {
-			unsigned char *fa;
-			int baddr;
-
-			snap_field_length = 0;
-			fa = get_field_attribute(cursor_addr);
-			snap_field_start = fa - screen_buf;
-			INC_BA(snap_field_start);
-			baddr = snap_field_start;
-			do {
-				if (IS_FA(screen_buf[baddr]))
-					break;
-				snap_field_length++;
-				INC_BA(baddr);
-			} while (baddr != snap_field_start);
+			tmo = 0L;
+			maxp = 2;
 		}
-		snap_caddr = cursor_addr;
+		if (*num_params > maxp) {
+			popup_an_error("Too many arguments to %s %s",
+			    action_name(Snap_action),
+			    action_name(Wait_action));
+			    return;
+		}
+		if (*num_params < maxp) {
+			popup_an_error("Too few arguments to %s %s",
+			    action_name(Snap_action),
+			    action_name(Wait_action));
+			    return;
+		}
+		if (strcasecmp(params[*num_params - 1], "Output")) {
+			popup_an_error("Unknown parameter to %s %s",
+			    action_name(Snap_action),
+			    action_name(Wait_action));
+			    return;
+		}
+
+		/* Must be connected. */
+		if (!(CONNECTED || HALF_CONNECTED)) {
+			popup_an_error("%s: Not connected",
+			    action_name(Snap_action));
+			return;
+		}
+
+		/*
+		 * Make sure we need to wait.
+		 * If we don't, then Snap(Wait) is equivalent to Snap().
+		 */
+		if (!sms->output_wait_needed) {
+			snap_save();
+			return;
+		}
+
+		/* Set the new state. */
+		sms->state = SS_SWAIT_OUTPUT;
+
+		/* Set up a timeout, if they want one. */
+		if (tmo)
+			sms->wait_id = AddTimeOut(tmo * 1000, wait_timed_out);
 		return;
 	}
 
-	if (snap_status == NULL) {
-		popup_an_error("No saved state");
-		return;
-	}
-	if (!strcmp(params[0], "Status")) {
-		if (*num_params != 1)
-			popup_an_error("extra argument(s)");
+	if (!strcasecmp(params[0], "Save")) {
+		if (*num_params != 1) {
+			popup_an_error("Extra argument(s)");
+			return;
+		}
+		snap_save();
+	} else if (!strcasecmp(params[0], "Status")) {
+		if (*num_params != 1) {
+			popup_an_error("Extra argument(s)");
+			return;
+		}
+		if (snap_status == NULL) {
+			popup_an_error("No saved state");
+			return;
+		}
 		action_output("%s", snap_status);
-	} else if (!strcmp(params[0], "Rows")) {
-		if (*num_params != 1)
-			popup_an_error("extra argument(s)");
+	} else if (!strcasecmp(params[0], "Rows")) {
+		if (*num_params != 1) {
+			popup_an_error("Extra argument(s)");
+			return;
+		}
+		if (snap_status == NULL) {
+			popup_an_error("No saved state");
+			return;
+		}
 		action_output("%d", snap_rows);
-	} else if (!strcmp(params[0], "Cols")) {
-		if (*num_params != 1)
-			popup_an_error("extra argument(s)");
+	} else if (!strcasecmp(params[0], "Cols")) {
+		if (*num_params != 1) {
+			popup_an_error("Extra argument(s)");
+			return;
+		}
+		if (snap_status == NULL) {
+			popup_an_error("No saved state");
+			return;
+		}
 		action_output("%d", snap_cols);
-	} else if (!strcmp(params[0], action_name(Ascii_action))) {
+	} else if (!strcasecmp(params[0], action_name(Ascii_action))) {
+		if (snap_status == NULL) {
+			popup_an_error("No saved state");
+			return;
+		}
 		dump_fixed(params + 1, *num_params - 1,
 			action_name(Ascii_action), True, snap_buf,
 			snap_rows, snap_cols, snap_caddr);
-	} else if (!strcmp(params[0], action_name(Ebcdic_action))) {
+	} else if (!strcasecmp(params[0], action_name(Ebcdic_action))) {
+		if (snap_status == NULL) {
+			popup_an_error("No saved state");
+			return;
+		}
 		dump_fixed(params + 1, *num_params - 1,
 			action_name(Ebcdic_action), False, snap_buf,
 			snap_rows, snap_cols, snap_caddr);
 	} else {
-		popup_an_error("Unknown parameter to 'Snap': %s",
-			params[0]);
+		popup_an_error("%s: Argument must be Save, Status, Rows, Cols, "
+		    "%s, %s or %s",
+		    action_name(Snap_action),
+		    action_name(Wait_action),
+		    action_name(Ascii_action),
+		    action_name(Ebcdic_action));
 	}
 }
 
@@ -1717,42 +1830,58 @@ Wait_action(Widget w unused, XEvent *event unused, String *params,
     Cardinal *num_params)
 {
 	enum sms_state next_state = SS_WAIT;
+	unsigned long tmo = 0;
+	char *ptr;
+	Cardinal np;
+	String *pr;
 
-	if (check_usage(Wait_action, *num_params, 0, 1) < 0)
+	/* Pick off the timeout parameter first. */
+	if (*num_params > 0 &&
+	    (tmo = strtoul(params[0], &ptr, 10)) > 0 &&
+	    ptr != params[0] &&
+	    *ptr == '\0') {
+		np = *num_params - 1;
+		pr = params + 1;
+	} else {
+		np = *num_params;
+		pr = params;
+	}
+
+	if (check_usage(Wait_action, np, 0, 1) < 0)
 		return;
 	if (sms == SN || sms->state != SS_RUNNING) {
-		popup_an_error("%s: can only be called from scripts or macros",
+		popup_an_error("%s can only be called from scripts or macros",
 		    action_name(Wait_action));
 		return;
 	}
-	if (*num_params == 1) {
-		if (!strcmp(params[0], "NVTMode") ||
-		    !strcmp(params[0], "ansi")) {
+	if (np == 1) {
+		if (!strcasecmp(pr[0], "NVTMode") ||
+		    !strcasecmp(pr[0], "ansi")) {
 			if (!IN_ANSI)
 				next_state = SS_WAIT_ANSI;
-		} else if (!strcmp(params[0], "3270Mode") ||
-			   !strcmp(params[0], "3270")) {
+		} else if (!strcasecmp(pr[0], "3270Mode") ||
+			   !strcasecmp(pr[0], "3270")) {
 			if (!IN_3270)
 			    next_state = SS_WAIT_3270;
-		} else if (!strcmp(params[0], "Output")) {
+		} else if (!strcasecmp(pr[0], "Output")) {
 			if (sms->output_wait_needed)
 				next_state = SS_WAIT_OUTPUT;
 			else
 				return;
-		} else if (!strcmp(params[0], "Disconnect")) {
+		} else if (!strcasecmp(pr[0], "Disconnect")) {
 			if (CONNECTED)
 				next_state = SS_WAIT_DISC;
 			else
 				return;
-		} else if (strcmp(params[0], "InputField")) {
-			popup_an_error("%s: parameter must be 'ansi', '3270', "
-				"'Output' or 'Disconnect'",
+		} else if (strcasecmp(pr[0], "InputField")) {
+			popup_an_error("%s argument must be InputField, "
+			    "NVTmode, 3270Mode, Output or Disconnect",
 			action_name(Wait_action));
 			return;
 		}
 	}
 	if (!(CONNECTED || HALF_CONNECTED)) {
-		popup_an_error("%s: not connected", action_name(Wait_action));
+		popup_an_error("%s: Not connected", action_name(Wait_action));
 		return;
 	}
 
@@ -1762,6 +1891,10 @@ Wait_action(Widget w unused, XEvent *event unused, String *params,
 
 	/* No, wait for it to happen. */
 	sms->state = next_state;
+
+	/* Set up a timeout, if they want one. */
+	if (tmo)
+		sms->wait_id = AddTimeOut(tmo * 1000, wait_timed_out);
 }
 
 /*
@@ -1788,9 +1921,17 @@ sms_host_output(void)
 {
 	if (sms != SN) {
 		sms->output_wait_needed = False;
-		if (sms->state == SS_WAIT_OUTPUT) {
-			sms->state = SS_RUNNING;
-			sms_continue();
+
+		switch (sms->state) {
+		case SS_SWAIT_OUTPUT:
+		    snap_save();
+		    /* fall through... */
+		case SS_WAIT_OUTPUT:
+		    sms->state = SS_RUNNING;
+		    sms_continue();
+		    break;
+		default:
+		    break;
 		}
 	}
 }
@@ -1801,7 +1942,8 @@ sms_redirect(void)
 {
 	return sms != SN &&
 	       (sms->type == ST_CHILD || sms->type == ST_PEER) &&
-	       (sms->state == SS_RUNNING || sms->state == SS_CONNECT_WAIT);
+	       (sms->state == SS_RUNNING || sms->state == SS_CONNECT_WAIT ||
+		sms->wait_id != 0L);
 }
 
 #if defined(X3270_MENUS) || defined(C3270) /*[*/
@@ -2074,12 +2216,33 @@ expect_timed_out(void)
 
 	Free(expect_text);
 	expect_text = CN;
-	popup_an_error("%s(): Timed out", action_name(Expect_action));
+	popup_an_error("%s: Timed out", action_name(Expect_action));
 	sms->expect_id = 0L;
 	sms->state = SS_INCOMPLETE;
 	sms->success = False;
 	if (sms->is_login)
 		host_disconnect(True);
+	sms_continue();
+}
+
+/* Timeout for Wait action. */
+static void
+wait_timed_out(void)
+{
+	/* Pop up the error message. */
+	popup_an_error("%s: Timed out", action_name(Wait_action));
+
+	/* Forget the ID. */
+	sms->wait_id = 0L;
+
+	/* If this is a login macro, it has failed. */
+	if (sms->is_login)
+		host_disconnect(True);
+
+	sms->success = False;
+	sms->state = SS_INCOMPLETE;
+
+	/* Let the script proceed. */
 	sms_continue();
 }
 
@@ -2099,13 +2262,13 @@ Expect_action(Widget w unused, XEvent *event unused, String *params,
 	if (check_usage(Expect_action, *num_params, 1, 2) < 0)
 		return;
 	if (!IN_ANSI) {
-		popup_an_error("%s() is valid only when connected in ANSI mode",
+		popup_an_error("%s is valid only when connected in ANSI mode",
 		    action_name(Expect_action));
 	}
 	if (*num_params == 2) {
 		tmo = atoi(params[1]);
 		if (tmo < 1 || tmo > 600) {
-			popup_an_error("%s(): Invalid timeout: %s",
+			popup_an_error("%s: Invalid timeout: %s",
 			    action_name(Expect_action), params[1]);
 			return;
 		}
@@ -2164,7 +2327,7 @@ Script_action(Widget w unused, XEvent *event unused, String *params,
 	int outpipe[2];
 
 	if (*num_params < 1) {
-		popup_an_error("%s() requires at least one argument",
+		popup_an_error("%s requires at least one argument",
 		    action_name(Script_action));
 		return;
 	}
@@ -2281,13 +2444,14 @@ Printer_action(Widget w unused, XEvent *event unused, String *params,
 		printer_start((*num_params > 1)? params[1] : CN);
 	} else if (!strcasecmp(params[0], "Stop")) {
 		if (*num_params != 1) {
-			popup_an_error("%s: extra argument(s)",
+			popup_an_error("%s: Extra argument(s)",
 			    action_name(Printer_action));
 			return;
 		}
 		printer_stop();
 	} else {
-		popup_an_error("Unknown keyword: %s", params[0]);
+		popup_an_error("%s: Argument must Start or Stop",
+		    action_name(Printer_action));
 	}
 }
 #endif /*]*/

@@ -126,7 +126,7 @@ XtResource resources[] = {
 	{ ResModifiedSelColor, ClsModifiedSelColor, XtRInt, sizeof(int),
 	  offset(modified_sel_color), XtRString, "10" },
 	{ ResVisualSelectColor, ClsVisualSelectColor, XtRInt, sizeof(int),
-	  offset(visual_select_color), XtRString, "10" },
+	  offset(visual_select_color), XtRString, "6" },
 	{ ResModel, ClsModel, XtRString, sizeof(char *),
 	  offset(model), XtRString,
 #if defined(RESTRICT_3279) /*[*/
@@ -155,6 +155,8 @@ XtResource resources[] = {
 	  offset(icon_font), XtRString, "nil2" },
 	{ ResIconLabelFont, ClsIconLabelFont, XtRString, sizeof(char *),
 	  offset(icon_label_font), XtRString, "8x13" },
+	{ ResNormalCursor, ClsNormalCursor, XtRCursor, sizeof(Cursor),
+	  offset(normal_mcursor), XtRString, "arrow" },
 	{ ResWaitCursor, ClsWaitCursor, XtRCursor, sizeof(Cursor),
 	  offset(wait_mcursor), XtRString, "watch" },
 	{ ResLockedCursor, ClsLockedCursor, XtRCursor, sizeof(Cursor),
