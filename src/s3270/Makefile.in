@@ -10,7 +10,7 @@
 RM = rm -f
 CC = @CC@
 
-all: c3270 x3270if
+all: s3270 x3270if
 
 SRCS = actions.c ansi.c apl.c charset.c ctlr.c ft.c ft_cut.c ft_dft.c glue.c \
 	host.c kybd.c macros.c print.c resources.c sf.c smain.c tables.c \
@@ -38,7 +38,7 @@ version.o: $(VOBJS) version.txt mkversion.sh
 	@chmod +x mkversion.sh version.txt
 	sh ./mkversion.sh $(CC) s3270
 
-c3270: $(OBJS1)
+s3270: $(OBJS1)
 	$(CC) -o $@ $(OBJS1) $(LDFLAGS) $(LIBS)
 x3270if: x3270if.o
 	$(CC) -o $@ x3270if.o
@@ -48,7 +48,7 @@ install: s3270 x3270if
 	install x3270if $(BINDIR)/x3270if
 
 install.man:
-	install c3270.man $(MANDIR)/man1/c3270.1
+	install s3270.man $(MANDIR)/man1/s3270.1
 	install x3270if.man $(MANDIR)/man1/x3270if.1
 	install x3270-script.man $(MANDIR)/man1/x3270-script.1
 

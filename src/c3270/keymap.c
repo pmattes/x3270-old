@@ -14,6 +14,7 @@
  */
 
 #include "globals.h"
+#include <errno.h>
 #include "appres.h"
 #include "resources.h"
 
@@ -21,6 +22,7 @@
 #include "keymapc.h"
 #include "macrosc.h"
 #include "popupsc.h"
+#include "screenc.h"
 #include "statusc.h"
 #include "trace_dsc.h"
 #include "utilc.h"
@@ -42,7 +44,13 @@ extern int cCOLS;
 
 #define KM_CTRL		0x0001
 #define KM_META		0x0002
+
+#define KM_3270_ONLY	0x0020	/* used in non-NVT mode only (nvt map exists) */
+#define KM_NVT_ONLY	0x0040	/* used in NVT mode only */
+#define KM_INACTIVE	0x0080	/* wrong NVT/3270 mode, or overridden */
+
 #define KM_KEYMAP	0x8000
+#define KM_HINTS	(KM_CTRL|KM_META)
 
 struct keymap {
 	struct keymap *next;
@@ -55,8 +63,10 @@ struct keymap {
 	char *action;		/* actions to perform */
 };
 
+#define IS_INACTIVE(k)	((k)->hints[0] & KM_INACTIVE)
+
 static struct keymap *master_keymap = NULL;
-static struct keymap *lastk = NULL;
+static struct keymap **nextk = &master_keymap;
 
 static Boolean last_nvt = False;
 
@@ -65,6 +75,11 @@ static void keymap_3270_mode(Boolean);
 
 #define codecmp(k1, k2, len)	\
 	memcmp((k1)->codes, (k2)->codes, (len)*sizeof(int))
+
+static void read_one_keymap(const char *name, const char *fn, const char *r0,
+    int flags);
+static void clear_keymap(void);
+static void set_inactive(void);
 
 /*
  * Parse a key definition.
@@ -160,14 +175,9 @@ static int
 locate_keymap(const char *name, char **fullname, char **r)
 {
 	char *fn = CN;			/* resource or file name */
-	char *fn_nvt = CN;		/* .nvt version of fn */
 	char *rs;			/* resource value */
-	char *rs_nvt;			/* .nvt version of rs */
-
 	char *fnx;			/* expanded file name */
-	char *fnx_nvt;			/* .nvt version of fnx */
 	int a;				/* access(fnx) */
-	int a_nvt;			/* access(fnx_nvt) */
 
 	/* Return nothing, to begin with. */
 	*fullname = CN;
@@ -178,25 +188,6 @@ locate_keymap(const char *name, char **fullname, char **r)
 	rs = get_resource(fn);
 	Free(fn);
 	fn = CN;
-
-	fn_nvt = xs_buffer(ResKeymap ".%s.%s", name, ResNvt);
-	rs_nvt = get_resource(fn_nvt);
-	Free(fn_nvt);
-	fn_nvt = CN;
-
-	/* In ANSI mode, the NVT version supercedes the plain version. */
-	if (IN_ANSI && rs_nvt != CN) {
-		*fullname = xs_buffer("%s.%s", name, ResNvt);
-		*r = NewString(rs_nvt);
-		return 1;
-	}
-
-	/*
-	 * If there's an NVT version and no plain version, but we're not
-	 * in ANSI mode, do nothing (successfully).
-	 */
-	if (!IN_ANSI && rs_nvt != CN && rs == CN)
-		return 0;
 
 	/* If there's a plain version, return it. */
 	if (rs != CN) {
@@ -209,80 +200,124 @@ locate_keymap(const char *name, char **fullname, char **r)
 	fnx = do_subst(name, True, True);
 	a = access(fnx, R_OK);
 
-	fn_nvt = xs_buffer("%s.%s", name, ResNvt);
-	fnx_nvt = do_subst(fn_nvt, True, True);
-	Free(fn_nvt);
-	a_nvt = access(fnx_nvt, R_OK);
-
-	/* In ANSI mode, the NVT version supercedes the plain version. */
-	if (IN_ANSI && a_nvt == 0) {
-		Free(fnx);
-		*fullname = fnx_nvt;
-		return 1;
-	}
-
-	/*
-	 * If there's an NVT version and no plain version, but we're not
-	 * in ANSI mode, do nothing (successfully).
-	 */
-	if (!IN_ANSI && a_nvt == 0 && a < 0) {
-		Free(fnx);
-		Free(fnx_nvt);
-		return 0;
-	}
-
 	/* If there's a plain version, return it. */
 	if (a == 0) {
-		Free(fnx_nvt);
 		*fullname = fnx;
 		return 1;
 	}
 
 	/* No dice. */
 	Free(fnx);
-	Free(fnx_nvt);
 	return -1;
+}
+
+/* Add a keymap entry. */
+static void
+add_keymap_entry(int ncodes, int *codes, int *hints, const char *file,
+    int line, const char *action)
+{
+	struct keymap *k;
+	struct keymap *j;
+
+	/* Allocate a new node. */
+	k = Malloc(sizeof(struct keymap));
+	k->next = NULL;
+	k->successor = NULL;
+	k->ncodes = ncodes;
+	k->codes = Malloc(ncodes * sizeof(int));
+	(void) memcpy(k->codes, codes, ncodes * sizeof(int));
+	k->hints = Malloc(ncodes * sizeof(int));
+	(void) memcpy(k->hints, hints, ncodes * sizeof(int));
+	k->file = NewString(file);
+	k->line = line;
+	k->action = NewString(action);
+
+	/* See if it's inactive, or supercedes other entries. */
+	if ((last_nvt && (k->hints[0] & KM_3270_ONLY)) ||
+	    (!last_nvt && (k->hints[0] & KM_NVT_ONLY))) {
+		k->hints[0] |= KM_INACTIVE;
+	} else for (j = master_keymap; j != NULL; j = j->next) {
+		/* It may supercede other entries. */
+		if (j->ncodes == k->ncodes &&
+		    !codecmp(j, k, k->ncodes)) {
+			j->hints[0] |= KM_INACTIVE;
+			j->successor = k;
+		}
+	}
+
+	/* Link it in. */
+	*nextk = k;
+	nextk = &k->next;
 }
 
 /*
  * Read a keymap from a file.
  * Returns 0 for success, -1 for an error.
  *
- * Keymap files look suspiciously like x3270 keymaps, but of course, they
- * are different.
+ * Keymap files look suspiciously like x3270 keymaps, but aren't.
  */
-static int
+static void
 read_keymap(const char *name)
 {
-	char *r0, *r;			/* resource value */
-	char *fn = CN;			/* full resource or file name */
-	int rc = 0;			/* function return code */
+	char *name_nvt = xs_buffer("%s.nvt", name);
+	int rc, rc_nvt;
+	char *fn, *fn_nvt;
+	char *r0, *r0_nvt;
+
+	rc = locate_keymap(name, &fn, &r0);
+	rc_nvt = locate_keymap(name_nvt, &fn_nvt, &r0_nvt);
+	if (rc < 0 && rc_nvt < 0) {
+		xs_warning("No such keymap resource or file: %s",
+		    name);
+		Free(name_nvt);
+		return;
+	}
+
+	if (rc >= 0) {
+		read_one_keymap(name, fn, r0, (rc_nvt >= 0)? KM_3270_ONLY: 0);
+		if (fn != CN)
+			Free(fn);
+		if (r0 != CN)
+			Free(r0);
+	}
+	if (rc_nvt >= 0) {
+		read_one_keymap(name_nvt, fn_nvt, r0_nvt, KM_NVT_ONLY);
+		if (fn_nvt != CN)
+			Free(fn_nvt);
+		if (r0_nvt != CN)
+			Free(r0_nvt);
+	}
+	Free(name_nvt);
+}
+
+/*
+ * Read a keymap from a file.
+ * Returns 0 for success, -1 for an error.
+ *
+ * Keymap files look suspiciously like x3270 keymaps, but aren't.
+ */
+static void
+read_one_keymap(const char *name, const char *fn, const char *r0, int flags)
+{
+	char *r = CN;			/* resource value */
+	char *r_copy = CN;		/* initial value of r */
 	FILE *f = NULL;			/* resource file */
 	char buf[1024];			/* file read buffer */
 	int line = 0;			/* line number */
 	char *left, *right;		/* chunks of line */
-	struct keymap *j;		/* compare keymap */
-	struct keymap *k;		/* new keymap entry */
+	static int ncodes = 0;
+	static int maxcodes = 0;
+	static int *codes = NULL, *hints = NULL;
+	int rc = 0;
 
 	/* Find the resource or file. */
-	switch (rc = locate_keymap(name, &fn, &r0)) {
-		case 0:
-			return 0;
-		case -1:
-			xs_warning("No such keymap resource or file: %s",
-			    name);
-			return -1;
-		default:
-			break;
-	}
 	if (r0 != CN)
-		r = r0;
+		r = r_copy = NewString(r0);
 	else {
 		f = fopen(fn, "r");
 		if (f == NULL) {
 			xs_warning("Cannot open file: %s", fn);
-			Free(fn);
-			return -1;
+			return;
 		}
 	}
 
@@ -309,7 +344,6 @@ read_keymap(const char *name)
 		    (r == CN && split_dresource(&s, &left, &right) < 0)) {
 			popup_an_error("%s, line %d: syntax error",
 			    fn, line);
-			rc = -1;
 			goto done;
 		}
 
@@ -317,66 +351,42 @@ read_keymap(const char *name)
 		if (pkr == 0) {
 			popup_an_error("%s, line %d: Missing <Key>",
 			    fn, line);
-			rc = -1;
 			goto done;
 		}
 		if (pkr < 0) {
 			popup_an_error("%s, line %d: %s",
 			    fn, line, pk_errmsg[-1 - pkr]);
-			rc = -1;
 			goto done;
 		}
 
-		/* Add a new one at the end of the list. */
-		k = Malloc(sizeof(struct keymap));
-		k->next = NULL;
-		k->successor = NULL;
-		k->ncodes = 1;
-		k->codes = Malloc(sizeof(int));
-		k->codes[0] = ccode;
-		k->hints = Malloc(sizeof(int));
-		k->hints[0] = hint;
-		k->file = NewString(fn);
-		k->line = line;
-		k->action = NewString(right);
-		if (lastk != NULL)
-			lastk->next = k;
-		else
-			master_keymap = k;
-		lastk = k;
-
-		while ((pkr = parse_keydef(&left, &ccode, &hint)) != 0) {
+		/* Accumulate keycodes. */
+		ncodes = 0;
+		do {
+			if (++ncodes > maxcodes) {
+				maxcodes = ncodes;
+				codes = Realloc(codes, maxcodes * sizeof(int));
+				hints = Realloc(hints, maxcodes * sizeof(int));
+			}
+			codes[ncodes - 1] = ccode;
+			hints[ncodes - 1] = hint;
+			pkr = parse_keydef(&left, &ccode, &hint);
 			if (pkr < 0) {
 				popup_an_error("%s, line %d: %s",
 				    fn, line, pk_errmsg[-1 - pkr]);
-				rc = -1;
 				goto done;
 			}
-			k->ncodes++;
-			k->codes = Realloc(k->codes, k->ncodes*sizeof(int));
-			k->codes[k->ncodes - 1] = ccode;
-			k->hints = Realloc(k->hints, k->ncodes*sizeof(int));
-			k->hints[k->ncodes - 1] = hint;
-		}
+		} while (pkr != 0);
 
-		/* Later definitions supercede older ones. */
-		for (j = master_keymap; j != NULL; j = j->next) {
-			if (j != k &&
-			    j->ncodes == k->ncodes &&
-			    !codecmp(j, k, k->ncodes)) {
-				j->successor = k;
-			}
-		}
+		/* Add it to the list. */
+		hints[0] |= flags;
+		add_keymap_entry(ncodes, codes, hints, fn, line, right);
 	}
 
     done:
-	if (r0 != CN)
-		Free(r0);
+	if (r_copy != CN)
+		Free(r_copy);
 	if (f != NULL)
 		fclose(f);
-	if (fn != CN)
-		Free(fn);
-	return rc;
 }
 
 /* Multi-key keymap support. */
@@ -392,6 +402,8 @@ longer_match(struct keymap *k, int nc)
 	struct keymap *shortest = NULL;
 
 	for (j = master_keymap; j != NULL; j = j->next) {
+		if (IS_INACTIVE(j))
+			continue;
 		if (j != k && j->ncodes > nc && !codecmp(j, k, nc)) {
 			if (j->ncodes == nc+1)
 				return j;
@@ -483,7 +495,7 @@ lookup_key(int code)
 		struct keymap *shortest = NULL;
 
 		for (k = master_keymap; k != NULL; k = k->next) {
-			if (k->successor != NULL)
+			if (IS_INACTIVE(k))
 				continue;
 			if (code == k->codes[0]) {
 				if (k->ncodes == 1) {
@@ -522,7 +534,7 @@ lookup_key(int code)
 
 	/* It doesn't.  Try for a better candidate. */
 	for (k = master_keymap; k != NULL; k = k->next) {
-		if (k->successor != NULL)
+		if (IS_INACTIVE(k))
 			continue;
 		if (k == current_match)
 			continue;
@@ -692,6 +704,9 @@ keymap_init(void)
 	char *comma;
 	static Boolean initted = False;
 
+	/* In case this is a subsequent call, wipe out the current keymap. */
+	clear_keymap();
+
 	read_keymap("base");
 	if (appres.key_map == CN)
 		return;
@@ -706,8 +721,10 @@ keymap_init(void)
 		read_keymap(s);
 	Free(s0);
 
+	last_nvt = IN_ANSI;
+	set_inactive();
+
 	if (!initted) {
-		last_nvt = IN_ANSI;
 		register_schange(ST_3270_MODE, keymap_3270_mode);
 		register_schange(ST_CONNECT, keymap_3270_mode);
 		initted = True;
@@ -728,7 +745,52 @@ clear_keymap(void)
 		Free(k->action);
 		Free(k);
 	}
-	master_keymap = lastk = NULL;
+	master_keymap = NULL;
+	nextk = &master_keymap;
+}
+
+/* Set the inactive flags for the current keymap. */
+static void
+set_inactive(void)
+{
+	struct keymap *k;
+
+	/* Clear the inactive flags and successors. */
+	for (k = master_keymap; k != NULL; k = k->next) {
+		k->hints[0] &= ~KM_INACTIVE;
+		k->successor = NULL;
+	}
+
+	/* Turn off elements which have the wrong mode. */
+	for (k = master_keymap; k != NULL; k = k->next) {
+		/* If the mode is wrong, turn it off. */
+		if ((last_nvt && (k->hints[0] & KM_3270_ONLY)) ||
+		    (!last_nvt && (k->hints[0] & KM_NVT_ONLY))) {
+			k->hints[0] |= KM_INACTIVE;
+		}
+	}
+
+	/* Turn off elements with successors. */
+	for (k = master_keymap; k != NULL; k = k->next) {
+		struct keymap *j;
+		struct keymap *last_j = NULL;
+
+		if (IS_INACTIVE(k))
+			continue;
+
+		/* If it now has a successor, turn it off. */
+		for (j = k->next; j != NULL; j = j->next) {
+			if (!IS_INACTIVE(j) &&
+			    k->ncodes == j->ncodes &&
+			    !codecmp(k, j, k->ncodes)) {
+				last_j = j;
+			}
+		}
+		if (last_j != NULL) {
+			k->successor = last_j;
+			k->hints[0] |= KM_INACTIVE;
+		}
+	}
 }
 
 /* 3270/NVT mode change. */
@@ -737,8 +799,7 @@ keymap_3270_mode(Boolean ignored unused)
 {
 	if (last_nvt != IN_ANSI) {
 		last_nvt = IN_ANSI;
-		clear_keymap();
-		keymap_init();
+		set_inactive();
 	}
 }
 
@@ -746,8 +807,6 @@ keymap_3270_mode(Boolean ignored unused)
  * Decode a key.
  * Accepts a hint as to which form was used to specify it, if it came from a
  * keymap definition.
- *
- * Todo: Implement the hints.
  */
 const char *
 decode_key(int k, int hint)
@@ -808,18 +867,18 @@ keymap_dump(void)
 		if (k->successor != NULL)
 			action_output("[%s:%d]  (replaced by %s:%d)", k->file,
 			    k->line, k->successor->file, k->successor->line);
-		else {
+		else if (!IS_INACTIVE(k)) {
 			int i;
 			char buf[1024];
 			char *s = buf;
 
-			s += sprintf(s, "[%s:%d] ", k->file, k->line);
 			for (i = 0; i < k->ncodes; i++) {
 				s += sprintf(s, " %s",
 				    decode_key(k->codes[i],
-					k->hints[i] | KM_KEYMAP));
+					(k->hints[i] & KM_HINTS) | KM_KEYMAP));
 			}
-			action_output("%s: %s", buf, k->action);
+			action_output("[%s:%d]%s: %s", k->file, k->line,
+			    buf, k->action);
 		}
 	}
 }

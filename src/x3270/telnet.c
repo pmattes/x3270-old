@@ -1407,7 +1407,7 @@ process_eor(void)
 	} else
 #endif /*]*/
 	{
-		return process_ds(ibuf, ibptr - ibuf) < 0;
+		(void) process_ds(ibuf, ibptr - ibuf);
 	}
 	return 0;
 }

@@ -19,6 +19,7 @@
 #include "appres.h"
 #include "screen.h"
 #include "cg.h"
+#include "ctlr.h"
 #include "resources.h"
 
 #include "ctlrc.h"
@@ -43,6 +44,7 @@ static Boolean  qr_in_progress = False;
 static enum pds sf_read_part(unsigned char buf[], unsigned buflen);
 static enum pds sf_erase_reset(unsigned char buf[], int buflen);
 static enum pds sf_set_reply_mode(unsigned char buf[], int buflen);
+static enum pds sf_create_partition(unsigned char buf[], int buflen);
 static enum pds sf_outbound_ds(unsigned char buf[], int buflen);
 static void query_reply_start(void);
 static void do_query_reply(unsigned char code);
@@ -76,6 +78,7 @@ write_structured_field(unsigned char buf[], int buflen)
 	Boolean first = True;
 	enum pds rv = PDS_OKAY_NO_OUTPUT;
 	enum pds rv_this = PDS_OKAY_NO_OUTPUT;
+	Boolean bad_cmd = False;
 
 	/* Skip the WSF command itself. */
 	cp++;
@@ -124,6 +127,10 @@ write_structured_field(unsigned char buf[], int buflen)
 			trace_ds("SetReplyMode");
 			rv_this = sf_set_reply_mode(cp, (int)fieldlen);
 			break;
+		    case SF_CREATE_PART:
+			trace_ds("CreatePartition");
+			rv_this = sf_create_partition(cp, (int)fieldlen);
+			break;
 		    case SF_OUTBOUND_DS:
 			trace_ds("OutboundDS");
 			rv_this = sf_outbound_ds(cp, (int)fieldlen);
@@ -148,7 +155,7 @@ write_structured_field(unsigned char buf[], int buflen)
 		 * way to return the error indication.
 		 */
 		if (rv_this < 0)
-			return rv ? rv : rv_this;
+			bad_cmd = True;
 		else
 			rv |= rv_this;
 
@@ -158,7 +165,11 @@ write_structured_field(unsigned char buf[], int buflen)
 	}
 	if (first)
 		trace_ds(" (null)\n");
-	return rv;
+
+	if (bad_cmd && !rv)
+		return PDS_BAD_CMD;
+	else
+		return rv;
 }
 
 static enum pds
@@ -349,6 +360,143 @@ sf_set_reply_mode(unsigned char buf[], int buflen)
 		}
 		trace_ds("%s\n", crm_nattr ? ")" : "");
 	}
+	return PDS_OKAY_NO_OUTPUT;
+}
+
+static enum pds
+sf_create_partition(unsigned char buf[], int buflen)
+{
+	unsigned char pid;
+	unsigned char uom;		/* unit of measure */
+	unsigned char am;		/* addressing mode */
+	unsigned char flags;		/* flags */
+	unsigned short h;		/* height of presentation space */
+	unsigned short w;		/* width of presentation space */
+	unsigned short rv;		/* viewport origin row */
+	unsigned short cv;		/* viewport origin column */
+	unsigned short hv;		/* viewport height */
+	unsigned short wv;		/* viewport width */
+	unsigned short rw;		/* window origin row */
+	unsigned short cw;		/* window origin column */
+	unsigned short rs;		/* scroll rows */
+	/* hole */
+	unsigned short pw;		/* character cell point width */
+	unsigned short ph;		/* character cell point height */
+
+	static const char *bit4[16] = {
+	    "0000", "0001", "0010", "0011",
+	    "0100", "0101", "0110", "0111",
+	    "1000", "1001", "1010", "1011",
+	    "1100", "1101", "1110", "1111"
+	};
+
+	if (buflen > 3) {
+		trace_ds("(");
+
+		/* Partition. */
+		pid = buf[3];
+		trace_ds("pid=0x%02x", pid);
+		if (pid != 0x00) {
+			trace_ds(") error: illegal partition\n");
+			return PDS_BAD_CMD;
+		}
+	} else
+		pid = 0x00;
+
+	if (buflen > 4) {
+		uom = (buf[4] & 0xf0) >> 4;
+		trace_ds(",uom=B'%s'", bit4[uom]);
+		if (uom != 0x0 && uom != 0x02) {
+			trace_ds(") error: illegal units\n");
+			return PDS_BAD_CMD;
+		}
+		am = buf[4] & 0x0f;
+		trace_ds(",am=B'%s'", bit4[am]);
+		if (am > 0x2) {
+			trace_ds(") error: illegal a-mode\n");
+			return PDS_BAD_CMD;
+		}
+	} else {
+		uom = 0;
+		am = 0;
+	}
+
+	if (buflen > 5) {
+		flags = buf[5];
+		trace_ds(",flags=0x%02x", flags);
+	} else
+		flags = 0;
+
+	if (buflen > 7) {
+		GET16(h, &buf[6]);
+		trace_ds(",h=%d", h);
+	} else
+		h = maxROWS;
+
+	if (buflen > 9) {
+		GET16(w, &buf[8]);
+		trace_ds(",w=%d", w);
+	} else
+		w = maxCOLS;
+
+	if (buflen > 11) {
+		GET16(rv, &buf[10]);
+		trace_ds(",rv=%d", rv);
+	} else
+		rv = 0;
+
+	if (buflen > 13) {
+		GET16(cv, &buf[12]);
+		trace_ds(",cv=%d", cv);
+	} else
+		cv = 0;
+
+	if (buflen > 15) {
+		GET16(hv, &buf[14]);
+		trace_ds(",hv=%d", hv);
+	} else
+		hv = (h > maxROWS)? maxROWS: h;
+
+	if (buflen > 17) {
+		GET16(wv, &buf[16]);
+		trace_ds(",wv=%d", wv);
+	} else
+		wv = (w > maxCOLS)? maxCOLS: w;
+
+	if (buflen > 19) {
+		GET16(rw, &buf[18]);
+		trace_ds(",rw=%d", rw);
+	} else
+		rw = 0;
+
+	if (buflen > 21) {
+		GET16(cw, &buf[20]);
+		trace_ds(",cw=%d", cw);
+	} else
+		cw = 0;
+
+	if (buflen > 23) {
+		GET16(rs, &buf[22]);
+		trace_ds(",rs=%d", rs);
+	} else
+		rs = (h > hv)? 1: 0;
+
+	if (buflen > 27) {
+		GET16(pw, &buf[26]);
+		trace_ds(",pw=%d", pw);
+	} else
+		pw = *char_width;
+
+	if (buflen > 29) {
+		GET16(ph, &buf[28]);
+		trace_ds(",ph=%d", ph);
+	} else
+		ph = *char_height;
+	trace_ds(")\n");
+
+	cursor_move(0);
+	buffer_addr = 0;
+
 	return PDS_OKAY_NO_OUTPUT;
 }
 

@@ -5,17 +5,26 @@
    <meta name="Author" content="Paul Mattes">
    <meta name="GENERATOR" content="Mozilla/4.5 [en] (WinNT; U) [Netscape]">
    <title>x3270 3.2 New Features</title>
+   <link HREF="http://www.w3.org/StyleSheets/Core/Steely" TYPE="text/css" REL="stylesheet">
 </head>
 <body>
 
 <h1>
-<b>New Features in x3270 3.2</b>
+New Features in x3270 3.2
 <hr WIDTH="100%"></h1>
 x3270 3.2 is a reorganization of x3270 3.1, with some significant enhancements.
 It is intended to be the future development platform for x3270, with x3270
 3.1 continued only with bug fixes.
+<h2>Changes in x3270 3.2.15, 26. December 2000</h2>
+<ul>
+<li>Improved documentation formatting.</li>
+<li>Fixed a problem with <tt>user</tt> keymaps being ignored.</li>
+<li>Fixed a problem with disconnecting from hosts when they send illegal
+commands in non-TN3270E mode.</li>
+<li>Allow, but ignore, Create Partition structured fields.</li>
+</ul>
 <h2>
-<b>Changes in x3270 3.2.14, 15. November 2000</b></h2>
+Changes in x3270 3.2.14, 15. November 2000</h2>
 Use GNU autoconf now.
 <br>Fixed a crash when <b>-reconnect</b> is used and <b>x3270.menuBar</b> is
 <b>False</b>.
@@ -28,7 +37,7 @@ Use GNU autoconf now.
 <br>Improved the behavior of the <b>-reconnect</b> option, when a host connection fails.
 <br>Allow separate app-defaults file to be built again, via <tt>configure --enable-app-defaults</tt>.
 <h2>
-<b>Changes in x3270 3.2.13, 24. September 2000</b></h2>
+Changes in x3270 3.2.13, 24. September 2000</h2>
 Integrated <b>pr3287</b> into the x3270 release.
 <br>Rewrote the screen resizing logic.  It now functions correctly on window
 managers like <i>icewm</i> and under KDE, and would rather leave the screen the
@@ -38,7 +47,7 @@ wrong size than exit.
 <br>Fixed the block cursor display when the <b>-mono</b> option is used on a
 color display.
 <h2>
-<b>Changes in x3270 3.2.12, 7. September 2000</b></h2>
+Changes in x3270 3.2.12, 7. September 2000</h2>
 Fixed a problem with exiting whenever the window was resized.
 <br>Added a complete interface library for use with <i>expect</i>,
 <tt>x3270_glue.expect</tt>.
@@ -65,7 +74,7 @@ new <b>Printer()</b> action.
 is <b>True</b>.
 <br>Fixed several problems when windows do not fit on the screen.
 <h2>
-<b>Changes in x3270 3.2.11, 31. July 2000</b></h2>
+Changes in x3270 3.2.11, 31. July 2000</h2>
 Expanded the <b>Default()</b> action to better diagnose keymap problems.
 <br>Added default support for X11 <tt>XK_3270_<i>xxx</i></tt> and APL keysyms.
 <br>Fixed a core dump when the emulator font can't be found.
@@ -83,7 +92,7 @@ sets.
 in bold.
 <br>Fixed a core dump from editing the <i>Print Window Bitmap</i> command.
 <h2>
-<b>Changes in x3270 3.2.10, 5. July 2000</b></h2>
+Changes in x3270 3.2.10, 5. July 2000</h2>
 Added an <b>n:</b> prefix to hostnames to selectively disable TN3270E.
 <br>Changed the reported CSCSGID to <tt>X'02B90025'</tt> (English-U.S.).
 <br>Fixed the <b>Attn()</b> action to send TELNET IP, per RFC 2355.
@@ -110,7 +119,7 @@ optionally display light pen selectable fields in a different color.
 and made TN3270E mode a configurable component.
 <br>Removed old <tt>ARGSUSED</tt> lint hints.
 <h2>
-<b>Changes in x3270 3.2.9, 26. June 2000</b></h2>
+Changes in x3270 3.2.9, 26. June 2000</h2>
 Fixed requesting the wrong LU after switching between TN3270E and TN3270
 modes.
 <br>Changed the resource file format back to using "x3270" as a consistent
@@ -129,7 +138,7 @@ action.
 <br>Added stricter enforcement of user-specified LUs.
 <br>Fixed a nit in tracing Query Reply options.
 <h2>
-<b>Changes in x3270 3.2.8, 1. June 2000</b></h2>
+Changes in x3270 3.2.8, 1. June 2000</h2>
 Fixed a problem with initial host connection negotation, when using a script
 (x3270 -script, s3270 or tcl3270) and talking to a non-TN3270E host.
 <br>Added lefttack and righttack definitions to the apl keymap.
@@ -138,7 +147,7 @@ action.
 <br>Added a disconnectClear resource to control clearing the screen after
 a host disconnect.
 <h2>
-<b>Changes in x3270 3.2.7, 30. May 2000</b></h2>
+Changes in x3270 3.2.7, 30. May 2000</h2>
 Fixed a problem with compiling kybd.c on X11R5.
 <br>Fixed a problem with the <b>util</b> library on Solaris and AIX.
 <br>Fixed several problems with TN3270E SSCP-LU mode: garbled input to
@@ -153,7 +162,7 @@ keymap.
 <br>Added the file <tt>localdefs.h</tt>, to better isolate X11 dependencies
 for <b>s3270</b> and <b>tcl3270</b>.
 <h2>
-<b>Changes in x3270 3.2.6, 19. May 2000</b></h2>
+Changes in x3270 3.2.6, 19. May 2000</h2>
 Fixed a problem with displaying TN3270E options in the "About" pop-up,
 even if TN3270E mode had not been negotiated.
 <br>Added Sharp APL characters <b>dieresisjot</b>, <b>dieresiscircle</b>,
@@ -163,13 +172,13 @@ and <b>braceright</b>.
 <br>Added cut-and-paste of EBCDIC DUP and FM characters.
 <br>Changed x3270.man.html to x3270-man.html.
 <h2>
-<b>Changes in x3270 3.2.5, 15. May 2000</b></h2>
+Changes in x3270 3.2.5, 15. May 2000</h2>
 Fixed a problem with scripts hanging in TN3270E SSCP-LU mode.
 <h2>
-<b>Changes in x3270 3.2.4, 8. May 2000</b></h2>
+Changes in x3270 3.2.4, 8. May 2000</h2>
 Functionally identical to x3270 3.2A3.
 <h2>
-<b>Changes in x3270 3.2A3, 2. May 2000</b></h2>
+Changes in x3270 3.2A3, 2. May 2000</h2>
 Added support for the Greek character set and a Greek font, <b>3270gr</b>.
 <br>Fixed problems with font and color scheme checkboxes not being updated
 in the menu bar.
@@ -178,19 +187,19 @@ in the menu bar.
 during certain TN3270E mode switches.
 <br>Added TN3270E state to the data stream trace data.
 <h2>
-<b>Changes in x3270 3.2A2, 27. April 2000</b></h2>
+Changes in x3270 3.2A2, 27. April 2000</h2>
 Due to problems with servers that do not support basic TN3270E, added support
 for TN3270E options RESPONSES, SYSREQ and BIND-IMAGE.
 <br>Removed disconnect logic when an invalid TN3270E message is received.
 <br>Fixed a problem with ignoring the <tt>ibm_hosts</tt> file.
 <h2>
-<b>Changes in x3270 3.2A1, 9. December 1999</b></h2>
+Changes in x3270 3.2A1, 9. December 1999</h2>
 Added basic TN3270E support.
 <h2>
-<b>Changes in x3270 3.2A0, 15. March 1999</b></h2>
+Changes in x3270 3.2A0, 15. March 1999</h2>
 
 <h3>
-<b>Internal Changes</b></h3>
+Internal Changes</h3>
 The primary focus of the reorganzation is modularity. For example, through
 the new <tt><font size=+1>parts.h</font></tt> header file, it is now possible
 to build subsets of x3270, excluding one or more of the following features:
@@ -228,7 +237,7 @@ changes, instead of explicit calls from one module to another.
 where appropriate.
 <p>Support for X11R4 and K&amp;R C compilers has been dropped.
 <h3>
-<b>External Changes</b></h3>
+External Changes</h3>
 Basic TN3270E is now supported. TN3270E printers are not supported.
 <p>On systems that support the <i>forkpty</i>() library call (such as BSD-derived
 systems and Linux), x3270 supports local processes.

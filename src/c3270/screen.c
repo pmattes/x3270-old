@@ -146,8 +146,11 @@ screen_init(void)
 		start_color();
 		if (has_colors() && COLORS >= 8)
 			defattr = get_color_pair(COLOR_BLUE, COLOR_BLACK);
-		else
+		else {
 			appres.m3279 = False;
+			/* Get the terminal name right. */
+			set_rows_cols(model_num, want_ov_cols, want_ov_rows);
+		}
 	}
 
 	/* Set up the controller. */

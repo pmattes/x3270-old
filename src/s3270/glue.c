@@ -309,7 +309,11 @@ parse_options(int *argcp, char **argv)
 	/* Set the defaults. */
 	appres.mono = False;
 	appres.extended = True;
+#if defined(C3270) /*[*/
 	appres.m3279 = True;
+#else /*][*/
+	appres.m3279 = False;
+#endif /*]*/
 	appres.modified_sel = False;
 	appres.apl_mode = False;
 #if defined(C3270) || defined(TCL3270) /*[*/

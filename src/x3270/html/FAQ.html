@@ -1,8 +1,12 @@
-<HTML>
-<TITLE>x3270 Frequently Asked Questions</TITLE>
-<H1>x3270 Frequently Asked Questions</H1>
+<html>
+<head>
+<title>x3270 Frequently Asked Questions</title>
+<link HREF="http://www.w3.org/StyleSheets/Core/Steely" TYPE="text/css" REL="stylesheet">
+</head>
+<body>
+<h1>x3270 Frequently Asked Questions</h1>
 
-If you have a problem building, installing, or running x3270, please browse
+If you have a problem building, installing, or running <b>x3270</b>, please browse
 through this file first.
 
 <H2>GENERAL QUESTIONS</H2>
@@ -12,7 +16,7 @@ through this file first.
     Yes.  Full copyright information is in the
     <A HREF="Lineage.html">Lineage</A> file, but the gist
     is that anyone is free to use the code, but not to sell it.  This was
-    not clear in earlier versions of x3270, but it is explicit here.
+    not clear in earlier versions of <b>x3270</b>, but it is explicit here.
 <P>
     You are also free to modify it and to distribute it, provided you include
     the existing copyright notices, and don't profit from it.
@@ -30,7 +34,7 @@ through this file first.
 <H3>Make reports: Fatal error: Don't know how to make target `FontObj(3270)'.</H3>
 
     This generally means that you are running X11R4, rather than X11R5 or
-    X11R6.  x3270 3.2 does not run under X11R4.
+    X11R6.  <b>x3270</b> 3.2 does not run under X11R4.
 
 <H2>FATAL COMPILE ERRORS</H2>
 
@@ -62,7 +66,7 @@ through this file first.
 </PRE>
 
     The prototype arguments for XtVaAppInitialize in <X11/Intrinsic.h> changed
-    between X11R4 and X11R5.  x3270 uses the newer version, but will work just
+    between X11R4 and X11R5.  <b>x3270</b> uses the newer version, but will work just
     fine with R4.  You can ignore the warning.  Other compiler warnings are
     indeed of interest and should be reported.
 
@@ -71,8 +75,8 @@ through this file first.
 <H3>x3270 reports: "Warning: emulatorFont '3270' doesn't exist, using default
 		font"</H3>
 
-    One of the trickier areas; x3270 uses its own fonts to replicate a
-    life-like IBM 3270.  This is not fatal, however; x3270 can use any fixed-
+    One of the trickier areas; <b>x3270</b> uses its own fonts to replicate a
+    life-like IBM 3270.  This is not fatal, however; <b>x3270</b> can use any fixed-
     width X font.  If it can't find its own font, it defaults to "fixed".
 <P>
     The simplest probem to fix is that you haven't told your X server that
@@ -87,7 +91,7 @@ through this file first.
     Font Path:
       /usr/lib/X11/fonts/misc/,/usr/lib/X11/fonts/Speedo/,/usr/lib/X11/fonts/75dpi/,/usr/lib/X11/fonts/100dpi/
 </PRE>
-    x3270's fonts are usually installed in /usr/lib/X11/fonts/misc.  If this
+    <b>x3270</b>'s fonts are usually installed in /usr/lib/X11/fonts/misc.  If this
     (or some variation on it) does not appear in the "xset q" output, you can
     try:
 <PRE>
@@ -102,21 +106,21 @@ through this file first.
 
 <H3>x3270 isn't paying any attention to my keymap definition.</H3>
 
-    There are two likely causes for this problem: either x3270 isn't seeing
+    There are two likely causes for this problem: either <b>x3270</b> isn't seeing
     your keymap definition, or there is something wrong with the definition
     itself.
 <P>
-    You can tell exactly which keymap and keymap modifiers x3270 is using with
+    You can tell exactly which keymap and keymap modifiers <b>x3270</b> is using with
     the "About x3270" option on the "Options" menu.  There is an entry labeled
     "Keyboard map:" which lists the keymap(s) in effect.  If yours is missing,
     there are a number of possible causes:
 <UL>
 <LI>
-    There is a hierarchy of places that x3270 looks for the keymap list,
+    There is a hierarchy of places that <b>x3270</b> looks for the keymap list,
       and the one you are assuming may not be the one it finds.  In the
       following list, earlier objects override those below:
 <UL>
-	<LI>The -keymap swicth on the command line.
+	<LI>The -keymap switch on the command line.
 	<LI>The definition of "x3270.keymap" in your .Xdefaults file.
 	<LI>The KEYMAP environment variable.
 	<LI>The KEYBD environment variable.
@@ -134,7 +138,7 @@ through this file first.
     <LI>A keymap definition is in two parts, the name of the keymap and the
       definition of the keymap.  The "x3270.keymap" resource controls the name
       of the keymap; then for each keymap type "x" there must be an additional
-      resourced named "x3270.keymap.x".  If this definition is missing, x3270
+      resourced named "x3270.keymap.x".  If this definition is missing, <b>x3270</b>
       will not recognize the keymap.
 <LI>
     One other cause of missed keymaps is the symbol "sun" defined by the
@@ -175,16 +179,16 @@ through this file first.
 
 <H3>x3270 is misbehaving on a certain application.</H3>
 
-    If x3270 produces a different display or interaction than a real 3270 or
-    some other emulator, it is entirely possible that x3270 is at fault.
+    If <b>x3270</b> produces a different display or interaction than a real 3270 or
+    some other emulator, it is entirely possible that <b>x3270</b> is at fault.
     What you can do to help debug it is to capture a trace of the session.
     The easiest way to do this is:
 <PRE>
     x3270 -trace
 </PRE>
-    x3270 will create a trace file in /usr/tmp, which will contain a dump of
-    all of the data that x3270 sent or received, along with its interpretation.
-    x3270 will also pop up a window to view the file while it is being created;
+    <b>x3270</b> will create a trace file in /tmp, which will contain a dump of
+    all of the data that <b>x3270</b> sent or received, along with its interpretation.
+    <b>x3270</b> will also pop up a window to view the file while it is being created;
     the title of that window is the full pathname of the trace file.  If you
     are familiar with the 3270 Data Stream protocol, you may be able to figure
     out the problem yourself; otherwise, after suitable editing to remove
@@ -199,12 +203,12 @@ through this file first.
 
 <H3>There is no termcap entry for "IBM-3278-xxx"</H3>
 
-    If you log into a non-IBM host with x3270, your TERM variable will be
+    If you log into a non-IBM host with <b>x3270</b>, your TERM variable will be
     set to "IBM-327x", which is not especially useful for running programs
     like vi.
 <P>
     One solution is to set your TERM variable to "xterm" after you log in,
-    and to set the number of lines and columns to match the current x3270
+    and to set the number of lines and columns to match the current <b>x3270</b>
     model number (this is done through the "stty" command or with environment
     variables, depending on your system).
 <P>
@@ -220,19 +224,19 @@ through this file first.
 <H3>My screen isn't being drawn properly</H3>
 
     There is a bug in certain versions of the Linux Mach32 X server, which
-    causes the x3270 screen to be drawn incompletely.  The screen image can
+    causes the <b>x3270</b> screen to be drawn incompletely.  The screen image can
     be restored by iconifying and un-iconifying the window.
 <P>
-    x3270 can be modified to work around this problem.  An unfortunate
+    <b>x3270</b> can be modified to work around this problem.  An unfortunate
     side-effect is that it will no longer be able to display APL characters,
     or line-drawing characters with any of the 3270 fonts.
 <P>
-    To rebuild x3270 to work around this bug, edit the Imakefile and add a
+    To rebuild <b>x3270</b> to work around this bug, edit the Imakefile and add a
     line at the top:
 <PRE>
     EXTRA_DEFINES = -DBROKEN_MACH32
 </PRE>
-    Then rebuild the makefile, the module "screen.o", and x3270:
+    Then rebuild the makefile, the module "screen.o", and <b>x3270</b>:
 <PRE>
     rm screen.o
     xmkmf
@@ -242,17 +246,17 @@ through this file first.
 
 <H2>GETTING HELP</H2>
 
-    If you are still having a problem with x3270, feel free to send e-mail to
+    If you are still having a problem with <b>x3270</b>, feel free to send e-mail to
     Paul Mattes, <A HREF="mailto:Paul.Mattes@usa.net"><B>Paul.Mattes@usa.net</B></A>
     No guarantees are made about responses to
     particular problems, but a patches are usually forthcoming in a few days.
-    It will also get you on an x3270 mailing list, where you can find out
+    You can also ask to be added to the <b>x3270</b> mailing list, where you can find out
     about new releases and bug fixes.
 <P>
-    When you send a question about x3270, please include the following
+    When you send a question about <b>x3270</b>, please include the following
     information.  It makes it much easier to narrow down the problem.
 <OL>
-    <LI> The version of x3270 you are using, including all patches, e.g.,
+    <LI> The version of <b>x3270</b> you are using, including all patches, e.g.,
         "3.1.0.0".  This is displayed at the top of the "About x3270" pop-up.
 
     <LI> What kind of machine you are running on, e.g., "Sun SPARC-10".
@@ -269,3 +273,5 @@ through this file first.
     are also welcome.  Code changes for bug fixes and enhancements are also
     welcome, provided that you don't mind your code being placed (often
     anonymously) in the public domain.
+</body>
+</html>

@@ -98,6 +98,10 @@
 #define  SF_SRM_FIELD	0x00	/*  field */
 #define  SF_SRM_XFIELD	0x01	/*  extended field */
 #define  SF_SRM_CHAR	0x02	/*  character */
+#define SF_CREATE_PART	0x0c	/* create partition */
+#define  CPFLAG_PROT	0x40	/*  protected flag */
+#define  CPFLAG_COPY_PS	0x20	/*  local copy to presentation space */
+#define  CPFLAG_BASE	0x07	/*  base character set index */
 #define SF_OUTBOUND_DS	0x40	/* outbound 3270 DS */
 #define SF_TRANSFER_DATA 0xd0   /* file transfer open request */
 

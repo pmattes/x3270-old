@@ -1,5 +1,5 @@
 '\" t
-.TH tcl3270 1 "23 December 2000"
+.TH tcl3270 1 "26 December 2000"
 .SH "NAME"
 tcl3270 \-
 \s-1IBM\s+1 host access tool
@@ -582,4 +582,4 @@ notice.
 .RE
 5250 Emulation Code Copyright Minolta (Schweiz) AG, Beat Rubischon.
 .SH "VERSION"
-tcl3270 3.2.15k
+tcl3270 3.2.15

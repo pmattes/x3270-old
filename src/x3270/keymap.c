@@ -355,7 +355,7 @@ add_keymap(const char *name, Boolean do_popup)
 			add_trans(buf_nvt + strlen(ResKeymap) + 1,
 			    translations_nvt, CN, is_from_server);
 		else if (translations != CN)
-			add_trans(name, translations, CN, is_from_server);
+			add_trans(buf, translations, CN, is_from_server);
 		XtFree(buf);
 		XtFree(buf_nvt);
 	}

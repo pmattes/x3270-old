@@ -1,5 +1,5 @@
 '\" t
-.TH c3270 1 "16 November 2000"
+.TH c3270 1 "26 December 2000"
 .SH "NAME"
 c3270 \-
 curses-based 
@@ -109,8 +109,8 @@ A 3279 always uses the Extended Data Stream (whether or not \fB\-E\fP
 is specified); for a 3278 it is optional.
 .IP
 The default model
-is
-\fB3279\-4\-E\fP.
+for a color display is \fB3279\-4\-E\fP.
+For a monochrome display, it is \fB3278\-4\-E\fP.
 .TP
 \fB\-mono\fP
 Forces 3278 emulation.
@@ -141,7 +141,8 @@ below.
 Specifies the terminal name to be transmitted over the telnet connection.
 The default name is
 \fBIBM\-\fP\fImodel_name\fP,
-for example, \fBIBM\-3279\-4\-E\fP
+for example,
+\fBIBM\-3279\-4\-E\fP 
 for a color display, or
 \fBIBM\-3278\-4\-E\fP
 for a monochrome display.
@@ -831,4 +832,4 @@ notice.
 .RE
 5250 Emulation Code Copyright Minolta (Schweiz) AG, Beat Rubischon.
 .SH "VERSION"
-c3270 3.2.14
+c3270 3.2.15
