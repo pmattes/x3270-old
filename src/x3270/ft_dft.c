@@ -1,5 +1,5 @@
 /*
- * Modifications Copyright 1996 by Paul Mattes.
+ * Modifications Copyright 1996, 1999 by Paul Mattes.
  * Copyright Octover 1995 by Dick Altenbern.
  * Based in part on code Copyright 1993, 1994, 1995 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
@@ -15,6 +15,7 @@
  */
 
 #include "globals.h"
+#include <string.h>
 
 #include "3270ds.h"
 #include "ft_dft_ds.h"
@@ -263,7 +264,7 @@ struct data_buffer *data_bufr;
 			char *buf;
 
 			buf = xs_buffer("write(%s): %s", ft_local_filename,
-			    local_strerror(errno));
+			    strerror(errno));
 
 			dft_abort(buf, TR_DATA_INSERT);
 			XtFree(buf);
@@ -401,8 +402,7 @@ dft_get_request()
 				char *buf;
 
 				buf = xs_buffer("read(%s): %s",
-					ft_local_filename,
-					local_strerror(errno));
+				    ft_local_filename, strerror(errno));
 				dft_abort(buf, TR_GET_REQ);
 			}
 		}

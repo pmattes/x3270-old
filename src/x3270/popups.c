@@ -14,6 +14,7 @@
  */
 
 #include "globals.h"
+#include <string.h>
 #include <X11/Shell.h>
 #include <X11/StringDefs.h>
 #include <X11/Xaw/Command.h>
@@ -498,14 +499,6 @@ va_dcl
 {
 	va_list args;
 	char *s;
-	extern int sys_nerr;
-#if !defined(__FreeBSD__)
-#if !defined(linux)
-	extern char *sys_errlist[];
-#else
-	extern const char *sys_errlist[];
-#endif
-#endif
 
 #if defined(__STDC__)
 	va_start(args, fmt);
@@ -519,12 +512,9 @@ va_dcl
 	(void) vsprintf(vmsgbuf, fmt, args);
 	s = XtNewString(vmsgbuf);
 
-	if (errn > 0) {
-		if (errn < sys_nerr)
-			popup_an_error("%s:\n%s", s, sys_errlist[errn]);
-		else
-			popup_an_error("%s:\nError %d", s, errn);
-	} else
+	if (errn > 0)
+		popup_an_error("%s:\n%s", s, strerror(errn));
+	else
 		popup_an_error(s);
 	XtFree(s);
 }

@@ -567,37 +567,19 @@ int	c;
 }
 
 /*
- * Handle the permutations of strerror().
- *
- * Most systems implement strerror(), but some common ones (such as SunOS 4)
- * don't.  There is no way to reliably detect this, so we have to implement
- * our own, using sys_nerr and sys_errlist[].
- *
- * sys_nerr and sys_errlist[] are often declared in <errno.h>; however, many
- * systems (such as SunOS 5) do not, so we have to declare them explicitly
- * here.
- *
- * Finally, some systems (such as FreeBSD) use a different declaration for
- * sys_errlist[], so our declaration has to be conditional.
+ * SunOS 4 does not define strerror(), so we must define one here.
+ * (Change the #if statement, if your OS needs this definition as well.)
  */
-
-#if defined(__STDC__)
-const
-#endif
+#if defined(sun) && !defined(SVR4)
 char *
-local_strerror(e)
+strerror(e)
 int e;
 {
 	extern int sys_nerr;
-#if !defined(__FreeBSD__)
-#if !defined(linux)
 	extern char *sys_errlist[];
-#else
-	extern const char *sys_errlist[];
-#endif
-#endif
 
 	if (e < 0 || e >= sys_nerr)
 		return "Undefined Error";
 	return sys_errlist[e];
 }
+#endif

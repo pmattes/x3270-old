@@ -1,5 +1,5 @@
 /*
- * Copyright 1993, 1994, 1995, 1996 by Paul Mattes.
+ * Copyright 1993, 1994, 1995, 1996, 1999 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -745,7 +745,7 @@ Boolean is_login;
 		sms->is_login = True;
 	} else
 		sms->state = SS_INCOMPLETE;
-	if (sms_depth == 1)
+	if (sms_depth > 0)
 		sms_continue();
 }
 
@@ -769,7 +769,7 @@ Boolean is_hex;
 	} else
 		sms->state = SS_INCOMPLETE;
 	sms->is_hex = is_hex;
-	if (sms_depth == 1)
+	if (sms_depth > 0)
 		sms_continue();
 }
 

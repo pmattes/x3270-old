@@ -1,5 +1,5 @@
 /*
- * Copyright 1996 by Paul Mattes.
+ * Copyright 1996, 1999 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -13,6 +13,7 @@
  */
 
 #include <errno.h>
+#include <string.h>
 
 #include "globals.h"
 #include "ctlr.h"
@@ -365,7 +366,7 @@ cut_data_request()
 
 		/* Abort the transfer. */
 		msg = xs_buffer("read(%s): %s", ft_local_filename,
-		    local_strerror(errno));
+		    strerror(errno));
 		cut_abort(msg, SC_ABORT_FILE);
 		XtFree(msg);
 		return;
@@ -466,7 +467,7 @@ cut_data()
 		char *msg;
 
 		msg = xs_buffer("write(%s): %s", ft_local_filename,
-		    local_strerror(errno));
+		    strerror(errno));
 		cut_abort(msg, SC_ABORT_FILE);
 		XtFree(msg);
 	} else {

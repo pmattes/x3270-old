@@ -16,11 +16,6 @@ extern char *ctl_see();
 extern char *do_subst();
 extern char *get_message();
 extern char *get_resource();
-#if defined(__STDC__)
-extern const char *local_strerror();
-#else
-extern char *local_strerror();
-#endif
 extern int split_dresource();
 extern int split_lresource();
 #if defined(__STDC__)

@@ -626,6 +626,16 @@ unsigned char c;
 				(void) sprintf(trace_msg, "SENT %s %s\n",
 				    cmd(DO), opt(c));
 				trace_str(trace_msg);
+				/* For UTS, volunteer to do EOR when they do. */
+				if (c == TELOPT_EOR && !myopts[c]) {
+					myopts[c] = 1;
+					will_opt[2] = c;
+					net_rawout(will_opt, sizeof(will_opt));
+					(void) sprintf(trace_msg,
+					    "SENT %s %s\n",
+					    cmd(WILL), opt(c));
+					trace_str(trace_msg);
+				}
 				check_in3270();
 				check_linemode(False);
 			}

@@ -1,6 +1,6 @@
 x3270 Version 3.1.1 -- New Features and Bug Fixes
 
-x3270 3.1.1.8 is functionally identical to x3270 3.1.0.7, with the
+x3270 3.1.1.9 is functionally identical to x3270 3.1.0.7, with the
 following exceptions:
 
 IND$FILE File Transfer Support
@@ -105,3 +105,11 @@ Changes Since x3270 3.1.1.7
    * Updated the contact e-mail addresses and LSM entry.
    * Added the AS/400 Interrupt() action, and copyright changes suggested
      by Carey Evans.
+
+Changes Since x3270 3.1.1.8
+
+   * Fixed a problem with connection to Amdahl UTS hosts (found by John
+     Tomasetti).
+   * Fixed a problem with macro/srcript interactions (fix submitted by Leon
+     Avery).
+   * Removed use of sys_errlist[].

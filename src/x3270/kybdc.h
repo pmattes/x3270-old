@@ -49,6 +49,7 @@ extern void FieldEnd_action();
 extern void FieldExit_action();
 extern void FieldMark_action();
 extern void Flip_action();
+extern void hex_input();
 extern void HexString_action();
 extern void Home_action();
 extern void ignore_action();
