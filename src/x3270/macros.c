@@ -1327,10 +1327,6 @@ dump_range(int first, int len, Boolean in_ascii, struct ea *buf,
 	Boolean any = False;
 	char *linebuf;
 	char *s;
-	Boolean did_left = False;
-#if defined(X3270_DBCS) /*[*/
-	unsigned char euc[2];
-#endif /*]*/
 
 	linebuf = Malloc(maxCOLS * 3 + 1);
 	s = linebuf;
@@ -1356,21 +1352,23 @@ dump_range(int first, int len, Boolean in_ascii, struct ea *buf,
 
 #if defined(X3270_DBCS) /*[*/
 			if (IS_LEFT(ctlr_dbcs_state(first + i))) {
-				dbcs_to_wchar(buf[first + i].cc,
+				int len;
+				char mb[16];
+				int j;
+
+				len = dbcs_to_mb(buf[first + i].cc,
 					      buf[first + i + 1].cc,
-					      euc);
-				c = euc[0];
-				did_left = True;
+					      mb);
+				for (j = 0; j < len; j++) {
+					s += sprintf(s, "%c", mb[j]);
+				}
+				continue;
 			} else if (IS_RIGHT(ctlr_dbcs_state(first + i))) {
-				if (!did_left)
-					continue;
-				c = euc[1];
-				did_left = False;
+				continue;
 			} else
 #endif /*]*/
 			{
 				c = ebc2asc[buf[first + i].cc];
-				did_left = False;
 			}
 			s += sprintf(s, "%c", c ? c : ' ');
 		} else {
@@ -2475,6 +2473,7 @@ Abort_action(Widget w unused, XEvent *event unused, String *params,
 	abort_script();
 }
 
+#if defined(X3270_SCRIPT) /*[*/
 /* Accumulate command execution time. */
 void
 sms_accumulate_time(struct timeval *t0, struct timeval *t1)
@@ -2488,3 +2487,4 @@ sms_accumulate_time(struct timeval *t0, struct timeval *t1)
 #endif /*]*/
     }
 }
+#endif /*]*/

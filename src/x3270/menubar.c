@@ -99,6 +99,9 @@ static void scheme_init(void);
 static void charsets_init(void);
 static void options_menu_init(Boolean regen, Position x, Position y);
 static void keypad_button_init(Position x, Position y);
+#if defined(HAVE_LIBSSL) /*[*/
+static void ssl_icon_init(Position x, Position y);
+#endif /*]*/
 static void connect_menu_init(Boolean regen, Position x, Position y);
 static void macros_menu_init(Boolean regen, Position x, Position y);
 static void file_menu_init(Boolean regen, Dimension x, Dimension y);
@@ -120,6 +123,9 @@ static void menubar_charset(Boolean ignored unused);
 #include "diamond.bm"
 #include "no_diamond.bm"
 #include "ky.bm"
+#if defined(HAVE_LIBSSL) /*[*/
+#include "ssl.bm"
+#endif /*]*/
 #include "null.bm"
 
 
@@ -141,6 +147,9 @@ static Widget	lu_button;
 static Widget	printer_off_button;
 #endif /*]*/
 static Widget   connect_button;
+#if defined(HAVE_LIBSSL) /*[*/
+static Widget   ssl_icon;
+#endif /*]*/
 static Widget   keypad_button;
 static Widget   linemode_button;
 static Widget   charmode_button;
@@ -301,6 +310,18 @@ menubar_init(Widget container, Dimension overall_width, Dimension current_width)
 	    LEFT_MARGIN + CN_OFFSET*(KEY_WIDTH+2*BORDER+SPACING),
 	    TOP_MARGIN);
 
+#if defined(HAVE_LIBSSL) /*[*/
+	/* SSL icon */
+
+	ssl_icon_init(
+	    (Position) (current_width - LEFT_MARGIN -
+#if defined(X3270_KEYPAD) /*[*/
+			    (ky_width+8) -
+#endif /*]*/
+			    4*BORDER - 2*MENU_BORDER - (ssl_width+8)),
+	    TOP_MARGIN);
+#endif /*]*/
+
 #if defined(X3270_KEYPAD) /*[*/
 	/* Keypad button */
 
@@ -418,6 +439,13 @@ menubar_connect(Boolean ignored unused)
 	if (m3279_button != (Widget)NULL)
 		XtVaSetValues(m3279_button, XtNsensitive, !PCONNECTED,
 		    NULL);
+
+#if defined(HAVE_LIBSSL) /*[*/
+	if (CONNECTED && ssl_host)
+		XtMapWidget(ssl_icon);
+	else
+		XtUnmapWidget(ssl_icon);
+#endif /*]*/
 }
 
 #if defined(X3270_PRINTER) /*[*/
@@ -1086,9 +1114,44 @@ keypad_button_init(Position x, Position y)
 }
 #endif /*]*/
 
+#if defined(HAVE_LIBSSL) /*[*/
+static void
+ssl_icon_init(Position x, Position y)
+{
+	if (!menubar_buttons)
+		return;
+	if (ssl_icon == (Widget)NULL) {
+		Pixmap pixmap;
+
+		pixmap = XCreateBitmapFromData(display, root_window,
+		    (char *) ssl_bits, ssl_width, ssl_height);
+		ssl_icon = XtVaCreateManagedWidget(
+		    "sslIcon", labelWidgetClass, menu_parent,
+		    XtNbitmap, pixmap,
+		    XtNx, x,
+		    XtNy, y,
+		    XtNwidth, ssl_width+8,
+		    XtNheight, KEY_HEIGHT,
+		    XtNmappedWhenManaged, CONNECTED && ssl_host,
+		    NULL);
+	} else {
+		XtVaSetValues(ssl_icon, XtNx, x, NULL);
+	}
+}
+#endif /*]*/
+
 void
 menubar_resize(Dimension width)
 {
+#if defined(HAVE_LIBSSL) /*[*/
+	ssl_icon_init(
+	    (Position) (width - LEFT_MARGIN -
+#if defined(X3270_KEYPAD) /*[*/
+			    (ky_width+8) -
+#endif /*]*/
+			    4*BORDER - 2*MENU_BORDER - (ssl_width+8)),
+	    TOP_MARGIN);
+#endif /*]*/
 #if defined(X3270_KEYPAD) /*[*/
 	keypad_button_init(
 	    (Position) (width - LEFT_MARGIN - (ky_width+8) - 2*BORDER),

@@ -71,7 +71,7 @@ fprint_screen(FILE *f, Boolean even_if_empty)
 
 	for (i = 0; i < ROWS*COLS; i++) {
 #if defined(X3270_DBCS) /*[*/
-		unsigned char wc[2];
+		char mb[16];
 		Boolean is_dbcs = False;
 #endif /*]*/
 
@@ -93,8 +93,7 @@ fprint_screen(FILE *f, Boolean even_if_empty)
 				c = ebc2asc[ea_buf[i].cc];
 				break;
 			case DBCS_LEFT:
-				dbcs_to_wchar(ea_buf[i].cc, ea_buf[i + 1].cc,
-				    wc);
+				dbcs_to_mb(ea_buf[i].cc, ea_buf[i + 1].cc, mb);
 				is_dbcs = True;
 				c = 'x';
 				break;
@@ -121,8 +120,7 @@ fprint_screen(FILE *f, Boolean even_if_empty)
 			}
 #if defined(X3270_DBCS) /*[*/
 			if (is_dbcs) {
-				(void) fputc(wc[0], f);
-				(void) fputc(wc[1], f);
+				(void) fputs(mb, f);
 				i++;
 			}
 			else

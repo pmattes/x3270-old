@@ -1,6 +1,6 @@
 Begin4
 Title:		c3270
-Version:	3.2.20
+Version:	3.3.1-alpha7
 Entered-date:	2003-02-14
 Description:	Curses-based 3270 Emulator
 		Complete IBM 3278/3279 emulation, TN3270E support, structured
@@ -11,6 +11,6 @@ Author:		Paul Mattes (Paul.Mattes@usa.net)
 		Robert Viduya
 Maintained-by:	Paul Mattes (Paul.Mattes@usa.net)
 Primary-site:	metalab.unc.edu /pub/Linux/system/network/misc/
-		405 KB c3270-3.2.20.tgz
+		537 KB c3270-3.3.1-alpha7.tgz
 Copying-policy:	GPL
 End

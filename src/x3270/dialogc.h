@@ -17,7 +17,7 @@
  *		Global declarations for dialog.c.
  */
 
-#if defined(X3270_MENUS) && defined(X3270_SCRIPT) /*[*/
+#if defined(X3270_MENUS) && defined(X3270_DISPLAY) /*[*/
 
 typedef struct sr {
 	struct sr *next;

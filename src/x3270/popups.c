@@ -399,6 +399,7 @@ struct rop {
 	Widget cancel_button;			/* cancel button */
 	abort_callback_t *cancel_callback;	/* callback for cancel button */
 	Boolean visible;			/* visibility flag */
+	Boolean moving;				/* move in progress */
 	struct rsm *rsms;			/* stored messages */
 };
 
@@ -406,37 +407,37 @@ static struct rop error_popup = {
 	"errorPopup", XtGrabExclusive, True, False,
 	"first line\nsecond line\nthird line",
 	NULL, NULL, NULL, NULL,
-	False, NULL
+	False, False, NULL
 };
 static struct rop info_popup = {
 	"infoPopup", XtGrabNonexclusive, False, False,
 	"first line\nsecond line\nthird line",
 	NULL, NULL, NULL, NULL,
-	False, NULL
+	False, False, NULL
 };
 
 static struct rop printer_error_popup = {
 	"printerErrorPopup", XtGrabExclusive, True, True,
 	"first line\nsecond line\nthird line\nfourth line",
-	NULL, NULL, NULL, NULL, False, NULL
+	NULL, NULL, NULL, NULL, False, False, NULL
 };
 static struct rop printer_info_popup = {
 	"printerInfoPopup", XtGrabNonexclusive, False, True,
 	"first line\nsecond line\nthird line\nfourth line",
 	NULL,
-	NULL, NULL, NULL, False, NULL
+	NULL, NULL, NULL, False, False, NULL
 };
 
 static struct rop child_error_popup = {
 	"childErrorPopup", XtGrabNonexclusive, True, True,
 	"first line\nsecond line\nthird line\nfourth line",
-	NULL, NULL, NULL, NULL, False, NULL
+	NULL, NULL, NULL, NULL, False, False, NULL
 };
 static struct rop child_info_popup = {
 	"childInfoPopup", XtGrabNonexclusive, False, True,
 	"first line\nsecond line\nthird line\nfourth line",
 	NULL,
-	NULL, NULL, NULL, False, NULL
+	NULL, NULL, NULL, False, False, NULL
 };
 
 /* Called when OK is pressed in a read-only popup */
@@ -473,6 +474,11 @@ rop_popdown(Widget w unused, XtPointer client_data, XtPointer call_data unused)
 {
 	struct rop *rop = (struct rop *)client_data;
 
+	if (rop->moving) {
+		rop->moving = False;
+		XtPopup(rop->shell, rop->grab);
+		return;
+	}
 	rop->visible = False;
 	if (exiting && rop->is_error)
 		x3270_exit(1);
@@ -775,29 +781,9 @@ Info_action(Widget w unused, XEvent *event, String *params,
 void
 popups_move(void)
 {
-	Position x = 0, y = 0;
-	Dimension win_width, win_height;
-	Dimension popup_width, popup_height;
-	Position xnew, ynew;
-
 	if (!error_popup.visible)
 		return;
 
-	toplevel_geometry(&x, &y, &win_width, &win_height);
-
-	XtVaGetValues(error_popup.shell,
-	    XtNwidth, &popup_width,
-	    XtNheight, &popup_height,
-	    NULL);
-	xnew = x + (win_width-popup_width) / (unsigned) 2;
-	if (xnew < 0)
-		xnew = 0;
-	ynew = y + (win_height-popup_height) / (unsigned) 2;
-	if (ynew < 0)
-		ynew = 0;
-	XtVaSetValues(error_popup.shell,
-	    XtNx, xnew,
-	    XtNy, ynew,
-	    NULL);
-	XRaiseWindow(display, XtWindow(error_popup.shell));
+	error_popup.moving = True;
+	XtPopdown(error_popup.shell);
 }

@@ -37,6 +37,7 @@
 #include <X11/cursorfont.h>
 #include <X11/keysym.h>
 #include <errno.h>
+#include <locale.h>
 #include "3270ds.h"
 #include "appres.h"
 #include "screen.h"
@@ -193,6 +194,8 @@ static struct {
 static void xim_init(void);
 XIM im;
 XIC ic;
+Boolean xim_error = False;
+char *locale_name = CN;
 int ovs_offset = 1;
 typedef struct {
 	XIMStyle style;
@@ -302,6 +305,8 @@ Boolean        *standard_font = &nss.standard_font;
 Boolean        *font_8bit = &nss.font_8bit;
 Boolean        *extended_3270font = &nss.extended_3270font;
 Boolean        *funky_font = &nss.funky_font;
+int            *xtra_width = &nss.xtra_width;
+Font           *fid = &nss.fid;
 
 /* Mouse-cursor state */
 enum mcursor_state { LOCKED, NORMAL, WAIT };
@@ -544,21 +549,19 @@ screen_reinit(unsigned cmask)
 		if (wdiff > 0) {
 			/* SBCS font is too wide */
 			dbcs_font.xtra_width = wdiff;
-			dbcs_font.char_width += wdiff;
 #if defined(_ST) /*[*/
 			printf("SBCS wider %d\n", wdiff);
 #endif /*]*/
 		} else if (wdiff < 0) {
 			/* SBCS font is too narrow */
 			if (wdiff % 2) {
+				nss.xtra_width = (-wdiff)/2 + 1;
 				dbcs_font.xtra_width = 1;
-				dbcs_font.char_width += 1;
 #if defined(_ST) /*[*/
 				printf("SBCS odd\n");
 #endif /*]*/
-			}
-			nss.xtra_width = -wdiff;
-			nss.char_width += -wdiff;
+			} else
+				nss.xtra_width = (-wdiff)/2;
 #if defined(_ST) /*[*/
 			printf("DBCS wider %d\n", -wdiff);
 #endif /*]*/
@@ -568,6 +571,8 @@ screen_reinit(unsigned cmask)
 			printf("Width matches.\n");
 #endif /*]*/
 		}
+		nss.char_width += nss.xtra_width;
+		dbcs_font.char_width += dbcs_font.xtra_width;
 
 		/* Compute height difference. */
 		hdiff = nss.char_height - dbcs_font.char_height;
@@ -598,7 +603,8 @@ screen_reinit(unsigned cmask)
 #if defined(_ST) /*[*/
 			printf("Ascent fudge %d\n", dbcs_font.ascent_fudge);
 #endif /*]*/
-		}
+		} else
+			dbcs_font.ascent_fudge = 0;
 	}
 #endif /*]*/
 
@@ -1445,6 +1451,7 @@ empty_space(register union sp *buffer, int len)
 		if (buffer->bits.gr ||
 		    buffer->bits.sel ||
 		    (buffer->bits.fg & INVERT_MASK) ||
+		    (buffer->bits.cs != CS_BASE) ||
 		    !BKM_ISSET(buffer->bits.cc))
 			return False;
 	}
@@ -1707,12 +1714,10 @@ render_text(union sp *buffer, int baddr, int len, Boolean block_cursor,
 		    case CS_APL:	/* GE (apl) */
 			if (ss->extended_3270font) {
 				rt_buf[j].byte1 = 1;
-				rt_buf[j].byte2 = ebc2asc0[buffer[i].bits.cc];
-				 /* XXX: Wrong. */
+				rt_buf[j].byte2 = ebc2cg0[buffer[i].bits.cc];
 			} else {
 				rt_buf[j].byte1 = 0;
 				rt_buf[j].byte2 = ge2asc[buffer[i].bits.cc];
-				 /* XXX: Quite likely wrong. */
 			}
 			j++;
 			break;
@@ -2113,7 +2118,7 @@ draw_fields(union sp *buffer, int first, int last)
 					else
 						b.bits.cs = field_ea->cs;
 					if (b.bits.cs & CS_GE)
-						b.bits.cs = 1;
+						b.bits.cs = CS_APL;
 					else if ((b.bits.cs & CS_MASK) !=
 						    CS_DBCS ||
 						 d != DBCS_NONE)
@@ -2432,9 +2437,17 @@ redraw_char(int baddr, Boolean invert)
 	if (!invert) {
 		int flb = fl_baddr(baddr);
 
-		/* Simply put back what belongs there. */
+		/*
+		 * Put back what belongs there.
+		 * Note that the cursor may have been covering a DBCS character that is no longer
+		 * DBCS, so if we're not at the right margin, we should redraw two positions.
+		 */
 #if defined(_ST) /*[*/
 		printf("%s:%d: rt%s\n", __FUNCTION__, __LINE__, rcba(flb));
+#endif /*]*/
+#if defined(X3270_DBCS) /*[*/
+		if (dbcs && ((baddr % COLS) != (COLS - 1)) && len == 1)
+			len = 2;
 #endif /*]*/
 		render_text(&ss->image[flb], flb, len, False, &ss->image[flb]);
 		return;
@@ -2452,7 +2465,7 @@ redraw_char(int baddr, Boolean invert)
 	buffer[0].bits.cc = ea_buf[baddr].cc;
 	buffer[0].bits.cs = ea_buf[baddr].cs;
 	if (buffer[0].bits.cs & CS_GE)
-		buffer[0].bits.cs = 1;
+		buffer[0].bits.cs = CS_APL;
 	else
 		buffer[0].bits.cs &= CS_MASK;
 
@@ -3773,7 +3786,7 @@ lff_single(const char *name, const char *reqd_display_charset, Boolean is_dbcs)
 {
 	XFontStruct *f, *g;
 	char **matches;
-	int count;
+	int count, mod_count;
 	Boolean force = False;
 	char *r;
 	const char *font_csname = "?";
@@ -3803,7 +3816,14 @@ lff_single(const char *name, const char *reqd_display_charset, Boolean is_dbcs)
 #if defined(DEBUG_FONTPICK) /*[*/
 	printf("%d fonts found for '%s'\n", count, name);
 #endif /*]*/
-	for (i = 0; i < count; i++) {
+	if (count > 1 && (strchr(name, '*') == NULL)) {
+#if defined(DEBUG_FONTPICK) /*[*/
+		printf("pretending 1\n");
+#endif /*]*/
+		mod_count = 1;
+	} else
+		mod_count = count;
+	for (i = 0; i < mod_count; i++) {
 #if defined(DEBUG_FONTPICK) /*[*/
 		printf("  %s\n", matches[i]);
 #endif /*]*/
@@ -3811,7 +3831,7 @@ lff_single(const char *name, const char *reqd_display_charset, Boolean is_dbcs)
 			    force, &font_csname, &scalable)) {
 			char *xp = expand_cslist(reqd_display_charset);
 
-			if (count == 1) {
+			if (mod_count == 1) {
 				if (scalable) {
 					r = xs_buffer("Font '%s'\nappears to be "
 						      "scalable\n"
@@ -3858,10 +3878,10 @@ lff_single(const char *name, const char *reqd_display_charset, Boolean is_dbcs)
 				 * When not searching, we'll take whatever
 				 * the user gives us, and adjust accordingly.
 				 */
-				if (count == 1 ||
+				if (mod_count == 1 ||
 				    (pixel_size ==
 					get_pixel_size(dbcs_font.font_struct) &&
-				     f[i].max_bounds.width ==
+				     (2 * f[i].max_bounds.width) ==
 					dbcs_font.font_struct->max_bounds.width )) {
 					best = i;
 					break;
@@ -4574,7 +4594,7 @@ init_rsfonts(char *charset_name)
 	 * If we've found at least one appropriate font from the list,
 	 * we're done.
 	 */
-	if (rsfonts != NULL)
+	if (rsfonts != NULL || dbcs)
 		return;
 
 	/* Add 'fixed' to the menu, so there's at least one alternative. */
@@ -5071,13 +5091,13 @@ xlate_dbcs(unsigned char c0, unsigned char c1, XChar2b *r)
 		r->byte1 = wc[0];
 		r->byte2 = wc[1];
 	} else {
-		/* Translate from DBCS to X11 EUC. */
-		dbcs_to_wchar(c0, c1, wc);
+		/* Translate from DBCS to the font encoding. */
+		dbcs_to_display(c0, c1, wc);
 		r->byte1 = wc[0] & 0x7f;
 		r->byte2 = wc[1] & 0x7f;
 	}
 #if defined(_ST) /*[*/
-	printf("EBC %02x%02x -> EUC X11 %02x%02x\n",
+	printf("EBC %02x%02x -> X11 font %02x%02x\n",
 		c0, c1, r->byte1, r->byte2);
 #endif /*]*/
 }
@@ -5187,14 +5207,38 @@ im_callback(Display *display, XPointer client_data, XPointer call_data)
 		int charset_count;
 		char *def_string;
 
-		fsname = xs_buffer("-*-%s,-*-iso8859-1", efont_charset_dbcs),
-		fontset = XCreateFontSet(display, fsname, &charset_list,
-				&charset_count, &def_string);
-		if (charset_count || fontset == NULL) {
-			popup_an_error("Cannot create fontset '%s' for input "
-			    "context\nXIM-based input disabled", fsname);
-			goto error_return;
-		}
+		fsname = xs_buffer("-*-%s,-*-iso8859-1", efont_charset_dbcs);
+		for (;;) {
+#if defined(_ST) /*[*/
+			printf("trying fsname: %s\n", fsname);
+#endif /*]*/
+			fontset = XCreateFontSet(display, fsname,
+					&charset_list, &charset_count,
+					&def_string);
+			if (charset_count || fontset == NULL) {
+				if (charset_count > 0) {
+					int i;
+
+					for (i = 0; i < charset_count; i++) {
+#if defined(_ST) /*[*/
+						printf("missing: %s\n",
+							charset_list[0]);
+#endif /*]*/
+						fsname = xs_buffer("%s,-*-%s",
+							fsname,
+							charset_list[i]);
+					}
+					continue;
+
+				}
+				popup_an_error("Cannot create fontset '%s' "
+					"for input context\n"
+					"XIM-based input disabled",
+					fsname);
+				goto error_return;
+			} else
+				break;
+		};
 
 		spot.x = 0;
 		spot.y = ovs_offset * nss.char_height;
@@ -5227,6 +5271,7 @@ im_callback(Display *display, XPointer client_data, XPointer call_data)
 	if (im != NULL) {
 		XCloseIM(im);
 		im = NULL;
+		xim_error = True;
 	}
 }
 
@@ -5244,28 +5289,42 @@ xim_init(void)
 {
 	char buf[1024];
 	static Boolean xim_initted = False;
+	char *s;
 
-	if (xim_initted)
+	if (!dbcs || xim_initted)
 		return;
-	else
-		xim_initted = True;
 
-	if (!dbcs || no_dbcs)
+	xim_initted = True;
+
+	s = setlocale(LC_CTYPE, "");
+	if (s != NULL)
+		s = NewString(s);
+	Replace(locale_name, s);
+	if (s == CN) {
+		popup_an_error("setlocale(LC_CTYPE) failed\n"
+		    "XIM-based input disabled");
+		xim_error = True;
 		return;
+	}
+	if (local_encoding == CN) {
+		popup_an_error("Local encoding not specified or unsuccessful\n"
+		    "XIM-based input disabled");
+		xim_error = True;
+		return;
+	}
 
 	(void) memset(buf, '\0', sizeof(buf));
 	if (appres.input_method != CN)
 		(void) sprintf(buf, "@im=%s", appres.input_method);
 	if (XSetLocaleModifiers(buf) == CN) {
-		popup_an_error("XSetLocaleModifiers failed\nDBCS disabled");
-		dbcs = False;
-		no_dbcs = True;
+		popup_an_error("XSetLocaleModifiers failed\n"
+		    "XIM-based input disabled");
+		xim_error = True;
 	} else if (XRegisterIMInstantiateCallback(display, NULL, NULL, NULL,
 				im_callback, NULL) != True) {
 		popup_an_error("XRegisterIMInstantiateCallback failed\n"
-			       "DBCS disabled");
-		dbcs = False;
-		no_dbcs = True;
+			       "XIM-based input disabled");
+		xim_error = True;
 	}
 	register_schange(ST_EXITING, cleanup_xim);
 	return;

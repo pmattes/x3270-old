@@ -26,8 +26,6 @@
 
 #include "globals.h"
 
-#include <locale.h>
-
 #include "resources.h"
 #include "appres.h"
 #include "cg.h"
@@ -138,30 +136,6 @@ charset_init(char *csname)
 	char *cs, *ftcs;
 	enum cs_result rc;
 	char *ccs, *cftcs;
-#if defined(X3270_DBCS) /*[*/
-	static Boolean locale_initted = False;
-#endif /*]*/
-
-#if defined(X3270_DBCS) /*[*/
-	/* Set up the locale. */
-	if (!locale_initted) {
-		if (setlocale(LC_CTYPE, "") == CN) {
-			popup_an_error("setlocale(LC_CTYPE) failed\n"
-				       "DBCS disabled");
-			no_dbcs = True;
-			dbcs = False;
-		}
-#if defined(X3270_DISPLAY) /*[*/
-		else if (XSupportsLocale() == False) {
-			popup_an_error("XSupportsLocale() failed\n"
-				       "DBCS disabled");
-			no_dbcs = True;
-			dbcs = False;
-		}
-#endif /*]*/
-		locale_initted = True;
-	}
-#endif /*]*/
 
 	/* Do nothing, successfully. */
 	if (csname == CN || !strcasecmp(csname, "us")) {
@@ -368,10 +342,12 @@ resource_charset(char *csname, char *cs, char *ftcs)
 		return CS_PREREQ;
 	}
 #else /*][*/
+#if defined(X3270_DBCS) /*[*/
 	if (n_rcs > 1)
 		dbcs = True;
 	else
 		dbcs = False;
+#endif /*]*/
 #endif /*]*/
 
 	/* Set up the cgcsgid. */
@@ -437,25 +413,6 @@ remap_one(unsigned char ebc, KeySym iso, remap_scope scope, Boolean one_way)
 		if (scope == BOTH || scope == CS_ONLY) {
 			cg = asc2cg[iso];
 
-#if 0
-			if (!one_way && iso != 0 && cg != 0) {
-				unsigned ebc2;
-
-				/* Remove duplicates. */
-				for (ebc2 = 0; ebc2 < 256; ebc2++) {
-					if (ebc2 != ebc && ebc2cg[ebc2] == cg) {
-#if defined(DEBUG_CHARSET) /*[*/
-						xs_warning("Removing X'%02X' "
-						    "(conflict with X'%02X' "
-						    "-> 0x%x%s)", ebc2, ebc,
-						    iso, char_if_ascii7(iso));
-#endif /*]*/
-						ebc2cg[ebc2] = 0;
-					}
-				}
-			}
-#endif
-
 			if (cg2asc[cg] == iso || iso == 0) {
 				/* well-defined */
 				ebc2cg[ebc] = cg;
@@ -505,7 +462,7 @@ remap_one(unsigned char ebc, KeySym iso, remap_scope scope, Boolean one_way)
 		}
 #endif /*]*/
 	} else {
-		add_xk(iso, (KeySym)cg2asc[ebc2cg[ebc]]);
+		add_xk(iso, (KeySym)ebc2asc[ebc]);
 	}
 }
 

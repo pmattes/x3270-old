@@ -1,5 +1,5 @@
 '\" t
-.TH x3270 1 "17 November 2002"
+.TH x3270 1 "14 February 2003"
 .SH "NAME"
 x3270 \-
 \s-1IBM\s+1 host access tool
@@ -34,6 +34,10 @@ See \fB\-tn\fP below for further information.
 .LP
 Prepending an \fBn:\fP onto \fIhostname\fP
 turns off TN3270E support for the session.
+.LP
+Prepending an \fBl:\fP onto \fIhostname\fP
+turns on SSL encryption for the session (if \fBx3270\fP was built
+with SSL support).
 .LP
 A specific LU name to use may be specified by prepending it to the
 \fIhostname\fP with an `\fB@\fP'.
@@ -290,7 +294,7 @@ for a monochrome X display.
 Some hosts are confused by the \fB\-E\fP
 suffix on the terminal name, and will ignore the extra screen area on
 models 3, 4 and 5.
-Prepending an \fB:s\fP on the hostname, or setting the "x3270.extended"
+Prepending an \fBs:\fP on the hostname, or setting the "x3270.extended"
 resource to "false", removes the \fB\-E\fP
 from the terminal name when connecting to such hosts.
 .IP
@@ -5579,8 +5583,7 @@ When compiled with DBCS support, \fBx3270\fP supports multi-byte input methods
 via the XIM protocol.
 .LP
 The input method is selected by the XMODIFIERS environment variable or the
-\fB\-im\fP command-line option, or implied by the LC_CTYPE
-category of the locale.
+\fB\-im\fP command-line option.
 .LP
 The preedit type is specified by the \fB\-pt\fP command-line option,
 with a default of \fBOverTheSpot+1\fP.
@@ -5700,4 +5703,4 @@ x3270 is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
 .SH "VERSION"
-x3270 3.3.1-alpha6
+x3270 3.3.1-alpha7

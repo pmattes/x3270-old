@@ -24,13 +24,13 @@
 #define ResAllowResize		"allowResize"
 #define ResAltCursor		"altCursor"
 #define ResAltScreen		"altScreen"
-#define ResAplFont		"aplFont"
 #define ResAplMode		"aplMode"
 #define ResAssocCommand		"printer.assocCommandLine"
 #define ResBaselevelTranslations	"baselevelTranslations"
 #define ResBellVolume		"bellVolume"
 #define ResBlankFill		"blankFill"
 #define ResBoldColor		"boldColor"
+#define ResCbreak		"cbreak"
 #define ResCharClass		"charClass"
 #define ResCharset		"charset"
 #define ResCharsetList		"charsetList"
@@ -82,6 +82,7 @@
 #define ResLabelIcon		"labelIcon"
 #define ResLineWrap		"lineWrap"
 #define ResLnext		"lnext"
+#define ResLocalEncoding	"localEncoding"
 #define ResLockedCursor		"lockedCursor"
 #define ResLuCommandLine	"printer.luCommandLine"
 #define ResM3279		"m3279"
@@ -138,6 +139,7 @@
 /* Dotted resource names. */
 #define DotActiveIcon		"." ResActiveIcon
 #define DotAplMode		"." ResAplMode
+#define DotCbreak		"." ResCbreak
 #define DotCharClass		"." ResCharClass
 #define DotCharset		"." ResCharset
 #define DotColorScheme		"." ResColorScheme
@@ -145,6 +147,7 @@
 #define DotEmulatorFont		"." ResEmulatorFont
 #define DotExtended		"." ResExtended
 #define DotInputMethod		"." ResInputMethod
+#define DotLocalEncoding	"." ResLocalEncoding
 #define DotKeymap		"." ResKeymap
 #define DotKeypadOn		"." ResKeypadOn
 #define DotM3279		"." ResM3279
@@ -169,12 +172,12 @@
 #define ClsAllBold		"AllBold"
 #define ClsAllowResize		"AllowResize"
 #define ClsAltCursor		"AltCursor"
-#define ClsAplFont		"AplFont"
 #define ClsAplMode		"AplMode"
 #define ClsBaselevelTranslations	"BaselevelTranslations"
 #define ClsBellVolume		"BellVolume"
 #define ClsBlankFill		"BlankFill"
 #define ClsBoldColor		"BoldColor"
+#define ClsCbreak		"Cbreak"
 #define ClsCharClass		"CharClass"
 #define ClsCharset		"Charset"
 #define ClsColor8		"Color8"
@@ -274,6 +277,7 @@
 #define OptAllBold		"-allbold"
 #define OptAltScreen		"-altscreen"
 #define OptAplMode		"-apl"
+#define OptCbreak		"-cbreak"
 #define OptCharClass		"-cc"
 #define OptCharset		"-charset"
 #define OptClear		"-clear"
@@ -289,6 +293,7 @@
 #define OptInputMethod		"-im"
 #define OptKeymap		"-keymap"
 #define OptKeypadOn		"-keypad"
+#define OptLocalEncoding	"-km"
 #define OptLocalProcess		"-e"
 #define OptM3279		"-color"
 #define OptModel		"-model"
@@ -301,6 +306,7 @@
 #define OptPrinterLu		"-printerlu"
 #define OptReconnect		"-reconnect"
 #define OptSaveLines		"-sl"
+#define OptSecure		"-secure"
 #define OptScripted		"-script"
 #define OptScrollBar		"-sb"
 #define OptSet			"-set"

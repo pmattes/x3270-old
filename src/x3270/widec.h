@@ -16,10 +16,18 @@
  *		Global declarations for wide.c.
  */
 
+#if defined(X3270_DBCS) /*[*/
+#include <unicode/ucnv.h>
+
 extern int wide_init(const char *csname);
-extern void wchar_to_dbcs(unsigned char c1, unsigned char c2,
-    unsigned char ebc[]);
-extern void dbcs_to_wchar(unsigned char ebc1, unsigned char ebc2,
+extern void dbcs_to_display(unsigned char ebc1, unsigned char ebc2,
     unsigned char c[]);
 extern void dbcs_to_unicode16(unsigned char ebc1, unsigned char ebc2,
     unsigned char c[]);
+
+extern int dbcs_to_mb(unsigned char ebc1, unsigned char ebc2, char *mb);
+extern int mb_to_unicode(char *mb, int mblen, UChar *u, int ulen,
+    UErrorCode *err);
+extern int dbcs_map8(UChar, unsigned char *);
+extern int dbcs_map16(UChar, unsigned char *);
+#endif /*]*/

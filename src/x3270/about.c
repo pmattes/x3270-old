@@ -348,6 +348,34 @@ popup_about_config(void)
 		    cgcsgid_dbcs & 0xffff);
 		MAKE_VALUE(xbuf);
 		XtFree(xbuf);
+		MAKE_LABEL(get_message("inputMethod"), 4);
+		if (appres.input_method) {
+			MAKE_VALUE(appres.input_method);
+		} else if (getenv("XMODIFIERS") != CN) {
+			MAKE_VALUE("(via environment)");
+		} else {
+			MAKE_VALUE("(unspecified)");
+		}
+		MAKE_LABEL2(get_message("ximState"));
+		if (xim_error)
+			ftype = get_message("ximDisabled");
+		else if (im == NULL)
+			ftype = get_message("ximNotFound");
+		else
+			ftype = get_message("ximActive");
+		MAKE_VALUE(ftype);
+		MAKE_LABEL2(get_message("ximLocale"));
+		if (locale_name != CN) {
+			MAKE_VALUE(locale_name);
+		} else {
+			MAKE_VALUE("(error)");
+		}
+		MAKE_LABEL2(get_message("ximEncoding"));
+		if (local_encoding != CN) {
+			MAKE_VALUE(local_encoding);
+		} else {
+			MAKE_VALUE("(error)");
+		}
 	}
 #endif /*]*/
 
@@ -477,6 +505,12 @@ popup_about_status(void)
 			(void) sprintf(fbuf, "%d", current_port);
 			MAKE_VALUE(fbuf);
 #if defined(LOCAL_PROCESS) /*[*/
+		}
+#endif /*]*/
+#if defined(HAVE_LIBSSL) /*[*/
+		if (ssl_host) {
+			(void) sprintf(fbuf, "%s", get_message("secure"));
+			MAKE_LABEL2(fbuf);
 		}
 #endif /*]*/
 		if (IN_E)

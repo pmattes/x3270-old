@@ -22,14 +22,16 @@ LOCAL_LIBRARIES = $(XAWLIB) $(XMULIB) $(XTOOLLIB) $(XLIB)
 		  keypad.c kybd.c macros.c main.c menubar.c popups.c \
 		  printer.c print.c resources.c save.c screen.c scroll.c \
 		  see.c select.c sf.c status.c tables.c toggles.c telnet.c \
-		  trace_ds.c util.c @WIDE_C@ xio.c
+		  trace_ds.c util.c xio.c \
+		  @DBCS_C@
           VOBJS = Cme.o CmeBSB.o CmeLine.o CmplxMenu.o Husk.o about.o \
 		  actions.o ansi.o apl.o charset.o child.o ctlr.o dialog.o \
 		  fallbacks.o ft.o ft_cut.o ft_dft.o host.o idle.o keymap.o \
 		  keypad.o kybd.o macros.o main.o menubar.o popups.o \
 		  printer.o print.o resources.o save.o screen.o scroll.o \
 		  see.o select.o sf.o status.o tables.o telnet.o toggles.o \
-		  trace_ds.o util.o @WIDE_O@ xio.o @LIBOBJS@
+		  trace_ds.o util.o xio.o @LIBOBJS@ \
+		  @DBCS_O@ 
           OBJS1 = $(VOBJS) version.o
           FONTS = FontObj(3270-12) FontObj(3270-12b) FontObj(3270-20) \
 		  FontObj(3270-20b) FontObj(3270) FontObj(3270b) \
@@ -45,7 +47,11 @@ LOCAL_LIBRARIES = $(XAWLIB) $(XMULIB) $(XTOOLLIB) $(XLIB)
       HOSTSFILE = ibm_hosts
 @INSTALL_CNV@
 #ifdef INSTALL_CNV
-          GBCNV = icudt22l_ibm-837_P100-2000.cnv
+            IDP = @ICU_DATA_PREFIX@
+        ICU_UCM = ibm-837_P100-2000.ucm ibm-300_P110-1997.ucm \
+                  ibm-1027_P100-1995.ucm
+        ICU_CNV = $(IDP)_ibm-837_P100-2000.cnv $(IDP)_ibm-300_P110-1997.cnv \
+                  $(IDP)_ibm-1027_P100-1995.cnv
 #endif
 
 /* Variables set by autoconf. */
@@ -58,7 +64,7 @@ autoconf_mandir = @mandir@
 autoconf_fontinstdir = @CIFONTDIR@
     LIBX3270DIR = @LIBX3270DIR@
 EXTRA_LDOPTIONS = @LDFLAGS@
-EXTRA_LIBRARIES = @LIBS@ @HACK_LIBS@
+EXTRA_LIBRARIES = @LIBS@
  EXTRA_INCLUDES = @CPPFLAGS@
              CC = @CC@
         INSTALL = @INSTALL@
@@ -147,7 +153,7 @@ mkfb: mkfb.c
    ComplexProgramTarget, because we may want to install it somewhere other
    than under PROJECTROOT. */
 ProgramTargetName(x3270if): x3270if.c conf.h
-	$(CC) $(CDEBUGFLAGS) -o x3270if x3270if.c
+	$(CC) $(CDEBUGFLAGS) $(ALLDEFINES) -o x3270if x3270if.c
 
 /* Rules for using and installing a separate app-defaults file. */
 @DEFINE_UAD@
@@ -170,6 +176,16 @@ EXTRA_DEFINES = $(HP_DEFINE) $(AD_DEFINE) @XANSI@ -DLIBX3270DIR=\"$(LIBX3270DIR)
 #ifdef PR3287
 all::
 	-cd pr3287 && $(MAKE) PROJECTROOT=$(PROJECTROOT)
+#endif
+
+#ifdef INSTALL_CNV
+all:: $(ICU_CNV)
+$(IDP)_ibm-837_P100-2000.cnv: ibm-837_P100-2000.ucm
+	makeconv -d . -p $(IDP) ibm-837_P100-2000.ucm
+$(IDP)_ibm-300_P110-1997.cnv: ibm-300_P110-1997.ucm
+	makeconv -d . -p $(IDP) ibm-300_P110-1997.ucm
+$(IDP)_ibm-1027_P100-1995.cnv: ibm-1027_P100-1995.ucm
+	makeconv -d . -p $(IDP) ibm-1027_P100-1995.ucm
 #endif
 
 /******************************************************************************
@@ -195,9 +211,9 @@ install:: $(HOSTSFILE)
 		$(INSTALL) -c $(INSTDATFLAGS) $(HOSTSFILE) $(DESTDIR)$(LIBX3270DIR)/$(HOSTSFILE)
 
 #ifdef INSTALL_CNV
-/* Extra install rule for the simplified Chinese conversion table. */
-install:: $(GBCNV)
-	$(INSTALL) -c $(INSTDATAFLAGS) $(GBCNV) $(DESTDIR)$(LIBX3270DIR)
+/* Extra install rule for the ICU conversion tables. */
+install:: $(ICU_CNV)
+	$(INSTALL) -c $(INSTDATAFLAGS) $(ICU_CNV) $(DESTDIR)$(LIBX3270DIR)
 #endif
 
 /*
@@ -239,6 +255,11 @@ install.byprefix::
 #ifdef PR3287
 install.byprefix::
 	-cd pr3287 && $(MAKE) install
+#endif
+#ifdef INSTALL_CNV
+/* Extra install rule for the ICU conversion tables. */
+install.byprefix:: $(ICU_CNV)
+	$(INSTALL) -c $(INSTDATAFLAGS) $(ICU_CNV) $(DESTDIR)$(LIBX3270DIR)
 #endif
 
 /******************************************************************************

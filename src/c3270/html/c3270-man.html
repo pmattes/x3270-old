@@ -63,6 +63,10 @@ See <a HREF="#tn"><b>-tn</b></a> below for further information.
 Prepending an <b>n:</b> onto <i>hostname</i>
 turns off TN3270E support for the session.
 <p>
+Prepending an <b>l:</b> onto <i>hostname</i>
+turns on SSL encryption for the session (if <b>c3270</b> was built
+with SSL support).
+<p>
 A specific LU name to use may be specified by prepending it to the
 <i>hostname</i> with an `<b>@</b>'.
 Multiple LU names to try can be separated by commas.
@@ -891,6 +895,7 @@ the last one on the command line is used.
 /usr/local/lib/x3270/ibm_hosts
 <br>
 $HOME/.c3270pro
+
 <a NAME="See-Also"></a><h2>See Also</h2>
 <a HREF="x3270-man.html">x3270(1)</a>, <a HREF="s3270-man.html">s3270(1)</a>, <a HREF="tcl3270-man.html">tcl3270(1)</a>, <a HREF="ibm_hosts.html">ibm_hosts(5)</a>, <a HREF="x3270-script.html">x3270-script(1)</a>, <a HREF="pr3287-man.html">pr3287(1)</a>, telnet(1), tn3270(1)
 <br>
@@ -923,12 +928,12 @@ c3270 is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
 <a NAME="Version"></a><h2>Version</h2>
-c3270 3.2.20
+c3270 3.3.1-alpha7
 <hr>
 <address>
 This HTML document and the accompanying troff document were generated with
 a set of write-only <b>m4</b> macros and the powerful <b>vi</b> editor.
-<br>Last modified 07 February 2003.
+<br>Last modified 14 February 2003.
 </address>
 </body>
 </html>

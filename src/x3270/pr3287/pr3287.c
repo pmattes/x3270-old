@@ -86,6 +86,7 @@ int crlf = 0;
 int ffthru = 0;
 int ffskip = 0;
 int verbose = 0;
+int ssl_host = 0;
 
 /* User options. */
 static enum { NOT_DAEMON, WILL_DAEMON, AM_DAEMON } bdaemon = NOT_DAEMON;
@@ -208,11 +209,12 @@ main(int argc, char *argv[])
 	struct hostent *he;
 	struct in_addr ha;
 	struct servent *se;
-	u_short p;
+	unsigned short p;
 	struct sockaddr_in sin;
 	int s = -1;
 	int rc = 0;
 	int report_success = 0;
+	int any_prefixes = False;
 
 	/* Learn our name. */
 	if ((programname = strrchr(argv[0], '/')) != NULL)
@@ -273,6 +275,17 @@ main(int argc, char *argv[])
 		usage();
 
 	/* Pick apart the hostname, LUs and port. */
+	do {
+#if defined(HAVE_LIBSSL) /*[*/
+		if (!strncasecmp(argv[i], "l:", 2)) {
+			ssl_host = True;
+			argv[i] += 2;
+			any_prefixes = True;
+		}
+#endif /*]*/
+		else
+			any_prefixes = False;
+	} while (any_prefixes);
 	if ((at = strchr(argv[i], '@')) != NULL) {
 		len = at - argv[i];
 		if (!len)
@@ -314,7 +327,7 @@ main(int argc, char *argv[])
 			(void) fprintf(stderr, "Invalid port: %s\n", port);
 			exit(1);
 		}
-		p = htons((u_short)l);
+		p = htons((unsigned short)l);
 	}
 
 	/* Remap the character set. */
@@ -403,9 +416,10 @@ main(int argc, char *argv[])
 
 		/* Say hello. */
 		if (verbose) {
-			(void) fprintf(stderr, "Connected to %s, port %u\n",
+			(void) fprintf(stderr, "Connected to %s, port %u%s\n",
 			    inet_ntoa(sin.sin_addr),
-			    ntohs(sin.sin_port));
+			    ntohs(sin.sin_port),
+			    ssl_host? " via SSL": "");
 			if (assoc != NULL)
 				(void) fprintf(stderr, "Associating with LU "
 				    "%s\n", assoc);

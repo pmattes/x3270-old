@@ -118,13 +118,15 @@ extern char		*current_host;
 extern unsigned short	current_port;
 #if defined(X3270_DBCS) /*[*/
 extern Boolean		dbcs;
-extern Boolean		no_dbcs;
 #endif /*]*/
 extern char		*efontname;
 extern Boolean		ever_3270;
 extern Boolean		exiting;
+#if defined(X3270_DISPLAY) /*[*/
 extern Boolean		*extended_3270font;
+extern Font		*fid;
 extern Boolean		*font_8bit;
+#endif /*]*/
 extern Boolean		flipped;
 extern char		*full_current_host;
 extern char		*full_efontname;
@@ -134,6 +136,12 @@ extern char		*full_efontname_dbcs;
 extern char		full_model_name[];
 extern char		*funky_font;
 extern char		*hostname;
+#if defined(X3270_DBCS) /*[*/
+extern char		*local_encoding;
+#if defined(X3270_DISPLAY) /*[*/
+extern char		*locale_name;
+#endif /*]*/
+#endif /*]*/
 extern char		luname[];
 #if defined(LOCAL_PROCESS) /*[*/
 extern Boolean		local_process;
@@ -146,15 +154,18 @@ extern Boolean		non_tn3270e_host;
 extern int		ov_cols, ov_rows;
 extern Boolean		passthru_host;
 extern const char	*programname;
+extern char		*qualified_host;
 extern char		*reconnect_host;
 extern int		screen_depth;
 extern Boolean		scroll_initted;
 extern Boolean		shifted;
+extern Boolean		ssl_host;
 extern Boolean		*standard_font;
 extern Boolean		std_ds_host;
 extern char		*termtype;
 extern Widget		toplevel;
 extern Boolean		visible_control;
+extern int		*xtra_width;
 
 #if defined(X3270_DISPLAY) /*[*/
 extern Atom		a_delete_me;

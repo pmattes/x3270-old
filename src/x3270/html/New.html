@@ -13,9 +13,9 @@
 New Features in x3270 3.3
 <hr WIDTH="100%"></h1>
 x3270 3.3 is the future development line for x3270.
-It is functionally equivalent to x3270 3.2.20, with the addition of DBCS
-(Double Byte Character Set) support for East Asian languages -- Chinese,
-Japanese and Korean.
+It is functionally equivalent to x3270 3.2.20, with the addition of SSL (Secure
+Sockets Layer) support and DBCS (Double Byte Character Set) support for East
+Asian languages -- Chinese, Japanese and Korean.
 <p>
 The DBCS work required a significant change in the internal workings of
 x3270.
@@ -28,26 +28,31 @@ X11 display output.
 <p>
 A few eggs were broken in that process:
 <ul>
- <li>The crosshair cursor does not always display properly.</li>
- <li>'Flipped' mode (for right-to-left languages) is broken in a number of
-  ways.</li>
- <li)>pr3287 will not build.</li>
+ <li>'Flipped' mode (for right-to-left languages) is disabled.</li>
+ <li>pr3287 does not support DBCS.</li>
+ <li>File Transfer does not handle DBCS characters properly.</li>
 </ul>
 And other bugs may yet lurk.
 <p>
 However, once x3270 3.3 is stable enough and the broken features have been
 corrected, it will replace x3270 3.2.
-<h2>Changes in x3270 3.3.1, n. Mmm 2002</h2>
+<h2>Changes in x3270 3.3.1, 14. February 2003</h2>
 <ul>
  <li>Bug Fixes:
   <ul>
+   <li>(Same as x3270 3.2.20)</li>
   </ul>
  </li>
  <li>New Features:
   <ul>
-   <li>DBCS support for Simplfied Chinese, including integration with XIM.</li>
+   <li>DBCS support for Simplfied Chinese and Japanese, including integration
+    with XIM.</li>
+   <li>Tunneled SSL support added (entire Telnet session inside of an SSL
+    tunnel).  Uses the OpenSSL library.  Toggled with an 'l:' (ell) prefix on
+    the hostname.</li>
    <li>A <i>Visible Control Characters</i> toggle replaces the 3270d Debug
     Font.</li>
+   <li><b>About x3270</b> pop-up split into three smaller pieces.</li>
   </ul>
  </li>
 </ul>

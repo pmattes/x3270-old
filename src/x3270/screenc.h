@@ -17,9 +17,14 @@
  */
 
 extern const char *efont_charset;
-extern const char *efont_charset_dbcs;
 extern Boolean efont_matches;
 extern Dimension main_width;
+#if defined(X3270_DBCS) /*[*/
+extern const char *efont_charset_dbcs;
+extern XIM im;
+extern XIC ic;
+extern Boolean xim_error;
+#endif /*]*/
 
 extern void blink_start(void);
 extern void cursor_move(int baddr);
@@ -56,6 +61,8 @@ extern void Redraw_action(Widget w, XEvent *event, String *params,
     Cardinal *num_params);
 extern void ring_bell(void);
 extern void save_00translations(Widget w, XtTranslations *t00);
+#define screen_80()
+#define screen_132()
 extern void screen_change_model(int mn, int ovc, int ovr);
 extern void screen_disp(Boolean erasing);
 extern void screen_extended(Boolean extended);

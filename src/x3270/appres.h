@@ -103,6 +103,7 @@ typedef struct {
 #if defined(C3270) /*[*/
 	Boolean all_bold_on;
 	Boolean	curses_keypad;
+	Boolean cbreak_mode;
 #endif /*]*/
 	Boolean	apl_mode;
 	Boolean scripted;
@@ -126,7 +127,6 @@ typedef struct {
 #endif /*]*/
 #if defined(X3270_DISPLAY) /*[*/
 	char	*efontname;
-	char	*afontname;
 	char	*debug_font;
 	char	*icon_font;
 	char	*icon_label_font;

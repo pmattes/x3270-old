@@ -76,7 +76,6 @@ unsigned char   reply_mode = SF_SRM_FIELD;
 int             crm_nattr = 0;
 unsigned char   crm_attr[16];
 Boolean		dbcs = False;
-Boolean		no_dbcs = False;
 
 /* Statics */
 static struct ea *aea_buf;	/* alternate 3270 extended attribute buffer */
@@ -1086,7 +1085,7 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 	enum dbcs_why	why;
 	Boolean		aborted = False;
 #if defined(X3270_DBCS) /*[*/
-	unsigned char	euc[3];
+	char		mb[16];
 #endif /*]*/
 
 #define END_TEXT0	{ if (previous == TEXT) trace_ds("'"); }
@@ -1286,9 +1285,8 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 					   add_c2 < 0x40 || add_c2 > 0xfe) {
 					ABORT_WRITE("invalid DBCS RA character");
 			       }
-			       euc[2] = '\0';
-			       dbcs_to_wchar(add_c1, add_c2, euc);
-			       trace_ds("'%s'", euc);
+			       dbcs_to_mb(add_c1, add_c2, mb);
+			       trace_ds("'%s'", mb);
 			} else
 #endif /*]*/
 			{
@@ -1719,9 +1717,8 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 					ABORT_WRITE("invalid DBCS character");
 			       }
 			       add_dbcs = True;
-			       euc[2] = '\0';
-			       dbcs_to_wchar(add_c1, add_c2, euc);
-			       trace_ds("%s", euc);
+			       dbcs_to_mb(add_c1, add_c2, mb);
+			       trace_ds("%s", mb);
 			} else {
 #endif /*]*/
 				add_c1 = *cp;
@@ -2056,8 +2053,8 @@ ctlr_dbcs_postprocess(void)
 			case EBC_so:
 			    /* Two SO's or SO in DBCS field are invalid. */
 			    if (so || dbcs_field) {
-				    trace_ds("Postprocess: Invalid SO found "
-					"at %s\n", rcba(baddr));
+				    trace_ds("DBCS postprocess: invalid SO "
+					"found at %s\n", rcba(baddr));
 				    rc = -1;
 			    } else {
 				    dbaddr = baddr;
@@ -2084,8 +2081,9 @@ ctlr_dbcs_postprocess(void)
 			default:
 			    /* Non-base CS in DBCS subfield is invalid. */
 			    if (so && ea_buf[baddr].cs != CS_BASE) {
-				    trace_ds("Postprocess: Invalid character "
-					"set found at %s\n", rcba(baddr));
+				    trace_ds("DBCS postprocess: invalid "
+					"character set found at %s\n",
+					rcba(baddr));
 				    rc = -1;
 				    ea_buf[baddr].cs = CS_BASE;
 			    }
@@ -2133,10 +2131,11 @@ ctlr_dbcs_postprocess(void)
 		 */
 		if (pbaddr >= 0 &&
 		    IS_LEFT(ea_buf[pbaddr].db) &&
-		    !IS_RIGHT(ea_buf[baddr].db)) {
+		    !IS_RIGHT(ea_buf[baddr].db) &&
+		    ea_buf[pbaddr].db != DBCS_DEAD) {
 			if (!ea_buf[baddr].fa) {
-				trace_ds("Postprocess: Dead position at %s\n",
-				    rcba(pbaddr));
+				trace_ds("DBCS postprocess: dead position "
+				    "at %s\n", rcba(pbaddr));
 				rc = -1;
 			}
 			ea_buf[pbaddr].cc = EBC_null;

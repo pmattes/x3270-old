@@ -99,6 +99,142 @@ dnl AC_CHECK_FUNCS(gettimeofday putenv select socket strerror strstr strtol strt
 AC_CHECK_FUNCS(vasprintf)
 AC_FUNC_FSEEKO
 
+AC_ARG_ENABLE(ssl,[  --disable-ssl           leave out OpenSSL support])
+
+checkssldir() { :
+	if test -f "$1/include/openssl/ssl.h"
+	then	ssldir="$1"
+		return 0
+	else	return 1
+	fi
+}
+
+AC_ARG_WITH(ssl, [  --with-ssl=DIR          location of installed OpenSSL libraries/include files], [checkssldir "$withval"], )
+
+if test "$enable_ssl" != "no"
+then	dnl Check for SSL.
+	AC_MSG_CHECKING([for OpenSSL library install directory])
+	if test -z "$ssldir"
+	then	for basedir in /usr/local /usr/lib /usr/pkg /usr /var/ssl /opt
+		do	for dir in $basedir $basedir/ssl
+			do	checkssldir $dir && break 2
+			done
+		done
+	fi
+	if test -z "$ssldir"
+	then	AC_MSG_RESULT([Not found])
+		echo
+		echo "Couldn't find OpenSSL library installation directory."
+		echo "Use the --with-ssl option to specify it."
+		exit 1
+	fi
+	AC_MSG_RESULT([$ssldir])
+	if test "$ssldir" != /usr
+	then	CPPFLAGS="$CPPFLAGS -I$ssldir/include"
+		LDFLAGS="$LDFLAGS -L$ssldir/lib"
+	fi
+
+	dnl Check for -lssl.
+	AC_CHECK_LIB(crypto, CRYPTO_malloc, , [AC_MSG_ERROR(Can't find libcrypto)], )
+	AC_CHECK_LIB(ssl, SSL_new, , [AC_MSG_ERROR(Can't find libssl)], )
+	SSL=-DHAVE_LIBSSL
+fi
+AC_SUBST(SSL)
+
+checkicudir() { :
+	if test -f "$1/include/unicode/ucnv.h"
+	then	icudir="$1"
+		return 0
+	else	return 1
+	fi
+}
+
+if test "$enable_dbcs" = "yes"
+then	dnl Check for ICU.
+	AC_MSG_CHECKING([for ICU library install directory])
+	if test -z "$icudir"
+	then	for basedir in /usr/local /usr/lib /usr/pkg /usr /var/icu /opt
+		do	for dir in $basedir $basedir/icu
+			do	checkicudir $dir && break 2
+			done
+		done
+	fi
+	if test -z "$icudir"
+	then	AC_MSG_RESULT([Not found])
+		echo
+		echo "Couldn't find ICU library installation directory."
+		echo "Use the --with-icu option to specify it."
+		enable_dbcs="no"	# insufficient, hmm
+	else	AC_MSG_RESULT([$icudir])
+		if test "$icudir" != /usr
+		then	CPPFLAGS="$CPPFLAGS -I$icudir/include"
+			LDFLAGS="$LDFLAGS -L$icudir/lib"
+		fi
+
+		dnl Check for -licui18n.
+		icu_ver_file=$icudir/include/unicode/uversion.h
+		if test ! -f $ivu_ver_file
+		then	AC_MSG_ERROR(Can't find ICU version file)
+		fi
+		icu_suffix=`awk '/#define.*U_ICU_VERSION_SUFFIX/ {print $3}' $icu_ver_file`
+		if test -z "$icu_suffix"
+		then	AC_MSG_ERROR(Can't determine ICU version)
+		fi
+		AC_CHECK_LIB(icui18n, ucnv_open${icu_suffix}, , [enable_dbcs="no"], )
+		if test "$enable_dbcs" = "no"
+		then	echo "Can't find libicui18n"
+		else
+			dnl Figure out the ICU data suffix.
+			dnl Todo: This needs some error recovery.
+			AC_MSG_CHECKING([for ICU data prefix])
+			cat >/tmp/icutst$$.c <<EOF
+#include "unicode/ucnv.h"
+
+int
+main(int argc, char *argv[])
+{
+	printf("%s\n", U_ICUDATA_NAME);
+	return 0;
+}
+EOF
+			${CC} ${CPPFLAGS} -o /tmp/icutst$$ /tmp/icutst$$.c
+			rm -f /tmp/icutst$$.c
+			ICU_DATA_PREFIX=`/tmp/icutst$$`
+			rm -f /tmp/icutst$$
+			AC_MSG_RESULT([$ICU_DATA_PREFIX])
+
+			if test -z "$ICU_DATA_PREFIX"
+			then	AC_MSG_WARN(Cannot determine ICU data prefix)
+				enable_dbcs="no"
+			else
+				dnl Check for xmkmkf
+				AC_CHECK_PROG(makeconv_found,makeconv,found,notfound)
+				if test "$makeconv_found" = "notfound"
+				then	AC_MSG_WARN(Cannot find makeconv)
+					enable_dbcs="no"
+				fi
+			fi
+		fi
+
+	fi
+	if test "$enable_dbcs" = "no"
+	then	AC_MSG_WARN(Disabling DBCS.)
+	fi
+fi
+case "$enable_dbcs" in
+yes)	AC_DEFINE(X3270_DBCS,1)
+	DBCS_C="wide.c"
+	DBCS_O="wide.o"
+	CNV=""
+	;;
+*)	CNV="#"
+	;;
+esac
+AC_SUBST(DBCS_C)
+AC_SUBST(DBCS_O)
+AC_SUBST(CNV)
+AC_SUBST(ICU_DATA_PREFIX)
+
 dnl Check for default pager
 AC_PATH_PROG(LESSPATH, less)
 AC_DEFINE_UNQUOTED(LESSPATH,"$LESSPATH")
@@ -120,6 +256,16 @@ case "$enable_apl" in
 ""|yes)	AC_DEFINE(X3270_APL,1)
 	;;
 esac
+AC_ARG_ENABLE(dbcs,[  --enable-dbcs           include DBCS support])
+case "$enable_dbcs" in
+yes)	AC_DEFINE(X3270_DBCS,1)
+	DBCS_C="wide.c"
+	DBCS_O="wide.o"
+	;;
+*)	;;
+esac
+AC_SUBST(DBCS_C)
+AC_SUBST(DBCS_O)
 AC_ARG_ENABLE(ft,[  --disable-ft            leave out file transfer support])
 case "$enable_ft" in
 ""|yes)	AC_DEFINE(X3270_FT,1)

@@ -24,44 +24,61 @@
 #include "resources.h"
 
 #include "popupsc.h"
+#include "tablesc.h"
 #include "trace_dsc.h"
 #include "utilc.h"
 
 #include "widec.h"
 
-#if defined(HAVE_LIBICUI18N) /*[*/
-#include <unicode/ucnv.h>
-
 #define ICU_DATA	"ICU_DATA"
-#endif /*]*/
 
-#if defined(HAVE_LIBICUI18N) /*[*/
-Boolean wide_initted = False;
-static UConverter *dbcs_converter = NULL, *euc_converter = NULL;
+char *local_encoding = CN;
+
+static UConverter *dbcs_converter = NULL;
+static UConverter *sbcs_converter = NULL;
+static UConverter *local_converter = NULL;
+#if defined(X3270_DISPLAY) /*[*/
+static UConverter *wdisplay_converter = NULL;
 #endif /*]*/
 
 /* Initialize, or reinitialize the EBCDIC DBCS converters. */
 int
 wide_init(const char *csname)
 {
-#if defined(HAVE_LIBICUI18N) /*[*/
 	UErrorCode err = U_ZERO_ERROR;
 	char *cur_path = CN;
 	Boolean lib_ok = False;
 	Boolean dot_ok = False;
+	char *local_name;
 	char *converter_names, *cn_copy, *buf, *token;
-	int n_converters = 0;
+	char *sbcs_converters = NULL;
+	char *dbcs_converters = NULL;
+	int n_converter_sets = 0;
+	int n_sbcs_converters = 0;
+	int n_dbcs_converters = 0;
 
 	/* This may be a reinit. */
-	if (wide_initted) {
+	if (local_converter != NULL) {
+		ucnv_close(local_converter);
+		local_converter = NULL;
+	}
+	Replace(local_encoding, CN);
+	if (sbcs_converter != NULL) {
+		ucnv_close(sbcs_converter);
+		sbcs_converter = NULL;
+	}
+	if (dbcs_converter != NULL) {
 		ucnv_close(dbcs_converter);
 		dbcs_converter = NULL;
-		ucnv_close(euc_converter);
-		euc_converter = NULL;
-		wide_initted = False;
 	}
+#if defined(X3270_DISPLAY) /*[*/
+	if (wdisplay_converter != NULL) {
+		ucnv_close(wdisplay_converter);
+		wdisplay_converter = NULL;
+	}
+#endif /*]*/
 
-	/* Make sure that $ICU_DATA has LIBX3270DIR in it. */
+	/* Make sure that $ICU_DATA has LIBX3270DIR and . in it. */
 	cur_path = getenv(ICU_DATA);
 	if (cur_path != CN) {
 		char *t = NewString(cur_path);
@@ -106,59 +123,121 @@ wide_init(const char *csname)
 		}
 	}
 
-	/* Decode converter names. */
+	/* Decode local converter name. */
+	local_name = get_fresource("%s.%s", ResLocalEncoding, csname);
+	if (local_name == CN)
+		local_name = get_resource(ResLocalEncoding);
+	if (local_name != CN) {
+		err = U_ZERO_ERROR;
+		local_converter = ucnv_open(local_name, &err);
+		if (local_converter == NULL) {
+			popup_an_error("Cannot find ICU converter for "
+			    "local encoding:\n%s",
+			    local_name);
+		}
+		Replace(local_encoding, NewString(local_name));
+	}
+
+	/* Decode host and display converter names. */
 	converter_names = get_fresource("%s.%s", ResDbcsConverters, csname);
 	if (converter_names == CN)
 		return 0;
-	n_converters = 0;
+
+	/*
+	 * Split into SBCS and DBCS converters, separated by '+'.  If only one
+	 * converter is specified, it's the DBCS converter.
+	 */
+	n_converter_sets = 0;
 	buf = cn_copy = NewString(converter_names);
-	while ((token = strtok(buf, ",")) != CN) {
+	while ((token = strtok(buf, "+")) != CN) {
 		buf = CN;
-		switch (n_converters) {
-		case 0: /* EBCDIC */
-		    dbcs_converter = ucnv_open(token, &err);
-		    if (dbcs_converter == NULL) {
-			    popup_an_error("ucnv_open(%s) failed", token);
-			    Free(cn_copy);
-			    return -1;
-		    }
+		switch (n_converter_sets) {
+		case 0: /* DBCS or SBCS */
+		    dbcs_converters = token;
 		    break;
-		case 1: /* display */
-		    euc_converter = ucnv_open(token, &err);
-		    if (euc_converter == NULL) {
-			    popup_an_error("ucnv_open(%s) failed", token);
-			    (void) ucnv_close(dbcs_converter);
-			    dbcs_converter = NULL;
-			    Free(cn_copy);
-			    return -1;
-		    }
+		case 1: /* DBCS */
+		    sbcs_converters = dbcs_converters;
+		    dbcs_converters = token;
 		    break;
 		default: /* extra */
-		    popup_an_error("Extra converter name '%s' ignored", token);
+		    popup_an_error("Extra converter set '%s' ignored", token);
 		    break;
 		}
-		n_converters++;
+		n_converter_sets++;
+	}
+
+	if (sbcs_converters != NULL) {
+		n_sbcs_converters = 0;
+		buf = sbcs_converters;
+		while ((token = strtok(buf, ",")) != CN) {
+			buf = CN;
+			switch (n_sbcs_converters) {
+			case 0: /* EBCDIC */
+			    err = U_ZERO_ERROR;
+			    sbcs_converter = ucnv_open(token, &err);
+			    if (sbcs_converter == NULL) {
+				    popup_an_error("Cannot find ICU converter "
+					"for host SBCS:\n%s", token);
+				    Free(cn_copy);
+				    return -1;
+			    }
+			    break;
+			default: /* extra */
+			    popup_an_error("Extra converter name '%s' ignored",
+				token);
+			    break;
+			}
+			n_sbcs_converters++;
+		}
+	}
+
+	if (dbcs_converters != NULL) {
+		n_dbcs_converters = 0;
+		buf = dbcs_converters;
+		while ((token = strtok(buf, ",")) != CN) {
+			buf = CN;
+			switch (n_dbcs_converters) {
+			case 0: /* EBCDIC */
+			    err = U_ZERO_ERROR;
+			    dbcs_converter = ucnv_open(token, &err);
+			    if (dbcs_converter == NULL) {
+				    popup_an_error("Cannot find ICU converter "
+					"for host DBCS:\n%s", token);
+				    Free(cn_copy);
+				    return -1;
+			    }
+			    break;
+			case 1: /* display */
+#if defined(X3270_DISPLAY) /*[*/
+			    err = U_ZERO_ERROR;
+			    wdisplay_converter = ucnv_open(token, &err);
+			    if (wdisplay_converter == NULL) {
+				    popup_an_error("Cannot find ICU converter "
+					"for display DBCS:\n%s", token);
+				    Free(cn_copy);
+				    return -1;
+			    }
+#endif /*]*/
+			    break;
+			default: /* extra */
+			    popup_an_error("Extra converter name '%s' ignored",
+				token);
+			    break;
+			}
+			n_dbcs_converters++;
+		}
 	}
 
 	Free(cn_copy);
 
-	if (n_converters < 2) {
+	if (n_dbcs_converters < 2) {
 		popup_an_error("Missing %s value", ResDbcsConverters);
-		if (dbcs_converter != NULL) {
-			(void) ucnv_close(dbcs_converter);
-			dbcs_converter = NULL;
-		}
 		return -1;
 	}
 
-	wide_initted = True;
 	return 0;
-#else /*][*/
-	return 0;
-#endif /*]*/
 }
 
-#if defined(HAVE_LIBICUI18N) /*[*/
 static void
 xlate1(unsigned char from0, unsigned char from1, unsigned char to_buf[],
     UConverter *from_cnv, const char *from_name,
@@ -193,7 +272,7 @@ xlate1(unsigned char from0, unsigned char from1, unsigned char to_buf[],
 		/* Convert string from Unicode to Destination. */
 		len = ucnv_fromUChars(to_cnv, tmp_to_buf, 3, Ubuf, len, &err);
 		if (err != U_ZERO_ERROR) {
-			popup_an_error("[fromUnicode of U+%04x to %s failed, ICU "
+			trace_ds("[fromUnicode of U+%04x to %s failed, ICU "
 			    "error %d]\n", to_name, Ubuf[0], (int)err);
 			return;
 		}
@@ -211,41 +290,128 @@ xlate1(unsigned char from0, unsigned char from1, unsigned char to_buf[],
 		to_buf[1] = Ubuf[0] & 0xff;
 	}
 }
-#endif /*]*/
 
-/* Translate a wide character to a DBCS EBCDIC character. */
+#if defined(X3270_DISPLAY) /*[*/
+/* Translate a DBCS EBCDIC character to a display character. */
 void
-wchar_to_dbcs(unsigned char c1, unsigned char c2, unsigned char ebc[])
+dbcs_to_display(unsigned char ebc1, unsigned char ebc2, unsigned char c[])
 {
-#if defined(HAVE_LIBICUI18N) /*[*/
-	xlate1(c1, c2, ebc, euc_converter, "EUC", dbcs_converter, "DBCS");
-#else /*][*/
-        /* Temporary version. */
-        ebc[0] = 0xe0;
-        ebc[1] = 0xe1;
-#endif /*]*/
+	xlate1(ebc1, ebc2, c, dbcs_converter, "host DBCS", wdisplay_converter,
+	    "wide display");
 }
-
-/* Translate a DBCS EBCDIC character to a wide character. */
-void
-dbcs_to_wchar(unsigned char ebc1, unsigned char ebc2, unsigned char c[])
-{
-#if defined(HAVE_LIBICUI18N) /*[*/
-	xlate1(ebc1, ebc2, c, dbcs_converter, "DBCS", euc_converter, "EUC");
-#else /*][*/
-	c[0] = 0xf0;
-	c[1] = 0xf1;
 #endif /*]*/
-}
 
 /* Translate a DBCS EBCDIC character to a 2-byte Unicode character. */
 void
 dbcs_to_unicode16(unsigned char ebc1, unsigned char ebc2, unsigned char c[])
 {
-#if defined(HAVE_LIBICUI18N) /*[*/
-	xlate1(ebc1, ebc2, c, dbcs_converter, "DBCS", NULL, NULL);
-#else /*][*/
-	c[0] = 0xf0;
-	c[1] = 0xf1;
-#endif /*]*/
+	xlate1(ebc1, ebc2, c, dbcs_converter, "host DBCS", NULL, NULL);
+}
+
+/*
+ * Translate a DBCS EBCDIC character to a local multi-byte character.
+ * Returns -1 for error, or the mb length.  NULL terminates.
+ */
+int
+dbcs_to_mb(unsigned char ebc1, unsigned char ebc2, char *mb)
+{
+	UErrorCode err = U_ZERO_ERROR;
+	unsigned char w[2];
+	UChar Ubuf;
+	int len;
+
+	if (local_converter == NULL) {
+		*mb = '?';
+		*(mb + 1) = '\0';
+		return 1;
+	}
+
+	/* Translate to Unicode first. */
+	dbcs_to_unicode16(ebc1, ebc2, w);
+	Ubuf = (w[0] << 8) | w[1];
+
+	/* Then translate to the local encoding. */
+	len = ucnv_fromUChars(local_converter, mb, 16, &Ubuf, 1, &err);
+	if (err != U_ZERO_ERROR) {
+		trace_ds("[fromUnicode of U+%04x to local failed, ICU "
+		    "error %d]\n", Ubuf, (int)err);
+		return -1;
+	}
+	return len;
+}
+
+/*
+ * Translate a local multi-byte string to Unicode characters.
+ * Returns -1 for error, or the length.  NULL terminates.
+ */
+int
+mb_to_unicode(char *mb, int mblen, UChar *u, int ulen, UErrorCode *err)
+{
+	UErrorCode local_err;
+	int len;
+	Boolean print_errs = False;
+
+	if (local_converter == NULL) {
+		int i;
+
+		for (i = 0; i < mblen; i++) {
+			u[i] = mb[i] & 0xff;
+		}
+		return mblen;
+	}
+	if (err == NULL) {
+		err = &local_err;
+		print_errs = True;
+	}
+	*err = U_ZERO_ERROR;
+	len = ucnv_toUChars(local_converter, u, ulen, mb, mblen, err);
+	if (*err != U_ZERO_ERROR && *err != U_STRING_NOT_TERMINATED_WARNING) {
+		if (print_errs)
+			trace_ds("[toUChars failed, ICU error %d]\n",
+			    (int)*err);
+		return -1;
+	}
+	return len;
+}
+
+/*
+ * Try to map a Unicode character to the Host SBCS character set.
+ * Returns ASCII in cp[0].
+ */
+int
+dbcs_map8(UChar u, unsigned char *cp)
+{
+	UErrorCode err = U_ZERO_ERROR;
+	int len;
+
+	if (!(u & ~0xff)) {
+		*cp = u;
+		return 1;
+	}
+	if (sbcs_converter != NULL) {
+		len = ucnv_fromUChars(sbcs_converter, (char *)cp, 1, &u, 1,
+		    &err);
+		if ((err != U_ZERO_ERROR &&
+		     err != U_STRING_NOT_TERMINATED_WARNING) ||
+		    (*cp == '?' && u != '?')) {
+			*cp = ebc2asc[*cp];
+			return 0;
+		} else
+			return 1;
+	}
+	return 0;
+}
+
+/*
+ * Try to map a Unicode character to the Host DBCS character set.
+ * Returns EBCDIC in cp[].
+ */
+int
+dbcs_map16(UChar u, unsigned char *cp)
+{
+	UErrorCode err = U_ZERO_ERROR;
+	int len;
+
+	len = ucnv_fromUChars(dbcs_converter, (char *)cp, 2, &u, 1, &err);
+	return (err == U_ZERO_ERROR || err == U_STRING_NOT_TERMINATED_WARNING);
 }

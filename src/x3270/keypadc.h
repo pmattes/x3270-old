@@ -36,8 +36,6 @@ extern void keypad_set_keymap(void);
 extern void keypad_set_temp_keymap(XtTranslations trans);
 extern void keypad_shift(void);
 extern Dimension min_keypad_width(void);
-extern void PA_ReparentNotify_action(Widget w, XEvent *event, String *params,
-    Cardinal *num_params);
 
 #else /*][*/
 

@@ -37,6 +37,10 @@
 #include <fcntl.h>
 #include <netdb.h>
 #include <stdarg.h>
+#if defined(HAVE_LIBSSL) /*[*/
+#include <openssl/ssl.h>
+#include <openssl/err.h>
+#endif /*]*/
 #include "tn3270e.h"
 
 #include "appres.h"
@@ -97,6 +101,7 @@ static unsigned char *sbbuf = (unsigned char *)NULL;
 static unsigned char *sbptr;
 static unsigned char telnet_state;
 static int      syncing;
+static unsigned long output_id = 0L;
 static char     ttype_tmpval[13];
 
 #if defined(X3270_TN3270E) /*[*/
@@ -208,11 +213,13 @@ static unsigned char	functions_req[] = {
 static const char *telquals[2] = { "IS", "SEND" };
 #endif /*]*/
 #if defined(X3270_TN3270E) /*[*/
+#if defined(X3270_TRACE) /*[*/
 static const char *reason_code[8] = { "CONN-PARTNER", "DEVICE-IN-USE",
 	"INV-ASSOCIATE", "INV-NAME", "INV-DEVICE-TYPE", "TYPE-NAME-ERROR",
 	"UNKNOWN-ERROR", "UNSUPPORTED-REQ" };
 #define rsn(n)	(((n) <= TN3270E_REASON_UNSUPPORTED_REQ) ? \
 			reason_code[(n)] : "??")
+#endif /*]*/
 static const char *function_name[5] = { "BIND-IMAGE", "DATA-STREAM-CTL",
 	"RESPONSES", "SCS-CTL-CODES", "SYSREQ" };
 #define fnn(n)	(((n) <= TN3270E_FUNC_SYSREQ) ? \
@@ -237,6 +244,23 @@ static const char *trsp_flag[2] = { "POSITIVE-RESPONSE", "NEGATIVE-RESPONSE" };
 #define e_rsp(fn, n) (((fn) == TN3270E_DT_RESPONSE) ? e_trsp(n) : e_hrsp(n))
 #endif /*]*/
 #endif /*]*/
+
+#if defined(C3270) && defined(C3270_80_132) /*[*/
+#define XMIT_ROWS	((appres.altscreen != CN)? 24: maxROWS)
+#define XMIT_COLS	((appres.altscreen != CN)? 80: maxCOLS)
+#else /*][*/
+#define XMIT_ROWS	maxROWS
+#define XMIT_COLS	maxCOLS
+#endif /*]*/
+
+#if defined(HAVE_LIBSSL) /*[*/
+static SSL_CTX *ssl_ctx;
+static SSL *ssl_con;
+static void ssl_init(void);
+static void client_info_callback(SSL *s, int where, int ret);
+#endif /*]*/
+
+static void output_possible(void);
 
 
 /*
@@ -363,8 +387,8 @@ net_connect(const char *host, char *portname, Boolean ls, Boolean *resolving,
 		int amaster;
 		struct winsize w;
 
-		w.ws_row = maxROWS;
-		w.ws_col = maxCOLS;
+		w.ws_row = XMIT_ROWS;
+		w.ws_col = XMIT_COLS;
 		w.ws_xpixel = 0;
 		w.ws_ypixel = 0;
 
@@ -429,6 +453,12 @@ net_connect(const char *host, char *portname, Boolean ls, Boolean *resolving,
 		/* don't share the socket with our children */
 		(void) fcntl(sock, F_SETFD, 1);
 
+		/* init ssl */
+#if defined(HAVE_LIBSSL) /*[*/
+		if (ssl_host)
+			ssl_init();
+#endif /*]*/
+
 		/* connect */
 		if (connect(sock, (struct sockaddr *) &haddr, sizeof(haddr)) == -1) {
 			if (errno == EWOULDBLOCK
@@ -438,6 +468,7 @@ net_connect(const char *host, char *portname, Boolean ls, Boolean *resolving,
 						   ) {
 				trace_dsn("Connection pending.\n");
 				*pending = True;
+				output_id = AddOutput(sock, output_possible);
 			} else {
 				popup_an_errno(errno, "Connect to %s, port %d",
 				    hostname, current_port);
@@ -520,7 +551,20 @@ setup_lus(void)
 static void
 net_connected(void)
 {
-	trace_dsn("Connected to %s, port %u.\n", hostname, current_port);
+	trace_dsn("Connected to %s, port %u%s.\n", hostname, current_port,
+	    ssl_host? " via SSL": "");
+
+#if defined(HAVE_LIBSSL) /*[*/
+	/* Set up SSL. */
+	if (ssl_host) {
+		SSL_set_fd(ssl_con, sock);
+		if (!SSL_connect(ssl_con)) {
+			popup_an_errno(errno, "SSL_connect failed");
+			net_disconnect();
+			return;
+		}
+	}
+#endif /*]*/
 
 	/* set up telnet options */
 	(void) memset((char *) myopts, 0, sizeof(myopts));
@@ -562,12 +606,51 @@ net_connected(void)
 }
 
 /*
+ * connection_complete
+ *	The connection appears to be complete (output is possible or input
+ *	appeared ready but read() returned EWOULDBLOCK).  Complete the
+ *	connection-completion processing.
+ */
+static void
+connection_complete(void)
+{
+	if (non_blocking(False) < 0) {
+		host_disconnect(True);
+		return;
+	}
+	host_connected();
+	net_connected();
+}
+
+/*
+ * output_possible
+ *	Output is possible on the socket.  Used only when a connection is
+ *	pending, to determine that the connection is complete.
+ */
+static void
+output_possible(void)
+{
+	if (HALF_CONNECTED) {
+		connection_complete();
+	}
+	RemoveInput(output_id);
+	output_id = 0L;
+}
+
+/*
  * net_disconnect
  *	Shut down the socket.
  */
 void
 net_disconnect(void)
 {
+#if defined(HAVE_LIBSSL) /*[*/
+	if (ssl_host) {
+		SSL_shutdown(ssl_con);
+		SSL_free(ssl_con);
+		ssl_con = NULL;
+	}
+#endif /*]*/
 	if (CONNECTED)
 		(void) shutdown(sock, 2);
 	(void) close(sock);
@@ -580,6 +663,12 @@ net_disconnect(void)
 
 	/* We're not connected to an LU any more. */
 	status_lu(CN);
+
+	/* We have no more interest inputput buffer space. */
+	if (output_id != 0L) {
+		RemoveInput(output_id);
+		output_id = 0L;
+	}
 }
 
 
@@ -599,19 +688,40 @@ net_input(void)
 	ansi_data = 0;
 #endif /*]*/
 
+#if defined(HAVE_LIBSSL) /*[*/
+	if (ssl_host)
+		nr = SSL_read(ssl_con, (char *) netrbuf, BUFSZ);
+	else
+#else /*][*/
+#endif /*]*/
 	nr = read(sock, (char *) netrbuf, BUFSZ);
 	if (nr < 0) {
+#if defined(HAVE_LIBSSL) /*[*/
+		if (ssl_host) {
+			unsigned long e;
+			char err_buf[1024];
+
+			e = ERR_get_error();
+			(void) ERR_error_string(e, err_buf);
+			trace_dsn("RCVD socket error %ld (%s)\n", e, err_buf);
+			popup_an_error("SSL_read:\n%s", err_buf);
+			host_disconnect(True);
+			return;
+		}
+#endif /*]*/
 		if (errno == EWOULDBLOCK)
 			return;
 		if (HALF_CONNECTED && errno == EAGAIN) {
-			if (non_blocking(False) < 0) {
-				host_disconnect(True);
-				return;
-			}
-			host_connected();
-			net_connected();
+			connection_complete();
 			return;
 		}
+#if defined(LOCAL_PROCESS) /*[*/
+		if (errno == EIO && local_process) {
+			trace_dsn("RCVD local process disconnect\n");
+			host_disconnect(False);
+			return;
+		}
+#endif /*]*/
 		trace_dsn("RCVD socket error %d\n", errno);
 		if (HALF_CONNECTED)
 			popup_an_errno(errno, "Connect to %s, port %d",
@@ -718,13 +828,13 @@ send_naws(void)
 
 	(void) sprintf(naws_msg, "%c%c%c", IAC, SB, TELOPT_NAWS);
 	naws_len += 3;
-	naws_len += set16(naws_msg + naws_len, maxCOLS);
-	naws_len += set16(naws_msg + naws_len, maxROWS);
+	naws_len += set16(naws_msg + naws_len, XMIT_COLS);
+	naws_len += set16(naws_msg + naws_len, XMIT_ROWS);
 	(void) sprintf(naws_msg + naws_len, "%c%c", IAC, SE);
 	naws_len += 2;
 	net_rawout((unsigned char *)naws_msg, naws_len);
-	trace_dsn("SENT %s NAWS %d %d %s\n", cmd(SB), maxCOLS,
-	    maxROWS, cmd(SE));
+	trace_dsn("SENT %s NAWS %d %d %s\n", cmd(SB), XMIT_COLS,
+	    XMIT_ROWS, cmd(SE));
 }
 
 
@@ -1520,8 +1630,27 @@ net_rawout(unsigned const char *buf, int len)
 #else
 #		define n2w len
 #endif
+#if defined(HAVE_LIBSSL) /*[*/
+		if (ssl_host)
+			nw = SSL_write(ssl_con, (const char *) buf, n2w);
+		else
+#endif /*]*/
 		nw = write(sock, (const char *) buf, n2w);
 		if (nw < 0) {
+#if defined(HAVE_LIBSSL) /*[*/
+			if (ssl_host) {
+				unsigned long e;
+				char err_buf[1024];
+
+				e = ERR_get_error();
+				(void) ERR_error_string(e, err_buf);
+				trace_dsn("RCVD socket error %ld (%s)\n", e,
+				    err_buf);
+				popup_an_error("SSL_write:\n%s", err_buf);
+				host_disconnect(False);
+				return;
+			}
+#endif /*]*/
 			trace_dsn("RCVD socket error %d\n", errno);
 			if (errno == EPIPE || errno == ECONNRESET) {
 				host_disconnect(False);
@@ -2696,3 +2825,59 @@ non_blocking(Boolean on)
 #endif /*]*/
 	return 0;
 }
+
+#if defined(HAVE_LIBSSL) /*[*/
+
+/* Initialize the OpenSSL library. */
+static void
+ssl_init(void)
+{
+	static Boolean ssl_initted = False;
+
+	if (!ssl_initted) {
+		SSL_load_error_strings();
+		SSL_library_init();
+		ssl_initted = True;
+		ssl_ctx = SSL_CTX_new(SSLv23_method());
+		if (ssl_ctx == NULL) {
+			popup_an_error("SSL_CTX_new failed");
+			ssl_host = False;
+			return;
+		}
+		SSL_CTX_set_options(ssl_ctx, SSL_OP_ALL);
+	}
+
+	ssl_con = SSL_new(ssl_ctx);
+	if (ssl_con == NULL) {
+		popup_an_error("SSL_new failed");
+		ssl_host = False;
+	}
+	/* XXX: Get verify flags from a per-host resource. */
+	SSL_set_verify(ssl_con, 0/*xxx*/, NULL);
+
+	SSL_CTX_set_info_callback(ssl_ctx, client_info_callback);
+
+	/* XXX: Get cert_file and key_file from a per-host resource. */
+
+	SSL_CTX_set_default_verify_paths(ssl_ctx);
+}
+
+/* Callback for tracing protocol negotiation. */
+static void
+client_info_callback(SSL *s, int where, int ret)
+{
+	if (where == SSL_CB_CONNECT_LOOP) {
+		trace_dsn("SSL_connect: %s %s\n",
+		    SSL_state_string(s), SSL_state_string_long(s));
+	} else if (where == SSL_CB_CONNECT_EXIT) {
+		if (ret == 0) {
+			trace_dsn("SSL_connect: failed in %s %s\n",
+			    SSL_state_string(s), SSL_state_string_long(s));
+		} else if (ret < 0) {
+			trace_dsn("SSL_connect: error in %s %s\n",
+			    SSL_state_string(s), SSL_state_string_long(s));
+		}
+	}
+}
+
+#endif /*]*/

@@ -826,8 +826,10 @@ if test -n "$ac_init_help"; then
 Optional Features:
   --disable-FEATURE       do not include FEATURE (same as --enable-FEATURE=no)
   --enable-FEATURE[=ARG]  include FEATURE [ARG=yes]
+  --disable-ssl           leave out OpenSSL support
   --disable-ansi          leave out NVT (ANSI) support
   --disable-apl           leave out APL character support
+  --enable-dbcs           include DBCS support
   --disable-ft            leave out file transfer support
   --disable-local-process leave out local process support
   --disable-printer       leave out printer session support
@@ -840,6 +842,7 @@ Optional Packages:
   --without-PACKAGE       do not use PACKAGE (same as --with-PACKAGE=no)
   --without-readline      Don't use the readline library
   --without-pr3287        don't build pr3287
+  --with-ssl=DIR          location of installed OpenSSL libraries/include files
 
 Some influential environment variables:
   CC          C compiler command
@@ -4107,6 +4110,400 @@ _ACEOF
 fi
 
 
+# Check whether --enable-ssl or --disable-ssl was given.
+if test "${enable_ssl+set}" = set; then
+  enableval="$enable_ssl"
+
+fi;
+
+checkssldir() { :
+	if test -f "$1/include/openssl/ssl.h"
+	then	ssldir="$1"
+		return 0
+	else	return 1
+	fi
+}
+
+
+# Check whether --with-ssl or --without-ssl was given.
+if test "${with_ssl+set}" = set; then
+  withval="$with_ssl"
+  checkssldir "$withval"
+fi;
+
+if test "$enable_ssl" != "no"
+then		echo "$as_me:$LINENO: checking for OpenSSL library install directory" >&5
+echo $ECHO_N "checking for OpenSSL library install directory... $ECHO_C" >&6
+	if test -z "$ssldir"
+	then	for basedir in /usr/local /usr/lib /usr/pkg /usr /var/ssl /opt
+		do	for dir in $basedir $basedir/ssl
+			do	checkssldir $dir && break 2
+			done
+		done
+	fi
+	if test -z "$ssldir"
+	then	echo "$as_me:$LINENO: result: Not found" >&5
+echo "${ECHO_T}Not found" >&6
+		echo
+		echo "Couldn't find OpenSSL library installation directory."
+		echo "Use the --with-ssl option to specify it."
+		exit 1
+	fi
+	echo "$as_me:$LINENO: result: $ssldir" >&5
+echo "${ECHO_T}$ssldir" >&6
+	if test "$ssldir" != /usr
+	then	CPPFLAGS="$CPPFLAGS -I$ssldir/include"
+		LDFLAGS="$LDFLAGS -L$ssldir/lib"
+	fi
+
+
+echo "$as_me:$LINENO: checking for CRYPTO_malloc in -lcrypto" >&5
+echo $ECHO_N "checking for CRYPTO_malloc in -lcrypto... $ECHO_C" >&6
+if test "${ac_cv_lib_crypto_CRYPTO_malloc+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lcrypto  $LIBS"
+cat >conftest.$ac_ext <<_ACEOF
+#line $LINENO "configure"
+#include "confdefs.h"
+
+/* Override any gcc2 internal prototype to avoid an error.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+/* We use char because int might match the return type of a gcc2
+   builtin and then its argument prototype would still apply.  */
+char CRYPTO_malloc ();
+#ifdef F77_DUMMY_MAIN
+#  ifdef __cplusplus
+     extern "C"
+#  endif
+   int F77_DUMMY_MAIN() { return 1; }
+#endif
+int
+main ()
+{
+CRYPTO_malloc ();
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+         { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_lib_crypto_CRYPTO_malloc=yes
+else
+  echo "$as_me: failed program was:" >&5
+cat conftest.$ac_ext >&5
+ac_cv_lib_crypto_CRYPTO_malloc=no
+fi
+rm -f conftest.$ac_objext conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+echo "$as_me:$LINENO: result: $ac_cv_lib_crypto_CRYPTO_malloc" >&5
+echo "${ECHO_T}$ac_cv_lib_crypto_CRYPTO_malloc" >&6
+if test $ac_cv_lib_crypto_CRYPTO_malloc = yes; then
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_LIBCRYPTO 1
+_ACEOF
+
+  LIBS="-lcrypto $LIBS"
+
+else
+  { { echo "$as_me:$LINENO: error: Can't find libcrypto" >&5
+echo "$as_me: error: Can't find libcrypto" >&2;}
+   { (exit 1); exit 1; }; }
+fi
+
+
+echo "$as_me:$LINENO: checking for SSL_new in -lssl" >&5
+echo $ECHO_N "checking for SSL_new in -lssl... $ECHO_C" >&6
+if test "${ac_cv_lib_ssl_SSL_new+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lssl  $LIBS"
+cat >conftest.$ac_ext <<_ACEOF
+#line $LINENO "configure"
+#include "confdefs.h"
+
+/* Override any gcc2 internal prototype to avoid an error.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+/* We use char because int might match the return type of a gcc2
+   builtin and then its argument prototype would still apply.  */
+char SSL_new ();
+#ifdef F77_DUMMY_MAIN
+#  ifdef __cplusplus
+     extern "C"
+#  endif
+   int F77_DUMMY_MAIN() { return 1; }
+#endif
+int
+main ()
+{
+SSL_new ();
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+         { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_lib_ssl_SSL_new=yes
+else
+  echo "$as_me: failed program was:" >&5
+cat conftest.$ac_ext >&5
+ac_cv_lib_ssl_SSL_new=no
+fi
+rm -f conftest.$ac_objext conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+echo "$as_me:$LINENO: result: $ac_cv_lib_ssl_SSL_new" >&5
+echo "${ECHO_T}$ac_cv_lib_ssl_SSL_new" >&6
+if test $ac_cv_lib_ssl_SSL_new = yes; then
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_LIBSSL 1
+_ACEOF
+
+  LIBS="-lssl $LIBS"
+
+else
+  { { echo "$as_me:$LINENO: error: Can't find libssl" >&5
+echo "$as_me: error: Can't find libssl" >&2;}
+   { (exit 1); exit 1; }; }
+fi
+
+	SSL=-DHAVE_LIBSSL
+fi
+
+
+checkicudir() { :
+	if test -f "$1/include/unicode/ucnv.h"
+	then	icudir="$1"
+		return 0
+	else	return 1
+	fi
+}
+
+if test "$enable_dbcs" = "yes"
+then		echo "$as_me:$LINENO: checking for ICU library install directory" >&5
+echo $ECHO_N "checking for ICU library install directory... $ECHO_C" >&6
+	if test -z "$icudir"
+	then	for basedir in /usr/local /usr/lib /usr/pkg /usr /var/icu /opt
+		do	for dir in $basedir $basedir/icu
+			do	checkicudir $dir && break 2
+			done
+		done
+	fi
+	if test -z "$icudir"
+	then	echo "$as_me:$LINENO: result: Not found" >&5
+echo "${ECHO_T}Not found" >&6
+		echo
+		echo "Couldn't find ICU library installation directory."
+		echo "Use the --with-icu option to specify it."
+		enable_dbcs="no"	# insufficient, hmm
+	else	echo "$as_me:$LINENO: result: $icudir" >&5
+echo "${ECHO_T}$icudir" >&6
+		if test "$icudir" != /usr
+		then	CPPFLAGS="$CPPFLAGS -I$icudir/include"
+			LDFLAGS="$LDFLAGS -L$icudir/lib"
+		fi
+
+				icu_ver_file=$icudir/include/unicode/uversion.h
+		if test ! -f $ivu_ver_file
+		then	{ { echo "$as_me:$LINENO: error: Can't find ICU version file" >&5
+echo "$as_me: error: Can't find ICU version file" >&2;}
+   { (exit 1); exit 1; }; }
+		fi
+		icu_suffix=`awk '/#define.*U_ICU_VERSION_SUFFIX/ {print $3}' $icu_ver_file`
+		if test -z "$icu_suffix"
+		then	{ { echo "$as_me:$LINENO: error: Can't determine ICU version" >&5
+echo "$as_me: error: Can't determine ICU version" >&2;}
+   { (exit 1); exit 1; }; }
+		fi
+
+as_ac_Lib=`echo "ac_cv_lib_icui18n_ucnv_open${icu_suffix}" | $as_tr_sh`
+echo "$as_me:$LINENO: checking for ucnv_open${icu_suffix} in -licui18n" >&5
+echo $ECHO_N "checking for ucnv_open${icu_suffix} in -licui18n... $ECHO_C" >&6
+if eval "test \"\${$as_ac_Lib+set}\" = set"; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-licui18n  $LIBS"
+cat >conftest.$ac_ext <<_ACEOF
+#line $LINENO "configure"
+#include "confdefs.h"
+
+/* Override any gcc2 internal prototype to avoid an error.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+/* We use char because int might match the return type of a gcc2
+   builtin and then its argument prototype would still apply.  */
+char ucnv_open${icu_suffix} ();
+#ifdef F77_DUMMY_MAIN
+#  ifdef __cplusplus
+     extern "C"
+#  endif
+   int F77_DUMMY_MAIN() { return 1; }
+#endif
+int
+main ()
+{
+ucnv_open${icu_suffix} ();
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+         { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  eval "$as_ac_Lib=yes"
+else
+  echo "$as_me: failed program was:" >&5
+cat conftest.$ac_ext >&5
+eval "$as_ac_Lib=no"
+fi
+rm -f conftest.$ac_objext conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+echo "$as_me:$LINENO: result: `eval echo '${'$as_ac_Lib'}'`" >&5
+echo "${ECHO_T}`eval echo '${'$as_ac_Lib'}'`" >&6
+if test `eval echo '${'$as_ac_Lib'}'` = yes; then
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_LIBICUI18N 1
+_ACEOF
+
+  LIBS="-licui18n $LIBS"
+
+else
+  enable_dbcs="no"
+fi
+
+		if test "$enable_dbcs" = "no"
+		then	echo "Can't find libicui18n"
+		else
+									echo "$as_me:$LINENO: checking for ICU data prefix" >&5
+echo $ECHO_N "checking for ICU data prefix... $ECHO_C" >&6
+			cat >/tmp/icutst$$.c <<EOF
+#include "unicode/ucnv.h"
+
+int
+main(int argc, char *argv)
+{
+	printf("%s\n", U_ICUDATA_NAME);
+	return 0;
+}
+EOF
+			${CC} ${CPPFLAGS} -o /tmp/icutst$$ /tmp/icutst$$.c
+			rm -f /tmp/icutst$$.c
+			ICU_DATA_PREFIX=`/tmp/icutst$$`
+			rm -f /tmp/icutst$$
+			echo "$as_me:$LINENO: result: $ICU_DATA_PREFIX" >&5
+echo "${ECHO_T}$ICU_DATA_PREFIX" >&6
+
+			if test -z "$ICU_DATA_PREFIX"
+			then	{ echo "$as_me:$LINENO: WARNING: Cannot determine ICU data prefix" >&5
+echo "$as_me: WARNING: Cannot determine ICU data prefix" >&2;}
+				enable_dbcs="no"
+			else
+								# Extract the first word of "makeconv", so it can be a program name with args.
+set dummy makeconv; ac_word=$2
+echo "$as_me:$LINENO: checking for $ac_word" >&5
+echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6
+if test "${ac_cv_prog_makeconv_found+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  if test -n "$makeconv_found"; then
+  ac_cv_prog_makeconv_found="$makeconv_found" # Let the user override the test.
+else
+as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+  for ac_exec_ext in '' $ac_executable_extensions; do
+  if $as_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
+    ac_cv_prog_makeconv_found="found"
+    echo "$as_me:$LINENO: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+done
+
+  test -z "$ac_cv_prog_makeconv_found" && ac_cv_prog_makeconv_found="notfound"
+fi
+fi
+makeconv_found=$ac_cv_prog_makeconv_found
+if test -n "$makeconv_found"; then
+  echo "$as_me:$LINENO: result: $makeconv_found" >&5
+echo "${ECHO_T}$makeconv_found" >&6
+else
+  echo "$as_me:$LINENO: result: no" >&5
+echo "${ECHO_T}no" >&6
+fi
+
+				if test "$makeconv_found" = "notfound"
+				then	{ echo "$as_me:$LINENO: WARNING: Cannot find makeconv" >&5
+echo "$as_me: WARNING: Cannot find makeconv" >&2;}
+					enable_dbcs="no"
+				fi
+			fi
+		fi
+
+	fi
+	if test "$enable_dbcs" = "no"
+	then	{ echo "$as_me:$LINENO: WARNING: Disabling DBCS." >&5
+echo "$as_me: WARNING: Disabling DBCS." >&2;}
+	fi
+fi
+case "$enable_dbcs" in
+yes)	cat >>confdefs.h <<\_ACEOF
+#define X3270_DBCS 1
+_ACEOF
+
+	DBCS_C="wide.c"
+	DBCS_O="wide.o"
+	CNV=""
+	;;
+*)	CNV="#"
+	;;
+esac
+
+
+
+
+
 # Extract the first word of "less", so it can be a program name with args.
 set dummy less; ac_word=$2
 echo "$as_me:$LINENO: checking for $ac_word" >&5
@@ -4221,6 +4618,23 @@ _ACEOF
 
 	;;
 esac
+# Check whether --enable-dbcs or --disable-dbcs was given.
+if test "${enable_dbcs+set}" = set; then
+  enableval="$enable_dbcs"
+
+fi;
+case "$enable_dbcs" in
+yes)	cat >>confdefs.h <<\_ACEOF
+#define X3270_DBCS 1
+_ACEOF
+
+	DBCS_C="wide.c"
+	DBCS_O="wide.o"
+	;;
+*)	;;
+esac
+
+
 # Check whether --enable-ft or --disable-ft was given.
 if test "${enable_ft+set}" = set; then
   enableval="$enable_ft"
@@ -4874,6 +5288,12 @@ s,@XPRECOMP@,$XPRECOMP,;t t
 s,@BROKEN_NEWTERM@,$BROKEN_NEWTERM,;t t
 s,@PR@,$PR,;t t
 s,@CPP@,$CPP,;t t
+s,@SSL@,$SSL,;t t
+s,@makeconv_found@,$makeconv_found,;t t
+s,@DBCS_C@,$DBCS_C,;t t
+s,@DBCS_O@,$DBCS_O,;t t
+s,@CNV@,$CNV,;t t
+s,@ICU_DATA_PREFIX@,$ICU_DATA_PREFIX,;t t
 s,@LESSPATH@,$LESSPATH,;t t
 s,@MOREPATH@,$MOREPATH,;t t
 s,@LIBX3270DIR@,$LIBX3270DIR,;t t

@@ -714,46 +714,60 @@ status_render(int region)
 	struct status_line *sl = &status_line[region];
 	int	nd = 0;
 	int	i0 = -1;
+	XTextItem16 text1;
 
 	/* The status region may change colors; don't be so clever */
-	if (*funky_font)
+	if (region == WAIT_REGION) {
 		XFillRectangle(display, *screen_window,
 		    screen_invgc(sl->color),
 		    COL_TO_X(sl->start), status_y - *ascent,
 		    *char_width * sl->len, *char_height);
-	if (region == WAIT_REGION) {
-		XDrawImageString(display, *screen_window, screen_gc(sl->color),
-		    COL_TO_X(sl->start), status_y, (char *) sl->s1b, sl->len);
+		text1.chars = sl->s2b;
+		text1.nchars = sl->len;
+		text1.delta = 0;
+		text1.font = *fid;
+		XDrawText16(display, *screen_window, screen_gc(sl->color),
+		    COL_TO_X(sl->start), status_y, &text1, 1);
 	} else {
 		for (i = 0; i < sl->len; i++) {
-			if (*funky_font) {
+			if (*funky_font || *xtra_width) {
 				if (!sl->s1b[i])
 					continue;
-				XDrawImageString(display,
+				XFillRectangle(display, *screen_window,
+				    screen_invgc(sl->color),
+				    COL_TO_X(sl->start + i), status_y - *ascent,
+				    *char_width, *char_height);
+				text1.chars = sl->s2b + i;
+				text1.nchars = 1;
+				text1.delta = 0;
+				text1.font = *fid;
+				XDrawText16(display,
 				    *screen_window,
 				    screen_gc(sl->color),
 				    COL_TO_X(sl->start + i),
 				    status_y,
-				    (char *) sl->s1b + i, 1);
+				    &text1, 1);
 				continue;
 			}
 			if (sl->s2b[i].byte1 == sl->d2b[i].byte1 &&
 			    sl->s2b[i].byte2 == sl->d2b[i].byte2) {
 				if (nd) {
-					if (*extended_3270font)
-						XDrawImageString16(display,
-						    *screen_window,
-						    screen_gc(sl->color),
-						    COL_TO_X(sl->start + i0),
-						    status_y,
-						    sl->s2b + i0, nd);
-					else
-						XDrawImageString(display,
-						    *screen_window,
-						    screen_gc(sl->color),
-						    COL_TO_X(sl->start + i0),
-						    status_y,
-						    (char *) sl->s1b + i0, nd);
+					XFillRectangle(display,
+					    *screen_window,
+					    screen_invgc(sl->color),
+					    COL_TO_X(sl->start + i0),
+					    status_y - *ascent,
+					    *char_width * nd, *char_height);
+					text1.chars = sl->s2b + i0;
+					text1.nchars = nd;
+					text1.delta = 0;
+					text1.font = *fid;
+					XDrawText16(display,
+					    *screen_window,
+					    screen_gc(sl->color),
+					    COL_TO_X(sl->start + i0),
+					    status_y,
+					    &text1, 1);
 					nd = 0;
 					i0 = -1;
 				}
@@ -763,47 +777,59 @@ status_render(int region)
 			}
 		}
 		if (nd) {
-			if (*extended_3270font)
-				XDrawImageString16(display, *screen_window,
-				    screen_gc(sl->color),
-				    COL_TO_X(sl->start + i0), status_y,
-				    sl->s2b + i0, nd);
-			else
-				XDrawImageString(display, *screen_window,
-				    screen_gc(sl->color),
-				    COL_TO_X(sl->start + i0), status_y,
-				    (char *)sl->s1b + i0, nd);
+			XFillRectangle(display,
+			    *screen_window,
+			    screen_invgc(sl->color),
+			    COL_TO_X(sl->start + i0),
+			    status_y - *ascent,
+			    *char_width * nd, *char_height);
+			text1.chars = sl->s2b + i0;
+			text1.nchars = nd;
+			text1.delta = 0;
+			text1.font = *fid;
+			XDrawText16(display, *screen_window,
+			    screen_gc(sl->color),
+			    COL_TO_X(sl->start + i0), status_y,
+			    &text1, 1);
 		}
 	}
 
 	/* Leftmost region has unusual attributes */
 	if (*standard_font && region == CTLR_REGION) {
-		if (*funky_font) {
-			XFillRectangle(display, *screen_window,
-			    screen_invgc(sl->color),
-			    COL_TO_X(sl->start), status_y - *ascent,
-			    *char_width * 3, *char_height);
-			XFillRectangle(display, *screen_window,
-			    screen_gc(sl->color),
-			    COL_TO_X(sl->start + LBOX), status_y - *ascent,
-			    *char_width, *char_height);
-			XFillRectangle(display, *screen_window,
-			    screen_gc(sl->color),
-			    COL_TO_X(sl->start + RBOX), status_y - *ascent,
-			    *char_width, *char_height);
-		}
-		XDrawImageString(display, *screen_window,
+		XFillRectangle(display, *screen_window,
+		    screen_invgc(sl->color),
+		    COL_TO_X(sl->start), status_y - *ascent,
+		    *char_width * 3, *char_height);
+		XFillRectangle(display, *screen_window,
+		    screen_gc(sl->color),
+		    COL_TO_X(sl->start + LBOX), status_y - *ascent,
+		    *char_width, *char_height);
+		XFillRectangle(display, *screen_window,
+		    screen_gc(sl->color),
+		    COL_TO_X(sl->start + RBOX), status_y - *ascent,
+		    *char_width, *char_height);
+		text1.chars = sl->s2b + LBOX;
+		text1.nchars = 1;
+		text1.delta = 0;
+		text1.font = *fid;
+		XDrawText16(display, *screen_window,
 		    screen_invgc(sl->color),
 		    COL_TO_X(sl->start + LBOX), status_y,
-		    (char *) sl->s1b + LBOX, 1);
+		    &text1, 1);
 		XDrawRectangle(display, *screen_window, screen_gc(sl->color),
 		    COL_TO_X(sl->start + CNCT),
 		    status_y - *ascent + *char_height - 1,
 		    *char_width - 1, 0);
-		XDrawImageString(display, *screen_window,
+		text1.chars = sl->s2b + CNCT;
+		XDrawText16(display, *screen_window,
+		    screen_gc(sl->color),
+		    COL_TO_X(sl->start + CNCT), status_y,
+		    &text1, 1);
+		text1.chars = sl->s2b + RBOX;
+		XDrawText16(display, *screen_window,
 		    screen_invgc(sl->color),
 		    COL_TO_X(sl->start + RBOX), status_y,
-		    (char *) sl->s1b + RBOX, 1);
+		    &text1, 1);
 	}
 }
 

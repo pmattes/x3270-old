@@ -25,6 +25,7 @@
 #undef HAVE_LIBUTIL
 #undef HAVE_LIBSOCKET
 #undef HAVE_LIBREADLINE
+#undef HAVE_LIBSSL
 
 /* Header files. */
 #undef HAVE_NCURSES_H
@@ -50,6 +51,7 @@
 /* Optional parts. */
 #undef X3270_ANSI
 #undef X3270_APL
+#undef X3270_DBCS
 #undef X3270_FT
 #undef X3270_LOCAL_PROCESS
 #undef X3270_PRINTER

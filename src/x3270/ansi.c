@@ -159,62 +159,63 @@ static enum state ansi_select_g3(int, int);
 static enum state ansi_one_g2(int, int);
 static enum state ansi_one_g3(int, int);
 
-static enum state (*ansi_fn[])(int, int) = {
-/* 0 */		ansi_data_mode,
-/* 1 */		dec_save_cursor,
-/* 2 */		dec_restore_cursor,
-/* 3 */		ansi_newline,
-/* 4 */		ansi_cursor_up,
-/* 5 */		ansi_esc2,
-/* 6 */		ansi_reset,
-/* 7 */		ansi_insert_chars,
-/* 8 */		ansi_cursor_down,
-/* 9 */		ansi_cursor_right,
-/* 10 */	ansi_cursor_left,
-/* 11 */	ansi_cursor_motion,
-/* 12 */	ansi_erase_in_display,
-/* 13 */	ansi_erase_in_line,
-/* 14 */	ansi_insert_lines,
-/* 15 */	ansi_delete_lines,
-/* 16 */	ansi_delete_chars,
-/* 17 */	ansi_sgr,
-/* 18 */	ansi_bell,
-/* 19 */	ansi_newpage,
-/* 20 */	ansi_backspace,
-/* 21 */	ansi_cr,
-/* 22 */	ansi_lf,
-/* 23 */	ansi_htab,
-/* 24 */	ansi_escape,
-/* 25 */	ansi_nop,
-/* 26 */	ansi_printing,
-/* 27 */	ansi_semicolon,
-/* 28 */	ansi_digit,
-/* 29 */	ansi_reverse_index,
-/* 30 */	ansi_send_attributes,
-/* 31 */	ansi_set_mode,
-/* 32 */	ansi_reset_mode,
-/* 33 */	dec_return_terminal_id,
-/* 34 */	ansi_status_report,
-/* 35 */	ansi_cs_designate,
-/* 36 */	ansi_esc3,
-/* 37 */	dec_set,
-/* 38 */	dec_reset,
-/* 39 */	dec_save,
-/* 40 */	dec_restore,
-/* 41 */	dec_scrolling_region,
-/* 42 */	xterm_text_mode,
-/* 43 */	xterm_text_semicolon,
-/* 44 */	xterm_text,
-/* 45 */	xterm_text_do,
-/* 46 */	ansi_htab_set,
-/* 47 */	ansi_htab_clear,
-/* 48 */	ansi_cs_designate2,
-/* 49 */	ansi_select_g0,
-/* 50 */	ansi_select_g1,
-/* 51 */	ansi_select_g2,
-/* 52 */	ansi_select_g3,
-/* 53 */	ansi_one_g2,
-/* 54 */	ansi_one_g3,
+typedef enum state (*afn_t)(int, int);
+static afn_t ansi_fn[] = {
+/* 0 */		&ansi_data_mode,
+/* 1 */		&dec_save_cursor,
+/* 2 */		&dec_restore_cursor,
+/* 3 */		&ansi_newline,
+/* 4 */		&ansi_cursor_up,
+/* 5 */		&ansi_esc2,
+/* 6 */		&ansi_reset,
+/* 7 */		&ansi_insert_chars,
+/* 8 */		&ansi_cursor_down,
+/* 9 */		&ansi_cursor_right,
+/* 10 */	&ansi_cursor_left,
+/* 11 */	&ansi_cursor_motion,
+/* 12 */	&ansi_erase_in_display,
+/* 13 */	&ansi_erase_in_line,
+/* 14 */	&ansi_insert_lines,
+/* 15 */	&ansi_delete_lines,
+/* 16 */	&ansi_delete_chars,
+/* 17 */	&ansi_sgr,
+/* 18 */	&ansi_bell,
+/* 19 */	&ansi_newpage,
+/* 20 */	&ansi_backspace,
+/* 21 */	&ansi_cr,
+/* 22 */	&ansi_lf,
+/* 23 */	&ansi_htab,
+/* 24 */	&ansi_escape,
+/* 25 */	&ansi_nop,
+/* 26 */	&ansi_printing,
+/* 27 */	&ansi_semicolon,
+/* 28 */	&ansi_digit,
+/* 29 */	&ansi_reverse_index,
+/* 30 */	&ansi_send_attributes,
+/* 31 */	&ansi_set_mode,
+/* 32 */	&ansi_reset_mode,
+/* 33 */	&dec_return_terminal_id,
+/* 34 */	&ansi_status_report,
+/* 35 */	&ansi_cs_designate,
+/* 36 */	&ansi_esc3,
+/* 37 */	&dec_set,
+/* 38 */	&dec_reset,
+/* 39 */	&dec_save,
+/* 40 */	&dec_restore,
+/* 41 */	&dec_scrolling_region,
+/* 42 */	&xterm_text_mode,
+/* 43 */	&xterm_text_semicolon,
+/* 44 */	&xterm_text,
+/* 45 */	&xterm_text_do,
+/* 46 */	&ansi_htab_set,
+/* 47 */	&ansi_htab_clear,
+/* 48 */	&ansi_cs_designate2,
+/* 49 */	&ansi_select_g0,
+/* 50 */	&ansi_select_g1,
+/* 51 */	&ansi_select_g2,
+/* 52 */	&ansi_select_g3,
+/* 53 */	&ansi_one_g2,
+/* 54 */	&ansi_one_g3
 };
 
 static unsigned char st[7][256] = {
@@ -417,6 +418,10 @@ static int      wraparound_mode = 1;
 static int      saved_wraparound_mode = 1;
 static int      rev_wraparound_mode = 0;
 static int      saved_rev_wraparound_mode = 0;
+static int	allow_wide_mode = 0;
+static int	saved_allow_wide_mode = 0;
+static int	wide_mode = 0;
+static int	saved_wide_mode = 0;
 static Boolean  saved_altbuffer = False;
 static int      scroll_top = -1;
 static int      scroll_bottom = -1;
@@ -425,8 +430,10 @@ static char	gnnames[] = "()*+";
 static char	csnames[] = "0AB";
 static int	cs_to_change;
 #if defined(X3270_DBCS) /*[*/
-static unsigned char dbcs_c1 = 0;
-static int	dbcs_cursor1 = 0;
+static unsigned char mb_pending = 0;
+#define MB_MAX	16
+static char	mb_buffer[MB_MAX];
+static int	dbcs_process(int ch, unsigned char ebc[]);
 #endif /*]*/
 
 static Boolean  held_wrap = False;
@@ -538,6 +545,10 @@ ansi_reset(int ig1 unused, int ig2 unused)
 	saved_wraparound_mode = 1;
 	rev_wraparound_mode = 0;
 	saved_rev_wraparound_mode = 0;
+	allow_wide_mode = 0;
+	saved_allow_wide_mode = 0;
+	wide_mode = 0;
+	allow_wide_mode = 0;
 	saved_altbuffer = False;
 	scroll_top = 1;
 	scroll_bottom = ROWS;
@@ -550,6 +561,7 @@ ansi_reset(int ig1 unused, int ig2 unused)
 		ctlr_aclear(0, ROWS * COLS, 1);
 		ctlr_altbuffer(False);
 		ctlr_clear(False);
+		screen_80();
 	}
 	first = False;
 	return DATA;
@@ -979,16 +991,40 @@ ansi_printing(int ig1 unused, int ig2 unused)
 #if defined(X3270_DBCS) /*[*/
 		d = ctlr_dbcs_state(cursor_addr);
 		if (dbcs) {
-			if (ansi_ch & 0x80) {
-				if (dbcs_c1) {
-					unsigned char ebc[2];
+			if (mb_pending || (ansi_ch & 0x80)) {
+				int len;
+				unsigned char ebc[2];
 
-					/* Store the left-hand side. */
-					wchar_to_dbcs(dbcs_c1, ansi_ch, ebc);
-					ctlr_add(dbcs_cursor1, ebc[0], CS_DBCS);
-					ctlr_add_gr(dbcs_cursor1, gr);
-					ctlr_add_fg(dbcs_cursor1, fg);
-					ctlr_add_bg(dbcs_cursor1, bg);
+				len = dbcs_process(ansi_ch, ebc);
+				switch (len) {
+				    default:
+				    case 0:
+					/* Translation failed. */
+					return DATA;
+				    case 1:
+					/* It was really SBCS. */
+					ebc_ch = ebc[0];
+					break;
+				    case 2:
+					/* DBCS. */
+					if ((cursor_addr % COLS) == (COLS-1)) {
+						ebc_ch = EBC_space;
+						break;
+					}
+					ctlr_add(cursor_addr, ebc[0], CS_DBCS);
+					ctlr_add_gr(cursor_addr, gr);
+					ctlr_add_fg(cursor_addr, fg);
+					ctlr_add_bg(cursor_addr, bg);
+					if (wraparound_mode) {
+						if (!((cursor_addr + 1) % COLS)) {
+							held_wrap = True;
+						} else {
+							PWRAP;
+						}
+					} else {
+						if ((cursor_addr % COLS) != (COLS - 1))
+							cursor_move(cursor_addr + 1);
+					}
 
 					/*
 					 * Set up the right-hand side to be
@@ -996,15 +1032,13 @@ ansi_printing(int ig1 unused, int ig2 unused)
 					 */
 					ebc_ch = ebc[1];
 					default_cs = CS_DBCS;
-					dbcs_c1 = 0;
 					preserve_right = True;
-				} else {
-					dbcs_c1 = ansi_ch;
-					dbcs_cursor1 = cursor_addr;
-					ebc_ch = EBC_space;
+					break;
 				}
-			} else
-				dbcs_c1 = 0;
+			} else if (ansi_ch & 0x80) {
+				(void) dbcs_process(ansi_ch, NULL);
+				ebc_ch = EBC_space;
+			}
 		}
 
 		/* Handle conflicts with existing DBCS characters. */
@@ -1252,8 +1286,17 @@ dec_set(int ig1 unused, int ig2 unused)
 		    case 2:	/* set G0-G3 */
 			csd[0] = csd[1] = csd[2] = csd[3] = CSD_US;
 			break;
+		    case 3:	/* 132-column mode */
+			if (allow_wide_mode) {
+				wide_mode = 1;
+				screen_132();
+			}
+			break;
 		    case 7:	/* wraparound mode */
 			wraparound_mode = 1;
+			break;
+		    case 40:	/* allow 80/132 switching */
+			allow_wide_mode = 1;
 			break;
 		    case 45:	/* reverse-wraparound mode */
 			rev_wraparound_mode = 1;
@@ -1275,8 +1318,17 @@ dec_reset(int ig1 unused, int ig2 unused)
 		    case 1:	/* normal cursor keys */
 			appl_cursor = 0;
 			break;
+		    case 3:	/* 132-column mode */
+			if (allow_wide_mode) {
+				wide_mode = 0;
+				screen_80();
+			}
+			break;
 		    case 7:	/* no wraparound mode */
 			wraparound_mode = 0;
+			break;
+		    case 40:	/* allow 80/132 switching */
+			allow_wide_mode = 0;
 			break;
 		    case 45:	/* no reverse-wraparound mode */
 			rev_wraparound_mode = 0;
@@ -1298,8 +1350,14 @@ dec_save(int ig1 unused, int ig2 unused)
 		    case 1:	/* application cursor keys */
 			saved_appl_cursor = appl_cursor;
 			break;
+		    case 3:	/* 132-column mode */
+			saved_wide_mode = wide_mode;
+			break;
 		    case 7:	/* wraparound mode */
 			saved_wraparound_mode = wraparound_mode;
+			break;
+		    case 40:	/* allow 80/132 switching */
+			saved_allow_wide_mode = allow_wide_mode;
 			break;
 		    case 45:	/* reverse-wraparound mode */
 			saved_rev_wraparound_mode = rev_wraparound_mode;
@@ -1321,8 +1379,20 @@ dec_restore(int ig1 unused, int ig2 unused)
 		    case 1:	/* application cursor keys */
 			appl_cursor = saved_appl_cursor;
 			break;
+		    case 3:	/* 132-column mode */
+			if (allow_wide_mode) {
+				wide_mode = saved_wide_mode;
+				if (wide_mode)
+					screen_132();
+				else
+					screen_80();
+			}
+			break;
 		    case 7:	/* wraparound mode */
 			wraparound_mode = saved_wraparound_mode;
+			break;
+		    case 40:	/* allow 80/132 switching */
+			allow_wide_mode = saved_allow_wide_mode;
 			break;
 		    case 45:	/* reverse-wraparound mode */
 			rev_wraparound_mode = saved_rev_wraparound_mode;
@@ -1462,6 +1532,18 @@ ansi_in3270(Boolean in3270)
 		(void) ansi_reset(0, 0);
 }
 
+#if defined(X3270_DBCS) /*[*/
+static void
+trace_pending_mb(void)
+{
+	int i;
+
+	for (i = 0; i < mb_pending; i++) {
+		trace_ds(" %02x", mb_buffer[i] & 0xff);
+	}
+}
+#endif /*]*/
+
 
 /*
  * External entry points
@@ -1476,6 +1558,8 @@ ansi_init(void)
 void
 ansi_process(unsigned int c)
 {
+	afn_t fn;
+
 	c &= 0xff;
 	ansi_ch = c;
 
@@ -1486,11 +1570,16 @@ ansi_process(unsigned int c)
 		trace_char((char)c);
 #endif /*]*/
 
-	state = (*ansi_fn[st[(int)state][c]])(n[0], n[1]);
+	fn = ansi_fn[st[(int)state][c]];
 #if defined(X3270_DBCS) /*[*/
-	if (state != DATA)
-		dbcs_c1 = 0;
+	if (mb_pending && fn != &ansi_printing) {
+		trace_ds("Dropped incomplete multi-byte character");
+		trace_pending_mb();
+		trace_ds("\n");
+		mb_pending = 0;
+	}
 #endif /*]*/
+	state = (*fn)(n[0], n[1]);
 }
 
 void
@@ -1587,5 +1676,65 @@ toggle_lineWrap(struct toggle *t unused, enum toggle_type type unused)
 	else
 		wraparound_mode = 0;
 }
+
+#if defined(X3270_DBCS) /*[*/
+/* Accumulate and process pending DBCS characters. */
+static int
+dbcs_process(int ch, unsigned char ebc[])
+{
+	UChar Ubuf;
+	UErrorCode err = U_ZERO_ERROR;
+
+	/* See if we have too many. */
+	if (mb_pending >= MB_MAX) {
+		trace_ds("Multi-byte character ");
+		trace_pending_mb();
+		trace_ds(" too long, dropping\n");
+		mb_pending = 0;
+		return 0;
+	}
+
+	/* Store it and see if we're done. */
+	mb_buffer[mb_pending++] = ch & 0xff;
+	if (mb_to_unicode(mb_buffer, mb_pending, &Ubuf, 1, &err) > 0) {
+		/* It translated! */
+		if (dbcs_map8(Ubuf, ebc)) {
+			mb_pending = 0;
+			return 1;
+		} else if (dbcs_map16(Ubuf, ebc)) {
+			mb_pending = 0;
+			return 2;
+		} else {
+			trace_ds("Can't map multi-byte character");
+			trace_pending_mb();
+			trace_ds(" -> U+%04x to SBCS or DBCS, dropping\n",
+			    Ubuf & 0xffff);
+			mb_pending = 0;
+			return 0;
+		}
+	}
+
+	/* It failed.  See why. */
+	switch (err) {
+	case U_TRUNCATED_CHAR_FOUND:
+		/* 'Cause we're not finished. */
+		return 0;
+	case U_INVALID_CHAR_FOUND:
+	case U_ILLEGAL_CHAR_FOUND:
+		trace_ds("Invalid multi-byte character");
+		trace_pending_mb();
+		trace_ds(", dropping\n");
+		break;
+	default:
+		trace_ds("Unexpected ICU error %d translating multi-type "
+		    "character");
+		trace_pending_mb();
+		trace_ds(", dropping\n", (int)err);
+		break;
+	}
+	mb_pending = 0;
+	return 0;
+}
+#endif /*]*/
 
 #endif /*]*/

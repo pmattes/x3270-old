@@ -129,6 +129,7 @@ x3270.charsetList:			U.S. English (CP 37): us-intl\n\
 					Icelandic w/Euro (CP 1149): icelandic-euro\n\
 					Italian (CP 280): italian\n\
 					Italian w/Euro (CP 1144): italian-euro\n\
+					Japanese (CP 1027+300): japanese\n\
 					Norwegian (CP 277): norwegian\n\
 					Norwegian w/Euro (CP 1142): norwegian-euro\n\
 					Russian (CP 880): russian\n\
@@ -245,6 +246,11 @@ x3270.emulatorFontList.3270cg-1a,3270cg-1,iso8859-1+gb2312.1980-0,iso10646-1: \
 					20-point 3270: 3270-20+-isas-song ti-medium-r-normal--16-160-72-72-c-160-gb2312.1980-0\n\
 					8x16: 8x16+-isas-song ti-medium-r-normal--16-160-72-72-c-160-gb2312.1980-0\n\
 					12x24: 12x24+-isas-song ti-medium-r-normal--24-240-72-72-c-240-gb2312.1980-0
+x3270.emulatorFontList.jisx0201.1976-0+jisx0208.1983-0,iso10646-1: \
+					14-point: -misc-fixed-medium-r-normal--14-130-75-75-c-70-jisx0201.1976-0+-misc-fixed-medium-r-normal--14-130-75-75-c-140-jisx0208.1983-0\n\
+					16-point: -sony-fixed-medium-r-normal--16-150-75-75-c-80-jisx0201.1976-0+-jis-fixed-medium-r-normal--16-150-75-75-c-160-jisx0208.1983-0\n\
+					18-point: -sony-fixed-medium-r-normal--16-150-75-75-c-80-jisx0201.1976-0+-misc-fixed-medium-r-normal-ja-18-120-100-100-c-180-iso10646-1\n\
+					24-point: -sony-fixed-medium-r-normal--24-230-75-75-c-120-jisx0201.1976-0+-jis-fixed-medium-r-normal--24-230-75-75-c-240-jisx0208.1983-0
 #endif
 !
 ! Print commands
@@ -277,7 +283,8 @@ x3270.serverKeymapList: \
 	Hewlett-Packard Company: hp-k1\n\
 	International Business Machines: alt\n\
 	Silicon Graphics: alt\n\
-	The XFree86 Project, Inc: alt
+	The XFree86 Project, Inc: alt\n\
+	AT&T Laboratories Cambridge: alt
 !
 ! Keymaps (keyboard and mouse mappings)
 !
@@ -372,8 +379,10 @@ x3270.keymap.base.3270: #override \
 	Meta<Key>p:			PrintText()\n\
 	Meta<Key>r:			Reset()\n\
 	Meta<Key>u:			Unselect()\n\
+	Ctrl<Key>c:			set-select(CLIPBOARD)\n\
 	Ctrl<Key>u:			DeleteField()\n\
-	Ctrl<Key>w:			DeleteWord()\n
+	Ctrl<Key>w:			DeleteWord()\n\
+	Ctrl<Key>v:			insert-selection(CLIPBOARD)\n
 !
 ! Start of keyboard-specific mappings.
 !
@@ -1055,6 +1064,7 @@ x3270.message.iconLabelFont:			Icon label font:
 x3270.message.staticIcon:			Static bitmap icon
 x3270.message.connectedTo:			Connected to:
 x3270.message.port:				Port:
+x3270.message.secure:				via SSL
 x3270.message.charMode:				NVT character mode
 x3270.message.lineMode:				NVT line mode
 x3270.message.dsMode:				3270 mode
@@ -1104,6 +1114,13 @@ x3270.message.ftCutOversize:			Illegal frame length
 x3270.message.ftDisconnected:			Host disconnected, transfer cancelled
 x3270.message.ftNot3270:			Not in 3270 mode, transfer cancelled
 #endif
+x3270.message.inputMethod:			X11 Input Method (XIM):
+x3270.message.ximState:				state:
+x3270.message.ximDisabled:			failed
+x3270.message.ximNotFound:			not found
+x3270.message.ximActive:			active
+x3270.message.ximLocale:			locale:
+x3270.message.ximEncoding:			encoding:
 #ifndef STANDALONE
 x3270.message.kmEvent:				Event
 x3270.message.kmKeymapLine:			Keymap:Line
@@ -1162,6 +1179,8 @@ x3270*connectMenuButton*background:		grey
 x3270*macrosMenuButton*background:		grey
 x3270*helpButton*background:			grey
 x3270*keypadButton*background:			grey
+x3270*sslIcon*background:			grey
+x3270*sslIcon*borderColor:			grey
 x3270*fileMenuButton*borderColor:		grey
 x3270*optionsMenuButton*borderColor:		grey
 x3270*connectMenuButton*borderColor:		grey
@@ -1376,8 +1395,7 @@ x3270.keypadPopup.translations: #override \n\
 	<Message>WM_PROTOCOLS:		PA-WMProtocols()\n\
 	<KeymapNotify>:			PA-KeymapNotify()\n\
 	<Enter>:			PA-EnterLeave()\n\
-	<Leave>:			PA-EnterLeave()\n\
-	<ReparentNotify>:               PA-ReparentNotify()
+	<Leave>:			PA-EnterLeave()
 x3270.keypadPopup.container.translations: #override \n\
 	<KeyPress>Shift_L:		PA-Shift()\n\
 	<KeyRelease>Shift_L:		PA-Shift()\n\
@@ -2031,5 +2049,47 @@ x3270.charset.thai: #table\n\
 ! set (836), not the double-byte character set (837).
 x3270.codepage.simplified-chinese: 0x04960344+0xffff0345
 x3270.displayCharset.simplified-chinese: 3270cg-1a,3270cg-1,iso8859-1+gb2312.1980-0,iso10646-1
-x3270.charset.simplified-chinese: \n
+x3270.charset.simplified-chinese: #table\n\
+   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0 \
+   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0 \
+   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0 \
+   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0 \
+  32   0   0   0   0   0   0   0   0   0 163  46  60  40  43 124 \
+  38   0   0   0   0   0   0   0   0   0  33 165  42  41  59 172 \
+  45  47   0   0   0   0   0   0   0   0 166  44  37  95  62  63 \
+   0   0   0   0   0   0   0   0   0  96  58  35  64  39  61  34 \
+   0  97  98  99 100 101 102 103 104 105   0   0   0   0   0   0 \
+   0 106 107 108 109 110 111 112 113 114   0   0   0   0   0   0 \
+ 126 175 115 116 117 118 119 120 121 122   0   0   0   0   0   0 \
+  94   0  92   0   0   0   0   0   0   0  91  93   0   0   0   0 \
+ 123  65  66  67  68  69  70  71  72  73   0   0   0   0   0   0 \
+ 125  74  75  76  77  78  79  80  81  82   0   0   0   0   0   0 \
+  36   0  83  84  85  86  87  88  89  90   0   0   0   0   0   0 \
+  48  49  50  51  52  53  54  55  56  57   0   0   0   0   0   0
+! dbcsConverters are ICU converter names, of the form:
+!  [host-SBCS-converter+]host-DBCS-converter,display-font-converter
 x3270.dbcsConverters.simplified-chinese: ibm-837_P100-2000,gb2312-1980
+! Japanese.
+! Note that the 'charset' definition applies only to the single-byte character
+! set (1027), not the double-byte character set (300).
+x3270.codepage.japanese: 0x04940403+0x0172012c
+x3270.displayCharset.japanese: jisx0201.1976-0+jisx0208.1983-0,iso10646-1
+x3270.charset.japanese: #table\n\
+   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0 \
+   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0 \
+   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0 \
+   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0 \
+  32   0 161 162 163 164 165 166 167 168   0  46  60  40  43 124 \
+  38 169 170 171 172 173 174 175 176 177  33  36  42  41  59   0 \
+  45  47 178 179 180 181 182 183 184 185   0  44  37  95  62  63 \
+ 186 187 188 189 190 191 192 193 194  96  58  35  64  39  61  34 \
+   0  97  98  99 100 101 102 103 104 105 195 196 197 198 199 200 \
+   0 106 107 108 109 110 111 112 113 114 201 202 203 204 205 206 \
+ 126   0 115 116 117 118 119 120 121 122 207 208 209  91 210 211 \
+  94   0  92 212 213 214 215 216 217 218 219 220 221  93 222 223 \
+ 123  65  66  67  68  69  70  71  72  73   0   0   0   0   0   0 \
+ 125  74  75  76  77  78  79  80  81  82   0   0   0   0   0   0 \
+   0   0  83  84  85  86  87  88  89  90   0   0   0   0   0   0 \
+  48  49  50  51  52  53  54  55  56  57   0   0   0   0   0   0
+!x3270.dbcsConverters.japanese: ibm-1027_P100-1995+ibm-300_P110-1997,jisx208
+x3270.dbcsConverters.japanese: ibm-1027_P100-1995+ibm-300_P110-1997,EUC-JP

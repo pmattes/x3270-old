@@ -782,6 +782,16 @@ if test -n "$ac_init_help"; then
 
   cat <<\_ACEOF
 
+Optional Features:
+  --disable-FEATURE       do not include FEATURE (same as --enable-FEATURE=no)
+  --enable-FEATURE[=ARG]  include FEATURE [ARG=yes]
+  --disable-ssl           leave out OpenSSL support
+
+Optional Packages:
+  --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
+  --without-PACKAGE       do not use PACKAGE (same as --with-PACKAGE=no)
+  --with-ssl=DIR          location of installed OpenSSL libraries/include files
+
 Some influential environment variables:
   CC          C compiler command
   CFLAGS      C compiler flags
@@ -2059,11 +2069,201 @@ solaris2*)	XANSI=-D__EXTENSIONS__
 		;;
 darwin*)	XPRECOMP=-no-cpp-precomp
 		;;
+linux*)		XANSI=-D__USE_BSD
+		;;
 *)		XANSI=""
 		;;
 esac
 
 
+
+# Check whether --enable-ssl or --disable-ssl was given.
+if test "${enable_ssl+set}" = set; then
+  enableval="$enable_ssl"
+
+fi;
+
+checkssldir() { :
+	if test -f "$1/include/openssl/ssl.h"
+	then	ssldir="$1"
+		return 0
+	else	return 1
+	fi
+}
+
+
+# Check whether --with-ssl or --without-ssl was given.
+if test "${with_ssl+set}" = set; then
+  withval="$with_ssl"
+  checkssldir "$withval"
+fi;
+
+if test "$enable_ssl" != "no"
+then		echo "$as_me:$LINENO: checking for OpenSSL library install directory" >&5
+echo $ECHO_N "checking for OpenSSL library install directory... $ECHO_C" >&6
+	if test -z "$ssldir"
+	then	for basedir in /usr/local /usr/lib /usr/pkg /usr /var/ssl /opt
+		do	for dir in $basedir $basedir/ssl
+			do	checkssldir $dir && break 2
+			done
+		done
+	fi
+	if test -z "$ssldir"
+	then	echo "$as_me:$LINENO: result: Not found" >&5
+echo "${ECHO_T}Not found" >&6
+		echo
+		echo "Couldn't find OpenSSL library installation directory."
+		echo "Use the --with-ssl option to specify it."
+		exit 1
+	fi
+	echo "$as_me:$LINENO: result: $ssldir" >&5
+echo "${ECHO_T}$ssldir" >&6
+	if test "$ssldir" != /usr
+	then	CPPFLAGS="$CPPFLAGS -I$ssldir/include"
+		LDFLAGS="$LDFLAGS -L$ssldir/lib"
+	fi
+
+
+
+echo "$as_me:$LINENO: checking for CRYPTO_malloc in -lcrypto" >&5
+echo $ECHO_N "checking for CRYPTO_malloc in -lcrypto... $ECHO_C" >&6
+if test "${ac_cv_lib_crypto_CRYPTO_malloc+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lcrypto  $LIBS"
+cat >conftest.$ac_ext <<_ACEOF
+#line $LINENO "configure"
+#include "confdefs.h"
+
+/* Override any gcc2 internal prototype to avoid an error.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+/* We use char because int might match the return type of a gcc2
+   builtin and then its argument prototype would still apply.  */
+char CRYPTO_malloc ();
+#ifdef F77_DUMMY_MAIN
+#  ifdef __cplusplus
+     extern "C"
+#  endif
+   int F77_DUMMY_MAIN() { return 1; }
+#endif
+int
+main ()
+{
+CRYPTO_malloc ();
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+         { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_lib_crypto_CRYPTO_malloc=yes
+else
+  echo "$as_me: failed program was:" >&5
+cat conftest.$ac_ext >&5
+ac_cv_lib_crypto_CRYPTO_malloc=no
+fi
+rm -f conftest.$ac_objext conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+echo "$as_me:$LINENO: result: $ac_cv_lib_crypto_CRYPTO_malloc" >&5
+echo "${ECHO_T}$ac_cv_lib_crypto_CRYPTO_malloc" >&6
+if test $ac_cv_lib_crypto_CRYPTO_malloc = yes; then
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_LIBCRYPTO 1
+_ACEOF
+
+  LIBS="-lcrypto $LIBS"
+
+else
+  { { echo "$as_me:$LINENO: error: Can't find libcrypto" >&5
+echo "$as_me: error: Can't find libcrypto" >&2;}
+   { (exit 1); exit 1; }; }
+fi
+
+
+echo "$as_me:$LINENO: checking for SSL_new in -lssl" >&5
+echo $ECHO_N "checking for SSL_new in -lssl... $ECHO_C" >&6
+if test "${ac_cv_lib_ssl_SSL_new+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lssl  $LIBS"
+cat >conftest.$ac_ext <<_ACEOF
+#line $LINENO "configure"
+#include "confdefs.h"
+
+/* Override any gcc2 internal prototype to avoid an error.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+/* We use char because int might match the return type of a gcc2
+   builtin and then its argument prototype would still apply.  */
+char SSL_new ();
+#ifdef F77_DUMMY_MAIN
+#  ifdef __cplusplus
+     extern "C"
+#  endif
+   int F77_DUMMY_MAIN() { return 1; }
+#endif
+int
+main ()
+{
+SSL_new ();
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+         { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_lib_ssl_SSL_new=yes
+else
+  echo "$as_me: failed program was:" >&5
+cat conftest.$ac_ext >&5
+ac_cv_lib_ssl_SSL_new=no
+fi
+rm -f conftest.$ac_objext conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+echo "$as_me:$LINENO: result: $ac_cv_lib_ssl_SSL_new" >&5
+echo "${ECHO_T}$ac_cv_lib_ssl_SSL_new" >&6
+if test $ac_cv_lib_ssl_SSL_new = yes; then
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_LIBSSL 1
+_ACEOF
+
+  LIBS="-lssl $LIBS"
+
+else
+  { { echo "$as_me:$LINENO: error: Can't find libssl" >&5
+echo "$as_me: error: Can't find libssl" >&2;}
+   { (exit 1); exit 1; }; }
+fi
+
+	SSL=-DHAVE_LIBSSL
+fi
 
 
 
@@ -2796,6 +2996,7 @@ s,@host_vendor@,$host_vendor,;t t
 s,@host_os@,$host_os,;t t
 s,@XANSI@,$XANSI,;t t
 s,@XPRECOMP@,$XPRECOMP,;t t
+s,@SSL@,$SSL,;t t
 CEOF
 
 _ACEOF

@@ -904,16 +904,17 @@ osc_start(void)
  * Also returns in 'ge' whether or not an ESC (0x1b) should be included
  * in front of the character.
  */
-static unsigned char
-onscreen_char(int baddr, Boolean *ge)
+static void
+onscreen_char(int baddr, unsigned char *r, int *rlen, Boolean *ge)
 {
 	static int osc_baddr;
 	static unsigned char fa;
 #if defined(X3270_DBCS) /*[*/
 	int baddr2;
-	unsigned char wc[2];
 	enum dbcs_why why;
 #endif /*]*/
+
+	*rlen = 1;
 
 	/* If we aren't moving forward, all bets are off. */
 	if (osc_valid && baddr < osc_baddr)
@@ -940,8 +941,10 @@ onscreen_char(int baddr, Boolean *ge)
 	*ge = False;
 
 	/* If it isn't visible, then make it a blank. */
-	if (FA_IS_ZERO(fa))
-		return ' ';
+	if (FA_IS_ZERO(fa)) {
+		*r = ' ';
+		return;
+	}
 
 #if defined(X3270_DBCS) /*[*/
 	/* Handle DBCS. */
@@ -949,13 +952,11 @@ onscreen_char(int baddr, Boolean *ge)
 	case DBCS_LEFT:
 	    baddr2 = baddr;
 	    INC_BA(baddr2);
-	    dbcs_to_wchar(ea_buf[baddr].cc, ea_buf[baddr2].cc, wc);
-	    return wc[0];
+	    *rlen = dbcs_to_mb(ea_buf[baddr].cc, ea_buf[baddr2].cc, (char *)r);
+	    return;
 	case DBCS_RIGHT:
-	    baddr2 = baddr;
-	    DEC_BA(baddr2);
-	    dbcs_to_wchar(ea_buf[baddr2].cc, ea_buf[baddr].cc, wc);
-	    return wc[1];
+	    *rlen = 0;
+	    return;
 	default:
 	    break;
 	}
@@ -966,31 +967,40 @@ onscreen_char(int baddr, Boolean *ge)
 	    default:
 		switch (ea_buf[baddr].cc) {
 		    case EBC_null:
-			return 0;
+			*r = 0;
+			return;
 		    case EBC_fm:
 			*ge = True;
-			return ';';
+			*r = ';';
+			return;
 		    case EBC_dup:
 			*ge = True;
-			return '*';
+			*r = '*';
+			return;
 		    default:
-			return ebc2asc[ea_buf[baddr].cc];
+			*r = ebc2asc[ea_buf[baddr].cc];
+			return;
 		}
 	    case CS_GE:
 		switch (ea_buf[baddr].cc) {
 		    case EBC_null:
-			return 0;
+			*r = 0;
+			return;
 		    case EBC_Yacute:
-			return '[';
+			*r = '[';
+			return;
 		    case EBC_diaeresis:
-			return ']';
+			*r = ']';
+			return;
 		    default:
 			*ge = True;
-			return ebc2asc[ea_buf[baddr].cc];
+			*r = ebc2asc[ea_buf[baddr].cc];
+			return;
 		}
 	    case CS_LINEDRAW:
 		/* vt100 line-drawing character */
-		return ea_buf[baddr].cc + 0x5f;
+		*r = ea_buf[baddr].cc + 0x5f;
+		return;
 	}
 }
 
@@ -1059,11 +1069,12 @@ own_sels(Time t)
 static void
 grab_sel(int start, int end, Boolean really, Time t)
 {
-	register int i;
+	register int i, j;
 	int start_row, end_row;
-	unsigned char osc;
 	Boolean ge;
 	int nulls = 0;
+	unsigned char osc[16];
+	int len;
 
 	unselect(0, ROWS*COLS);
 
@@ -1093,17 +1104,19 @@ grab_sel(int start, int end, Boolean really, Time t)
 					nulls = 0;
 					store_sel('\n');
 				}
-				osc = onscreen_char(i, &ge);
-				if (osc) {
-					while (nulls) {
-						store_sel(' ');
-						nulls--;
-					}
-					if (ge)
-						store_sel('\033');
-					store_sel((char)osc);
-				} else
-					nulls++;
+				onscreen_char(i, osc, &len, &ge);
+				for (j = 0; j < len; j++) {
+					if (osc[j]) {
+						while (nulls) {
+							store_sel(' ');
+							nulls--;
+						}
+						if (ge)
+							store_sel('\033');
+						store_sel((char)osc[j]);
+					} else
+						nulls++;
+				}
 			}
 		}
 		/* Check for newline extension on the last line. */
@@ -1111,9 +1124,12 @@ grab_sel(int start, int end, Boolean really, Time t)
 			Boolean all_blank = True;
 
 			for (i = end; i < end + (COLS - (end % COLS)); i++) {
-				if (onscreen_char(i, &ge)) {
-					all_blank = False;
-					break;
+				onscreen_char(i, osc, &len, &ge);
+				for (j = 0; j < len; j++) {
+					if (osc[j]) {
+						all_blank = False;
+						break;
+					}
 				}
 			}
 			if (all_blank) {
@@ -1134,17 +1150,19 @@ grab_sel(int start, int end, Boolean really, Time t)
 			for (i = start; i <= end; i++) {
 				SET_SELECT(i);
 				if (really) {
-					osc = onscreen_char(i, &ge);
-					if (osc) {
-						while (nulls) {
-							store_sel(' ');
-							nulls--;
-						}
-						if (ge)
-							store_sel('\033');
-						store_sel((char)osc);
-					} else
-						nulls++;
+					onscreen_char(i, osc, &len, &ge);
+					for (j = 0; j < len; j++) {
+						if (osc[j]) {
+							while (nulls) {
+								store_sel(' ');
+								nulls--;
+							}
+							if (ge)
+								store_sel('\033');
+							store_sel((char)osc[j]);
+						} else
+							nulls++;
+					}
 				}
 			}
 			if (really && (end % COLS == COLS - 1))
@@ -1175,17 +1193,20 @@ grab_sel(int start, int end, Boolean really, Time t)
 				for (col = sc; col <= ec; col++) {
 					SET_SELECT(row*COLS + col);
 					if (really) {
-						osc = onscreen_char(row*COLS + col, &ge);
-						if (osc) {
-							while (nulls) {
-								store_sel(' ');
-								nulls--;
-							}
-							if (ge)
-								store_sel('\033');
-							store_sel((char)osc);
-						} else
-							nulls++;
+						onscreen_char(row*COLS + col,
+						    osc, &len, &ge);
+						for (j = 0; j < len; j++) {
+							if (osc[j]) {
+								while (nulls) {
+									store_sel(' ');
+									nulls--;
+								}
+								if (ge)
+									store_sel('\033');
+								store_sel((char)osc[j]);
+							} else
+								nulls++;
+						    }
 					}
 				}
 				nulls = 0;

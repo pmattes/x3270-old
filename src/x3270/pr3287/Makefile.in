@@ -24,11 +24,12 @@ BINDIR = @bindir@
 #CDEBUGFLAGS = -g -Wall
 
 XCPPFLAGS = @CPPFLAGS@ @XANSI@ @XPRECOMP@
-CFLAGS = @CFLAGS@ $(XCPPFLAGS) $(CDEBUGFLAGS)
+CFLAGS = @CFLAGS@ $(XCPPFLAGS) $(CDEBUGFLAGS) @SSL@
 LDFLAGS = @LDFLAGS@
-LIBS = @LIBS@ @HACK_LIBS@
+LIBS = @LIBS@
 INSTALL = @INSTALL@
 
+SRCS = pr3287.c ctlr.c trace_ds.c tables.c telnet.c sf.c charset.c see.c
 OBJECTS = pr3287.o ctlr.o trace_ds.o tables.o telnet.o sf.o charset.o see.o
 
 version.o: version.txt mkversion.sh

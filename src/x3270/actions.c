@@ -112,9 +112,6 @@ XtActionsRec actions[] = {
 # if defined(X3270_TRACE) /*[*/
 	{ PA_KEYMAP_TRACE,	PA_KeymapTrace_action },
 # endif /*]*/
-# if defined(X3270_KEYPAD) /*[*/
-	{ PA_PFX "ReparentNotify", PA_ReparentNotify_action },
-# endif /*]*/
 	{ PA_PFX "Shift",	PA_Shift_action },
 	{ PA_PFX "StateChanged", PA_StateChanged_action },
 	{ PA_PFX "VisibilityNotify",PA_VisibilityNotify_action },
@@ -122,8 +119,8 @@ XtActionsRec actions[] = {
 	{ PA_PFX "confirm",	PA_confirm_action },
 	{ "PrintWindow",	PrintWindow_action },
 #endif /*]*/
-#if defined(X3270_DISPLAY) || defined(C3270) /*[*/
 	{ "PrintText",		PrintText_action },
+#if defined(X3270_DISPLAY) || defined(C3270) /*[*/
 	{ "Flip",		Flip_action },
 	{ "Redraw",		Redraw_action },
 #endif /*]*/

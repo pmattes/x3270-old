@@ -43,6 +43,10 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <time.h>
+#if defined(HAVE_LIBSSL) /*[*/ 
+#include <openssl/ssl.h>
+#include <openssl/err.h>
+#endif /*]*/
 #include "tn3270e.h"
 
 #include "ctlrc.h"
@@ -50,6 +54,7 @@
 
 extern FILE *tracef;
 extern int ignoreeoj;
+extern int ssl_host;
 
 /*   connection state */
 enum cstate {
@@ -205,6 +210,13 @@ const char *neg_type[4] = { "COMMAND-REJECT", "INTERVENTION-REQUIRED",
 #define e_neg_type(n)	(((n) <= TN3270E_NEG_COMPONENT_DISCONNECTED) ? \
 			    neg_type[n]: "??")
 
+#if defined(HAVE_LIBSSL) /*[*/
+static SSL_CTX *ssl_ctx;
+static SSL *ssl_con;
+static void ssl_init(void);
+static void client_info_callback(SSL *s, int where, int ret);
+#endif /*]*/
+
 
 /*
  * negotiate
@@ -227,6 +239,18 @@ negotiate(int s, char *lu, char *assoc)
 
 	/* Don't share the socket with our children. */
 	(void) fcntl(s, F_SETFD, 1);
+
+	/* init ssl */
+#if defined(HAVE_LIBSSL) /*[*/
+	if (ssl_host) {
+		ssl_init();
+		SSL_set_fd(ssl_con, s);
+		if (!SSL_connect(ssl_con)) {
+			errmsg("SSL_connect failed: %s", strerror(errno));
+			return -1;
+		}       
+	}
+#endif /*]*/
 
 	/* Allocate the receive buffers. */
 	netrbuf = (unsigned char *)Malloc(BUFSZ);
@@ -359,8 +383,26 @@ net_input(int s)
 	register unsigned char *cp;
 	int nr;
 
+#if defined(HAVE_LIBSSL) /*[*/
+	if (ssl_host)
+		nr = SSL_read(ssl_con, (char *) netrbuf, BUFSZ);
+	else   
+#endif /*]*/
 	nr = read(s, (char *)netrbuf, BUFSZ);
 	if (nr < 0) {
+#if defined(HAVE_LIBSSL) /*[*/
+                if (ssl_host) {
+			unsigned long e;
+			char err_buf[1024];
+
+			e = ERR_get_error();
+			(void) ERR_error_string(e, err_buf);
+			vtrace_str("RCVD socket error %ld (%s)\n", e, err_buf);
+			errmsg("SSL_read:\n%s", err_buf);
+			cstate = NOT_CONNECTED;
+			return -1;
+		}
+#endif /*]*/
 		vtrace_str("RCVD socket error %s\n", strerror(errno));
 		errmsg("Socket read: %s", strerror(errno));
 		cstate = NOT_CONNECTED;
@@ -1089,8 +1131,27 @@ net_rawout(unsigned const char *buf, int len)
 #else
 #		define n2w len
 #endif
+#if defined(HAVE_LIBSSL) /*[*/
+                if (ssl_host)
+			nw = SSL_write(ssl_con, (const char *) buf, n2w);
+		else
+#endif /*]*/    
 		nw = write(sock, (const char *) buf, n2w);
 		if (nw < 0) {
+#if defined(HAVE_LIBSSL) /*[*/ 
+                        if (ssl_host) {
+				unsigned long e;
+				char err_buf[1024];
+
+				e = ERR_get_error();
+				(void) ERR_error_string(e, err_buf);
+				vtrace_str("RCVD socket error %ld (%s)\n", e,
+				    err_buf);
+				errmsg("SSL_write:\n%s", err_buf);
+				cstate = NOT_CONNECTED;
+				return;
+			}
+#endif /*]*/
 			vtrace_str("RCVD socket error %s\n", strerror(errno));
 			if (errno == EPIPE || errno == ECONNRESET) {
 				cstate = NOT_CONNECTED;
@@ -1609,3 +1670,59 @@ vtrace_str(const char *fmt, ...)
 	(void) vsprintf(trace_msg, fmt, args);
 	trace_str(trace_msg);
 }
+
+#if defined(HAVE_LIBSSL) /*[*/
+
+/* Initialize the OpenSSL library. */
+static void
+ssl_init(void)
+{
+	static Boolean ssl_initted = False;
+
+	if (!ssl_initted) {
+		SSL_load_error_strings();
+		SSL_library_init();
+		ssl_initted = True;
+		ssl_ctx = SSL_CTX_new(SSLv23_method());
+		if (ssl_ctx == NULL) {
+			errmsg("SSL_CTX_new failed");
+			ssl_host = False;
+			return;
+		}
+		SSL_CTX_set_options(ssl_ctx, SSL_OP_ALL);
+	}
+
+	ssl_con = SSL_new(ssl_ctx);
+	if (ssl_con == NULL) {
+		errmsg("SSL_new failed");
+		ssl_host = False;
+	}
+	/* XXX: Get verify flags from a per-host resource. */
+	SSL_set_verify(ssl_con, 0/*xxx*/, NULL);
+
+	SSL_CTX_set_info_callback(ssl_ctx, client_info_callback);
+
+	/* XXX: Get cert_file and key_file from a per-host resource. */
+
+	SSL_CTX_set_default_verify_paths(ssl_ctx);
+}
+
+/* Callback for tracing protocol negotiation. */
+static void
+client_info_callback(SSL *s, int where, int ret)
+{
+	if (where == SSL_CB_CONNECT_LOOP) {
+		vtrace_str("SSL_connect: %s %s\n",
+		    SSL_state_string(s), SSL_state_string_long(s));
+	} else if (where == SSL_CB_CONNECT_EXIT) {
+		if (ret == 0) {
+			vtrace_str("SSL_connect: failed in %s %s\n",
+			    SSL_state_string(s), SSL_state_string_long(s));
+		} else if (ret < 0) {
+			vtrace_str("SSL_connect: error in %s %s\n",
+			    SSL_state_string(s), SSL_state_string_long(s));
+		}
+	}
+}
+
+#endif /*]*/

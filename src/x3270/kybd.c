@@ -892,11 +892,10 @@ key_WCharacter(unsigned char code[])
 
 	/* In ANSI mode? */
 	if (IN_ANSI) {
-	    unsigned char wc[2];
+	    char mb[16];
 
-	    dbcs_to_wchar(code[0], code[1], wc);
-	    net_sendc((char)wc[0]);
-	    net_sendc((char)wc[1]);
+	    dbcs_to_mb(code[0], code[1], mb);
+	    net_sends(mb);
 	    return True;
 	}
 
@@ -1103,8 +1102,8 @@ key_ACharacter(unsigned char c, enum keytype keytype, enum iaction cause)
 		break;
 	}
 
-		trace_event(" %s -> Key(\"%s\")\n",
-		    ia_name[(int) cause], ctl_see((int) c));
+	trace_event(" %s -> Key(\"%s\")\n",
+	    ia_name[(int) cause], ctl_see((int) c));
 	if (IN_3270) {
 		if (c < ' ') {
 			trace_event("  dropped (control char)\n");
@@ -1213,9 +1212,9 @@ BackTab_action(Widget w unused, XEvent *event, String *params,
 	while (True) {
 		nbaddr = baddr;
 		INC_BA(nbaddr);
-		if (ea_buf[baddr].fa
-		    &&  !FA_IS_PROTECTED(ea_buf[baddr].cc)
-		    &&  !ea_buf[nbaddr].fa)
+		if (ea_buf[baddr].fa &&
+		    !FA_IS_PROTECTED(ea_buf[baddr].fa) &&
+		    !ea_buf[nbaddr].fa)
 			break;
 		DEC_BA(baddr);
 		if (baddr == sbaddr) {
@@ -2603,12 +2602,14 @@ static Boolean
 xim_lookup(XKeyEvent *event)
 {
 	static char *buf = NULL;
-	static int buf_len, rlen;
+	static UChar *Ubuf = NULL;
+	static int buf_len = 0, rlen;
 	KeySym k;
 	Status status;
 	extern XIC ic;
 	int i;
 	Boolean rv = False;
+	int wlen;
 #define BASE_BUFSIZE 50
 
 	if (ic == NULL)
@@ -2617,15 +2618,18 @@ xim_lookup(XKeyEvent *event)
 	if (buf == NULL) {
 		buf_len = BASE_BUFSIZE;
 		buf = Malloc(buf_len);
+		Ubuf = (UChar *)Malloc(buf_len * sizeof(UChar));
 	}
 
-	memset(buf, '\0', buf_len);
-	rlen = XmbLookupString(ic, event, buf, buf_len, &k, &status);
-	if (status == XBufferOverflow) {
+	for (;;) {
+		memset(buf, '\0', buf_len);
+		rlen = XmbLookupString(ic, event, buf, buf_len - 1, &k,
+					&status);
+		if (status != XBufferOverflow)
+			break;
 		buf_len += BASE_BUFSIZE;
 		buf = Realloc(buf, buf_len);
-		memset(buf, '\0', buf_len);
-		rlen = XmbLookupString(ic, event, buf, buf_len, &k, &status);
+		Ubuf = (UChar *)Realloc(Ubuf, buf_len * sizeof(UChar));
 	}
 
 	switch (status) {
@@ -2636,11 +2640,31 @@ xim_lookup(XKeyEvent *event)
 		rv = True;
 		break;
 	case XLookupChars:
-		for (i = 0; i < rlen; i += 2) {
+		trace_event("%d XIM char%s:", rlen, (rlen != 1)? "s": "");
+		for (i = 0; i < rlen; i++) {
+			trace_event(" %02x", buf[i] & 0xff);
+		}
+		trace_event("\n");
+		wlen = mb_to_unicode(buf, rlen, Ubuf, buf_len, NULL);
+		if (wlen < 0)
+			trace_event("  conversion failed\n");
+		for (i = 0; i < wlen; i++) {
+			unsigned char asc;
 			unsigned char ebc[2];
 
-			wchar_to_dbcs(buf[i], buf[i+1], ebc);
-			key_WCharacter(ebc);
+			if (dbcs_map8(Ubuf[i], &asc)) {
+				trace_event("  U+%04x -> "
+				    "EBCDIC SBCS X'%02x'\n",
+				    Ubuf[i] & 0xffff, asc2ebc[asc]);
+				key_ACharacter(asc, KT_STD, ia_cause);
+			} else if (dbcs_map16(Ubuf[i], ebc)) {
+				trace_event("  U+%04x -> "
+				    "EBCDIC DBCS X'%02x%02x'\n",
+				    Ubuf[i] & 0xffff, ebc[0], ebc[1]);
+				key_WCharacter(ebc);
+			} else
+				trace_event("  Cannot convert U+%04x to "
+				    "EBCDIC\n", Ubuf[i] & 0xffff);
 		}
 		rv = False;
 		break;
@@ -2864,12 +2888,8 @@ remargin(int lmargin)
 int
 emulate_input(char *s, int len, Boolean pasting)
 {
-	char c;
-	enum { BASE,
-#if defined(X3270_DBCS) /*[*/
-	       DBCS1,
-#endif /*]*/
-	       BACKSLASH, BACKX, BACKP, BACKPA, BACKPF, OCTAL, HEX, XGE
+	enum {
+	    BASE, BACKSLASH, BACKX, BACKP, BACKPA, BACKPF, OCTAL, HEX, XGE
 	} state = BASE;
 	int literal = 0;
 	int nc = 0;
@@ -2877,8 +2897,32 @@ emulate_input(char *s, int len, Boolean pasting)
 	int orig_addr = cursor_addr;
 	int orig_col = BA_TO_COL(cursor_addr);
 #if defined(X3270_DBCS) /*[*/
-	unsigned char dbcs1 = 0;
 	unsigned char ebc[2];
+	unsigned char cx;
+	static UChar *w_ibuf = NULL;
+	static size_t w_ibuf_len = 0;
+	UChar c;
+	UChar *ws;
+#else /*][*/
+	char c;
+	char *ws;
+#endif /*]*/
+
+	/*
+	 * Convert from a multi-byte string to a Unicode string.
+	 */
+#if defined(X3270_DBCS) /*[*/
+	if (len > w_ibuf_len) {
+		w_ibuf_len = len;
+		w_ibuf = (UChar *)Realloc(w_ibuf, w_ibuf_len * sizeof(UChar));
+	}
+	len = mb_to_unicode(s, len, w_ibuf, w_ibuf_len, NULL);
+	if (len < 0) {
+		return 0; /* failed */
+	}
+	ws = w_ibuf;
+#else /*][*/
+	ws = s;
 #endif /*]*/
 
 	/*
@@ -2910,7 +2954,8 @@ emulate_input(char *s, int len, Boolean pasting)
 			}
 		}
 
-		c = *s;
+		c = *ws;
+
 		switch (state) {
 		    case BASE:
 			switch (c) {
@@ -2973,9 +3018,20 @@ emulate_input(char *s, int len, Boolean pasting)
 				break;
 			default:
 #if defined(X3270_DBCS) /*[*/
-				if (dbcs && (c & 0x80)) {
-					dbcs1 = c;
-					state = DBCS1;
+				/*
+				 * Try mapping it to the 8-bit character set,
+				 * otherwise to the 16-bit character set.
+				 */
+				if (dbcs_map8(c, &cx)) {
+					key_ACharacter((unsigned char)cx,
+					    KT_STD, ia_cause);
+					break;
+				} else if (dbcs_map16(c, ebc)) {
+					key_WCharacter(ebc);
+					break;
+				} else {
+					trace_event("Cannot convert U+%04x to "
+					    "EBCDIC\n", c & 0xffff);
 					break;
 				}
 #endif /*]*/
@@ -2984,17 +3040,6 @@ emulate_input(char *s, int len, Boolean pasting)
 				break;
 			}
 			break;
-#if defined(X3270_DBCS) /*[*/
-		    case DBCS1:
-			if (!(c & 0x80)) {
-				state = BASE;
-				break;
-			}
-			wchar_to_dbcs(dbcs1, c, ebc);
-			key_WCharacter(ebc);
-			state = BASE;
-			break;
-#endif /*]*/
 		    case BACKSLASH:	/* last character was a backslash */
 			switch (c) {
 			    case 'a':
@@ -3164,7 +3209,7 @@ emulate_input(char *s, int len, Boolean pasting)
 			state = BASE;
 			break;
 		}
-		s++;
+		ws++;
 		len--;
 	}
 
@@ -3188,11 +3233,6 @@ emulate_input(char *s, int len, Boolean pasting)
 			state = BASE;
 		}
 		break;
-#if defined(X3270_DBCS) /*[*/
-	    case DBCS1:
-		/* We could say something here, but we won't. */
-		break;
-#endif /*]*/
 	    default:
 		popup_an_error("%s: Missing data after \\",
 		    action_name(String_action));

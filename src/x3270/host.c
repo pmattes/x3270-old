@@ -42,6 +42,7 @@ enum cstate	cstate = NOT_CONNECTED;
 Boolean		std_ds_host = False;
 Boolean		non_tn3270e_host = False;
 Boolean		passthru_host = False;
+Boolean		ssl_host = False;
 #define		LUNAME_SIZE	16
 char		luname[LUNAME_SIZE+1];
 char		*connected_lu = CN;
@@ -52,6 +53,7 @@ char           *current_host = CN;
 char           *full_current_host = CN;
 unsigned short  current_port;
 char	       *reconnect_host = CN;
+char	       *qualified_host = CN;
 
 struct host *hosts = (struct host *)NULL;
 static struct host *last_host = (struct host *)NULL;
@@ -215,7 +217,8 @@ parse_localprocess(const char *s)
  */
 static char *
 split_host(char *s, Boolean *ansi, Boolean *std_ds, Boolean *passthru,
-	Boolean *non_e, char *xluname, char **port, Boolean *needed)
+	Boolean *non_e, Boolean *secure, char *xluname, char **port,
+	Boolean *needed)
 {
 	char *lbracket = CN;
 
@@ -223,6 +226,7 @@ split_host(char *s, Boolean *ansi, Boolean *std_ds, Boolean *passthru,
 	*std_ds = False;
 	*passthru = False;
 	*non_e = False;
+	*secure = False;
 	*xluname = '\0';
 	*port = CN;
 
@@ -268,6 +272,14 @@ split_host(char *s, Boolean *ansi, Boolean *std_ds, Boolean *passthru,
 			*needed = True;
 			continue;
 		}
+#if defined(HAVE_LIBSSL) /*[*/
+		if (!strncasecmp(s, "l:", 2)) {
+			*secure = True;
+			s += 2;
+			*needed = True;
+			continue;
+		}
+#endif /*]*/
 		if ((at = strchr(s, '@')) != NULL) {
 			if (at != s) {
 				int nc = at - s;
@@ -406,7 +418,7 @@ host_connect(const char *n)
 
 		/* Strip off and remember leading qualifiers. */
 		if ((s = split_host(nb, &ansi_host, &std_ds_host,
-		    &passthru_host, &non_tn3270e_host, luname, &port,
+		    &passthru_host, &non_tn3270e_host, &ssl_host, luname, &port,
 		    &needed)) == CN)
 			return -1;
 
@@ -420,7 +432,7 @@ host_connect(const char *n)
 			Free(s);
 			if (!(s = split_host(target_name, &ansi_host,
 			    &std_ds_host, &passthru_host, &non_tn3270e_host,
-			    luname, &port, &needed)))
+			    &ssl_host, luname, &port, &needed)))
 				return -1;
 		}
 		chost = s;
@@ -450,6 +462,9 @@ host_connect(const char *n)
 	} else {
 		current_host = s;
 	}
+
+	Replace(qualified_host,
+	    xs_buffer("%s%s:%s", ssl_host? "l:": "", chost, port));
 
 	/* Attempt contact. */
 	ever_3270 = False;

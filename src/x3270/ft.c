@@ -48,6 +48,7 @@
 #include "macrosc.h"
 #include "objects.h"
 #include "popupsc.h"
+#include "tablesc.h"
 #include "telnetc.h"
 #include "utilc.h"
 
@@ -903,6 +904,7 @@ ft_start(void)
 	char *cmd;
 	String lrecl, blksize, primspace, secspace;
 	unsigned flen;
+	char *ft_command;
 
 	ft_is_action = False;
 
@@ -1037,10 +1039,33 @@ ft_start(void)
 		op = opts;
 	}
 
+	/*
+	 * Unless the user specified a particular file transfer command,
+	 * translate 'ind$file' so that it will have the proper EBCDIC value,
+	 * regardless of the local character set.
+	 */
+	if (appres.ft_command != CN) {
+		ft_command = appres.ft_command;
+	} else {
+		char *s = "ind$file";
+		char *t;
+		unsigned char c;
+
+		ft_command = Malloc(strlen(s) + 1);
+		t = ft_command;
+
+		while ((c = *s++)) {
+			*t++ = ebc2asc[asc2ebc0[c & 0xff]];
+		}
+		*t = '\0';
+	}
+
 	/* Build the whole command. */
 	cmd = xs_buffer("%s %s %s%s\\n",
-	    appres.ft_command,
+	    ft_command,
 	    receive_flag ? "get" : "put", ft_host_filename, op);
+	if (appres.ft_command == CN)
+		Free(ft_command);
 
 	/* Erase the line and enter the command. */
 	flen = kybd_prime();

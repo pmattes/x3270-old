@@ -69,6 +69,10 @@ See <a HREF="#tn"><b>-tn</b></a> below for further information.
 Prepending an <b>n:</b> onto <i>hostname</i>
 turns off TN3270E support for the session.
 <p>
+Prepending an <b>l:</b> onto <i>hostname</i>
+turns on SSL encryption for the session (if <b>x3270</b> was built
+with SSL support).
+<p>
 A specific LU name to use may be specified by prepending it to the
 <i>hostname</i> with an `<b>@</b>'.
 Multiple LU names to try can be separated by commas.
@@ -235,7 +239,7 @@ for a monochrome X display.
 Some hosts are confused by the <b>-E</b>
 suffix on the terminal name, and will ignore the extra screen area on
 models 3, 4 and 5.
-Prepending an <b>:s</b> on the hostname, or setting the "x3270.extended"
+Prepending an <b>s:</b> on the hostname, or setting the "x3270.extended"
 resource to "false", removes the <b>-E</b>
 from the terminal name when connecting to such hosts.
 <p>
@@ -1262,8 +1266,7 @@ When compiled with DBCS support, <b>x3270</b> supports multi-byte input methods
 via the XIM protocol.
 <p>
 The input method is selected by the XMODIFIERS environment variable or the
-<b>-im</b> command-line option, or implied by the LC_CTYPE
-category of the locale.
+<b>-im</b> command-line option.
 <p>
 The preedit type is specified by the <b>-pt</b> command-line option,
 with a default of <b>OverTheSpot+1</b>.
@@ -1371,12 +1374,12 @@ x3270 is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
 <a NAME="Version"></a><h2>Version</h2>
-x3270 3.3.1-alpha6
+x3270 3.3.1-alpha7
 <hr>
 <address>
 This HTML document and the accompanying troff document were generated with
 a set of write-only <b>m4</b> macros and the powerful <b>vi</b> editor.
-<br>Last modified 17 November 2002.
+<br>Last modified 14 February 2003.
 </address>
 </body>
 </html>

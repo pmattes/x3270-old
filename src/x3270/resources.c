@@ -76,8 +76,6 @@ XtResource resources[] = {
 	  offset(keypadbg_name), XtRString, "grey70" },
 	{ ResEmulatorFont, ClsEmulatorFont, XtRString, sizeof(char *),
 	  offset(efontname), XtRString, 0 },
-	{ ResAplFont, ClsAplFont, XtRString, sizeof(char *),
-	  offset(afontname), XtRString, 0 },
 	{ ResVisualBell, ClsVisualBell, XtRBoolean, sizeof(Boolean),
 	  offset(visual_bell), XtRString, ResFalse },
 	{ ResAplMode, ClsAplMode, XtRBoolean, sizeof(Boolean),
@@ -188,7 +186,7 @@ XtResource resources[] = {
 	  offset(color_scheme), XtRString, "default" },
 #if defined(X3270_FT) /*[*/
 	{ ResFtCommand, ClsFtCommand, XtRString, sizeof(String),
-	  offset(ft_command), XtRString, "ind$file" },
+	  offset(ft_command), XtRString, 0 },
 #endif /*]*/
 	{ ResConnectFileName, ClsConnectFileName, XtRString, sizeof(String),
 	  offset(connectfile_name), XtRString, "~/.x3270connect" },

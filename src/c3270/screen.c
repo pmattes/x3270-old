@@ -34,6 +34,7 @@
 #include "tablesc.h"
 #include "trace_dsc.h"
 #include "utilc.h"
+#include "widec.h"
 #include "xioc.h"
 
 #undef COLS
@@ -436,6 +437,9 @@ screen_disp(Boolean erasing unused)
 	unsigned char fa;
 	extern Boolean screen_alt;
 	struct screen_spec *cur_spec;
+#if defined(X3270_DBCS) /*[*/
+	enum dbcs_state d;
+#endif /*]*/
 
 	/* This may be called when it isn't time. */
 	if (escaped)
@@ -471,7 +475,7 @@ screen_disp(Boolean erasing unused)
 	}
 #endif /*]*/
 
-	fa = *get_field_attribute(0);
+	fa = get_field_attribute(0);
 	a = color_from_fa(fa);
 	for (row = 0; row < ROWS; row++) {
 		int baddr;
@@ -482,8 +486,8 @@ screen_disp(Boolean erasing unused)
 			if (flipped)
 				move(row, cCOLS-1 - col);
 			baddr = row*cCOLS+col;
-			if (IS_FA(screen_buf[baddr])) {
-				fa = screen_buf[baddr];
+			if (ea_buf[baddr].fa) {
+				fa = ea_buf[baddr].fa;
 				if (appres.m3279) {
 					if (ea_buf[baddr].fg ||
 					    ea_buf[baddr].bg) {
@@ -556,10 +560,30 @@ screen_disp(Boolean erasing unused)
 				} else {
 					(void) attrset(a);
 				}
-				if (toggled(MONOCASE))
-					addch(asc2uc[cg2asc[screen_buf[baddr]]]);
-				else
-					addch(cg2asc[screen_buf[baddr]]);
+#if defined(X3270_DBCS) /*[*/
+				d = ctlr_dbcs_state(baddr);
+				if (IS_LEFT(d)) {
+					int xaddr = baddr;
+					char mb[16];
+					int len;
+					int i;
+
+					INC_BA(xaddr);
+					len = dbcs_to_mb(ea_buf[baddr].cc,
+					    ea_buf[xaddr].cc,
+					    mb);
+					for (i = 0; i < len; i++) {
+						addch(mb[i] & 0xff);
+					}
+				} else if (!IS_RIGHT(d)) {
+#endif /*]*/
+					if (toggled(MONOCASE))
+						addch(asc2uc[ebc2asc[ea_buf[baddr].cc]]);
+					else
+						addch(ebc2asc[ea_buf[baddr].cc]);
+#if defined(X3270_DBCS) /*[*/
+				}
+#endif /*]*/
 			}
 		}
 	}
