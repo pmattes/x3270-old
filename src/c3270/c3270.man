@@ -1,5 +1,5 @@
 '\" t
-.TH c3270 1 "02 November 2002"
+.TH c3270 1 "06 November 2002"
 .SH "NAME"
 c3270 \-
 curses-based 
@@ -2424,11 +2424,16 @@ The syntax for the options and resources is
 where \fIrows\fP and \fIcols\fP give the screen dimensions, and
 \fIinit_string\fP is the escape sequence to transmit to the terminal to
 enter that mode.
+For \fBdefscreen\fP, the minimum dimensions are 24 rows and 80 columns.
+For \fBaltscreen\fP, the minimum dimensions are 27 rows and 132 columns.
 Within \fIinit_string\fP, the usual escape sequences are supported
 (\\E for escape, \\r, \\b, etc.).
 For example, the init string for a 132-column xterm is:
 .IP
 \\E[?40h\\E[?3h
+.LP
+Note: When \fBdefscreen\fP and \fBaltscreen\fP are specified, the model
+number is always set to 5.
 .SH "RESOURCES"
 Certain \fBc3270\fP
 options can be configured via resources.
@@ -3191,4 +3196,4 @@ c3270 is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
 .SH "VERSION"
-c3270 3.2.20alpha4
+c3270 3.2.20alpha5

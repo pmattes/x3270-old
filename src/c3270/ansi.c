@@ -411,6 +411,10 @@ static int      wraparound_mode = 1;
 static int      saved_wraparound_mode = 1;
 static int      rev_wraparound_mode = 0;
 static int      saved_rev_wraparound_mode = 0;
+static int	allow_wide_mode = 0;
+static int	saved_allow_wide_mode = 0;
+static int	wide_mode = 0;
+static int	saved_wide_mode = 0;
 static Boolean  saved_altbuffer = False;
 static int      scroll_top = -1;
 static int      scroll_bottom = -1;
@@ -528,6 +532,10 @@ ansi_reset(int ig1 unused, int ig2 unused)
 	saved_wraparound_mode = 1;
 	rev_wraparound_mode = 0;
 	saved_rev_wraparound_mode = 0;
+	allow_wide_mode = 0;
+	saved_allow_wide_mode = 0;
+	wide_mode = 0;
+	allow_wide_mode = 0;
 	saved_altbuffer = False;
 	scroll_top = 1;
 	scroll_bottom = ROWS;
@@ -540,6 +548,7 @@ ansi_reset(int ig1 unused, int ig2 unused)
 		ctlr_aclear(0, ROWS * COLS, 1);
 		ctlr_altbuffer(False);
 		ctlr_clear(False);
+		screen_80();
 	}
 	first = False;
 	return DATA;
@@ -1179,8 +1188,17 @@ dec_set(int ig1 unused, int ig2 unused)
 		    case 2:	/* set G0-G3 */
 			csd[0] = csd[1] = csd[2] = csd[3] = CSD_US;
 			break;
+		    case 3:	/* 132-column mode */
+			if (allow_wide_mode) {
+				wide_mode = 1;
+				screen_132();
+			}
+			break;
 		    case 7:	/* wraparound mode */
 			wraparound_mode = 1;
+			break;
+		    case 40:	/* allow 80/132 switching */
+			allow_wide_mode = 1;
 			break;
 		    case 45:	/* reverse-wraparound mode */
 			rev_wraparound_mode = 1;
@@ -1202,8 +1220,17 @@ dec_reset(int ig1 unused, int ig2 unused)
 		    case 1:	/* normal cursor keys */
 			appl_cursor = 0;
 			break;
+		    case 3:	/* 132-column mode */
+			if (allow_wide_mode) {
+				wide_mode = 0;
+				screen_80();
+			}
+			break;
 		    case 7:	/* no wraparound mode */
 			wraparound_mode = 0;
+			break;
+		    case 40:	/* allow 80/132 switching */
+			allow_wide_mode = 0;
 			break;
 		    case 45:	/* no reverse-wraparound mode */
 			rev_wraparound_mode = 0;
@@ -1225,8 +1252,14 @@ dec_save(int ig1 unused, int ig2 unused)
 		    case 1:	/* application cursor keys */
 			saved_appl_cursor = appl_cursor;
 			break;
+		    case 3:	/* 132-column mode */
+			saved_wide_mode = wide_mode;
+			break;
 		    case 7:	/* wraparound mode */
 			saved_wraparound_mode = wraparound_mode;
+			break;
+		    case 40:	/* allow 80/132 switching */
+			saved_allow_wide_mode = allow_wide_mode;
 			break;
 		    case 45:	/* reverse-wraparound mode */
 			saved_rev_wraparound_mode = rev_wraparound_mode;
@@ -1248,8 +1281,20 @@ dec_restore(int ig1 unused, int ig2 unused)
 		    case 1:	/* application cursor keys */
 			appl_cursor = saved_appl_cursor;
 			break;
+		    case 3:	/* 132-column mode */
+			if (allow_wide_mode) {
+				wide_mode = saved_wide_mode;
+				if (wide_mode)
+					screen_132();
+				else
+					screen_80();
+			}
+			break;
 		    case 7:	/* wraparound mode */
 			wraparound_mode = saved_wraparound_mode;
+			break;
+		    case 40:	/* allow 80/132 switching */
+			allow_wide_mode = saved_allow_wide_mode;
 			break;
 		    case 45:	/* reverse-wraparound mode */
 			rev_wraparound_mode = saved_rev_wraparound_mode;

@@ -798,11 +798,16 @@ The syntax for the options and resources is
 where <i>rows</i> and <i>cols</i> give the screen dimensions, and
 <i>init_string</i> is the escape sequence to transmit to the terminal to
 enter that mode.
+For <b>defscreen</b>, the minimum dimensions are 24 rows and 80 columns.
+For <b>altscreen</b>, the minimum dimensions are 27 rows and 132 columns.
 Within <i>init_string</i>, the usual escape sequences are supported
 (&#92;E for escape, &#92;r, &#92;b, etc.).
 For example, the init string for a 132-column xterm is:
 <p>
 &#92;E[?40h&#92;E[?3h
+<p>
+Note: When <b>defscreen</b> and <b>altscreen</b> are specified, the model
+number is always set to 5.
 <a NAME="Resources"></a><h2>Resources</h2>
 Certain <b>c3270</b>
 options can be configured via resources.
@@ -918,12 +923,12 @@ c3270 is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
 <a NAME="Version"></a><h2>Version</h2>
-c3270 3.2.20alpha4
+c3270 3.2.20alpha5
 <hr>
 <address>
 This HTML document and the accompanying troff document were generated with
 a set of write-only <b>m4</b> macros and the powerful <b>vi</b> editor.
-<br>Last modified 02 November 2002.
+<br>Last modified 06 November 2002.
 </address>
 </body>
 </html>

@@ -87,13 +87,14 @@ struct screen_spec {
 } screen_spec;
 struct screen_spec altscreen_spec, defscreen_spec;
 static SCREEN *def_screen = NULL, *alt_screen = NULL;
+static SCREEN *cur_screen = NULL;
 static void parse_screen_spec(const char *str, struct screen_spec *spec);
 #endif /*]*/
 
 static int status_row = 0;	/* Row to display the status line on */
 static int status_skip = 0;	/* Row to blank above the status line */
 
-static Boolean is_alt = True;
+static Boolean curses_alt = False;
 
 static void kybd_input(void);
 static void kybd_input2(int k, Boolean derived);
@@ -134,14 +135,17 @@ screen_init(void)
 	}
 	if (appres.altscreen != CN) {
 		parse_screen_spec(appres.altscreen, &altscreen_spec);
+		if (altscreen_spec.rows < 27 || altscreen_spec.cols < 132) {
+		    (void) fprintf(stderr, "Rows and/or cols too small on "
+			"alternate screen (mininum 27x132)\n");
+		    exit(1);
+		}
 		parse_screen_spec(appres.defscreen, &defscreen_spec);
 		if (defscreen_spec.rows < 24 || defscreen_spec.cols < 80) {
 		    (void) fprintf(stderr, "Rows and/or cols too small on "
-			"default screen\n");
+			"default screen (mininum 24x80)\n");
 		    exit(1);
 		}
-		(void) write(1, altscreen_spec.mode_switch,
-		    strlen(altscreen_spec.mode_switch));
 	}
 
 	/* Set up ncurses, and see if it's within bounds. */
@@ -159,6 +163,8 @@ screen_init(void)
 			    defscreen_spec.rows, defscreen_spec.cols);
 			exit(1);
 		}
+		(void) write(1, defscreen_spec.mode_switch,
+		    strlen(defscreen_spec.mode_switch));
 	}
 	if (appres.altscreen) {
 		char nbuf[64];
@@ -173,8 +179,16 @@ screen_init(void)
 		(void) fprintf(stderr, "Can't initialize terminal.\n");
 		exit(1);
 	}
-	if (appres.altscreen)
-		(void) set_term(alt_screen);
+	if (appres.altscreen) {
+		set_term(alt_screen);
+		cur_screen = alt_screen;
+	}
+
+	/* If they want 80/132 switching, then they want a model 5. */
+	if (def_screen != NULL && model_num != 5) {
+		appres.model = NewString("5");
+		set_rows_cols(5, 0, 0);
+	}
 #endif /*]*/
 
 	while (LINES < ROWS || COLS < cCOLS) {
@@ -292,34 +306,11 @@ setup_tty(void)
 	refresh();
 }
 
-/* SIGINT handler for curses cbreak mode. */
 static void
-sigint_handler(int ignored unused)
+swap_screens(SCREEN *new_screen)
 {
-	extern Boolean escape_pending;
-
-	/* Ignore subsequent SIGINTs until we've processed this one. */
-	signal(SIGINT, SIG_IGN);
-
-	/* Mark an escape as pending. */
-	escape_pending = True;
-}
-
-/* SIGTSTP handler for curses cbreak mode. */
-static void
-sigtstp_handler(int ignored unused)
-{
-	extern Boolean escape_pending;
-	extern Boolean stop_pending;
-
-	/* Ignore subsequent SIGTSTPs until we've processed this one. */
-	signal(SIGTSTP, SIG_IGN);
-
-	/* Mark an escape and stop as pending. */
-	if (!escaped) {
-		escape_pending = True;
-		stop_pending = True;
-	}
+	set_term(new_screen);
+	cur_screen = new_screen;
 }
 
 /* Secondary screen initialization. */
@@ -332,30 +323,32 @@ screen_init2(void)
 	 */
 	escaped = False;
 
-	/*
-	 * Set up the keyboard.
-	 * If we're using multiple screens, do it twice.
-	 */
+	/* Set up the keyboard. */
 	setup_tty();
 #if defined(C3270_80_132) /*[*/
 	if (def_screen != NULL) {
-		set_term(def_screen);
+		/*
+		 * The first setup_tty() set up altscreen.
+		 * Set up defscreen now, and leave it as the
+		 * current curses screen.
+		 */
+		swap_screens(def_screen);
 		setup_tty();
-		set_term(alt_screen);
 	}
 #endif /*]*/
 
 	/* Subscribe to input events. */
 	input_id = AddInput(0, kybd_input);
 
-	/* Catch or SIGINT. */
-	if (appres.cbreak_mode && !appres.secure) {
-		signal(SIGINT, sigint_handler);
-		signal(SIGTSTP, sigtstp_handler);
-	} else {
-		signal(SIGINT, SIG_IGN);
-		signal(SIGTSTP, SIG_IGN);
-	}
+	/* Ignore SIGINT and SIGTSTP. */
+	signal(SIGINT, SIG_IGN);
+	signal(SIGTSTP, SIG_IGN);
+
+#if defined(C3270_80_132) /*[*/
+	/* Ignore SIGWINCH -- it might happen when we do 80/132 changes. */
+	if (def_screen != NULL)
+		signal(SIGWINCH, SIG_IGN);
+#endif /*]*/
 }
 
 /*
@@ -433,20 +426,20 @@ screen_disp(Boolean erasing unused)
 
 #if defined(C3270_80_132) /*[*/
 	/* See if they've switched screens on us. */
-	if (def_screen != NULL && screen_alt != is_alt) {
+	if (def_screen != NULL && screen_alt != curses_alt) {
 		if (screen_alt) {
 			(void) write(1, altscreen_spec.mode_switch,
 			    strlen(altscreen_spec.mode_switch));
 			trace_event("Switching to alt (%dx%d) screen.\n",
 			    altscreen_spec.rows, altscreen_spec.cols);
-			set_term(alt_screen);
+			swap_screens(alt_screen);
 			cur_spec = &altscreen_spec;
 		} else {
 			(void) write(1, defscreen_spec.mode_switch,
 			    strlen(defscreen_spec.mode_switch));
 			trace_event("Switching to default (%dx%d) screen.\n",
 			    defscreen_spec.rows, defscreen_spec.cols);
-			set_term(def_screen);
+			swap_screens(def_screen);
 			cur_spec = &defscreen_spec;
 		}
 
@@ -461,7 +454,7 @@ screen_disp(Boolean erasing unused)
 			status_row = cur_spec->rows - 1;
 		}
 
-		is_alt = screen_alt;
+		curses_alt = screen_alt;
 
 		/* Tell curses to forget what may be on the screen already. */
 		endwin();
@@ -769,24 +762,28 @@ screen_suspend(void)
 			 * mode, we will have to switch it back when we resume
 			 * the screen, below.
 			 */
-			if (!is_alt)
-				set_term(alt_screen);
+			if (!curses_alt)
+				swap_screens(alt_screen);
 			endwin();
-			if (is_alt)
-				set_term(def_screen);
+			swap_screens(def_screen);
+			endwin();
+		} else {
+			endwin();
 		}
-#endif /*]*/
-
-		/*
-		 * Call endwin() for the only screen, or if there are multiple
-		 * screens, for defscreen (the first-defined screen).
-		 */
+#else /*][*/
 		endwin();
+#endif /*]*/
 
 		if (need_to_scroll)
 			printf("\n");
 		else
 			need_to_scroll = True;
+#if defined(C3270_80_132) /*[*/
+		if (curses_alt && def_screen != NULL) {
+			(void) write(1, defscreen_spec.mode_switch,
+			    strlen(defscreen_spec.mode_switch));
+		}
+#endif /*]*/
 		RemoveInput(input_id);
 	}
 }
@@ -796,18 +793,15 @@ screen_resume(void)
 {
 	escaped = False;
 
-	/* Reinstate the SIGINT and SIGTSTP signal handlers. */
-	if (appres.cbreak_mode && !appres.secure) {
-		signal(SIGINT, sigint_handler);
-		signal(SIGTSTP, sigtstp_handler);
-	}
 #if defined(C3270_80_132) /*[*/
-	if (def_screen != NULL && is_alt) {
+	if (def_screen != NULL && curses_alt) {
 		/*
 		 * When we suspended the screen, we switched to defscreen so
 		 * that endwin() got called in the right order.  Switch back.
 		 */
-		set_term(alt_screen);
+		swap_screens(alt_screen);
+		(void) write(1, altscreen_spec.mode_switch,
+		    strlen(altscreen_spec.mode_switch));
 	}
 #endif /*]*/
 	screen_disp(False);
@@ -967,7 +961,7 @@ draw_oia(void)
 
 #if defined(C3270_80_132) /*[*/
 	if (def_screen != NULL) {
-		if (is_alt)
+		if (curses_alt)
 			rmargin = altscreen_spec.cols - 1;
 		else
 			rmargin = defscreen_spec.cols - 1;
@@ -1101,3 +1095,31 @@ parse_screen_spec(const char *str, struct screen_spec *spec)
 	*t = '\0';
 }
 #endif /*]*/
+
+void
+screen_132(void)
+{
+#if defined(C3270_80_132) /*[*/
+	if (cur_screen != alt_screen) {
+		swap_screens(alt_screen);
+		(void) write(1, altscreen_spec.mode_switch,
+		    strlen(altscreen_spec.mode_switch));
+		ctlr_erase(True);
+		screen_disp(True);
+	}
+#endif /*]*/
+}
+
+void
+screen_80(void)
+{
+#if defined(C3270_80_132) /*[*/
+	if (cur_screen != def_screen) {
+		swap_screens(def_screen);
+		(void) write(1, defscreen_spec.mode_switch,
+		    strlen(defscreen_spec.mode_switch));
+		ctlr_erase(False);
+		screen_disp(True);
+	}
+#endif /*]*/
+}

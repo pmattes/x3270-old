@@ -145,8 +145,14 @@ usage(char *msg)
 static void
 main_connect(Boolean ignored)
 {       
-	if (CONNECTED || appres.disconnect_clear)
-                ctlr_erase(True);
+	if (CONNECTED || appres.disconnect_clear) {
+#if defined(C3270_80_132) /*[*/
+		if (appres.altscreen != CN)
+			ctlr_erase(False);
+		else
+#endif /*]*/
+			ctlr_erase(True);
+	}
 } 
 
 /* Callback for application exit. */
