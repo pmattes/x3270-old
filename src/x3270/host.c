@@ -488,6 +488,7 @@ host_connect(const char *n)
 	Boolean pending;
 	static Boolean ansi_host;
 	const char *localprocess_cmd = NULL;
+	Boolean has_colons = False;
 
 	if (CONNECTED || auto_reconnect_inprogress)
 		return 0;
@@ -572,8 +573,14 @@ host_connect(const char *n)
 		current_host = s;
 	}
 
+	has_colons = (strchr(chost, ':') != NULL);
 	Replace(qualified_host,
-	    xs_buffer("%s%s:%s", ssl_host? "l:": "", chost, port));
+	    xs_buffer("%s%s%s%s:%s",
+		    ssl_host? "L:": "",
+		    has_colons? "[": "",
+		    chost,
+		    has_colons? "]": "",
+		    port));
 
 	/* Attempt contact. */
 	ever_3270 = False;

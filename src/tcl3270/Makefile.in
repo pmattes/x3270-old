@@ -1,4 +1,4 @@
-# Copyright 1999, 2000, 2001, 2002, 2004 by Paul Mattes.
+# Copyright 1999, 2000, 2001, 2002, 2004, 2005 by Paul Mattes.
 #  Permission to use, copy, modify, and distribute this software and its
 #  documentation for any purpose and without fee is hereby granted,
 #  provided that the above copyright notice appear in all copies and that
@@ -18,12 +18,12 @@ CC = @CC@
 all:: tcl3270
 
 SRCS =	actions.c ansi.c apl.c charset.c ctlr.c ft.c ft_cut.c \
-	ft_dft.c glue.c host.c idle.c kybd.c print.c resources.c see.c sf.c \
-	tables.c tcl3270.c telnet.c toggles.c trace_ds.c util.c @DBCS_C@ \
+	ft_dft.c glue.c host.c idle.c kybd.c print.c resources.c rpq.c see.c \
+	sf.c tables.c tcl3270.c telnet.c toggles.c trace_ds.c util.c @DBCS_C@ \
 	xio.c XtGlue.c
 VOBJS = actions.o ansi.o apl.o charset.o ctlr.o fallbacks.o ft.o ft_cut.o \
-	ft_dft.o glue.o host.o idle.o kybd.o print.o resources.o see.o sf.o \
-	tables.o tcl3270.o telnet.o toggles.o trace_ds.o util.o @DBCS_O@ \
+	ft_dft.o glue.o host.o idle.o kybd.o print.o resources.o rpq.o see.o \
+	sf.o tables.o tcl3270.o telnet.o toggles.o trace_ds.o util.o @DBCS_O@ \
 	xio.o XtGlue.o
 OBJS1 = $(VOBJS) version.o
 @CNV@IDP = @ICU_DATA_PREFIX@

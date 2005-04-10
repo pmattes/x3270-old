@@ -1,5 +1,5 @@
 /*
- * Copyright 2000, 2001, 2002, 2003, 2004 by Paul Mattes.
+ * Copyright 2000, 2001, 2002, 2003, 2004, 2005 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -229,11 +229,19 @@ main(int argc, char *argv[])
 	char *lu = NULL;
 	char *host = NULL;
 	const char *port = "telnet";
+#if !defined(AF_INET6) /*[*/
 	struct hostent *he;
-	struct in_addr ha;
 	struct servent *se;
+#endif /*]*/
 	unsigned short p;
-	struct sockaddr_in sin;
+	union {
+		struct sockaddr sa;
+		struct sockaddr_in sin;
+#if defined(AF_INET6) /*[*/
+		struct sockaddr_in6 sin6;
+#endif /*]*/
+	} ha;
+	socklen_t ha_len = sizeof(ha);
 	int s = -1;
 	int rc = 0;
 	int report_success = 0;
@@ -336,20 +344,43 @@ main(int argc, char *argv[])
 		host = at + 1;
 	} else
 		host = argv[i];
-	colon = strchr(host, ':');
-	if (colon != NULL) {
-		char *tmp;
 
-		len = colon - host;
-		if (!len || !*(colon + 1))
-			usage();
-		port = colon + 1;
-		tmp = Malloc(len + 1);
-		(void) strncpy(tmp, host, len);
-		tmp[len] = '\0';
-		host = tmp;
+	/*
+	 * Allow the hostname to be enclosed in '[' and ']' to quote any
+	 * IPv6 numeric-address ':' characters.
+	 */
+	if (host[0] == '[') {
+		char *tmp;
+		char *rbracket;
+
+		rbracket = strchr(host+1, ']');
+		if (rbracket != NULL) {
+			len = rbracket - (host+1);
+			tmp = Malloc(len + 1);
+			(void) strncpy(tmp, host+1, len);
+			tmp[len] = '\0';
+			host = tmp;
+		}
+		if (*(rbracket + 1) == ':') {
+			port = rbracket + 2;
+		}
+	} else {
+		colon = strchr(host, ':');
+		if (colon != NULL) {
+			char *tmp;
+
+			len = colon - host;
+			if (!len || !*(colon + 1))
+				usage();
+			port = colon + 1;
+			tmp = Malloc(len + 1);
+			(void) strncpy(tmp, host, len);
+			tmp[len] = '\0';
+			host = tmp;
+		}
 	}
 
+#if !defined(AF_INET6) /*[*/
 	/* Resolve the port number. */
 	se = getservbyname(port, "tcp");
 	if (se != NULL)
@@ -369,6 +400,7 @@ main(int argc, char *argv[])
 		}
 		p = htons((unsigned short)l);
 	}
+#endif /* AF_INET6 */
 
 	/* Remap the character set. */
 	if (charset_init(charset) < 0)
@@ -431,31 +463,63 @@ main(int argc, char *argv[])
 	 * option is in effect.
 	 */
 	for (;;) {
-
 		/* Resolve the host name. */
+#if defined(AF_INET6) /*[*/
+		struct addrinfo hints, *res;
+		int rc;
+
+		(void) memset(&hints, '\0', sizeof(struct addrinfo));
+		hints.ai_flags = 0;
+		hints.ai_family = PF_UNSPEC;
+		hints.ai_socktype = SOCK_STREAM;
+		hints.ai_protocol = IPPROTO_TCP;
+		rc = getaddrinfo(host, port, &hints, &res);
+		if (rc != 0) {
+			errmsg("%s/%s: %s", host, port, gai_strerror(rc));
+			rc = 1;
+			goto retry;
+		}
+		switch (res->ai_family) {
+		case AF_INET:
+			p = ((struct sockaddr_in *)res->ai_addr)->sin_port;
+			break;
+		case AF_INET6:
+			p = ((struct sockaddr_in6 *)res->ai_addr)->sin6_port;
+			break;
+		default:
+			errmsg("%s: unknown family %d", host, res->ai_family);
+			rc = 1;
+			freeaddrinfo(res);
+			goto retry;
+		}
+		(void) memcpy(&ha.sa, res->ai_addr, res->ai_addrlen);
+		ha_len = res->ai_addrlen;
+		freeaddrinfo(res);
+#else /*][*/
+		(void) memset(&ha, '\0', sizeof(ha));
+		ha.sin.sin_family = AF_INET;
+		ha.sin.sin_port = p;
 		he = gethostbyname(host);
 		if (he != NULL) {
-			(void) memcpy(&ha, he->h_addr_list[0], he->h_length);
+			(void) memcpy(&ha.sin.sin_addr, he->h_addr_list[0],
+				      he->h_length);
 		} else {
-			ha.s_addr = inet_addr(host);
-			if (ha.s_addr == INADDR_NONE) {
+			ha.sin.sin_addr.s_addr = inet_addr(host);
+			if (ha.sin.sin_addr.s_addr == INADDR_NONE) {
 				errmsg("Unknown host: %s", host);
 				rc = 1;
 				goto retry;
 			}
 		}
+#endif /*]*/
 
 		/* Connect to the host. */
-		s = socket(PF_INET, SOCK_STREAM, 0);
+		s = socket(ha.sa.sa_family, SOCK_STREAM, 0);
 		if (s < 0) {
 			errmsg("socket: %s", strerror(errno));
 			exit(1);
 		}
-		(void) memset(&sin, '\0', sizeof(sin));
-		sin.sin_family = AF_INET;
-		sin.sin_addr = ha;
-		sin.sin_port = p;
-		if (connect(s, (struct sockaddr *)&sin, sizeof(sin)) < 0) {
+		if (connect(s, &ha.sa, ha_len) < 0) {
 			errmsg("%s: %s", host, strerror(errno));
 			rc = 1;
 			goto retry;
@@ -464,8 +528,7 @@ main(int argc, char *argv[])
 		/* Say hello. */
 		if (verbose) {
 			(void) fprintf(stderr, "Connected to %s, port %u%s\n",
-			    inet_ntoa(sin.sin_addr),
-			    ntohs(sin.sin_port),
+			    host, ntohs(p),
 			    ssl_host? " via SSL": "");
 			if (assoc != NULL)
 				(void) fprintf(stderr, "Associating with LU "
@@ -484,9 +547,7 @@ main(int argc, char *argv[])
 
 		/* Report sudden success. */
 		if (report_success) {
-			errmsg("Connected to %s, port %u",
-			    inet_ntoa(sin.sin_addr),
-			    ntohs(sin.sin_port));
+			errmsg("Connected to %s, port %u", host, ntohs(p));
 			report_success = 0;
 		}
 

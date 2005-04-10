@@ -159,7 +159,7 @@ static void tn3270e_cleared(void);
 
 extern void trace_str(const char *s);
 static void vtrace_str(const char *fmt, ...);
-static const char *cmd(unsigned char c);
+static const char *cmd(int c);
 static const char *opt(unsigned char c);
 static const char *nnn(int c);
 
@@ -222,7 +222,12 @@ static SSL_CTX *ssl_ctx;
 static SSL *ssl_con;
 static Boolean need_tls_follows = False;
 static void ssl_init(void);
-static void client_info_callback(SSL *s, int where, int ret);
+#if OPENSSL_VERSION_NUMBER >= 0x00907000L /*[*/
+#define INFO_CONST const
+#else /*][*/
+#define INFO_CONST
+#endif /*]*/
+static void client_info_callback(INFO_CONST SSL *s, int where, int ret);
 static int continue_tls(unsigned char *sbbuf, int len);
 #endif /*]*/
 
@@ -1414,7 +1419,7 @@ nnn(int c)
  *	Expands a TELNET command into a character string.
  */
 static const char *
-cmd(unsigned char c)
+cmd(int c)
 {
 	if (TELCMD_OK(c))
 		return TELCMD(c);
@@ -1791,7 +1796,7 @@ ssl_init(void)
 
 /* Callback for tracing protocol negotiation. */
 static void
-client_info_callback(SSL *s, int where, int ret)
+client_info_callback(INFO_CONST SSL *s, int where, int ret)
 {
 	if (where == SSL_CB_CONNECT_LOOP) {
 		vtrace_str("SSL_connect: %s %s\n",

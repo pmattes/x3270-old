@@ -1,6 +1,7 @@
 /*
  * Modifications Copyright 1993, 1994, 1995, 1996, 1999,
  *  2000, 2001, 2002, 2004 by Paul Mattes.
+ * RPQNAMES modifications copyright 2005 by Don Russell.
  * Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -24,7 +25,7 @@
 #if defined(X3270_TN3270E) && !defined(X3270_ANSI) /*[*/
 #define X3270_ANSI	1	/* RFC2355 requires NVT mode */
 #endif /*]*/
-#if defined(HAVE_VASPRINTF) /*[*/
+#if defined(HAVE_VASPRINTF) && !defined(_GNU_SOURCE) /*[*/
 #define _GNU_SOURCE		/* vasprintf isn't POSIX */
 #endif /*]*/
 
@@ -111,6 +112,8 @@ extern Atom		a_3270, a_registry, a_encoding;
 extern XtAppContext	appcontext;
 #endif /*]*/
 extern const char	*build;
+extern const char	*build_rpq_timestamp;
+extern const char 	*build_rpq_version;
 extern int		children;
 extern char		*connected_lu;
 extern char		*connected_type;
@@ -318,3 +321,4 @@ enum keytype { KT_STD, KT_GE };
 #define PT_OFF_THE_SPOT		"OffTheSpot"
 #define PT_ON_THE_SPOT		"OnTheSpot"
 #endif /*]*/
+

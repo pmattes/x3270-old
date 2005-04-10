@@ -1,5 +1,5 @@
 /*
- * Copyright 2000, 2001, 2002, 2004 by Paul Mattes.
+ * Copyright 2000, 2001, 2002, 2004, 2005 by Paul Mattes.
  *   Permission to use, copy, modify, and distribute this software and its
  *   documentation for any purpose and without fee is hereby granted,
  *   provided that the above copyright notice appear in all copies and that
@@ -332,12 +332,14 @@ setup_tty(void)
 	refresh();
 }
 
+#if defined(C3270_80_132) /*[*/
 static void
 swap_screens(SCREEN *new_screen)
 {
 	set_term(new_screen);
 	cur_screen = new_screen;
 }
+#endif /*]*/
 
 /* Secondary screen initialization. */
 static void

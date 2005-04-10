@@ -69,7 +69,7 @@
 #endif /*]*/
 #define TLS_FOLLOWS	1
 
-#define BUFSZ		4096
+#define BUFSZ		16384
 #define TRACELINE	72
 
 #define N_OPTS		256
@@ -182,7 +182,7 @@ static void cooked_init(void);
 #endif /*]*/
 
 #if defined(X3270_TRACE) /*[*/
-static const char *cmd(unsigned char c);
+static const char *cmd(int c);
 static const char *opt(unsigned char c);
 static const char *nnn(int c);
 #else /*][*/
@@ -268,7 +268,12 @@ static SSL_CTX *ssl_ctx;
 static SSL *ssl_con;
 static Boolean need_tls_follows = False;
 static void ssl_init(void);
-static void client_info_callback(SSL *s, int where, int ret);
+#if OPENSSL_VERSION_NUMBER >= 0x00907000L /*[*/
+#define INFO_CONST const
+#else /*][*/
+#define INFO_CONST
+#endif /*]*/
+static void client_info_callback(INFO_CONST SSL *s, int where, int ret);
 static void continue_tls(unsigned char *sbbuf, int len);
 #endif /*]*/
 
@@ -287,14 +292,23 @@ net_connect(const char *host, char *portname, Boolean ls, Boolean *resolving,
 {
 	struct servent	*sp;
 	struct hostent	*hp;
+#if !defined(AF_INET6) /*[*/
 	unsigned long		lport;
 	unsigned short		port;
+	char			*ptr;
+#endif /*]*/
 	char	        	passthru_haddr[8];
 	int			passthru_len = 0;
 	unsigned short		passthru_port = 0;
-	struct sockaddr_in	haddr;
+	union {
+		struct sockaddr sa;
+		struct sockaddr_in sin;
+#if defined(AF_INET6) /*[*/
+		struct sockaddr_in6 sin6;
+#endif /*]*/
+	} haddr;
+	socklen_t		ha_len = sizeof(haddr);
 	int			on = 1;
-	char			*ptr;
 #if defined(OMTU) /*[*/
 	int			mtu = OMTU;
 #endif /*]*/
@@ -346,6 +360,7 @@ net_connect(const char *host, char *portname, Boolean ls, Boolean *resolving,
 			passthru_port = htons(3514);
 	}
 
+#if !defined(AF_INET6) /*[*/
 	/* get the port number */
 	lport = strtoul(portname, &ptr, 0);
 	if (ptr == portname || *ptr != '\0' || lport == 0L || lport & ~0xffff) {
@@ -358,36 +373,78 @@ net_connect(const char *host, char *portname, Boolean ls, Boolean *resolving,
 	} else
 		port = htons((unsigned short)lport);
 	current_port = ntohs(port);
+#endif /*]*/
 
 	/* fill in the socket address of the given host */
 	(void) memset((char *) &haddr, 0, sizeof(haddr));
 	if (passthru_host) {
-		haddr.sin_family = AF_INET;
-		(void) memmove(&haddr.sin_addr, passthru_haddr, passthru_len);
-		haddr.sin_port = passthru_port;
+		haddr.sin.sin_family = AF_INET;
+		(void) memmove(&haddr.sin.sin_addr, passthru_haddr,
+			       passthru_len);
+		haddr.sin.sin_port = passthru_port;
+		ha_len = sizeof(struct sockaddr_in);
 	} else {
 #if defined(LOCAL_PROCESS) /*[*/
 		if (ls) {
 			local_process = True;
 		} else {
+#endif /*]*/
+#if defined(AF_INET6) /*[*/
+			struct addrinfo hints, *res;
+			int rc;
+
+			/* Use getaddrinfo(). */
+#if defined(LOCAL_PROCESS) /*[*/
 			local_process = False;
 #endif /*]*/
+			(void) memset(&hints, '\0', sizeof(struct addrinfo));
+			hints.ai_flags = 0;
+			hints.ai_family = PF_UNSPEC;
+			hints.ai_socktype = SOCK_STREAM;
+			hints.ai_protocol = IPPROTO_TCP;
+			rc = getaddrinfo(host, portname, &hints, &res);
+			if (rc != 0) {
+				popup_an_error("%s/%s: %s", hostname, portname,
+						gai_strerror(rc));
+				return -1;
+			}
+			switch (res->ai_family) {
+			case AF_INET:
+				current_port = ntohs(((struct sockaddr_in *)res->ai_addr)->sin_port);
+				break;
+			case AF_INET6:
+				current_port = ntohs(((struct sockaddr_in6 *)res->ai_addr)->sin6_port);
+				break;
+			default:
+				popup_an_error("%s: unknown family %d",
+						hostname, res->ai_family);
+				freeaddrinfo(res);
+				return -1;
+			}
+			(void) memcpy(&haddr.sa, res->ai_addr, res->ai_addrlen);
+			ha_len = res->ai_addrlen;
+			freeaddrinfo(res);
+
+#else /*][*/
+			/* Use gethostbyname(). */
 			hp = gethostbyname(host);
 			if (hp == (struct hostent *) 0) {
-				haddr.sin_family = AF_INET;
-				haddr.sin_addr.s_addr = inet_addr(host);
-				if (haddr.sin_addr.s_addr == (unsigned long)-1) {
+				haddr.sin.sin_family = AF_INET;
+				haddr.sin.sin_addr.s_addr = inet_addr(host);
+				if (haddr.sin.sin_addr.s_addr == (unsigned long)-1) {
 					popup_an_error("Unknown host:\n%s",
 					    hostname);
 					return -1;
 				}
 			}
 			else {
-				haddr.sin_family = hp->h_addrtype;
-				(void) memmove(&haddr.sin_addr, hp->h_addr,
+				haddr.sin.sin_family = hp->h_addrtype;
+				(void) memmove(&haddr.sin.sin_addr, hp->h_addr,
 						   hp->h_length);
 			}
-			haddr.sin_port = port;
+			haddr.sin.sin_port = port;
+			ha_len = sizeof(struct sockaddr_in);
+#endif /*]*/
 #if defined(LOCAL_PROCESS) /*[*/
 		}
 #endif /*]*/
@@ -434,7 +491,7 @@ net_connect(const char *host, char *portname, Boolean ls, Boolean *resolving,
 	} else {
 #endif /*]*/
 		/* create the socket */
-		if ((sock = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
+		if ((sock = socket(haddr.sa.sa_family, SOCK_STREAM, 0)) == -1) {
 			popup_an_errno(errno, "socket");
 			return -1;
 		}
@@ -472,7 +529,7 @@ net_connect(const char *host, char *portname, Boolean ls, Boolean *resolving,
 #endif /*]*/
 
 		/* connect */
-		if (connect(sock, (struct sockaddr *) &haddr, sizeof(haddr)) == -1) {
+		if (connect(sock, &haddr.sa, ha_len) == -1) {
 			if (errno == EWOULDBLOCK
 #if defined(EINPROGRESS) /*[*/
 			    || errno == EINPROGRESS
@@ -2314,12 +2371,12 @@ nnn(int c)
  *	Expands a TELNET command into a character string.
  */
 static const char *
-cmd(unsigned char c)
+cmd(int c)
 {
 	if (TELCMD_OK(c))
 		return TELCMD(c);
 	else
-		return nnn((int)c);
+		return nnn(c);
 }
 
 /*
@@ -2977,7 +3034,7 @@ ssl_init(void)
 
 /* Callback for tracing protocol negotiation. */
 static void
-client_info_callback(SSL *s, int where, int ret)
+client_info_callback(INFO_CONST SSL *s, int where, int ret)
 {
 	if (where == SSL_CB_CONNECT_LOOP) {
 		trace_dsn("SSL_connect: %s %s\n",
@@ -3148,34 +3205,11 @@ net_query_host(void)
 
 #endif /*]*/
 
-/*
- * Return the local workstation's IP address as ASCII text.
- * Don Russell, January 2004.
- */
-const char *
-net_printable_local_ip_address(char *dst, size_t len)
+/* Return the local address for the socket. */
+int
+net_getsockname(void *buf, int *len)
 {
-	struct sockaddr name;
-	socklen_t namelen = sizeof(name);
-	void *src;
-
-	if (getsockname(sock, &name, &namelen) == -1) {
-	       	dst = '\0';
-		return NULL;
-	}
-
-	switch (name.sa_family) {
-	    case AF_INET: /* IPv4 address */
-		src = &(((struct sockaddr_in *)(&name))->sin_addr);
-		break;
-	    case AF_INET6: /* IPv6 address */
-		src = &(((struct sockaddr_in6 *)(&name))->sin6_addr);
-		break;
-	    default:
-		dst = '\0';
-		return NULL;
-	}
-
-	/* Error conditions already returned. */
-	return inet_ntop(name.sa_family, src, dst, len);
+	if (sock < 0)
+		return -1;
+	return getsockname(sock, buf, (socklen_t *)(void *)len);
 }

@@ -1,5 +1,5 @@
 '\" t
-.TH tcl3270 1 "02 February 2005"
+.TH tcl3270 1 "09 April 2005"
 .SH "NAME"
 tcl3270 \-
 \s-1IBM\s+1 host access tool
@@ -49,6 +49,12 @@ A specific LU name to use may be specified by prepending it to the
 \fIhostname\fP with an `\fB@\fP'.
 Multiple LU names to try can be separated by commas.
 An empty LU can be placed in the list with an extra comma.
+.LP
+The \fIhostname\fP may optionally be placed inside square-bracket
+characters `\fB[\fP' and `\fB]\fP'.
+This will prevent any colon `\fB:\fP' characters in the hostname
+from being interpreted as indicating option prefixes or port numbers.
+This allows numeric IPv6 addresses to be used as hostnames.
 .LP
 On systems that support the \fIforkpty\fP library call, the
 \fIhostname\fP may be replaced with \fB\-e\fP and a command string.
@@ -2650,4 +2656,4 @@ tcl3270 is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
 .SH "VERSION"
-tcl3270 3.3.3beta2
+tcl3270 3.3.4

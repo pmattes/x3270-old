@@ -242,8 +242,10 @@ XtResource resources[] = {
 	  toggle_offset(CROSSHAIR), XtRString, ResFalse },
 	{ ResVisibleControl, ClsVisibleControl, XtRBoolean, sizeof(Boolean),
 	  toggle_offset(VISIBLE_CONTROL), XtRString, ResFalse },
+#if defined(X3270_SCRIPT) /*[*/
 	{ ResAidWait, ClsAidWait, XtRBoolean, sizeof(Boolean),
 	  toggle_offset(AID_WAIT), XtRString, ResTrue },
+#endif /*]*/
 
 #if defined(X3270_ANSI) /*[*/
 	{ ResIcrnl, ClsIcrnl, XtRBoolean, sizeof(Boolean),

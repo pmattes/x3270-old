@@ -1310,7 +1310,7 @@ do_reset(Boolean explicit)
 #if defined(X3270_FT) /*[*/
 	    || ft_state != FT_NONE
 #endif /*]*/
-	    || !appres.unlock_delay) {
+	    || (!appres.unlock_delay && !sms_in_macro())) {
 		kybdlock_clr(-1, "do_reset");
 	} else if (kybdlock &
   (KL_DEFERRED_UNLOCK | KL_OIA_TWAIT | KL_OIA_LOCKED | KL_AWAITING_FIRST)) {

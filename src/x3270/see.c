@@ -255,7 +255,7 @@ see_color(unsigned char setting)
 
 	if (setting == XAC_DEFAULT)
 		return "default";
-	else if (setting < 0xf0 || setting > 0xff)
+	else if (setting < 0xf0)
 		return unknown(setting);
 	else
 		return color_name[setting - 0xf0];

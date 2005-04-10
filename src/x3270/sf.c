@@ -58,9 +58,6 @@ static enum pds sf_outbound_ds(unsigned char buf[], int buflen);
 static void query_reply_start(void);
 static void do_query_reply(unsigned char code);
 static void query_reply_end(void);
-#if defined(X3270_RPQNAMES) /*[*/
-static int get_utc_offset(void);
-#endif /*]*/
 
 typedef void qr_single_fn_t(void);
 typedef Boolean qr_multi_fn_t(unsigned *subindex, Boolean *more);
@@ -68,9 +65,7 @@ typedef Boolean qr_multi_fn_t(unsigned *subindex, Boolean *more);
 static qr_single_fn_t do_qr_summary, do_qr_usable_area, do_qr_alpha_part,
 	do_qr_charsets, do_qr_color, do_qr_highlighting, do_qr_reply_modes,
 	do_qr_imp_part, do_qr_null;
-#if defined(X3270_RPQNAMES) /*[*/
-static qr_multi_fn_t do_qr_rpqnames;
-#endif /*]*/
+extern qr_single_fn_t do_qr_rpqnames;
 #if defined(X3270_DBCS) /*[*/
 static qr_single_fn_t do_qr_dbcs_asia;
 #endif /*]*/
@@ -96,9 +91,7 @@ static struct reply {
 #if defined(X3270_FT) /*[*/
     { QR_DDM,          do_qr_ddm,          NULL },		/* 0x95 */
 #endif /*]*/
-#if defined(X3270_RPQNAMES) /*[*/
-    { QR_RPQNAMES,     NULL,               do_qr_rpqnames },	/* 0xa1 */
-#endif /*]*/
+    { QR_RPQNAMES,     do_qr_rpqnames,     NULL },		/* 0xa1 */
     { QR_IMP_PART,     do_qr_imp_part,     NULL },		/* 0xa6 */
 
     /* QR_NULL must be last in the table */
@@ -906,115 +899,6 @@ do_qr_ddm(void)
 }
 #endif /*]*/
 
-#if defined(X3270_RPQNAMES) /*[*/
-/*
- * RPQNAMES query reply.
- * Based on code from Don Russell, January 2004.
- *
- * "subindex" is the zero-based ordinal of the item to create.
- */
-#define RPQ_HDRLEN	(4 + 4)		/* device, model */
-static Boolean
-do_qr_rpqnames(unsigned *subindex, Boolean *more)
-{
-	const char *rpqtext = CN;
-	char tz_buf[6];
-	char ip_namebuf[INET6_ADDRSTRLEN + 1];
-	unsigned long device = 0;
-	unsigned long model = 0;
-	const char *item_name;
-	int name_len;
-	int len;
-	int j;
-
-        /*
-	 * Define some char constants for literals that are placed in the
-	 * replies.  These include the trailing \0 but it is not included in
-	 * the replies.
-	 *
-	 * At least one item here must clearly identify the program so host-
-	 * based software can know these rpqnames are related to x3270.
-	 * (Another emulator might return a "UTC-OFFSET" item in a different
-	 * format.)
-	 */
-        static const char *c_rpqnames[] = {
-		"X3270-ID",		/* Include build string */
-		"UTC-OFFSET",		/* (+/)hhmm */
-		"WORKSTATION-IP",	/* decimal-dot or hex-colon of
-					   workstation */
-		"X3270RPQ"		/* Name of environment var, contents
-					   to send */
-	};
-
-	switch (*subindex) {
-
-	    case 0:	/* product name/version information */
-		rpqtext = build;
-		break;
-
-	    case 1: {	/* utc offset */
-		int x;
-		div_t hr_min;
-
-		x = get_utc_offset();
-		device = x << 16;
-		hr_min = div(x, 60);
-		sprintf(tz_buf, "%+.2d%.2d", hr_min.quot, hr_min.rem);
-		rpqtext = tz_buf;
-		break;
-	    }
-
-	    case 2:	/* workstation ip */
-		if (net_printable_local_ip_address(ip_namebuf,
-					INET6_ADDRSTRLEN) != NULL)
-			rpqtext = ip_namebuf;
-		break;
-
-	    case 3:	/* user-supplied info via environment var */
-		rpqtext = getenv(c_rpqnames[*subindex]);
-		break;
-
-	    default:
-	        *more = False;
-		return False;
-	}
-
-	if (rpqtext == NULL) {
-		/*
-		 * Failed item.  Iterate to the next.
-		 */
-		(*subindex)++;
-		return False;
-	}
-
-	/*
-	 * Enforce the maximum length allowed, set the length byte,
-	 * and translate the result to EBCDIC.
-	 */
-	item_name = c_rpqnames[*subindex];
-	trace_ds("> QueryReply(RPQNames,%s)\n", item_name);
-	name_len = 1 + strlen(item_name) + 1;
-	len = name_len + strlen(rpqtext);
-	if (len > 255)
-		len = 255;
-	space3270out(RPQ_HDRLEN + len);
-	SET32(obptr, device);
-	SET32(obptr, model);
-	*obptr++ = len;
-	for (j = 0; item_name[j]; j++) {
-		*obptr++ = asc2ebc[(unsigned)item_name[j]];
-	}
-	*obptr++ = EBC_space;
-	len -= name_len;
-	for (j = 0; j < len; j++) {
-		*obptr++ = asc2ebc[(unsigned)rpqtext[j]];
-	}
-	(*subindex)++;
-	*more = True;
-	return True;
-}
-#endif /*]*/
-
 static void
 do_qr_imp_part(void)
 {
@@ -1037,42 +921,3 @@ query_reply_end(void)
 	net_output();
 	kybd_inhibit(True);
 }
-
-#if defined(X3270_RPQNAMES) /*[*/
-/* Utility function used by the RPQNAMES query reply. */
-static int
-get_utc_offset(void)
-{
-	/*
-	 * Return the signed number of minutes we're offset from UTC.
-	 * Example: North America Pacific Standard Time = UTC - 8 Hours, so we
-	 * return (-8) * 60 = -480.
-	 * Since the smallest variance from UTC to warrant being called a
-	 * timezone is 30 minutes, we use small, positive values to mean
-	 * various errors:
-	 * 1 - Cannot determine local calendar time
-	 * 2 - Cannot determine UTC
-	 */
-	time_t here;
-	struct tm here_tm;
-	struct tm *utc_tm;
-	long delta;
-
-	if ((here = time(NULL)) == (time_t)(-1)) {
-		return 1;
-	}
-	memcpy(&here_tm, localtime(&here), sizeof(struct tm));
-	if ((utc_tm = gmtime(&here)) == NULL) {
-		return 2;
-	}
-
-	/*
-	 * Do not take Daylight Saving Time into account.
-	 * We just want the "raw" time difference.
-	 */
-	here_tm.tm_isdst = 0;
-	utc_tm->tm_isdst = 0;
-	delta = difftime(mktime(&here_tm), mktime(utc_tm));
-	return (int)(delta/60L);
-}
-#endif /*]*/

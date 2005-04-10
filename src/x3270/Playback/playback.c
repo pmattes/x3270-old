@@ -1,5 +1,5 @@
 /*
- * Copyright 1994, 2001 by Paul Mattes.
+ * Copyright 1994, 2001, 2005 by Paul Mattes.
  *   Permission to use, copy, modify, and distribute this software and its
  *   documentation for any purpose and without fee is hereby granted,
  *   provided that the above copyright notice appear in all copies and that
@@ -14,16 +14,12 @@
 #include <signal.h>
 #include <memory.h>
 #include <sys/types.h>
-#if !defined(sco) /*[*/
 #include <sys/time.h>
-#endif /*]*/
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <arpa/telnet.h>
-#if defined(_IBMR2) || defined(_SEQUENT_) /*[*/
 #include <sys/select.h>
-#endif /*]*/
 
 #define PORT		4001
 #define BSIZE		16384
@@ -56,9 +52,17 @@ main(int argc, char *argv[])
 	int c;
 	FILE *f;
 	int s;
-	struct sockaddr_in sin;
+	union {
+		struct sockaddr sa;
+		struct sockaddr_in sin;
+#if defined(AF_INET6) /*[*/
+		struct sockaddr_in6 sin6;
+#endif /*]*/
+	} addr;
+	int addrlen = sizeof(struct sockaddr_in);
 	int one = 1;
 	int len;
+	int proto = AF_INET;
 
 	/* Parse command-line arguments */
 
@@ -67,11 +71,17 @@ main(int argc, char *argv[])
 	else
 		me = argv[0];
 
-	while ((c = getopt(argc, argv, "p:")) != -1)
+	while ((c = getopt(argc, argv, "p:x")) != -1)
 		switch (c) {
 		    case 'p':
 			port = atoi(optarg);
 			break;
+#if defined(AF_INET6) /*[*/
+		    case 'x':
+			proto = AF_INET6;
+			addrlen = sizeof(struct sockaddr_in6);
+			break;
+#endif /*]*/
 		    default:
 			usage();
 		}
@@ -87,7 +97,7 @@ main(int argc, char *argv[])
 	}
 
 	/* Listen on a socket. */
-	s = socket(PF_INET, SOCK_STREAM, 0);
+	s = socket(proto, SOCK_STREAM, 0);
 	if (s < 0) {
 		perror("socket");
 		exit(1);
@@ -97,11 +107,18 @@ main(int argc, char *argv[])
 		perror("setsockopt");
 		exit(1);
 	}
-	(void) memset((char *)&sin, '\0', sizeof(sin));
-	sin.sin_family = AF_INET;
-	sin.sin_addr.s_addr = htonl(INADDR_ANY);
-	sin.sin_port = htons(port);
-	if (bind(s, (struct sockaddr *)&sin, sizeof(sin)) < 0) {
+	(void) memset(&addr, '\0', sizeof(addr));
+	addr.sa.sa_family = proto;
+#if defined(AF_INET6) /*[*/
+	if (proto == AF_INET6) {
+		addr.sin6.sin6_port = htons(port);
+	} else
+#endif /*]*/
+	{
+		addr.sin.sin_addr.s_addr = htonl(INADDR_ANY);
+		addr.sin.sin_port = htons(port);
+	}
+	if (bind(s, &addr.sa, addrlen) < 0) {
 		perror("bind");
 		exit(1);
 	}
@@ -115,18 +132,34 @@ main(int argc, char *argv[])
 
 	for (;;) {
 		int s2;
+#if defined(AF_INET6) /*[*/
+		char buf[INET6_ADDRSTRLEN];
+#endif /*]*/
 
-		(void) memset((char *)&sin, '\0', sizeof(sin));
-		sin.sin_family = AF_INET;
-		len = sizeof(sin);
+		(void) memset((char *)&addr, '\0', sizeof(addr));
+		addr.sa.sa_family = proto;
+		len = addrlen;
 		(void) printf("Waiting for connection.\n");
-		s2 = accept(s, (struct sockaddr *)&sin, &len);
+		s2 = accept(s, &addr.sa, &len);
 		if (s2 < 0) {
 			perror("accept");
 			continue;
 		}
-		(void) printf("Connection from %s:%u.\n",
-		    inet_ntoa(sin.sin_addr), ntohs(sin.sin_port));
+		(void) printf("Connection from %s %u.\n",
+#if defined(AF_INET6) /*[*/
+		    inet_ntop(proto,
+			      (proto == AF_INET)?
+				 (void *)&addr.sin.sin_addr:
+				 (void *)&addr.sin6.sin6_addr,
+			      buf, INET6_ADDRSTRLEN),
+		    ntohs((proto == AF_INET)?
+				addr.sin.sin_port:
+				addr.sin6.sin6_port)
+#else /*][*/
+		    inet_ntoa(addr.sin.sin_addr),
+		    ntohs(addr.sin.sin_port)
+#endif /*]*/
+		);
 		rewind(f);
 		pstate = BASE;
 		fdisp = 0;

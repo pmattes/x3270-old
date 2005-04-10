@@ -1,1 +1,107 @@
-../x3270/x3270if.man
+'\" t
+.TH X3270IF 1 "09 April 2005"
+.SH "NAME"
+x3270if \- command interface to x3270, c3270 and s3270
+.SH "SYNOPSIS"
+\fBx3270if\fP [option]... [ \fIaction\fP ]
+.br
+\fBx3270if \-i\fP
+.SH "DESCRIPTION"
+\fBx3270if\fP provides an interface between scripts and
+the 3270 emulators \fIx3270\fP, \fIc3270\fP, and \fIs3270\fP.
+.LP
+\fBx3270if\fP operates in one of two modes.
+In \fBaction mode\fP, it passes a single action and parameters to the
+emulator for execution.
+The result of the action is written to standard output, along with the
+(optional) status of the emulator.
+(The action is optional as well, so that \fBx3270if\fP can just reports the
+emulator status.)
+In \fBiterative mode\fP, it forms a continuous conduit between a script and
+the emulator.
+.LP
+The \fIaction\fP takes the form:
+.IP
+\fIaction-name\fP(\fIparam\fP[,\fIparam\fP]...)
+.LP
+The parentheses are manatory, and usually must be quoted when \fBx3270if\fP is
+called from a shell script.
+.LP
+If any \fIparam\fP contains a space or comma, it must be surrounded by
+double quotes.
+.SH "OPTIONS"
+.TP
+\fB\-s\fP \fIfield\fP
+Causes \fBx3270if\fP to write to stdout the value of one of the
+emulator status fields.
+\fIField\fP is an integer in the range 0 through 11.
+The value 0 is a no-op and is used only to return exit status indicating the
+state of the emulator.
+The indices 1-11 and meanings of each field are documented on the
+\fIx3270-script\fP(1) manual page.
+If an \fIaction\fP is specified as well, the status field is written after the
+output of the action, separated by a newline.
+The \fB\-s\fP option is mutually exclusive with the
+\fB\-S\fP and \fB\-i\fP options.
+.TP
+\fB\-S\fP
+Causes \fBx3270if\fP to write to stdout the value of all of the
+emulator status fields.
+If an \fIaction\fP is specified as well, the status fields are written after the
+output of the action, separated by a newline.
+The \fB\-S\fP option is mutually exclusive with the
+\fB\-s\fP and \fB\-i\fP options.
+.TP
+\fB\-i\fP
+Puts \fBx3270if\fP in iterative mode.
+Data from \fBx3270if\fP's standard input is copied to the
+emulator's script input; data from the
+emulator's script output is copied to
+\fBx3270if\fP's standard output.
+The \fB\-i\fP option is mutually exclusive with the
+\fB\-s\fP and \fB\-S\fP options.
+\fBx3270if\fP
+runs until it detects end-of-file on its standard input or on the
+output from the emulator.
+(This mode exists primarily to give \fIexpect\fP(1)
+a process to run, on systems which do not support bidirectional pipes.)
+.TP
+\fB\-v\fP
+Turns on verbose debug messages, showing on stderr the literal data that is
+passed between the emulator and \fBx3270if\fP.
+.SH "EXIT STATUS"
+In action mode, if the requested \fIaction\fP succeeds,
+\fBx3270if\fP exits with status 0.
+If the action fails, \fBx3270if\fP exits with status 1.
+In iterative mode, \fBx3270if\fP
+exits with status 0 when it encounters end-of-file.
+If there is an operational error within \fBx3270if\fP
+itself, such as a command-line syntax error, missing environment
+variable, or an unexpectedly closed pipe,
+\fBx3270if\fP exits with status 2.
+.SH "ENVIRONMENT"
+\fIx3270\fP, \fIc3270\fP, and \fIs3270\fP
+use a pair of pipes for communication with each child process.
+The values of the file descriptors for these pipes are encoded as text
+in two environment variables, which are required by
+\fBx3270if\fP:
+.TP
+\fBX3270OUTPUT\fP
+Output from the emulator, input to the child process.
+.TP
+\fBX3270INPUT\fP
+Input to the emulator, output from the child process.
+.SH "SEE ALSO"
+x3270(1),
+c3270(1),
+s3270(1),
+x3270-script(1)
+.SH "COPYRIGHT"
+Copyright 1999, 2000, 2001, 2004 by Paul Mattes.
+.RS
+Permission to use, copy, modify, and distribute this software and its
+documentation for any purpose and without fee is hereby granted,
+provided that the above copyright notice appear in all copies and that
+both that copyright notice and this permission notice appear in
+supporting documentation.
+.RE

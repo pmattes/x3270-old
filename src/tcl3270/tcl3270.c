@@ -1,6 +1,6 @@
 /*
- * Modifications Copyright 1993, 1994, 1995, 1996, 2000, 2001, 2004 by Paul
- *  Mattes.
+ * Modifications Copyright 1993, 1994, 1995, 1996, 2000, 2001, 2004, 2005 by
+ * Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *   Permission to use, copy, modify, and distribute this software and its
  *   documentation for any purpose and without fee is hereby granted,
@@ -31,7 +31,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tcl3270.c,v 1.28.1.12 2004/12/31 22:50:25 pdm Exp $
+ * RCS: @(#) $Id: tcl3270.c,v 1.28.1.14 2005/03/29 19:31:18 pdm Exp $
  */
 
 /*
@@ -1459,6 +1459,7 @@ Wait_action(Widget w unused, XEvent *event unused, String *params,
 		np = *num_params - 1;
 		pr = params + 1;
 	 } else {
+		tmo = -1;
 		np = *num_params;
 		pr = params;
 	}
@@ -1563,6 +1564,15 @@ sms_info(const char *fmt, ...)
 	(void) vsprintf(buf, fmt, args);
 	va_end(args);
 	Tcl_SetResult(sms_interp, buf, TCL_VOLATILE);
+}
+
+/*
+ * Return True if there is a pending macro.
+ */
+Boolean
+sms_in_macro(void)
+{
+	return pending_string != NULL;
 }
 
 /* Like fcatv, but goes to a dynamically-allocated buffer. */

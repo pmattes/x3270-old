@@ -1293,6 +1293,17 @@ process_scs(unsigned char *buf, int buflen)
 }
 
 
+
+/*
+ * SIGCHLD handler.  Does nothing, but on systems that conform to the Single
+ * Unix Specification, defining it ensures that the print command process will
+ * become a zombie if it exits prematurely.
+ */
+static void
+sigchld_handler(int sig)
+{
+}
+
 /*
  * Special version of popen where the child ignores SIGINT.
  */
@@ -1314,6 +1325,9 @@ popen_no_sigint(char *command)
 		close(fds[1]);
 		return NULL;
 	}
+
+	/* Handle SIGCHLD signals. */
+	(void) signal(SIGCHLD, sigchld_handler);
 
 	/* Fork a child process. */
 	switch ((prpid = fork())) {
@@ -1345,7 +1359,9 @@ pclose_no_sigint(FILE *f)
 	int status;
 
 	fclose(f);
-	rc = waitpid(prpid, &status, 0);
+	do {
+		rc = waitpid(prpid, &status, 0);
+	} while (rc < 0 && errno == EINTR);
 	prpid = -1;
 	if (rc < 0)
 		return rc;

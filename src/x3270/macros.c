@@ -1,6 +1,6 @@
 /*
- * Copyright 1993, 1994, 1995, 1996, 1999, 2000, 2001, 2002, 2004 by Paul
- *   Mattes.
+ * Copyright 1993, 1994, 1995, 1996, 1999, 2000, 2001, 2002, 2004, 2005
+ * by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -169,7 +169,11 @@ static void wait_timed_out(void);
 
 /* Macro that defines that the keyboard is locked due to user input. */
 #define KBWAIT	(kybdlock & (KL_OIA_LOCKED|KL_OIA_TWAIT|KL_DEFERRED_UNLOCK))
+#if defined(X3270_SCRIPT) /*[*/
 #define CKBWAIT	(appres.toggle[AID_WAIT].value && KBWAIT)
+#else /*][*/
+#define CKBWAIT	(KBWAIT)
+#endif /*]*/
 
 /* Macro that defines when it's safe to continue a Wait()ing sms. */
 #define CAN_PROCEED ( \
@@ -1143,7 +1147,14 @@ sms_error(const char *msg)
 		host_disconnect(True);
 }
 
-/* Generate a response to a script command. */
+/*
+ * Generate a response to a script command.
+ * Makes sure that each line of output is prefixed with 'data:', if
+ * appropriate, and makes sure that the output is newline terminated.
+ *
+ * If the parameter is an empty string, generates nothing, but if it is a
+ * newline, generates an empty line.
+ */
 void
 sms_info(const char *fmt, ...)
 {
@@ -1160,11 +1171,11 @@ sms_info(const char *fmt, ...)
 		int nc;
 
 		nl = strchr(msg, '\n');
-		if (nl != CN) {
+		if (nl != CN)
 			nc = nl - msg;
-		} else
+		else
 			nc = strlen(msg);
-		if (nc) {
+		if (nc || (nl != CN)) {
 			switch (sms->type) {
 			case ST_PEER:
 			case ST_CHILD:
@@ -1360,6 +1371,21 @@ sms_continue(void)
 	}
 
 	continuing = False;
+}
+
+/*
+ * Return True if there is a pending macro.
+ */
+Boolean
+sms_in_macro(void)
+{
+	sms_t *s;
+
+	for (s = sms; s != NULL; s = s->next) {
+		if (s->type == ST_MACRO || s->type == ST_STRING)
+			return True;
+	}
+	return False;
 }
 
 /*
@@ -2063,6 +2089,7 @@ Wait_action(Widget w unused, XEvent *event unused, String *params,
 		np = *num_params - 1;
 		pr = params + 1;
 	} else {
+		tmo = -1;
 		np = *num_params;
 		pr = params;
 	}

@@ -155,6 +155,7 @@ main(int argc, char *argv[])
 	int cmode = 0;
 	unsigned long ifdefs;
 	unsigned long ifndefs;
+	int last_continue = 0;
 
 	/* Parse arguments. */
 	if ((me = strrchr(argv[0], '/')) != (char *)NULL)
@@ -213,7 +214,7 @@ main(int argc, char *argv[])
 			s[sl-1] = '\0';
 
 		/* Skip comments and empty lines. */
-		if (!*s || *s == '!')
+		if ((!last_continue && *s == '!') || !*s)
 			continue;
 
 		/* Check for simple if[n]defs. */
@@ -316,6 +317,7 @@ main(int argc, char *argv[])
 
 		/* Emit the text. */
 		fprintf(u, "%lx %lx %d\n%s\n", ifdefs, ifndefs, lno, s);
+		last_continue = strlen(s) > 0 && s[strlen(s) - 1] == '\\';
 	}
 	if (ssp) {
 		fprintf(stderr, "%d missing #endif(s) in %s\n", ssp, filename);

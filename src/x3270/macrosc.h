@@ -87,6 +87,7 @@ extern void sms_error(const char *msg);
 extern void sms_host_output(void);
 extern void sms_info(const char *fmt, ...);
 extern void sms_init(void);
+extern Boolean sms_in_macro(void);
 extern Boolean sms_redirect(void);
 extern void sms_store(unsigned char c);
 #if defined(X3270_SCRIPT) || defined(TCL3270) /*[*/

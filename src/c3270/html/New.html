@@ -28,6 +28,53 @@ codes internally, and to dispense with the confusing CG-code representation
 of the 3270 display. This required changing all of the logic that manipulates
 field attributes, as well as the logic that translates the host output, keyboard
 input, and display output.</p>
+<h2>Changes in c3270 3.3.4, 10. April 2005</h2>
+<ul>
+  <li>Bug Fixes:
+    <ul>
+      <li>The code once again builds on Cygwin and other systems not supporting
+       IPv6.</li>
+      <li>Removed spurious 'no child' error messages from pr3287 on some
+       systems.</li>
+      <li>Removed unintended blank-line suppression from the output of
+       <b>PrintText html string</b>.</li>
+      <li>Restored the automatic keyboard unlock delay when processing a
+       macro or string.  This allows macros and strings with embedded AID
+       sequences to work with hosts that unlock the keyboard before they
+       finish processing a command.  Scripts are presumed to be able to
+       figure out when the host is finished, or can set the <b>unlockDelay</b>
+       resource to <b>true</b> get the delay all the time.</li>
+      <li>Fixed an apparent hang (actually just extreme slowness) when the
+       host sends a message larger than 4 Kbytes on an SSL tunnel.</li>
+      <li>Removed spurious 'Wait timed out' errors in the <b>Wait</b>
+       action.</li>
+    </ul>
+  </li>
+  <li>New Features:
+    <ul>
+     <li>Added a newer, more flexible version of Don Russell's RPQNAMES
+      support.</li>
+     <li>Added support for IPv6.</li>
+    </ul>
+  </li>
+</ul>
+<h2>Changes in c3270 3.3.3b2, 1. February 2005</h2>
+<ul>
+  <li>Bug Fixes:
+    <ul>
+      <li>Fixed a crash when a login macro is used in NVT mode or when the
+       host un-negotiates TN3270E mode.</li>
+      <li>Temporarily disabled the RPQNAMES Query Reply.  It was causing IBM
+       QMF to crash.  It can be re-enabled by adding <b>#define X3270_RPQNAMES
+       1</b> to <b>conf.h</b>.  Hopefully a proper fix can be found shortly.
+      </li>
+    </ul>
+  </li>
+  <li>New Features:
+    <ul>
+    </ul>
+  </li>
+</ul>
 <h2>Changes in c3270 3.3.3, 31. December 2004</h2>
 <ul>
   <li>Bug Fixes:

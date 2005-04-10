@@ -572,7 +572,7 @@ save_opt(FILE *f, const char *full_name, const char *opt_name,
 	(void) fprintf(f, "! %s ", full_name);
 	if (opt_name != CN)
 		(void) fprintf(f, " (%s)", opt_name);
-	(void) fprintf(f, "\nx3270.%s: %s\n", res_name, value);
+	(void) fprintf(f, "\n%s.%s: %s\n", XtName(toplevel), res_name, value);
 }
 
 /* Save the current options settings in a profile. */
@@ -636,7 +636,8 @@ save_options(char *n)
 			    OptSet, OptClear);
 			any_toggles = True;
 		}
-		(void) fprintf(f, "x3270.%s: %s\n", toggle_names[i].name,
+		(void) fprintf(f, "%s.%s: %s\n", XtName(toplevel),
+	            toggle_names[i].name,
 		    appres.toggle[i].value ? ResTrue : ResFalse);
 	}
 
@@ -709,6 +710,73 @@ save_args(int argc, char *argv[])
 	xargc = argc;
 }
 
+#if !defined(USE_APP_DEFAULTS) /*[*/
+#define DEF_NAME	"x3270"
+#define NLEN		(sizeof(DEF_NAME) - 1)
+#define DOT_NAME	DEF_NAME "."
+#define STAR_NAME	DEF_NAME "*"
+
+/* Substitute an alternate name in the fallback resource definitions. */
+static char *
+subst_name(unsigned char *fallbacks)
+{
+	char *tlname;
+	char *s, *t;
+	Boolean eol = True;
+	int nname = 0;
+	int nlen;
+	int flen;
+	char *new_fallbacks;
+
+	/* If the name is the same, do nothing. */
+	if (!strcmp((tlname = XtName(toplevel)), DEF_NAME))
+		return (char *)fallbacks;
+
+	/* Count the number of instances of "x3270" in the fallbacks. */
+	s = (char *)fallbacks;
+	while (*s) {
+		if (eol && (!strncmp(s, DOT_NAME, NLEN + 1) ||
+			    !strncmp(s, STAR_NAME, NLEN + 1))) {
+			nname++;
+			s += NLEN;
+			eol = False;
+		} else if (*s == '\n')
+			eol = True;
+		else
+			eol = False;
+		s++;
+	}
+	if (!nname)
+		return (char *)fallbacks;
+
+	/* Allocate a buffer to do the substitution into. */
+	if ((nlen = strlen(tlname)) > NLEN)
+		flen = strlen((char *)fallbacks) + ((nlen - NLEN) * nname) + 1;
+	else
+		flen = strlen((char *)fallbacks) - ((NLEN - nlen) * nname) + 1;
+	new_fallbacks = Malloc(flen);
+
+	/* Substitute. */
+	s = (char *)fallbacks;
+	t = new_fallbacks;
+	while (*s) {
+		if (eol && (!strncmp(s, DOT_NAME, NLEN + 1) ||
+			    !strncmp(s, STAR_NAME, NLEN + 1))) {
+			strcpy(t, tlname);
+			t += nlen;
+			s += NLEN;
+			eol = False;
+		} else if (*s == '\n')
+			eol = True;
+		else
+			eol = False;
+		*t++ = *s++;
+	}
+	*t = '\0';
+	return new_fallbacks;
+}
+#endif /*]*/
+
 /* Merge in the options settings from a profile. */
 void
 merge_profile(XrmDatabase *d, Boolean mono)
@@ -716,7 +784,6 @@ merge_profile(XrmDatabase *d, Boolean mono)
 	const char *fname;
 	char *env_resources;
 	XrmDatabase dd;
-	Boolean need_cl_merge = False;
 #if !defined(USE_APP_DEFAULTS) /*[*/
 	extern unsigned char common_fallbacks[], mono_fallbacks[],
 		color_fallbacks[];
@@ -724,13 +791,13 @@ merge_profile(XrmDatabase *d, Boolean mono)
 
 #if !defined(USE_APP_DEFAULTS) /*[*/
 	/* Start with the fallbacks. */
-	dd = XrmGetStringDatabase((char *)common_fallbacks);
+	dd = XrmGetStringDatabase(subst_name(common_fallbacks));
 	if (dd == NULL) {
 		XtError("Can't parse common fallbacks");
 	}
 	XrmMergeDatabases(dd, d);
-	dd = XrmGetStringDatabase(mono? (char *)mono_fallbacks:
-			                (char *)color_fallbacks);
+	dd = XrmGetStringDatabase(subst_name(mono? mono_fallbacks:
+			                           color_fallbacks));
 	if (dd == NULL) {
 		XtError("Can't parse mono/color fallbacks");
 	}
@@ -751,7 +818,6 @@ merge_profile(XrmDatabase *d, Boolean mono)
 		if (dd != NULL) {
 			/* Merge in the profile options. */
 			XrmMergeDatabases(dd, d);
-			need_cl_merge = True;
 		}
 	}
 
@@ -761,17 +827,14 @@ merge_profile(XrmDatabase *d, Boolean mono)
 		dd = XrmGetStringDatabase(env_resources);
 		if (dd != NULL) {
 			XrmMergeDatabases(dd, d);
-			need_cl_merge = True;
 		}
 	}
 
 	/* Merge the saved command-line options back on top of those. */
-	if (need_cl_merge) {
-		dd = NULL;
-		XrmParseCommand(&dd, options, num_options, programname,
-				&xargc, xargv);
-		XrmMergeDatabases(dd, d);
-	}
+	dd = NULL;
+	XrmParseCommand(&dd, options, num_options, programname,
+			&xargc, xargv);
+	XrmMergeDatabases(dd, d);
 
 	/* Free the saved command-line options. */
 	XtFree(xcmd);

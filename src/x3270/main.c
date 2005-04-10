@@ -93,6 +93,7 @@ static void	parse_local_process(int *argcp, char **argv, char **cmds);
 static int	parse_model_number(char *m);
 static void	parse_set_clear(int *, char **);
 static void	label_init(void);
+static void	sigchld_handler(int);
 static char    *user_title = CN;
 static char    *user_icon_name = CN;
 
@@ -148,20 +149,7 @@ int num_options = XtNumber(options);
 /* Fallback resources. */
 static String fallbacks[] = {
 	/* This should be overridden by real app-defaults. */
-	"*adVersion:	fallback",
-
-	/*
-	 * This must be defined in the real app-defaults or here, or it won't
-	 * be applied to the top-level object.
-	 */
-	"x3270.translations: #override \\n\
-<Message>WM_PROTOCOLS:          PA-WMProtocols()\\n\
-<KeymapNotify>:                 PA-KeymapNotify()\\n\
-<PropertyNotify>WM_STATE:       PA-StateChanged()\\n\
-<FocusIn>:                      PA-Focus()\\n\
-<FocusOut>:                     PA-Focus()\\n\
-<ConfigureNotify>:              PA-ConfigureNotify()",
-
+	"*adVersion: fallback",
 	NULL
 };
 
@@ -281,6 +269,18 @@ main(int argc, char *argv[])
 	    NULL);
 	display = XtDisplay(toplevel);
 	rdb = XtDatabase(display);
+
+	/*
+	 * Add the base translations to the toplevel object.
+	 * For some reason, these cannot be specified in the app-defaults.
+	 */
+	XtVaSetValues(toplevel, XtNtranslations, XtParseTranslationTable("\
+<Message>WM_PROTOCOLS:          PA-WMProtocols()\n\
+<KeymapNotify>:                 PA-KeymapNotify()\n\
+<PropertyNotify>WM_STATE:       PA-StateChanged()\n\
+<FocusIn>:                      PA-Focus()\n\
+<FocusOut>:                     PA-Focus()\n\
+<ConfigureNotify>:              PA-ConfigureNotify()"), NULL);
 
 	/* Merge in the profile. */
 	merge_profile(&rdb, mono);
@@ -484,6 +484,12 @@ main(int argc, char *argv[])
 	/* Make sure we don't fall over any SIGPIPEs. */
 	(void) signal(SIGPIPE, SIG_IGN);
 
+	/*
+	 * Make sure that exited child processes become zombies, so we can
+	 * collect their exit status.
+	 */
+	(void) signal(SIGCHLD, sigchld_handler);
+
 	/* Set up the window and icon labels. */
 	label_init();
 
@@ -519,6 +525,17 @@ main(int argc, char *argv[])
 		if (children && waitpid(0, (int *)0, WNOHANG) > 0)
 			--children;
 	}
+}
+
+/*
+ * Empty SIGCHLD handler.
+ * On newer POSIX systems, this ensures that exited child processes become
+ * zombies, so we can collect their exit status.
+ */
+static void
+sigchld_handler(int ignored)
+{
+	(void) signal(SIGCHLD, sigchld_handler);
 }
 
 /*

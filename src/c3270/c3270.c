@@ -183,6 +183,13 @@ pause_for_errors(void)
 	}
 }
 
+/* Empty SIGCHLD handler, ensuring that we can collect child exit status. */
+static void
+sigchld_handler(int ignored)
+{
+	(void) signal(SIGCHLD, sigchld_handler);
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -240,6 +247,9 @@ main(int argc, char *argv[])
 
 	/* Make sure we don't fall over any SIGPIPEs. */
 	(void) signal(SIGPIPE, SIG_IGN);
+
+	/* Make sure we can collect child exit status. */
+	(void) signal(SIGCHLD, sigchld_handler);
 
 	/* Handle initial toggle settings. */
 #if defined(X3270_TRACE) /*[*/
