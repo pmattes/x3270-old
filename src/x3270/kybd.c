@@ -3041,9 +3041,8 @@ emulate_input(char *s, int len, Boolean pasting)
 					action_internal(Clear_action, ia, CN, CN);
 					if (IN_3270)
 						return len-1;
-					else
-						break;
 				}
+				break;
 			    case '\n':
 				if (pasting)
 					action_internal(Newline_action, ia, CN, CN);
@@ -3292,11 +3291,19 @@ emulate_input(char *s, int len, Boolean pasting)
 
 	switch (state) {
 	    case BASE:
+		if (toggled(MARGINED_PASTE) &&
+		    BA_TO_COL(cursor_addr) < orig_col) {
+			(void) remargin(orig_col);
+		}
 		break;
 	    case OCTAL:
 	    case HEX:
 		key_ACharacter((unsigned char) literal, KT_STD, ia);
 		state = BASE;
+		if (toggled(MARGINED_PASTE) &&
+		    BA_TO_COL(cursor_addr) < orig_col) {
+			(void) remargin(orig_col);
+		}
 		break;
 	    case BACKPF:
 		if (nc > 0) {
