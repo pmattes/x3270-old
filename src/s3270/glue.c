@@ -415,6 +415,10 @@ parse_options(int *argcp, const char **argv)
 	appres.dft_buffer_size = DFT_BUF;
 #endif /*]*/
 
+#if defined(X3270_SCRIPT) || defined(TCL3270) /*[*/
+	appres.toggle[AID_WAIT].value = True;
+#endif /*]*/
+
 #if defined(C3270) /*[*/
 	/* Merge in the profile. */
 	merge_profile();
