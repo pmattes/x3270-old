@@ -1,5 +1,5 @@
 /*
- * Copyright 1995, 1996, 1999, 2000, 2001, 2002, 2004 by Paul Mattes.
+ * Copyright 1995, 1996, 1999, 2000, 2001, 2002, 2004, 2005 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -67,6 +67,7 @@
 #define ResFtCharset		"ftCharset"
 #define ResFtCommand		"ftCommand"
 #define ResHighlightBold	"highlightBold"
+#define ResPluginCommand	"pluginCommand"
 #define ResHostsFile		"hostsFile"
 #define ResIconFont		"iconFont"
 #define ResIconLabelFont	"iconLabelFont"
@@ -125,6 +126,7 @@
 #define ResSecure		"secure"
 #define ResSelectBackground	"selectBackground"
 #define ResShowTiming		"showTiming"
+#define ResSocket		"socket"
 #define ResSuppressActions	"suppressActions"
 #define ResSuppressHost		"suppressHost"
 #define ResSuppressFontMenu	"suppressFontMenu"
@@ -171,6 +173,7 @@
 #define DotSaveLines		"." ResSaveLines
 #define DotScripted		"." ResScripted
 #define DotScrollBar		"." ResScrollBar
+#define DotSocket		"." ResSocket
 #define DotTermName		"." ResTermName
 #define DotTraceFile		"." ResTraceFile
 #define DotTraceFileSize	"." ResTraceFileSize
@@ -216,6 +219,7 @@
 #define ClsFixedSize		"FixedSize"
 #define ClsFtCommand		"FtCommand"
 #define ClsHighlightBold	"HighlightBold"
+#define ClsPluginCommand	"PluginCommand"
 #define ClsHostsFile		"HostsFile"
 #define ClsIconFont		"IconFont"
 #define ClsIconLabelFont	"IconLabelFont"
@@ -271,6 +275,7 @@
 #define ClsSecure		"Secure"
 #define ClsSelectBackground	"SelectBackground"
 #define ClsShowTiming		"ShowTiming"
+#define ClsSocket		"Socket"
 #define ClsSuppressHost		"SuppressHost"
 #define ClsSuppressFontMenu	"SuppressFontMenu"
 #define ClsTermName		"TermName"
@@ -327,6 +332,7 @@
 #define OptScripted		"-script"
 #define OptScrollBar		"-sb"
 #define OptSet			"-set"
+#define OptSocket		"-socket"
 #define OptTermName		"-tn"
 #define OptTraceFile		"-tracefile"
 #define OptTraceFileSize	"-tracefilesize"

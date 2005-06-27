@@ -148,6 +148,9 @@ XtActionsRec all_actions[] = {
 	{ "Attn",		Attn_action },
 	{ "BackSpace",		BackSpace_action },
 	{ "BackTab",		BackTab_action },
+#if defined(X3270_SCRIPT) && (defined(X3270_DISPLAY) || defined(C3270)) /*[*/
+	{ "Bell",		Bell_action },
+#endif /*]*/
 	{ "CircumNot",		CircumNot_action },
 	{ "Clear",		Clear_action },
 #if defined(C3270) /*[*/
@@ -182,6 +185,9 @@ XtActionsRec all_actions[] = {
 	{ "HexString",		HexString_action},
 #if defined(C3270) /*[*/
 	{ "Help",		Help_action},
+#endif/*]*/
+#if defined(X3270_SCRIPT) /*[*/
+	{ "Plugin",		Plugin_action},
 #endif/*]*/
 	{ "Home",		Home_action },
 	{ "Insert",		Insert_action },

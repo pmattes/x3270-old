@@ -49,6 +49,7 @@
 #include "telnetc.h"
 #include "togglesc.h"
 #include "utilc.h"
+#include "xioc.h"
 
 #if defined(HAVE_LIBREADLINE) /*[*/
 #include <readline/readline.h>
@@ -282,6 +283,7 @@ main(int argc, char *argv[])
 	}
 	screen_resume();
 	screen_disp(False);
+	peer_script_init();
 
 	/* Process events forever. */
 	while (1) {
@@ -294,7 +296,7 @@ main(int argc, char *argv[])
 			screen_suspend();
 			(void) printf("Disconnected.\n");
 			if (appres.once)
-				exit(0);
+				x3270_exit(0);
 			interact();
 			screen_resume();
 		} else if (escaped) {
@@ -393,7 +395,7 @@ interact(void)
 		/* Get the command, and trim white space. */
 		if (fgets(buf, sizeof(buf), stdin) == CN) {
 			printf("\n");
-			exit(0);
+			x3270_exit(0);
 		}
 		s = buf;
 #endif /*]*/

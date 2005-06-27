@@ -63,9 +63,9 @@ struct host *hosts = (struct host *)NULL;
 static struct host *last_host = (struct host *)NULL;
 static Boolean auto_reconnect_inprogress = False;
 static int net_sock = -1;
-static void save_recent(const char *);
 
 #if defined(X3270_DISPLAY) /*[*/
+static void save_recent(const char *);
 static void try_reconnect(void);
 #endif /*]*/
 
@@ -172,10 +172,12 @@ hostfile_init(void)
 	}
 	Free(hostfile_name);
 
+#if defined(X3270_DISPLAY) /*[*/
 	/*
 	 * Read the recent-connection file, and prepend it to the hosts list.
 	 */
 	save_recent(CN);
+#endif /*]*/
 }
 
 /*
@@ -512,8 +514,10 @@ host_connect(const char *n)
 	/* Remember this hostname, as the last hostname we connected to. */
 	Replace(reconnect_host, NewString(nb));
 
+#if defined(X3270_DISPLAY) /*[*/
 	/* Remember this hostname in the recent connection list and file. */
 	save_recent(nb);
+#endif /*]*/
 
 #if defined(LOCAL_PROCESS) /*[*/
 	if ((localprocess_cmd = parse_localprocess(nb)) != CN) {
@@ -729,6 +733,7 @@ host_connected(void)
 #endif /*]*/
 }
 
+#if defined(X3270_DISPLAY) /*[*/
 /* Comparison function for the qsort. */
 static int
 host_compare(const void *e1, const void *e2)
@@ -751,6 +756,7 @@ host_compare(const void *e1, const void *e2)
 #endif /*]*/
 	return r;
 }
+#endif /*]*/
 
 #if defined(CFDEBUG) /*[*/
 static void
@@ -765,6 +771,7 @@ dump_array(const char *when, struct host **array, int nh)
 }
 #endif /*]*/
 
+#if defined(X3270_DISPLAY) /*[*/
 /* Save the most recent host in the recent host list. */
 static void
 save_recent(const char *hn)
@@ -914,11 +921,13 @@ save_recent(const char *hn)
 				(void) fprintf(lcf, "%lu %s\n", h->connect_time,
 				    h->name);
 			}
+			fclose(lcf);
 		}
-		fclose(lcf);
-		Free(lcf_name);
 	}
+	if (lcf_name != CN)
+		Free(lcf_name);
 }
+#endif /*]*/
 
 /* Support for state change callbacks. */
 

@@ -1,5 +1,5 @@
 '\" t
-.TH X3270IF 1 "10 April 2005"
+.TH X3270IF 1 "27 June 2005"
 .SH "NAME"
 x3270if \- command interface to x3270, c3270 and s3270
 .SH "SYNOPSIS"
@@ -66,6 +66,11 @@ output from the emulator.
 (This mode exists primarily to give \fIexpect\fP(1)
 a process to run, on systems which do not support bidirectional pipes.)
 .TP
+\fB\-p\fP \fIprocess-id\fP
+Causes \fIx3270if\fP to use a Unix-domain socket to connect to the emulator,
+rather than pipe file descriptors given in environment variables.
+The emulator must have been started with the \fB\-socket\fP option.
+.TP
 \fB\-v\fP
 Turns on verbose debug messages, showing on stderr the literal data that is
 passed between the emulator and \fBx3270if\fP.
@@ -80,8 +85,9 @@ itself, such as a command-line syntax error, missing environment
 variable, or an unexpectedly closed pipe,
 \fBx3270if\fP exits with status 2.
 .SH "ENVIRONMENT"
+Unless the \fB\-socket\fP option is given when they are started,
 \fIx3270\fP, \fIc3270\fP, and \fIs3270\fP
-use a pair of pipes for communication with each child process.
+use a pair of pipes for communication with each child script process.
 The values of the file descriptors for these pipes are encoded as text
 in two environment variables, which are required by
 \fBx3270if\fP:
@@ -97,7 +103,7 @@ c3270(1),
 s3270(1),
 x3270-script(1)
 .SH "COPYRIGHT"
-Copyright 1999, 2000, 2001, 2004 by Paul Mattes.
+Copyright 1999, 2000, 2001, 2004, 2005 by Paul Mattes.
 .RS
 Permission to use, copy, modify, and distribute this software and its
 documentation for any purpose and without fee is hereby granted,

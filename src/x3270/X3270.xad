@@ -415,6 +415,10 @@ x3270.keymap.oldclick: #override\n\
 x3270.keymap.oldclick.3270: #override\n\
 	:Ctrl Shift<Btn1Down>:          MouseSelect()\n\
 	Shift<Btn1Down>:                MoveCursor()
+! History keymap.
+x3270.keymap.hist: #override\n\
+	Shift<Key>Prior: Plugin(command,prev)\n\
+	Shift<Key>Next: Plugin(command,next)
 !
 ! Start of keyboard-specific mappings.
 !
@@ -1959,9 +1963,7 @@ x3270.charset.hebrew: #table\n\
 125  74  75  76  77  78  79  80  81  82 185   0   0   0   0   0 \
  92 186  83  84  85  86  87  88  89  90 178   0   0   0   0   0 \
  48  49  50  51  52  53  54  55  56  57 179   0   0   0   0 159
-! This value is wrong, but I can't find a reference for the CGCSGID for
-! Hebrew...
-x3270.codepage.hebrew: 424
+x3270.codepage.hebrew: 0x03ad01a8
 x3270.displayCharset.hebrew: 3270cg-8,iso8859-8
 x3270.emulatorFontList.3270cg-8,iso8859-8: Hebrew 14-point 3270 Font: 3270h
 ! Brazilian character set for x3270.

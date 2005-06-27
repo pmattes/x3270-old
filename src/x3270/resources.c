@@ -1,6 +1,6 @@
 /*
  * Modifications Copyright 1993, 1994, 1995, 1996, 1999,
- *   2000, 2001, 2002, 2004 by Paul Mattes.
+ *   2000, 2001, 2002, 2004, 2005 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -94,6 +94,12 @@ XtResource resources[] = {
 	  offset(modified_sel), XtRString, ResFalse },
 	{ ResUnlockDelay, ClsUnlockDelay, XtRBoolean, sizeof(Boolean),
 	  offset(unlock_delay), XtRString, ResFalse },
+#if defined(X3270_SCRIPT) /*[*/
+	{ ResSocket, ClsSocket, XtRBoolean, sizeof(Boolean),
+	  offset(socket), XtRString, ResFalse },
+	{ ResPluginCommand, ClsPluginCommand, XtRString, sizeof(String),
+	  offset(plugin_command), XtRString, 0 },
+#endif /*]*/
 	{ ResUseCursorColor, ClsUseCursorColor, XtRBoolean, sizeof(Boolean),
 	  offset(use_cursor_color), XtRString, ResFalse },
 	{ ResReconnect, ClsReconnect, XtRBoolean, sizeof(Boolean),

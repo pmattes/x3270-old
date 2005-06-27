@@ -1,1 +1,1 @@
-../s3270/x3270-script.man
+../x3270/x3270-script.man

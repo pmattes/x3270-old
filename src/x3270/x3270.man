@@ -1,5 +1,5 @@
 '\" t
-.TH x3270 1 "10 April 2005"
+.TH x3270 1 "27 June 2005"
 .SH "NAME"
 x3270 \-
 \s-1IBM\s+1 host access tool
@@ -296,6 +296,13 @@ The default is 64.
 Sets the initial value of \fItoggle\fP to \fBtrue\fP.
 The list of toggle names is under \s-1MENUS\s+1
 below.
+.TP
+\fB\-socket\fP
+Causes the emulator to create a Unix-domain socket when it starts, for use
+by script processes to send commands to the emulator.
+The socket is named \fB/tmp/x3sck.\fP\fIprocess_id\fP.
+The \fB\-p\fP option of \fIx3270if\fP causes it to use this socket,
+instead of pipes specified by environment variables.
 .TP
 \fB\-tn\fP \fIname\fP
 Specifies the terminal name to be transmitted over the telnet connection.
@@ -5713,7 +5720,7 @@ RFC 1646, TN3270 Extensions for LUname and Printer Selection
 RFC 2355, TN3270 Enhancements
 .SH "COPYRIGHTS"
 .LP
-Modifications Copyright 1993, 1994, 1995, 1996, 1997, 1999, 2000, 2001, 2002, 2004 by Paul Mattes.
+Modifications Copyright 1993, 1994, 1995, 1996, 1997, 1999, 2000, 2001, 2002, 2004, 2005 by Paul Mattes.
 .br
 Original X11 Port Copyright 1990 by Jeff Sparkes.
 .RS
@@ -5734,4 +5741,4 @@ x3270 is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
 .SH "VERSION"
-x3270 3.3.4
+x3270 3.3.5a2

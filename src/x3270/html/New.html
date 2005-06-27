@@ -28,6 +28,30 @@ of the 3270 display.
 This required changing all of the logic that manipulates
 field attributes, as well as the logic that translates the host output, keyboard
 input, and X11 display output.</p>
+<h2>Changes in x3270 3.3.5, 1. July 2005</h2>
+<ul>
+  <li>Bug Fixes:
+    <ul>
+      <li>Fixed a crash when the user's home directory or the ~/.x3270connect
+       file wasn't writeable.</li>
+      <li>Fixed some endcases when pasting text that wraps lines and a field
+       skip is encountered.</li>
+      <li>Fixed the handling of SI characters in cut/pasted text.</li>
+      <li>Allow the use of ICU version 3.0 or greater.</li>
+    </ul>
+  </li>
+  <li>New Features:
+    <ul>
+      <li>Added a <b>-socket</b> option to x3270, s3270 and c3270 to allow a
+        script to connect to a Unix-domain socket to control the emulator, and
+        added a <b>-p</b> option to x3270if to connect to the socket.</li>
+      <li>Added support for <b>plugins</b>, with a first plugin to implement
+        command history on VM/CMS and TSO hosts.</li>
+      <li>Allow arbitrary color names (#rrggbb) to be used in color
+	schemes.</li>
+    </ul>
+  </li>
+</ul>
 <h2>Changes in x3270 3.3.4, 10. April 2005</h2>
 <ul>
   <li>Bug Fixes:

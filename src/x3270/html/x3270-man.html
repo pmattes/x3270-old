@@ -241,6 +241,12 @@ The default is 64.
 Sets the initial value of <i>toggle</i> to <b>true</b>.
 The list of toggle names is under <a HREF="#Menus"><font size=-1>MENUS</font></a>
 below.
+<dt><b>-socket</b></dt><dd>
+Causes the emulator to create a Unix-domain socket when it starts, for use
+by script processes to send commands to the emulator.
+The socket is named <b>/tmp/x3sck.</b><i>process_id</i>.
+The <b>-p</b> option of <i>x3270if</i> causes it to use this socket,
+instead of pipes specified by environment variables.
 <dt><a NAME="tn"></a><b>-tn</b> <i>name</i></dt><dd>
 Specifies the terminal name to be transmitted over the telnet connection.
 The default name is
@@ -1384,7 +1390,7 @@ RFC 1646, TN3270 Extensions for LUname and Printer Selection
 RFC 2355, TN3270 Enhancements
 <a NAME="Copyrights"></a><h2>Copyrights</h2>
 <p>
-Modifications Copyright &copy; 1993, 1994, 1995, 1996, 1997, 1999, 2000, 2001, 2002, 2004 by Paul Mattes.
+Modifications Copyright &copy; 1993, 1994, 1995, 1996, 1997, 1999, 2000, 2001, 2002, 2004, 2005 by Paul Mattes.
 <br>
 Original X11 Port Copyright &copy; 1990 by Jeff Sparkes.
 <blockquote>Permission to use, copy, modify, and distribute this software and its
@@ -1401,12 +1407,12 @@ x3270 is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
 <a NAME="Version"></a><h2>Version</h2>
-x3270 3.3.4
+x3270 3.3.5a2
 <hr>
 <address>
 This HTML document and the accompanying troff document were generated with
 a set of write-only <b>m4</b> macros and the powerful <b>vi</b> editor.
-<br>Last modified 10 April 2005.
+<br>Last modified 27 June 2005.
 </address>
 </body>
 </html>

@@ -1097,7 +1097,6 @@ onscreen_char(int baddr, unsigned char *r, int *rlen, Boolean *ge)
 	static unsigned char fa;
 #if defined(X3270_DBCS) /*[*/
 	int baddr2;
-	enum dbcs_why why;
 #endif /*]*/
 
 	*rlen = 1;
@@ -1134,15 +1133,23 @@ onscreen_char(int baddr, unsigned char *r, int *rlen, Boolean *ge)
 
 #if defined(X3270_DBCS) /*[*/
 	/* Handle DBCS. */
-	switch (ctlr_lookleft_state(baddr, &why)) {
+	switch (ctlr_dbcs_state(baddr)) {
 	case DBCS_LEFT:
 	    baddr2 = baddr;
 	    INC_BA(baddr2);
 	    *rlen = dbcs_to_mb(ea_buf[baddr].cc, ea_buf[baddr2].cc, (char *)r);
 	    return;
 	case DBCS_RIGHT:
+	    /* Returned the entire character when the left half was read. */
 	    *rlen = 0;
 	    return;
+	case DBCS_SI:
+	    /* Suppress SI's altogether.  They'll expand back on paste. */
+	    *rlen = 0;
+	    return;
+	case DBCS_SB:
+	    /* Treat SB's as normal SBCS characters. */
+	    break;
 	default:
 	    break;
 	}
@@ -1152,6 +1159,15 @@ onscreen_char(int baddr, unsigned char *r, int *rlen, Boolean *ge)
 	    case CS_BASE:
 	    default:
 		switch (ea_buf[baddr].cc) {
+#if defined(X3270_DBCS) /*[*/
+		    case EBC_so:
+			/*
+			 * Suppress SO's altogether.  They'll expand back on
+			 * paste.
+			 */
+			*rlen = 0;
+			return;
+#endif /*]*/
 		    case EBC_null:
 			*r = 0;
 			return;
@@ -1252,6 +1268,7 @@ own_sels(Time t)
  * Copy the selected area on the screen into a buffer and attempt to
  * own the selections in want_sel[].
  */
+#define VISUAL_LEFT(d)	((IS_LEFT(d)) || ((d) == DBCS_SI))
 static void
 grab_sel(int start, int end, Boolean really, Time t)
 {
@@ -1281,7 +1298,7 @@ grab_sel(int start, int end, Boolean really, Time t)
 		/* Continuous selections */
 		if (IS_RIGHT(ctlr_dbcs_state(start)))
 			DEC_BA(start);
-		if (IS_LEFT(ctlr_dbcs_state(end)))
+		if (VISUAL_LEFT(ctlr_dbcs_state(end)))
 			INC_BA(end);
 		for (i = start; i <= end; i++) {
 			SET_SELECT(i);
@@ -1331,7 +1348,7 @@ grab_sel(int start, int end, Boolean really, Time t)
 		if (start_row == end_row) {
 			if (IS_RIGHT(ctlr_dbcs_state(start)))
 				DEC_BA(start);
-			if (IS_LEFT(ctlr_dbcs_state(end)))
+			if (VISUAL_LEFT(ctlr_dbcs_state(end)))
 				INC_BA(end);
 			for (i = start; i <= end; i++) {
 				SET_SELECT(i);
@@ -1373,7 +1390,7 @@ grab_sel(int start, int end, Boolean really, Time t)
 				    IS_RIGHT(ctlr_dbcs_state(row*COLS + sc)))
 					sc = sc - 1;
 				if (ec < COLS-1 &&
-				    IS_LEFT(ctlr_dbcs_state(row*COLS + ec)))
+				    VISUAL_LEFT(ctlr_dbcs_state(row*COLS + ec)))
 					ec = ec + 1;
 
 				for (col = sc; col <= ec; col++) {

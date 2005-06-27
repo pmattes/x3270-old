@@ -557,6 +557,8 @@ screen_reinit(unsigned cmask)
 #if defined(X3270_DBCS) /*[*/
 	if ((cmask & FONT_CHANGE) && dbcs) {
 		int wdiff, adiff, ddiff;
+		char *xs;
+		int xx;
 
 #if defined(_ST) /*[*/
 		printf("nss ascent %d descent %d\n"
@@ -591,6 +593,14 @@ screen_reinit(unsigned cmask)
 #if defined(_ST) /*[*/
 			printf("Width matches.\n");
 #endif /*]*/
+		}
+		/* Add some extra on top of that. */
+		if ((xs = getenv("X3270_XWIDTH")) != NULL) {
+			xx = atoi(xs);
+			if (xx && xx < 10) {
+				nss.xtra_width += xx;
+				dbcs_font.xtra_width += xx;
+			}
 		}
 		nss.char_width += nss.xtra_width;
 		dbcs_font.char_width += dbcs_font.xtra_width;
@@ -634,6 +644,16 @@ screen_reinit(unsigned cmask)
 #if defined(_ST) /*[*/
 			printf("Descent matches\n");
 #endif /*]*/
+		}
+		
+		/* Add a constant to the height. */
+		if ((xs = getenv("X3270_XHEIGHT")) != NULL) {
+			xx = atoi(xs);
+			if (xx && xx < 10) {
+				dbcs_font.descent += xx;
+				nss.descent += xx;
+				nss.char_height += xx;
+			}
 		}
 	}
 #endif /*]*/
@@ -2759,10 +2779,31 @@ alloc_color(char *name, enum fallback_color fb_color, Pixel *pixel)
 
 	s = XtScreen(toplevel);
 
-	if (XAllocNamedColor(display, XDefaultColormapOfScreen(s), name,
-	    &cell, &db) != 0) {
-		*pixel = db.pixel;
-		return True;
+	if (name[0] == '#') {
+		unsigned long rgb;
+		char *endptr;
+
+		rgb = strtoul(name + 1, &endptr, 16);
+		if (endptr != name + 1 && !*endptr && !(rgb & ~0xffffff)) {
+			(void) memset(&db, '\0', sizeof(db));
+			db.red = (rgb >> 16) & 0xff;
+			db.red |= (db.red << 8);
+			db.green = (rgb >> 8) & 0xff;
+			db.green |= (db.green << 8);
+			db.blue = rgb & 0xff;
+			db.blue |= (db.blue << 8);
+			if (XAllocColor(display, XDefaultColormapOfScreen(s),
+						&db) != 0) {
+				*pixel = db.pixel;
+				return True;
+			}
+		}
+	} else {
+		if (XAllocNamedColor(display, XDefaultColormapOfScreen(s), name,
+		    &cell, &db) != 0) {
+			*pixel = db.pixel;
+			return True;
+		}
 	}
 	switch (fb_color) {
 	    case FB_WHITE:

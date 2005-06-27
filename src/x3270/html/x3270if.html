@@ -78,6 +78,10 @@ runs until it detects end-of-file on its standard input or on the
 output from the emulator.
 (This mode exists primarily to give <i>expect</i>(1)
 a process to run, on systems which do not support bidirectional pipes.)
+<dt><b>-p</b> <i>process-id</i></dt><dd>
+Causes <i>x3270if</i> to use a Unix-domain socket to connect to the emulator,
+rather than pipe file descriptors given in environment variables.
+The emulator must have been started with the <b>-socket</b> option.
 <dt><b>-v</b></dt><dd>
 Turns on verbose debug messages, showing on stderr the literal data that is
 passed between the emulator and <b>x3270if</b>.
@@ -93,8 +97,9 @@ itself, such as a command-line syntax error, missing environment
 variable, or an unexpectedly closed pipe,
 <b>x3270if</b> exits with status 2.
 <a NAME="Environment"></a><h2>Environment</h2>
+Unless the <b>-socket</b> option is given when they are started,
 <i>x3270</i>, <i>c3270</i>, and <i>s3270</i>
-use a pair of pipes for communication with each child process.
+use a pair of pipes for communication with each child script process.
 The values of the file descriptors for these pipes are encoded as text
 in two environment variables, which are required by
 <b>x3270if</b>:
@@ -109,7 +114,7 @@ Input to the emulator, output from the child process.
 <a HREF="s3270-man.html">s3270(1)</a>,
 <a HREF="x3270-script.html">x3270-script(1)</a>
 <a NAME="Copyright"></a><h2>Copyright</h2>
-Copyright &copy; 1999, 2000, 2001, 2004 by Paul Mattes.
+Copyright &copy; 1999, 2000, 2001, 2004, 2005 by Paul Mattes.
 <blockquote>Permission to use, copy, modify, and distribute this software and its
 documentation for any purpose and without fee is hereby granted,
 provided that the above copyright notice appear in all copies and that
@@ -119,7 +124,7 @@ supporting documentation.</blockquote>
 <address>
 This HTML document and the accompanying troff document were generated with
 a set of write-only <b>m4</b> macros and the powerful <b>vi</b> editor.
-<br>Last modified 10 April 2005.
+<br>Last modified 27 June 2005.
 </address>
 </body>
 </html>

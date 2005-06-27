@@ -268,6 +268,13 @@ fi
 if test "$enable_dbcs" != no
 then	orig_LDFLAGS="$LDFLAGS"
 	unset any
+	is_icu3=`expr $icu_suffix '>=' _3_0`
+	if test $is_icu3 -eq 1
+	then	iculib=icuuc
+		icudata=-licudata
+	else	iculib=icui18n
+		icudata=""
+	fi
 	for dir in "$with_icu" /usr/local /usr/local/icu /usr/pkg/icu /usr/icu /var/icu /opt/icu
 	do	lib_fail=0
 		if test -n "$dir" -a ! -d "$dir/lib"
@@ -280,11 +287,20 @@ then	orig_LDFLAGS="$LDFLAGS"
 		if test -n "$dir"
 		then	LDFLAGS="$orig_LDFLAGS -L$dir/lib"
 		fi
-		AC_CHECK_LIB(icui18n, ucnv_open${icu_suffix}, , [lib_fail=1])
+		# Try with the suffix
+		AC_CHECK_LIB($iculib, ucnv_open${icu_suffix}, , [lib_fail=1], $icudata)
 		if test "$lib_fail" -eq 0
 		then	break
 		fi
-		unset `echo ac_cv_lib_icui18n_ucnv_open${icu_suffix} | $as_tr_sh`
+		unset `echo ac_cv_lib_lib${iculib}_ucnv_open${icu_suffix} | $as_tr_sh`
+		LDFLAGS="$orig_LDFLAGS"
+		# Try without the suffix
+		lib_fail=0
+		AC_CHECK_LIB($iculib, ucnv_open, , [lib_fail=1], $icudata)
+		if test "$lib_fail" -eq 0
+		then	break
+		fi
+		unset `echo ac_cv_lib_lib${iculib}_ucnv_open | $as_tr_sh`
 		LDFLAGS="$orig_LDFLAGS"
 		any=1
 	done

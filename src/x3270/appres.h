@@ -121,6 +121,9 @@ typedef struct {
 	Boolean color8;
 	Boolean bsd_tm;
 	Boolean unlock_delay;
+#if defined(X3270_SCRIPT) /*[*/
+	Boolean socket;
+#endif /*]*/
 
 	/* Named resources */
 #if defined(X3270_KEYPAD) /*[*/
@@ -189,6 +192,9 @@ typedef struct {
 	char	*idle_command;
 	Boolean idle_command_enabled;
 	char	*idle_timeout;
+#if defined(X3270_SCRIPT) /*[*/
+	char	*plugin_command;
+#endif /*]*/
 
 #if defined(HAVE_LIBSSL) /*[*/
 	char	*cert_file;

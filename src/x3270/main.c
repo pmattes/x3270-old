@@ -132,6 +132,9 @@ XrmOptionDescRec options[]= {
 	{ OptScripted,	DotScripted,	XrmoptionNoArg,		ResTrue },
 	{ OptScrollBar,	DotScrollBar,	XrmoptionNoArg,		ResTrue },
 	{ OptSet,	".xxx",		XrmoptionSkipArg,	NULL },
+#if defined(X3270_SCRIPT) /*[*/
+	{ OptSocket,	DotSocket,	XrmoptionNoArg,		ResTrue },
+#endif /*]*/
 	{ OptTermName,	DotTermName,	XrmoptionSepArg,	NULL },
 #if defined(X3270_TRACE) /*[*/
 	{ OptTraceFile,	DotTraceFile,	XrmoptionSepArg,	NULL },

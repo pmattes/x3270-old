@@ -83,14 +83,15 @@ static unsigned char pa_xlate[] = {
 #define PA_SZ	(sizeof(pa_xlate)/sizeof(pa_xlate[0]))
 static unsigned long unlock_id;
 #define UNLOCK_MS	350
-static Boolean key_Character(int code, Boolean with_ge, Boolean pasting);
+static Boolean key_Character(int code, Boolean with_ge, Boolean pasting,
+			     Boolean *skipped);
 static Boolean flush_ta(void);
 static void key_AID(unsigned char aid_code);
 static void kybdlock_set(unsigned int bits, const char *cause);
 static KeySym MyStringToKeysym(char *s, enum keytype *keytypep);
 
 #if defined(X3270_DBCS) /*[*/
-static Boolean key_WCharacter(unsigned char code[]);
+static Boolean key_WCharacter(unsigned char code[], Boolean *skipped);
 #endif /*]*/
 
 static int nxk = 0;
@@ -401,6 +402,7 @@ key_AID(unsigned char aid_code)
 		return;
 	}
 #endif /*]*/
+	plugin_aid(aid_code);
 	if (IN_SSCP) {
 		if (kybdlock & KL_OIA_MINUS)
 			return;
@@ -626,7 +628,7 @@ key_Character_wrapper(Widget w unused, XEvent *event unused, String *params,
 	    ia_name[(int) ia_cause],
 	    with_ge ? "GE " : "",
 	    ctl_see((int) ebc2asc[code]));
-	(void) key_Character(code, with_ge, pasting);
+	(void) key_Character(code, with_ge, pasting, NULL);
 }
 
 /*
@@ -634,11 +636,14 @@ key_Character_wrapper(Widget w unused, XEvent *event unused, String *params,
  * insert-mode, protected fields and etc.
  */
 static Boolean
-key_Character(int code, Boolean with_ge, Boolean pasting)
+key_Character(int code, Boolean with_ge, Boolean pasting, Boolean *skipped)
 {
 	register int	baddr, faddr, xaddr;
 	register unsigned char	fa;
 	enum dbcs_why why;
+
+	if (skipped != NULL)
+		*skipped = False;
 
 	if (kybdlock) {
 		char codename[64];
@@ -846,6 +851,8 @@ key_Character(int code, Boolean with_ge, Boolean pasting)
 	 */
 	if (pasting || (code != EBC_dup)) {
 		while (ea_buf[baddr].fa) {
+			if (skipped != NULL)
+				*skipped = True;
 			if (FA_IS_SKIP(ea_buf[baddr].fa))
 				baddr = next_unprotected(baddr);
 			else
@@ -871,14 +878,15 @@ key_WCharacter_wrapper(Widget w unused, XEvent *event unused, String *params,
 	    ia_name[(int) ia_cause], code);
 	codebuf[0] = (code >> 8) & 0xff;
 	codebuf[1] = code & 0xff;
-	(void) key_WCharacter(codebuf);
+	(void) key_WCharacter(codebuf, NULL);
 }
 
 /*
- * Handle a DBCS character.
+ * Input a DBCS character.
+ * Returns True if a character was stored in the buffer, False otherwise.
  */
 static Boolean
-key_WCharacter(unsigned char code[])
+key_WCharacter(unsigned char code[], Boolean *skipped)
 {
 	int baddr;
 	register unsigned char fa;
@@ -895,6 +903,9 @@ key_WCharacter(unsigned char code[])
 		enq_ta(key_WCharacter_wrapper, codename, CN);
 		return False;
 	}
+
+	if (skipped != NULL)
+		*skipped = False;
 
 	/* In DBCS mode? */
 	if (!dbcs) {
@@ -1050,8 +1061,11 @@ key_WCharacter(unsigned char code[])
 		}
 
 		mdt_set(cursor_addr);
+
 		/* Implement auto-skip. */
 		while (ea_buf[baddr].fa) {
+			if (skipped != NULL)
+				*skipped = True;
 			if (FA_IS_SKIP(ea_buf[baddr].fa))
 				baddr = next_unprotected(baddr);
 			else
@@ -1071,10 +1085,14 @@ key_WCharacter(unsigned char code[])
  * Handle an ordinary character key, given an ASCII code.
  */
 static void
-key_ACharacter(unsigned char c, enum keytype keytype, enum iaction cause)
+key_ACharacter(unsigned char c, enum keytype keytype, enum iaction cause,
+	       Boolean *skipped)
 {
 	register int i;
 	struct akeysym ak;
+
+	if (skipped != NULL)
+		*skipped = False;
 
 	ak.keysym = c;
 	ak.keytype = keytype;
@@ -1124,7 +1142,8 @@ key_ACharacter(unsigned char c, enum keytype keytype, enum iaction cause)
 			trace_event("  dropped (control char)\n");
 			return;
 		}
-		(void) key_Character((int) asc2ebc[c], keytype == KT_GE, False);
+		(void) key_Character((int) asc2ebc[c], keytype == KT_GE, False,
+				     skipped);
 	}
 #if defined(X3270_ANSI) /*[*/
 	else if (IN_ANSI) {
@@ -2041,7 +2060,7 @@ Dup_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 	if (IN_ANSI)
 		return;
 #endif /*]*/
-	if (key_Character(EBC_dup, False, False))
+	if (key_Character(EBC_dup, False, False, NULL))
 		cursor_move(next_unprotected(cursor_addr));
 }
 
@@ -2062,7 +2081,7 @@ FieldMark_action(Widget w unused, XEvent *event, String *params, Cardinal *num_p
 	if (IN_ANSI)
 		return;
 #endif /*]*/
-	(void) key_Character(EBC_fm, False, False);
+	(void) key_Character(EBC_fm, False, False, NULL);
 }
 
 
@@ -2717,12 +2736,12 @@ xim_lookup(XKeyEvent *event)
 				trace_event("  U+%04x -> "
 				    "EBCDIC SBCS X'%02x'\n",
 				    Ubuf[i] & 0xffff, asc2ebc[asc]);
-				key_ACharacter(asc, KT_STD, ia_cause);
+				key_ACharacter(asc, KT_STD, ia_cause, NULL);
 			} else if (dbcs_map16(Ubuf[i], ebc)) {
 				trace_event("  U+%04x -> "
 				    "EBCDIC DBCS X'%02x%02x'\n",
 				    Ubuf[i] & 0xffff, ebc[0], ebc[1]);
-				key_WCharacter(ebc);
+				(void) key_WCharacter(ebc, NULL);
 			} else
 				trace_event("  Cannot convert U+%04x to "
 				    "EBCDIC\n", Ubuf[i] & 0xffff);
@@ -2767,7 +2786,8 @@ Key_action(Widget w unused, XEvent *event, String *params, Cardinal *num_params)
 			cancel_if_idle_command();
 			continue;
 		}
-		key_ACharacter((unsigned char)(k & 0xff), keytype, IA_KEY);
+		key_ACharacter((unsigned char)(k & 0xff), keytype, IA_KEY,
+			       NULL);
 	}
 }
 
@@ -2852,9 +2872,9 @@ CircumNot_action(Widget w unused, XEvent *event, String *params, Cardinal *num_p
 	reset_idle_timer();
 
 	if (IN_3270 && composing == NONE)
-		key_ACharacter(0xac, KT_STD, IA_KEY);
+		key_ACharacter(0xac, KT_STD, IA_KEY, NULL);
 	else
-		key_ACharacter('^', KT_STD, IA_KEY);
+		key_ACharacter('^', KT_STD, IA_KEY, NULL);
 }
 
 /* PA key action for String actions */
@@ -2967,6 +2987,7 @@ emulate_input(char *s, int len, Boolean pasting)
 	enum iaction ia = pasting ? IA_PASTE : IA_STRING;
 	int orig_addr = cursor_addr;
 	int orig_col = BA_TO_COL(cursor_addr);
+	Boolean skipped = False;
 #if defined(X3270_DBCS) /*[*/
 	unsigned char ebc[2];
 	unsigned char cx;
@@ -3022,6 +3043,7 @@ emulate_input(char *s, int len, Boolean pasting)
 			    BA_TO_COL(cursor_addr) < orig_col) {
 				if (!remargin(orig_col))
 					return len-1;
+				skipped = True;
 			}
 		}
 
@@ -3032,23 +3054,30 @@ emulate_input(char *s, int len, Boolean pasting)
 			switch (c) {
 			    case '\b':
 				action_internal(Left_action, ia, CN, CN);
-				continue;
+				skipped = False;
+				break;
 			    case '\f':
 				if (pasting) {
 					key_ACharacter((unsigned char) ' ',
-					    KT_STD, ia);
+					    KT_STD, ia, &skipped);
 				} else {
-					action_internal(Clear_action, ia, CN, CN);
+					action_internal(Clear_action, ia, CN,
+							CN);
+					skipped = False;
 					if (IN_3270)
 						return len-1;
-					else
-						break;
 				}
+				break;
 			    case '\n':
-				if (pasting)
-					action_internal(Newline_action, ia, CN, CN);
-				else {
-					action_internal(Enter_action, ia, CN, CN);
+				if (pasting) {
+					if (!skipped)
+						action_internal(Newline_action,
+								ia, CN, CN);
+					skipped = False;
+				} else {
+					action_internal(Enter_action, ia, CN,
+							CN);
+					skipped = False;
 					if (IN_3270)
 						return len-1;
 				}
@@ -3057,13 +3086,15 @@ emulate_input(char *s, int len, Boolean pasting)
 				break;
 			    case '\t':
 				action_internal(Tab_action, ia, CN, CN);
+				skipped = False;
 				break;
-			    case '\\':	/* backslashes are NOT special when pasting */
+			    case '\\':	/* backslashes are NOT special when
+					   pasting */
 				if (!pasting)
 					state = BACKSLASH;
 				else
 					key_ACharacter((unsigned char) c,
-					    KT_STD, ia);
+					    KT_STD, ia, &skipped);
 				break;
 			    case '\033': /* ESC is special only when pasting */
 				if (pasting)
@@ -3073,19 +3104,19 @@ emulate_input(char *s, int len, Boolean pasting)
 				if (pasting && appres.apl_mode)
 					key_ACharacter(
 					    (unsigned char) XK_Yacute,
-					    KT_GE, ia);
+					    KT_GE, ia, &skipped);
 				else
 					key_ACharacter((unsigned char) c,
-					    KT_STD, ia);
+					    KT_STD, ia, &skipped);
 				break;
 			    case ']':	/* APL right bracket */
 				if (pasting && appres.apl_mode)
 					key_ACharacter(
 					    (unsigned char) XK_diaeresis,
-					    KT_GE, ia);
+					    KT_GE, ia, &skipped);
 				else
 					key_ACharacter((unsigned char) c,
-					    KT_STD, ia);
+					    KT_STD, ia, &skipped);
 				break;
 			default:
 #if defined(X3270_DBCS) /*[*/
@@ -3095,10 +3126,10 @@ emulate_input(char *s, int len, Boolean pasting)
 				 */
 				if (dbcs_map8(c, &cx)) {
 					key_ACharacter((unsigned char)cx,
-					    KT_STD, ia_cause);
+					    KT_STD, ia_cause, &skipped);
 					break;
 				} else if (dbcs_map16(c, ebc)) {
-					key_WCharacter(ebc);
+					(void) key_WCharacter(ebc, &skipped);
 					break;
 				} else {
 					trace_event("Cannot convert U+%04x to "
@@ -3107,7 +3138,7 @@ emulate_input(char *s, int len, Boolean pasting)
 				}
 #endif /*]*/
 				key_ACharacter((unsigned char) c, KT_STD,
-				    ia);
+				    ia, &skipped);
 				break;
 			}
 			break;
@@ -3121,10 +3152,12 @@ emulate_input(char *s, int len, Boolean pasting)
 				break;
 			    case 'b':
 				action_internal(Left_action, ia, CN, CN);
+				skipped = False;
 				state = BASE;
 				break;
 			    case 'f':
 				action_internal(Clear_action, ia, CN, CN);
+				skipped = False;
 				state = BASE;
 				if (IN_3270)
 					return len-1;
@@ -3132,6 +3165,7 @@ emulate_input(char *s, int len, Boolean pasting)
 					break;
 			    case 'n':
 				action_internal(Enter_action, ia, CN, CN);
+				skipped = False;
 				state = BASE;
 				if (IN_3270)
 					return len-1;
@@ -3142,14 +3176,17 @@ emulate_input(char *s, int len, Boolean pasting)
 				break;
 			    case 'r':
 				action_internal(Newline_action, ia, CN, CN);
+				skipped = False;
 				state = BASE;
 				break;
 			    case 't':
 				action_internal(Tab_action, ia, CN, CN);
+				skipped = False;
 				state = BASE;
 				break;
 			    case 'T':
 				action_internal(BackTab_action, ia, CN, CN);
+				skipped = False;
 				state = BASE;
 				break;
 			    case 'v':
@@ -3162,7 +3199,8 @@ emulate_input(char *s, int len, Boolean pasting)
 				state = BACKX;
 				break;
 			    case '\\':
-				key_ACharacter((unsigned char) c, KT_STD, ia);
+				key_ACharacter((unsigned char) c, KT_STD, ia,
+						&skipped);
 				state = BASE;
 				break;
 			    case '0': 
@@ -3195,7 +3233,8 @@ emulate_input(char *s, int len, Boolean pasting)
 				state = BACKPF;
 				break;
 			    default:
-				popup_an_error("%s: Unknown character after \\p",
+				popup_an_error("%s: Unknown character "
+						"after \\p",
 				    action_name(String_action));
 				cancel_if_idle_command();
 				state = BASE;
@@ -3207,12 +3246,14 @@ emulate_input(char *s, int len, Boolean pasting)
 				literal = (literal * 10) + (c - '0');
 				nc++;
 			} else if (!nc) {
-				popup_an_error("%s: Unknown character after \\pf",
+				popup_an_error("%s: Unknown character "
+						"after \\pf",
 				    action_name(String_action));
 				cancel_if_idle_command();
 				state = BASE;
 			} else {
 				do_pf(literal);
+				skipped = False;
 				if (IN_3270)
 					return len-1;
 				state = BASE;
@@ -3224,12 +3265,14 @@ emulate_input(char *s, int len, Boolean pasting)
 				literal = (literal * 10) + (c - '0');
 				nc++;
 			} else if (!nc) {
-				popup_an_error("%s: Unknown character after \\pa",
+				popup_an_error("%s: Unknown character "
+						"after \\pa",
 				    action_name(String_action));
 				cancel_if_idle_command();
 				state = BASE;
 			} else {
 				do_pa(literal);
+				skipped = False;
 				if (IN_3270)
 					return len-1;
 				state = BASE;
@@ -3256,7 +3299,7 @@ emulate_input(char *s, int len, Boolean pasting)
 				break;
 			} else {
 				key_ACharacter((unsigned char) literal, KT_STD,
-				    ia);
+				    ia, &skipped);
 				state = BASE;
 				continue;
 			}
@@ -3267,20 +3310,21 @@ emulate_input(char *s, int len, Boolean pasting)
 				break;
 			} else {
 				key_ACharacter((unsigned char) literal, KT_STD,
-				    ia);
+				    ia, &skipped);
 				state = BASE;
 				continue;
 			}
 		    case XGE:	/* have seen ESC */
 			switch (c) {
 			    case ';':	/* FM */
-				key_Character(EBC_fm, False, True);
+				key_Character(EBC_fm, False, True, &skipped);
 				break;
 			    case '*':	/* DUP */
-				key_Character(EBC_dup, False, True);
+				key_Character(EBC_dup, False, True, &skipped);
 				break;
 			    default:
-				key_ACharacter((unsigned char) c, KT_GE, ia);
+				key_ACharacter((unsigned char) c, KT_GE, ia,
+						&skipped);
 				break;
 			}
 			state = BASE;
@@ -3292,11 +3336,19 @@ emulate_input(char *s, int len, Boolean pasting)
 
 	switch (state) {
 	    case BASE:
+		if (toggled(MARGINED_PASTE) &&
+		    BA_TO_COL(cursor_addr) < orig_col) {
+			(void) remargin(orig_col);
+		}
 		break;
 	    case OCTAL:
 	    case HEX:
-		key_ACharacter((unsigned char) literal, KT_STD, ia);
+		key_ACharacter((unsigned char) literal, KT_STD, ia, &skipped);
 		state = BASE;
+		if (toggled(MARGINED_PASTE) &&
+		    BA_TO_COL(cursor_addr) < orig_col) {
+			(void) remargin(orig_col);
+		}
 		break;
 	    case BACKPF:
 		if (nc > 0) {
@@ -3398,7 +3450,7 @@ hex_input(char *s)
 
 			c = (FROM_HEX(*t) * 16) + FROM_HEX(*(t + 1));
 			if (IN_3270)
-				key_Character(c, escaped, True);
+				key_Character(c, escaped, True, NULL);
 #if defined(X3270_ANSI) /*[*/
 			else
 				*tbuf++ = (unsigned char)c;
@@ -3765,11 +3817,11 @@ Default_action(Widget w unused, XEvent *event, String *params, Cardinal *num_par
 				break;
 			    default:
 				key_ACharacter((unsigned char) buf[0], KT_STD,
-				    IA_DEFAULT);
+				    IA_DEFAULT, NULL);
 				break;
 			} else {
 				key_ACharacter((unsigned char) buf[0], KT_STD,
-				    IA_DEFAULT);
+				    IA_DEFAULT, NULL);
 			}
 			return;
 		}

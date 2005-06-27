@@ -40,6 +40,8 @@ extern void cancel_if_idle_command(void);
 #else /*][*/
 #define cancel_if_idle_command()
 #endif /*]*/
+extern void Bell_action(Widget w, XEvent *event, String *params,
+    Cardinal *num_params);
 extern void CloseScript_action(Widget w, XEvent *event, String *params,
     Cardinal *num_params);
 extern void ContinueScript_action(Widget w, XEvent *event, String *params,
@@ -54,6 +56,15 @@ extern void execute_action_option(Widget w, XtPointer client_data,
     XtPointer call_data);
 extern void Expect_action(Widget w, XEvent *event, String *params,
     Cardinal *num_params);
+#if defined(X3270_SCRIPT) /*[*/
+extern void plugin_aid(unsigned char aid);
+#else /*][*/
+#define plugin_aid(a)
+#endif /*]*/
+#if defined(X3270_SCRIPT) /*[*/
+extern void Plugin_action(Widget w, XEvent *event, String *params,
+    Cardinal *num_params);
+#endif /*]*/
 extern void login_macro(char *s);
 extern void macros_init(void);
 extern void Macro_action(Widget w, XEvent *event, String *params,

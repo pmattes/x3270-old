@@ -28,6 +28,9 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/un.h>
 #if defined(HAVE_SYS_SELECT_H) /*[*/
 #include <sys/select.h>
 #endif /*]*/
@@ -47,14 +50,14 @@ static char *me;
 static int verbose = 0;
 static char buf[IBS];
 
-static void iterative_io(void);
-static void single_io(int fn, char *cmd);
+static void iterative_io(int pid);
+static void single_io(int pid, int fn, char *cmd);
 
 static void
 usage(void)
 {
 	(void) fprintf(stderr, "\
-usage: %s [-v] [-S] [-s field] [action[(param[,...])]]\n\
+usage: %s [-v] [-S] [-s field] [-p pid] [action[(param[,...])]]\n\
        %s -i\n", me, me);
 	exit(2);
 }
@@ -88,6 +91,7 @@ main(int argc, char *argv[])
 	int fn = NO_STATUS;
 	char *ptr;
 	int iterative = 0;
+	int pid = 0;
 
 	/* Identify yourself. */
 	if ((me = strrchr(argv[0], '/')) != (char *)NULL)
@@ -96,12 +100,21 @@ main(int argc, char *argv[])
 		me = argv[0];
 
 	/* Parse options. */
-	while ((c = getopt(argc, argv, "is:Sv")) != -1) {
+	while ((c = getopt(argc, argv, "ip:s:Sv")) != -1) {
 		switch (c) {
 		    case 'i':
 			if (fn >= 0)
 				usage();
 			iterative++;
+			break;
+		    case 'p':
+			pid = (int)strtoul(optarg, &ptr, 0);
+			if (ptr == optarg || *ptr != '\0' || pid <= 0) {
+				(void) fprintf(stderr,
+				    "%s: Invalid process ID: '%s'\n", me,
+				    optarg);
+				usage();
+			}
 			break;
 		    case 's':
 			if (fn >= 0 || iterative)
@@ -144,30 +157,59 @@ main(int argc, char *argv[])
 
 	/* Do the I/O. */
 	if (!iterative) {
-		single_io(fn, argv[optind]);
+		single_io(pid, fn, argv[optind]);
 	} else {
-		iterative_io();
+		iterative_io(pid);
 	}
 	return 0;
 }
 
+/* Connect to a Unix-domain socket. */
+static int
+usock(int pid)
+{
+	struct sockaddr_un ssun;
+	int fd;
+
+	fd = socket(AF_UNIX, SOCK_STREAM, 0);
+	if (fd < 0) {
+		perror("socket");
+		exit(2);
+	}
+	(void) memset(&ssun, '\0', sizeof(struct sockaddr_un));
+	ssun.sun_family = AF_UNIX;
+	(void) sprintf(ssun.sun_path, "/tmp/x3sck.%d", pid);
+	if (connect(fd, (struct sockaddr *)&ssun, sizeof(ssun)) < 0) {
+		perror("connect");
+		exit(2);
+	}
+	return fd;
+}
+
 /* Do a single command, and interpret the results. */
 static void
-single_io(int fn, char *cmd)
+single_io(int pid, int fn, char *cmd)
 {
+	int sockfd;
 	FILE *inf = NULL, *outf = NULL;
 	char status[IBS] = "";
 	int xs = -1;
 
 	/* Verify the environment and open files. */
-	inf = fdopen(fd_env("X3270OUTPUT"), "r");
+	if (pid) {
+		sockfd = usock(pid);
+		inf = fdopen(sockfd, "r");
+		outf = fdopen(dup(sockfd), "w");
+	} else {
+		inf = fdopen(fd_env("X3270OUTPUT"), "r");
+		outf = fdopen(fd_env("X3270INPUT"), "w");
+	}
 	if (inf == (FILE *)NULL) {
-		perror("x3270if: input: fdopen($X3270OUTPUT)");
+		perror("x3270if: input: fdopen");
 		exit(2);
 	}
-	outf = fdopen(fd_env("X3270INPUT"), "w");
 	if (outf == (FILE *)NULL) {
-		perror("x3270if: output: fdopen($X3270INPUT)");
+		perror("x3270if: output: fdopen");
 		exit(2);
 	}
 
@@ -254,7 +296,7 @@ single_io(int fn, char *cmd)
 
 /* Act as a passive pipe between 'expect' and x3270. */
 static void
-iterative_io(void)
+iterative_io(int pid)
 {
 #	define N_IO 2
 	struct {
@@ -277,9 +319,15 @@ iterative_io(void)
 	/* Get the x3270 file descriptors. */
 	io[0].name = "program->x3270";
 	io[0].rfd = fileno(stdin);
-	io[0].wfd = fd_env("X3270INPUT");
+	if (pid)
+		io[0].wfd = usock(pid);
+	else
+		io[0].wfd = fd_env("X3270INPUT");
 	io[1].name = "x3270->program";
-	io[1].rfd = fd_env("X3270OUTPUT");
+	if (pid)
+		io[1].rfd = dup(io[0].wfd);
+	else
+		io[1].rfd = fd_env("X3270OUTPUT");
 	io[1].wfd = fileno(stdout);
 	for (i = 0; i < N_IO; i++) {
 		if (io[i].rfd > fd_max)

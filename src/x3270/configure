@@ -4489,6 +4489,13 @@ fi
 if test "$enable_dbcs" != no
 then	orig_LDFLAGS="$LDFLAGS"
 	unset any
+	is_icu3=`expr $icu_suffix '>=' _3_0`
+	if test $is_icu3 -eq 1
+	then	iculib=icuuc
+		icudata=-licudata
+	else	iculib=icui18n
+		icudata=""
+	fi
 	for dir in "$with_icu" /usr/local /usr/local/icu /usr/pkg/icu /usr/icu /var/icu /opt/icu
 	do	lib_fail=0
 		if test -n "$dir" -a ! -d "$dir/lib"
@@ -4502,15 +4509,16 @@ echo "$as_me: retrying with -L$dir/lib" >&6;}
 		if test -n "$dir"
 		then	LDFLAGS="$orig_LDFLAGS -L$dir/lib"
 		fi
+		# Try with the suffix
 
-as_ac_Lib=`echo "ac_cv_lib_icui18n_ucnv_open${icu_suffix}" | $as_tr_sh`
-echo "$as_me:$LINENO: checking for ucnv_open${icu_suffix} in -licui18n" >&5
-echo $ECHO_N "checking for ucnv_open${icu_suffix} in -licui18n... $ECHO_C" >&6
+as_ac_Lib=`echo "ac_cv_lib_$iculib''_ucnv_open${icu_suffix}" | $as_tr_sh`
+echo "$as_me:$LINENO: checking for ucnv_open${icu_suffix} in -l$iculib" >&5
+echo $ECHO_N "checking for ucnv_open${icu_suffix} in -l$iculib... $ECHO_C" >&6
 if eval "test \"\${$as_ac_Lib+set}\" = set"; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
   ac_check_lib_save_LIBS=$LIBS
-LIBS="-licui18n  $LIBS"
+LIBS="-l$iculib $icudata $LIBS"
 cat >conftest.$ac_ext <<_ACEOF
 #line $LINENO "configure"
 #include "confdefs.h"
@@ -4561,10 +4569,10 @@ echo "$as_me:$LINENO: result: `eval echo '${'$as_ac_Lib'}'`" >&5
 echo "${ECHO_T}`eval echo '${'$as_ac_Lib'}'`" >&6
 if test `eval echo '${'$as_ac_Lib'}'` = yes; then
   cat >>confdefs.h <<_ACEOF
-#define HAVE_LIBICUI18N 1
+#define `echo "HAVE_LIB$iculib" | $as_tr_cpp` 1
 _ACEOF
 
-  LIBS="-licui18n $LIBS"
+  LIBS="-l$iculib $LIBS"
 
 else
   lib_fail=1
@@ -4573,7 +4581,82 @@ fi
 		if test "$lib_fail" -eq 0
 		then	break
 		fi
-		unset `echo ac_cv_lib_icui18n_ucnv_open${icu_suffix} | $as_tr_sh`
+		unset `echo ac_cv_lib_lib${iculib}_ucnv_open${icu_suffix} | $as_tr_sh`
+		LDFLAGS="$orig_LDFLAGS"
+		# Try without the suffix
+		lib_fail=0
+
+as_ac_Lib=`echo "ac_cv_lib_$iculib''_ucnv_open" | $as_tr_sh`
+echo "$as_me:$LINENO: checking for ucnv_open in -l$iculib" >&5
+echo $ECHO_N "checking for ucnv_open in -l$iculib... $ECHO_C" >&6
+if eval "test \"\${$as_ac_Lib+set}\" = set"; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-l$iculib $icudata $LIBS"
+cat >conftest.$ac_ext <<_ACEOF
+#line $LINENO "configure"
+#include "confdefs.h"
+
+/* Override any gcc2 internal prototype to avoid an error.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+/* We use char because int might match the return type of a gcc2
+   builtin and then its argument prototype would still apply.  */
+char ucnv_open ();
+#ifdef F77_DUMMY_MAIN
+#  ifdef __cplusplus
+     extern "C"
+#  endif
+   int F77_DUMMY_MAIN() { return 1; }
+#endif
+int
+main ()
+{
+ucnv_open ();
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+         { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  eval "$as_ac_Lib=yes"
+else
+  echo "$as_me: failed program was:" >&5
+cat conftest.$ac_ext >&5
+eval "$as_ac_Lib=no"
+fi
+rm -f conftest.$ac_objext conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+echo "$as_me:$LINENO: result: `eval echo '${'$as_ac_Lib'}'`" >&5
+echo "${ECHO_T}`eval echo '${'$as_ac_Lib'}'`" >&6
+if test `eval echo '${'$as_ac_Lib'}'` = yes; then
+  cat >>confdefs.h <<_ACEOF
+#define `echo "HAVE_LIB$iculib" | $as_tr_cpp` 1
+_ACEOF
+
+  LIBS="-l$iculib $LIBS"
+
+else
+  lib_fail=1
+fi
+
+		if test "$lib_fail" -eq 0
+		then	break
+		fi
+		unset `echo ac_cv_lib_lib${iculib}_ucnv_open | $as_tr_sh`
 		LDFLAGS="$orig_LDFLAGS"
 		any=1
 	done
