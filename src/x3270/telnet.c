@@ -2508,19 +2508,19 @@ net_output(void)
 static void
 tn3270e_ack(void)
 {
-	unsigned char rsp_buf[9];
-	tn3270e_header *h, *h_in;
-	int rsp_len = EH_SIZE;
+	unsigned char rsp_buf[10];
+	tn3270e_header *h_in = (tn3270e_header *)ibuf;
+	int rsp_len = 0;
 
-	h = (tn3270e_header *)rsp_buf;
-	h_in = (tn3270e_header *)ibuf;
-
-	h->data_type = TN3270E_DT_RESPONSE;
-	h->request_flag = 0;
-	h->response_flag = TN3270E_RSF_POSITIVE_RESPONSE;
-	h->seq_number[0] = h_in->seq_number[0];
-	h->seq_number[1] = h_in->seq_number[1];
-	if (h->seq_number[1] == IAC)
+	rsp_len = 0;
+	rsp_buf[rsp_len++] = TN3270E_DT_RESPONSE;	    /* data_type */
+	rsp_buf[rsp_len++] = 0;				    /* request_flag */
+	rsp_buf[rsp_len++] = TN3270E_RSF_POSITIVE_RESPONSE; /* response_flag */	
+	rsp_buf[rsp_len++] = h_in->seq_number[0];	    /* seq_number[0] */
+	if (h_in->seq_number[0] == IAC)
+		rsp_buf[rsp_len++] = IAC;
+	rsp_buf[rsp_len++] = h_in->seq_number[1];	    /* seq_number[1] */
+	if (h_in->seq_number[1] == IAC)
 		rsp_buf[rsp_len++] = IAC;
 	rsp_buf[rsp_len++] = TN3270E_POS_DEVICE_END;
 	rsp_buf[rsp_len++] = IAC;
@@ -2535,34 +2535,35 @@ tn3270e_ack(void)
 static void
 tn3270e_nak(enum pds rv)
 {
-	unsigned char rsp_buf[9];
-	tn3270e_header *h, *h_in;
-	int rsp_len = EH_SIZE;
+	unsigned char rsp_buf[10];
+	tn3270e_header *h_in = (tn3270e_header *)ibuf;
+	int rsp_len = 0;
+	char *neg = NULL;
 
-	h = (tn3270e_header *)rsp_buf;
-	h_in = (tn3270e_header *)ibuf;
-
-	h->data_type = TN3270E_DT_RESPONSE;
-	h->request_flag = 0;
-	h->response_flag = TN3270E_RSF_NEGATIVE_RESPONSE;
-	h->seq_number[0] = h_in->seq_number[0];
-	h->seq_number[1] = h_in->seq_number[1];
-	if (h->seq_number[1] == IAC)
+	rsp_buf[rsp_len++] = TN3270E_DT_RESPONSE;	    /* data_type */
+	rsp_buf[rsp_len++] = 0;				    /* request_flag */
+	rsp_buf[rsp_len++] = TN3270E_RSF_NEGATIVE_RESPONSE; /* response_flag */
+	rsp_buf[rsp_len++] = h_in->seq_number[0];	    /* seq_number[0] */
+	if (h_in->seq_number[0] == IAC)
+		rsp_buf[rsp_len++] = IAC;
+	rsp_buf[rsp_len++] = h_in->seq_number[1];	    /* seq_number[1] */
+	if (h_in->seq_number[1] == IAC)
 		rsp_buf[rsp_len++] = IAC;
 	switch (rv) {
 	default:
 	case PDS_BAD_CMD:
 		rsp_buf[rsp_len++] = TN3270E_NEG_COMMAND_REJECT;
+		neg = "COMMAND-REJECT";
 		break;
 	case PDS_BAD_ADDR:
 		rsp_buf[rsp_len++] = TN3270E_NEG_OPERATION_CHECK;
+		neg = "OPERATION-CHECK";
 		break;
 	}
 	rsp_buf[rsp_len++] = IAC;
 	rsp_buf[rsp_len++] = EOR;
-	trace_dsn("SENT TN3270E(RESPONSE NEGATIVE-RESPONSE %u) "
-		"COMMAND-REJECT\n",
-		h_in->seq_number[0] << 8 | h_in->seq_number[1]);
+	trace_dsn("SENT TN3270E(RESPONSE NEGATIVE-RESPONSE %u) %s\n",
+		h_in->seq_number[0] << 8 | h_in->seq_number[1], neg);
 	net_rawout(rsp_buf, rsp_len);
 }
 

@@ -409,7 +409,7 @@ parse_options(int *argcp, const char **argv)
 	appres.eof = "^D";
 #endif /*]*/
 
-	appres.unlock_delay = True;
+	appres.unlock_delay = False;
 
 #if defined(X3270_FT) /*[*/
 	appres.dft_buffer_size = DFT_BUF;

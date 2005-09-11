@@ -93,7 +93,7 @@ XtResource resources[] = {
 	{ ResModifiedSel, ClsModifiedSel, XtRBoolean, sizeof(Boolean),
 	  offset(modified_sel), XtRString, ResFalse },
 	{ ResUnlockDelay, ClsUnlockDelay, XtRBoolean, sizeof(Boolean),
-	  offset(unlock_delay), XtRString, ResFalse },
+	  offset(unlock_delay), XtRString, ResTrue },
 	{ ResUseCursorColor, ClsUseCursorColor, XtRBoolean, sizeof(Boolean),
 	  offset(use_cursor_color), XtRString, ResFalse },
 	{ ResReconnect, ClsReconnect, XtRBoolean, sizeof(Boolean),
