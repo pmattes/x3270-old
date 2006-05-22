@@ -713,7 +713,14 @@ rpf(rpf_t *r, char *fmt, ...)
 	va_start(a, fmt);
 	ns = vsnprintf(NULL, 0, fmt, a);
 	if (ns < 0) {
-		Error("broken snprintf");
+		static char *bsb = NULL;
+#		define BSB_LEN	65536
+
+		if (bsb == NULL)
+			bsb = Malloc(BSB_LEN);
+		ns = vsnprintf(bsb, BSB_LEN, fmt, a);
+		if (ns < 0)
+			Error("broken vsnprintf");
 	}
 	ns++;
 
