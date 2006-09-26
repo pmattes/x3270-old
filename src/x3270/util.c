@@ -684,6 +684,7 @@ split_hier(char *label, char **base, char ***parents)
  * Incremental, reallocing version of snprintf.
  */
 #define RPF_BLKSIZE	4096
+#define SP_TMP_LEN	16384
 
 /* Initialize an RPF structure. */
 void
@@ -708,24 +709,17 @@ rpf(rpf_t *r, char *fmt, ...)
 	va_list a;
 	Boolean need_realloc = False;
 	int ns;
+	char tbuf[SP_TMP_LEN];
 
 	/* Figure out how much space would be needed. */
 	va_start(a, fmt);
-	ns = vsnprintf(NULL, 0, fmt, a);
-	if (ns < 0) {
-		static char *bsb = NULL;
-#		define BSB_LEN	65536
-
-		if (bsb == NULL)
-			bsb = Malloc(BSB_LEN);
-		ns = vsnprintf(bsb, BSB_LEN, fmt, a);
-		if (ns < 0)
-			Error("broken vsnprintf");
-	}
-	ns++;
+	ns = vsprintf(tbuf, fmt, a); /* XXX: dangerous, but so is vsnprintf */
+	va_end(a);
+	if (ns >= SP_TMP_LEN)
+	    Error("rpf overrun");
 
 	/* Make sure we have that. */
-	while (r->alloc_len - r->cur_len < ns) {
+	while (r->alloc_len - r->cur_len < ns + 1) {
 		r->alloc_len += RPF_BLKSIZE;
 		need_realloc = True;
 	}
@@ -734,9 +728,8 @@ rpf(rpf_t *r, char *fmt, ...)
 	}
 
 	/* Scribble onto the end of that. */
-	(void) vsnprintf(r->buf + r->cur_len, ns, fmt, a);
-	r->cur_len += ns - 1;
-	va_end(a);
+	(void) strcpy(r->buf + r->cur_len, tbuf);
+	r->cur_len += ns;
 }
 
 /* Free resources associated with an RPF. */
