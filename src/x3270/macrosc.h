@@ -20,6 +20,7 @@
 /* macro definition */
 struct macro_def {
 	char			*name;
+	char			**parents;
 	char			*action;
 	struct macro_def	*next;
 };
@@ -56,7 +57,7 @@ extern void execute_action_option(Widget w, XtPointer client_data,
     XtPointer call_data);
 extern void Expect_action(Widget w, XEvent *event, String *params,
     Cardinal *num_params);
-#if defined(X3270_SCRIPT) /*[*/
+#if defined(X3270_SCRIPT) && defined(X3270_PLUGIN) /*[*/
 extern void plugin_aid(unsigned char aid);
 #else /*][*/
 #define plugin_aid(a)
@@ -96,7 +97,7 @@ extern void sms_connect_wait(void);
 extern void sms_continue(void);
 extern void sms_error(const char *msg);
 extern void sms_host_output(void);
-extern void sms_info(const char *fmt, ...);
+extern void sms_info(const char *fmt, ...) printflike(1, 2);
 extern void sms_init(void);
 extern Boolean sms_in_macro(void);
 extern Boolean sms_redirect(void);

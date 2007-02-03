@@ -25,11 +25,13 @@
 #include <X11/Xaw/Dialog.h>
 #endif /*]*/
 
+#if !defined(_WIN32) /*[*/
 #include <sys/wait.h>
 #include <sys/signal.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#endif /*]*/
 #include <errno.h>
 #include <fcntl.h>
 #include <signal.h>
@@ -125,8 +127,10 @@ typedef struct sms {
 #define SN	((sms_t *)NULL)
 static sms_t *sms = SN;
 static int sms_depth = 0;
+#if defined(X3270_SCRIPT) /*[*/
 static int socketfd = -1;
 static unsigned long socket_id = 0L;
+#endif /*]*/
 
 #if defined(X3270_TRACE) /*[*/
 static const char *sms_state_name[] = {
@@ -167,11 +171,15 @@ static enum iaction st_cause[] = { IA_MACRO, IA_MACRO, IA_COMMAND, IA_KEYMAP,
 #define ST_sNAME(s)	st_name[(int)(s)->type]
 #define ST_NAME		ST_sNAME(sms)
 
+#if defined(X3270_SCRIPT) /*[*/
 static void cleanup_socket(Boolean b);
+#endif /*]*/
 static void script_prompt(Boolean success);
 static void script_input(void);
 static void sms_pop(Boolean can_exit);
+#if defined(X3270_SCRIPT) /*[*/
 static void socket_connection(void);
+#endif /*]*/
 static void wait_timed_out(void);
 
 /* Macro that defines that the keyboard is locked due to user input. */
@@ -196,7 +204,7 @@ static unsigned char ldtoasc[] = {
 	0x3f, 0x21, 0x24, 0xa2, 0xa3, 0xa5, 0xb6
 };
 
-#if defined(X3270_SCRIPT) /*[*/
+#if defined(X3270_SCRIPT) && defined(X3270_PLUGIN) /*[*/
 static int plugin_pid = 0;		/* process ID if running, or 0 */
 static int plugin_outpipe = -1;		/* from emulator, to plugin */
 static int plugin_inpipe = -1;		/* from plugin, to emulator */
@@ -217,37 +225,47 @@ static int ptq_last = 0;		/* FIFO index of last pending cmd */
 #define PLUGIN_INIT	0		/* commands: initialize */
 #define PLUGIN_AID	1		/*           process AID */
 #define PLUGIN_CMD	2		/*           process command */
-static void plugin_start(char *command, char *argv[]);
+static Boolean plugin_complain = False;
+static Boolean plugin_start_failed = False;
+static char plugin_start_error[PRB_MAX];
+static void plugin_start(char *command, char *argv[], Boolean complain);
 static void no_plugin(void);
+#endif /*]*/
+
+#if defined(X3270_SCRIPT) && defined(X3270_PLUGIN) /*[*/
+static void
+plugin_start_appres(Boolean complain)
+{
+	int i = 0;
+	char *args[MAX_START_ARGS];
+	char *ccopy = NewString(appres.plugin_command);
+	char *command;
+	char *s;
+
+	command = strtok(ccopy, " \t");
+	if (command == NULL) {
+		Free(ccopy);
+		return;
+	}
+
+	args[i++] = command;
+	while (i < MAX_START_ARGS - 1 && (s = strtok(NULL, " \t")) != NULL) {
+		args[i++] = s;
+	}
+	args[i] = NULL;
+	plugin_start(command, args, complain);
+	Free(ccopy);
+}
 #endif /*]*/
 
 /* Callbacks for state changes. */
 static void
 sms_connect(Boolean connected)
 {
-#if defined(X3270_SCRIPT) /*[*/
+#if defined(X3270_SCRIPT) && defined(X3270_PLUGIN) /*[*/
 	if (connected) {
 		if (appres.plugin_command && !plugin_pid) {
-			int i = 0;
-			char *args[MAX_START_ARGS];
-			char *ccopy = NewString(appres.plugin_command);
-			char *command;
-			char *s;
-
-			command = strtok(ccopy, " \t");
-			if (command == NULL) {
-				Free(ccopy);
-				return;
-			}
-
-			args[i++] = command;
-			while (i < MAX_START_ARGS - 1 &&
-					(s = strtok(NULL, " \t")) != NULL) {
-				args[i++] = s;
-			}
-			args[i] = NULL;
-			plugin_start(command, args);
-			Free(ccopy);
+			plugin_start_appres(False);
 		}
 	} else
 		no_plugin();
@@ -259,8 +277,10 @@ sms_connect(Boolean connected)
 
 	if (!connected) {
 		while (sms != SN && sms->is_login) {
+#if !defined(_WIN32) /*[*/
 			if (sms->type == ST_CHILD && sms->pid > 0)
 				(void) kill(sms->pid, SIGTERM);
+#endif /*]*/
 			sms_pop(False);
 		}
 	}
@@ -328,7 +348,10 @@ macros_init(void)
 
 	while ((ns = split_dresource(&s, &name, &action)) == 1) {
 		m = (struct macro_def *)Malloc(sizeof(*m));
-		m->name = name;
+		if (!split_hier(name, &m->name, &m->parents)) {
+			Free(m);
+			continue;
+		}
 		m->action = action;
 		if (macro_last)
 			macro_last->next = m;
@@ -479,7 +502,11 @@ sms_pop(Boolean can_exit)
 	trace_dsn("%s[%d] complete\n", ST_NAME, sms_depth);
 
 	/* When you pop the peer script, that's the end of x3270. */
-	if (sms->type == ST_PEER && !appres.socket && can_exit)
+	if (sms->type == ST_PEER &&
+#if defined(X3270_SCRIPT) /*[*/
+	    !appres.socket &&
+#endif /*]*/
+	    can_exit)
 		x3270_exit(0);
 
 	/* Remove the input event. */
@@ -505,9 +532,11 @@ sms_pop(Boolean can_exit)
 	if (sms->idle_error)
 		popup_an_error("Idle command disabled due to error");
 
+#if defined(X3270_SCRIPT) /*[*/
 	/* If this was a socket peer, get ready for another connection. */
 	if (sms->type == ST_PEER && appres.socket)
 		socket_id = AddInput(socketfd, socket_connection);
+#endif /*]*/
 
 	/* Release the memory. */
 	s = sms;
@@ -542,6 +571,7 @@ peer_script_init(void)
 	sms_t *s;
 	Boolean on_top;
 
+#if defined(X3270_SCRIPT) /*[*/
 	if (appres.socket) {
 		struct sockaddr_un ssun;
 
@@ -576,6 +606,7 @@ peer_script_init(void)
 		register_schange(ST_EXITING, cleanup_socket);
 		return;
 	}
+#endif /*]*/
 
 	if (!appres.scripted)
 		return;
@@ -605,6 +636,7 @@ peer_script_init(void)
 	}
 }
 
+#if defined(X3270_SCRIPT) /*[*/
 /* Accept a new socket connection. */
 static void
 socket_connection(void)
@@ -645,6 +677,7 @@ cleanup_socket(Boolean b unused)
 	(void) sprintf(buf, "/tmp/x3sck.%u", getpid());
 	(void) unlink(buf);
 }
+#endif /*]*/
 
 /*
  * Interpret and execute a script or macro command.
@@ -1267,22 +1300,35 @@ run_script(void)
 void
 sms_error(const char *msg)
 {
-	/* Print the error message. */
-	switch (sms->type) {
-	case ST_PEER:
-	case ST_CHILD:
-		(void) fprintf(sms->outfile, "data: %s\n", msg);
-		break;
-	default:
-		(void) fprintf(stderr, "%s\n", msg);
-		break;
-	}
+	sms_t *s;
+	Boolean is_script = False;
 
-	/* Fail the command. */
+	/* Print the error message. */
+	for (s = sms; s != NULL; s = s->next) {
+		if (sms->type == ST_PEER || sms->type == ST_CHILD) {
+			is_script = True;
+			break;
+		}
+	}
+	if (is_script) {
+		char c;
+
+		fprintf(sms->outfile, "data: ");
+		while ((c = *msg++)) {
+			if (c == '\n')
+				(void) putc(' ', sms->outfile);
+			else
+				(void) putc(c, sms->outfile);
+		}
+		putc('\n', sms->outfile);
+	} else
+		(void) fprintf(stderr, "%s\n", msg);
+
+	/* Fail the current command. */
 	sms->success = False;
 
 	/* Cancel any login. */
-	if (sms->is_login)
+	if (s != NULL && s->is_login)
 		host_disconnect(True);
 }
 
@@ -1457,6 +1503,10 @@ sms_continue(void)
 
 		    case SS_WAIT_OUTPUT:
 		    case SS_SWAIT_OUTPUT:
+			if (!CONNECTED) {
+				popup_an_error("Host disconnected");
+				break;
+			}
 			continuing = False;
 			return;
 
@@ -2355,6 +2405,7 @@ sms_redirect(void)
 	return sms != SN &&
 	       (sms->type == ST_CHILD || sms->type == ST_PEER) &&
 	       (sms->state == SS_RUNNING || sms->state == SS_CONNECT_WAIT ||
+		sms->state == SS_WAIT_OUTPUT || sms->state == SS_SWAIT_OUTPUT ||
 		sms->wait_id != 0L);
 }
 
@@ -2730,6 +2781,7 @@ execute_action_option(Widget w unused, XtPointer client_data unused,
 
 #endif /*]*/
 
+#if defined(X3270_SCRIPT) /*[*/
 /* "Script" action, runs a script as a child process. */
 void
 Script_action(Widget w unused, XEvent *event unused, String *params,
@@ -2825,6 +2877,7 @@ Script_action(Widget w unused, XEvent *event unused, String *params,
 	/* Set up to reap the child's exit status. */
 	++children;
 }
+#endif /*]*/
 
 /* "Macro" action, explicitly invokes a named macro. */
 void
@@ -2833,7 +2886,7 @@ Macro_action(Widget w unused, XEvent *event unused, String *params,
 {
 	struct macro_def *m;
 
-	if (check_usage(Script_action, *num_params, 1, 1) < 0)
+	if (check_usage(Macro_action, *num_params, 1, 1) < 0)
 		return;
 	for (m = macro_defs; m != (struct macro_def *)NULL; m = m->next) {
 		if (!strcmp(m->name, params[0])) {
@@ -2889,6 +2942,7 @@ Printer_action(Widget w unused, XEvent *event unused, String *params,
 }
 #endif /*]*/
 
+#if defined(X3270_SCRIPT) /*[*/
 /* Abort all running scripts. */
 void
 abort_script(void)
@@ -2908,6 +2962,7 @@ Abort_action(Widget w unused, XEvent *event unused, String *params,
 	child_ignore_output();
 	abort_script();
 }
+#endif /*]*/
 
 #if defined(X3270_SCRIPT) /*[*/
 /* Accumulate command execution time. */
@@ -2969,6 +3024,8 @@ Query_action(Widget w unused, XEvent *event unused, String *params,
 	}
 }
 
+#if defined(X3270_PLUGIN) /*[*/
+
 /* Plugin facility. */
 
 static void
@@ -3009,12 +3066,25 @@ plugin_input(void)
 
 	nr = read(plugin_inpipe, plugin_buf + prb_cnt, PRB_MAX - prb_cnt);
 	if (nr < 0) {
-		popup_an_errno(errno, "Read from plugin command");
+		if (plugin_complain)
+			popup_an_errno(errno, "Read from plugin command");
+		else {
+			plugin_start_failed = True;
+			(void) snprintf(plugin_start_error, PRB_MAX,
+					"Read from plugin command: %s",
+					strerror(errno));
+		}
 		no_plugin();
 		return;
 	}
 	if (nr == 0) {
-		popup_an_error("Plugin command exited");
+		if (plugin_complain)
+			popup_an_error("Plugin command exited");
+		else {
+			plugin_start_failed = True;
+			(void) snprintf(plugin_start_error, PRB_MAX,
+					"Plugin command exited");
+		}
 		no_plugin();
 		return;
 	}
@@ -3029,11 +3099,22 @@ plugin_input(void)
 		switch (plugin_tq[ptq_first]) {
 		case PLUGIN_INIT:
 			if (strcasecmp(plugin_buf, "ok")) {
-				popup_an_error("Plugin start-up failed:\n%s",
-						plugin_buf);
+				if (plugin_complain)
+					popup_an_error("Plugin start-up "
+							"failed:\n%s",
+							plugin_buf);
+				else {
+					plugin_start_failed = True;
+					(void) snprintf(plugin_start_error,
+							PRB_MAX,
+							"Plugin start-up "
+							"failed:\n%s",
+							plugin_buf);
+				}
 				no_plugin();
 			}
 			plugin_started = True;
+			plugin_complain = True;
 			break;
 		case PLUGIN_AID:
 			/* feedback is just for trace/debug purposes */
@@ -3061,7 +3142,13 @@ plugin_input(void)
 
 	prb_cnt += nr;
 	if (prb_cnt >= PRB_MAX) {
-		popup_an_error("Plugin command buffer overflow");
+		if (plugin_complain)
+			popup_an_error("Plugin command buffer overflow");
+		else {
+			plugin_start_failed = True;
+			(void) snprintf(plugin_start_error, PRB_MAX,
+					"Plugin command buffer overflow");
+		}
 		no_plugin();
 	}
 }
@@ -3084,32 +3171,57 @@ plugin_timeout(void)
 		s = "command";
 		break;
 	}
-	popup_an_error("Plugin %s timed out", s);
+	if (plugin_complain)
+		popup_an_error("Plugin %s timed out", s);
+	else {
+		plugin_start_failed = True;
+		(void) snprintf(plugin_start_error, PRB_MAX,
+				"Plugin %s timed out", s);
+	}
 
 	plugin_timeout_id = 0L;
 	no_plugin();
 }
 
 static void
-plugin_start(char *command, char *argv[])
+plugin_start(char *command, char *argv[], Boolean complain)
 {
 	int inpipe[2];
 	int outpipe[2];
 	char *s;
 
+	plugin_complain = complain;
 	if (pipe(inpipe) < 0) {
-		popup_an_errno(errno, "pipe");
+		if (complain)
+			popup_an_errno(errno, "pipe");
+		else {
+			(void) snprintf(plugin_start_error, PRB_MAX,
+					"pipe: %s", strerror(errno));
+			plugin_start_failed = True;
+		}
 		return;
 	}
 	if (pipe(outpipe) < 0) {
-		popup_an_errno(errno, "pipe");
+		if (complain)
+			popup_an_errno(errno, "pipe");
+		else {
+			(void) snprintf(plugin_start_error, PRB_MAX,
+					"pipe: %s", strerror(errno));
+			plugin_start_failed = True;
+		}
 		close(inpipe[0]);
 		close(inpipe[1]);
 		return;
 	}
 	switch ((plugin_pid = fork())) {
 	case -1:
-		popup_an_errno(errno, "fork");
+		if (complain)
+			popup_an_errno(errno, "fork");
+		else {
+			(void) snprintf(plugin_start_error, PRB_MAX,
+					"fork: %s", strerror(errno));
+			plugin_start_failed = True;
+		}
 		plugin_pid = 0;
 		return;
 	case 0: /* child */
@@ -3170,7 +3282,7 @@ Plugin_action(Widget w unused, XEvent *event unused, String *params,
 		char *args[MAX_START_ARGS];
 		int i;
 
-		if (*num_params < 2) {
+		if (*num_params < 2 && !appres.plugin_command) {
 			popup_an_error("%s Start: Command name required",
 					action_name(Plugin_action));
 			return;
@@ -3188,10 +3300,14 @@ Plugin_action(Widget w unused, XEvent *event unused, String *params,
 			return;
 		}
 
-		for (i = 1; i < *num_params && i < MAX_START_ARGS; i++)
-			args[i - 1] = params[i];
-		args[i - 1] = NULL;
-		plugin_start(params[1], args);
+		if (*num_params >= 2) {
+			for (i = 1; i < *num_params && i < MAX_START_ARGS; i++)
+				args[i - 1] = params[i];
+			args[i - 1] = NULL;
+			plugin_start(params[1], args, True);
+		} else {
+			plugin_start_appres(True);
+		}
 
 	} else if (!strcasecmp(params[0], "Stop")) {
 		if (*num_params != 1) {
@@ -3217,8 +3333,15 @@ Plugin_action(Widget w unused, XEvent *event unused, String *params,
 			return;
 		}
 		if (!plugin_pid) {
-			popup_an_error("%s Command: Not running",
-					action_name(Plugin_action));
+			if (plugin_start_failed) {
+				popup_an_error("%s Command: Start failed:\n%s",
+						action_name(Plugin_action),
+						plugin_start_error);
+				plugin_start_failed = False;
+			} else {
+				popup_an_error("%s Command: Not running",
+						action_name(Plugin_action));
+			}
 			return;
 		}
 		if (PLUGIN_BACKLOG >= PLUGIN_QMAX) {
@@ -3309,6 +3432,15 @@ plugin_aid(unsigned char aid)
 		s = PLUGINSTART_SECS;
 	plugin_timeout_id = AddTimeOut(s * 1000, plugin_timeout);
 }
+
+#else /*][*/
+void
+Plugin_action(Widget w unused, XEvent *event unused, String *params,
+    Cardinal *num_params)
+{
+    /* Do nothing. */
+}
+#endif /*]*/
 
 #if defined(X3270_DISPLAY) || defined(C3270) /*[*/
 /*

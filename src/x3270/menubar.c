@@ -1239,6 +1239,7 @@ macros_menu_init(Boolean regen, Position x, Position y)
 	Widget w;
 	struct macro_def *m;
 	Boolean any = False;
+	struct menu_hier *root;
 
 	if (regen && (macros_menu != (Widget)NULL)) {
 		XtDestroyWidget(macros_menu);
@@ -1254,10 +1255,11 @@ macros_menu_init(Boolean regen, Position x, Position y)
 	/* Walk the list */
 
 	macros_init();	/* possibly different for each host */
+	root = (struct menu_hier *)XtCalloc(1, sizeof(struct menu_hier));
 	for (m = macro_defs; m; m = m->next) {
 		if (!any) {
 			/* Create the menu */
-			macros_menu = XtVaCreatePopupShell(
+			root->menu_shell = macros_menu = XtVaCreatePopupShell(
 			    MACROS_MENU, complexMenuWidgetClass, menu_parent,
 			    menubar_buttons ? XtNlabel : NULL, NULL,
 			    NULL);
@@ -1266,7 +1268,8 @@ macros_menu_init(Boolean regen, Position x, Position y)
 				    cmeLineObjectClass, macros_menu, NULL);
 		}
 		w = XtVaCreateManagedWidget(
-		    m->name, cmeBSBObjectClass, macros_menu, 
+		    m->name, cmeBSBObjectClass,
+		    add_menu_hier(root, m->parents, NULL, 0), 
 		    NULL);
 		XtAddCallback(w, XtNcallback, do_macro, (XtPointer)m);
 		any = True;

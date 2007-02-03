@@ -81,7 +81,7 @@ static Boolean know_mods = False;
 #endif /*]*/
 
 XtActionsRec all_actions[] = {
-#if defined(C3270) /*[*/
+#if defined(C3270) && defined(X3270_SCRIPT) /*[*/
 	{ "Abort",		Abort_action },
 #endif /*]*/
 #if defined(X3270_DISPLAY) /*[*/
@@ -253,6 +253,9 @@ XtActionsRec all_actions[] = {
 	{ "String",		String_action },
 	{ "SysReq",		SysReq_action },
 	{ "Tab",		Tab_action },
+#if defined(X3270_DISPLAY) /*[*/
+	{ "Title",		Title_action },
+#endif /*]*/
 	{ "Toggle",		Toggle_action },
 	{ "ToggleInsert",	ToggleInsert_action },
 	{ "ToggleReverse",	ToggleReverse_action },
@@ -268,6 +271,9 @@ XtActionsRec all_actions[] = {
 	{ "Up",			Up_action },
 #if defined(X3270_SCRIPT) || defined(TCL3270) /*[*/
 	{ "Wait",		Wait_action },
+#endif /*]*/
+#if defined(X3270_DISPLAY) /*[*/
+	{ "WindowState",	WindowState_action },
 #endif /*]*/
 	{ "ignore",		ignore_action }
 };

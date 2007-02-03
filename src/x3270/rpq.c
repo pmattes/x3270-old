@@ -21,11 +21,15 @@
 
 #include "globals.h"
 #include <errno.h>
+#if !defined(_WIN32) /*[*/
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#endif /*]*/
 #include <sys/types.h>
+#if !defined(_WIN32) /*[*/
 #include <sys/socket.h>
 #include <netdb.h>
+#endif /*]*/
 #include <assert.h>
 #include <stdarg.h>
 #include "3270ds.h"
@@ -41,11 +45,15 @@
 static Boolean select_rpq_terms(void);
 static int get_rpq_timezone(void);
 static int get_rpq_user(unsigned char buf[], const int buflen);
+#if !defined(_WIN32) /*[*/
 static int get_rpq_address(unsigned char buf[], const int buflen);
+#endif /*]*/
 static void rpq_warning(const char *fmt, ...);
 static void rpq_dump_warnings(void);
 static Boolean rpq_complained = False;
+#if !defined(_WIN32) /*[*/
 static Boolean omit_due_space_limit = False;
+#endif /*]*/
 
 /*
  * Define symbolic names for RPQ self-defining terms.
@@ -157,7 +165,9 @@ do_qr_rpqnames(void)
 			break;
 
 		case RPQ_ADDRESS:	/* Workstation address */
+#if !defined(_WIN32) /*[*/
 			obptr += get_rpq_address(obptr, remaining);
+#endif /*]*/
 			break;
 
 		case RPQ_VERSION:	/* program version */
@@ -541,6 +551,7 @@ get_rpq_user(unsigned char buf[], const int buflen)
 	return x;
 }
 
+#if !defined(_WIN32) /*[*/
 static int
 get_rpq_address(unsigned char *buf, const int maxlen) 
 {
@@ -686,6 +697,7 @@ get_rpq_address(unsigned char *buf, const int maxlen)
 	}
 	return x;
 }
+#endif /*]*/
 
 #define RPQ_WARNBUF_SIZE	1024
 static char *rpq_warnbuf = CN;

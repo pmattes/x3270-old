@@ -1,5 +1,5 @@
 '\" t
-.TH X3270-SCRIPT 1 "27 June 2005"
+.TH X3270-SCRIPT 1 "02 February 2007"
 .SH "NAME"
 Scripting Facilities for x3270, s3270 and c3270
 .SH "SYNOPSIS"
@@ -681,6 +681,9 @@ fully processed the last command.
 The optional \fItimeout\fP parameter specifies a number of seconds to wait
 before failing the \fBSnap\fP action.  The default is to wait indefinitely.
 .TP
+\fBTitle\fP(\fItext\fP)
+Changes the x3270 window title to \fItext\fP.
+.TP
 \fBTransfer\fP(\fIkeyword\fP=\fIvalue\fP,...)
 Invokes IND$FILE file transfer.
 See \s-1FILE TRANSFER\s+1 below.
@@ -771,6 +774,11 @@ See \s-1DIFFERENCES\s+1 for details).
 .IP
 The optional \fItimeout\fP parameter specifies a number of seconds to wait
 before failing the \fBWait\fP action.  The default is to wait indefinitely.
+.TP
+\fBWindowState\fP(\fImode\fP)
+If \fImode\fP is \fBIconic\fP, changes the x3270 window into an icon.
+If \fImode\fP is \fBNormal\fP, changes the x3270 window from an icon to a
+normal window.
 .SH "FILE TRANSFER"
 The \fBTransfer\fP action implements \fBIND$FILE\fP file transfer.
 This action requires that the \fBIND$FILE\fP
@@ -780,6 +788,8 @@ be located in a field that will accept a \s-1TSO\s+1 or \s-1VM/CMS\s+1 command.
 Because of the complexity and number of options for file transfer, the
 parameters to the \fBTransfer\fP action take the unique form
 of \fIoption\fP=\fIvalue\fP, and can appear in any order.
+Note that if the \fIvalue\fP contains spaces (such as a VM/CMS file name),
+then the entire parameter must be quoted, e.g., "HostFile=xxx foo a".
 The options are:
 .LP
 .TS
@@ -1124,4 +1134,4 @@ c3270(1)
 .br
 s3270(1)
 .SH "VERSION"
-Version 3.3.5a2
+Version 3.3.5

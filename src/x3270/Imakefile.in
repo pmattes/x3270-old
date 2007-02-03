@@ -161,7 +161,7 @@ mkfb: mkfb.c
    ComplexProgramTarget, because we may want to install it somewhere other
    than under PROJECTROOT. */
 ProgramTargetName(x3270if): x3270if.c conf.h
-	$(CC) $(CDEBUGFLAGS) $(ALLDEFINES) -o x3270if x3270if.c
+	$(CC) $(CDEBUGFLAGS) $(ALLDEFINES) -o x3270if x3270if.c $(EXTRA_LDOPTIONS) $(EXTRA_LIBRARIES)
 
 /* Rules for using and installing a separate app-defaults file. */
 @DEFINE_UAD@
@@ -206,6 +206,10 @@ $(IDP)_ibm-1388_P103-2001.cnv: ibm-1388_P103-2001.ucm
 install:: ProgramTargetName(x3270if)
 	$(INSTALL) $(INSTALLFLAGS) $(INSTPGMFLAGS) ProgramTargetName(x3270if) $(DESTDIR)$(autoconf_bindir)/ProgramTargetName(x3270if)
 
+/* Install rule for x3270hist.pl. */
+install:: x3270hist.pl
+	$(INSTALL) $(INSTALLFLAGS) $(INSTPGMFLAGS) x3270hist.pl $(DESTDIR)$(autoconf_bindir)/x3270hist.pl
+
 /* Extra install rule to regenerate fonts.dir. */
 install:: $(DESTDIR)$(FONTINSTDIR)/fonts.dir
 $(DESTDIR)$(FONTINSTDIR)/fonts.dir::
@@ -248,6 +252,7 @@ XCOMM Rules for installing everything in $(PREFIX), rather than in the system
 XCOMM X11 directory.  This is hideous, but I see no way around it.
 install.byprefix::
 	$(INSTALL) -c $(INSTBINFLAGS) ProgramTargetName(x3270) $(DESTDIR)$(autoconf_bindir)/ProgramTargetName(x3270)
+	$(INSTALL) -c $(INSTBINFLAGS) ProgramTargetName(x3270hist.pl) $(DESTDIR)$(autoconf_bindir)/ProgramTargetName(x3270hist.pl)
 	$(INSTALL) -c $(INSTBINFLAGS) ProgramTargetName(x3270if) $(DESTDIR)$(autoconf_bindir)/ProgramTargetName(x3270if)
 	$(INSTALL) -c $(INSTMANFLAGS) x3270.man $(DESTDIR)$(autoconf_mandir)/man1/x3270.1
 	$(INSTALL) -c $(INSTMANFLAGS) x3270if.man $(DESTDIR)$(autoconf_mandir)/man1/x3270if.1

@@ -220,6 +220,7 @@ x3270.charsetList:			U.S. English (CP 37): us-intl\n\
 ! x3270.mono:				false
 ! x3270.numericLock:			false
 ! x3270.once:				false
+! x3270.pluginCommand:			x3270hist.pl
 ! x3270.port:				telnet
 ! x3270.preeditType:			OverTheSpot+1
 ! x3270.saveLines:			64
@@ -398,7 +399,9 @@ x3270.keymap.base.3270: #override \
 	Ctrl<Key>c:			set-select(CLIPBOARD)\n\
 	Ctrl<Key>u:			DeleteField()\n\
 	Ctrl<Key>w:			DeleteWord()\n\
-	Ctrl<Key>v:			insert-selection(CLIPBOARD)\n
+	Ctrl<Key>v:			insert-selection(CLIPBOARD)\n\
+	Shift<Key>Prior:		Plugin(command,prev)\n\
+	Shift<Key>Next:			Plugin(command,next)
 ! Keymap that restores the old (pre 3.3) mouse-click behavior.
 x3270.keymap.oldclick: #override\n\
 	Ctrl<Btn1Down>:                 HandleMenu(fileMenu)\n\
@@ -415,10 +418,6 @@ x3270.keymap.oldclick: #override\n\
 x3270.keymap.oldclick.3270: #override\n\
 	:Ctrl Shift<Btn1Down>:          MouseSelect()\n\
 	Shift<Btn1Down>:                MoveCursor()
-! History keymap.
-x3270.keymap.hist: #override\n\
-	Shift<Key>Prior: Plugin(command,prev)\n\
-	Shift<Key>Next: Plugin(command,next)
 !
 ! Start of keyboard-specific mappings.
 !
@@ -1266,6 +1265,7 @@ x3270*colorsMenu*rightMargin:			20
 x3270*charsetMenu*leftMargin:			20
 x3270*charsetMenu*rightMargin:			20
 x3270*hostMenu*rightMargin:			20
+x3270*macrosMenu*rightMargin:			20
 #endif
 !
 ! Confirm and cancel buttons
@@ -1966,6 +1966,8 @@ x3270.charset.hebrew: #table\n\
 x3270.codepage.hebrew: 0x03ad01a8
 x3270.displayCharset.hebrew: 3270cg-8,iso8859-8
 x3270.emulatorFontList.3270cg-8,iso8859-8: Hebrew 14-point 3270 Font: 3270h
+x3270.xkSelector.hebrew: 0x0c
+x3270.autoKeymap.hebrew: true
 ! Brazilian character set for x3270.
 ! With invaluable help from Ricardo Dias de Pinho - Rio de Janeiro(RJ) BRAZIL.
 x3270.codepage.brazilian: 275
@@ -2024,10 +2026,12 @@ x3270.charset.greek: #table \
  48  49  50  51  52  53  54  55  56  57 179 169 165 160 187 159
 x3270.codepage.greek: 0x0464036b
 x3270.displayCharset.greek: 3270cg-7,iso8859-7
+x3270.xkSelector.greek: 0x07
 x3270.emulatorFontList.3270cg-7,iso8859-7: 3270gr
 ! Russian character set for x3270.
 x3270.codepage.russian: 880
 x3270.displayCharset.russian: koi8-r
+x3270.xkSelector.russian: 0x06
 x3270.charset.russian: #table\n\
    0   1   2   3 158   9 170 127 182  96 147  11  12  13  14  15 \
   16  17  18  19 171 126   8 175  24  25 150 125  28  29  30  31 \
@@ -2048,6 +2052,7 @@ x3270.charset.russian: #table\n\
 ! Code page 870 for Slovenian, Croatian, Serbian (Latin) and Polish.
 x3270.codepage.cp870: 0x03bf0366
 x3270.displayCharset.cp870: iso8859-2
+x3270.xkSelector.cp870: 0x01
 x3270.charset.cp870: #table\n\
    0   1   2   3 156   9 134 127 151 141 142  11  12  13  14  15 \
   16  17  18  19 157 133   8 135  24  25 146 143  28  29  30  31 \
@@ -2068,6 +2073,7 @@ x3270.charset.cp870: #table\n\
 ! Thai character set for x3270
 x3270.codepage.thai: 0x03aa0346
 x3270.displayCharset.thai: iso8859-11,tis620.2529-0
+x3270.xkSelector.thai: 0x0d
 x3270.charset.thai: #table\n\
   32   1   2   3 156   9 134 127 151 141 142  11  12  13  14  15 \
   16  17  18  19 157 133   8 135  24  25 146 143  28  29  30  31 \
@@ -2262,3 +2268,51 @@ x3270.charset.japanese-1399: #table\n\
   48  49  50  51  52  53  54  55  56  57   0   0   0   0   0   0
 x3270.dbcsConverters.japanese-1399: ibm-1399+ibm-1399,EUC-JP
 #endif
+! Non-standard Persian support.
+x3270.charset.persian: \
+	*0x42: 0x0622 \n\
+	*0x43: 0x0627 \n\
+	*0x44: 0x0628 \n\
+	*0x45: 0xfb56 \n\
+	*0x46: 0x062a \n\
+	*0x47: 0x062b \n\
+	*0x48: 0x062c \n\
+	*0x49: 0xfb7a \n\
+	*0x51: 0x062d \n\
+	*0x52: 0x062e \n\
+	*0x53: 0x062f \n\
+	*0x54: 0x0630 \n\
+	*0x55: 0x0631 \n\
+	*0x56: 0x0632 \n\
+	*0x57: 0xfb8b \n\
+	*0x58: 0x0633 \n\
+	*0x59: 0x0634 \n\
+	*0x62: 0x0635 \n\
+	*0x63: 0x0636 \n\
+	*0x64: 0x0638 \n\
+	*0x65: 0x0639 \n\
+	*0x66: 0x063a \n\
+	*0x67: 0x063b \n\
+	*0x68: 0x063d \n\
+	*0x69: 0x063e \n\
+	*0x70: 0x063f \n\
+	*0x71: 0x06a9 \n\
+	*0x72: 0x06af \n\
+	*0x73: 0x0641 \n\
+	*0x74: 0x0643 \n\
+	*0x75: 0x0644 \n\
+	*0x76: 0x0646 \n\
+	*0x77: 0x0645 \n\
+	*0x78: 0x064d \n\
+	*0x80: 0x064c \n\
+	*0x8c: 0x0621 \n\
+	*0x8d: 0x0623 \n\
+	*0x8e: 0x0625 \n\
+	*0x9c: 0x0629 \n\
+	*0x9d: 0x0626 \n\
+	*0x9e: 0xfdfc \n\
+	*0xcb: 0x061b \n\
+	*0xcc: 0x060c \n\
+	*0xcd: 0x061f
+x3270.codepage.persian: 37
+x3270.displayCharset.persian: iso10646-1

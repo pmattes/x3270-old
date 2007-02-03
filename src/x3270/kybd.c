@@ -68,6 +68,8 @@
 #include "widec.h"
 #endif /*]*/
 
+/*#define KYBDLOCK_TRACE	1*/
+
 /* Statics */
 static enum	{ NONE, COMPOSE, FIRST } composing = NONE;
 static unsigned char pf_xlate[] = { 
@@ -82,7 +84,8 @@ static unsigned char pa_xlate[] = {
 #define PF_SZ	(sizeof(pf_xlate)/sizeof(pf_xlate[0]))
 #define PA_SZ	(sizeof(pa_xlate)/sizeof(pa_xlate[0]))
 static unsigned long unlock_id;
-#define UNLOCK_MS	350
+static time_t unlock_delay_time;
+#define UNLOCK_MS		350	/* 0.35s after last unlock */
 static Boolean key_Character(int code, Boolean with_ge, Boolean pasting,
 			     Boolean *skipped);
 static Boolean flush_ta(void);
@@ -251,6 +254,10 @@ kybdlock_set(unsigned int bits, const char *cause unused)
 	       trace_event("  %s: kybdlock |= 0x%04x, 0x%04x -> 0x%04x\n",
 		    cause, bits, kybdlock, n);
 #endif /*]*/
+		if ((kybdlock ^ bits) & KL_DEFERRED_UNLOCK) {
+			/* Turned on deferred unlock. */
+			unlock_delay_time = time(NULL);
+		}
 		kybdlock = n;
 		status_kybdlock();
 	}
@@ -268,6 +275,10 @@ kybdlock_clr(unsigned int bits, const char *cause unused)
 		trace_event("  %s: kybdlock &= ~0x%04x, 0x%04x -> 0x%04x\n",
 		    cause, bits, kybdlock, n);
 #endif /*]*/
+		if ((kybdlock ^ n) & KL_DEFERRED_UNLOCK) {
+			/* Turned off deferred unlock. */
+			unlock_delay_time = 0;
+		}
 		kybdlock = n;
 		status_kybdlock();
 	}
@@ -402,7 +413,9 @@ key_AID(unsigned char aid_code)
 		return;
 	}
 #endif /*]*/
+#if defined(X3270_PLUGIN) /*[*/
 	plugin_aid(aid_code);
+#endif /*]*/
 	if (IN_SSCP) {
 		if (kybdlock & KL_OIA_MINUS)
 			return;
@@ -894,6 +907,7 @@ key_WCharacter(unsigned char code[], Boolean *skipped)
 	enum dbcs_state d;
 	int xaddr;
 	Boolean done = False;
+	Boolean no_si = False;
 	extern unsigned char reply_mode; /* XXX */
 
 	if (kybdlock) {
@@ -941,12 +955,11 @@ key_WCharacter(unsigned char code[], Boolean *skipped)
 		return False;
 	}
 
-	/* Check for insert mode. */
-
 	/*
 	 * Figure our what to do based on the DBCS state of the buffer.
 	 * Leaves baddr pointing to the next unmodified position.
 	 */
+retry:
 	switch (d = ctlr_dbcs_state(baddr)) {
 	case DBCS_RIGHT:
 	case DBCS_RIGHT_WRAP:
@@ -972,58 +985,150 @@ key_WCharacter(unsigned char code[], Boolean *skipped)
 		DEC_BA(baddr);
 		/* fall through... */
 	case DBCS_SI:
-		/* Make sure there's room to extend the subfield. */
-		/* XXX: Make sure we don't create SI, SI. */
+		/* Extend the subfield to the right. */
 		if (insert) {
 			if (!ins_prep(faddr, baddr, 2)) {
 				return False;
 			}
 		} else {
+			/* Don't overwrite a field attribute or an SO. */
 			xaddr = baddr;
-			INC_BA(xaddr);
+			INC_BA(xaddr);	/* C1 */
 			if (ea_buf[xaddr].fa)
 				break;
-			INC_BA(xaddr);
-			if (ea_buf[xaddr].fa)
+			if (ea_buf[xaddr].cc == EBC_so)
+				no_si = True;
+			INC_BA(xaddr);	/* SI */
+			if (ea_buf[xaddr].fa || ea_buf[xaddr].cc == EBC_so)
 				break;
 		}
 		ctlr_add(baddr, code[0], ea_buf[baddr].cs);
 		INC_BA(baddr);
 		ctlr_add(baddr, code[1], ea_buf[baddr].cs);
-		INC_BA(baddr);
-		ctlr_add(baddr, EBC_si, ea_buf[baddr].cs);
+		if (!no_si) {
+			INC_BA(baddr);
+			ctlr_add(baddr, EBC_si, ea_buf[baddr].cs);
+		}
 		done = True;
 		break;
 	case DBCS_DEAD:
 		break;
 	case DBCS_NONE:
-		/* Can we add SO/SI to this field? */
 		if (ea_buf[faddr].ic) {
+			Boolean extend_left = FALSE;
+
 			/* Is there room? */
 			if (insert) {
 				if (!ins_prep(faddr, baddr, 4)) {
 					return False;
 				}
 			} else {
-				xaddr = baddr;
-				INC_BA(xaddr); /* C0 */
+				xaddr = baddr;	/* baddr, SO */
+				if (ea_buf[xaddr].cc == EBC_so) {
+					/*
+					 * (baddr), where we would have put the
+					 * SO, is already an SO.  Move to
+					 * (baddr+1) and try again.
+					 */
+#if defined(DBCS_RIGHT_DEBUG) /*[*/
+					printf("SO in position 0\n");
+#endif /*]*/
+					INC_BA(baddr);
+					goto retry;
+				}
+
+				INC_BA(xaddr);	/* baddr+1, C0 */
 				if (ea_buf[xaddr].fa)
 					break;
-				INC_BA(xaddr); /* C1 */
+				if (ea_buf[xaddr].cc == EBC_so) {
+					enum dbcs_state e;
+
+					/*
+					 * (baddr+1), where we would have put
+					 * the left side of the DBCS, is a SO.
+					 * If there's room, we can extend the
+					 * subfield to the left.  If not, we're
+					 * stuck.
+					 */
+					DEC_BA(xaddr);
+					DEC_BA(xaddr);
+					e = ctlr_dbcs_state(xaddr);
+					if (e == DBCS_NONE || e == DBCS_SB) {
+						extend_left = True;
+						no_si = True;
+#if defined(DBCS_RIGHT_DEBUG) /*[*/
+						printf("SO in position 1, "
+							"extend left\n");
+#endif /*]*/
+					} else {
+						/*
+						 * Won't actually happen,
+						 * because this implies that
+						 * the buffer addr at baddr
+						 * is an SB.
+						 */
+#if defined(DBCS_RIGHT_DEBUG) /*[*/
+						printf("SO in position 1, "
+							"no room on left, "
+							"fail\n");
+#endif /*]*/
+						break;
+					}
+				}
+
+				INC_BA(xaddr); /* baddr+2, C1 */
 				if (ea_buf[xaddr].fa)
 					break;
-				INC_BA(xaddr); /* SI */
-				if (ea_buf[xaddr].fa)
-					break;
+				if (ea_buf[xaddr].cc == EBC_so) {
+					/*
+					 * (baddr+2), where we want to put the
+					 * right half of the DBCS character, is
+					 * a SO.  This is a natural extension
+					 * to the left -- just make sure we
+					 * don't write an SI.
+					 */
+					no_si = True;
+#if defined(DBCS_RIGHT_DEBUG) /*[*/
+					printf("SO in position 2, no SI\n");
+#endif /*]*/
+				}
+
+				/*
+				 * Check the fourth position only if we're
+				 * not doing an extend-left.
+				 */
+				if (!no_si) {
+					INC_BA(xaddr); /* baddr+3, SI */
+					if (ea_buf[xaddr].fa)
+						break;
+					if (ea_buf[xaddr].cc == EBC_so) {
+						/*
+						 * (baddr+3), where we want to
+						 * put an
+						 * SI, is an SO.  Forget it.
+						 */
+#if defined(DBCS_RIGHT_DEBUG) /*[*/
+						printf("SO in position 3, "
+							"retry right\n");
+						INC_BA(baddr);
+						goto retry;
+#endif /*]*/
+						break;
+					}
+				}
 			}
 			/* Yes, add it. */
+			if (extend_left)
+				DEC_BA(baddr);
 			ctlr_add(baddr, EBC_so, ea_buf[baddr].cs);
 			INC_BA(baddr);
 			ctlr_add(baddr, code[0], ea_buf[baddr].cs);
 			INC_BA(baddr);
 			ctlr_add(baddr, code[1], ea_buf[baddr].cs);
-			INC_BA(baddr);
-			ctlr_add(baddr, EBC_si, ea_buf[baddr].cs);
+			if (!no_si) {
+				INC_BA(baddr);
+				ctlr_add(baddr, EBC_si, ea_buf[baddr].cs);
+			}
 			done = True;
 		} else if (reply_mode == SF_SRM_CHAR) {
 			/* Use the character attribute. */
@@ -1329,7 +1434,8 @@ do_reset(Boolean explicit)
 #if defined(X3270_FT) /*[*/
 	    || ft_state != FT_NONE
 #endif /*]*/
-	    || (!appres.unlock_delay && !sms_in_macro())) {
+	    || (!appres.unlock_delay && !sms_in_macro())
+	    || (unlock_delay_time != 0 && (time(NULL) - unlock_delay_time) > 1)) {
 		kybdlock_clr(-1, "do_reset");
 	} else if (kybdlock &
   (KL_DEFERRED_UNLOCK | KL_OIA_TWAIT | KL_OIA_LOCKED | KL_AWAITING_FIRST)) {
@@ -2291,7 +2397,7 @@ EraseEOF_action(Widget w unused, XEvent *event, String *params, Cardinal *num_pa
 	register int	baddr;
 	register unsigned char	fa;
 	enum dbcs_state d;
-	enum dbcs_why why;
+	enum dbcs_why why = DBCS_FIELD;
 
 	action_debug(EraseEOF_action, event, params, num_params);
 	reset_idle_timer();
@@ -4007,6 +4113,9 @@ Default_action(Widget w unused, XEvent *event, String *params, Cardinal *num_par
 				action_internal(Key_action, IA_DEFAULT, buf,
 						CN);
 #endif /*]*/
+			} else if (xk_selector && ((ks >> 8) == xk_selector)) {
+				key_ACharacter((unsigned char)(ks & 0xff),
+						KT_STD, IA_KEY, NULL);
 			} else
 				trace_event(" %s: dropped (unknown keysym)\n",
 				    action_name(Default_action));

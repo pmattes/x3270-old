@@ -1727,9 +1727,9 @@ dbcs_process(int ch, unsigned char ebc[])
 		break;
 	default:
 		trace_ds("Unexpected ICU error %d translating multi-type "
-		    "character");
+		    "character", (int)err);
 		trace_pending_mb();
-		trace_ds(", dropping\n", (int)err);
+		trace_ds(", dropping\n");
 		break;
 	}
 	mb_pending = 0;

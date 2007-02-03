@@ -173,6 +173,7 @@ typedef struct {
 	char	*port;
 	char	*charset;
 	char	*termname;
+	char	*login_macro;
 	char	*macros;
 	char	*trace_dir;
 #if defined(X3270_TRACE) /*[*/
@@ -223,6 +224,10 @@ typedef struct {
 	char	*intr;
 	char	*quit;
 	char	*eof;
+#endif /*]*/
+
+#if defined(WC3270) /*[*/
+	char	*hostname;
 #endif /*]*/
 
 #if defined(USE_APP_DEFAULTS) /*[*/

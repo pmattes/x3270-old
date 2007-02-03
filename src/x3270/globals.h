@@ -53,8 +53,10 @@
 /* 'unused' explicitly flags an unused parameter */
 #if defined(__GNUC__) /*[*/
 #define unused __attribute__((__unused__))
+#define printflike(s,f) __attribute__ ((__format__ (__printf__, s, f)))
 #else /*][*/
 #define unused /* nothing */
+#define printflike(s, f) /* nothing */
 #endif /*]*/
 
 
@@ -186,6 +188,8 @@ extern Pixmap		gray;
 extern Pixel		keypadbg_pixel;
 extern XrmDatabase	rdb;
 extern Window		root_window;
+extern char		*user_title;
+extern unsigned char	xk_selector;
 #endif /*]*/
 
 /* Data types and complex global variables */

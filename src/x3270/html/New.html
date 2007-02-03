@@ -1,18 +1,9 @@
 <!DOCTYPE doctype PUBLIC "-//w3c//dtd html 4.0 transitional//en">
 <html>
 <head>
-   
-  <meta http-equiv="Content-Type"
- content="text/html; charset=iso-8859-1">
-   
-  <meta name="Author" content="Paul Mattes">
-   
-  <meta name="GENERATOR"
- content="Mozilla/4.5 [en] (WinNT; U) [Netscape]">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
   <title>x3270 3.3 New Features</title>
-       
-  <link href="http://www.w3.org/StyleSheets/Core/Steely" type="text/css"
- rel="stylesheet">
+  <link href="http://www.w3.org/StyleSheets/Core/Steely" type="text/css" rel="stylesheet">
 </head>
 <body>
 <h1>New Features in x3270 3.3
@@ -28,7 +19,7 @@ of the 3270 display.
 This required changing all of the logic that manipulates
 field attributes, as well as the logic that translates the host output, keyboard
 input, and X11 display output.</p>
-<h2>Changes in x3270 3.3.5, 1. July 2005</h2>
+<h2>Changes in x3270 3.3.5, 1. February 2007</h2>
 <ul>
   <li>Bug Fixes:
     <ul>
@@ -38,6 +29,21 @@ input, and X11 display output.</p>
        skip is encountered.</li>
       <li>Fixed the handling of SI characters in cut/pasted text.</li>
       <li>Allow the use of ICU version 3.0 or greater.</li>
+      <li>Fixed a scripting hang when the host disconnects during
+       <b>Wait(output)</b>).</li>
+      <li>Turned the <b>unlockDelay</b> option back on by default.</li>
+      <li>Fixed a problem where <b>unlockDelay</b> could result in the
+       keyboard never unlocking, if the host unlocked the keyboard
+       often enough.</li>
+      <li>Added a workaround for very old <i>snprintf</i>()
+       implementations.</li>
+      <li>Fixed a problem with DBCS input corrupting existing DBCS
+       subfields.</li>
+      <li>Fixed a problem with the <i>Wait</i> action in the expect glue.
+      (Thanks to Jason Howk for the fix.)</li>
+      <li>Enlarged the input buffer in x3270if. (Thanks to Igor Klingen for the fix.)</li>
+      <li>Fixed a SIGCHLD handler issue on AIX.</li>
+      <li>Fixed a problem with CR/LF translation on ASCII file transfers.</li>
     </ul>
   </li>
   <li>New Features:
@@ -45,10 +51,17 @@ input, and X11 display output.</p>
       <li>Added a <b>-socket</b> option to x3270, s3270 and c3270 to allow a
         script to connect to a Unix-domain socket to control the emulator, and
         added a <b>-p</b> option to x3270if to connect to the socket.</li>
-      <li>Added support for <b>plugins</b>, with a first plugin to implement
-        command history on VM/CMS and TSO hosts.</li>
+      <li>Added optional support for <b>plugins</b>, with a first plugin to
+        implement command history on VM/CMS and TSO hosts.</li>
       <li>Allow arbitrary color names (#rrggbb) to be used in color
 	schemes.</li>
+      <li>Added support for hierarchical macro menus.</li>
+      <li>Added an <b>XkSelector</b> resource to allow transparent
+       support of non-English keyboards.</li>
+      <li>Added preliminary support the 16-bit display fonts and the Persian
+       character set.</li>
+      <li>Added <b>Title</b> and <b>WindowState</b> actions to allow the x3270
+       window title and icon state to bw changed respectively.</li>
     </ul>
   </li>
 </ul>

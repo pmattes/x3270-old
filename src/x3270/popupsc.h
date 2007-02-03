@@ -30,7 +30,7 @@ enum form_type { FORM_NO_WHITE, FORM_NO_CC, FORM_AS_IS };
 /* abort callback */
 typedef void abort_callback_t(void);
 
-extern void action_output(const char *fmt, ...);
+extern void action_output(const char *fmt, ...) printflike(1, 2);
 extern Widget create_form_popup(const char *name, XtCallbackProc callback,
     XtCallbackProc callback2, enum form_type form_type);
 extern void child_popup_init(void);
@@ -44,14 +44,14 @@ extern void PA_confirm_action(Widget w, XEvent *event, String *params,
     Cardinal *num_params);
 extern void place_popup(Widget w, XtPointer client_data, XtPointer call_data);
 extern void popdown_an_error(void);
-extern void popup_an_errno(int errn, const char *fmt, ...);
-extern void popup_an_error(const char *fmt, ...);
-extern void popup_an_info(const char *fmt, ...);
+extern void popup_an_errno(int errn, const char *fmt, ...) printflike(2, 3);
+extern void popup_an_error(const char *fmt, ...) printflike(1, 2);
+extern void popup_an_info(const char *fmt, ...) printflike(1, 2);
 extern void popup_child_output(Boolean is_err, abort_callback_t *a,
-    const char *fmt, ...);
+    const char *fmt, ...) printflike(3, 4);
 extern void popup_popup(Widget shell, XtGrabKind grab);
 extern void popup_printer_output(Boolean is_err, abort_callback_t *a,
-    const char *fmt, ...);
+    const char *fmt, ...) printflike(3, 4);
 extern void popups_move(void);
 extern void printer_popup_init(void);
 extern void toplevel_geometry(Position *x, Position *y, Dimension *width,

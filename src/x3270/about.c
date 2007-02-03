@@ -336,16 +336,16 @@ popup_about_config(void)
 
 	MAKE_LABEL(get_message("characterSet"), 4);
 	xbuf = xs_buffer("%s (base %u, code page %u)",
-	    get_charset_name(), (cgcsgid >> 16) & 0xffff,
-	    cgcsgid & 0xffff);
+	    get_charset_name(), (unsigned short)((cgcsgid >> 16) & 0xffff),
+	    (unsigned short)(cgcsgid & 0xffff));
 	MAKE_VALUE(xbuf);
 	XtFree(xbuf);
 #if defined(X3270_DBCS) /*[*/
 	if (dbcs) {
 		MAKE_LABEL(get_message("characterSetDbcs"), 4);
 		xbuf = xs_buffer("base %u, code page %u",
-		    (cgcsgid_dbcs >> 16) & 0xffff,
-		    cgcsgid_dbcs & 0xffff);
+		    (unsigned short)((cgcsgid_dbcs >> 16) & 0xffff),
+		    (unsigned short)(cgcsgid_dbcs & 0xffff));
 		MAKE_VALUE(xbuf);
 		XtFree(xbuf);
 		MAKE_LABEL(get_message("inputMethod"), 4);

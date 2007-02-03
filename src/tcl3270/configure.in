@@ -36,7 +36,7 @@ AC_SUBST(XPRECOMP)
 
 dnl Allow the tcl version to change
 AC_ARG_WITH(tcl, [  --with-tcl=VERSION      Specify Tcl library version [8.3]],
-tclver=$with_tcl, tclver=8.3)
+tclver=$with_tcl, tclver=8.4)
 
 dnl Allow TclX
 AC_ARG_WITH(tclx, [  --with-tclx[=VERSION]   Use TclX], , with_tclx=no)

@@ -59,6 +59,10 @@ extern void PA_WMProtocols_action(Widget w, XEvent *event, String *params,
     Cardinal *num_params);
 extern void Redraw_action(Widget w, XEvent *event, String *params,
     Cardinal *num_params);
+extern void Title_action(Widget w, XEvent *event, String *params,
+    Cardinal *num_params);
+extern void WindowState_action(Widget w, XEvent *event, String *params,
+    Cardinal *num_params);
 extern void ring_bell(void);
 extern void save_00translations(Widget w, XtTranslations *t00);
 #define screen_80()

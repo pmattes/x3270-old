@@ -80,6 +80,7 @@ XrmDatabase     rdb;
 AppRes          appres;
 int		children = 0;
 Boolean		exiting = False;
+char           *user_title = CN;
 
 /* Statics */
 static void	peek_at_xevent(XEvent *);
@@ -94,7 +95,6 @@ static int	parse_model_number(char *m);
 static void	parse_set_clear(int *, char **);
 static void	label_init(void);
 static void	sigchld_handler(int);
-static char    *user_title = CN;
 static char    *user_icon_name = CN;
 
 XrmOptionDescRec options[]= {
@@ -538,7 +538,9 @@ main(int argc, char *argv[])
 static void
 sigchld_handler(int ignored)
 {
+#if !defined(_AIX) /*[*/
 	(void) signal(SIGCHLD, sigchld_handler);
+#endif /*]*/
 }
 
 /*

@@ -1,7 +1,7 @@
 Begin4
 Title:		x3270
-Version:	3.3.4
-Entered-date:	2005-04-10
+Version:	3.3.5
+Entered-date:	2007-02-02
 Description:	X-Windows 3270 Emulator
 		Complete IBM 3278/3279 emulation, TN3270E support, structured
 		fields, IND$FILE file transfer, color xterm emulation, macros
@@ -13,6 +13,6 @@ Author:		Paul Mattes (Paul.Mattes@usa.net)
 		Robert Viduya
 Maintained-by:	Paul Mattes (Paul.Mattes@usa.net)
 Primary-site:	metalab.unc.edu /pub/Linux/system/network/misc/
-		1097 KB x3270-3.3.4.tgz
+		1126 KB x3270-3.3.5.tgz
 Copying-policy:	GPL
 End

@@ -1,6 +1,6 @@
 /*
  * Modifications Copyright 1993, 1994, 1995, 1996, 1999,
- *  2000, 2001, 2004 by Paul Mattes.
+ *  2000, 2001, 2004, 2006, 2007 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -45,6 +45,10 @@
 #define EURO_SUFFIX	"-euro"
 #define ES_SIZE		(sizeof(EURO_SUFFIX) - 1)
 
+#if defined(_WIN32) /*[*/
+extern void set_display_charset(char *dcs);
+#endif /*]*/
+
 /* Globals. */
 Boolean charset_changed = False;
 #define DEFAULT_CGEN	0x02b90000
@@ -54,6 +58,10 @@ unsigned long cgcsgid_dbcs = 0L;
 char *default_display_charset = "3270cg-1a,3270cg-1,iso8859-1";
 char *converter_names;
 char *encoding;
+#if defined(X3270_DISPLAY) /*[*/
+unsigned char xk_selector = 0;
+#endif
+unsigned char auto_keymap = 0;
 
 /* Statics. */
 static enum cs_result resource_charset(char *csname, char *cs, char *ftcs);
@@ -162,6 +170,10 @@ charset_init(char *csname)
 	char *cs, *ftcs;
 	enum cs_result rc;
 	char *ccs, *cftcs;
+#if defined(X3270_DISPLAY) /*[*/
+	char *xks;
+#endif /*]*/
+	char *ak;
 
 	/* Do nothing, successfully. */
 	if (csname == CN || !strcasecmp(csname, "us")) {
@@ -171,6 +183,9 @@ charset_init(char *csname)
 #if defined(X3270_DISPLAY) /*[*/
 		(void) screen_new_display_charsets(default_display_charset,
 		    "us");
+#endif /*]*/
+#if defined(_WIN32) /*[*/
+		set_display_charset("iso8859-1");
 #endif /*]*/
 		return CS_OKAY;
 	}
@@ -201,6 +216,13 @@ charset_init(char *csname)
 	save_charset();
 	charset_defaults();
 
+	/* Check for auto-keymap. */
+	ak = get_fresource("%s.%s", ResAutoKeymap, csname);
+	if (ak != NULL)
+		auto_keymap = !strcasecmp(ak, "true");
+	else
+		auto_keymap = 0;
+
 	/* Interpret them. */
 	rc = resource_charset(csname, ccs, cftcs);
 
@@ -220,6 +242,15 @@ charset_init(char *csname)
 		restore_charset();
 		return CS_NOTFOUND;
 	}
+#endif /*]*/
+
+#if defined(X3270_DISPLAY) /*[*/
+	/* Check for an XK selector. */
+	xks = get_fresource("%s.%s", ResXkSelector, csname);
+	if (xks != NULL)
+		xk_selector = (unsigned char) strtoul(xks, NULL, 0);
+	else
+		xk_selector = 0;
 #endif /*]*/
 
 	return rc;
@@ -318,6 +349,9 @@ resource_charset(char *csname, char *cs, char *ftcs)
 	int ne = 0;
 	char *rcs = CN;
 	int n_rcs = 0;
+#if defined(_WIN32) /*[*/
+	char *dcs;
+#endif /*]*/
 
 	/* Interpret the spec. */
 	rc = remap_chars(csname, cs, (ftcs == NULL)? BOTH: CS_ONLY, &ne);
@@ -379,6 +413,16 @@ resource_charset(char *csname, char *cs, char *ftcs)
 	/* Set up the cgcsgid. */
 	set_cgcsgids(get_fresource("%s.%s", ResCodepage, csname));
 
+#if defined(_WIN32) /*[*/
+       /* See about changing the console output code page. */
+       dcs = get_fresource("%s.%s", ResDisplayCharset, csname);
+       if (dcs != NULL) {
+	       set_display_charset(dcs);
+       } else {
+	       set_display_charset("iso8859-1");
+       }
+#endif /*]*/
+
 	/* Set up the character set name. */
 	set_charset_name(csname);
 
@@ -403,7 +447,7 @@ parse_keysym(char *s, Boolean extended)
 			char *ptr;
 
 			l = strtoul(s, &ptr, 16);
-			if (*ptr != '\0' || (l & ~0xff))
+			if (*ptr != '\0' || (l & ~0xffff))
 				return NoSymbol;
 			return (KeySym)l;
 		} else
@@ -431,22 +475,24 @@ remap_one(unsigned char ebc, KeySym iso, remap_scope scope, Boolean one_way)
 	if (iso == 0x20)
 		one_way = True;
 
-	if (iso <= 0xff) {
+	if (!auto_keymap || iso <= 0xff) {
 #if defined(X3270_FT) /*[*/
 		unsigned char aa;
 #endif /*]*/
 
 		if (scope == BOTH || scope == CS_ONLY) {
-			cg = asc2cg[iso];
+			if (iso <= 0xff) {
+				cg = asc2cg[iso];
 
-			if (cg2asc[cg] == iso || iso == 0) {
-				/* well-defined */
-				ebc2cg[ebc] = cg;
-				if (!one_way)
-					cg2ebc[cg] = ebc;
-			} else {
-				/* into a hole */
-				ebc2cg[ebc] = CG_boxsolid;
+				if (cg2asc[cg] == iso || iso == 0) {
+					/* well-defined */
+					ebc2cg[ebc] = cg;
+					if (!one_way)
+						cg2ebc[cg] = ebc;
+				} else {
+					/* into a hole */
+					ebc2cg[ebc] = CG_boxsolid;
+				}
 			}
 			if (ebc > 0x40) {
 				ebc2asc[ebc] = iso;
@@ -455,7 +501,7 @@ remap_one(unsigned char ebc, KeySym iso, remap_scope scope, Boolean one_way)
 			}
 		}
 #if defined(X3270_FT) /*[*/
-		if (ebc > 0x40) {
+		if (iso <= 0xff && ebc > 0x40) {
 			/* Change the file transfer translation table. */
 			if (scope == BOTH) {
 				/*
@@ -488,6 +534,7 @@ remap_one(unsigned char ebc, KeySym iso, remap_scope scope, Boolean one_way)
 		}
 #endif /*]*/
 	} else {
+		/* Auto-keymap. */
 		add_xk(iso, (KeySym)ebc2asc[ebc]);
 	}
 }

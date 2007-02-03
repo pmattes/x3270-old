@@ -1,18 +1,12 @@
 <!DOCTYPE doctype PUBLIC "-//w3c//dtd html 4.0 transitional//en">
 <html>
 <head>
-        
-  <meta http-equiv="Content-Type"
- content="text/html; charset=iso-8859-1">
-        
-  <meta name="GENERATOR"
- content="Mozilla/4.77 [en] (Windows NT 5.0; U) [Netscape]">
-        
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <title>tcl3270 Build and Install Instructions</title>
   <link href="http://www.w3.org/StyleSheets/Core/Steely" type="text/css"
  rel="stylesheet">
-  <title>tcl3270 Build and Install Instructions</title>
 </head>
-  <body>
+<body>
     
 <h1> tcl3270 Build and Install Instructions</h1>
   To build <i>tcl3270</i>, type:  
@@ -22,9 +16,9 @@
 <pre>&nbsp;&nbsp;&nbsp; make install</pre>
     
 <h2> Notes on the Tcl Library</h2>
-  <i>tcl3270</i> uses Tcl 8.3 by default. It assumes that the header file
+  <i>tcl3270</i> uses Tcl 8.4 by default. It assumes that the header file
 <tt>tcl.h</tt>  has been installed in the directory <tt>/usr/local/include</tt>,
-and that  the Tcl library <tt>libtcl8.3.a</tt> has been installed in the
+and that  the Tcl library <tt>libtcl8.4.a</tt> has been installed in the
 directory <tt>/usr/local/lib</tt>.  If you have a different version of Tcl,
 or it is installed in different directories, you will need to pass additional
 options to the <tt>configure</tt> script.  
@@ -42,7 +36,7 @@ put a <tt>-L</tt> option in the <tt>LDFLAGS</tt> variable.&nbsp; For example
  
 <pre></pre>
   <i>tcl3270</i> has <b>not</b> been tested with versions of tcl other than
- 8.2 and 8.3.  
+ 8.2, 8.3 and 8.4.  
 <h2> Using Extended Tcl (TclX)</h2>
   <i>tcl3270</i> can also use Extended Tcl (TclX).&nbsp; To use Extended
 Tcl, pass the <tt>--with-tclx</tt> option to <tt>configure</tt>, e.g.:  
@@ -95,7 +89,7 @@ to        <i>eprefix</i><tt>/bin</tt>)</td>
   </tr>
    <tr>
   <td><tt>--with-tcl=<i>version</i></tt></td>
-   <td>Use a different version of the Tcl library. The default is <tt>8.3</tt>.</td>
+   <td>Use a different version of the Tcl library. The default is <tt>8.4</tt>.</td>
   </tr>
    <tr>
   <td><tt>--with-tclx</tt> <br>

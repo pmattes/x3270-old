@@ -21,7 +21,9 @@
 
 #include "globals.h"
 #include <errno.h>
+#if !defined(_WIN32) /*[*/
 #include <netinet/in.h>
+#endif /*]*/
 #include "3270ds.h"
 #include "appres.h"
 #include "screen.h"
@@ -854,8 +856,12 @@ do_qr_charsets(void)
 	if (!*standard_font) {
 		/* special 3270 font, includes APL */
 		*obptr++ = 0x01;/* SET 1: */
-		*obptr++ = 0x10;/*  FLAGS: non-loadable, single-plane,
-				     single-byte, no compare */
+		if (appres.apl_mode)
+		    *obptr++ = 0x00;/*  FLAGS: non-loadable, single-plane,
+					 single-byte, no compare */
+		else
+		    *obptr++ = 0x10;/*  FLAGS: non-loadable, single-plane,
+					 single-byte, no compare */
 		*obptr++ = 0xf1;/*  LCID */
 #if defined(X3270_DBCS) /*[*/
 		if (dbcs) {

@@ -1084,7 +1084,7 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 	Boolean		add_dbcs;
 	unsigned char	add_c1, add_c2 = 0;
 	enum dbcs_state	d;
-	enum dbcs_why	why;
+	enum dbcs_why	why = DBCS_FIELD;
 	Boolean		aborted = False;
 #if defined(X3270_DBCS) /*[*/
 	char		mb[16];
@@ -1525,7 +1525,7 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 			last_zpt = False;
 			break;
 		case ORDER_SA:	/* set attribute */
-			END_TEXT("SetAttribtue");
+			END_TEXT("SetAttribute");
 			previous = ORDER;
 			cp++;
 			if (*cp == XA_FOREGROUND)  {

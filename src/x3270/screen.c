@@ -273,7 +273,7 @@ struct sstate {
 	Boolean		funky_font;
 	Boolean         obscured;
 	Boolean         copied;
-	unsigned char  *xfmap;	/* standard font CG-to-ASCII map */
+	unsigned short  *xfmap;	/* standard font CG-to-ASCII map */
 	unsigned long	odd_width[256 / BPW];
 	unsigned long	odd_lbearing[256 / BPW];
 };
@@ -599,7 +599,7 @@ screen_reinit(unsigned cmask)
 			xx = atoi(xs);
 			if (xx && xx < 10) {
 				nss.xtra_width += xx;
-				dbcs_font.xtra_width += xx;
+				dbcs_font.xtra_width += 2*xx;
 			}
 		}
 		nss.char_width += nss.xtra_width;
@@ -1730,7 +1730,7 @@ render_text(union sp *buffer, int baddr, int len, Boolean block_cursor,
 	int sel = attrs->bits.sel;
 	register int i, j;
 	Boolean one_at_a_time = False;
-	register unsigned char *xfmap = ss->xfmap;
+	register unsigned short *xfmap = ss->xfmap;
 	XTextItem16 text[64]; /* fixed size is a hack */
 	int n_texts = -1;
 	Boolean in_dbcs = False;
@@ -1814,18 +1814,26 @@ render_text(union sp *buffer, int baddr, int len, Boolean block_cursor,
 				    xfmap[ebc2uc[buffer[i].bits.cc]];
 			else {
 				if (visible_control) {
-					if (buffer[i].bits.cc == EBC_so)
+					if (buffer[i].bits.cc == EBC_so) {
+						rt_buf[j].byte1 = 0;
 						rt_buf[j].byte2 =
 						    xfmap[asc2ebc['<']];
-					else if (buffer[i].bits.cc == EBC_si)
+					} else if (buffer[i].bits.cc == EBC_si) {
+						rt_buf[j].byte1 = 0;
 						rt_buf[j].byte2 =
 						    xfmap[asc2ebc['>']];
-					else
+					} else {
+						rt_buf[j].byte1 =
+						  xfmap[buffer[i].bits.cc] >> 8;
 						rt_buf[j].byte2 =
 						    xfmap[buffer[i].bits.cc];
-				} else
+					}
+				} else {
+					rt_buf[j].byte1 =
+					    xfmap[buffer[i].bits.cc] >> 8;
 					rt_buf[j].byte2 =
 					    xfmap[buffer[i].bits.cc];
+				}
 			}
 			j++;
 			break;
@@ -5551,3 +5559,41 @@ send_spot_loc(void)
 	XFree(preedit_attr);
 }
 #endif /*]*/
+
+/* Change the window title. */
+void
+Title_action(Widget w unused, XEvent *event, String *params,
+    Cardinal *num_params)
+{
+	action_debug(Title_action, event, params, num_params);
+
+	if (check_usage(Title_action, *num_params, 1, 1) < 0)
+		return;
+
+	user_title = NewString(params[0]);
+	XtVaSetValues(toplevel, XtNtitle, user_title, NULL);
+}
+
+/* Change the window state. */
+void
+WindowState_action(Widget w unused, XEvent *event, String *params,
+    Cardinal *num_params)
+{
+	int state;
+
+	action_debug(WindowState_action, event, params, num_params);
+
+	if (check_usage(WindowState_action, *num_params, 1, 1) < 0)
+		return;
+
+	if (!strcasecmp(params[0], "Iconic"))
+		state = True;
+	else if (!strcasecmp(params[0], "Normal"))
+		state = False;
+	else {
+		popup_an_error("%s argument must be Iconic or Normal",
+		    action_name(WindowState_action));
+	       return;
+	}
+	XtVaSetValues(toplevel, XtNiconic, state, NULL);
+}

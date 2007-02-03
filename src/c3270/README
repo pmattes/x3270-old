@@ -1,9 +1,8 @@
-c3270 3.2 Release
+c3270 3.3 Release
 
 c3270 is a curses-based IBM 3278/3279 terminal emulator.
 
-Documentation is in the Docs directory (plain text) and the html directory
-(hypertext). The files are:
+Documentation is in the html directory. The files are:
 
 Intro
      What c3270 is
@@ -19,8 +18,6 @@ Bugs
      What's broken in this release
 Wishlist
      What isn't in this release
-Y2K
-     Year 2000 Compliance Statement
 
 There is also a hypertext version of the c3270 man page, and of the man
 pages for x3270-script and x3270if. Please read Build before going ahead and
@@ -28,8 +25,7 @@ building the program. Also, if you have a problem, scan through FAQ; there
 are lots of interesting answers there.
 
 Updates to c3270, as well as the current status of development and bugs, are
-available from the x3270 Web Page,
-http://www.geocities.com/SiliconValley/Peaks/7814.
+available from the x3270 Web Page, http://x3270.sourceforge.net/.
 
 Feel free to send comments, criticism, suggestions, complaints, etc., to
 Paul Mattes, Paul.Mattes@usa.net. Requests will be addressed as time and

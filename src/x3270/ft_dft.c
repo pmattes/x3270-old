@@ -63,7 +63,7 @@ int dft_buffersize = 0;			/* Buffer size (LIMIN, LIMOUT) */
 
 /* Statics. */
 static Boolean message_flag = False;	/* Open Request for msg received */
-static int eof;
+static int dft_eof;
 static unsigned long recnum;
 static char *abort_string = CN;
 static unsigned char *dft_savebuf = NULL;
@@ -166,7 +166,7 @@ dft_open_request(unsigned short len, unsigned char *cp)
 		message_flag = False;
 		ft_running(False);
 	}
-	eof = False;
+	dft_eof = False;
 	recnum = 1;
 
 	/* Acknowledge the Open. */
@@ -343,7 +343,7 @@ dft_get_request(void)
 	space3270out(dft_buffersize);
 	numbytes = dft_buffersize - 27; /* always read 5 bytes less than we're allowed */
 	bufptr = obuf + 17;
-	while (!eof && numbytes) {
+	while (!dft_eof && numbytes) {
 		if (ascii_flag && cr_flag) {
 			int c;
 
@@ -353,18 +353,22 @@ dft_get_request(void)
 				break;
 			}
 			if (!ft_last_cr && c == '\n') {
+				if (numbytes < 2) {
+					/*
+					 * Not enough room to expand NL to
+					 * CR/LF.
+					 */
+					ungetc(c, ft_local_file);
+					break;
+				}
 				*bufptr++ = '\r';
 				numbytes--;
 				total_read++;
 			}
-			if (numbytes) {
-				ft_last_cr = (c == '\r');
-				*bufptr++ = remap_flag? asc2ft[c]: c;
-				numbytes--;
-				total_read++;
-			} else {
-				ungetc(c, ft_local_file);
-			}
+			ft_last_cr = (c == '\r');
+			*bufptr++ = remap_flag? asc2ft[c]: c;
+			numbytes--;
+			total_read++;
 		} else {
 			/* Binary read. */
 			numread = fread(bufptr, 1, numbytes, ft_local_file);
@@ -422,7 +426,7 @@ dft_get_request(void)
 		ft_length += total_read;
 
 		if (feof(ft_local_file)) {
-			eof = True;
+			dft_eof = True;
 		}
 	} else {
 		trace_ds("> WriteStructuredField FileTransferData EOF\n");
@@ -431,7 +435,7 @@ dft_get_request(void)
 		SET16(obptr, TR_ERROR_HDR);
 		SET16(obptr, TR_ERR_EOF);
 
-		eof = True;
+		dft_eof = True;
 	}
 
 	/* Set the SF length. */

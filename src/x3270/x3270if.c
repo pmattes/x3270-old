@@ -38,7 +38,7 @@
 #include <getopt.h>
 #endif /*]*/
 
-#define IBS	1024
+#define IBS	4096
 
 #define NO_STATUS	(-1)
 #define ALL_FIELDS	(-2)

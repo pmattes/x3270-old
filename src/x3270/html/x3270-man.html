@@ -44,6 +44,7 @@ x3270 -
 [<i>options</i>]
 [<i>host</i>]
 
+
 <a NAME="Description"></a><h2>Description</h2>
 <b>x3270</b> opens
 a telnet connection to an <font size=-1>IBM</font>
@@ -60,8 +61,7 @@ The full syntax for <i>host</i> is:
 <p>
 Prepending a <b>P:</b> onto <i>hostname</i> causes the connection to go
 through the <i>telnet-passthru</i> service rather than directly to the host.
-See <a HREF="#Passthru"><font size=-1>PASSTHRU</font></a> below.
-<p>
+See <a HREF="#Passthru"><font size=-1>PASSTHRU</font></a> below.<p>
 Prepending an <b>S:</b> onto <i>hostname</i> removes the "extended data
 stream" option reported to the host.
 See <a HREF="#tn"><b>-tn</b></a> below for further information.
@@ -91,8 +91,7 @@ This allows numeric IPv6 addresses to be used as hostnames.
 On systems that support the <i>forkpty</i> library call, the
 <i>hostname</i> may be replaced with <b>-e</b> and a command string.
 This will cause <b>x3270</b> to connect to a local child process, such as
-a shell.
-<p>
+a shell.<p>
 The port to connect to defaults to
 <b>telnet</b>.
 This can be overridden with the <b>-port</b> option, or by appending
@@ -134,8 +133,7 @@ Specifies the initial x coordinate for the program icon.
 Specifies the initial y coordinate for the program icon.
 <dt><b>-im</b> <i>method</i></dt><dd>
 Specifies the name of the input method to use for multi-byte input.
-(Supported only when x3270 is compiled with DBCS support.)
-<dt><b>-keymap</b> <i>name</i></dt><dd>
+(Supported only when x3270 is compiled with DBCS support.)<dt><b>-keymap</b> <i>name</i></dt><dd>
 Specifies a keymap name and optional modifiers.
 See <a HREF="#Keymaps"><font size=-1>KEYMAPS</font></a> below.
 <dt><b>-keypad</b></dt><dd>
@@ -144,8 +142,7 @@ Turns on the keypad as soon as <b>x3270</b> starts.
 Specifies the local encoding method for multi-byte text.
 <i>name</i> is an encoding name recognized by the ICU library.
 (Supported only when x3270 is compiled with DBCS support, and necessary
-only when x3270 cannot figure it out from the locale.)
-<dt><b>-model</b> <i>name</i></dt><dd>
+only when x3270 cannot figure it out from the locale.)<dt><b>-model</b> <i>name</i></dt><dd>
 The model of 3270 display to be emulated.
 The model name is in two parts, either of which may be omitted:
 <p>
@@ -271,9 +268,7 @@ Unlike turning it on from a menu option,
 there is no pop-up to confirm the file name, which defaults to
 <b>/tmp/x3trc.</b><i>process_id</i>.
 <dt><b>-tracefile</b> <i>file</i></dt><dd>
-Specifies a file to save data stream and event traces into, overriding the
-default of
-<b>/tmp/x3trc.</b><i>process_id</i>.
+Specifies a file to save data stream and event traces into.
 If the value <b>stdout</b>
 is given, then traces will be written to standard output.
 If the value <b>none</b>
@@ -352,8 +347,8 @@ Available sets include:
 <tr><td ><center>greek</center></td>	<td ><center>423</center></td>	<td ><center>3270cg-7</center></td></tr>
 <tr><td ><center>hebrew</center></td>	<td ><center>424</center></td>	<td ><center>3270cg-8</center></td></tr>
 <tr><td ><center>icelandic</center></td>	<td ><center>871</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
-<tr><td ><center>iso-hebrew</center></td>	<td ><center>424</center></td>	<td ><center>iso8859-8</center></td></tr>
-<tr><td ><center>iso-turkish</center></td>	<td ><center>1026</center></td>	<td ><center>iso8859-9</center></td></tr>
+<tr><td ><center>hebrew</center></td>	<td ><center>424</center></td>	<td ><center>iso8859-8</center></td></tr>
+<tr><td ><center>turkish</center></td>	<td ><center>1026</center></td>	<td ><center>iso8859-9</center></td></tr>
 <tr><td ><center>italian</center></td>	<td ><center>280</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
 <tr><td ><center>japanese</center></td>	<td ><center>1027+300</center></td>	<td ><center>jisx0201.1976-0 + jisx0208.1983-0</center></td></tr>
 <tr><td ><center>norwegian</center></td>	<td ><center>277</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
@@ -1345,6 +1340,7 @@ the command cannot be edited.
 <a NAME="Bugs"></a><h2>Bugs</h2>
 Cursor highlighting will not work with if you use the <b>NoTitleFocus</b>
 option in your .twmrc file.
+
 <a NAME="Passthru"></a><h2>Passthru</h2>
 <b>x3270</b> supports the Sun <i>telnet-passthru</i>
 service provided by the <i>in.telnet-gw</i> server.
@@ -1355,8 +1351,7 @@ It contacts the machine named <b>internet-gateway</b> at the port defined in
 <b>/etc/services</b> as <b>telnet-passthru</b>
 (which defaults to 3514).
 It then passes the requested hostname and port to the
-<b>in.telnet-gw</b> server.
-<a NAME="Files"></a><h2>Files</h2>
+<b>in.telnet-gw</b> server.<a NAME="Files"></a><h2>Files</h2>
 /usr/lib/X11/x3270/ibm_hosts
 <br>
 $HOME/.x3270pro
@@ -1375,10 +1370,11 @@ file but before the command-line options.
 <br>
 <b>KEYBD</b> Keymap name.
 <a NAME="See-Also"></a><h2>See Also</h2>
+
 <a HREF="s3270-man.html">s3270(1)</a>, <a HREF="c3270-man.html">c3270(1)</a>, <a HREF="tcl3270-man.html">tcl3270(1)</a>, <a HREF="ibm_hosts.html">ibm_hosts(5)</a>, <a HREF="x3270-script.html">x3270-script(1)</a>, <a HREF="pr3287-man.html">pr3287(1)</a>, telnet(1), tn3270(1)
 <br>
 X Toolkit Intrinsics
-<br>
+XX_BRdnl
 Data Stream Programmer's Reference, IBM GA23-0059
 <br>
 Character Set Reference, IBM GA27-3831
@@ -1390,7 +1386,7 @@ RFC 1646, TN3270 Extensions for LUname and Printer Selection
 RFC 2355, TN3270 Enhancements
 <a NAME="Copyrights"></a><h2>Copyrights</h2>
 <p>
-Modifications Copyright &copy; 1993, 1994, 1995, 1996, 1997, 1999, 2000, 2001, 2002, 2004, 2005 by Paul Mattes.
+Modifications Copyright &copy; 1993, 1994, 1995, 1996, 1997, 1999, 2000, 2001, 2002, 2004, 2005, 2006, 2007 by Paul Mattes.
 <br>
 Original X11 Port Copyright &copy; 1990 by Jeff Sparkes.
 <blockquote>Permission to use, copy, modify, and distribute this software and its
@@ -1407,12 +1403,12 @@ x3270 is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
 <a NAME="Version"></a><h2>Version</h2>
-x3270 3.3.5a2
+x3270 3.3.5
 <hr>
 <address>
 This HTML document and the accompanying troff document were generated with
 a set of write-only <b>m4</b> macros and the powerful <b>vi</b> editor.
-<br>Last modified 27 June 2005.
+<br>Last modified 02 February 2007.
 </address>
 </body>
 </html>

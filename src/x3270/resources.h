@@ -27,6 +27,7 @@
 #define ResAltScreen		"altScreen"
 #define ResAplMode		"aplMode"
 #define ResAssocCommand		"printer.assocCommandLine"
+#define ResAutoKeymap		"autoKeymap"
 #define ResBaselevelTranslations	"baselevelTranslations"
 #define ResBellVolume		"bellVolume"
 #define ResBlankFill		"blankFill"
@@ -89,6 +90,7 @@
 #define ResLineWrap		"lineWrap"
 #define ResLnext		"lnext"
 #define ResLocalEncoding	"localEncoding"
+#define ResLoginMacro		"loginMacro"
 #define ResLockedCursor		"lockedCursor"
 #define ResLuCommandLine	"printer.luCommandLine"
 #define ResM3279		"m3279"
@@ -145,6 +147,7 @@
 #define ResVisualSelectColor	"visualSelectColor"
 #define ResWaitCursor		"waitCursor"
 #define ResWerase		"werase"
+#define ResXkSelector		"xkSelector"
 
 /* Dotted resource names. */
 #define DotActiveIcon		"." ResActiveIcon

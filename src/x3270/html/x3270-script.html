@@ -411,6 +411,8 @@ fully processed the last command.
 <p>
 The optional <i>timeout</i> parameter specifies a number of seconds to wait
 before failing the <b>Snap</b> action.  The default is to wait indefinitely.
+<dt><b>Title</b>(<i>text</i>)</dt><dd>
+Changes the x3270 window title to <i>text</i>.
 <dt><b>Transfer</b>(<i>keyword</i>=<i>value</i>,...)</dt><dd>
 Invokes IND$FILE file transfer.
 See <a HREF="#File-Transfer"><font size=-1>FILE TRANSFER</font></a> below.
@@ -495,6 +497,10 @@ See <a HREF="#Differences"><font size=-1>DIFFERENCES</font></a> for details).
 <p>
 The optional <i>timeout</i> parameter specifies a number of seconds to wait
 before failing the <b>Wait</b> action.  The default is to wait indefinitely.
+<dt><b>WindowState</b>(<i>mode</i>)</dt><dd>
+If <i>mode</i> is <b>Iconic</b>, changes the x3270 window into an icon.
+If <i>mode</i> is <b>Normal</b>, changes the x3270 window from an icon to a
+normal window.
 </dl>
 <a NAME="File-Transfer"></a><h2>File Transfer</h2>
 The <b>Transfer</b> action implements <b>IND$FILE</b> file transfer.
@@ -505,6 +511,8 @@ be located in a field that will accept a <font size=-1>TSO</font> or <font size=
 Because of the complexity and number of options for file transfer, the
 parameters to the <b>Transfer</b> action take the unique form
 of <i>option</i>=<i>value</i>, and can appear in any order.
+Note that if the <i>value</i> contains spaces (such as a VM/CMS file name),
+then the entire parameter must be quoted, e.g., "HostFile=xxx foo a".
 The options are:
 <p>
 <table BORDER cols=4 width="75%">
@@ -595,12 +603,12 @@ ksh(1)
 <br>
 <a HREF="s3270-man.html">s3270(1)</a>
 <a NAME="Version"></a><h2>Version</h2>
-Version 3.3.5a2
+Version 3.3.5
 <hr>
 <address>
 This HTML document and the accompanying troff document were generated with
 a set of write-only <b>m4</b> macros and the powerful <b>vi</b> editor.
-<br>Last modified 27 June 2005.
+<br>Last modified 02 February 2007.
 </address>
 </body>
 </html>

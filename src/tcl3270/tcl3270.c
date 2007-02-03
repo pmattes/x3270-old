@@ -1,6 +1,6 @@
 /*
- * Modifications Copyright 1993, 1994, 1995, 1996, 2000, 2001, 2004, 2005 by
- * Paul Mattes.
+ * Modifications Copyright 1993, 1994, 1995, 1996, 2000, 2001, 2004, 2005,
+ *  2007 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *   Permission to use, copy, modify, and distribute this software and its
  *   documentation for any purpose and without fee is hereby granted,
@@ -31,7 +31,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tcl3270.c,v 1.28.1.14 2005/03/29 19:31:18 pdm Exp $
+ * RCS: @(#) $Id: tcl3270.c,v 1.32 2007/02/02 22:00:04 pdm Exp $
  */
 
 /*
@@ -82,8 +82,10 @@
  * Sun shared libraries to be used for Tcl.
  */
 
+#if defined(_sun) /*[*/
 extern int matherr();
 int *tclDummyMathPtr = (int *) matherr;
+#endif /*]*/
 
 static Tcl_ObjCmdProc x3270_cmd;
 static Tcl_ObjCmdProc Rows_cmd, Cols_cmd;
@@ -133,7 +135,7 @@ static Boolean interactive = False;
 
 /* Local prototypes. */
 static void ps_clear(void);
-static int tcl3270_main(int argc, char *argv[]);
+static int tcl3270_main(int argc, const char *argv[]);
 static void negotiate(void);
 static char *tc_scatv(char *s);
 static void snap_save(void);
@@ -223,11 +225,11 @@ main(int argc, char **argv)
 int
 Tcl_AppInit(Tcl_Interp *interp)
 {
-    char *s0, *s;
+    const char *s0, *s;
     int tcl_argc;
-    char **tcl_argv;
+    const char **tcl_argv;
     int argc;
-    char **argv;
+    const char **argv;
     int i;
     Tcl_Obj *argv_obj;
     char argc_buf[32];
@@ -251,7 +253,7 @@ Tcl_AppInit(Tcl_Interp *interp)
 	return TCL_ERROR;
     (void) Tcl_SplitList(interp, s, &tcl_argc, &tcl_argv);
     argc = tcl_argc + 1;
-    argv = (char **)Malloc((argc + 1) * sizeof(char *));
+    argv = (const char **)Malloc((argc + 1) * sizeof(char *));
     argv[0] = s0;
     for (i = 0; i < tcl_argc; i++) {
 	argv[1 + i] = tcl_argv[i];
@@ -382,7 +384,7 @@ main_connect(Boolean ignored)
 
 /* Initialization procedure for tcl3270. */
 static int
-tcl3270_main(int argc, char *argv[])
+tcl3270_main(int argc, const char *argv[])
 {
 	const char	*cl_hostname = CN;
 
@@ -589,7 +591,7 @@ x3270_cmd(ClientData clientData, Tcl_Interp *interp, int objc,
 	}
 #if defined(X3270_TRACE) /*[*/
 	if (toggled(EVENT_TRACE)) {
-		char *s;
+		const char *s;
 #		define TRUNC_LEN 40
 		char s_trunc[TRUNC_LEN + 1];
 

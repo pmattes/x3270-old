@@ -22,7 +22,7 @@ extern char *ctl_see(int c);
 extern char *do_subst(const char *s, Boolean do_vars, Boolean do_tilde);
 extern void fcatv(FILE *f, char *s);
 extern const char *get_message(const char *key);
-extern char *get_fresource(const char *fmt, ...);
+extern char *get_fresource(const char *fmt, ...) printflike(1, 2);
 extern char *get_resource(const char *name);
 extern char *scatv(const char *s, char *buf, size_t len);
 extern int split_dbcs_resource(const char *value, char sep, char **part1,
@@ -30,9 +30,9 @@ extern int split_dbcs_resource(const char *value, char sep, char **part1,
 extern int split_dresource(char **st, char **left, char **right);
 extern int split_lresource(char **st, char **value);
 extern char *strip_whitespace(const char *s);
-extern char *xs_buffer(const char *fmt, ...);
-extern void xs_error(const char *fmt, ...);
-extern void xs_warning(const char *fmt, ...);
+extern char *xs_buffer(const char *fmt, ...) printflike(1, 2);
+extern void xs_error(const char *fmt, ...) printflike(1, 2);
+extern void xs_warning(const char *fmt, ...) printflike(1, 2);
 
 extern unsigned long AddInput(int, void (*)(void));
 extern unsigned long AddExcept(int, void (*)(void));
@@ -53,5 +53,5 @@ typedef struct {
 
 extern void rpf_init(rpf_t *r);
 extern void rpf_reset(rpf_t *r);
-extern void rpf(rpf_t *r, char *fmt, ...);
+extern void rpf(rpf_t *r, char *fmt, ...) printflike(2, 3);
 extern void rpf_free(rpf_t *r);

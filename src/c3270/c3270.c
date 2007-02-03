@@ -130,7 +130,9 @@ static char *base_3270_keymap =
 "Ctrl<Key>m: Enter\n"
 "<Key>HOME: Home\n"
 "Ctrl<Key>a <Key>a: Attn\n"
-"<Key>END: FieldEnd\n";
+"<Key>END: FieldEnd\n"
+"Ctrl<Key>a <Key>PPAGE: Plugin(command,prev)\n"
+"Ctrl<Key>a <Key>NPAGE: Plugin(command,next)\n";
 
 Boolean any_error_output = False;
 Boolean escape_pending = False;
@@ -188,7 +190,9 @@ pause_for_errors(void)
 static void
 sigchld_handler(int ignored)
 {
+#if !defined(_AIX) /*[*/
 	(void) signal(SIGCHLD, sigchld_handler);
+#endif /*]*/
 }
 
 int

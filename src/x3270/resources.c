@@ -93,12 +93,12 @@ XtResource resources[] = {
 	{ ResModifiedSel, ClsModifiedSel, XtRBoolean, sizeof(Boolean),
 	  offset(modified_sel), XtRString, ResFalse },
 	{ ResUnlockDelay, ClsUnlockDelay, XtRBoolean, sizeof(Boolean),
-	  offset(unlock_delay), XtRString, ResFalse },
+	  offset(unlock_delay), XtRString, ResTrue },
 #if defined(X3270_SCRIPT) /*[*/
 	{ ResSocket, ClsSocket, XtRBoolean, sizeof(Boolean),
 	  offset(socket), XtRString, ResFalse },
 	{ ResPluginCommand, ClsPluginCommand, XtRString, sizeof(String),
-	  offset(plugin_command), XtRString, 0 },
+	  offset(plugin_command), XtRString, "x3270hist.pl" },
 #endif /*]*/
 	{ ResUseCursorColor, ClsUseCursorColor, XtRBoolean, sizeof(Boolean),
 	  offset(use_cursor_color), XtRString, ResFalse },

@@ -1,5 +1,5 @@
 '\" t
-.TH x3270 1 "27 June 2005"
+.TH x3270 1 "02 February 2007"
 .SH "NAME"
 x3270 \-
 \s-1IBM\s+1 host access tool
@@ -7,6 +7,7 @@ x3270 \-
 \fBx3270\fP
 [\fIoptions\fP]
 [\fIhost\fP]
+
 
 .SH "DESCRIPTION"
 \fBx3270\fP opens
@@ -26,8 +27,7 @@ The full syntax for \fIhost\fP is:
 .LP
 Prepending a \fBP:\fP onto \fIhostname\fP causes the connection to go
 through the \fItelnet-passthru\fP service rather than directly to the host.
-See \s-1PASSTHRU\s+1 below.
-.LP
+See \s-1PASSTHRU\s+1 below..LP
 Prepending an \fBS:\fP onto \fIhostname\fP removes the "extended data
 stream" option reported to the host.
 See \fB\-tn\fP below for further information.
@@ -57,8 +57,7 @@ This allows numeric IPv6 addresses to be used as hostnames.
 On systems that support the \fIforkpty\fP library call, the
 \fIhostname\fP may be replaced with \fB\-e\fP and a command string.
 This will cause \fBx3270\fP to connect to a local child process, such as
-a shell.
-.LP
+a shell..LP
 The port to connect to defaults to
 \fBtelnet\fP.
 This can be overridden with the \fB\-port\fP option, or by appending
@@ -110,8 +109,7 @@ Specifies the initial y coordinate for the program icon.
 .TP
 \fB\-im\fP \fImethod\fP
 Specifies the name of the input method to use for multi-byte input.
-(Supported only when x3270 is compiled with DBCS support.)
-.TP
+(Supported only when x3270 is compiled with DBCS support.).TP
 \fB\-keymap\fP \fIname\fP
 Specifies a keymap name and optional modifiers.
 See \s-1KEYMAPS\s+1 below.
@@ -123,8 +121,7 @@ Turns on the keypad as soon as \fBx3270\fP starts.
 Specifies the local encoding method for multi-byte text.
 \fIname\fP is an encoding name recognized by the ICU library.
 (Supported only when x3270 is compiled with DBCS support, and necessary
-only when x3270 cannot figure it out from the locale.)
-.TP
+only when x3270 cannot figure it out from the locale.).TP
 \fB\-model\fP \fIname\fP
 The model of 3270 display to be emulated.
 The model name is in two parts, either of which may be omitted:
@@ -330,9 +327,7 @@ there is no pop-up to confirm the file name, which defaults to
 \fB/tmp/x3trc.\fP\fIprocess_id\fP.
 .TP
 \fB\-tracefile\fP \fIfile\fP
-Specifies a file to save data stream and event traces into, overriding the
-default of
-\fB/tmp/x3trc.\fP\fIprocess_id\fP.
+Specifies a file to save data stream and event traces into.
 If the value \fBstdout\fP
 is given, then traces will be written to standard output.
 If the value \fBnone\fP
@@ -549,7 +544,7 @@ T}
 T{
 .na
 .nh
-iso-hebrew
+hebrew
 T}	T{
 .na
 .nh
@@ -562,7 +557,7 @@ T}
 T{
 .na
 .nh
-iso-turkish
+turkish
 T}	T{
 .na
 .nh
@@ -5675,6 +5670,7 @@ the command cannot be edited.
 .SH "BUGS"
 Cursor highlighting will not work with if you use the \fBNoTitleFocus\fP
 option in your .twmrc file.
+
 .SH "PASSTHRU"
 \fBx3270\fP supports the Sun \fItelnet-passthru\fP
 service provided by the \fIin.telnet-gw\fP server.
@@ -5685,8 +5681,7 @@ It contacts the machine named \fBinternet-gateway\fP at the port defined in
 \fB/etc/services\fP as \fBtelnet-passthru\fP
 (which defaults to 3514).
 It then passes the requested hostname and port to the
-\fBin.telnet-gw\fP server.
-.SH "FILES"
+\fBin.telnet-gw\fP server..SH "FILES"
 /usr/lib/X11/x3270/ibm_hosts
 .br
 $HOME/.x3270pro
@@ -5705,10 +5700,11 @@ file but before the command-line options.
 .br
 \fBKEYBD\fP Keymap name.
 .SH "SEE ALSO"
+
 s3270(1), c3270(1), tcl3270(1), ibm_hosts(5), x3270-script(1), pr3287(1), telnet(1), tn3270(1)
 .br
 X Toolkit Intrinsics
-.br
+XX_BRdnl
 Data Stream Programmer's Reference, IBM GA23-0059
 .br
 Character Set Reference, IBM GA27-3831
@@ -5720,7 +5716,7 @@ RFC 1646, TN3270 Extensions for LUname and Printer Selection
 RFC 2355, TN3270 Enhancements
 .SH "COPYRIGHTS"
 .LP
-Modifications Copyright 1993, 1994, 1995, 1996, 1997, 1999, 2000, 2001, 2002, 2004, 2005 by Paul Mattes.
+Modifications Copyright 1993, 1994, 1995, 1996, 1997, 1999, 2000, 2001, 2002, 2004, 2005, 2006, 2007 by Paul Mattes.
 .br
 Original X11 Port Copyright 1990 by Jeff Sparkes.
 .RS
@@ -5741,4 +5737,4 @@ x3270 is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
 .SH "VERSION"
-x3270 3.3.5a2
+x3270 3.3.5

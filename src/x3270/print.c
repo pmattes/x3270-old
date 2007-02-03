@@ -43,6 +43,11 @@
 #if defined(X3270_DBCS) /*[*/
 #include "widec.h"
 #endif /*]*/
+#if defined(_WIN32) /*[*/
+#include <io.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#endif /*]*/
 
 /* Statics */
 
@@ -504,8 +509,15 @@ PrintText_action(Widget w unused, XEvent *event, String *params,
 			if (use_string) {
 				char temp_name[15];
 
+#if defined(_WIN32) /*[*/
+				strcpy(temp_name, "x3hXXXXXX");
+				mktemp(temp_name);
+				fd = _open(temp_name, _O_RDWR,
+					_S_IREAD | _S_IWRITE);
+#else /*][*/
 				strcpy(temp_name, "/tmp/x3hXXXXXX");
 				fd = mkstemp(temp_name);
+#endif /*]*/
 				if (fd < 0) {
 					popup_an_errno(errno, "mkstemp");
 					return;

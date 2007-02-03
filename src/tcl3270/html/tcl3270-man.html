@@ -33,6 +33,7 @@ tcl3270 -
 [<i>host</i>]
 [-- <i>script-arg</i>...]
 
+
 <a NAME="Description"></a><h2>Description</h2>
 <b>tcl3270</b> opens
 a telnet connection to an <font size=-1>IBM</font>
@@ -49,8 +50,7 @@ The full syntax for <i>host</i> is:
 <p>
 Prepending a <b>P:</b> onto <i>hostname</i> causes the connection to go
 through the <i>telnet-passthru</i> service rather than directly to the host.
-See <a HREF="#Passthru"><font size=-1>PASSTHRU</font></a> below.
-<p>
+See <a HREF="#Passthru"><font size=-1>PASSTHRU</font></a> below.<p>
 Prepending an <b>S:</b> onto <i>hostname</i> removes the "extended data
 stream" option reported to the host.
 See <a HREF="#tn"><b>-tn</b></a> below for further information.
@@ -80,8 +80,7 @@ This allows numeric IPv6 addresses to be used as hostnames.
 On systems that support the <i>forkpty</i> library call, the
 <i>hostname</i> may be replaced with <b>-e</b> and a command string.
 This will cause <b>tcl3270</b> to connect to a local child process, such as
-a shell.
-<p>
+a shell.<p>
 The port to connect to defaults to
 <b>telnet</b>.
 This can be overridden with the <b>-port</b> option, or by appending
@@ -102,13 +101,11 @@ The list of toggle names is under <a HREF="#Toggles"><font size=-1>TOGGLES</font
 below.
 <dt><b>-im</b> <i>method</i></dt><dd>
 Specifies the name of the input method to use for multi-byte input.
-(Supported only when tcl3270 is compiled with DBCS support.)
-<dt><b>-km</b> <i>name</i></dt><dd>
+(Supported only when tcl3270 is compiled with DBCS support.)<dt><b>-km</b> <i>name</i></dt><dd>
 Specifies the local encoding method for multi-byte text.
 <i>name</i> is an encoding name recognized by the ICU library.
 (Supported only when tcl3270 is compiled with DBCS support, and necessary
-only when tcl3270 cannot figure it out from the locale.)
-<dt><b>-model</b> <i>name</i></dt><dd>
+only when tcl3270 cannot figure it out from the locale.)<dt><b>-model</b> <i>name</i></dt><dd>
 The model of 3270 display to be emulated.
 The model name is in two parts, either of which may be omitted:
 <p>
@@ -156,6 +153,8 @@ This option changes the default port number used for all connections.
 Sets the initial value of <i>toggle</i> to <b>true</b>.
 The list of toggle names is under <a HREF="#Toggles"><font size=-1>TOGGLES</font></a>
 below.
+The <b>-p</b> option of <i>x3270if</i> causes it to use this socket,
+instead of pipes specified by environment variables.
 <dt><a NAME="tn"></a><b>-tn</b> <i>name</i></dt><dd>
 Specifies the terminal name to be transmitted over the telnet connection.
 The default name is
@@ -176,9 +175,7 @@ Turns on data stream and event tracing at startup.
 The default trace file name is
 <b>/tmp/x3trc.</b><i>process_id</i>.
 <dt><b>-tracefile</b> <i>file</i></dt><dd>
-Specifies a file to save data stream and event traces into, overriding the
-default of
-<b>/tmp/x3trc.</b><i>process_id</i>.
+Specifies a file to save data stream and event traces into.
 <dt><b>-tracefilesize</b> <i>size</i></dt><dd>
 Places a limit on the size of a trace file.
 If this option is not specified, or is specified as <b>0</b> or <b>none</b>,
@@ -213,8 +210,8 @@ Available sets include:
 <tr><td ><center>french</center></td>	<td ><center>297</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
 <tr><td ><center>german</center></td>	<td ><center>273</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
 <tr><td ><center>icelandic</center></td>	<td ><center>871</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
-<tr><td ><center>iso-hebrew</center></td>	<td ><center>424</center></td>	<td ><center>iso8859-8</center></td></tr>
-<tr><td ><center>iso-turkish</center></td>	<td ><center>1026</center></td>	<td ><center>iso8859-9</center></td></tr>
+<tr><td ><center>hebrew</center></td>	<td ><center>424</center></td>	<td ><center>iso8859-8</center></td></tr>
+<tr><td ><center>turkish</center></td>	<td ><center>1026</center></td>	<td ><center>iso8859-9</center></td></tr>
 <tr><td ><center>italian</center></td>	<td ><center>280</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
 <tr><td ><center>japanese</center></td>	<td ><center>1027+300</center></td>	<td ><center>jisx0201.1976-0 + jisx0208.1983-0</center></td></tr>
 <tr><td ><center>norwegian</center></td>	<td ><center>277</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
@@ -390,6 +387,8 @@ be located in a field that will accept a <font size=-1>TSO</font> or <font size=
 Because of the complexity and number of options for file transfer, the
 parameters to the <b>Transfer</b> command take the unique form
 of <i>option</i>=<i>value</i>, and can appear in any order.
+Note that if the <i>value</i> contains spaces (such as a VM/CMS file name),
+then the entire parameter must be quoted, e.g., "HostFile=xxx foo a".
 The options are:
 <p>
 <table BORDER cols=4 width="75%">
@@ -505,6 +504,7 @@ are entered into the current field.
 In <font size=-1>NVT</font> mode, the hexadecimal data represent <font size=-1>ASCII</font> characters,
 which are sent directly to the host.
 </dl>
+
 <a NAME="Passthru"></a><h2>Passthru</h2>
 <b>tcl3270</b> supports the Sun <i>telnet-passthru</i>
 service provided by the <i>in.telnet-gw</i> server.
@@ -515,8 +515,7 @@ It contacts the machine named <b>internet-gateway</b> at the port defined in
 <b>/etc/services</b> as <b>telnet-passthru</b>
 (which defaults to 3514).
 It then passes the requested hostname and port to the
-<b>in.telnet-gw</b> server.
-<a NAME="Resources"></a><h2>Resources</h2>
+<b>in.telnet-gw</b> server.<a NAME="Resources"></a><h2>Resources</h2>
 Certain <b>tcl3270</b>
 options can be configured via resources.
 Resources are defined
@@ -552,8 +551,7 @@ The resources available in <b>tcl3270</b> are:
 <tr><td >rprnt</td>	<td >^R</td>	<td >&nbsp;</td>	<td ><font size=-1>NVT</font>-mode reprint character</td></tr>
 <tr><td >secure</td>	<td >False</td>	<td >&nbsp;</td>	<td >Disable "dangerous" options</td></tr>
 <tr><td >termName</td>	<td ><a HREF="#rn2">(note 2)</a></td>	<td >-tn</td>	<td ><font size=-1>TELNET</font> terminal type string</td></tr>
-<tr><td >traceDir</td>	<td >/tmp</td>	<td >&nbsp;</td>	<td >Directory for trace files</td></tr>
-<tr><td >traceFile</td>	<td ><a HREF="#rn3">(note 3)</a></td>	<td >-tracefile</td>	<td >File for trace output</td></tr>
+<tr><td >traceDir</td>	<td >/tmp</td>	<td >&nbsp;</td>	<td >Directory for trace files</td></tr><tr><td >traceFile</td>	<td ><a HREF="#rn3">(note 3)</a></td>	<td >-tracefile</td>	<td >File for trace output</td></tr>
 <tr><td >werase</td>	<td >^W</td>	<td >&nbsp;</td>	<td ><font size=-1>NVT</font>-mode word-erase character</td></tr>
 </table>
 <p>
@@ -568,15 +566,15 @@ would be sent as <b>IBM-3279-2-E</b>.
 Note also that when <font size=-1>TN3270E</font>
 mode is used, the terminal type is always sent as some type of 3278.
 <p>
-<a NAME="rn3"></a><i>Note 3</i>: The default trace file is <b>x3trc.</b><i>pid</i>
-in the directory specified by the <b>traceDir</b> resource.
-</blockquote>
+<a NAME="rn3"></a><i>Note 3</i>: The default trace file is
+
 <p>
 If more than one <b>-xrm</b> option is given for the same resource,
 the last one on the command line is used.
 <a NAME="See-Also"></a><h2>See Also</h2>
+
 <a HREF="x3270-man.html">x3270(1)</a>, <a HREF="s3270-man.html">s3270(1)</a>, <a HREF="c3270-man.html">c3270(1)</a>, telnet(1), tn3270(1)
-<br>
+XX_BRdnl
 Data Stream Programmer's Reference, IBM GA23-0059
 <br>
 Character Set Reference, IBM GA27-3831
@@ -588,7 +586,7 @@ RFC 1646, TN3270 Extensions for LUname and Printer Selection
 RFC 2355, TN3270 Enhancements
 <a NAME="Copyrights"></a><h2>Copyrights</h2>
 <p>
-Modifications Copyright &copy; 1993, 1994, 1995, 1996, 1997, 1999, 2000, 2001, 2002, 2004 by Paul Mattes.
+Modifications Copyright &copy; 1993, 1994, 1995, 1996, 1997, 1999, 2000, 2001, 2002, 2004, 2005, 2006, 2007 by Paul Mattes.
 <br>
 Original X11 Port Copyright &copy; 1990 by Jeff Sparkes.
 <blockquote>Permission to use, copy, modify, and distribute this software and its
@@ -605,12 +603,12 @@ tcl3270 is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
 <a NAME="Version"></a><h2>Version</h2>
-tcl3270 3.3.4
+tcl3270 3.3.5
 <hr>
 <address>
 This HTML document and the accompanying troff document were generated with
 a set of write-only <b>m4</b> macros and the powerful <b>vi</b> editor.
-<br>Last modified 09 April 2005.
+<br>Last modified 02 February 2007.
 </address>
 </body>
 </html>

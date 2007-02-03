@@ -63,7 +63,9 @@
 
 /* Statics */
 static int      dscnt = 0;
+#if !defined(_WIN32) /*[*/
 static int      tracewindow_pid = -1;
+#endif /*]*/
 static FILE    *tracef = NULL;
 static FILE    *tracef_pipe = NULL;
 static char    *tracef_bufptr = CN;
@@ -135,6 +137,9 @@ trace_ds(const char *fmt, ...)
 {
 	va_list args;
 
+	if (!toggled(DS_TRACE) || tracef == NULL)
+		return;
+
 	va_start(args, fmt);
 
 	/* allocate buffer */
@@ -151,6 +156,9 @@ void
 trace_ds_nb(const char *fmt, ...)
 {
 	va_list args;
+
+	if (!toggled(DS_TRACE) || tracef == NULL)
+		return;
 
 	va_start(args, fmt);
 
@@ -208,9 +216,10 @@ vwtrace(const char *fmt, va_list args)
 		int nw;
 
 		nw = vfprintf(tracef, fmt, args);
-		if (nw > 0)
+		if (nw > 0) {
 			tracef_size += nw;
-		else if (nw < 0) {
+			fflush(tracef);
+		} else if (nw < 0) {
 			if (errno != EPIPE
 #if defined(EILSEQ) /*[*/
 					   && errno != EILSEQ
@@ -376,7 +385,7 @@ trace_rollover_check(void)
 
 #if defined(X3270_DISPLAY) /*[*/
 static Widget trace_shell = (Widget)NULL;
-#endif
+#endif /*]*/
 static int trace_reason;
 
 /* Create a trace file header. */
@@ -642,7 +651,9 @@ tracefile_callback(Widget w, XtPointer client_data, XtPointer call_data unused)
 				return;
 			}
 			(void) SETLINEBUF(tracef);
+#if !defined(_WIN32) /*[*/
 			(void) fcntl(fileno(tracef), F_SETFD, 1);
+#endif /*]*/
 		}
 	}
 
@@ -721,8 +732,12 @@ tracefile_on(int reason, enum toggle_type tt)
 	if (appres.trace_file)
 		tracefile = appres.trace_file;
 	else {
+#if defined(_WIN32) /*[*/
+		(void) sprintf(tracefile_buf, "x3trc.%d.txt", getpid());
+#else /*][*/
 		(void) sprintf(tracefile_buf, "%s/x3trc.%d", appres.trace_dir,
 			getpid());
+#endif /*]*/
 		tracefile = tracefile_buf;
 	}
 
@@ -760,9 +775,11 @@ tracefile_off(void)
 
 	clk = time((time_t *)0);
 	wtrace("Trace stopped %s", ctime(&clk));
+#if !defined(_WIN32) /*[*/
 	if (tracewindow_pid != -1)
 		(void) kill(tracewindow_pid, SIGKILL);
 	tracewindow_pid = -1;
+#endif /*]*/
 	stop_tracing();
 }
 
@@ -871,7 +888,9 @@ screentrace_cb(char *tfn)
 	}
 	Free(tfn);
 	(void) SETLINEBUF(screentracef);
+#if !defined(_WIN32) /*[*/
 	(void) fcntl(fileno(screentracef), F_SETFD, 1);
+#endif /*]*/
 
 	/* We're really tracing, turn the flag on. */
 	appres.toggle[SCREEN_TRACE].value = True;

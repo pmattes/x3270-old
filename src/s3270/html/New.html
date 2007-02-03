@@ -1,16 +1,8 @@
 <!DOCTYPE doctype PUBLIC "-//w3c//dtd html 4.0 transitional//en">
 <html>
 <head>
-   
-  <meta http-equiv="Content-Type"
- content="text/html; charset=iso-8859-1">
-   
-  <meta name="Author" content="Paul Mattes">
-   
-  <meta name="GENERATOR"
- content="Mozilla/4.5 [en] (WinNT; U) [Netscape]">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
   <title>s3270 3.3 New Features</title>
-       
   <link href="http://www.w3.org/StyleSheets/Core/Steely" type="text/css"
  rel="stylesheet">
 </head>
@@ -28,6 +20,29 @@ codes internally, and to dispense with the confusing CG-code representation
 of the 3270 display. This required changing all of the logic that manipulates
 field attributes, as well as the logic that translates the host output and
 macro input.
+<h2>Changes in s3270 3.3.5, 1. February 2007</h2>
+<ul>
+  <li>Bug Fixes:
+    <ul>
+      <li>Fixed a scripting hang when the host disconnects during
+       <b>Wait(output)</b>).</li>
+      <li>Fixed a problem where <b>unlockDelay</b> could result in the
+       keyboard never unlocking, if the host unlocked the keyboard
+       often enough.</li>
+      <li>Added a workaround for very old <i>snprintf</i>()
+       implementations.</li>
+      <li>Enlarged the input buffer in x3270if. (Thanks to Igor Klingen for the fix.)</li>
+      <li>Fixed a problem with CR/LF translation on ASCII file transfers.</li>
+    </ul>
+  </li>
+  <li>New Features:
+    <ul>
+      <li>Added a <b>-socket</b> option to x3270, s3270 and c3270 to allow a
+        script to connect to a Unix-domain socket to control the emulator, and
+        added a <b>-p</b> option to x3270if to connect to the socket.</li>
+    </ul>
+  </li>
+</ul>
 <h2>Changes in s3270 3.3.4, 10. April 2005</h2>
 <ul>
   <li>Bug Fixes:

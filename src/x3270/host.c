@@ -195,7 +195,11 @@ hostfile_lookup(const char *name, char **hostname, char **loginstring)
 			continue;
 		if (!strcmp(name, h->name)) {
 			*hostname = h->hostname;
-			*loginstring = h->loginstring;
+			if (h->loginstring != CN) {
+				*loginstring = h->loginstring;
+			} else {
+				*loginstring = appres.login_macro;
+			}
 			return 1;
 		}
 	}
@@ -616,6 +620,8 @@ host_connect(const char *n)
 	/* Success. */
 
 	/* Set pending string. */
+	if (ps == CN)
+		ps = appres.login_macro;
 	if (ps != CN)
 		login_macro(ps);
 

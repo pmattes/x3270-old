@@ -13,6 +13,6 @@
 
 /* c3270 version of popupsc.h */
 
-extern void action_output(const char *fmt, ...);
-extern void popup_an_errno(int errn, const char *fmt, ...);
-extern void popup_an_error(const char *fmt, ...);
+extern void action_output(const char *fmt, ...) printflike(1, 2);
+extern void popup_an_errno(int errn, const char *fmt, ...) printflike(2, 3);
+extern void popup_an_error(const char *fmt, ...) printflike(1, 2);

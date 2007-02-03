@@ -1,4 +1,4 @@
-# Copyright 1999, 2000, 2001, 2002, 2004 by Paul Mattes.
+# Copyright 1999, 2000, 2001, 2002, 2004, 2005 by Paul Mattes.
 #  Permission to use, copy, modify, and distribute this software and its
 #  documentation for any purpose and without fee is hereby granted,
 #  provided that the above copyright notice appear in all copies and that
@@ -60,7 +60,7 @@ fallbacks.c: mkfb X3270.xad
 c3270: $(OBJS1)
 	$(CC) -o $@ $(OBJS1) $(LDFLAGS) $(LIBS)
 x3270if: x3270if.o
-	$(CC) -o $@ x3270if.o
+	$(CC) -o $@ x3270if.o $(LDFLAGS) $(LIBS)
 
 @PR@all::
 @PR@	-cd pr3287 && $(MAKE)
@@ -80,6 +80,7 @@ install:: c3270 x3270if
 		mkdir -p $(DESTDIR)$(BINDIR)
 	$(INSTALL_PROGRAM) c3270 $(DESTDIR)$(BINDIR)/c3270
 	$(INSTALL_PROGRAM) x3270if $(DESTDIR)$(BINDIR)/x3270if
+	$(INSTALL_PROGRAM) x3270hist.pl $(DESTDIR)$(BINDIR)/x3270hist.pl
 install::
 	[ -d $(DESTDIR)$(LIBX3270DIR) ] || \
 		mkdir -p $(DESTDIR)$(LIBX3270DIR)
@@ -100,6 +101,12 @@ install.man:
 	$(INSTALL_DATA) x3270-script.man $(DESTDIR)$(MANDIR)/man1/x3270-script.1
 	$(INSTALL_DATA) ibm_hosts.man $(DESTDIR)$(MANDIR)/man5/ibm_hosts.5
 @PR@	-cd pr3287 && $(MAKE) install.man
+
+# Cygwin standalone distribution
+standalone: c3270-standalone.zip
+
+c3270-standalone.zip: c3270 make-cygwin-standalone runc3270.bat
+	./make-cygwin-standalone
 
 clean::
 	$(RM) c3270 *.o mkfb fallbacks.c

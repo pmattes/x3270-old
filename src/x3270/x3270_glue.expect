@@ -235,7 +235,7 @@ namespace eval x3270 {
 	proc TemporaryKeymap {args} { return [cmd "TemporaryKeymap($args)"] }
 	proc Transfer {args} { return [cmd "Transfer([commafy $args])"] }
 	proc Up {} { return [cmd "Up"] }
-	proc Wait {args} { return [cmd "Wait($args)"] }
+	proc Wait {args} { return [cmd "Wait([commafy $args])"] }
 
 	# Extra function to toggle verbosity on the fly.
 	proc Setverbose {level} {

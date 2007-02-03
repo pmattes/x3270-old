@@ -1,5 +1,5 @@
 /*
- * Copyright 2000, 2001 by Paul Mattes.
+ * Copyright 2000, 2001, 2006 by Paul Mattes.
  *   Permission to use, copy, modify, and distribute this software and its
  *   documentation for any purpose and without fee is hereby granted,
  *   provided that the above copyright notice appear in all copies and that
@@ -29,6 +29,12 @@
 #define P_INTERACTIVE	0x0004	/* interactive (command-prompt) actions */
 #define P_OPTIONS	0x0008	/* command-line options */
 #define P_TRANSFER	0x0010	/* file transfer options */
+
+#if defined(WC3270) /*[*/
+#define PROGRAM	"wc3270"
+#else /*][*/
+#define PROGRAM	"c3270"
+#endif /*]*/
 
 static struct {
 	const char *name;
@@ -95,7 +101,7 @@ static struct {
 	{ "PF", "<n>", P_3270, "Send 3270 PF AID" },
 	{ "PreviousWord", CN, P_3270, "Move cursor to previous word" },
 	{ "Printer", "Start[,lu]|Stop", P_3270|P_SCRIPTING|P_INTERACTIVE, "Start or stop pr3287 printer session" },
-	{ "Quit", CN, P_INTERACTIVE, "Exit c3270" },
+	{ "Quit", CN, P_INTERACTIVE, "Exit " PROGRAM },
 	{ "Redraw", CN, P_INTERACTIVE|P_3270, "Redraw screen" },
 	{ "Reset", CN, P_3270, "Clear keyboard lock" },
 	{ "Right", CN, P_3270, "Move cursor right" },
@@ -137,7 +143,7 @@ static const char *options_help[] = {
 	"    Turn on the specified <toggle> option",
 	"  " OptTermName " <name>",
 	"    Send <name> as the TELNET terminal name",
-	"  -xrm \"c3270.<resourcename>: <value>\"",
+	"  -xrm \"" PROGRAM ".<resourcename>: <value>\"",
 	"    Set a resource value",
 	NULL
 };
@@ -174,8 +180,12 @@ static struct {
 	{ "3270",		P_3270,		CN, NULL },
 	{ "interactive",	P_INTERACTIVE,	CN, NULL },
 	{ "options",		P_OPTIONS,	CN, options_help },
+#if defined(X3270_SCRIPT) /*[*/
 	{ "scripting",		P_SCRIPTING,	CN, NULL },
+#endif /*]*/
+#if defined(X3270_FT) /*[*/
 	{ "file-transfer",	P_TRANSFER,	CN, ft_help },
+#endif /*]*/
 	{ CN, 0, CN }
 };
 
@@ -197,8 +207,13 @@ Help_action(Widget w unused, XEvent *event unused, String *params,
 "  help interactive   interactive (command-prompt) commands\n"
 "  help <command>     help for one <command>\n"
 "  help options       command-line options\n"
+#if defined(X3270_SCRIPT) /*[*/
 "  help scripting     scripting commands\n"
-"  help file-transfer file transfer options");
+#endif /*]*/
+#if defined(X3270_FT) /*[*/
+"  help file-transfer file transfer options\n"
+		);
+#endif /*]*/
 		return;
 	}
 

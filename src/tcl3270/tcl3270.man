@@ -1,5 +1,5 @@
 '\" t
-.TH tcl3270 1 "09 April 2005"
+.TH tcl3270 1 "02 February 2007"
 .SH "NAME"
 tcl3270 \-
 \s-1IBM\s+1 host access tool
@@ -9,6 +9,7 @@ tcl3270 \-
 [\fIoptions\fP]
 [\fIhost\fP]
 [\-\- \fIscript-arg\fP...]
+
 
 .SH "DESCRIPTION"
 \fBtcl3270\fP opens
@@ -28,8 +29,7 @@ The full syntax for \fIhost\fP is:
 .LP
 Prepending a \fBP:\fP onto \fIhostname\fP causes the connection to go
 through the \fItelnet-passthru\fP service rather than directly to the host.
-See \s-1PASSTHRU\s+1 below.
-.LP
+See \s-1PASSTHRU\s+1 below..LP
 Prepending an \fBS:\fP onto \fIhostname\fP removes the "extended data
 stream" option reported to the host.
 See \fB\-tn\fP below for further information.
@@ -59,8 +59,7 @@ This allows numeric IPv6 addresses to be used as hostnames.
 On systems that support the \fIforkpty\fP library call, the
 \fIhostname\fP may be replaced with \fB\-e\fP and a command string.
 This will cause \fBtcl3270\fP to connect to a local child process, such as
-a shell.
-.LP
+a shell..LP
 The port to connect to defaults to
 \fBtelnet\fP.
 This can be overridden with the \fB\-port\fP option, or by appending
@@ -84,14 +83,12 @@ below.
 .TP
 \fB\-im\fP \fImethod\fP
 Specifies the name of the input method to use for multi-byte input.
-(Supported only when tcl3270 is compiled with DBCS support.)
-.TP
+(Supported only when tcl3270 is compiled with DBCS support.).TP
 \fB\-km\fP \fIname\fP
 Specifies the local encoding method for multi-byte text.
 \fIname\fP is an encoding name recognized by the ICU library.
 (Supported only when tcl3270 is compiled with DBCS support, and necessary
-only when tcl3270 cannot figure it out from the locale.)
-.TP
+only when tcl3270 cannot figure it out from the locale.).TP
 \fB\-model\fP \fIname\fP
 The model of 3270 display to be emulated.
 The model name is in two parts, either of which may be omitted:
@@ -206,6 +203,8 @@ This option changes the default port number used for all connections.
 Sets the initial value of \fItoggle\fP to \fBtrue\fP.
 The list of toggle names is under \s-1TOGGLES\s+1
 below.
+The \fB\-p\fP option of \fIx3270if\fP causes it to use this socket,
+instead of pipes specified by environment variables.
 .TP
 \fB\-tn\fP \fIname\fP
 Specifies the terminal name to be transmitted over the telnet connection.
@@ -229,9 +228,7 @@ The default trace file name is
 \fB/tmp/x3trc.\fP\fIprocess_id\fP.
 .TP
 \fB\-tracefile\fP \fIfile\fP
-Specifies a file to save data stream and event traces into, overriding the
-default of
-\fB/tmp/x3trc.\fP\fIprocess_id\fP.
+Specifies a file to save data stream and event traces into.
 .TP
 \fB\-tracefilesize\fP \fIsize\fP
 Places a limit on the size of a trace file.
@@ -382,7 +379,7 @@ T}
 T{
 .na
 .nh
-iso-hebrew
+hebrew
 T}	T{
 .na
 .nh
@@ -395,7 +392,7 @@ T}
 T{
 .na
 .nh
-iso-turkish
+turkish
 T}	T{
 .na
 .nh
@@ -1651,6 +1648,8 @@ be located in a field that will accept a \s-1TSO\s+1 or \s-1VM/CMS\s+1 command.
 Because of the complexity and number of options for file transfer, the
 parameters to the \fBTransfer\fP command take the unique form
 of \fIoption\fP=\fIvalue\fP, and can appear in any order.
+Note that if the \fIvalue\fP contains spaces (such as a VM/CMS file name),
+then the entire parameter must be quoted, e.g., "HostFile=xxx foo a".
 The options are:
 .LP
 .TS
@@ -2085,6 +2084,7 @@ In 3270 mode, the hexadecimal data represent \s-1EBCDIC\s+1 characters, which
 are entered into the current field.
 In \s-1NVT\s+1 mode, the hexadecimal data represent \s-1ASCII\s+1 characters,
 which are sent directly to the host.
+
 .SH "PASSTHRU"
 \fBtcl3270\fP supports the Sun \fItelnet-passthru\fP
 service provided by the \fIin.telnet-gw\fP server.
@@ -2095,8 +2095,7 @@ It contacts the machine named \fBinternet-gateway\fP at the port defined in
 \fB/etc/services\fP as \fBtelnet-passthru\fP
 (which defaults to 3514).
 It then passes the requested hostname and port to the
-\fBin.telnet-gw\fP server.
-.SH "RESOURCES"
+\fBin.telnet-gw\fP server..SH "RESOURCES"
 Certain \fBtcl3270\fP
 options can be configured via resources.
 Resources are defined
@@ -2565,8 +2564,7 @@ T}	T{
 .na
 .nh
 Directory for trace files
-T}
-T{
+T}T{
 .na
 .nh
 traceFile
@@ -2614,16 +2612,15 @@ would be sent as \fBIBM-3279-2-E\fP.
 Note also that when \s-1TN3270E\s+1
 mode is used, the terminal type is always sent as some type of 3278.
 .LP
-\fINote 3\fP: The default trace file is \fBx3trc.\fP\fIpid\fP
-in the directory specified by the \fBtraceDir\fP resource.
+\fINote 3\fP: The default trace file is
 
-.RE
 .LP
 If more than one \fB\-xrm\fP option is given for the same resource,
 the last one on the command line is used.
 .SH "SEE ALSO"
+
 x3270(1), s3270(1), c3270(1), telnet(1), tn3270(1)
-.br
+XX_BRdnl
 Data Stream Programmer's Reference, IBM GA23-0059
 .br
 Character Set Reference, IBM GA27-3831
@@ -2635,7 +2632,7 @@ RFC 1646, TN3270 Extensions for LUname and Printer Selection
 RFC 2355, TN3270 Enhancements
 .SH "COPYRIGHTS"
 .LP
-Modifications Copyright 1993, 1994, 1995, 1996, 1997, 1999, 2000, 2001, 2002, 2004 by Paul Mattes.
+Modifications Copyright 1993, 1994, 1995, 1996, 1997, 1999, 2000, 2001, 2002, 2004, 2005, 2006, 2007 by Paul Mattes.
 .br
 Original X11 Port Copyright 1990 by Jeff Sparkes.
 .RS
@@ -2656,4 +2653,4 @@ tcl3270 is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
 .SH "VERSION"
-tcl3270 3.3.4
+tcl3270 3.3.5

@@ -19,7 +19,9 @@
  */
 
 #include "globals.h"
+#if !defined(_WIN32) /*[*/
 #include <pwd.h>
+#endif /*]*/
 #include <stdarg.h>
 #include "resources.h"
 
@@ -503,6 +505,7 @@ var_subst(const char *s)
 	return ob;
 }
 
+#if !defined(_WIN32) /*[*/
 /*
  * Do tilde (home directory) substitution on a string.  Returns a malloc'd
  * result.
@@ -555,6 +558,7 @@ tilde_subst(const char *s)
 	}
 	return r;
 }
+#endif /*]*/
 
 char *
 do_subst(const char *s, Boolean do_vars, Boolean do_tilde)
@@ -566,6 +570,7 @@ do_subst(const char *s, Boolean do_vars, Boolean do_tilde)
 		char *t;
 
 		t = var_subst(s);
+#if !defined(_WIN32) /*[*/
 		if (do_tilde) {
 			char *u;
 
@@ -573,10 +578,15 @@ do_subst(const char *s, Boolean do_vars, Boolean do_tilde)
 			Free(t);
 			return u;
 		}
+#endif /*]*/
 		return t;
 	}
 
+#if !defined(_WIN32) /*[*/
 	return tilde_subst(s);
+#else /*][*/
+	return NewString(s);
+#endif /*]*/
 }
 
 /*
@@ -684,6 +694,7 @@ split_hier(char *label, char **base, char ***parents)
  * Incremental, reallocing version of snprintf.
  */
 #define RPF_BLKSIZE	4096
+#define SP_TMP_LEN	16384
 
 /* Initialize an RPF structure. */
 void
@@ -708,17 +719,17 @@ rpf(rpf_t *r, char *fmt, ...)
 	va_list a;
 	Boolean need_realloc = False;
 	int ns;
+	char tbuf[SP_TMP_LEN];
 
 	/* Figure out how much space would be needed. */
 	va_start(a, fmt);
-	ns = vsnprintf(NULL, 0, fmt, a);
-	if (ns < 0) {
-		Error("broken snprintf");
-	}
-	ns++;
+	ns = vsprintf(tbuf, fmt, a); /* XXX: dangerous, but so is vsnprintf */
+	va_end(a);
+	if (ns >= SP_TMP_LEN)
+	    Error("rpf overrun");
 
 	/* Make sure we have that. */
-	while (r->alloc_len - r->cur_len < ns) {
+	while (r->alloc_len - r->cur_len < ns + 1) {
 		r->alloc_len += RPF_BLKSIZE;
 		need_realloc = True;
 	}
@@ -727,9 +738,8 @@ rpf(rpf_t *r, char *fmt, ...)
 	}
 
 	/* Scribble onto the end of that. */
-	(void) vsnprintf(r->buf + r->cur_len, ns, fmt, a);
-	r->cur_len += ns - 1;
-	va_end(a);
+	(void) strcpy(r->buf + r->cur_len, tbuf);
+	r->cur_len += ns;
 }
 
 /* Free resources associated with an RPF. */
@@ -770,63 +780,166 @@ get_resource(const char *name)
  * Input callbacks.
  */
 typedef void voidfn(void);
-static void
-io_fn(XtPointer closure, int *source unused, XtInputId *id unused)
-{
-	voidfn *fn = (voidfn *)closure;
 
-	(*fn)();
+typedef struct iorec {
+	voidfn		*fn;
+	XtInputId	 id;
+	struct iorec	*next;
+} iorec_t;
+
+static iorec_t *iorecs = NULL;
+
+static void
+io_fn(XtPointer closure, int *source unused, XtInputId *id)
+{
+	iorec_t *iorec;
+
+	for (iorec = iorecs; iorec != NULL; iorec = iorec->next) {
+	    if (iorec->id == *id) {
+		(*iorec->fn)();
+		break;
+	    }
+	}
 }
 
 unsigned long
 AddInput(int sock, voidfn *fn)
 {
-	return XtAppAddInput(appcontext, sock, (XtPointer) XtInputReadMask,
-		io_fn, (XtPointer)fn);
+	iorec_t *iorec;
+
+	iorec = (iorec_t *)XtMalloc(sizeof(iorec_t));
+	iorec->fn = fn;
+	iorec->id = XtAppAddInput(appcontext, sock,
+		(XtPointer) XtInputReadMask, io_fn, NULL);
+
+	iorec->next = iorecs;
+	iorecs = iorec;
+
+	return iorec->id;
 }
 
 unsigned long
 AddExcept(int sock, voidfn *fn)
 {
-	return XtAppAddInput(appcontext, sock, (XtPointer) XtInputExceptMask,
-		io_fn, (XtPointer)fn);
+	iorec_t *iorec;
+
+	iorec = (iorec_t *)XtMalloc(sizeof(iorec_t));
+	iorec->fn = fn;
+	iorec->id = XtAppAddInput(appcontext, sock,
+		(XtPointer) XtInputExceptMask, io_fn, NULL);
+	iorec->next = iorecs;
+	iorecs = iorec;
+
+	return iorec->id;
 }
 
 unsigned long
 AddOutput(int sock, voidfn *fn)
 {
-	return XtAppAddInput(appcontext, sock, (XtPointer) XtInputWriteMask,
-		io_fn, (XtPointer)fn);
+	iorec_t *iorec;
+
+	iorec = (iorec_t *)XtMalloc(sizeof(iorec_t));
+	iorec->fn = fn;
+	iorec->id = XtAppAddInput(appcontext, sock,
+		(XtPointer) XtInputWriteMask, io_fn, NULL);
+	iorec->next = iorecs;
+	iorecs = iorec;
+
+	return iorec->id;
 }
 
 void
 RemoveInput(unsigned long cookie)
 {
-	XtRemoveInput((XtInputId)cookie);
+	iorec_t *iorec;
+	iorec_t *prev = NULL;
+
+	for (iorec = iorecs; iorec != NULL; iorec = iorec->next) {
+	    if (iorec->id == (XtInputId)cookie) {
+		break;
+	    }
+	    prev = iorec;
+	}
+
+	if (iorec != NULL) {
+		XtRemoveInput((XtInputId)cookie);
+		if (prev != NULL)
+			prev->next = iorec->next;
+		else
+			iorecs->next = iorec->next;
+		XtFree((XtPointer)iorec);
+	}
 }
 
 /*
  * Timer callbacks.
  */
+
+typedef struct torec {
+	voidfn		*fn;
+	XtIntervalId	 id;
+	struct torec	*next;
+} torec_t;
+
+static torec_t *torecs = NULL;
+
 static void
 to_fn(XtPointer closure, XtIntervalId *id)
 {
-	voidfn *fn = (voidfn *)closure;
+	torec_t *torec;
+	torec_t *prev = NULL;
 
-	(*fn)();
+	for (torec = torecs; torec != NULL; torec = torec->next) {
+		if (torec->id == *id) {
+			break;
+		}
+		prev = torec;
+	}
+
+	if (torec != NULL) {
+		(*torec->fn)();
+		if (prev != NULL)
+			prev->next = torec->next;
+		else
+			torecs = torec->next;
+		XtFree((XtPointer)torec);
+	}
 }
 
 unsigned long
 AddTimeOut(unsigned long msec, voidfn *fn)
 {
-	return (unsigned long) XtAppAddTimeOut(appcontext, msec, to_fn,
-		 (XtPointer)fn);
+	torec_t *torec;
+
+	torec = (torec_t *)XtMalloc(sizeof(torec_t));
+	torec->fn = fn;
+	torec->id = XtAppAddTimeOut(appcontext, msec, to_fn, NULL);
+	torec->next = torecs;
+	torecs = torec;
+	return (unsigned long)torec->id;
 }
 
 void
 RemoveTimeOut(unsigned long cookie)
 {
-	XtRemoveTimeOut((XtIntervalId)cookie);
+	torec_t *torec;
+	torec_t *prev = NULL;
+
+	for (torec = torecs; torec != NULL; torec = torec->next) {
+		if (torec->id == (XtIntervalId)cookie) {
+			break;
+		}
+		prev = torec;
+	}
+
+	if (torec != NULL) {
+		XtRemoveTimeOut((XtIntervalId)cookie);
+		if (prev != NULL)
+			prev->next = torec->next;
+		else
+			torecs = torec->next;
+		XtFree((XtPointer)torec);
+	}
 }
 
 KeySym

@@ -60,7 +60,7 @@ fallbacks.c: mkfb X3270.xad
 s3270: $(OBJS1)
 	$(CC) -o $@ $(OBJS1) $(LDFLAGS) $(LIBS)
 x3270if: x3270if.c
-	$(CC) $(CFLAGS) -o $@ x3270if.c
+	$(CC) $(CFLAGS) -o $@ x3270if.c $(LDFLAGS) $(LIBS)
 
 @CNV@all:: $(ICU_CNV)
 @CNV@$(IDP)_ibm-837_P100-2000.cnv: ibm-837_P100-2000.ucm

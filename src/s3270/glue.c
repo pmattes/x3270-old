@@ -1,6 +1,6 @@
 /*
  * Modifications Copyright 1993, 1994, 1995, 1996,
- *   2000, 2001, 2002, 2004 by Paul Mattes.
+ *   2000, 2001, 2002, 2004, 2006 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *   Permission to use, copy, modify, and distribute this software and its
  *   documentation for any purpose and without fee is hereby granted,
@@ -26,7 +26,9 @@
  */
 
 #include "globals.h"
+#if !defined(_WIN32) /*[*/
 #include <sys/wait.h>
+#endif /*]*/
 #include <signal.h>
 #include <errno.h>
 #include "appres.h"
@@ -55,6 +57,11 @@
 extern void usage(char *);
 
 #define LAST_ARG	"--"
+
+#if defined(WC3270) /*[*/
+#define PROFILE_SFX	".wc3270"
+#define PROFILE_SFX_LEN	(sizeof(PROFILE_SFX) - 1)
+#endif /*]*/
 
 #if defined(C3270) /*[*/
 extern void merge_profile(void); /* XXX */
@@ -127,6 +134,9 @@ parse_command_line(int argc, const char **argv, const char **cl_hostname)
 	char junk;
 	int hn_argc;
 	int model_number;
+#if defined(WC3270) /*[*/
+	int sl;
+#endif /*]*/
 
 	/* Figure out who we are */
 	programname = strrchr(argv[0], '/');
@@ -190,6 +200,19 @@ parse_command_line(int argc, const char **argv, const char **cl_hostname)
 			argv[i] = argv[i + hn_argc - 1];
 		}
 	}
+
+#if defined(WC3270) /*[*/
+	/* Merge in the profile. */
+	if (*cl_hostname != CN &&
+	    (sl = strlen(*cl_hostname)) > PROFILE_SFX_LEN &&
+	    !strcasecmp(*cl_hostname + sl - PROFILE_SFX_LEN, PROFILE_SFX)) {
+		(void) read_resource_file(*cl_hostname, False);
+		if (appres.hostname == CN) {
+		    Error("Hostname not specified in session file.");
+		}
+		*cl_hostname = appres.hostname;
+	}
+#endif /*]*/
 
 	/*
 	 * Sort out model and color modes, based on the model number resource.
@@ -343,6 +366,9 @@ parse_options(int *argcp, const char **argv)
     { OptSecure,   OPT_BOOLEAN, True,  ResSecure,    offset(secure) },
 #endif /*]*/
     { OptSet,      OPT_SKIP2,   False, NULL,         NULL },
+#if defined(X3270_SCRIPT) /*[*/
+    { OptSocket,   OPT_BOOLEAN, True,  ResSocket,    offset(socket) },
+#endif /*]*/
     { OptTermName, OPT_STRING,  False, ResTermName,  offset(termname) },
 #if defined(X3270_TRACE) /*[*/
     { OptTraceFile,OPT_STRING,  False, ResTraceFile, offset(trace_file) },
@@ -409,10 +435,21 @@ parse_options(int *argcp, const char **argv)
 	appres.eof = "^D";
 #endif /*]*/
 
-	appres.unlock_delay = False;
+	appres.unlock_delay = True;
 
 #if defined(X3270_FT) /*[*/
 	appres.dft_buffer_size = DFT_BUF;
+#endif /*]*/
+
+#if defined(C3270) /*[*/
+	appres.toggle[CURSOR_POS].value = True;
+#endif /*]*/
+#if defined(X3270_SCRIPT) || defined(TCL3270) /*[*/
+	appres.toggle[AID_WAIT].value = True;
+#endif /*]*/
+
+#if defined(C3270) && defined(X3270_SCRIPT) /*[*/
+	appres.plugin_command = "x3270hist.pl";
 #endif /*]*/
 
 #if defined(C3270) /*[*/
@@ -629,12 +666,18 @@ static struct {
 	{ ResFtCommand,	offset(ft_command),	XRM_STRING },
 	{ ResDftBufferSize,offset(dft_buffer_size),XRM_INT },
 #endif /*]*/
+#if defined(WC3270) /*[*/
+	{ "hostname",	offset(hostname),	XRM_STRING },
+#endif /*]*/
 	{ ResHostsFile,	offset(hostsfile),	XRM_STRING },
 #if defined(X3270_ANSI) /*[*/
 	{ ResIcrnl,	offset(icrnl),		XRM_BOOLEAN },
 	{ ResInlcr,	offset(inlcr),		XRM_BOOLEAN },
 	{ ResOnlcr,	offset(onlcr),		XRM_BOOLEAN },
 	{ ResIntr,	offset(intr),		XRM_STRING },
+#endif /*]*/
+#if defined(X3270_SCRIPT) /*[*/
+	{ ResPluginCommand, offset(plugin_command), XRM_STRING },
 #endif /*]*/
 #if defined(C3270) && defined(X3270_SCRIPT) /*[*/
 	{ ResIdleCommand,offset(idle_command),	XRM_STRING },
@@ -651,6 +694,7 @@ static struct {
 	{ ResKill,	offset(kill),		XRM_STRING },
 	{ ResLnext,	offset(lnext),		XRM_STRING },
 #endif /*]*/
+	{ ResLoginMacro,offset(login_macro),	XRM_STRING },
 	{ ResM3279,	offset(m3279),		XRM_BOOLEAN },
 	{ ResModel,	offset(model),		XRM_STRING },
 	{ ResModifiedSel, offset(modified_sel),	XRM_BOOLEAN },
@@ -704,7 +748,11 @@ strncapcmp(const char *known, const char *unknown, unsigned unk_len)
 
 #if !defined(ME) /*[*/
 #if defined(C3270) /*[*/
+#if defined(WC3270) /*[*/
+#define ME	"wc3270"
+#else /*][*/
 #define ME	"c3270"
+#endif /*]*/
 #elif defined(TCL3270) /*][*/
 #define ME	"tcl3270"
 #else /*][*/
@@ -1095,3 +1143,28 @@ action_output(const char *fmt, ...)
 		macro_output = True;
 	}
 }
+
+#if defined(_WIN32) /*[*/
+
+/* Missing parts for wc3270. */
+#include <windows.h>
+#define SECS_BETWEEN_EPOCHS	11644473600ULL
+#define SECS_TO_100NS		10000000ULL /* 10^7 */
+
+int
+gettimeofday(struct timeval *tv, void *ignored)
+{
+	FILETIME t;
+	ULARGE_INTEGER u;
+
+	GetSystemTimeAsFileTime(&t);
+	memcpy(&u, &t, sizeof(ULARGE_INTEGER));
+
+	/* Isolate seconds and move epochs. */
+	tv->tv_sec = (DWORD)((u.QuadPart / SECS_TO_100NS) -
+			       	SECS_BETWEEN_EPOCHS);
+	tv->tv_usec = (u.QuadPart % SECS_TO_100NS) / 10ULL;
+	return 0;
+}
+
+#endif /*]*/
