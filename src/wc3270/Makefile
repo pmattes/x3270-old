@@ -33,7 +33,7 @@ fallbacks.c: mkfb.exe X3270.xad
 	./mkfb -c X3270.xad $@
 
 mkfb.exe: mkfb.c
-	$(CC) -g -o mkfb mkfb.c
+	$(CC) -g -o mkfb -D_WIN32 mkfb.c
 
 wc3270res.o: wc3270.rc x3270-icon2.ico
 	windres -i wc3270.rc -o wc3270res.o

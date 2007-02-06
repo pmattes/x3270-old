@@ -3,7 +3,7 @@
 
 [Setup]
 AppName=wc3270
-AppVerName=wc3270 3.3.5
+AppVerName=wc3270 3.3.5p1
 AppPublisher=Paul Mattes
 AppPublisherURL=http://x3270.bgp.nu
 AppSupportURL=http://x3270.bgp.nu
@@ -34,8 +34,10 @@ Source: "\\Melville\pdm\psrc\x3270\Source\3.3\wc3270\html\New.html"; DestDir: "{
 Source: "\\Melville\pdm\psrc\x3270\Source\3.3\wc3270\html\README.html"; DestDir: "{app}\html"; Flags: ignoreversion
 Source: "\\Melville\pdm\psrc\x3270\Source\3.3\wc3270\html\wc3270-man.html"; DestDir: "{app}\html"; Flags: ignoreversion
 Source: "\\Melville\pdm\psrc\x3270\Source\3.3\wc3270\html\Wishlist.html"; DestDir: "{app}\html"; Flags: ignoreversion
+Source: "\\Melville\pdm\psrc\x3270\Source\3.3\wpr3287\html\wpr3287-man.html"; DestDir: "{app}\html"; Flags: ignoreversion
 Source: "\\Melville\pdm\psrc\x3270\Source\3.3\wc3270\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 Source: "\\Melville\pdm\psrc\x3270\Source\3.3\wc3270\README"; DestDir: "{app}"; Flags: ignoreversion
+Source: "\\Melville\pdm\psrc\x3270\Source\3.3\wpr3287\wpr3287.exe"; DestDir: "{app}"; Flags: ignoreversion
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Code]
@@ -45,11 +47,11 @@ begin
 end;
 
 [Icons]
-Name: "{group}\New wc3270 Session"; Filename: "{app}\wc3270wiz.exe"
-Name: "{group}\Run wc3270"; Filename: "{app}\wc3270.exe"
+Name: "{group}\New wc3270 Session"; Filename: "{app}\wc3270wiz.exe"; WorkingDir: "{app}"
+Name: "{group}\Run wc3270"; Filename: "{app}\wc3270.exe"; WorkingDir: "{app}"
 Name: "{group}\wc3270 Documentation"; Filename: "{app}\html\README.html"
-Name: "{userdesktop}\New wc3270 Session"; Filename: "{app}\wc3270wiz.exe"; Tasks: desktopicon
-Name: "{userdesktop}\wc3270"; Filename: "{app}\wc3270.exe"; Tasks: desktopicon
+Name: "{userdesktop}\New wc3270 Session"; Filename: "{app}\wc3270wiz.exe"; WorkingDir: "{app}"; Tasks: desktopicon
+Name: "{userdesktop}\wc3270"; Filename: "{app}\wc3270.exe"; WorkingDir: "{app}"; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\wc3270wiz.exe"; Description: "{cm:LaunchProgram,wc3270 New Session Wizard}"; Flags: nowait postinstall skipifsilent

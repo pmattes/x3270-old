@@ -282,9 +282,15 @@ x3270.traceCommand:			tail -f
 !
 ! Printer session options
 #endif
+#ifdef _WIN32
+x3270.printer.command:			PRINT
+x3270.printer.assocCommandLine:		wpr3287.exe -assoc %L% %R% %H%
+x3270.printer.luCommandLine:		wpr3287.exe %R% %L%@%H%
+#else
 x3270.printer.command:			lpr
 x3270.printer.assocCommandLine:		pr3287 -assoc %L% -command "%C%" %R% "%H%"
 x3270.printer.luCommandLine:		pr3287 -command "%C%" %R% "%L%@%H%"
+#endif
 #ifndef STANDALONE
 !
 ! Translation table for the '@server' pseudo-keymap, which is the keymap
@@ -1778,7 +1784,6 @@ x3270.codepage.us-intl:		37
 ! alias for 'us-intl' (backwards compatibility)
 x3270.charset.us:		\n
 x3270.codepage.us:		37
-x3270.displayCharset.us:	3270cg-1a,iso8859-1
 ! U.S. English w/Euro (code page 1140)
 x3270.codepage.us-euro:		0x02b70474
 x3270.displayCharset.us-euro:	3270cg-15a,3270cg-15,iso8859-15
@@ -1797,7 +1802,6 @@ x3270.emulatorFontList.3270cg-1a:	3270
 x3270.charset.bracket: \
 	0xad: [			\n	0xba: Yacute		\n\
 	0xbd: ]			\n	0xbb: diaeresis		\n
-x3270.displayCharset.bracket: 3270cg-1a,iso8859-1
 ! The codepage for 'bracket' is a lie, but there is no real codepage that
 ! corresponds to it.
 x3270.codepage.bracket:		37
@@ -1969,6 +1973,7 @@ x3270.codepage.hebrew: 0x03ad01a8
 x3270.displayCharset.hebrew: 3270cg-8,iso8859-8
 x3270.emulatorFontList.3270cg-8,iso8859-8: Hebrew 14-point 3270 Font: 3270h
 x3270.xkSelector.hebrew: 0x0c
+x3270.autoKeymap.hebrew: true
 ! Brazilian character set for x3270.
 ! With invaluable help from Ricardo Dias de Pinho - Rio de Janeiro(RJ) BRAZIL.
 x3270.codepage.brazilian: 275
@@ -2269,3 +2274,51 @@ x3270.charset.japanese-1399: #table\n\
   48  49  50  51  52  53  54  55  56  57   0   0   0   0   0   0
 x3270.dbcsConverters.japanese-1399: ibm-1399+ibm-1399,EUC-JP
 #endif
+! Non-standard Persian support.
+x3270.charset.persian: \
+	*0x42: 0x0622 \n\
+	*0x43: 0x0627 \n\
+	*0x44: 0x0628 \n\
+	*0x45: 0xfb56 \n\
+	*0x46: 0x062a \n\
+	*0x47: 0x062b \n\
+	*0x48: 0x062c \n\
+	*0x49: 0xfb7a \n\
+	*0x51: 0x062d \n\
+	*0x52: 0x062e \n\
+	*0x53: 0x062f \n\
+	*0x54: 0x0630 \n\
+	*0x55: 0x0631 \n\
+	*0x56: 0x0632 \n\
+	*0x57: 0xfb8b \n\
+	*0x58: 0x0633 \n\
+	*0x59: 0x0634 \n\
+	*0x62: 0x0635 \n\
+	*0x63: 0x0636 \n\
+	*0x64: 0x0638 \n\
+	*0x65: 0x0639 \n\
+	*0x66: 0x063a \n\
+	*0x67: 0x063b \n\
+	*0x68: 0x063d \n\
+	*0x69: 0x063e \n\
+	*0x70: 0x063f \n\
+	*0x71: 0x06a9 \n\
+	*0x72: 0x06af \n\
+	*0x73: 0x0641 \n\
+	*0x74: 0x0643 \n\
+	*0x75: 0x0644 \n\
+	*0x76: 0x0646 \n\
+	*0x77: 0x0645 \n\
+	*0x78: 0x064d \n\
+	*0x80: 0x064c \n\
+	*0x8c: 0x0621 \n\
+	*0x8d: 0x0623 \n\
+	*0x8e: 0x0625 \n\
+	*0x9c: 0x0629 \n\
+	*0x9d: 0x0626 \n\
+	*0x9e: 0xfdfc \n\
+	*0xcb: 0x061b \n\
+	*0xcc: 0x060c \n\
+	*0xcd: 0x061f
+x3270.codepage.persian: 37
+x3270.displayCharset.persian: iso10646-1

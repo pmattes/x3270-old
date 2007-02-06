@@ -346,6 +346,8 @@ main(int argc, char *argv[])
 #if !defined(_WIN32) /*[*/
 		if (children && waitpid(0, (int *)0, WNOHANG) > 0)
 			--children;
+#else /*][*/
+		printer_check();
 #endif /*]*/
 		screen_disp(False);
 	}

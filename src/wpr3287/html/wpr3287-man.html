@@ -1,0 +1,168 @@
+<html>
+<head>
+<title>wpr3287 Manual Page</title>
+<link HREF="http://www.w3.org/StyleSheets/Core/Steely" TYPE="text/css" REL="stylesheet">
+</head>
+<body>
+<h1>wpr3287 Manual Page</h1>
+<h2>Contents</h2>
+<blockquote>
+<a HREF="#Name">Name</a><br>
+<a HREF="#Synopsis">Synopsis</a><br>
+<a HREF="#Description">Description</a><br>
+<a HREF="#Options">Options</a><br>
+<a HREF="#See-Also">See Also</a><br>
+<a HREF="#Copyrights">Copyrights</a><br>
+<a HREF="#Version">Version</a><br>
+</blockquote>
+<a NAME="Name"></a><h2>Name</h2>
+wpr3287 -
+<font size=-1>IBM</font>
+host printing tool
+<a NAME="Synopsis"></a><h2>Synopsis</h2>
+<b>wpr3287</b>
+[ <i>options</i> ]       
+[ L: ] [[ <i>LUname</i> [, <i>LUname</i> ...]@] <i>hostname</i> [: <i>port</i> ]] 
+<a NAME="Description"></a><h2>Description</h2>
+<b>wpr3287</b>
+opens a telnet connection to an
+<font size=-1>IBM</font>
+host, and emulates an <font size=-1>IBM</font> 3287 printer.
+It implements RFCs 2355 (TN3270E), 1576 (TN3270) and 1646 (LU name selection).
+<p>
+If the <i>hostname</i> is prefixed with <b>L:</b>, the connection will be made
+through an SSL tunnel.
+<b>wpr3287</b> also supports TELNET START-TLS option negotiation without any
+need for command-line options.
+<p>
+A specific LU name to use may be specified by prepending it to the
+<i>hostname</i>
+with an
+`<b>@</b>'.
+Multiple LU names to try can be separated by commas.
+An empty LU can be placed in the list with an extra comma.
+<p>
+The port to connect to defaults to
+<b>telnet</b>.
+This can be overridden by appending a
+<i>port</i>
+to the
+<i>hostname</i>
+with a colon
+`<b>:</b>'.
+<a NAME="Options"></a><h2>Options</h2>
+<b>wpr3287</b>
+understands the following options:
+<dl><dt><b>-assoc</b> <i>LUname</i></dt><dd>
+Causes the session to be associated with the specified
+<i>LUname</i>.
+<dt><b>-blanklines</b></dt><dd>
+In LU3 formatted mode, print blank lines even if they are all NULLs or control
+characters.
+(This is a violation of the 3270 printer protocol, but some hosts require it.)
+<dt><b>-charset</b> <i>name</i></dt><dd>
+Specifies an alternate <font size=-1>EBCDIC</font>-to-<font size=-1>ASCII</font> mapping.
+The default maps the EBCDIC U.S. English character set to <font size=-1>ISO</font> 8859-1.
+Other built-in character sets are <b>bracket</b>, which corresponds to
+many older <font size=-1>IBM</font> hosts' mapping of the <b>[</b> and <b>]</b> characters,
+and the non-U.S. character sets <b>german</b>, <b>finnish</b>, <b>uk</b>,
+<b>norwegian</b>, <b>french</b>, <b>icelandic</b> and <b>belgian</b>.
+These correspond to the <b>x3270</b> character sets of the same names.
+<p>
+If <i>name</i> begins with an <b>@</b>, then the balance is intepreted as
+the name of a file containing character mappings.
+The file contains whitespace-separated tokens.
+Each token is a number specifying an EBCDIC code, an <b>=</b> character,
+and a number specifying the 8-bit ASCII character used to print that code.
+Blank lines and lines beginning with <b>#</b> are ignored.
+<p>
+If <i>name</i> begins with an <b>=</b>, then the balance is intepreted as
+a string containing mapping tokens, as in a file.
+<p>
+For example, a file defining the <b>uk</b> character set would look like
+this:
+<p>
+<blockquote><br>
+# UK character set
+<br>
+0x4a=0x24 0x5b=0xa3 0xa1=0xaf
+<br>
+0xb0=0xa2 0xb1=0x5b 0xba=0x5e
+<br>
+0xbc=0x7e</blockquote>
+<dt><b>-command</b> <i>command</i></dt><dd>
+Specifies the command to run for each print job.
+The default is
+<b>PRINT</b>.
+Note that <b>PRINT</b> can only print to parallel (<b>LPT:</b>) or serial
+(<b>COM:</b>) ports.
+To print to a printer queue, it is necessary to share the printer, then
+use the <b>NET USE</b> command to redirect a <b>LPT:</b> or <b>COM:</b>
+device to the printer share.
+<dt><b>-nocrlf</b></dt><dd>
+Causes newline characters in the output not to be expanded to
+carriage-return/linefeed sequences.
+
+<dt><b>-eojtimeout</b> <i>seconds</i></dt><dd>
+Causes <i>wpr3287</i> to flush the print job after <i>seconds</i> seconds
+of inactivity.
+<dt><b>-ignoreeoj</b></dt><dd>
+Ignore TN3270E PRINT-EOJ commands, relying on UNBIND commands to indicate
+the ends of print jobs.
+<dt><b>-ffskip</b></dt><dd>
+Causes <i>wpr3287</i> to ignore a FF (formfeed) order if it occurs
+at the top of a page.
+<dt><b>-ffthru</b></dt><dd>
+In SCS mode, causes <i>wpr3287</i> to pass FF (formfeed) orders through to the
+printer as ASCII formfeed characters, rather than simulating them based on the
+values of the MPL (maximum presentation line) and TM (top margin) parameters.
+<dt><b>-reconnect</b></dt><dd>
+Causes <i>wpr3287</i> to reconnect to the host, whenever the connection is
+broken.
+There is a 5-second delay between reconnect attempts, to reduce network
+thrashing for down or misconfigured hosts.
+<dt><b>-trace</b></dt><dd>
+Turns on data stream tracing.
+Trace information is usually saved in the file
+<b>x3trc.</b><i>pid</i><b>.txt</b>.
+
+</dl>
+
+<a NAME="See-Also"></a><h2>See Also</h2>
+wc3270(1)
+<br>
+Data Stream Programmer's Reference, IBM GA23-0059
+<br>
+Character Set Reference, IBM GA27-3831
+<br>
+3174 Establishment Controller Functional Description, IBM GA23-0218
+<br>
+RFC 1576, TN3270 Current Practices
+<br>
+RFC 1646, TN3270 Extensions for LUname and Printer Selection
+<br>
+RFC 2355, TN3270 Enhancements
+<a NAME="Copyrights"></a><h2>Copyrights</h2>
+<p>
+Modifications Copyright  &copy; 1993-1996, 1997, 1999-2005, 2007 by Paul Mattes.
+<br>
+Original X11 Port Copyright &copy; 1990 by Jeff Sparkes.
+<blockquote>Permission to use, copy, modify, and distribute this software and its
+documentation for any purpose and without fee is hereby granted,
+provided that the above copyright notice appear in all copies and that
+both that copyright notice and this permission notice appear in
+supporting documentation.</blockquote>
+Copyright &copy; 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.
+<blockquote>All Rights Reserved.  GTRC hereby grants public use of this software.
+Derivative works based on this software must incorporate this copyright
+notice.</blockquote>
+<a NAME="Version"></a><h2>Version</h2>
+wpr3287 3.3.5
+<hr>
+<address>
+This HTML document and the accompanying troff document were generated with
+a set of write-only <b>m4</b> macros and the powerful <b>vi</b> editor.
+<br>Last modified 06 February 2007.
+</address>
+</body>
+</html>
