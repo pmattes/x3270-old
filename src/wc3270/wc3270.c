@@ -864,6 +864,8 @@ copyright_dump(void)
 "Modifications and original code Copyright 1993, 1994, 1995, 1996,\n"
 " 2000, 2001, 2002, 2004, 2006, 2007 by Paul Mattes.\n"
 "Original X11 Port Copyright 1990 by Jeff Sparkes.\n"
+"DFT File Transfer Code Copyright October 1995 by Dick Altenbern.\n"
+"RPQNAMES Code Copyright 2004, 2005 by Don Russell.\n"
 "  Permission to use, copy, modify, and distribute this software and its\n"
 "  documentation for any purpose and without fee is hereby granted,\n"
 "  provided that the above copyright notice appear in all copies and that\n"

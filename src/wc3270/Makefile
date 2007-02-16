@@ -20,35 +20,35 @@ OBJECTS = XtGlue.o actions.o ansi.o apl.o wc3270.o charset.o ctlr.o \
 	sf.o tables.o telnet.o toggles.o trace_ds.o util.o \
 	xio.o version.o fallbacks.o keymap.o wc3270res.o
 LIBS = $(SSLLIB) -lws2_32
-WIZLIBS = -lole32 -luuid -lws2_32
+SHRTLIBS = -lole32 -luuid
 
-all: wc3270.exe wc3270wiz.exe
+all: wc3270.exe mkshort.exe
 
-version.o: $(VOBJS) version.txt mkversion.sh
+version.o: $(VOBJS) version.txt mkversion.sh Makefile
 	@chmod +x mkversion.sh version.txt
 	sh ./mkversion.sh $(CC) wc3270
 
-fallbacks.c: mkfb.exe X3270.xad
+fallbacks.c: mkfb.exe X3270.xad Makefile
 	$(RM) $@
 	./mkfb -c X3270.xad $@
 
-mkfb.exe: mkfb.c
+mkfb.exe: mkfb.c Makefile
 	$(CC) -g -o mkfb -D_WIN32 mkfb.c
 
-wc3270res.o: wc3270.rc x3270-icon2.ico
+wc3270res.o: wc3270.rc x3270-icon2.ico Makefile
 	windres -i wc3270.rc -o wc3270res.o
 
-wc3270.exe: $(OBJECTS)
+wc3270.exe: $(OBJECTS) Makefile
 	$(CC) -o wc3270 $(CFLAGS) $(OBJECTS) $(LIBS)
 
-wc3270wiz.exe: wizard.o wc3270res.o
-	$(CC) -o wc3270wiz $(CFLAGS) wizard.o wc3270res.o $(WIZLIBS)
+mkshort.exe: mkshort.o Makefile
+	$(CC) -o mkshort $(CFLAGS) mkshort.o $(SHRTLIBS)
 
 clean:
 	rm -f *.o mkfb.exe fallbacks.c
 
 clobber: clean
-	rm -f wc3270.exe
+	rm -f wc3270.exe mkshort.exe
 
 depend:
 	gccmakedep -fMakefile $(XCPPFLAGS) -s "# DO NOT DELETE" $(SRCS)

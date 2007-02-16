@@ -11,7 +11,7 @@ XCPPFLAGS = -D_WIN32 -DWPR3287
 CFLAGS = -mno-cygwin -g -Wall -Werror $(XCPPFLAGS) -I. $(SSLCPP)
 SRCS = charset.c ctlr.c pr3287.c see.c sf.c tables.c telnet.c trace_ds.c
 OBJECTS = charset.o ctlr.o pr3287.o see.o sf.o tables.o telnet.o trace_ds.o \
-	version.o
+	wpr3287res.o version.o
 LIBS = $(SSLLIB) -lws2_32
 
 all: wpr3287.exe
@@ -19,6 +19,9 @@ all: wpr3287.exe
 version.o: $(VOBJS) version.txt mkversion.sh
 	@chmod +x mkversion.sh version.txt
 	sh ./mkversion.sh $(CC) wpr3287
+
+wpr3287res.o: wpr3287.rc pr3287.ico
+	windres -i wpr3287.rc -o wpr3287res.o
 
 wpr3287.exe: $(OBJECTS)
 	$(CC) -o wpr3287 $(CFLAGS) $(OBJECTS) $(LIBS)
