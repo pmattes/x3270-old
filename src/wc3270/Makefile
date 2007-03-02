@@ -21,8 +21,9 @@ OBJECTS = XtGlue.o actions.o ansi.o apl.o wc3270.o charset.o ctlr.o \
 	xio.o version.o fallbacks.o keymap.o wc3270res.o
 LIBS = $(SSLLIB) -lws2_32
 SHRTLIBS = -lole32 -luuid
+WIZLIBS = -lole32 -luuid
 
-all: wc3270.exe mkshort.exe
+all: wc3270.exe mkshort.exe wc3270wiz.exe
 
 version.o: $(VOBJS) version.txt mkversion.sh Makefile
 	@chmod +x mkversion.sh version.txt
@@ -44,11 +45,14 @@ wc3270.exe: $(OBJECTS) Makefile
 mkshort.exe: mkshort.o Makefile
 	$(CC) -o mkshort $(CFLAGS) mkshort.o $(SHRTLIBS)
 
+wc3270wiz.exe: wizard.o wc3270res.o
+	$(CC) -o wc3270wiz $(CFLAGS) wizard.o wc3270res.o $(WIZLIBS)
+
 clean:
 	rm -f *.o mkfb.exe fallbacks.c
 
 clobber: clean
-	rm -f wc3270.exe mkshort.exe
+	rm -f wc3270.exe mkshort.exe wc3270wiz.exe
 
 depend:
 	gccmakedep -fMakefile $(XCPPFLAGS) -s "# DO NOT DELETE" $(SRCS)

@@ -3,7 +3,7 @@
 
 [Setup]
 AppName=wc3270
-AppVerName=wc3270 3.3.5p2
+AppVerName=wc3270 3.3.5p3
 AppPublisher=Paul Mattes
 AppPublisherURL=http://x3270.bgp.nu
 AppSupportURL=http://x3270.bgp.nu
@@ -24,7 +24,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-Source: "\\Melville\pdm\psrc\x3270\Source\3.3\wc3270\wc3270wiz\debug\wc3270wiz.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "\\Melville\pdm\psrc\x3270\Source\3.3\wc3270\wc3270wiz.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "\\Melville\pdm\psrc\x3270\Source\3.3\wc3270\wc3270.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "\\Melville\pdm\psrc\x3270\Source\3.3\wc3270\html\Bugs.html"; DestDir: "{app}\html"; Flags: ignoreversion
 Source: "\\Melville\pdm\psrc\x3270\Source\3.3\wc3270\html\Build.html"; DestDir: "{app}\html"; Flags: ignoreversion
