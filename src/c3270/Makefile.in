@@ -1,4 +1,4 @@
-# Copyright 1999, 2000, 2001, 2002, 2004, 2005 by Paul Mattes.
+# Copyright 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007 by Paul Mattes.
 #  Permission to use, copy, modify, and distribute this software and its
 #  documentation for any purpose and without fee is hereby granted,
 #  provided that the above copyright notice appear in all copies and that
@@ -80,7 +80,6 @@ install:: c3270 x3270if
 		mkdir -p $(DESTDIR)$(BINDIR)
 	$(INSTALL_PROGRAM) c3270 $(DESTDIR)$(BINDIR)/c3270
 	$(INSTALL_PROGRAM) x3270if $(DESTDIR)$(BINDIR)/x3270if
-	$(INSTALL_PROGRAM) x3270hist.pl $(DESTDIR)$(BINDIR)/x3270hist.pl
 install::
 	[ -d $(DESTDIR)$(LIBX3270DIR) ] || \
 		mkdir -p $(DESTDIR)$(LIBX3270DIR)

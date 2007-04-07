@@ -212,8 +212,8 @@ Help_action(Widget w unused, XEvent *event unused, String *params,
 #endif /*]*/
 #if defined(X3270_FT) /*[*/
 "  help file-transfer file transfer options\n"
-		);
 #endif /*]*/
+		);
 		return;
 	}
 
