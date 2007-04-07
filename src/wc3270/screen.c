@@ -610,13 +610,13 @@ screen_disp(Boolean erasing unused)
 						int fg, bg;
 
 						if (ea_buf[baddr].fg)
-							fg = cmap[ea_buf[baddr].fg
-							    & 0x0f];
+							fg = ea_buf[baddr].fg
+							    & 0x0f;
 						else
 							fg = COLOR_WHITE;
 						if (ea_buf[baddr].bg)
-							bg = cmap[ea_buf[baddr].bg
-							    & 0x0f];
+							bg = ea_buf[baddr].bg
+							    & 0x0f;
 						else
 							bg = COLOR_BLACK;
 						a = get_color_pair(fg, bg) |
@@ -671,13 +671,13 @@ screen_disp(Boolean erasing unused)
 						int fg, bg;
 
 						if (ea_buf[baddr].fg)
-							fg = cmap[ea_buf[baddr].fg
-							    & 0x0f];
+							fg = ea_buf[baddr].fg
+							    & 0x0f;
 						else
 							fg = COLOR_WHITE;
 						if (ea_buf[baddr].bg)
-							bg = cmap[ea_buf[baddr].bg
-							    & 0x0f];
+							bg = ea_buf[baddr].bg
+							    & 0x0f;
 						else
 							bg = COLOR_BLACK;
 						b |= get_color_pair(fg, bg);

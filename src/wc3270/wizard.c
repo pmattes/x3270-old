@@ -256,7 +256,7 @@ session_wizard(void)
 	char charset[STR_SIZE];
 
 	printf(
-"wc3270 Session Wizard                                            v3.3.5p3\n\n\
+"wc3270 Session Wizard                                            v3.3.5p7\n\n\
 This wizard sets up a new wc3270 session.\n\n\
 It creates a session profile in the wc3270 installation directory and a\n\
 shortcut on your desktop.\n\n");
