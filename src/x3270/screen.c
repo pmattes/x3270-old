@@ -1365,7 +1365,7 @@ do_redraw(Widget w, XEvent *event, String *params unused,
 		if (startrow > 0)
 			startrow--;
 		endrow = ssY_TO_ROW(y+height);
-		endrow = endrow >= maxROWS ? maxROWS : endrow + 1;
+		endrow = (endrow >= maxROWS)? maxROWS: endrow + 1;
 		startcol = ssX_TO_COL(x);
 		if (startcol < 0)
 			startcol = 0;
@@ -1373,7 +1373,7 @@ do_redraw(Widget w, XEvent *event, String *params unused,
 			startcol--;
 		if (startcol >= maxCOLS)
 			goto no_draw;
-		ncols = (width / ss->char_width) + 2;
+		ncols = ((width + (ss->char_width / 2)) / ss->char_width) + 3;
 		if (startcol + ncols > maxCOLS)
 			ncols = maxCOLS - startcol;
 		while ((ROWCOL_TO_BA(startrow, startcol) % maxCOLS) + ncols > maxCOLS)
@@ -1548,7 +1548,7 @@ render_blanks(int baddr, int height, union sp *buffer)
 	XFillRectangle(display, ss->window,
 	    get_gc(ss, INVERT_COLOR(0)),
 	    x, y - ss->ascent,
-	    (ss->char_width * COLS) + 1, (ss->char_height * height));
+	    ss->char_width * COLS, (ss->char_height * height));
 
 	(void) memmove(&ss->image[baddr], &buffer[baddr],
 	                   COLS * height *sizeof(union sp));
@@ -1642,7 +1642,7 @@ resync_text(int baddr, int len, union sp *buffer)
 		XFillRectangle(display, ss->window,
 		    get_gc(ss, INVERT_COLOR(0)),
 		    x, y - ss->ascent,
-		    (ss->char_width * len) + 1, ss->char_height);
+		    ss->char_width * len, ss->char_height);
 	} else {
 		unsigned long attrs, attrs2;
 		Boolean has_gr, has_gr2;
@@ -2085,7 +2085,7 @@ screen_scroll(void)
 	XFillRectangle(display, ss->window, get_gc(ss, INVERT_COLOR(0)),
 	    ssCOL_TO_X(0),
 	    ssROW_TO_Y(ROWS - 1) - ss->ascent,
-	    (ss->char_width * COLS) + 1,
+	    ss->char_width * COLS,
 	    ss->char_height);
 	if (was_on)
 		cursor_on();
