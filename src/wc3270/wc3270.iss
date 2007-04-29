@@ -3,13 +3,13 @@
 
 [Setup]
 AppName=wc3270
-AppVerName=wc3270 3.3.5p7
+AppVerName=wc3270 3.3.5p8
 AppPublisher=Paul Mattes
 AppPublisherURL=http://x3270.bgp.nu
 AppSupportURL=http://x3270.bgp.nu
 AppUpdatesURL=http://x3270.bgp.nu
 DefaultDirName={pf}\wc3270
-DisableDirPage=yes
+DisableDirPage=no
 DefaultGroupName=wc3270
 AllowNoIcons=yes
 OutputBaseFilename=setup
@@ -63,7 +63,7 @@ Root: HKCR; Subkey: "wc3270\shell\open\command"; ValueType: string; ValueName: "
 [Run]
 Filename: "{app}\wc3270wiz.exe"; Description: "{cm:LaunchProgram,wc3270 New Session Wizard}"; Flags: nowait postinstall skipifsilent
 Filename: "{sys}\cmd.exe"; Parameters: {code:MyHelp}; Description: "{cm:LaunchProgram,Online Documentation}"; Flags: nowait postinstall skipifsilent
-Filename: "{app}\mkshort.exe"; Flags: nowait skipifsilent runhidden; Tasks: desktopicon
+Filename: "{app}\mkshort.exe"; Parameters: """{app}"""; Flags: nowait skipifsilent runhidden; Tasks: desktopicon
 
 [UninstallRun]
 Filename: "{sys}\cmd.exe"; Parameters: "/c erase ""{userdesktop}\wc3270.lnk"""; Tasks: desktopicon; Flags: runhidden

@@ -459,15 +459,52 @@ RemoveTimeOut(unsigned long timer)
 	}
 }
 
+/* Basic doubly-linked lists. */
+typedef struct _dkl {
+    	struct _dkl *next;
+	struct _dkl *prev;
+	void *payload;
+} dkl_t;
+
+void
+dkl_init(dkl_t *elt, void *payload)
+{
+    	elt->next = elt->prev = elt;
+	elt->payload = payload;
+}
+
+void
+dkl_append(dkl_t *head, dkl_t *elt)
+{
+    	elt->next = head;
+	elt->prev = head->prev;
+	head->prev->next = elt;
+	head->prev = elt;
+}
+
+void
+dkl_remove(dkl_t *elt)
+{
+	elt->prev->next = elt->next;
+	elt->next->prev = elt->prev;
+}
+
+int
+dkl_end(dkl_t *head, dkl_t *elt)
+{
+    	return (elt->next == head);
+}
+
 /* Input events. */ 
 typedef struct input {  
-        struct input *next;
+    	dkl_t dkl;
         int source; 
         int condition;
         void (*proc)(void);
 } input_t;          
-static input_t *inputs = (input_t *)NULL;
+static dkl_t inputs = { &inputs, &inputs, NULL };
 static Boolean inputs_changed = False;
+int num_inputs = 0;
 
 unsigned long
 AddInput(int source, void (*fn)(void))
@@ -478,9 +515,10 @@ AddInput(int source, void (*fn)(void))
 	ip->source = source;
 	ip->condition = InputReadMask;
 	ip->proc = fn;
-	ip->next = inputs;
-	inputs = ip;
+	dkl_init(&ip->dkl, ip);
+	dkl_append(&inputs, &ip->dkl);
 	inputs_changed = True;
+	num_inputs++;
 	return (unsigned long)ip;
 }
 
@@ -496,9 +534,10 @@ AddExcept(int source, void (*fn)(void))
 	ip->source = source;
 	ip->condition = InputExceptMask;
 	ip->proc = fn;
-	ip->next = inputs;
-	inputs = ip;
+	dkl_init(&ip->dkl, ip);
+	dkl_append(&inputs, &ip->dkl);
 	inputs_changed = True;
+	num_inputs++;
 	return (unsigned long)ip;
 #endif /*]*/
 }
@@ -513,33 +552,60 @@ AddOutput(int source, void (*fn)(void))
 	ip->source = source;
 	ip->condition = InputWriteMask;
 	ip->proc = fn;
-	ip->next = inputs;
-	inputs = ip;
+	dkl_init(&ip->dkl, ip);
+	dkl_append(&inputs, &ip->dkl);
 	inputs_changed = True;
+	num_inputs++;
 	return (unsigned long)ip;
 }
 #endif /*]*/
+
+input_t *
+FirstInput(void)
+{
+    	return (input_t *)inputs.next->payload;
+}
+
+input_t *
+NextInput(input_t *ip)
+{
+    	return (input_t *)((ip->dkl.next)->payload);
+}
+
+int
+LastInput(input_t *ip)
+{
+    	return (ip == NULL);
+}
 
 void
 RemoveInput(unsigned long id)
 {
 	input_t *ip;
-	input_t *prev = (input_t *)NULL;
 
-	for (ip = inputs; ip != (input_t *)NULL; ip = ip->next) {
+	for (ip = FirstInput(); !LastInput(ip); ip = NextInput(ip)) {
 		if (ip == (input_t *)id)
 			break;
-		prev = ip;
 	}
 	if (ip == (input_t *)NULL)
 		return;
-	if (prev != (input_t *)NULL)
-		prev->next = ip->next;
-	else
-		inputs = ip->next;
+	dkl_remove(&ip->dkl);
 	Free(ip);
 	inputs_changed = True;
+	num_inputs--;
 }
+
+#if defined(_WIN32) /*[*/
+/* Move an input to the tail of the list. */
+void
+TailInput(input_t *ip)
+{
+    	if (!LastInput(ip)) {
+	    	dkl_remove(&ip->dkl);
+		dkl_append(&inputs, &ip->dkl);
+	}
+}
+#endif /*]*/
 
 #if !defined(_WIN32) /*[*/
 /*
@@ -553,7 +619,7 @@ select_setup(int *nfds, fd_set *readfds, fd_set *writefds,
 	input_t *ip;
 	int r = 0;
 
-	for (ip = inputs; ip != (input_t *)NULL; ip = ip->next) {
+	for (ip = FirstInput(); !LastInput(ip); ip = NextInput(ip)) {
 		if ((unsigned long)ip->condition & InputReadMask) {
 			FD_SET(ip->source, readfds);
 			if (ip->source >= *nfds)
@@ -641,7 +707,7 @@ process_events(Boolean block)
 	FD_ZERO(&wfds);
 	FD_ZERO(&xfds);
 #endif /*]*/
-	for (ip = inputs; ip != (input_t *)NULL; ip = ip->next) {
+	for (ip = FirstInput(); !LastInput(ip); ip = NextInput(ip)) {
 		if ((unsigned long)ip->condition & InputReadMask) {
 #if defined(_WIN32) /*[*/
 			ha[nha++] = (HANDLE)ip->source;
@@ -713,11 +779,11 @@ process_events(Boolean block)
 	}
 	inputs_changed = False;
 #if defined(_WIN32) /*[*/
-	for (i = 0, ip = inputs; ip != (input_t *)NULL; ip = ip_next, i++) {
+	for (i = 0, ip = FirstInput(); !LastInput(ip); ip = ip_next, i++) {
 #else /*][*/
-	for (ip = inputs; ip != (input_t *)NULL; ip = ip_next) {
+	for (ip = FirstInput(); !LastInput(ip); ip = ip_next) {
 #endif /*]*/
-		ip_next = ip->next;
+		ip_next = NextInput(ip);
 		if (((unsigned long)ip->condition & InputReadMask) &&
 #if defined(_WIN32) /*[*/
 		    ret == WAIT_OBJECT_0 + i) {
@@ -728,6 +794,9 @@ process_events(Boolean block)
 			processed_any = True;
 			if (inputs_changed)
 				goto retry;
+#if defined(_WIN32) /*[*/
+			TailInput(ip);
+#endif /*]*/
 		}
 #if !defined(_WIN32) /*[*/
 		if (((unsigned long)ip->condition & InputWriteMask) &&

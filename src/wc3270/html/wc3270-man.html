@@ -258,6 +258,10 @@ into an field with (apparent) space at the end.
 <dt><b>lineWrap</b></dt><dd>
 If set, the <font size=-1>ANSI</font> terminal emulator automatically assumes
 a <font size=-1>NEWLINE</font> character when it reaches the end of a line.
+<dt><b>marginedPaste</b></dt><dd>
+If set, pasting multi-line input via the <b>Paste</b> action will maintain a
+left margin (it will not move the cursor further left than where the paste
+begins).
 </dl>
 <p>
 The names of the toggles for use with the <b>-set</b>
@@ -274,6 +278,7 @@ options are as follows:
 <tr><td >Trace Events</td>	<td >eventTrace</td></tr>
 <tr><td >Save Screen(s) in File</td>	<td >screenTrace</td></tr>
 <tr><td >Wraparound</td>	<td >lineWrap</td></tr>
+<tr><td >Paste with Left Margin</td>	<td >marginedPaste</td></tr>
 </table>
 <p>
 These names are also used as the first parameter to the <b>Toggle</b>
@@ -349,7 +354,7 @@ possibly waiting for a response.
 <tr><td >*PA(<i>n</i>)</td>	<td >Program Attention <font size=-1>AID</font> (<i>n</i> from 1 to 3)</td></tr>
 <tr><td >*PF(<i>n</i>)</td>	<td >Program Function <font size=-1>AID</font> (<i>n</i> from 1 to 24)</td></tr>
 <tr><td >PreviousWord</td>	<td >move cursor to previous word</td></tr>
-<tr><td >Printer(Start[,<i>lu</i>]|Stop)</td>	<td >Start or stop printer session</td></tr>
+<tr><td >Paste</td>	<td >insert clipboard contents</td></tr><tr><td >Printer(Start[,<i>lu</i>]|Stop)</td>	<td >start or stop printer session</td></tr>
 <tr><td >PrintText(<i>command</i>)</td>	<td >print screen text on printer</td></tr>
 <tr><td >Quit</td>	<td >exit <b>wc3270</b></td></tr>
 <tr><td >Redraw</td>	<td >redraw window</td></tr>
@@ -489,7 +494,7 @@ Available symbolic key names are:
 <b>SNAPSHOT</b>,
 <b>SUBTRACT</b>,
 <b>TAB</b>,
-<b>UP</b>
+<b>UP</b>.
 <p>
 The base keymap is:
 <p>
@@ -542,12 +547,24 @@ The base 3270-mode keymap adds:
 <tr><td >Ctrl&lt;Key>a</td>	<td >Attn</td></tr>
 <tr><td >Alt&lt;Key>a</td>	<td >Attn</td></tr>
 <tr><td >&lt;Key>End</td>	<td >FieldEnd</td></tr>
+<tr><td >Ctrl&lt;Key>v</td>	<td >Paste</td></tr>
+<tr><td >Ctrl&lt;Key>f</td>	<td >FieldMark</td></tr>
+<tr><td >Ctrl&lt;Key>d</td>	<td >Dup</td></tr>
+<tr><td >Ctrl&lt;Key>u</td>	<td >DeleteField</td></tr>
+<tr><td >Shift&lt;Key>Left</td>	<td >PreviousWord</td></tr>
+<tr><td >Shift&lt;Key>Right</td>	<td >NextWord</td></tr>
+<tr><td >Shift&lt;Key>End</td>	<td >EraseEOF</td></tr>
 </table>
 <a NAME="File-Transfer"></a><h2>File Transfer</h2>
 The <b>Transfer</b> action implements <b>IND$FILE</b> file transfer.
 This action requires that the <b>IND$FILE</b>
 program be installed on the <font size=-1>IBM</font> host, and that the 3270 cursor
 be located in a field that will accept a <font size=-1>TSO</font> or <font size=-1>VM/CMS</font> command.
+<p>
+The <b>Transfer</b> action
+can be entered at the command prompt with no parameters, which will cause it
+to prompt interactively for the file names and options.
+It can also be invoked with parameters to define the entire transfer.
 <p>
 Because of the complexity and number of options for file transfer, the
 parameters to the <b>Transfer</b> action take the unique form
@@ -723,6 +740,7 @@ associated with the specified LU.
 Certain <b>wc3270</b>
 options can be configured via resources.
 Resources are defined
+in the session file, or
 by <b>-xrm</b> options.
 The definitions are similar to X11 resources, and use a similar syntax.
 The resources available in <b>wc3270</b> are:
@@ -746,6 +764,7 @@ The resources available in <b>wc3270</b> are:
 <tr><td >lineWrap</td>	<td >False</td>	<td >-set lineWrap</td>	<td ><font size=-1>NVT</font> line wrap mode</td></tr>
 <tr><td >lnext</td>	<td >^V</td>	<td >&nbsp;</td>	<td ><font size=-1>NVT</font>-mode lnext character</td></tr>
 <tr><td >m3279</td>	<td ><a HREF="#rn1">(note 1)</a></td>	<td >-mono</td>	<td >3279 (color) emulation</td></tr>
+<tr><td >marginedPaste</td>	<td >False</td>	<td >-set marginedPaste</td>	<td >Keep left margin when pasting</td></tr>
 <tr><td >monoCase</td>	<td >False</td>	<td >-set monoCase</td>	<td >Mono-case mode</td></tr>
 <tr><td >numericLock</td>	<td >False</td>	<td >&nbsp;</td>	<td >Lock keyboard for numeric field error</td></tr>
 <tr><td >oerrLock</td>	<td >False</td>	<td >&nbsp;</td>	<td >Lock keyboard for input error</td></tr>
@@ -814,12 +833,12 @@ wc3270 is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
 <a NAME="Version"></a><h2>Version</h2>
-wc3270 3.3.5p7
+wc3270 3.3.5p8
 <hr>
-<address>
+<i>
 This HTML document and the accompanying troff document were generated with
 a set of write-only <b>m4</b> macros and the powerful <b>vi</b> editor.
-<br>Last modified 07 April 2007.
-</address>
+<br>Last modified 29 April 2007.
+</i>
 </body>
 </html>

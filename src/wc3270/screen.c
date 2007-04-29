@@ -40,6 +40,8 @@
 #include <windows.h>
 #include <wincon.h>
 
+extern int screen_changed;
+
 static int cmap[16] = {
 	0,					/* neutral black */
 	FOREGROUND_BLUE,			/* blue */
@@ -67,6 +69,10 @@ Boolean escaped = True;
 enum ts { TS_AUTO, TS_ON, TS_OFF };
 enum ts ab_mode = TS_AUTO;
 
+static CHAR_INFO *onscreen;	/* what's on the screen now */
+static CHAR_INFO *toscreen;	/* what's supposed to be on the screen */
+static int onscreen_valid = FALSE; /* is onscreen valid? */
+
 static int status_row = 0;	/* Row to display the status line on */
 static int status_skip = 0;	/* Row to blank above the status line */
 
@@ -87,12 +93,12 @@ static int apl_to_acs(unsigned char c);
 static HANDLE chandle;	/* console input handle */
 static HANDLE cohandle;	/* console screen buffer handle */
 
-static HANDLE sbuf[2];	/* dynamically-allocated screen buffers */
-static int sbuf_ix = 0;	/* current buffer */
-static int dirty = 0;	/* is the current buffer dirty? */
+static HANDLE *sbuf;	/* dynamically-allocated screen buffer */
 
 static int console_rows;
 static int console_cols;
+
+static int screen_swapped = FALSE;
 
 /*
  * Console event handler.
@@ -132,7 +138,7 @@ static HANDLE
 initscr(void)
 {
 	CONSOLE_SCREEN_BUFFER_INFO info;
-	int i;
+	size_t buffer_size;
 
 	/* Get a handle to the console. */
 	chandle = CreateFile("CONIN$", GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ,
@@ -165,20 +171,18 @@ initscr(void)
 	console_rows = info.srWindow.Bottom - info.srWindow.Top + 1;
 	console_cols = info.srWindow.Right - info.srWindow.Left + 1;
 
-	/* Create two screen buffers. */
-	for (i = 0; i < 2; i++) {
-		sbuf[i] = CreateConsoleScreenBuffer(
-			GENERIC_READ | GENERIC_WRITE,
-			FILE_SHARE_WRITE,
-			NULL,
-			CONSOLE_TEXTMODE_BUFFER,
-			NULL);
-		if (sbuf[i] == NULL) {
-			fprintf(stderr,
-				"CreateConsoleScreenBuffer failed: %ld\n",
-				GetLastError());
-			return NULL;
-		}
+	/* Create the screen buffer. */
+	sbuf = CreateConsoleScreenBuffer(
+		GENERIC_READ | GENERIC_WRITE,
+		FILE_SHARE_WRITE,
+		NULL,
+		CONSOLE_TEXTMODE_BUFFER,
+		NULL);
+	if (sbuf == NULL) {
+		fprintf(stderr,
+			"CreateConsoleScreenBuffer failed: %ld\n",
+			GetLastError());
+		return NULL;
 	}
 
 	/* Define a console handler. */
@@ -188,6 +192,13 @@ initscr(void)
 		return NULL;
 	}
 
+	/* Allocate and initialize the onscreen and toscreen buffers. */
+	buffer_size = sizeof(CHAR_INFO) * console_rows * console_cols;
+	onscreen = (CHAR_INFO *)Malloc(buffer_size);
+	(void) memset(onscreen, '\0', buffer_size);
+	onscreen_valid = FALSE;
+	toscreen = (CHAR_INFO *)Malloc(buffer_size);
+	(void) memset(toscreen, '\0', buffer_size);
 
 	/* More will no doubt follow. */
 	return chandle;
@@ -275,36 +286,15 @@ attrset(int a)
 static void
 addch(char c)
 {
-	CHAR_INFO buffer;
-	COORD bufferSize;
-	COORD bufferCoord;
-	SMALL_RECT writeRegion;
+	CHAR_INFO *ch = &toscreen[(cur_row * console_cols) + cur_col];
 
-	/* If the buffer wasn't dirty, it is now. */
-	if (!dirty) {
-		sbuf_ix = (sbuf_ix + 1) % 2;
-		dirty = 1;
-	}
-
-	/* Write it. */
 	if (!(cur_attr & FOREGROUND_INTENSITY))
 		abort();
-	buffer.Char.AsciiChar = c;
-	buffer.Attributes = cur_attr;
-	bufferSize.X = 1;
-	bufferSize.Y = 1;
-	bufferCoord.X = 0;
-	bufferCoord.Y = 0;
-	writeRegion.Left = cur_col;
-	writeRegion.Top = cur_row;
-	writeRegion.Right = cur_col;
-	writeRegion.Bottom = cur_row;
-	if (WriteConsoleOutput(sbuf[sbuf_ix], &buffer, bufferSize, bufferCoord,
-		&writeRegion) == 0) {
 
-		fprintf(stderr, "WriteConsoleOutput failed: %ld\n",
-			GetLastError());
-		x3270_exit(1);
+	/* Save the desired character. */
+	if (ch->Char.AsciiChar != c || ch->Attributes != cur_attr) {
+	    	ch->Char.AsciiChar = c;
+		ch->Attributes = cur_attr;
 	}
 
 	/* Increment and wrap. */
@@ -347,30 +337,314 @@ mvprintw(int row, int col, char *fmt, ...)
 	va_end(ap);
 }
 
+static int
+ix(int row, int col)
+{
+	return (row * console_cols) + col;
+}
+
+static char *done_array = NULL;
+
+static void
+none_done(void)
+{
+    	if (done_array == NULL) {
+	    	done_array = Malloc(console_rows * console_cols);
+	}
+	memset(done_array, '\0', console_rows * console_cols);
+}
+
+static int
+is_done(int row, int col)
+{
+    	return done_array[ix(row, col)];
+}
+
+static void
+mark_done(int start_row, int end_row, int start_col, int end_col)
+{
+    	int row;
+
+	for (row = start_row; row <= end_row; row++) {
+	    	memset(&done_array[ix(row, start_col)],
+			1, end_col - start_col + 1);
+	}
+}
+
+static int
+tos_a(int row, int col)
+{
+    	return toscreen[ix(row, col)].Attributes;
+}
+
+#if defined(DEBUG_SCREEN_DRAW) /*[*/
+static int
+changed(int row, int col)
+{
+	return !onscreen_valid ||
+		memcmp(&onscreen[ix(row, col)], &toscreen[ix(row, col)],
+		       sizeof(CHAR_INFO));
+}
+#endif /*]*/
+
+/*
+ * Draw a rectangle of homogeneous text.
+ */
+static void
+hdraw(int row, int lrow, int col, int lcol)
+{
+	COORD bufferSize;
+	COORD bufferCoord;
+	SMALL_RECT writeRegion;
+	int xrow;
+
+#if defined(DEBUG_SCREEN_DRAW) /*[*/
+	/*
+	 * Trace what we've been asked to draw.
+	 * Drawn areas are 'h', done areas are 'd'.
+	 */
+	{
+		int trow, tcol;
+
+		trace_event("hdraw row %d-%d col %d-%d attr 0x%x:\n",
+			row, lrow, col, lcol, tos_a(row, col));
+		for (trow = 0; trow < console_rows; trow++) {
+			for (tcol = 0; tcol < console_cols; tcol++) {
+				if (trow >= row && trow <= lrow &&
+				    tcol >= col && tcol <= lcol)
+					trace_event("h");
+				else if (is_done(trow, tcol))
+					trace_event("d");
+				else
+					trace_event(".");
+			}
+			trace_event("\n");
+		}
+	}
+#endif /*]*/
+
+	/* Write it. */
+	bufferSize.X = console_cols;
+	bufferSize.Y = console_rows;
+	bufferCoord.X = col;
+	bufferCoord.Y = row;
+	writeRegion.Left = col;
+	writeRegion.Top = row;
+	writeRegion.Right = lcol;
+	writeRegion.Bottom = lrow;
+	if (WriteConsoleOutput(sbuf, toscreen, bufferSize, bufferCoord,
+		&writeRegion) == 0) {
+
+		fprintf(stderr, "WriteConsoleOutput failed: %ld\n",
+			GetLastError());
+		x3270_exit(1);
+	}
+
+	/* Sync 'onscreen'. */
+	for (xrow = row; xrow <= lrow; xrow++) {
+	    	memcpy(&onscreen[ix(xrow, col)],
+		       &toscreen[ix(xrow, col)],
+		       sizeof(CHAR_INFO) * (lcol - col + 1));
+	}
+
+	/* Mark the region as done. */
+	mark_done(row, lrow, col, lcol);
+}
+
+/*
+ * Draw a rectanglar region from 'toscreen' onto the screen, without regard to
+ * what is already there.
+ * If the attributes for the entire region are the same, we can draw it in
+ * one go; otherwise we will need to break it into little pieces (fairly
+ * stupidly) with common attributes.
+ * When done, copy the region from 'toscreen' to 'onscreen'.
+ */
+static void
+draw_rect(int pc_start, int pc_end, int pr_start, int pr_end)
+{
+    	int a;
+	int ul_row, ul_col, xrow, xcol, lr_row, lr_col;
+
+#if defined(DEBUG_SCREEN_DRAW) /*[*/
+	/*
+	 * Trace what we've been asked to draw.
+	 * Modified areas are 'r', unmodified (excess) areas are 'x'.
+	 */
+	{
+		int trow, tcol;
+
+		trace_event("draw_rect row %d-%d col %d-%d\n",
+			pr_start, pr_end, pc_start, pc_end);
+		for (trow = 0; trow < console_rows; trow++) {
+			for (tcol = 0; tcol < console_cols; tcol++) {
+				if (trow >= pr_start && trow <= pr_end &&
+				    tcol >= pc_start && tcol <= pc_end) {
+					if (changed(trow, tcol))
+						trace_event("r");
+					else
+						trace_event("x");
+				} else
+					trace_event(".");
+			}
+			trace_event("\n");
+		}
+	}
+#endif /*]*/
+
+	for (ul_row = pr_start; ul_row <= pr_end; ul_row++) {
+	    	for (ul_col = pc_start; ul_col <= pc_end; ul_col++) {
+		    	if (is_done(ul_row, ul_col))
+			    	continue;
+
+			/*
+			 * [ul_row,ul_col] is the upper left-hand corner of an
+			 * undrawn region.
+			 *
+			 * Find the the lower right-hand corner of the
+			 * rectangle with common attributes.
+			 */
+			a = tos_a(ul_row, ul_col);
+			lr_col = pc_end;
+			lr_row = pr_end;
+			for (xrow = ul_row; xrow <= pr_end; xrow++) {
+				if (is_done(xrow, ul_col) ||
+				    tos_a(xrow, ul_col) != a) {
+					lr_row = xrow - 1;
+					break;
+				}
+				for (xcol = ul_col; xcol <= lr_col; xcol++) {
+				    	if (is_done(xrow, xcol) ||
+					    tos_a(xrow, xcol) != a) {
+						lr_col = xcol - 1;
+						break;
+					}
+				}
+			}
+			hdraw(ul_row, lr_row, ul_col, lr_col);
+		}
+	}
+}
+
+/*
+ * Compare 'onscreen' (what's on the screen right now) with 'toscreen' (what
+ * we want on the screen) and draw what's changed.  Hopefully it will be in
+ * a reasonably optimized fashion.
+ *
+ * Windows lets us draw a rectangular areas with one call, provided that the
+ * whole area has the same attributes.  We will take advantage of this where
+ * it is relatively easy to figure out, by walking row by row, holding on to
+ * and widening a vertical band of modified columns and drawing only when we
+ * hit a row that needs no modifications.  This will cause us to miss some
+ * easy-seeming cases that require recognizing multiple bands per row.
+ */
+static void
+sync_onscreen(void)
+{
+    	int row;
+	int col;
+	int pending = FALSE;	/* is there a draw pending? */
+	int pc_start, pc_end;	/* first and last columns in pending band */
+	int pr_start;		/* first row in pending band */
+
+	/* Clear out the 'what we've seen' array. */
+    	none_done();
+
+#if defined(DEBUG_SCREEN_DRAW) /*[*/
+	/*
+	 * Trace what's been modified.
+	 * Modified areas are 'm'.
+	 */
+	{
+		int trow, tcol;
+
+		trace_event("sync_onscreen:\n");
+		for (trow = 0; trow < console_rows; trow++) {
+			for (tcol = 0; tcol < console_cols; tcol++) {
+				if (changed(trow, tcol))
+					trace_event("m");
+				else
+					trace_event(".");
+			}
+			trace_event("\n");
+		}
+	}
+#endif /*]*/
+
+	/* Sometimes you have to draw everything. */
+	if (!onscreen_valid) {
+	    	draw_rect(0, console_cols - 1, 0, console_rows - 1);
+		onscreen_valid = TRUE;
+		return;
+	}
+
+	for (row = 0; row < console_rows; row++) {
+
+	    	/* Check the whole row for a match first. */
+	    	if (!memcmp(&onscreen[ix(row, 0)],
+			    &toscreen[ix(row, 0)],
+			    sizeof(CHAR_INFO) * console_cols)) {
+		    if (pending) {
+			    draw_rect(pc_start, pc_end, pr_start, row - 1);
+			    pending = FALSE;
+		    }
+		    continue;
+		}
+
+		for (col = 0; col < console_cols; col++) {
+		    	if (memcmp(&onscreen[ix(row, col)],
+				   &toscreen[ix(row, col)],
+				   sizeof(CHAR_INFO))) {
+			    	/*
+				 * This column differs.
+				 * Start or expand the band, and start pending.
+				 */
+			    	if (!pending || col < pc_start)
+				    	pc_start = col;
+				if (!pending || col > pc_end)
+				    	pc_end = col;
+				if (!pending) {
+				    	pr_start = row;
+					pending = TRUE;
+				}
+			}
+		}
+	}
+
+	if (pending)
+	    	draw_rect(pc_start, pc_end, pr_start, console_rows - 1);
+}
+
 /* Repaint the screen. */
 static void
 refresh(void)
 {
 	COORD coord;
 
+	/*
+	 * Draw the differences between 'onscreen' and 'toscreen' into
+	 * sbuf.
+	 */
+	sync_onscreen();
+
 	/* Move the cursor. */
 	coord.X = cur_col;
 	coord.Y = cur_row;
-	if (SetConsoleCursorPosition(sbuf[sbuf_ix], coord) == 0) {
+	if (SetConsoleCursorPosition(sbuf, coord) == 0) {
 		fprintf(stderr, "\nSetConsoleCursorPosition failed: %ld\n",
 			GetLastError());
 		x3270_exit(1);
 	}
 
 	/* Swap in this buffer. */
-	if (SetConsoleActiveScreenBuffer(sbuf[sbuf_ix]) == 0) {
-		fprintf(stderr, "\nSetConsoleActiveScreenBuffer failed: %ld\n",
-			GetLastError());
-		x3270_exit(1);
+	if (screen_swapped == FALSE) {
+		if (SetConsoleActiveScreenBuffer(sbuf) == 0) {
+			fprintf(stderr,
+				"\nSetConsoleActiveScreenBuffer failed: %ld\n",
+				GetLastError());
+			x3270_exit(1);
+		}
+		screen_swapped = TRUE;
 	}
-
-	/* This buffer is no longer dirty. */
-	dirty = 0;
 }
 
 /* Go back to the original screen. */
@@ -398,8 +672,7 @@ endwin(void)
 		x3270_exit(1);
 	}
 
-	/* Mark the current buffer dirty. */
-	dirty = 1;
+	screen_swapped = FALSE;
 }
 
 /* Initialize the screen. */
@@ -591,6 +864,38 @@ screen_disp(Boolean erasing unused)
 	if (escaped)
 		return;
 
+	if (!screen_changed) {
+
+		/* Draw the status line. */
+		if (status_row) {
+			draw_oia();
+		}
+
+		/* Move the cursor. */
+		if (flipped)
+			move(cursor_addr / cCOLS,
+				cCOLS-1 - (cursor_addr % cCOLS));
+		else
+			move(cursor_addr / cCOLS, cursor_addr % cCOLS);
+
+		if (status_row)
+		    	refresh();
+		else {
+			COORD coord;
+
+			coord.X = cur_col;
+			coord.Y = cur_row;
+			if (SetConsoleCursorPosition(sbuf, coord) == 0) {
+				fprintf(stderr,
+					"\nSetConsoleCursorPosition failed: %ld\n",
+					GetLastError());
+				x3270_exit(1);
+			}
+		}
+
+	    	return;
+	}
+
 	fa = get_field_attribute(0);
 	a = color_from_fa(fa);
 	for (row = 0; row < ROWS; row++) {
@@ -738,6 +1043,8 @@ screen_disp(Boolean erasing unused)
 	else
 		move(cursor_addr / cCOLS, cursor_addr % cCOLS);
 	refresh();
+
+	screen_changed = FALSE;
 }
 
 static const char *
@@ -1465,4 +1772,30 @@ apl_to_acs(unsigned char c)
 	default:
 		return -1;
 	}
+}
+
+/*
+ * Windows-specific Paste action, that takes advantage of the existing x3270
+ * instrastructure for multi-line paste.
+ */
+void
+Paste_action(Widget w unused, XEvent *event unused, String *params unused,
+    Cardinal *num_params unused)
+{
+    	HGLOBAL hglb;
+	LPTSTR lptstr;
+
+    	if (!IsClipboardFormatAvailable(CF_TEXT))
+		return; 
+	if (!OpenClipboard(NULL))
+		return;
+	hglb = GetClipboardData(CF_TEXT);
+	if (hglb != NULL) {
+		lptstr = GlobalLock(hglb);
+		if (lptstr != NULL) { 
+			emulate_input(lptstr, strlen(lptstr), True);
+			GlobalUnlock(hglb); 
+		}
+	}
+	CloseClipboard(); 
 }

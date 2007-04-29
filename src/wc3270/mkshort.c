@@ -25,8 +25,6 @@
 #include <shlobj.h>
 #include "shlobj_missing.h" /* missing IShellLinkDataist stuff from MinGW */
 
-#define INSTALL_DIR	"C:\\Program Files\\wc3270"
-
 /*
  * CreateLink - uses the shell's IShellLink, IShellLinkDataList and
  * IPersistFile interfaces to create and store a shortcut to the specified
@@ -164,8 +162,18 @@ int
 main(int argc, char *argv[])
 {
 	char *userprof;
+	char exepath[MAX_PATH];
 	char linkpath[MAX_PATH];
 	HRESULT hres;
+	char *install_dir;
+
+	/* Pull in the parameter. */
+	if (argc != 2) {
+	    	fprintf(stderr, "usage: %s install-dir\n", argv[0]);
+		return 1;
+	}
+	install_dir = argv[1];
+	sprintf(exepath, "%s\\wc3270.exe", install_dir);
 
 	/* Figure out the link path. */
 	userprof = getenv("USERPROFILE");
@@ -178,11 +186,11 @@ main(int argc, char *argv[])
 
 	/* Create the link. */
 	hres = CreateLink(
-		INSTALL_DIR "\\wc3270.exe",
+		exepath,
 		linkpath,
 		NULL,
 		NULL,
-		INSTALL_DIR,
+		install_dir,
 		44,
 		80);
 	if (hres) {

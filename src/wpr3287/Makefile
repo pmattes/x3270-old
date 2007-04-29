@@ -1,18 +1,20 @@
 # Makefile for wpr3287
 
-# Comment these next three lines out out if you don't have a copy of
-# MinGW OpenSSL.
+# Figure out if they've installed MinGW OpenSSL.
 SSLDIR = /usr/local/mingw-openssl
+HAVE_OPENSSL = $(shell [ -d $(SSLDIR) ] && echo yes)
+ifeq ($(HAVE_OPENSSL),yes)
 SSLCPP = -DHAVE_LIBSSL=1 -I$(SSLDIR)/include
 SSLLIB = -L$(SSLDIR)/lib -lssl -lcrypto -lwsock32 -ladvapi32 -lgdi32 -luser32
+endif
 
 CC = gcc
 XCPPFLAGS = -D_WIN32 -DWPR3287
 CFLAGS = -mno-cygwin -g -Wall -Werror $(XCPPFLAGS) -I. $(SSLCPP)
 SRCS = charset.c ctlr.c pr3287.c see.c sf.c tables.c telnet.c trace_ds.c
 OBJECTS = charset.o ctlr.o pr3287.o see.o sf.o tables.o telnet.o trace_ds.o \
-	wpr3287res.o version.o
-LIBS = $(SSLLIB) -lws2_32
+	wpr3287res.o ws.o version.o
+LIBS = $(SSLLIB) -lws2_32 -lwinspool
 
 all: wpr3287.exe
 

@@ -1,1 +1,1 @@
-../x3270/tables.c
+../wc3270/tables.c

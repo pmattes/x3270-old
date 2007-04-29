@@ -1,1 +1,1 @@
-../x3270/tablesc.h
+../wc3270/tablesc.h

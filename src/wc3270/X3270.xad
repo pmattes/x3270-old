@@ -284,9 +284,9 @@ x3270.traceCommand:			tail -f
 ! Printer session options
 #endif
 #ifdef _WIN32
-x3270.printer.command:			PRINT
 x3270.printer.assocCommandLine:		wpr3287.exe -assoc %L% %R% %H%
 x3270.printer.luCommandLine:		wpr3287.exe %R% %L%@%H%
+! x3270.printer.name:
 #else
 x3270.printer.command:			lpr
 x3270.printer.assocCommandLine:		pr3287 -assoc %L% -command "%C%" %R% "%H%"
@@ -1769,6 +1769,15 @@ x3270.composeMap.apl: \
 	C + equal		= apl_euro		\n\
 	minus + parenleft	= apl_lefttack		\n\
 	minus + parenright	= apl_righttack		\n
+#endif
+#endif
+#ifdef STANDALONE
+#ifdef _WIN32
+! wc3270 keymap for more 3270-ish behavior: The Enter key is Newline and the
+! Right-Ctrl key is Enter.
+x3270.keymap.rctrl.3270: \
+	RightCtrl<Key>CTRL: Enter()\n\
+	<Key>Return: Newline()
 #endif
 #endif
 !

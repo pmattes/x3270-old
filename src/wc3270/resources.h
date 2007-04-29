@@ -116,6 +116,7 @@
 #define ResPreeditType		"preeditType"
 #define ResPrinterCommand	"printer.command"
 #define ResPrinterLu		"printerLu"
+#define ResPrinterName		"printer.name"
 #define ResQuit			"quit"
 #define ResReconnect		"reconnect"
 #define ResRectangleSelect	"rectangleSelect"

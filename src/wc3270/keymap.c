@@ -6,7 +6,7 @@
  *   both that copyright notice and this permission notice appear in
  *   supporting documentation.
  *
- * c3270 is distributed in the hope that it will be useful, but WITHOUT ANY
+ * wc3270 is distributed in the hope that it will be useful, but WITHOUT ANY
  * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
  * FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
  */
@@ -31,6 +31,9 @@
 #include "trace_dsc.h"
 #include "utilc.h"
 #include <windows.h>
+
+#define WC3270KM_SUFFIX	"wc3270km"
+#define SUFFIX_LEN	sizeof(WC3270KM_SUFFIX)
 
 #define KM_3270_ONLY	0x0100	/* used in 3270 mode only */
 #define KM_NVT_ONLY	0x0200	/* used in NVT mode only */
@@ -182,6 +185,7 @@ locate_keymap(const char *name, char **fullname, char **r)
 {
 	char *rs;			/* resource value */
 	char *fnx;			/* expanded file name */
+	char *fny;
 	int a;				/* access(fnx) */
 
 	/* Return nothing, to begin with. */
@@ -200,6 +204,10 @@ locate_keymap(const char *name, char **fullname, char **r)
 
 	/* See if it's a file. */
 	fnx = do_subst(name, True, True);
+	fny = Malloc(strlen(fnx) + SUFFIX_LEN + 1);
+	sprintf(fny, "%s.%s", fnx, WC3270KM_SUFFIX);
+	Free(fnx);
+	fnx = fny;
 	a = access(fnx, R_OK);
 
 	/* If there's a plain version, return it. */
@@ -346,15 +354,27 @@ read_one_keymap(const char *name, const char *fn, const char *r0, int flags)
 	static int maxcodes = 0;
 	static int *codes = NULL, *hints = NULL;
 	int rc = 0;
+	char *xfn = NULL;
 
 	/* Find the resource or file. */
-	if (r0 != CN)
+	if (r0 != CN) {
 		r = r_copy = NewString(r0);
-	else {
+		xfn = (char *)fn;
+	} else {
+	    	int sl;
+
 		f = fopen(fn, "r");
 		if (f == NULL) {
 			xs_warning("Cannot open file: %s", fn);
 			return;
+		}
+		sl = strlen(fn);
+		if (sl > SUFFIX_LEN &&
+		    !strcmp(fn + sl - SUFFIX_LEN, "." WC3270KM_SUFFIX)) {
+		    	xfn = NewString(fn);
+			xfn[sl - SUFFIX_LEN] = '\0';
+		} else {
+		    	xfn = (char *)fn;
 		}
 	}
 
@@ -416,13 +436,15 @@ read_one_keymap(const char *name, const char *fn, const char *r0, int flags)
 
 		/* Add it to the list. */
 		hints[0] |= flags;
-		add_keymap_entry(ncodes, codes, hints, fn, line, right);
+		add_keymap_entry(ncodes, codes, hints, xfn, line, right);
 	}
 
     done:
 	Free(r_copy);
 	if (f != NULL)
 		fclose(f);
+	if (xfn != fn)
+	    Free(xfn);
 }
 
 /* Multi-key keymap support. */

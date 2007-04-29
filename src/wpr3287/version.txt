@@ -1,2 +1,1 @@
-version="3.3.5p2"
-adversion="3.3.4"
+../wc3270/version.txt

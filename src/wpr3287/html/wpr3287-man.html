@@ -11,6 +11,7 @@
 <a HREF="#Synopsis">Synopsis</a><br>
 <a HREF="#Description">Description</a><br>
 <a HREF="#Options">Options</a><br>
+<a HREF="#Environment">Environment</a><br>
 <a HREF="#See-Also">See Also</a><br>
 <a HREF="#Copyrights">Copyrights</a><br>
 <a HREF="#Version">Version</a><br>
@@ -90,17 +91,9 @@ this:
 0xb0=0xa2 0xb1=0x5b 0xba=0x5e
 <br>
 0xbc=0x7e</blockquote>
-<dt><b>-command</b> <i>command</i></dt><dd>
-Specifies the command to run for each print job.
-The default is
-<b>PRINT</b>.
-Note that <b>PRINT</b> can only print to parallel (<b>LPT:</b>) or serial
-(<b>COM:</b>) ports.
-To print to a printer queue, it is necessary to share the printer, then
-use the <b>NET USE</b> command to redirect a <b>LPT:</b> or <b>COM:</b>
-device to the printer share.
+
 <dt><b>-nocrlf</b></dt><dd>
-Causes newline characters in the output not to be expanded to
+Causes newline characters in the output to be left as-is, and not expanded to
 carriage-return/linefeed sequences.
 
 <dt><b>-eojtimeout</b> <i>seconds</i></dt><dd>
@@ -116,6 +109,13 @@ at the top of a page.
 In SCS mode, causes <i>wpr3287</i> to pass FF (formfeed) orders through to the
 printer as ASCII formfeed characters, rather than simulating them based on the
 values of the MPL (maximum presentation line) and TM (top margin) parameters.
+<dt><b>-printer</b> <i>printer</i></dt><dd>
+Specifies the Windows printer to use for each print job.
+The default is to use the printer specified by the <b>$PRINTER</b> environment
+variable, if defined, and otherwise to use the default Windows printer.
+<p>
+The printer can be the name of a local printer, or a UNC path to a remote
+printer, e.g., <b>\\server\printer1</b>.
 <dt><b>-reconnect</b></dt><dd>
 Causes <i>wpr3287</i> to reconnect to the host, whenever the connection is
 broken.
@@ -128,6 +128,11 @@ Trace information is usually saved in the file
 
 </dl>
 
+<a NAME="Environment"></a><h2>Environment</h2>
+<dl><dt><b>PRINTER</b></dt><dd>
+Specifies the Windows printer to use for print jobs.
+The <b>-printer</b> command-line option overrides <b>$PRINTER</b>.
+</dl>
 <a NAME="See-Also"></a><h2>See Also</h2>
 wc3270(1)
 <br>
@@ -157,12 +162,12 @@ Copyright &copy; 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.
 Derivative works based on this software must incorporate this copyright
 notice.</blockquote>
 <a NAME="Version"></a><h2>Version</h2>
-wpr3287 3.3.5p2
+wpr3287 3.3.5p8
 <hr>
-<address>
+<i>
 This HTML document and the accompanying troff document were generated with
 a set of write-only <b>m4</b> macros and the powerful <b>vi</b> editor.
-<br>Last modified 16 February 2007.
-</address>
+<br>Last modified 29 April 2007.
+</i>
 </body>
 </html>

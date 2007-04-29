@@ -1,5 +1,5 @@
 /*
- * Copyright 2000, 2001, 2002, 2003, 2004, 2005 by Paul Mattes.
+ * Copyright 2000, 2001, 2002, 2003, 2004, 2005, 2007 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -21,13 +21,15 @@
  *	    -assoc session
  *		associate with a session (TN3270E only)
  *	    -command "string"
- *		command to use to print (default "lpr")
+ *		command to use to print (default "lpr", POSIX only)
  *          -charset name
  *          -charset @file
  *          -charset =spec
  *		use the specified character set
  *          -crlf
- *		expand newlines to CR/LF
+ *		expand newlines to CR/LF (POSIX only)
+ *          -nocrlf
+ *		expand newlines to CR/LF (Windows only)
  *          -blanklines
  *		display blank lines even if they're empty (formatted LU3)
  *          -eojtimeout n
@@ -36,6 +38,9 @@
  *		pass through SCS FF orders
  *          -ffskip
  *		skip FF at top of page
+ *	    -printer "printer name"
+ *	        printer to use (default is $PRINTER or system default,
+ *	        Windows only)
  *          -reconnect
  *		keep trying to reconnect
  *	    -trace
@@ -72,6 +77,9 @@
 #include "trace_dsc.h"
 #include "ctlrc.h"
 #include "telnetc.h"
+#if defined(_WIN32) /*[*/
+#include "wsc.h"
+#endif /*]*/
 
 #if defined(_IOLBF) /*[*/
 #define SETLINEBUF(s)	setvbuf(s, (char *)NULL, _IOLBF, BUFSIZ)
@@ -113,10 +121,10 @@ unsigned long eoj_timeout = 0L; /* end of job timeout */
 static enum { NOT_DAEMON, WILL_DAEMON, AM_DAEMON } bdaemon = NOT_DAEMON;
 #endif /*]*/
 static char *assoc = NULL;	/* TN3270 session to associate with */
-#if defined(_WIN32) /*[*/
-const char *command = "PRINT";	/* command to run for printing */
-#else /*][*/
+#if !defined(_WIN32) /*[*/
 const char *command = "lpr";	/* command to run for printing */
+#else /*][*/
+const char *printer = NULL;	/* printer to use */
 #endif /*]*/
 static int tracing = 0;		/* are we tracing? */
 static char *tracedir = "/tmp";	/* where we are tracing */
@@ -137,10 +145,12 @@ usage(void)
 "  -charset @<file> use alternate EBCDIC-to-ASCII mappings from file\n"
 "  -charset =\"<ebc>=<asc> ...\"\n"
 "                   specify alternate EBCDIC-to-ASCII mappings",
+#if !defined(_WIN32) /*[*/
 "  -command \"<cmd>\" use <cmd> for printing (default \"lpr\")\n"
+#endif /*]*/
 "  -blanklines      display blank lines even if empty (formatted LU3)\n"
 #if defined(_WIN32) /*[*/
-"  -nocrlf            don't newlines to CR/LF\n"
+"  -nocrlf          don't expand newlines to CR/LF\n"
 #else /*][*/
 "  -crlf            expand newlines to CR/LF\n"
 #endif /*]*/
@@ -149,6 +159,11 @@ usage(void)
 "  -ffthru          pass through SCS FF orders\n"
 "  -ffskip          skip FF orders at top of page",
 "  -ignoreeoj       ignore PRINT-EOJ commands\n"
+#if defined(_WIN32) /*[*/
+"  -printer \"printer name\"\n"
+"                   use specific printer (default is $PRINTER or the system\n"
+"                   default printer)\n"
+#endif /*]*/
 "  -reconnect       keep trying to reconnect\n"
 "  -trace           trace data stream to /tmp/x3trc.<pid>\n"
 "  -tracedir <dir>  directory to keep trace information in");
@@ -301,9 +316,6 @@ main(int argc, char *argv[])
 #if defined(HAVE_LIBSSL) /*[*/
 	int any_prefixes = False;
 #endif /*]*/
-#if defined(_WIN32) /*[*/
-	char *cmd;
-#endif /*]*/
 
 	/* Learn our name. */
 #if defined(_WIN32) /*[*/
@@ -321,11 +333,11 @@ main(int argc, char *argv[])
 
 #if defined(_WIN32) /*[*/
 	/*
-	 * Get the command via the environment, because Windows doesn't
+	 * Get the printer name via the environment, because Windows doesn't
 	 * let us put spaces in arguments.
 	 */
-	if ((cmd = getenv("WPR3287COMMAND")) != NULL) {
-		command = cmd;
+	if ((printer = getenv("PRINTER")) == NULL) {
+		printer = ws_default_printer();
 	}
 #endif /*]*/
 
@@ -344,6 +356,7 @@ main(int argc, char *argv[])
 			}
 			assoc = argv[i + 1];
 			i++;
+#if !defined(_WIN32) /*[*/
 		} else if (!strcmp(argv[i], "-command")) {
 			if (argc <= i + 1 || !argv[i + 1][0]) {
 				(void) fprintf(stderr,
@@ -352,6 +365,7 @@ main(int argc, char *argv[])
 			}
 			command = argv[i + 1];
 			i++;
+#endif /*]*/
 		} else if (!strcmp(argv[i], "-charset")) {
 			if (argc <= i + 1 || !argv[i + 1][0]) {
 				(void) fprintf(stderr,
@@ -383,6 +397,16 @@ main(int argc, char *argv[])
 			ffthru = 1;
 		} else if (!strcmp(argv[i], "-ffskip")) {
 			ffskip = 1;
+#if defined(_WIN32) /*[*/
+		} else if (!strcmp(argv[i], "-printer")) {
+			if (argc <= i + 1 || !argv[i + 1][0]) {
+				(void) fprintf(stderr,
+				    "Missing value for -printer\n");
+				usage();
+			}
+			printer = argv[i + 1];
+			i++;
+#endif /*]*/
 		} else if (!strcmp(argv[i], "-reconnect")) {
 			reconnect = 1;
 		} else if (!strcmp(argv[i], "-v")) {
@@ -629,7 +653,12 @@ main(int argc, char *argv[])
 			else if (lu != NULL)
 				(void) fprintf(stderr, "Connecting to LU %s\n",
 				    lu);
+#if !defined(_WIN32) /*[*/
 			(void) fprintf(stderr, "Command: %s\n", command);
+#else /*][*/
+			(void) fprintf(stderr, "Printer: %s\n",
+				       printer? printer: "(none)");
+#endif /*]*/
 		}
 
 		/* Negotiate. */

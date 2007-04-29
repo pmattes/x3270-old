@@ -1,27 +1,29 @@
 # Makefile for wc3270
 
-# Comment these next three lines out out if you don't have a copy of
-# MinGW OpenSSL.
+# Figure out if they've installed MinGW OpenSSL.
 SSLDIR = /usr/local/mingw-openssl
+HAVE_OPENSSL = $(shell [ -d $(SSLDIR) ] && echo yes)
+ifeq ($(HAVE_OPENSSL),yes)
 SSLCPP = -DHAVE_LIBSSL=1 -I$(SSLDIR)/include
 SSLLIB = -L$(SSLDIR)/lib -lssl -lcrypto -lwsock32 -ladvapi32 -lgdi32 -luser32
+endif
 
 CC = gcc
 XCPPFLAGS = -D_WIN32 -DWC3270
 CFLAGS = -mno-cygwin -g -Wall -Werror $(XCPPFLAGS) -I. $(SSLCPP)
 SRCS = XtGlue.c actions.c ansi.c apl.c wc3270.c charset.c ctlr.c \
-	ft.c ft_cut.c ft_dft.c glue.c help.c host.c idle.c kybd.c \
+	ft.c ft_cut.c ft_dft.c glue.c help.c host.c icmd.c idle.c kybd.c \
 	macros.c print.c printer.c resources.c rpq.c screen.c see.c \
 	sf.c tables.c telnet.c toggles.c trace_ds.c util.c \
 	xio.c fallbacks.c keymap.c
 OBJECTS = XtGlue.o actions.o ansi.o apl.o wc3270.o charset.o ctlr.o \
-	ft.o ft_cut.o ft_dft.o glue.o help.o host.o idle.o kybd.o \
+	ft.o ft_cut.o ft_dft.o glue.o help.o host.o icmd.o idle.o kybd.o \
 	macros.o print.o printer.o resources.o rpq.o screen.o see.o \
 	sf.o tables.o telnet.o toggles.o trace_ds.o util.o \
 	xio.o version.o fallbacks.o keymap.o wc3270res.o
 LIBS = $(SSLLIB) -lws2_32
 SHRTLIBS = -lole32 -luuid
-WIZLIBS = -lole32 -luuid
+WIZLIBS = -lole32 -luuid -lwinspool
 
 all: wc3270.exe mkshort.exe wc3270wiz.exe
 
@@ -45,8 +47,12 @@ wc3270.exe: $(OBJECTS) Makefile
 mkshort.exe: mkshort.o Makefile
 	$(CC) -o mkshort $(CFLAGS) mkshort.o $(SHRTLIBS)
 
-wc3270wiz.exe: wizard.o wc3270res.o
-	$(CC) -o wc3270wiz $(CFLAGS) wizard.o wc3270res.o $(WIZLIBS)
+wversion.o: version.txt mkwversion.sh
+	@chmod +x mkwversion.sh version.txt
+	sh ./mkwversion.sh $(CC)
+
+wc3270wiz.exe: wizard.o wc3270res.o wversion.o
+	$(CC) -o wc3270wiz $(CFLAGS) wizard.o wc3270res.o wversion.o $(WIZLIBS)
 
 clean:
 	rm -f *.o mkfb.exe fallbacks.c

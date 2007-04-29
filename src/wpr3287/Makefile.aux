@@ -19,9 +19,10 @@ all:
 
 # Development tools.
 
-SOURCES = charset.c ctlr.c pr3287.c see.c sf.c tables.c telnet.c trace_ds.c
+SOURCES = charset.c ctlr.c pr3287.c see.c sf.c tables.c telnet.c trace_ds.c \
+	ws.c
 HEADERS = 3270ds.h ctlrc.h globals.h localdefs.h popupsc.h seec.h sfc.h \
-	tablesc.h telnetc.h tn3270e.h trace_dsc.h arpa_telnet.h
+	tablesc.h telnetc.h tn3270e.h trace_dsc.h wsc.h arpa_telnet.h
 MISC = mkversion.sh version.txt LICENSE Makefile Makefile.aux \
 	pr3287.ico wpr3287.rc
 DEVKIT = pr3287.man.m4 m42man

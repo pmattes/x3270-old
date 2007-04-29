@@ -108,7 +108,11 @@ printer_start(const char *lu)
 {
 	const char *cmdlineName;
 	const char *cmdline;
+#if !defined(_WIN32) /*[*/
 	const char *cmd;
+#else /*][*/
+	const char *printerName;
+#endif /*]*/
 	int cmd_len = 0;
 	const char *s;
 	char *cmd_text;
@@ -116,7 +120,6 @@ printer_start(const char *lu)
 	char charset_cmd[256];	/* -charset @/tmp/cs$PID */
 #if defined(_WIN32) /*[*/
 	char *tmp;
-	char cmd_buf[1024];
 	STARTUPINFO startupinfo;
 	PROCESS_INFORMATION process_information;
 	char subcommand[124];
@@ -171,11 +174,15 @@ printer_start(const char *lu)
 		popup_an_error("%s resource not defined", cmdlineName);
 		return;
 	}
+#if !defined(_WIN32) /*[*/
 	cmd = get_resource(ResPrinterCommand);
 	if (cmd == CN) {
 		popup_an_error("printer.command resource not defined");
 		return;
 	}
+#else /*][*/
+	printerName = get_resource(ResPrinterName);
+#endif /*]*/
 
 	/* Construct the charset option. */
 #if defined(_WIN32) /*[*/
@@ -204,11 +211,13 @@ printer_start(const char *lu)
 		cmd_len += strlen(qualified_host) - 3;
 		s += 3;
 	}
+#if !defined(_WIN32) /*[*/
 	s = cmdline;
 	while ((s = strstr(s, "%C%")) != CN) {
 		cmd_len += strlen(cmd) - 3;
 		s += 3;
 	}
+#endif /*]*/
 	s = cmdline;
 	while ((s = strstr(s, "%R%")) != CN) {
 		need_cs = True;
@@ -231,10 +240,12 @@ printer_start(const char *lu)
 				(void) strcat(cmd_text, qualified_host);
 				s += 2;
 				continue;
+#if !defined(_WIN32) /*[*/
 			} else if (!strncmp(s+1, "C%", 2)) {
 				(void) strcat(cmd_text, cmd);
 				s += 2;
 				continue;
+#endif /*]*/
 			} else if (!strncmp(s+1, "R%", 2)) {
 				(void) strcat(cmd_text, charset_cmd);
 				s += 2;
@@ -335,8 +346,12 @@ printer_start(const char *lu)
 	}
 #else /*][*/
 	/* Pass the command via the environment. */
-	sprintf(cmd_buf, "WPR3287COMMAND=%s", cmd);
-	putenv(cmd_buf);
+	if (printerName != NULL) {
+		static char pn_buf[1024];
+
+		sprintf(pn_buf, "PRINTER=%s", printerName);
+		putenv(pn_buf);
+	}
 
 	/* Create the wpr3287 process. */
 	(void) memset(&startupinfo, '\0', sizeof(STARTUPINFO));

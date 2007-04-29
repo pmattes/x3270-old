@@ -158,7 +158,14 @@ static char *base_3270_keymap =
 "<Key> Home: Home\n"
 "Ctrl <Key>a: Attn\n"
 "Alt <Key>a: Attn\n"
-"<Key> End: FieldEnd\n";
+"Shift <Key> End: EraseEOF\n"
+"<Key> End: FieldEnd\n"
+"Ctrl <Key>v: Paste\n"
+"Ctrl <Key>f: FieldMark\n"
+"Ctrl <Key>d: Dup\n"
+"Ctrl <Key>u: DeleteField\n"
+"Shift <Key>Left: PreviousWord\n"
+"Shift <Key>Right: NextWord\n";
 
 Boolean any_error_output = False;
 Boolean escape_pending = False;
@@ -227,7 +234,7 @@ main(int argc, char *argv[])
 	const char	*cl_hostname = CN;
 
 	printf("%s\n\n"
-		"Copyright 1999-2007 by GTRC, Paul Mattes and others.\n"
+		"Copyright 1989-2007 by Paul Mattes, GTRC and others.\n"
 		"Type 'show copyright' for full copyright information.\n"
 		"Type 'help' for help information.\n\n",
 		build);
@@ -325,7 +332,8 @@ main(int argc, char *argv[])
 
 	/* Process events forever. */
 	while (1) {
-		(void) process_events(True);
+		if (!escaped)
+			(void) process_events(True);
 		if (appres.cbreak_mode && escape_pending) {
 			escape_pending = False;
 			screen_suspend();
@@ -441,6 +449,8 @@ interact(void)
 		}
 #else /*][*/
 		/* Display the prompt. */
+		if (CONNECTED)
+		    	(void) printf("Press <Enter> to resume session.\n");
 		(void) printf("wc3270> ");
 		(void) fflush(stdout);
 

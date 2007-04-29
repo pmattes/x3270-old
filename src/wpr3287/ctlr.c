@@ -1,6 +1,6 @@
 /*
- * Modifications Copyright 1993, 1994, 1995, 1996, 1999,
- *  2000, 2001, 2002, 2004 by Paul Mattes.
+ * Modifications Copyright 1993, 1994, 1995, 1996, 1999, 2000, 2001, 2002,
+ *   2003, 2004, 2005, 2007 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -43,8 +43,15 @@
 #include "sfc.h"
 #include "tablesc.h"
 #include "widec.h"
+#if defined(_WIN32) /*[*/
+#include "wsc.h"
+#endif /*]*/
 
+#if !defined(_WIN32) /*[*/
 extern char *command;
+#else /*][*/
+extern char *printer;
+#endif /*]*/
 extern int blanklines;	/* display blank lines even if empty (formatted LU3) */
 extern int ignoreeoj;	/* ignore PRINT-EOJ commands */
 extern int crlf;	/* expand newline to CR/LF */
@@ -79,9 +86,11 @@ static int baddr = 0;
 static Boolean page_buf_initted = False;
 static Boolean any_3270_printable = False;
 static int any_3270_output = 0;
-static FILE *prfile = NULL;
 #if !defined(_WIN32) /*[*/
+static FILE *prfile = NULL;
 static int prpid = -1;
+#else /*][*/
+static int ws_initted = 0;
 #endif /*]*/
 static unsigned char wcc_line_length;
 
@@ -120,10 +129,6 @@ static int scs_dbcs_subfield = 0;
 static unsigned char scs_dbcs_c1 = 0;
 #endif /*]*/
 static unsigned scs_cs = 0;
-
-#if defined(_WIN32) /*[*/
-char tprfile[1024];
-#endif /*]*/
 
 
 /*
@@ -1385,35 +1390,34 @@ pclose_no_sigint(FILE *f)
 static int
 stash(unsigned char c)
 {
-	if (prfile == NULL) {
 #if defined(_WIN32) /*[*/
-		char *tmp;
+	if (!ws_initted) {
+	    	if (ws_start(printer) < 0) {
+		    return -1;
+		}
+		ws_initted = 1;
+	}
 
-		tmp = getenv("TMP");
-		if (tmp != NULL)
-			sprintf(tprfile, "%s\\wpr3287-%d.txt", tmp, getpid());
-		else
-			sprintf(tprfile, "wpr-3287-%d.txt", getpid());
-		prfile = fopen(tprfile, "wb");
+	if (ws_putc((char)c)) {
+	    	return -1;
+	}
 #else /*][*/
+	if (prfile == NULL) {
 		prfile = popen_no_sigint(command);
-#endif /*]*/
 		if (prfile == NULL) {
 			errmsg("%s: %s", command, strerror(errno));
 			return -1;
 		}
 	}
+
 	if (fputc(c, prfile) == EOF) {
 		errmsg("Write error to '%s': %s", command, strerror(errno));
-#if defined(_WIN32) /*[*/
-		fclose(prfile);
-		(void) unlink(tprfile);
-#else /*][*/
 		(void) pclose_no_sigint(prfile);
-#endif /*]*/
 		prfile = NULL;
 		return -1;
 	}
+#endif /*]*/
+
 	return 0;
 }
 
@@ -1424,20 +1428,20 @@ stash(unsigned char c)
 static int
 prflush(void)
 {
+#if defined(_WIN32) /*[*/
+    	if (ws_initted && ws_flush() < 0)
+		return -1;
+#else /*][*/
 	if (prfile != NULL) {
 		if (fflush(prfile) < 0) {
 			errmsg("Flush error to '%s': %s", command,
 			    strerror(errno));
-#if defined(_WIN32) /*[*/
-			fclose(prfile);
-			(void) unlink(tprfile);
-#else /*][*/
 			(void) pclose_no_sigint(prfile);
-#endif /*]*/
 			prfile = NULL;
 			return -1;
 		}
 	}
+#endif /*]*/
 	return 0;
 }
 
@@ -1607,7 +1611,12 @@ dump_unformatted(void)
 	(void) memset(page_buf, '\0', MAX_BUF);
 
 	/* Flush buffered data. */
+#if defined(_WIN32) /*[*/
+	if (ws_initted)
+		(void) ws_flush();
+#else /*][*/
 	fflush(prfile);
+#endif /*]*/
 	any_3270_output = 0;
 
 	return 0;
@@ -1703,7 +1712,12 @@ dump_formatted(void)
 			newlines++;
 	}
 	(void) memset(page_buf, '\0', MAX_BUF);
+#if defined(_WIN32) /*[*/
+	if (ws_initted)
+		(void) ws_flush();
+#else /*][*/
 	fflush(prfile);
+#endif /*]*/
 	any_3270_output = 0;
 
 	return 0;
@@ -1730,28 +1744,13 @@ print_eoj(void)
 	}
 
 	/* Close the stream to the print process. */
-	if (prfile != NULL) {
-		int rc;
 #if defined(_WIN32) /*[*/
-		char cmd[1024];
-#endif /*]*/
-
-		trace_ds("End of print job.\n");
-#if defined(_WIN32) /*[*/
-		fclose(prfile);
-		sprintf(cmd, "%s %s", command, tprfile);
-		rc = system(cmd);
-		(void) unlink(tprfile);
-		if (rc) {
-			if (rc < 0)
-				errmsg("Close error on '%s': %s", command,
-				    strerror(errno));
-			else
-				errmsg("'%s' exited with status %d",
-				    command, rc);
-			rc = -1;
-		}
+	trace_ds("End of print job.\n");
+	if (ws_initted && ws_endjob() < 0)
+		rc = -1;
 #else /*]*/
+	if (prfile != NULL) {
+		trace_ds("End of print job.\n");
 		rc = pclose_no_sigint(prfile);
 		if (rc) {
 			if (rc < 0)
@@ -1768,9 +1767,9 @@ print_eoj(void)
 				    command, rc);
 			rc = -1;
 		}
-#endif /*]*/
 		prfile = NULL;
 	}
+#endif /*]*/
 
 	/* Make sure the next 3270 job starts with clean conditions. */
 	page_buf_initted = 0;

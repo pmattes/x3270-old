@@ -48,7 +48,7 @@
 #include "keypadc.h"
 #include "menubarc.h"
 #endif /*]*/
-#if defined(X3270_DISPLAY) || defined(C3270) /*[*/
+#if defined(X3270_DISPLAY) || defined(C3270) || defined(WC3270) /*[*/
 #include "screenc.h"
 #endif /*]*/
 
@@ -213,6 +213,9 @@ XtActionsRec all_actions[] = {
 #endif /*]*/
 	{ "PA",			PA_action },
 	{ "PF",			PF_action },
+#if defined(WC3270) /*[*/
+	{ "Paste",		Paste_action },
+#endif /*]*/
 #if defined(X3270_SCRIPT) /*[*/
 	{ "PauseScript",	PauseScript_action },
 #endif /*]*/

@@ -49,7 +49,7 @@ static struct {
 	{ "Ascii",	"<row> <col> <n>", P_SCRIPTING, "<n> bytes of screen contents from <row>,<col>, in ASCII" },
 	{ "Ascii",	"<row> <col> <rows> <cols>", P_SCRIPTING, "<rows>x<cols> of screen contents from <row>,<col>, in ASCII" },
 	{ "AsciiField", CN, P_SCRIPTING, "Contents of current field, in ASCII" },
-	{ "Attn", CN, P_3270, "Sent 3270 ATTN sequence (TELNET IP)" },
+	{ "Attn", CN, P_3270, "Send 3270 ATTN sequence (TELNET IP)" },
 	{ "BackSpace", CN, P_3270, "Move cursor left" },
 	{ "BackTab", CN, P_3270, "Move to previous field" },
 	{ "CircumNot", CN, P_3270, "Send ~ in NVT mode, \254 in 3270 mode" },
@@ -80,10 +80,11 @@ static struct {
 	{ "Execute", "<command>", P_SCRIPTING, "Execute a shell command" },
 	{ "Expect", "<pattern>", P_SCRIPTING, "Wait for NVT output" },
 	{ "FieldEnd", CN, P_3270, "Move to end of field" },
-	{ "FieldExit", CN, P_3270, "Erase to end of field, move to next (5250)" },
 	{ "FieldMark", CN, P_3270, "3270 FIELD MARK key (X'1E')" },
+#if 0
 	{ "Flip", CN, P_3270, "Flip display left-to-right" },
-	{ "Help", "all|interactive|3270|scripting|transfer<cmd>", P_INTERACTIVE, "Get help" },
+#endif
+	{ "Help", "all|interactive|3270|scripting|transfer|<cmd>", P_INTERACTIVE, "Get help" },
 	{ "HexString", "<digits>", P_3270|P_SCRIPTING, "Input field data in hex" },
 	{ "Home", CN, P_3270, "Move cursor to first field" },
 	{ "ignore", CN, P_3270, "Do nothing" },
@@ -97,10 +98,18 @@ static struct {
 	{ "NextWord", CN, P_3270, "Move cursor to next word" },
 	{ "Open", CN, P_INTERACTIVE, "Alias for 'Connect'" },
 	{ "PA", "<n>", P_3270, "Send 3270 Program Attention" },
+#if defined(WC3270) /*[*/
+	{ "Paste", CN, P_3270, "Paste clipboard contents" },
+#endif /*]*/
 	{ "PauseScript", CN, P_SCRIPTING, "Pause script until ResumeScript" },
 	{ "PF", "<n>", P_3270, "Send 3270 PF AID" },
 	{ "PreviousWord", CN, P_3270, "Move cursor to previous word" },
-	{ "Printer", "Start[,lu]|Stop", P_3270|P_SCRIPTING|P_INTERACTIVE, "Start or stop pr3287 printer session" },
+	{ "Printer", "Start[,lu]|Stop", P_3270|P_SCRIPTING|P_INTERACTIVE,
+#if defined(WC3270) /*[*/
+	    "Start or stop wpr3287 printer session" },
+#else /*][*/
+	    "Start or stop pr3287 printer session" },
+#endif /*]*/
 	{ "Quit", CN, P_INTERACTIVE, "Exit " PROGRAM },
 	{ "Redraw", CN, P_INTERACTIVE|P_3270, "Redraw screen" },
 	{ "Reset", CN, P_3270, "Clear keyboard lock" },
@@ -113,7 +122,9 @@ static struct {
 	{ "SysReq", CN, P_3270, "Send 3270 Attention (TELNET ABORT or SYSREQ AID)" },
 	{ "Tab", CN, P_3270, "Move cursor to next field" },
 	{ "ToggleInsert", CN, P_3270, "Set or clear 3270 insert mode" },
+#if 0
 	{ "ToggleReverse", CN, P_3270, "Set or clear reverse-input mode" },
+#endif
 	{ "Trace", "[data|keyboard]on|off [<file>]", P_INTERACTIVE, "Configure tracing" },
 	{ "Transfer", "<args>", P_INTERACTIVE, "IND$FILE file transfer" },
 	{ "Up", CN, P_3270, "Move cursor up" },
@@ -150,9 +161,12 @@ static const char *options_help[] = {
 
 static const char *ft_help[] = {
 	"Syntax:",
-	"  Transfer <keyword>=<value>...",
+	"  To be prompted interactively for parameters:",
+	"    Transfer",
+	"  To specify parameters on the command line:",
+	"    Transfer <keyword>=<value>...",
 	"Keywords:",
-	"  Direction=send|receive               default 'send'",
+	"  Direction=send|receive               default 'receive'",
 	"  HostFile=<path>                      required",
 	"  LocalFile=<path>                     required",
 	"  Host=tso|vm                          default 'tso'",
@@ -176,7 +190,13 @@ static struct {
 	const char *text;
 	const char **block;
 } help_subcommand[] = {
-	{ "all",		-1,		CN, NULL },
+	{ "all",		
+#if defined(X3270_SCRIPT) /*[*/
+	    			-1,
+#else /*][*/
+				~P_SCRIPTING,
+#endif /*]*/
+						CN, NULL },
 	{ "3270",		P_3270,		CN, NULL },
 	{ "interactive",	P_INTERACTIVE,	CN, NULL },
 	{ "options",		P_OPTIONS,	CN, options_help },
@@ -261,6 +281,10 @@ Help_action(Widget w unused, XEvent *event unused, String *params,
 		Boolean any = False;
 
 		for (i = 0; cmd_help[i].name != CN; i++) {
+#if !defined(X3270_SCRIPT) /*[*/
+			if (cmd_help[i].purpose == P_SCRIPTING)
+				continue;
+#endif /*]*/
 			if (!strncasecmp(cmd_help[i].name, params[0],
 			    strlen(params[0]))) {
 				action_output("  %s %s\n    %s",

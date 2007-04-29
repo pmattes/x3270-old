@@ -1090,7 +1090,7 @@ popup_an_error(const char *fmt, ...)
 		sms_error(vmsgbuf);
 		return;
 	} else {
-#if defined(C3270) /*[*/
+#if defined(C3270) || defined(WC3270) /*[*/
 		screen_suspend();
 		any_error_output = True;
 #endif /*]*/
@@ -1132,7 +1132,7 @@ action_output(const char *fmt, ...)
 	} else {
 		FILE *aout;
 
-#if defined(C3270) /*[*/
+#if defined(C3270) || defined(WC3270) /*[*/
 		screen_suspend();
 		aout = start_pager();
 		any_error_output = True;

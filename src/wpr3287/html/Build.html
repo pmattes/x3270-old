@@ -13,19 +13,32 @@ MinGW webpage</a>.
 For more information about Cygwin, visit the <a href="http://www.cygwin.com/">
 Cygwin webpage</a>.
 <p>
-  To build <i>wpr3287</i>, start a Cygwin shell, <b>cd</b> to the directory where
+The minimum set of Cygwin packages needed to build <i>wpr3287</i> are:
+ <ul>
+     <li>The default set (bash, etc.)</li>
+     <li>The <b>make</b> package from the <b>Devel</b> group.</li>
+     <li>The <b>gcc-core</b> package from the </b>Devel</b> group.</li>
+ </ul>
+</p>
+<p>
+<b>[optional]</b> If you want SSL support, you will need to build a MinGW OpenSSL library.
+ That requres the following packages:
+ <ul>
+     <li>The <b>openssl</b> package from the <b>Net</b> group.  Note that you
+     want the <i>source</i> for <b>openssl</b>, not just the binaries.</li>
+     <li>The <b>perl</b> package from the <b>Interpreters</b> group.</li>
+ </ul>
+ <b>[optional]</b> To build and install the OpenSSL library, use the following
+ Cygwin shell commands:
+ <pre>&nbsp;&nbsp;&nbsp;cd /usr/src/openssl-*
+&nbsp;&nbsp;&nbsp;./Configure --prefix=/usr/local/mingw-openssl mingw
+&nbsp;&nbsp;&nbsp;make
+&nbsp;&nbsp;&nbsp;make install</pre>
+</p>
+<p>
+To build <i>wpr3287</i> (with or without SSL support) start a Cygwin shell, <b>cd</b> to the directory where
   the source code resides, and type:  
 <pre>&nbsp;&nbsp;&nbsp;make</pre>
-</p>
-<p>
-  This process will probably fail (sorry) because the Makefile assumes that you
-  have installed a MinGW-compatible version of the OpenSSL library.  This is
-  not a commonly-available package but can be easily built from source.
-  Visit the <a href="http://www.openssl.org/">OpenSSL webpage</a> for details.
-</p>
-<p>
-  To build without SSL support, there are three lines to comment out in the
-  <b>Makefile</b> before running <b>make</b>.
 </p>
   <i>wpr3287</i> was developed primarily on 32-bit Windows XP, but should be
   buildable on Windows Server 2003 or Windows 2000.  It has not been built
