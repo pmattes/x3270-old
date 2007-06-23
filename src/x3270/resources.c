@@ -1,6 +1,6 @@
 /*
- * Modifications Copyright 1993, 1994, 1995, 1996, 1999,
- *   2000, 2001, 2002, 2004, 2005 by Paul Mattes.
+ * Modifications Copyright 1993, 1994, 1995, 1996, 1999, 2000, 2001, 2002,
+ *   2003, 2004, 2005, 2007 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -45,9 +45,9 @@ XtResource resources[] = {
 	{ ResNormalColor, ClsNormalColor, XtRString, sizeof(String),
 	  offset(normal_name), XtRString, "green" },
 	{ ResInputColor, ClsInputColor, XtRString, sizeof(String),
-	  offset(select_name), XtRString, "orange" },
+	  offset(select_name), XtRString, "green" },
 	{ ResBoldColor, ClsBoldColor, XtRString, sizeof(String),
-	  offset(bold_name), XtRString, "cyan" },
+	  offset(bold_name), XtRString, "green" },
 	{ ResCursorColor, ClsCursorColor, XtRString, sizeof(String),
 	  offset(cursor_color_name), XtRString, "red" },
 	{ ResMono, ClsMono, XtRBoolean, sizeof(Boolean),
@@ -212,6 +212,9 @@ XtResource resources[] = {
 	{ ResIdleTimeout, ClsIdleTimeout, XtRString, sizeof(String),
 	  offset(idle_timeout), XtRString, 0 },
 #endif /*]*/
+	{ ResProxy, ClsProxy, XtRString, sizeof(String),
+	  offset(proxy), XtRString, 0 },
+
 	{ ResMonoCase, ClsMonoCase, XtRBoolean, sizeof(Boolean),
 	  toggle_offset(MONOCASE), XtRString, ResFalse },
 	{ ResAltCursor, ClsAltCursor, XtRBoolean, sizeof(Boolean),

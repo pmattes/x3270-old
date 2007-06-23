@@ -1,4 +1,4 @@
-dnl Copyright 2000, 2001 by Paul Mattes.
+dnl Copyright 2000, 2001, 2002, 2003, 2005, 2007 by Paul Mattes.
 dnl  Permission to use, copy, modify, and distribute this software and its
 dnl  documentation for any purpose and without fee is hereby granted,
 dnl  provided that the above copyright notice appear in all copies and that
@@ -149,6 +149,7 @@ fi
 if test "$enable_dbcs" != no
 then	AC_MSG_CHECKING([for ICU version strings])
 	cat >/tmp/icutst$$.c <<EOF
+#include <stdio.h>
 #include "unicode/ucnv.h"
 #define xstr(s)	str(s)
 #define str(s)	#s
@@ -182,6 +183,15 @@ EOF
 		then	AC_MSG_WARN(ICU version must be 2.2 or later)
 			AC_MSG_WARN(Disabling DBCS)
 			enable_dbcs="no"
+		fi
+	fi
+	if test "$enable_dbcs" != "no"
+	then	icu_needp=`expr $icu_suffix '<' _3_6`
+		if test $icu_needp -eq 1
+		then	ICU_DASHP="-p $ICU_DATA_PREFIX"
+		    	ICU_DATA_PREFIX_=${ICU_DATA_PREFIX}_
+		else	ICU_DASHP=""
+		    	ICU_DATA_PREFIX_=""
 		fi
 	fi
 fi
@@ -328,7 +338,8 @@ esac
 AC_SUBST(DBCS_C)
 AC_SUBST(DBCS_O)
 AC_SUBST(CNV)
-AC_SUBST(ICU_DATA_PREFIX)
+AC_SUBST(ICU_DATA_PREFIX_)
+AC_SUBST(ICU_DASHP)
 AC_ARG_ENABLE(ft,[  --disable-ft            leave out file transfer support])
 case "$enable_ft" in
 ""|yes)	AC_DEFINE(X3270_FT,1)

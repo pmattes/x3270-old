@@ -1,5 +1,6 @@
 /*
- * Copyright 1993, 1994, 1995, 1999, 2000, 2001, 2002, 2004 by Paul Mattes.
+ * Copyright 1993, 1994, 1995, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007
+ *   by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -25,6 +26,9 @@
 #if defined(X3270_DISPLAY) /*[*/
 #include <X11/StringDefs.h>
 #include <X11/Xaw/Dialog.h>
+#endif /*]*/
+#if defined(_WIN32) /*[*/
+#include <windows.h>
 #endif /*]*/
 #include <errno.h>
 #include <signal.h>
@@ -65,6 +69,8 @@
 static int      dscnt = 0;
 #if !defined(_WIN32) /*[*/
 static int      tracewindow_pid = -1;
+#else /*][*/
+static HANDLE	tracewindow_handle = NULL;
 #endif /*]*/
 static FILE    *tracef = NULL;
 static FILE    *tracef_pipe = NULL;
@@ -406,11 +412,12 @@ create_tracefile_header(const char *mode)
 	save_yourself();
 	wtrace(" Command: %s\n", command_string);
 	wtrace(" Model %s", model_name);
+#if defined(X3270_DISPLAY) || (defined(C3270) && !defined(_WIN32)) /*[*/
 	wtrace(", %s display", appres.mono ? "monochrome" : "color");
+#endif /*]*/
 	if (appres.extended)
 		wtrace(", extended data stream");
-	if (!appres.mono)
-		wtrace(", %scolor", appres.m3279 ? "full " : "pseudo-");
+	wtrace(", %s emulation", appres.m3279 ? "color " : "monochrome");
 	wtrace(", %s charset", get_charset_name());
 	if (appres.apl_mode)
 		wtrace(", APL mode");
@@ -684,6 +691,42 @@ tracefile_callback(Widget w, XtPointer client_data, XtPointer call_data unused)
 	}
 #endif /*]*/
 
+#if defined(_WIN32) /*[*/
+	/* Start the monitor window. */
+	if (tracef != stdout && appres.trace_monitor) {
+		STARTUPINFO startupinfo;
+		PROCESS_INFORMATION process_information;
+		char *args;
+
+	    	(void) memset(&startupinfo, '\0', sizeof(STARTUPINFO));
+		startupinfo.cb = sizeof(STARTUPINFO);
+		startupinfo.lpTitle = tfn;
+		(void) memset(&process_information, '\0',
+			      sizeof(PROCESS_INFORMATION));
+		args = Malloc(32 + strlen(tfn));
+		sprintf(args, "catf.exe %s", tfn);
+		if (CreateProcess(
+		    "catf.exe",
+		    args,
+		    NULL,
+		    NULL,
+		    FALSE,
+		    CREATE_NEW_CONSOLE,
+		    NULL,
+		    NULL,
+		    &startupinfo,
+		    &process_information) == 0) {
+		    	popup_an_error("CreateProcess(catf) failed: Windows "
+				"error %d", GetLastError());
+			Free(args);
+		} else {
+		    	Free(args);
+			tracewindow_handle = process_information.hProcess;
+			CloseHandle(process_information.hThread);
+		}
+	}
+#endif /*]*/
+
 	Free(tfn);
 
 	/* We're really tracing, turn the flag on. */
@@ -779,6 +822,13 @@ tracefile_off(void)
 	if (tracewindow_pid != -1)
 		(void) kill(tracewindow_pid, SIGKILL);
 	tracewindow_pid = -1;
+#else /*][*/
+	if (tracewindow_handle != NULL) {
+	    	TerminateProcess(tracewindow_handle, 0);
+		CloseHandle(tracewindow_handle);
+		tracewindow_handle = NULL;
+	}
+
 #endif /*]*/
 	stop_tracing();
 }
@@ -951,8 +1001,13 @@ toggle_screenTrace(struct toggle *t unused, enum toggle_type tt)
 		if (appres.screentrace_file)
 			tracefile = appres.screentrace_file;
 		else {
+#if defined(_WIN32) /*[*/
+			(void) sprintf(tracefile_buf, "x3scr.%d.txt",
+				       getpid());
+#else /*][*/
 			(void) sprintf(tracefile_buf, "%s/x3scr.%d",
 				appres.trace_dir, getpid());
+#endif /*]*/
 			tracefile = tracefile_buf;
 		}
 		if (tt == TT_INITIAL || tt == TT_ACTION) {

@@ -9,16 +9,37 @@
 <h1>New Features in x3270 3.3
 <hr width="100%"></h1>
 x3270 3.3 is the current development line for x3270.
-It is functionally equivalent to x3270 3.2.20, with the addition of SSL (Secure
-Sockets Layer) support and DBCS (Double Byte Character Set) support for East
-Asian languages -- Chinese, Japanese and Korean.
-<p>The DBCS work required a significant change in the internal workings of
-x3270. For those familiar with the source code, the change was to store EBCDIC
-codes internally, and to dispense with the confusing CG-code representation
-of the 3270 display.
-This required changing all of the logic that manipulates
-field attributes, as well as the logic that translates the host output, keyboard
-input, and X11 display output.</p>
+<h2>Changes in x3270 3.3.6, 23. June 2007</h2>
+<ul>
+  <li>Bug Fixes:</li>
+    <ul>
+      <li>Fixed the <b>highlighted</b> attribute for individual regions of the
+      screen (versus the <b>highlighted</b> field attribute); it had been
+      accidentally disabled.</li>
+    </ul>
+  <li>New Features:
+    <ul>
+      <li>Added support for IBM Code Page 1047 (<b>-charset cp1047</b>).</li>
+      <li>Added proxy support via the <b>-proxy</b> option or the <b>proxy</b>
+      resource.</li>
+      <li>Modified <i>Blank Fill</i> mode to treat trailing underscore
+      chararacters ('<b>_</b>') like blanks when checking for input
+      overflow.</li>
+      <li><i>Pseudo-Color</i> mode is no more.
+      This was the mode that x3270 used when a 3278 model was specified, or
+      if the <b>m3279</b> resource were set to <b>False</b>.
+      Pseudo-Color assigned colors to regions of the screen based on
+      intensity and light-pen selectability, and did not support 3279 colors.
+      Now turning off color or selecting a 3278 results in something that
+      looks like a 3278 (i.e., it's green).
+      To resurrect Pseudo-Color mode, set the following resources:
+      <preformat>
+      <br>&nbsp;&nbsp;x3270.inputColor: orange<br>
+      &nbsp;&nbsp;x3270.boldColor: cyan
+      </preformat>
+    </ul>
+  </li>
+</ul>
 <h2>Changes in x3270 3.3.5, 1. February 2007</h2>
 <ul>
   <li>Bug Fixes:

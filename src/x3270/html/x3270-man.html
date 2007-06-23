@@ -17,7 +17,6 @@
 <a HREF="#Keypad">Keypad</a><br>
 <a HREF="#Hosts-Database">Hosts Database</a><br>
 <a HREF="#Color-Schemes">Color Schemes</a><br>
-<a HREF="#Pseudo-Color">Pseudo-Color</a><br>
 <a HREF="#NVT-ANSI-Mode">NVT (ANSI) Mode</a><br>
 <a HREF="#Menus">Menus</a><br>
 <a HREF="#Status-Line">Status Line</a><br>
@@ -30,6 +29,7 @@
 <a HREF="#Screen-Printing">Screen Printing</a><br>
 <a HREF="#Bugs">Bugs</a><br>
 <a HREF="#Passthru">Passthru</a><br>
+<a HREF="#Proxy">Proxy</a><br>
 <a HREF="#Files">Files</a><br>
 <a HREF="#Environment-Variables">Environment Variables</a><br>
 <a HREF="#See-Also">See Also</a><br>
@@ -61,7 +61,8 @@ The full syntax for <i>host</i> is:
 <p>
 Prepending a <b>P:</b> onto <i>hostname</i> causes the connection to go
 through the <i>telnet-passthru</i> service rather than directly to the host.
-See <a HREF="#Passthru"><font size=-1>PASSTHRU</font></a> below.<p>
+See <a HREF="#Passthru"><font size=-1>PASSTHRU</font></a> below.
+<p>
 Prepending an <b>S:</b> onto <i>hostname</i> removes the "extended data
 stream" option reported to the host.
 See <a HREF="#tn"><b>-tn</b></a> below for further information.
@@ -91,7 +92,8 @@ This allows numeric IPv6 addresses to be used as hostnames.
 On systems that support the <i>forkpty</i> library call, the
 <i>hostname</i> may be replaced with <b>-e</b> and a command string.
 This will cause <b>x3270</b> to connect to a local child process, such as
-a shell.<p>
+a shell.
+<p>
 The port to connect to defaults to
 <b>telnet</b>.
 This can be overridden with the <b>-port</b> option, or by appending
@@ -100,6 +102,7 @@ a <i>port</i> to the <i>hostname</i> with a colon
 (For compatability with previous versions of <b>x3270</b>
 and with <i>tn3270</i>(1), the <i>port</i>
 may also be specified as a second, separate argument.)
+
 <a NAME="Options"></a><h2>Options</h2>
 <b>x3270</b> is a toolkit based program, so it understands standard Xt options and
 resources.
@@ -133,7 +136,8 @@ Specifies the initial x coordinate for the program icon.
 Specifies the initial y coordinate for the program icon.
 <dt><b>-im</b> <i>method</i></dt><dd>
 Specifies the name of the input method to use for multi-byte input.
-(Supported only when x3270 is compiled with DBCS support.)<dt><b>-keymap</b> <i>name</i></dt><dd>
+(Supported only when x3270 is compiled with DBCS support.)
+<dt><b>-keymap</b> <i>name</i></dt><dd>
 Specifies a keymap name and optional modifiers.
 See <a HREF="#Keymaps"><font size=-1>KEYMAPS</font></a> below.
 <dt><b>-keypad</b></dt><dd>
@@ -142,17 +146,16 @@ Turns on the keypad as soon as <b>x3270</b> starts.
 Specifies the local encoding method for multi-byte text.
 <i>name</i> is an encoding name recognized by the ICU library.
 (Supported only when x3270 is compiled with DBCS support, and necessary
-only when x3270 cannot figure it out from the locale.)<dt><b>-model</b> <i>name</i></dt><dd>
+only when x3270 cannot figure it out from the locale.)
+<dt><b>-model</b> <i>name</i></dt><dd>
 The model of 3270 display to be emulated.
 The model name is in two parts, either of which may be omitted:
 <p>
 The first part is the
 <b>base model</b>,
 which is either <b>3278</b> or <b>3279</b>.
-<b>3278</b> specifies a monochrome 3270 display;
+<b>3278</b> specifies a monochrome (green on black) 3270 display;
 <b>3279</b> specifies a color 3270 display.
-When 3278 emulation is specified for a color X display, fields are displayed
-using pseudo-colors; see <a HREF="#Pseudo-Color"><font size=-1>PSEUDO-COLOR</font></a> below.
 <p>
 The second part is the
 <b>model number</b>,
@@ -176,8 +179,6 @@ for a color X display
 is <b>3279-4</b>.
 For a monochrome X display, it is
 <b>3278-4</b>.
-(The behavior of early versions of <b>x3270</b> on color X displays
-can be specified as <b>3278-4)</b>.
 <dt><b>-mono</b></dt><dd>
 Forces <b>x3270</b> to believe it is running on a monochrome X display.
 <dt><b>-once</b></dt><dd>
@@ -203,6 +204,13 @@ If <i>luname</i> is ".", then the printer session will be associated with the
 interactive terminal session (this requires that the host support TN3270E).
 Otherwise, the value is used as the explicit LU name to associate with the
 printer session.
+<dt><b>-proxy <i>type</i>:<i>host</i>[:<i>port</i>]</b></dt><dd>
+Causes <b>x3270</b> to connect via the specified proxy, instead of
+using a direct connection.
+The <i>host</i> can be an IP address or hostname.
+The optional <i>port</i> can be a number or a service name.
+For a list of supported proxy <i>types</i>, see <a HREF="#Proxy"><font size=-1>PROXY</font></a>
+below.
 <dt><b>-pt</b> <i>type</i></dt><dd>
 Specifies the preedit type for the multi-byte input method.
 Valid values are <b>OverTheSpot</b>, <b>OffTheSpot</b>, <b>Root</b> and
@@ -341,6 +349,7 @@ Available sets include:
 <tr><td ><center>belgian</center></td>	<td ><center>500</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
 <tr><td ><center>bracket</center></td>	<td ><center>37</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
 <tr><td ><center>brazilian</center></td>	<td ><center>275</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
+<tr><td ><center>cp1047</center></td>	<td ><center>cp1047</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
 <tr><td ><center>finnish</center></td>	<td ><center>278</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
 <tr><td ><center>french</center></td>	<td ><center>297</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
 <tr><td ><center>german</center></td>	<td ><center>273</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
@@ -348,14 +357,15 @@ Available sets include:
 <tr><td ><center>hebrew</center></td>	<td ><center>424</center></td>	<td ><center>3270cg-8</center></td></tr>
 <tr><td ><center>icelandic</center></td>	<td ><center>871</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
 <tr><td ><center>hebrew</center></td>	<td ><center>424</center></td>	<td ><center>iso8859-8</center></td></tr>
-<tr><td ><center>turkish</center></td>	<td ><center>1026</center></td>	<td ><center>iso8859-9</center></td></tr>
 <tr><td ><center>italian</center></td>	<td ><center>280</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
 <tr><td ><center>japanese</center></td>	<td ><center>1027+300</center></td>	<td ><center>jisx0201.1976-0 + jisx0208.1983-0</center></td></tr>
 <tr><td ><center>norwegian</center></td>	<td ><center>277</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
 <tr><td ><center>russian</center></td>	<td ><center>880</center></td>	<td ><center>koi8-r</center></td></tr>
 <tr><td ><center>simplified-chinese</center></td>	<td ><center>836+837</center></td>	<td ><center>3270cg-1a iso8859-1 + gb2312.1980-0</center></td></tr>
 <tr><td ><center>slovenian</center></td>	<td ><center>870</center></td>	<td ><center>iso8859-2</center></td></tr>
+<tr><td ><center>spanish</center></td>	<td ><center>284</center></td>	<td ><center>iso8859-1</center></td></tr>
 <tr><td ><center>thai</center></td>	<td ><center>838</center></td>	<td ><center>iso8859-11 tis620.2529-0</center></td></tr>
+<tr><td ><center>turkish</center></td>	<td ><center>1026</center></td>	<td ><center>iso8859-9</center></td></tr>
 <tr><td ><center>uk</center></td>	<td ><center>285</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
 <tr><td ><center>us-intl</center></td>	<td ><center>37</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
 </table>
@@ -433,22 +443,6 @@ file with the <b>x3270</b> source.
 <p>
 The color scheme may also be changed while <b>x3270</b>
 is running with a selection from the <b>Options</b> menu.
-<a NAME="Pseudo-Color"></a><h2>Pseudo-Color</h2>
-When emulating a 3278 display on a color X display, <b>x3270</b>
-does not understand <font size=-1>IBM</font> 3270 color protocols.
-Instead, it draws text in one of three colors depending on the field attributes.
-Those colors may be customized using the following resources (shown with their
-default values):
-<blockquote><br>
-x3270.normalColor:	green
-<br>
-x3270.boldColor:	cyan
-<br>
-x3270.inputColor:	orange
-<br>
-x3270.colorBackground:	black
-<br>
-x3270.selectBackground:	dim gray</blockquote>
 <a NAME="NVT-ANSI-Mode"></a><h2>NVT (ANSI) Mode</h2>
 Some hosts use an <font size=-1>ASCII</font> front-end to do initial login negotiation,
 then later switch to 3270 mode.
@@ -643,9 +637,13 @@ action.
 The <b>x3270</b> status line contains a variety of information.
 From left to right, the fields are:
 <dl><dt><b>comm status</b></dt><dd>
-Three symbols indicate the state of the connection to the host.
-If connected, the right-hand symbol is a solid box; if not, it is a
-question mark.
+The first symbol is always a <b>4</b>.
+If <b>x3270</b> is in TN3270E mode, the second symbol is a <b>B</b>;
+otherwise it is an <b>A</b>.
+If <b>x3270</b> is disconnected, the third symbol
+is a question mark.  Otherwise, if 
+<b>x3270</b> is in SSCP-LU mode, the third symbol is an <b>S</b>.
+Otherwise it is blank.
 <dt><b>keyboard lock</b></dt><dd>
 If the keyboard is locked, an "X" symbol and a message field indicate the
 reason for the keyboard lock.
@@ -934,6 +932,7 @@ still others are defined for internal use by <b>x3270</b>
 and are not documented here.
 Note that when an action with no parameters is used in a keymap, the
 parentheses and empty argument list are still required.
+
 <a NAME="actions"></a><p>
 Actions marked with an asterisk (*) may block, sending data to the host and
 possibly waiting for a response.
@@ -984,7 +983,7 @@ possibly waiting for a response.
 <tr><td >*PA(<i>n</i>)</td>	<td >Program Attention <font size=-1>AID</font> (<i>n</i> from 1 to 3)</td></tr>
 <tr><td >*PF(<i>n</i>)</td>	<td >Program Function <font size=-1>AID</font> (<i>n</i> from 1 to 24)</td></tr>
 <tr><td >PreviousWord</td>	<td >move cursor to previous word</td></tr>
-<tr><td >Printer(Start[,<i>lu</i>]|Stop)</td>	<td >Start or stop printer session</td></tr>
+<tr><td >Printer(Start[,<i>lu</i>]|Stop)</td>	<td >start or stop printer session</td></tr>
 <tr><td >PrintText(<i>command</i>)</td>	<td >print screen text on printer</td></tr>
 <tr><td >PrintWindow(<i>command</i>)</td>	<td >print screen image (bitmap) on printer</td></tr>
 <tr><td >Quit</td>	<td >exit <b>x3270</b></td></tr>
@@ -1351,7 +1350,27 @@ It contacts the machine named <b>internet-gateway</b> at the port defined in
 <b>/etc/services</b> as <b>telnet-passthru</b>
 (which defaults to 3514).
 It then passes the requested hostname and port to the
-<b>in.telnet-gw</b> server.<a NAME="Files"></a><h2>Files</h2>
+<b>in.telnet-gw</b> server.
+<a NAME="Proxy"></a><h2>Proxy</h2>
+The <b>-proxy</b> option or the <b>x3270.proxy</b> resource
+causes x3270 to use a proxy server to connect to the host.
+The syntax of the option or resource is:
+<blockquote><i>type</i>:<i>host</i>[:<i>port</i>]
+</blockquote>
+The supported values for <i>type</i> are:
+<table BORDER cols=3 width="75%">
+<tr><td ><center>Proxy Type</center></td>	<td ><center>Protocol</center></td>	<td ><center>Default Port</center></td></tr>
+
+<tr><td ><center>http</center></td>	<td ><center>RFC 2817 HTTP tunnel (squid)</center></td>	<td ><center>3128</center></td></tr>
+<tr><td ><center>passthru</center></td>	<td ><center>Sun in.telnet-gw</center></td>	<td ><center>none</center></td></tr>
+<tr><td ><center>socks4</center></td>	<td ><center>SOCKS version 4</center></td>	<td ><center>1080</center></td></tr>
+<tr><td ><center>socks5</center></td>	<td ><center>SOCKS version 5 (RFC 1928)</center></td>	<td ><center>1080</center></td></tr>
+<tr><td ><center>telnet</center></td>	<td ><center>No protocol (just send <b>connect</b> <i>host port</i>)</center></td>	<td ><center>none</center></td></tr>
+</table>
+<p>
+The special types <b>socks4a</b> and <b>socks5d</b> can also be used to force
+the proxy server to do the hostname resolution for the SOCKS protocol.
+<a NAME="Files"></a><h2>Files</h2>
 /usr/lib/X11/x3270/ibm_hosts
 <br>
 $HOME/.x3270pro
@@ -1374,7 +1393,7 @@ file but before the command-line options.
 <a HREF="s3270-man.html">s3270(1)</a>, <a HREF="c3270-man.html">c3270(1)</a>, <a HREF="tcl3270-man.html">tcl3270(1)</a>, <a HREF="ibm_hosts.html">ibm_hosts(5)</a>, <a HREF="x3270-script.html">x3270-script(1)</a>, <a HREF="pr3287-man.html">pr3287(1)</a>, telnet(1), tn3270(1)
 <br>
 X Toolkit Intrinsics
-XX_BRdnl
+<br>
 Data Stream Programmer's Reference, IBM GA23-0059
 <br>
 Character Set Reference, IBM GA27-3831
@@ -1386,7 +1405,11 @@ RFC 1646, TN3270 Extensions for LUname and Printer Selection
 RFC 2355, TN3270 Enhancements
 <a NAME="Copyrights"></a><h2>Copyrights</h2>
 <p>
-Modifications Copyright &copy; 1993, 1994, 1995, 1996, 1997, 1999, 2000, 2001, 2002, 2004, 2005, 2006, 2007 by Paul Mattes.
+Modifications and original code Copyright &copy; 1993, 1994, 1995, 1996, 1997, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007 by Paul Mattes.
+<br>
+DFT File Transfer Code Copyright  &copy; October 1995 by Dick Altenbern.
+<br>
+RPQNAMES Code Copyright  &copy; 2004, 2005 by Don Russell.
 <br>
 Original X11 Port Copyright &copy; 1990 by Jeff Sparkes.
 <blockquote>Permission to use, copy, modify, and distribute this software and its
@@ -1403,12 +1426,12 @@ x3270 is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
 <a NAME="Version"></a><h2>Version</h2>
-x3270 3.3.5
+x3270 3.3.6
 <hr>
-<address>
+<i>
 This HTML document and the accompanying troff document were generated with
 a set of write-only <b>m4</b> macros and the powerful <b>vi</b> editor.
-<br>Last modified 02 February 2007.
-</address>
+<br>Last modified 23 June 2007.
+</i>
 </body>
 </html>

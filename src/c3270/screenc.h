@@ -48,3 +48,11 @@ extern void Trace_action(Widget w, XEvent *event, String *params,
     Cardinal *num_params);
 extern void Show_action(Widget w, XEvent *event, String *params,
     Cardinal *num_params);
+
+#if defined(WC3270) /*[*/
+extern void Paste_action(Widget w, XEvent *event, String *params,
+    Cardinal *num_params);
+extern void Title_action(Widget w, XEvent *event, String *params,
+    Cardinal *num_params);
+extern void screen_title(char *text);
+#endif /*]*/

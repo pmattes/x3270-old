@@ -1,5 +1,6 @@
 /*
- * Copyright 1994, 1995, 1996, 1999, 2000, 2001, 2004, 2005 by Paul Mattes.
+ * Copyright 1994, 1995, 1996, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007
+ *   by Paul Mattes.
  * RPQNAMES modifications Copyright 2004 by Don Russell.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -737,20 +738,39 @@ static void
 do_qr_color(void)
 {
 	int i;
+	int color_max;
 
 	trace_ds("> QueryReply(Color)\n");
+
+#if defined(WC3270) /*[*/
+	color_max = 8;
+#else /*][*/
+	color_max = appres.color8? 8: 16; /* report on 8 or 16 colors */
+#endif /*]*/
+
 	space3270out(4 + 2*15);
 	*obptr++ = 0x00;	/* no options */
-	*obptr++ = appres.color8? 8: 16; /* report on 8 or 16 colors */
+	*obptr++ = color_max; /* report on 8 or 16 colors */
 	*obptr++ = 0x00;	/* default color: */
 	*obptr++ = 0xf0 + COLOR_GREEN;	/*  green */
-	for (i = 0xf1; i <= (appres.color8? 0xf8: 0xff); i++) {
+	for (i = 0xf1; i < 0xf1 + color_max - 1; i++) {
 		*obptr++ = i;
 		if (appres.m3279)
 			*obptr++ = i;
 		else
 			*obptr++ = 0x00;
 	}
+
+#if !defined(X3270_DISPLAY) /*[*/
+	/* Add background color. */
+	if (appres.m3279) {
+		space3270out(4);
+		*obptr++ = 4;		/* length */
+		*obptr++ = 0x02;	/* background color */
+		*obptr++ = 0x00;	/* attribute */
+		*obptr++ = 0xf0;	/* default color */
+	}
+#endif /*]*/
 }
 
 static void

@@ -93,8 +93,7 @@ this:
 0xbc=0x7e</blockquote>
 <dt><b>-command</b> <i>command</i></dt><dd>
 Specifies the command to run for each print job.
-The default is
-<b>lpr</b>.
+The default is <b>lpr</b>.
 <dt><b>-crlf</b></dt><dd>
 Causes newline characters in the output to be expanded to
 carriage-return/linefeed sequences.
@@ -115,6 +114,10 @@ at the top of a page.
 In SCS mode, causes <i>pr3287</i> to pass FF (formfeed) orders through to the
 printer as ASCII formfeed characters, rather than simulating them based on the
 values of the MPL (maximum presentation line) and TM (top margin) parameters.
+
+<p>
+The printer can be the name of a local printer, or a UNC path to a remote
+printer, e.g., <b>\\server\printer1</b>.
 <dt><b>-reconnect</b></dt><dd>
 Causes <i>pr3287</i> to reconnect to the host, whenever the connection is
 broken.
@@ -133,8 +136,9 @@ pending data to be printed) and <i>pr3287</i> to exit.
 <p>
 SIGUSR1 causes the current print job to be flushed without otherwise
 affecting the <i>pr3287</i> process.
+
 <a NAME="See-Also"></a><h2>See Also</h2>
-x3270(1), telnet(1), tn3270(1)
+x3270(1), c3270(1), telnet(1), tn3270(1)
 <br>
 Data Stream Programmer's Reference, IBM GA23-0059
 <br>
@@ -149,7 +153,7 @@ RFC 1646, TN3270 Extensions for LUname and Printer Selection
 RFC 2355, TN3270 Enhancements
 <a NAME="Copyrights"></a><h2>Copyrights</h2>
 <p>
-Modifications Copyright  &copy; 1993-1996, 1997, 1999-2005 by Paul Mattes.
+Modifications Copyright  &copy; 1993-1996, 1997, 1999-2005, 2007 by Paul Mattes.
 <br>
 Original X11 Port Copyright &copy; 1990 by Jeff Sparkes.
 <blockquote>Permission to use, copy, modify, and distribute this software and its
@@ -162,12 +166,12 @@ Copyright &copy; 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.
 Derivative works based on this software must incorporate this copyright
 notice.</blockquote>
 <a NAME="Version"></a><h2>Version</h2>
-pr3287 3.3.5
+pr3287 3.3.6
 <hr>
-<address>
+<i>
 This HTML document and the accompanying troff document were generated with
 a set of write-only <b>m4</b> macros and the powerful <b>vi</b> editor.
-<br>Last modified 02 February 2007.
-</address>
+<br>Last modified 23 June 2007.
+</i>
 </body>
 </html>

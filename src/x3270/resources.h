@@ -1,5 +1,6 @@
 /*
- * Copyright 1995, 1996, 1999, 2000, 2001, 2002, 2004, 2005 by Paul Mattes.
+ * Copyright 1995, 1996, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+ *   by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -68,7 +69,6 @@
 #define ResFtCharset		"ftCharset"
 #define ResFtCommand		"ftCommand"
 #define ResHighlightBold	"highlightBold"
-#define ResPluginCommand	"pluginCommand"
 #define ResHostsFile		"hostsFile"
 #define ResIconFont		"iconFont"
 #define ResIconLabelFont	"iconLabelFont"
@@ -111,10 +111,14 @@
 #define ResOnce			"once"
 #define ResOnlcr		"onlcr"
 #define ResOversize		"oversize"
+#define ResPluginCommand	"pluginCommand"
 #define ResPort			"port"
 #define ResPreeditType		"preeditType"
 #define ResPrinterCommand	"printer.command"
 #define ResPrinterLu		"printerLu"
+#define ResPrinterName		"printer.name"
+
+#define ResProxy		"proxy"
 #define ResQuit			"quit"
 #define ResReconnect		"reconnect"
 #define ResRectangleSelect	"rectangleSelect"
@@ -134,6 +138,7 @@
 #define ResSuppressFontMenu	"suppressFontMenu"
 #define ResSuppress		"suppress"
 #define ResTermName		"termName"
+#define ResTitle		"title"
 #define ResTraceDir		"traceDir"
 #define ResTraceFile		"traceFile"
 #define ResTraceFileSize	"traceFileSize"
@@ -172,12 +177,14 @@
 #define DotPort			"." ResPort
 #define DotPreeditType		"." ResPreeditType
 #define DotPrinterLu		"." ResPrinterLu
+#define DotProxy		"." ResProxy
 #define DotReconnect		"." ResReconnect
 #define DotSaveLines		"." ResSaveLines
 #define DotScripted		"." ResScripted
 #define DotScrollBar		"." ResScrollBar
 #define DotSocket		"." ResSocket
 #define DotTermName		"." ResTermName
+#define DotTitle		"." ResTitle
 #define DotTraceFile		"." ResTraceFile
 #define DotTraceFileSize	"." ResTraceFileSize
 
@@ -222,7 +229,6 @@
 #define ClsFixedSize		"FixedSize"
 #define ClsFtCommand		"FtCommand"
 #define ClsHighlightBold	"HighlightBold"
-#define ClsPluginCommand	"PluginCommand"
 #define ClsHostsFile		"HostsFile"
 #define ClsIconFont		"IconFont"
 #define ClsIconLabelFont	"IconLabelFont"
@@ -263,9 +269,11 @@
 #define ClsOnce			"Once"
 #define ClsOnlcr		"Onlcr"
 #define ClsOversize		"Oversize"
+#define ClsPluginCommand	"PluginCommand"
 #define ClsPort			"Port"
 #define ClsPreeditType		"PreeditType"
 #define ClsPrinterLu		"PrinterLu"
+#define ClsProxy		"Proxy"
 #define ClsQuit			"Quit"
 #define ClsReconnect		"Reconnect"
 #define ClsRectangleSelect	"RectangleSelect"
@@ -329,6 +337,7 @@
 #define OptPort			"-port"
 #define OptPreeditType		"-pt"
 #define OptPrinterLu		"-printerlu"
+#define OptProxy		"-proxy"
 #define OptReconnect		"-reconnect"
 #define OptSaveLines		"-sl"
 #define OptSecure		"-secure"
@@ -337,6 +346,7 @@
 #define OptSet			"-set"
 #define OptSocket		"-socket"
 #define OptTermName		"-tn"
+#define OptTitle		"-title"
 #define OptTraceFile		"-tracefile"
 #define OptTraceFileSize	"-tracefilesize"
 

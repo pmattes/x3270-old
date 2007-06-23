@@ -309,7 +309,7 @@ ac_includes_default="\
 # include <unistd.h>
 #endif"
 
-ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS INSTALL_PROGRAM INSTALL_SCRIPT INSTALL_DATA CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT build build_cpu build_vendor build_os host host_cpu host_vendor host_os XANSI XPRECOMP CPP EGREP LIBX3270DIR DBCS_C DBCS_O CNV ICU_DATA_PREFIX LIBOBJS LTLIBOBJS'
+ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS INSTALL_PROGRAM INSTALL_SCRIPT INSTALL_DATA CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT build build_cpu build_vendor build_os host host_cpu host_vendor host_os XANSI XPRECOMP CPP EGREP LIBX3270DIR DBCS_C DBCS_O CNV ICU_DATA_PREFIX_ ICU_DASHP LIBOBJS LTLIBOBJS'
 ac_subst_files=''
 
 # Initialize some variables set by options.
@@ -4234,6 +4234,7 @@ if test "$enable_dbcs" != no
 then	echo "$as_me:$LINENO: checking for ICU version strings" >&5
 echo $ECHO_N "checking for ICU version strings... $ECHO_C" >&6
 	cat >/tmp/icutst$$.c <<EOF
+#include <stdio.h>
 #include "unicode/ucnv.h"
 #define xstr(s)	str(s)
 #define str(s)	#s
@@ -4272,6 +4273,15 @@ echo "$as_me: WARNING: ICU version must be 2.2 or later" >&2;}
 			{ echo "$as_me:$LINENO: WARNING: Disabling DBCS" >&5
 echo "$as_me: WARNING: Disabling DBCS" >&2;}
 			enable_dbcs="no"
+		fi
+	fi
+	if test "$enable_dbcs" != "no"
+	then	icu_needp=`expr $icu_suffix '<' _3_6`
+		if test $icu_needp -eq 1
+		then	ICU_DASHP="-p $ICU_DATA_PREFIX"
+		    	ICU_DATA_PREFIX_=${ICU_DATA_PREFIX}_
+		else	ICU_DASHP=""
+		    	ICU_DATA_PREFIX_=""
 		fi
 	fi
 fi
@@ -5455,6 +5465,7 @@ esac
 
 
 
+
 # Check whether --enable-ft or --disable-ft was given.
 if test "${enable_ft+set}" = set; then
   enableval="$enable_ft"
@@ -6159,7 +6170,8 @@ s,@LIBX3270DIR@,$LIBX3270DIR,;t t
 s,@DBCS_C@,$DBCS_C,;t t
 s,@DBCS_O@,$DBCS_O,;t t
 s,@CNV@,$CNV,;t t
-s,@ICU_DATA_PREFIX@,$ICU_DATA_PREFIX,;t t
+s,@ICU_DATA_PREFIX_@,$ICU_DATA_PREFIX_,;t t
+s,@ICU_DASHP@,$ICU_DASHP,;t t
 s,@LIBOBJS@,$LIBOBJS,;t t
 s,@LTLIBOBJS@,$LTLIBOBJS,;t t
 CEOF

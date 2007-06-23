@@ -1,5 +1,5 @@
 /*
- * Copyright 2000, 2001, 2002, 2004, 2005 by Paul Mattes.
+ * Copyright 2000, 2001, 2002, 2004, 2005, 2006, 2007 by Paul Mattes.
  *   Permission to use, copy, modify, and distribute this software and its
  *   documentation for any purpose and without fee is hereby granted,
  *   provided that the above copyright notice appear in all copies and that
@@ -40,25 +40,39 @@
 #include <windows.h>
 #include <wincon.h>
 
-static int cmap[16] = {
-	0,					/* neutral black */
-	FOREGROUND_BLUE,			/* blue */
-	FOREGROUND_RED,				/* red */
-	FOREGROUND_RED | FOREGROUND_BLUE,	/* pink */
-	FOREGROUND_GREEN,			/* green */
-	FOREGROUND_GREEN | FOREGROUND_BLUE,	/* turquoise */
-	FOREGROUND_GREEN | FOREGROUND_RED,	/* yellow */
-	FOREGROUND_GREEN | FOREGROUND_RED | FOREGROUND_BLUE, /* neutral white */
+extern int screen_changed;
+extern char *profile_name;
 
-	0,					/* black */
-	FOREGROUND_BLUE,			/* deep blue */
-	FOREGROUND_RED | FOREGROUND_BLUE,	/* orange */
-	FOREGROUND_BLUE,			/* deep blue */
-	FOREGROUND_GREEN,			/* pale green */
-	FOREGROUND_GREEN | FOREGROUND_BLUE,	/* pale turquoise */
-	0,					/* grey */
-	FOREGROUND_GREEN | FOREGROUND_RED | FOREGROUND_BLUE /* white */
+#define MAX_COLORS	8
+static int cmap_fg[MAX_COLORS] = {
+	0,						/* neutral black */
+	FOREGROUND_INTENSITY | FOREGROUND_BLUE,		/* blue */
+	FOREGROUND_INTENSITY | FOREGROUND_RED,		/* red */
+	FOREGROUND_INTENSITY | FOREGROUND_RED | FOREGROUND_BLUE,
+							/* pink */
+	FOREGROUND_INTENSITY | FOREGROUND_GREEN,	/* green */
+	FOREGROUND_INTENSITY | FOREGROUND_GREEN | FOREGROUND_BLUE,
+							/* turquoise */
+	FOREGROUND_INTENSITY | FOREGROUND_GREEN | FOREGROUND_RED,
+							/* yellow */
+	FOREGROUND_INTENSITY | FOREGROUND_GREEN | FOREGROUND_RED | FOREGROUND_BLUE,
+							/* neutral white */
 };
+static int cmap_bg[MAX_COLORS] = {
+	0,						/* neutral black */
+	BACKGROUND_INTENSITY | BACKGROUND_BLUE,		/* blue */
+	BACKGROUND_INTENSITY | BACKGROUND_RED,		/* red */
+	BACKGROUND_INTENSITY | BACKGROUND_RED | BACKGROUND_BLUE,
+							/* pink */
+	BACKGROUND_INTENSITY | BACKGROUND_GREEN,	/* green */
+	BACKGROUND_INTENSITY | BACKGROUND_GREEN | BACKGROUND_BLUE,
+							/* turquoise */
+	BACKGROUND_INTENSITY | BACKGROUND_GREEN | BACKGROUND_RED,
+							/* yellow */
+	BACKGROUND_INTENSITY | BACKGROUND_GREEN | BACKGROUND_RED | BACKGROUND_BLUE,
+							/* neutral white */
+};
+
 static int defattr = 0;
 static unsigned long input_id;
 
@@ -66,6 +80,24 @@ Boolean escaped = True;
 
 enum ts { TS_AUTO, TS_ON, TS_OFF };
 enum ts ab_mode = TS_AUTO;
+
+#if defined(MAYBE_SOMETIME) /*[*/
+/*
+ * A bit of a cheat.  We know that Windows console attributes are really just
+ * colors, with bits 0-3 for foreground and bits 4-7 for background.  That
+ * leaves 8 bits we can play with for our own devious purposes, as long as we
+ * don't accidentally pass one of those bits to Windows.
+ *
+ * The attributes we define are:
+ *  WCATTR_UNDERLINE: The character is underlined.  Windows does not support
+ *    underlining, but we do, by displaying underlined spaces as underscores.
+ *    Some people may find this absolutely maddening.
+ */
+#endif /*]*/
+
+static CHAR_INFO *onscreen;	/* what's on the screen now */
+static CHAR_INFO *toscreen;	/* what's supposed to be on the screen */
+static int onscreen_valid = FALSE; /* is onscreen valid? */
 
 static int status_row = 0;	/* Row to display the status line on */
 static int status_skip = 0;	/* Row to blank above the status line */
@@ -77,22 +109,23 @@ static void status_connect(Boolean ignored);
 static void status_3270_mode(Boolean ignored);
 static void status_printer(Boolean on);
 static int get_color_pair(int fg, int bg);
-static int color_from_fa(unsigned char);
+static int color_from_fa(unsigned char fa);
 static void screen_init2(void);
 static void set_status_row(int screen_rows, int emulator_rows);
 static Boolean ts_value(const char *s, enum ts *tsp);
 static int linedraw_to_acs(unsigned char c);
 static int apl_to_acs(unsigned char c);
+static void relabel(Boolean ignored);
 
 static HANDLE chandle;	/* console input handle */
 static HANDLE cohandle;	/* console screen buffer handle */
 
-static HANDLE sbuf[2];	/* dynamically-allocated screen buffers */
-static int sbuf_ix = 0;	/* current buffer */
-static int dirty = 0;	/* is the current buffer dirty? */
+static HANDLE *sbuf;	/* dynamically-allocated screen buffer */
 
 static int console_rows;
 static int console_cols;
+
+static int screen_swapped = FALSE;
 
 /*
  * Console event handler.
@@ -104,6 +137,7 @@ cc_handler(DWORD type)
 		char *action;
 
 		/* Process it as a Ctrl-C. */
+		trace_event("Control-C received via Console Event Handler\n");
 		action = lookup_key(0x03, LEFT_CTRL_PRESSED);
 		if (action != CN) {
 			if (strcmp(action, "[ignore]"))
@@ -132,7 +166,8 @@ static HANDLE
 initscr(void)
 {
 	CONSOLE_SCREEN_BUFFER_INFO info;
-	int i;
+	size_t buffer_size;
+	CONSOLE_CURSOR_INFO cursor_info;
 
 	/* Get a handle to the console. */
 	chandle = CreateFile("CONIN$", GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ,
@@ -165,20 +200,32 @@ initscr(void)
 	console_rows = info.srWindow.Bottom - info.srWindow.Top + 1;
 	console_cols = info.srWindow.Right - info.srWindow.Left + 1;
 
-	/* Create two screen buffers. */
-	for (i = 0; i < 2; i++) {
-		sbuf[i] = CreateConsoleScreenBuffer(
-			GENERIC_READ | GENERIC_WRITE,
-			FILE_SHARE_WRITE,
-			NULL,
-			CONSOLE_TEXTMODE_BUFFER,
-			NULL);
-		if (sbuf[i] == NULL) {
-			fprintf(stderr,
-				"CreateConsoleScreenBuffer failed: %ld\n",
-				GetLastError());
-			return NULL;
-		}
+	/* Get its cursor configuration. */
+	if (GetConsoleCursorInfo(cohandle, &cursor_info) == 0) {
+		fprintf(stderr, "GetConsoleCursorInfo failed: %ld\n",
+			GetLastError());
+		return NULL;
+	}
+
+	/* Create the screen buffer. */
+	sbuf = CreateConsoleScreenBuffer(
+		GENERIC_READ | GENERIC_WRITE,
+		FILE_SHARE_WRITE,
+		NULL,
+		CONSOLE_TEXTMODE_BUFFER,
+		NULL);
+	if (sbuf == NULL) {
+		fprintf(stderr,
+			"CreateConsoleScreenBuffer failed: %ld\n",
+			GetLastError());
+		return NULL;
+	}
+
+	/* Set its cursor state. */
+	if (SetConsoleCursorInfo(sbuf, &cursor_info) == 0) {
+		fprintf(stderr, "SetConsoleScreenBufferInfo failed: %ld\n",
+			GetLastError());
+		return NULL;
 	}
 
 	/* Define a console handler. */
@@ -188,6 +235,13 @@ initscr(void)
 		return NULL;
 	}
 
+	/* Allocate and initialize the onscreen and toscreen buffers. */
+	buffer_size = sizeof(CHAR_INFO) * console_rows * console_cols;
+	onscreen = (CHAR_INFO *)Malloc(buffer_size);
+	(void) memset(onscreen, '\0', buffer_size);
+	onscreen_valid = FALSE;
+	toscreen = (CHAR_INFO *)Malloc(buffer_size);
+	(void) memset(toscreen, '\0', buffer_size);
 
 	/* More will no doubt follow. */
 	return chandle;
@@ -273,38 +327,14 @@ attrset(int a)
 }
 
 static void
-addch(char c)
+addch(int c)
 {
-	CHAR_INFO buffer;
-	COORD bufferSize;
-	COORD bufferCoord;
-	SMALL_RECT writeRegion;
+	CHAR_INFO *ch = &toscreen[(cur_row * console_cols) + cur_col];
 
-	/* If the buffer wasn't dirty, it is now. */
-	if (!dirty) {
-		sbuf_ix = (sbuf_ix + 1) % 2;
-		dirty = 1;
-	}
-
-	/* Write it. */
-	if (!(cur_attr & FOREGROUND_INTENSITY))
-		abort();
-	buffer.Char.AsciiChar = c;
-	buffer.Attributes = cur_attr;
-	bufferSize.X = 1;
-	bufferSize.Y = 1;
-	bufferCoord.X = 0;
-	bufferCoord.Y = 0;
-	writeRegion.Left = cur_col;
-	writeRegion.Top = cur_row;
-	writeRegion.Right = cur_col;
-	writeRegion.Bottom = cur_row;
-	if (WriteConsoleOutput(sbuf[sbuf_ix], &buffer, bufferSize, bufferCoord,
-		&writeRegion) == 0) {
-
-		fprintf(stderr, "WriteConsoleOutput failed: %ld\n",
-			GetLastError());
-		x3270_exit(1);
+	/* Save the desired character. */
+	if (ch->Char.UnicodeChar != c || ch->Attributes != cur_attr) {
+	    	ch->Char.UnicodeChar = c;
+		ch->Attributes = cur_attr;
 	}
 
 	/* Increment and wrap. */
@@ -347,30 +377,331 @@ mvprintw(int row, int col, char *fmt, ...)
 	va_end(ap);
 }
 
+static int
+ix(int row, int col)
+{
+	return (row * console_cols) + col;
+}
+
+static char *done_array = NULL;
+
+static void
+none_done(void)
+{
+    	if (done_array == NULL) {
+	    	done_array = Malloc(console_rows * console_cols);
+	}
+	memset(done_array, '\0', console_rows * console_cols);
+}
+
+static int
+is_done(int row, int col)
+{
+    	return done_array[ix(row, col)];
+}
+
+static void
+mark_done(int start_row, int end_row, int start_col, int end_col)
+{
+    	int row;
+
+	for (row = start_row; row <= end_row; row++) {
+	    	memset(&done_array[ix(row, start_col)],
+			1, end_col - start_col + 1);
+	}
+}
+
+static int
+tos_a(int row, int col)
+{
+    	/*return toscreen[ix(row, col)].Attributes;*/
+	if (toscreen[ix(row, col)].Char.UnicodeChar & ~0xff)
+		return toscreen[ix(row, col)].Attributes | 0x80000000;
+	else
+	    	return toscreen[ix(row, col)].Attributes;
+}
+
+#if defined(DEBUG_SCREEN_DRAW) /*[*/
+static int
+changed(int row, int col)
+{
+	return !onscreen_valid ||
+		memcmp(&onscreen[ix(row, col)], &toscreen[ix(row, col)],
+		       sizeof(CHAR_INFO));
+}
+#endif /*]*/
+
+/*
+ * Draw a rectangle of homogeneous text.
+ */
+static void
+hdraw(int row, int lrow, int col, int lcol)
+{
+	COORD bufferSize;
+	COORD bufferCoord;
+	SMALL_RECT writeRegion;
+	int xrow;
+	int rc;
+
+#if defined(DEBUG_SCREEN_DRAW) /*[*/
+	/*
+	 * Trace what we've been asked to draw.
+	 * Drawn areas are 'h', done areas are 'd'.
+	 */
+	{
+		int trow, tcol;
+
+		trace_event("hdraw row %d-%d col %d-%d attr 0x%x:\n",
+			row, lrow, col, lcol, tos_a(row, col));
+		for (trow = 0; trow < console_rows; trow++) {
+			for (tcol = 0; tcol < console_cols; tcol++) {
+				if (trow >= row && trow <= lrow &&
+				    tcol >= col && tcol <= lcol)
+					trace_event("h");
+				else if (is_done(trow, tcol))
+					trace_event("d");
+				else
+					trace_event(".");
+			}
+			trace_event("\n");
+		}
+	}
+#endif /*]*/
+
+	/* Write it. */
+	bufferSize.X = console_cols;
+	bufferSize.Y = console_rows;
+	bufferCoord.X = col;
+	bufferCoord.Y = row;
+	writeRegion.Left = col;
+	writeRegion.Top = row;
+	writeRegion.Right = lcol;
+	writeRegion.Bottom = lrow;
+	if (toscreen[ix(row, col)].Char.UnicodeChar & ~0xff)
+	    	rc = WriteConsoleOutputW(sbuf, toscreen, bufferSize,
+			bufferCoord, &writeRegion);
+	else
+	    	rc = WriteConsoleOutputA(sbuf, toscreen, bufferSize,
+			bufferCoord, &writeRegion);
+	if (rc == 0) {
+
+		fprintf(stderr, "WriteConsoleOutput failed: %ld\n",
+			GetLastError());
+		x3270_exit(1);
+	}
+
+	/* Sync 'onscreen'. */
+	for (xrow = row; xrow <= lrow; xrow++) {
+	    	memcpy(&onscreen[ix(xrow, col)],
+		       &toscreen[ix(xrow, col)],
+		       sizeof(CHAR_INFO) * (lcol - col + 1));
+	}
+
+	/* Mark the region as done. */
+	mark_done(row, lrow, col, lcol);
+}
+
+/*
+ * Draw a rectanglar region from 'toscreen' onto the screen, without regard to
+ * what is already there.
+ * If the attributes for the entire region are the same, we can draw it in
+ * one go; otherwise we will need to break it into little pieces (fairly
+ * stupidly) with common attributes.
+ * When done, copy the region from 'toscreen' to 'onscreen'.
+ */
+static void
+draw_rect(int pc_start, int pc_end, int pr_start, int pr_end)
+{
+    	int a;
+	int ul_row, ul_col, xrow, xcol, lr_row, lr_col;
+
+#if defined(DEBUG_SCREEN_DRAW) /*[*/
+	/*
+	 * Trace what we've been asked to draw.
+	 * Modified areas are 'r', unmodified (excess) areas are 'x'.
+	 */
+	{
+		int trow, tcol;
+
+		trace_event("draw_rect row %d-%d col %d-%d\n",
+			pr_start, pr_end, pc_start, pc_end);
+		for (trow = 0; trow < console_rows; trow++) {
+			for (tcol = 0; tcol < console_cols; tcol++) {
+				if (trow >= pr_start && trow <= pr_end &&
+				    tcol >= pc_start && tcol <= pc_end) {
+					if (changed(trow, tcol))
+						trace_event("r");
+					else
+						trace_event("x");
+				} else
+					trace_event(".");
+			}
+			trace_event("\n");
+		}
+	}
+#endif /*]*/
+
+	for (ul_row = pr_start; ul_row <= pr_end; ul_row++) {
+	    	for (ul_col = pc_start; ul_col <= pc_end; ul_col++) {
+		    	int col_found = 0;
+
+		    	if (is_done(ul_row, ul_col))
+			    	continue;
+
+			/*
+			 * [ul_row,ul_col] is the upper left-hand corner of an
+			 * undrawn region.
+			 *
+			 * Find the the lower right-hand corner of the
+			 * rectangle with common attributes.
+			 */
+			a = tos_a(ul_row, ul_col);
+			lr_col = pc_end;
+			lr_row = pr_end;
+			for (xrow = ul_row;
+				!col_found && xrow <= pr_end;
+				xrow++) {
+
+				if (is_done(xrow, ul_col) ||
+				    tos_a(xrow, ul_col) != a) {
+					lr_row = xrow - 1;
+					break;
+				}
+				for (xcol = ul_col; xcol <= lr_col; xcol++) {
+				    	if (is_done(xrow, xcol) ||
+					    tos_a(xrow, xcol) != a) {
+						lr_col = xcol - 1;
+						lr_row = xrow;
+						col_found = 1;
+						break;
+					}
+				}
+			}
+			hdraw(ul_row, lr_row, ul_col, lr_col);
+		}
+	}
+}
+
+/*
+ * Compare 'onscreen' (what's on the screen right now) with 'toscreen' (what
+ * we want on the screen) and draw what's changed.  Hopefully it will be in
+ * a reasonably optimized fashion.
+ *
+ * Windows lets us draw a rectangular areas with one call, provided that the
+ * whole area has the same attributes.  We will take advantage of this where
+ * it is relatively easy to figure out, by walking row by row, holding on to
+ * and widening a vertical band of modified columns and drawing only when we
+ * hit a row that needs no modifications.  This will cause us to miss some
+ * easy-seeming cases that require recognizing multiple bands per row.
+ */
+static void
+sync_onscreen(void)
+{
+    	int row;
+	int col;
+	int pending = FALSE;	/* is there a draw pending? */
+	int pc_start, pc_end;	/* first and last columns in pending band */
+	int pr_start;		/* first row in pending band */
+
+	/* Clear out the 'what we've seen' array. */
+    	none_done();
+
+#if defined(DEBUG_SCREEN_DRAW) /*[*/
+	/*
+	 * Trace what's been modified.
+	 * Modified areas are 'm'.
+	 */
+	{
+		int trow, tcol;
+
+		trace_event("sync_onscreen:\n");
+		for (trow = 0; trow < console_rows; trow++) {
+			for (tcol = 0; tcol < console_cols; tcol++) {
+				if (changed(trow, tcol))
+					trace_event("m");
+				else
+					trace_event(".");
+			}
+			trace_event("\n");
+		}
+	}
+#endif /*]*/
+
+	/* Sometimes you have to draw everything. */
+	if (!onscreen_valid) {
+	    	draw_rect(0, console_cols - 1, 0, console_rows - 1);
+		onscreen_valid = TRUE;
+		return;
+	}
+
+	for (row = 0; row < console_rows; row++) {
+
+	    	/* Check the whole row for a match first. */
+	    	if (!memcmp(&onscreen[ix(row, 0)],
+			    &toscreen[ix(row, 0)],
+			    sizeof(CHAR_INFO) * console_cols)) {
+		    if (pending) {
+			    draw_rect(pc_start, pc_end, pr_start, row - 1);
+			    pending = FALSE;
+		    }
+		    continue;
+		}
+
+		for (col = 0; col < console_cols; col++) {
+		    	if (memcmp(&onscreen[ix(row, col)],
+				   &toscreen[ix(row, col)],
+				   sizeof(CHAR_INFO))) {
+			    	/*
+				 * This column differs.
+				 * Start or expand the band, and start pending.
+				 */
+			    	if (!pending || col < pc_start)
+				    	pc_start = col;
+				if (!pending || col > pc_end)
+				    	pc_end = col;
+				if (!pending) {
+				    	pr_start = row;
+					pending = TRUE;
+				}
+			}
+		}
+	}
+
+	if (pending)
+	    	draw_rect(pc_start, pc_end, pr_start, console_rows - 1);
+}
+
 /* Repaint the screen. */
 static void
 refresh(void)
 {
 	COORD coord;
 
+	/*
+	 * Draw the differences between 'onscreen' and 'toscreen' into
+	 * sbuf.
+	 */
+	sync_onscreen();
+
 	/* Move the cursor. */
 	coord.X = cur_col;
 	coord.Y = cur_row;
-	if (SetConsoleCursorPosition(sbuf[sbuf_ix], coord) == 0) {
+	if (SetConsoleCursorPosition(sbuf, coord) == 0) {
 		fprintf(stderr, "\nSetConsoleCursorPosition failed: %ld\n",
 			GetLastError());
 		x3270_exit(1);
 	}
 
 	/* Swap in this buffer. */
-	if (SetConsoleActiveScreenBuffer(sbuf[sbuf_ix]) == 0) {
-		fprintf(stderr, "\nSetConsoleActiveScreenBuffer failed: %ld\n",
-			GetLastError());
-		x3270_exit(1);
+	if (screen_swapped == FALSE) {
+		if (SetConsoleActiveScreenBuffer(sbuf) == 0) {
+			fprintf(stderr,
+				"\nSetConsoleActiveScreenBuffer failed: %ld\n",
+				GetLastError());
+			x3270_exit(1);
+		}
+		screen_swapped = TRUE;
 	}
-
-	/* This buffer is no longer dirty. */
-	dirty = 0;
 }
 
 /* Go back to the original screen. */
@@ -398,8 +729,7 @@ endwin(void)
 		x3270_exit(1);
 	}
 
-	/* Mark the current buffer dirty. */
-	dirty = 1;
+	screen_swapped = FALSE;
 }
 
 /* Initialize the screen. */
@@ -472,6 +802,10 @@ screen_init(void)
 	register_schange(ST_3270_MODE, status_3270_mode);
 	register_schange(ST_PRINTER, status_printer);
 
+	register_schange(ST_HALF_CONNECT, relabel);
+	register_schange(ST_CONNECT, relabel);
+	register_schange(ST_3270_MODE, relabel);
+
 	/* See about all-bold behavior. */
 	if (appres.all_bold_on)
 		ab_mode = TS_ON;
@@ -480,12 +814,25 @@ screen_init(void)
 		    "assuming 'auto'\n", ResAllBold, appres.all_bold);
 	if (ab_mode == TS_AUTO)
 		ab_mode = appres.m3279? TS_ON: TS_OFF;
-	if (ab_mode == TS_ON)
-		defattr |= FOREGROUND_INTENSITY;
+
+	/* If the want monochrome, assume they want green. */
+	if (!appres.m3279) {
+	    	defattr |= FOREGROUND_GREEN;
+		if (ab_mode == TS_ON)
+			defattr |= FOREGROUND_INTENSITY;
+	}
 
 	/* Set up the controller. */
 	ctlr_init(-1);
 	ctlr_reinit(-1);
+
+	/* Set the window label. */
+	if (appres.title != CN)
+		screen_title(appres.title);
+	else if (profile_name != CN)
+	    	screen_title(profile_name);
+	else
+		screen_title("wc3270");
 
 	/* Finish screen initialization. */
 	screen_init2();
@@ -549,30 +896,145 @@ ts_value(const char *s, enum ts *tsp)
 static int
 get_color_pair(int fg, int bg)
 {
-	return cmap[fg];
+    	int mfg = fg & 0xf;
+    	int mbg = bg & 0xf;
+
+	if (mfg >= MAX_COLORS)
+	    	mfg = 0;
+	if (mbg >= MAX_COLORS)
+	    	mbg = 0;
+
+	return cmap_fg[mfg] | cmap_bg[mbg];
 }
 
+/*
+ * Map a field attribute to a 3270 color index.
+ * Applies only to m3270 mode -- does not work for mono.
+ */
 static int
-color_from_fa(unsigned char fa)
+color3270_from_fa(unsigned char fa)
 {
 	static int field_colors[4] = {
 	    COLOR_GREEN,	/* default */
 	    COLOR_RED,		/* intensified */
 	    COLOR_BLUE,		/* protected */
-	    COLOR_WHITE		/* protected, intensified */
+	    COLOR_NEUTRAL_WHITE		/* protected, intensified */
 #	define DEFCOLOR_MAP(f) \
 		((((f) & FA_PROTECT) >> 4) | (((f) & FA_INT_HIGH_SEL) >> 3))
-
 	};
 
+	return field_colors[DEFCOLOR_MAP(fa)];
+}
+
+/* Map a field attribute to its default colors. */
+static int
+color_from_fa(unsigned char fa)
+{
 	if (appres.m3279) {
 		int fg;
 
-		fg = field_colors[DEFCOLOR_MAP(fa)];
-		return get_color_pair(fg, COLOR_BLACK) |
-		    (((ab_mode == TS_ON) || FA_IS_HIGH(fa))? FOREGROUND_INTENSITY: 0);
+		fg = color3270_from_fa(fa);
+		return get_color_pair(fg, COLOR_NEUTRAL_BLACK);
 	} else
-		return ((ab_mode == TS_ON) || FA_IS_HIGH(fa))? FOREGROUND_INTENSITY: 0;
+		return FOREGROUND_GREEN |
+		    (((ab_mode == TS_ON) || FA_IS_HIGH(fa))?
+		     FOREGROUND_INTENSITY: 0);
+}
+
+static int
+reverse_colors(int a)
+{
+    	int rv = 0;
+
+	/* Move foreground colors to background colors. */
+	if (a & FOREGROUND_RED)
+	    	rv |= BACKGROUND_RED;
+	if (a & FOREGROUND_BLUE)
+	    	rv |= BACKGROUND_BLUE;
+	if (a & FOREGROUND_GREEN)
+	    	rv |= BACKGROUND_GREEN;
+	if (a & FOREGROUND_INTENSITY)
+	    	rv |= BACKGROUND_INTENSITY;
+
+	/* And vice versa. */
+	if (a & BACKGROUND_RED)
+	    	rv |= FOREGROUND_RED;
+	if (a & BACKGROUND_BLUE)
+	    	rv |= FOREGROUND_BLUE;
+	if (a & BACKGROUND_GREEN)
+	    	rv |= FOREGROUND_GREEN;
+	if (a & BACKGROUND_INTENSITY)
+	    	rv |= FOREGROUND_INTENSITY;
+
+	return rv;
+}
+
+/*
+ * Find the display attributes for a baddr, fa_addr and fa.
+ */
+static int
+calc_attrs(int baddr, int fa_addr, int fa)
+{
+    	int fg, bg, gr, a;
+
+	/* Compute the color. */
+
+	/* Monochrome is easy, and so is color if nothing is specified. */
+	if (!appres.m3279 ||
+		(!ea_buf[baddr].fg &&
+		 !ea_buf[fa_addr].fg &&
+		 !ea_buf[baddr].bg &&
+		 !ea_buf[fa_addr].bg)) {
+
+	    	a = color_from_fa(fa);
+
+	} else {
+
+		/* The current location or the fa specifies the fg or bg. */
+		if (ea_buf[baddr].fg)
+			fg = ea_buf[baddr].fg & 0x0f;
+		else if (ea_buf[fa_addr].fg)
+			fg = ea_buf[fa_addr].fg & 0x0f;
+		else
+			fg = color3270_from_fa(fa);
+
+		if (ea_buf[baddr].bg)
+			bg = ea_buf[baddr].bg & 0x0f;
+		else if (ea_buf[fa_addr].bg)
+			bg = ea_buf[fa_addr].bg & 0x0f;
+		else
+			bg = COLOR_NEUTRAL_BLACK;
+
+		a = get_color_pair(fg, bg);
+	}
+
+	/* Compute the display attributes. */
+
+	if (ea_buf[baddr].gr)
+		gr = ea_buf[baddr].gr;
+	else if (ea_buf[fa_addr].gr)
+		gr = ea_buf[fa_addr].gr;
+	else
+		gr = 0;
+
+	if (appres.m3279 &&
+		(gr & (GR_BLINK | GR_UNDERLINE)) &&
+		!(gr & GR_REVERSE) &&
+		!bg) {
+
+	    	a |= BACKGROUND_INTENSITY;
+	}
+
+	if (!appres.m3279 &&
+		((gr & GR_INTENSIFY) || (ab_mode == TS_ON) || FA_IS_HIGH(fa))) {
+
+		a |= FOREGROUND_INTENSITY;
+	}
+
+	if (gr & GR_REVERSE)
+		a = reverse_colors(a);
+
+	return a;
 }
 
 /* Display what's in the buffer. */
@@ -586,13 +1048,47 @@ screen_disp(Boolean erasing unused)
 #if defined(X3270_DBCS) /*[*/
 	enum dbcs_state d;
 #endif /*]*/
+	int fa_addr;
 
 	/* This may be called when it isn't time. */
 	if (escaped)
 		return;
 
+	if (!screen_changed) {
+
+		/* Draw the status line. */
+		if (status_row) {
+			draw_oia();
+		}
+
+		/* Move the cursor. */
+		if (flipped)
+			move(cursor_addr / cCOLS,
+				cCOLS-1 - (cursor_addr % cCOLS));
+		else
+			move(cursor_addr / cCOLS, cursor_addr % cCOLS);
+
+		if (status_row)
+		    	refresh();
+		else {
+			COORD coord;
+
+			coord.X = cur_col;
+			coord.Y = cur_row;
+			if (SetConsoleCursorPosition(sbuf, coord) == 0) {
+				fprintf(stderr,
+					"\nSetConsoleCursorPosition failed: %ld\n",
+					GetLastError());
+				x3270_exit(1);
+			}
+		}
+
+	    	return;
+	}
+
 	fa = get_field_attribute(0);
 	a = color_from_fa(fa);
+	fa_addr = find_field_attribute(0); /* may be -1, that's okay */
 	for (row = 0; row < ROWS; row++) {
 		int baddr;
 
@@ -603,90 +1099,31 @@ screen_disp(Boolean erasing unused)
 				move(row, cCOLS-1 - col);
 			baddr = row*cCOLS+col;
 			if (ea_buf[baddr].fa) {
+			    	/* Field attribute. */
+			    	fa_addr = baddr;
 				fa = ea_buf[baddr].fa;
-				if (appres.m3279) {
-					if (ea_buf[baddr].fg ||
-					    ea_buf[baddr].bg) {
-						int fg, bg;
-
-						if (ea_buf[baddr].fg)
-							fg = cmap[ea_buf[baddr].fg
-							    & 0x0f];
-						else
-							fg = COLOR_WHITE;
-						if (ea_buf[baddr].bg)
-							bg = cmap[ea_buf[baddr].bg
-							    & 0x0f];
-						else
-							bg = COLOR_BLACK;
-						a = get_color_pair(fg, bg) |
-							((ab_mode == TS_ON)?
-							  FOREGROUND_INTENSITY: 0);
-					} else {
-						a = color_from_fa(fa);
-					}
-				} else {
-					a = FA_IS_HIGH(fa)? FOREGROUND_INTENSITY: 0;
-				}
-#if 0
-				if (ea_buf[baddr].gr & GR_BLINK)
-					a |= A_BLINK;
-#endif
-#if defined(COMMON_LVB_REVERSE_VIDEO)
-				if (ea_buf[baddr].gr & GR_REVERSE)
-					a |= COMMON_LVB_REVERSE_VIDEO;
-				if (ea_buf[baddr].gr & GR_UNDERLINE)
-					a |= COMMON_LVB_UNDERSCORE;
-#endif
-				if (ea_buf[baddr].gr & GR_INTENSIFY)
-					a |= FOREGROUND_INTENSITY;
+				a = calc_attrs(baddr, baddr, fa);
 				attrset(defattr);
 				addch(' ');
 			} else if (FA_IS_ZERO(fa)) {
+			    	/* Blank. */
 				attrset(a);
 				addch(' ');
 			} else {
-				if (ea_buf[baddr].gr ||
-				    ea_buf[baddr].fg ||
-				    ea_buf[baddr].bg) {
-					int b = ((ab_mode == TS_ON) ||
-						 FA_IS_HIGH(fa))? FOREGROUND_INTENSITY:
-						                  0;
-
-#if 0
-					if (ea_buf[baddr].gr & GR_BLINK)
-						b |= A_BLINK;
-#endif
-#if defined(COMMON_LVB_REVERSE_VIDEO)
-					if (ea_buf[baddr].gr & GR_REVERSE)
-						b |= COMMON_LVB_REVERSE_VIDEO;
-					if (ea_buf[baddr].gr & GR_UNDERLINE)
-						b |= COMMON_LVB_UNDERSCORE;
-#endif
-					if (ea_buf[baddr].gr & GR_INTENSIFY)
-						b |= FOREGROUND_INTENSITY;
-					if (appres.m3279 &&
-					    (ea_buf[baddr].fg ||
-					     ea_buf[baddr].bg)) {
-						int fg, bg;
-
-						if (ea_buf[baddr].fg)
-							fg = cmap[ea_buf[baddr].fg
-							    & 0x0f];
-						else
-							fg = COLOR_WHITE;
-						if (ea_buf[baddr].bg)
-							bg = cmap[ea_buf[baddr].bg
-							    & 0x0f];
-						else
-							bg = COLOR_BLACK;
-						b |= get_color_pair(fg, bg);
-					} else
-						b |= a;
-		
-					attrset(b);
+			    	/* Normal text. */
+				if (!(ea_buf[baddr].gr ||
+				      ea_buf[baddr].fg ||
+				      ea_buf[baddr].bg)) {
+					attrset(a);
 				} else {
-					(void) attrset(a);
+					int b;
+
+					/*
+					 * Override some of the field
+					 * attributes.
+					 */
+					b = calc_attrs(baddr, fa_addr, fa);
+					attrset(b);
 				}
 #if defined(X3270_DBCS) /*[*/
 				d = ctlr_dbcs_state(baddr);
@@ -732,67 +1169,88 @@ screen_disp(Boolean erasing unused)
 	}
 	if (status_row)
 		draw_oia();
-	(void) attrset(defattr);
+	attrset(defattr);
 	if (flipped)
 		move(cursor_addr / cCOLS, cCOLS-1 - (cursor_addr % cCOLS));
 	else
 		move(cursor_addr / cCOLS, cursor_addr % cCOLS);
 	refresh();
+
+	screen_changed = FALSE;
 }
 
 static const char *
-decode_state(int state)
+decode_state(int state, Boolean limited, const char *skip)
 {
 	static char buf[128];
 	char *s = buf;
 	char *space = "";
 
-	if (!state)
-		return "-";
-
 	*s = '\0';
+	if (skip == CN)
+	    	skip = "";
 	if (state & LEFT_CTRL_PRESSED) {
-		s += sprintf(s, "%slctrl", space);
 		state &= ~LEFT_CTRL_PRESSED;
-		space = " ";
+	    	if (strcasecmp(skip, "LeftCtrl")) {
+			s += sprintf(s, "%sLeftCtrl", space);
+			space = " ";
+		}
 	}
 	if (state & RIGHT_CTRL_PRESSED) {
-		s += sprintf(s, "%srctrl", space);
 		state &= ~RIGHT_CTRL_PRESSED;
-		space = " ";
+	    	if (strcasecmp(skip, "RightCtrl")) {
+			s += sprintf(s, "%sRightCtrl", space);
+			space = " ";
+		}
 	}
 	if (state & LEFT_ALT_PRESSED) {
-		s += sprintf(s, "%slalt", space);
 		state &= ~LEFT_ALT_PRESSED;
-		space = " ";
+	    	if (strcasecmp(skip, "LeftAlt")) {
+			s += sprintf(s, "%sLeftAlt", space);
+			space = " ";
+		}
 	}
 	if (state & RIGHT_ALT_PRESSED) {
-		s += sprintf(s, "%sralt", space);
 		state &= ~RIGHT_ALT_PRESSED;
-		space = " ";
+	    	if (strcasecmp(skip, "RightAlt")) {
+			s += sprintf(s, "%sRightAlt", space);
+			space = " ";
+		}
 	}
 	if (state & SHIFT_PRESSED) {
-		s += sprintf(s, "%sshift", space);
 		state &= ~SHIFT_PRESSED;
-		space = " ";
+	    	if (strcasecmp(skip, "Shift")) {
+			s += sprintf(s, "%sShift", space);
+			space = " ";
+		}
 	}
 	if (state & NUMLOCK_ON) {
-		s += sprintf(s, "%snlock", space);
 		state &= ~NUMLOCK_ON;
-		space = " ";
+	    	if (!limited) {
+			s += sprintf(s, "%sNumLock", space);
+			space = " ";
+		}
 	}
 	if (state & SCROLLLOCK_ON) {
-		s += sprintf(s, "%sslock", space);
 		state &= ~SCROLLLOCK_ON;
-		space = " ";
+		if (!limited) {
+			s += sprintf(s, "%sScrollLock", space);
+			space = " ";
+		}
 	}
 	if (state & ENHANCED_KEY) {
-		s += sprintf(s, "%senhanced", space);
 		state &= ~ENHANCED_KEY;
-		space = " ";
+		if (!limited) {
+			s += sprintf(s, "%sEnhanced", space);
+			space = " ";
+		}
 	}
-	if (state) {
+	if (state & !limited) {
 		s += sprintf(s, "%s?0x%x", space, state);
+	}
+
+	if (!buf[0]) {
+	    	return "none";
 	}
 
 	return buf;
@@ -805,7 +1263,6 @@ kybd_input(void)
 	INPUT_RECORD ir;
 	DWORD nr;
 	const char *s;
-	extern const char *lookup_cname(unsigned long ccode);
 
 	/* Get the next input event. */
 	if (ReadConsoleInput(chandle, &ir, 1, &nr) == 0) {
@@ -818,14 +1275,15 @@ kybd_input(void)
 
 	switch (ir.EventType) {
 	case FOCUS_EVENT:
-		trace_event("Focus\n");
+		/*trace_event("Focus\n");*/
 		return;
 	case KEY_EVENT:
 		if (!ir.Event.KeyEvent.bKeyDown) {
-			trace_event("KeyUp\n");
+			/*trace_event("KeyUp\n");*/
 			return;
 		}
-		s = lookup_cname(ir.Event.KeyEvent.wVirtualKeyCode << 16);
+		s = lookup_cname(ir.Event.KeyEvent.wVirtualKeyCode << 16,
+			False);
 		if (s == NULL)
 			s = "?";
 		trace_event("Key%s vkey 0x%x (%s) scan 0x%x char 0x%x state 0x%x (%s)\n",
@@ -834,7 +1292,8 @@ kybd_input(void)
 			ir.Event.KeyEvent.wVirtualScanCode,
 			ir.Event.KeyEvent.uChar.AsciiChar,
 			(int)ir.Event.KeyEvent.dwControlKeyState,
-			decode_state(ir.Event.KeyEvent.dwControlKeyState));
+			decode_state(ir.Event.KeyEvent.dwControlKeyState,
+			    False, CN));
 		break;
 	case MENU_EVENT:
 		trace_event("Menu\n");
@@ -855,6 +1314,45 @@ kybd_input(void)
 	}
 
 	kybd_input2(&ir);
+}
+
+static void
+trace_as_keymap(KEY_EVENT_RECORD *e)
+{
+    	const char *s, *t;
+	char buf[256];
+
+	buf[0] = '\0';
+	t = lookup_cname(e->wVirtualKeyCode << 16, /*True*/False);
+	s = decode_state(e->dwControlKeyState, True, t);
+	if (strcmp(s, "none")) {
+	    	strcat(buf, s);
+		strcat(buf, " ");
+	}
+	strcat(buf, "<Key>");
+	if (t != CN)
+		strcat(buf, t);
+	else if (e->uChar.AsciiChar) {
+	    	if (e->uChar.AsciiChar == ':')
+		    	strcat(buf, "colon");
+		else if (e->uChar.AsciiChar == ' ')
+		    	strcat(buf, "space");
+		else if (e->uChar.AsciiChar > ' ' && e->uChar.AsciiChar < '~')
+		    	sprintf(strchr(buf, '\0'), "%c",
+				e->uChar.AsciiChar);
+		else if (e->uChar.AsciiChar >= 0x1 &&
+			 e->uChar.AsciiChar <= 0x1a)
+		    	sprintf(strchr(buf, '\0'), "%c",
+				e->uChar.AsciiChar - 1 + 'a');
+		else
+		    	sprintf(strchr(buf, '\0'), "0x%x", e->uChar.AsciiChar);
+	} else {
+		strcat(buf, "???");
+	}
+	trace_event(" %s ->", buf);
+	/* Todo:
+	 *  get rid of redundant state (lctrl when lctrl is pressed)
+	 */
 }
 
 static void
@@ -885,6 +1383,7 @@ kybd_input2(INPUT_RECORD *ir)
 		xk = 0;
 
 	if (xk) {
+	    	trace_as_keymap(&ir->Event.KeyEvent);
 		action = lookup_key(xk, ir->Event.KeyEvent.dwControlKeyState);
 		if (action != CN) {
 			if (strcmp(action, "[ignore]"))
@@ -1039,6 +1538,7 @@ toggle_monocase(struct toggle *t unused, enum toggle_type tt unused)
 static Boolean status_ta = False;
 static Boolean status_rm = False;
 static Boolean status_im = False;
+static Boolean status_secure = False;
 static Boolean oia_boxsolid = False;
 static Boolean oia_undera = True;
 static Boolean oia_compose = False;
@@ -1147,9 +1647,13 @@ status_connect(Boolean connected)
 			status_msg = "X";
 		else
 			status_msg = "";
+#if defined(HAVE_LIBSSL) /*[*/
+		status_secure = secure_connection;
+#endif /*]*/
 	} else {
 		oia_boxsolid = False;
 		status_msg = "X Disconnected";
+		status_secure = False;
 	}       
 }
 
@@ -1191,20 +1695,19 @@ draw_oia(void)
 		}
 	}
 
-#if defined(COMMON_LVB_REVERSE_VIDEO)
-	(void) attrset(COMMON_LVB_UNDERSCORE | defattr);
-#endif
+	if (appres.m3279)
+	    	attrset(BACKGROUND_INTENSITY);
+	else
+		attrset(reverse_colors(defattr));
 	mvprintw(status_row, 0, "4");
-#if defined(COMMON_LVB_REVERSE_VIDEO)
-	(void) attrset(COMMON_LVB_UNDERSCORE | defattr);
-#endif
 	if (oia_undera)
 		printw("%c", IN_E? 'B': 'A');
 	else
 		printw(" ");
-#if defined(COMMON_LVB_REVERSE_VIDEO)
-	(void) attrset(COMMON_LVB_REVERSE_VIDEO | defattr);
-#endif
+	if (appres.m3279)
+	    	attrset(BACKGROUND_INTENSITY);
+	else
+		attrset(reverse_colors(defattr));
 	if (IN_ANSI)
 		printw("N");
 	else if (oia_boxsolid)
@@ -1214,7 +1717,7 @@ draw_oia(void)
 	else
 		printw("?");
 
-	(void) attrset(defattr);
+	attrset(FOREGROUND_INTENSITY);
 	mvprintw(status_row, 8, "%-11s", status_msg);
 	mvprintw(status_row, rmargin-36,
 	    "%c%c %c  %c%c%c",
@@ -1224,6 +1727,13 @@ draw_oia(void)
 	    status_rm? 'R': ' ',
 	    status_im? 'I': ' ',
 	    oia_printer? 'P': ' ');
+	if (status_secure) {
+	    	attrset(get_color_pair(COLOR_GREEN, COLOR_NEUTRAL_BLACK) |
+			FOREGROUND_INTENSITY);
+		printw("S");
+		attrset(FOREGROUND_INTENSITY);
+	} else
+	    	printw(" ");
 
 	mvprintw(status_row, rmargin-25, "%s", oia_lu);
 	mvprintw(status_row, rmargin-7,
@@ -1265,7 +1775,7 @@ screen_80(void)
 
 /*
  * Translate an x3270 font line-drawing character (the first two rows of a
- * standard X11 fixed-width font) to a curses ACS character.
+ * standard X11 fixed-width font) to an ASCII-art equivalent.
  *
  * Returns -1 if there is no translation.
  */
@@ -1273,118 +1783,62 @@ static int
 linedraw_to_acs(unsigned char c)
 {
 	switch (c) {
-#if defined(ACS_BLOCK) /*[*/
-	case 0x0:
-		return ACS_BLOCK;
-#endif /*]*/
-#if defined(ACS_DIAMOND) /*[*/
-	case 0x1:
-		return ACS_DIAMOND;
-#endif /*]*/
-#if defined(ACS_CKBOARD) /*[*/
-	case 0x2:
-		return ACS_CKBOARD;
-#endif /*]*/
-#if defined(ACS_DEGREE) /*[*/
-	case 0x7:
-		return ACS_DEGREE;
-#endif /*]*/
-#if defined(ACS_PLMINUS) /*[*/
-	case 0x8:
-		return ACS_PLMINUS;
-#endif /*]*/
-#if defined(ACS_BOARD) /*[*/
-	case 0x9:
-		return ACS_BOARD;
-#endif /*]*/
-#if defined(ACS_LANTERN) /*[*/
-	case 0xa:
-		return ACS_LANTERN;
-#endif /*]*/
-#if defined(ACS_LRCORNER) /*[*/
-	case 0xb:
-		return ACS_LRCORNER;
-#endif /*]*/
-#if defined(ACS_URCORNER) /*[*/
-	case 0xc:
-		return ACS_URCORNER;
-#endif /*]*/
-#if defined(ACS_ULCORNER) /*[*/
-	case 0xd:
-		return ACS_ULCORNER;
-#endif /*]*/
-#if defined(ACS_LLCORNER) /*[*/
-	case 0xe:
-		return ACS_LLCORNER;
-#endif /*]*/
-#if defined(ACS_PLUS) /*[*/
-	case 0xf:
-		return ACS_PLUS;
-#endif /*]*/
-#if defined(ACS_S1) /*[*/
-	case 0x10:
-		return ACS_S1;
-#endif /*]*/
-#if defined(ACS_S3) /*[*/
-	case 0x11:
-		return ACS_S3;
-#endif /*]*/
-#if defined(ACS_HLINE) /*[*/
-	case 0x12:
-		return ACS_HLINE;
-#endif /*]*/
-#if defined(ACS_S7) /*[*/
-	case 0x13:
-		return ACS_S7;
-#endif /*]*/
-#if defined(ACS_S9) /*[*/
-	case 0x14:
-		return ACS_S9;
-#endif /*]*/
-#if defined(ACS_LTEE) /*[*/
-	case 0x15:
-		return ACS_LTEE;
-#endif /*]*/
-#if defined(ACS_RTEE) /*[*/
-	case 0x16:
-		return ACS_RTEE;
-#endif /*]*/
-#if defined(ACS_BTEE) /*[*/
-	case 0x17:
-		return ACS_BTEE;
-#endif /*]*/
-#if defined(ACS_TTEE) /*[*/
-	case 0x18:
-		return ACS_TTEE;
-#endif /*]*/
-#if defined(ACS_VLINE) /*[*/
-	case 0x19:
-		return ACS_VLINE;
-#endif /*]*/
-#if defined(ACS_LEQUAL) /*[*/
-	case 0x1a:
-		return ACS_LEQUAL;
-#endif /*]*/
-#if defined(ACS_GEQUAL) /*[*/
-	case 0x1b:
-		return ACS_GEQUAL;
-#endif /*]*/
-#if defined(ACS_PI) /*[*/
-	case 0x1c:
-		return ACS_PI;
-#endif /*]*/
-#if defined(ACS_NEQUAL) /*[*/
-	case 0x1d:
-		return ACS_NEQUAL;
-#endif /*]*/
-#if defined(ACS_STERLING) /*[*/
-	case 0x1e:
-		return ACS_STERLING;
-#endif /*]*/
-#if defined(ACS_BULLET) /*[*/
-	case 0x1f:
-		return ACS_BULLET;
-#endif /*]*/
+	case 0x0:	/* '_', block */
+		return -1;
+	case 0x1:	/* '`', diamond */
+		return 0x25c6;
+	case 0x2:	/* 'a', checkerboard */
+		return -1;
+	case 0x7:	/* 'f', degree */
+		return 0xb0;
+	case 0x8:	/* 'g', plusminus */
+		return 0xb1;
+	case 0x9:	/* 'h', board? */
+		return -1;
+	case 0xa:	/* 'i', lantern? */
+		return -1;
+	case 0xb:	/* 'j', LR corner */
+		return 0x2518;
+	case 0xc:	/* 'k', UR corner */
+		return 0x2510;
+	case 0xd:	/* 'l', UL corner */
+		return 0x250c;
+	case 0xe:	/* 'm', LL corner */
+		return 0x2514;
+	case 0xf:	/* 'n', plus */
+		return 0x253c;
+	case 0x10:	/* 'o', top horizontal */
+		return '-';
+	case 0x11:	/* 'p', row 3 horizontal */
+		return '-';
+	case 0x12:	/* 'q', middle horizontal */
+		return 0x2500;
+	case 0x13:	/* 'r', row 7 horizontal */
+		return '-';
+	case 0x14:	/* 's', bottom horizontal */
+		return '_';
+	case 0x15:	/* 't', left tee */
+		return 0x251c;
+	case 0x16:	/* 'u', right tee */
+		return 0x2524;
+	case 0x17:	/* 'v', bottom tee */
+		return 0x2534;
+	case 0x18:	/* 'w', top tee */
+		return 0x252c;
+	case 0x19:	/* 'x', vertical line */
+		return 0x2502;
+	case 0x1a:	/* 'y', less or equal */
+		return 0x2264;
+	case 0x1b:	/* 'z', greater or equal */
+		return 0x2265;
+	case 0x1c:	/* '{', pi */
+		return 0x03c0;
+	case 0x1d:	/* '|', not equal */
+		return 0x2260;
+	case 0x1e:	/* '}', sterling */
+		return 0xa3;
+	case 0x1f:	/* '~', bullet */
+		return 0x2022;
 	default:
 		return -1;
 	}
@@ -1394,75 +1848,117 @@ static int
 apl_to_acs(unsigned char c)
 {
 	switch (c) {
-#if defined(ACS_DEGREE) /*[*/
-	case 0xaf: /* CG 0xd1 */
-		return ACS_DEGREE;
-#endif /*]*/
-#if defined(ACS_LRCORNER) /*[*/
-	case 0xd4: /* CG 0xac */
-		return ACS_LRCORNER;
-#endif /*]*/
-#if defined(ACS_URCORNER) /*[*/
-	case 0xd5: /* CG 0xad */
-		return ACS_URCORNER;
-#endif /*]*/
-#if defined(ACS_ULCORNER) /*[*/
-	case 0xc5: /* CG 0xa4 */
-		return ACS_ULCORNER;
-#endif /*]*/
-#if defined(ACS_LLCORNER) /*[*/
-	case 0xc4: /* CG 0xa3 */
-		return ACS_LLCORNER;
-#endif /*]*/
-#if defined(ACS_PLUS) /*[*/
-	case 0xd3: /* CG 0xab */
-		return ACS_PLUS;
-#endif /*]*/
-#if defined(ACS_HLINE) /*[*/
-	case 0xa2: /* CG 0x92 */
-		return ACS_HLINE;
-#endif /*]*/
-#if defined(ACS_LTEE) /*[*/
-	case 0xc6: /* CG 0xa5 */
-		return ACS_LTEE;
-#endif /*]*/
-#if defined(ACS_RTEE) /*[*/
-	case 0xd6: /* CG 0xae */
-		return ACS_RTEE;
-#endif /*]*/
-#if defined(ACS_BTEE) /*[*/
-	case 0xc7: /* CG 0xa6 */
-		return ACS_BTEE;
-#endif /*]*/
-#if defined(ACS_TTEE) /*[*/
-	case 0xd7: /* CG 0xaf */
-		return ACS_TTEE;
-#endif /*]*/
-#if defined(ACS_VLINE) /*[*/
-	case 0x85: /* CG 0xa84? */
-		return ACS_VLINE;
-#endif /*]*/
-#if defined(ACS_LEQUAL) /*[*/
-	case 0x8c: /* CG 0xf7 */
-		return ACS_LEQUAL;
-#endif /*]*/
-#if defined(ACS_GEQUAL) /*[*/
-	case 0xae: /* CG 0xd9 */
-		return ACS_GEQUAL;
-#endif /*]*/
-#if defined(ACS_NEQUAL) /*[*/
-	case 0xbe: /* CG 0x3e */
-		return ACS_NEQUAL;
-#endif /*]*/
-#if defined(ACS_BULLET) /*[*/
-	case 0xa3: /* CG 0x93 */
-		return ACS_BULLET;
-#endif /*]*/
+	case 0xaf: /* CG 0xd1, degree */
+		return 0xb0;	/* XXX may not map to bullet in current
+				       codepage */
+	case 0xd4: /* CG 0xac, LR corner */
+		return 0x2518;
+	case 0xd5: /* CG 0xad, UR corner */
+		return 0x2510;
+	case 0xc5: /* CG 0xa4, UL corner */
+		return 0x250c;
+	case 0xc4: /* CG 0xa3, LL corner */
+		return 0x2514;
+	case 0xd3: /* CG 0xab, plus */
+		return 0x253c;
+	case 0xa2: /* CG 0x92, horizontal line */
+		return 0x2500;
+	case 0xc6: /* CG 0xa5, left tee */
+		return 0x251c;
+	case 0xd6: /* CG 0xae, right tee */
+		return 0x2524;
+	case 0xc7: /* CG 0xa6, bottom tee */
+		return 0x2534;
+	case 0xd7: /* CG 0xaf, top tee */
+		return 0x252c;
+	case 0x85: /* CG 0xa84?, vertical line */
+		return 0x2502;
+	case 0x8c: /* CG 0xf7, less or equal */
+		return 0x2264;
+	case 0xae: /* CG 0xd9, greater or equal */
+		return 0x2265;
+	case 0xbe: /* CG 0x3e, not equal */
+		return 0x2260;
+	case 0xa3: /* CG 0x93, bullet */
+		return 0x2022;
 	case 0xad:
 		return '[';
 	case 0xbd:
 		return ']';
 	default:
 		return -1;
+	}
+}
+
+/*
+ * Windows-specific Paste action, that takes advantage of the existing x3270
+ * instrastructure for multi-line paste.
+ */
+void
+Paste_action(Widget w unused, XEvent *event, String *params,
+    Cardinal *num_params)
+{
+    	HGLOBAL hglb;
+	LPTSTR lptstr;
+
+    	action_debug(Paste_action, event, params, num_params);
+	if (check_usage(Paste_action, *num_params, 0, 0) < 0)
+	    	return;
+
+    	if (!IsClipboardFormatAvailable(CF_TEXT))
+		return; 
+	if (!OpenClipboard(NULL))
+		return;
+	hglb = GetClipboardData(CF_TEXT);
+	if (hglb != NULL) {
+		lptstr = GlobalLock(hglb);
+		if (lptstr != NULL) { 
+			emulate_input(lptstr, strlen(lptstr), True);
+			GlobalUnlock(hglb); 
+		}
+	}
+	CloseClipboard(); 
+}
+
+/* Set the window title. */
+void
+screen_title(char *text)
+{
+	(void) SetConsoleTitle(text);
+}
+
+void
+Title_action(Widget w unused, XEvent *event, String *params,
+    Cardinal *num_params)
+{
+    	action_debug(Title_action, event, params, num_params);
+	if (check_usage(Title_action, *num_params, 1, 1) < 0)
+	    	return;
+
+	screen_title(params[0]);
+}
+
+static void
+relabel(Boolean ignored unused)
+{
+	char *title;
+
+	if (appres.title != CN)
+	    	return;
+
+	if (PCONNECTED) {
+	    	char *hostname;
+
+		if (profile_name != CN)
+		    	hostname = profile_name;
+		else
+		    	hostname = reconnect_host;
+
+		title = Malloc(10 + (PCONNECTED ? strlen(hostname) : 0));
+	    	(void) sprintf(title, "%s - wc3270", hostname);
+		screen_title(title);
+		Free(title);
+	} else {
+	    	screen_title("wc3270");
 	}
 }

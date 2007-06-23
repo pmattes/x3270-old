@@ -1,7 +1,7 @@
 /*
  * (from) $XConsortium: SimpleMenu.h,v 1.20 91/02/17 13:18:55 rws Exp $
  *
- * Modifications Copyright 1995, 1999 by Paul Mattes.
+ * Modifications Copyright 1995, 1999, 2000 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that

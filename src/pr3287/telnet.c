@@ -1,6 +1,6 @@
 /*
- * Modifications Copyright 1993, 1994, 1995, 1999,
- *  2000, 2001, 2002, 2004 by Paul Mattes.
+ * Modifications Copyright 1993, 1994, 1995, 1999, 2000, 2001, 2002, 2003,
+ *   2004, 2005, 2007 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -27,16 +27,24 @@
 
 #include <stdio.h>
 #include "localdefs.h"
+#if defined(_WIN32) /*[*/
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#undef AF_INET6
+#else /*][*/
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
 #include <netinet/in.h>
+#endif /*]*/
 #define TELCMDS 1
 #define TELOPTS 1
 #include "arpa_telnet.h"
 #include <errno.h>
 #include <fcntl.h>
+#if !defined(_WIN32) /*[*/
 #include <netdb.h>
+#endif /*]*/
 #include <stdarg.h>
 #include <string.h>
 #include <sys/time.h>
@@ -61,6 +69,7 @@ extern FILE *tracef;
 extern int ignoreeoj;
 extern int ssl_host;
 extern unsigned long eoj_timeout;
+extern void pr3287_exit(int);
 
 /*   connection state */
 enum cstate {
@@ -108,7 +117,9 @@ int             linemode = 1;
 const char     *termtype = "IBM-3287-1";
 
 /* Externals */
+#if !defined(_WIN32) /*[*/
 extern unsigned long inet_addr(const char *);
+#endif /*]*/
 static struct timeval ds_ts;
 
 /* Statics */
@@ -231,7 +242,95 @@ static void client_info_callback(INFO_CONST SSL *s, int where, int ret);
 static int continue_tls(unsigned char *sbbuf, int len);
 #endif /*]*/
 
+#if defined(_WIN32) /*[*/
+#define socket_errno()	WSAGetLastError()
+#define SE_EWOULDBLOCK	WSAEWOULDBLOCK
+#define SE_ECONNRESET	WSAECONNRESET
+#define SE_EINTR	WSAEINTR
+#define SE_EAGAIN	WSAEINPROGRESS
+#define SE_EPIPE	WSAECONNABORTED
+#define SE_EINPROGRESS	WSAEINPROGRESS
+#define SOCK_CLOSE(s)	closesocket(s)
+#define SOCK_IOCTL(s, f, v)	ioctlsocket(s, f, (DWORD *)v)
+#else /*][*/
+#define socket_errno()	errno
+#define SE_EWOULDBLOCK	EWOULDBLOCK
+#define SE_ECONNRESET	ECONNRESET
+#define SE_EINTR	EINTR
+#define SE_EAGAIN	EAGAIN
+#define SE_EPIPE	EPIPE
+#if defined(EINPROGRESS) /*[*/
+#define SE_EINPROGRESS	EINPROGRESS
+#endif /*]*/
+#define SOCK_CLOSE(s)	close(s)
+#define SOCK_IOCTL	ioctl
+#endif /*]*/
+
 
+#if defined(_WIN32) /*[*/
+void
+sockstart(void)
+{
+	static int initted = 0;
+	WORD wVersionRequested;
+	WSADATA wsaData;
+ 
+	if (initted)
+		return;
+
+	initted = 1;
+
+	wVersionRequested = MAKEWORD(2, 2);
+ 
+	if (WSAStartup(wVersionRequested, &wsaData) != 0) {
+		fprintf(stderr, "WSAStartup failed: %ld\n", GetLastError());
+		pr3287_exit(1);
+	}
+ 
+	if (LOBYTE(wsaData.wVersion) != 2 || HIBYTE(wsaData.wVersion) != 2) {
+		fprintf(stderr, "Bad winsock version: %d.%d\n",
+			LOBYTE(wsaData.wVersion), HIBYTE(wsaData.wVersion));
+		pr3287_exit(1);
+	}
+}
+#endif /*]*/
+
+char *
+sockerrmsg(void)
+{
+	static char buf[1024];
+
+#if defined(_WIN32) /*[*/
+	if (FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM,
+	    NULL,
+	    WSAGetLastError(),
+	    MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+	    buf,
+	    sizeof(buf),
+	    NULL) == 0) {
+
+		sprintf(buf, "Windows error %d", WSAGetLastError());
+	}
+#else /*][*/
+	strcpy(buf, strerror(errno));
+#endif /*]*/
+	return buf;
+}
+
+void
+sockerr(char *fmt, ...)
+{
+	va_list args;
+	char buf[1024];
+
+	va_start(args, fmt);
+	(void) vsprintf(buf, fmt, args);
+	va_end(args);
+	sprintf(buf + strlen(buf), ": %s", sockerrmsg());
+	errmsg("%s", buf);
+}
+
+
 /*
  * negotiate
  *	Initialize the connection, and negotiate TN3270 options with the host.
@@ -242,17 +341,19 @@ negotiate(int s, char *lu, char *assoc)
 	/* Set options for inline out-of-band data and keepalives. */
 	if (setsockopt(s, SOL_SOCKET, SO_OOBINLINE, (char *)&on,
 		    sizeof(on)) < 0) {
-		errmsg("setsockopt(SO_OOBINLINE): %s", strerror(errno));
+		sockerr("setsockopt(SO_OOBINLINE)");
 		return -1;
 	}
 	if (setsockopt(s, SOL_SOCKET, SO_KEEPALIVE, (char *)&on,
 		    sizeof(on)) < 0) {
-		errmsg("setsockopt(SO_KEEPALIVE): %s", strerror(errno));
+		sockerr("setsockopt(SO_KEEPALIVE)");
 		return -1;
 	}
 
+#if !defined(_WIN32) /*[*/
 	/* Don't share the socket with our children. */
 	(void) fcntl(s, F_SETFD, 1);
+#endif /*]*/
 
 	/* init ssl */
 #if defined(HAVE_LIBSSL) /*[*/
@@ -262,7 +363,7 @@ negotiate(int s, char *lu, char *assoc)
 			return -1;
 		SSL_set_fd(ssl_con, s);
 		if (!SSL_connect(ssl_con)) {
-			errmsg("SSL_connect failed: %s", strerror(errno));
+			sockerr("SSL_connect failed");
 			return -1;
 		}       
 		secure_connection = True;
@@ -357,7 +458,7 @@ net_disconnect(void)
 {
 	if (sock != -1) {
 		vtrace_str("SENT disconnect\n");
-		close(sock);
+		SOCK_CLOSE(sock);
 		sock = -1;
 #if defined(HAVE_LIBSSL) /*[*/
 		if (ssl_con != NULL) {
@@ -449,7 +550,7 @@ net_input(int s)
 		nr = SSL_read(ssl_con, (char *) netrbuf, BUFSZ);
 	else   
 #endif /*]*/
-	nr = read(s, (char *)netrbuf, BUFSZ);
+	nr = recv(s, (char *)netrbuf, BUFSZ, 0);
 	if (nr < 0) {
 #if defined(HAVE_LIBSSL) /*[*/
                 if (ssl_con != NULL) {
@@ -464,8 +565,8 @@ net_input(int s)
 			return -1;
 		}
 #endif /*]*/
-		vtrace_str("RCVD socket error %s\n", strerror(errno));
-		errmsg("Socket read: %s", strerror(errno));
+		vtrace_str("RCVD socket error %s\n", sockerrmsg());
+		sockerr("Socket read");
 		cstate = NOT_CONNECTED;
 		return -1;
 	} else if (nr == 0) {
@@ -1219,7 +1320,7 @@ net_rawout(unsigned const char *buf, int len)
 			nw = SSL_write(ssl_con, (const char *) buf, n2w);
 		else
 #endif /*]*/    
-		nw = write(sock, (const char *) buf, n2w);
+		nw = send(sock, (const char *) buf, n2w, 0);
 		if (nw < 0) {
 #if defined(HAVE_LIBSSL) /*[*/ 
                         if (ssl_con != NULL) {
@@ -1235,14 +1336,15 @@ net_rawout(unsigned const char *buf, int len)
 				return;
 			}
 #endif /*]*/
-			vtrace_str("RCVD socket error %s\n", strerror(errno));
-			if (errno == EPIPE || errno == ECONNRESET) {
+			vtrace_str("RCVD socket error %s\n", sockerrmsg());
+			if (socket_errno() == SE_EPIPE ||
+			    socket_errno() == SE_ECONNRESET) {
 				cstate = NOT_CONNECTED;
 				return;
-			} else if (errno == EINTR) {
+			} else if (socket_errno() == SE_EINTR) {
 				goto bot;
 			} else {
-				errmsg("Socket write: %s", strerror(errno));
+				sockerr("Socket write");
 				cstate = NOT_CONNECTED;
 				return;
 			}
@@ -1326,7 +1428,7 @@ check_in3270(void)
 			errmsg("Host does not support TN3270E, cannot "
 				"associate with specified LU");
 			/* No return value, gotta abort here. */
-			exit(1);
+			pr3287_exit(1);
 		}
 
 		/*
@@ -1840,7 +1942,7 @@ continue_tls(unsigned char *sbbuf, int len)
 	/* Set up the TLS/SSL connection. */
 	SSL_set_fd(ssl_con, sock);
 	if (!SSL_connect(ssl_con)) {
-		errmsg("SSL_connect failed: %s", strerror(errno));
+		sockerr("SSL_connect failed");
 		return -1;
 	}
 	secure_connection = True;

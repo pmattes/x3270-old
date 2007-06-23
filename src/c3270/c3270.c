@@ -1,6 +1,6 @@
 /*
  * Modifications and original code Copyright 1993, 1994, 1995, 1996,
- *  2000, 2001, 2002, 2004 by Paul Mattes.
+ *    2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *   Permission to use, copy, modify, and distribute this software and its
  *   documentation for any purpose and without fee is hereby granted,
@@ -13,20 +13,23 @@
  *   Derivative works based on this software must incorporate this copyright
  *   notice.
  *
- * c3270 is distributed in the hope that it will be useful, but WITHOUT ANY
- * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
- * FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
+ * c3270 and wc3270 are distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+ * or FITNESS FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
  */
 
 /*
  *	c3270.c
  *		A curses-based 3270 Terminal Emulator
+ *		A Windows console 3270 Terminal Emulator
  *		Main proceudre.
  */
 
 #include "globals.h"
+#if !defined(_WIN32) /*[*/
 #include <sys/wait.h>
 #include <signal.h>
+#endif /*]*/
 #include <errno.h>
 #include "appres.h"
 #include "3270ds.h"
@@ -48,6 +51,7 @@
 #include "screenc.h"
 #include "telnetc.h"
 #include "togglesc.h"
+#include "trace_dsc.h"
 #include "utilc.h"
 #include "xioc.h"
 
@@ -69,6 +73,7 @@ static char *completion_entry(const char *, int);
 /* Pager state. */
 static FILE *pager = NULL;
 
+#if !defined(_WIN32) /*[*/
 /* Base keymap. */
 static char *base_keymap1 =
 "Ctrl<Key>]: Escape\n"
@@ -119,20 +124,124 @@ static char *base_keymap3 =
 
 /* Base keymap, 3270 mode. */
 static char *base_3270_keymap =
-"Ctrl<Key>c: Clear\n"
-"Ctrl<Key>r: Reset\n"
-"Ctrl<Key>l: Redraw\n"
-"Ctrl<Key>i: Tab\n"
-"<Key>DC: Delete\n"
-"Ctrl<Key>h: Erase\n"
-"<Key>BACKSPACE: Erase\n"
-"Ctrl<Key>j: Newline\n"
-"Ctrl<Key>m: Enter\n"
-"<Key>HOME: Home\n"
 "Ctrl<Key>a <Key>a: Attn\n"
-"<Key>END: FieldEnd\n"
-"Ctrl<Key>a <Key>PPAGE: Plugin(command,prev)\n"
-"Ctrl<Key>a <Key>NPAGE: Plugin(command,next)\n";
+"Ctrl<Key>c: Clear\n"
+"Ctrl<Key>d: Dup\n"
+"Ctrl<Key>f: FieldMark\n"
+"Ctrl<Key>h: Erase\n"
+"Ctrl<Key>i: Tab\n"
+"Ctrl<Key>j: Newline\n"
+"Ctrl<Key>l: Redraw\n"
+"Ctrl<Key>m: Enter\n"
+"Ctrl<Key>r: Reset\n"
+"Ctrl<Key>u: DeleteField\n"
+"<Key>IC: ToggleInsert\n"
+"<Key>DC: Delete\n"
+"<Key>BACKSPACE: Erase\n"
+"<Key>HOME: Home\n"
+"<Key>END: FieldEnd\n";
+
+#else /*][*/
+
+/* Base keymap. */
+static char *base_keymap1 =
+"Alt Ctrl<Key>]: Key(0x1d)\n"
+"Ctrl<Key>]: Escape\n"
+"Alt <Key>c: Clear\n"
+"Alt <Key>i: Insert\n"
+"Alt <Key>r: Reset\n"
+"Alt <Key>l: Redraw\n"
+"Alt <Key>m: Compose\n"
+"Alt <Key>^: Key(notsign)\n"
+"<Key>Delete: Delete\n"
+"<Key>Up: Up\n"
+"<Key>Down: Down\n"
+"<Key>Left: Left\n"
+"<Key>Right: Right\n"
+"<Key>Home: Home\n"
+"Alt <Key>1: PA(1)\n"
+"Alt <Key>2: PA(2)\n"
+"Alt <Key>3: PA(3)\n"
+"<Key>Insert: ToggleInsert\n"
+"<Key>Numpad0: Key(0)\n"
+"<Key>Numpad1: Key(1)\n"
+"<Key>Numpad2: Key(2)\n"
+"<Key>Numpad3: Key(3)\n"
+"<Key>Numpad4: Key(4)\n"
+"<Key>Numpad5: Key(5)\n"
+"<Key>Numpad6: Key(6)\n"
+"<Key>Numpad7: Key(7)\n"
+"<Key>Numpad8: Key(8)\n"
+"<Key>Numpad9: Key(9)\n"
+"<Key>Multiply: Key(*)\n"
+"<Key>Add: Key(+)\n"
+"<Key>Separator: Key(|)\n"
+"<Key>Subtract: Key(-)\n"
+"<Key>Decimal: Key(.)\n"
+"<Key>Divide: Key(/)\n";
+static char *base_keymap2 =
+"Shift <Key>F1: PF(13)\n"
+"<Key>F1: PF(1)\n"
+"Shift <Key>F2: PF(14)\n"
+"<Key>F2: PF(2)\n"
+"Shift <Key>F3: PF(15)\n"
+"<Key>F3: PF(3)\n"
+"Shift <Key>F4: PF(16)\n"
+"<Key>F4: PF(4)\n"
+"Shift <Key>F5: PF(17)\n"
+"<Key>F5: PF(5)\n"
+"Shift <Key>F6: PF(18)\n"
+"<Key>F6: PF(6)\n";
+static char *base_keymap3 =
+"Shift <Key>F7: PF(19)\n"
+"<Key>F7: PF(7)\n"
+"Shift <Key>F8: PF(20)\n"
+"<Key>F8: PF(8)\n"
+"Shift <Key>F9: PF(21)\n"
+"<Key>F9: PF(9)\n"
+"Shift <Key>F10: PF(22)\n"
+"<Key>F10: PF(10)\n"
+"Shift <Key>F11: PF(23)\n"
+"<Key>F11: PF(11)\n"
+"Shift <Key>F12: PF(24)\n"
+"<Key>F12: PF(12)\n"
+"<Key>F13: PF(13)\n"
+"<Key>F14: PF(14)\n"
+"<Key>F15: PF(15)\n"
+"<Key>F16: PF(16)\n"
+"<Key>F17: PF(17)\n"
+"<Key>F18: PF(18)\n"
+"<Key>F19: PF(19)\n"
+"<Key>F20: PF(20)\n"
+"<Key>F21: PF(21)\n"
+"<Key>F22: PF(22)\n"
+"<Key>F23: PF(23)\n"
+"<Key>F24: PF(24)\n";
+
+/* Base keymap, 3270 mode. */
+static char *base_3270_keymap =
+"Ctrl <Key>[: Escape\n"
+"Ctrl <Key>c: Clear\n"
+"Ctrl <Key>r: Reset\n"
+"Ctrl <Key>l: Redraw\n"
+"Shift Ctrl <Key>i: BackTab\n"
+"Ctrl <Key>i: Tab\n"
+"<Key> Delete: Delete\n"
+"Ctrl <Key>h: Erase\n"
+"Ctrl <Key>j: Newline\n"
+"Ctrl <Key>m: Enter\n"
+"<Key> Home: Home\n"
+"Ctrl <Key>a: Attn\n"
+"Alt <Key>a: Attn\n"
+"Shift <Key> End: EraseEOF\n"
+"<Key> End: FieldEnd\n"
+"Ctrl <Key>v: Paste\n"
+"Ctrl <Key>f: FieldMark\n"
+"Ctrl <Key>d: Dup\n"
+"Ctrl <Key>u: DeleteField\n"
+"Shift <Key>Left: PreviousWord\n"
+"Shift <Key>Right: NextWord\n";
+#endif /*]*/
 
 Boolean any_error_output = False;
 Boolean escape_pending = False;
@@ -179,13 +288,14 @@ pause_for_errors(void)
 	char s[10];
 
 	if (any_error_output) {
-		printf("Press <RETURN> ");
+		printf("[Press <Enter>] ");
 		fflush(stdout);
 		(void) fgets(s, sizeof(s), stdin);
 		any_error_output = False;
 	}
 }
 
+#if !defined(_WIN32) /*[*/
 /* Empty SIGCHLD handler, ensuring that we can collect child exit status. */
 static void
 sigchld_handler(int ignored)
@@ -194,11 +304,18 @@ sigchld_handler(int ignored)
 	(void) signal(SIGCHLD, sigchld_handler);
 #endif /*]*/
 }
+#endif /*]*/
 
 int
 main(int argc, char *argv[])
 {
 	const char	*cl_hostname = CN;
+
+	printf("%s\n\n"
+		"Copyright 1989-2007 by Paul Mattes, GTRC and others.\n"
+		"Type 'show copyright' for full copyright information.\n"
+		"Type 'help' for help information.\n\n",
+		build);
 
 	add_resource("keymap.base",
 	    xs_buffer("%s%s%s", base_keymap1, base_keymap2, base_keymap3));
@@ -250,11 +367,13 @@ main(int argc, char *argv[])
 	printer_init();
 #endif /*]*/
 
+#if !defined(_WIN32) /*[*/
 	/* Make sure we don't fall over any SIGPIPEs. */
 	(void) signal(SIGPIPE, SIG_IGN);
 
 	/* Make sure we can collect child exit status. */
 	(void) signal(SIGCHLD, sigchld_handler);
+#endif /*]*/
 
 	/* Handle initial toggle settings. */
 #if defined(X3270_TRACE) /*[*/
@@ -270,12 +389,12 @@ main(int argc, char *argv[])
 	if (cl_hostname != CN) {
 		appres.once = True;
 		if (host_connect(cl_hostname) < 0)
-			exit(1);
+			x3270_exit(1);
 		/* Wait for negotiations to complete or fail. */
 		while (!IN_ANSI && !IN_3270) {
 			(void) process_events(True);
 			if (!PCONNECTED)
-				exit(1);
+				x3270_exit(1);
 		}
 		pause_for_errors();
 	} else {
@@ -291,7 +410,8 @@ main(int argc, char *argv[])
 
 	/* Process events forever. */
 	while (1) {
-		(void) process_events(True);
+		if (!escaped)
+			(void) process_events(True);
 		if (appres.cbreak_mode && escape_pending) {
 			escape_pending = False;
 			screen_suspend();
@@ -305,18 +425,24 @@ main(int argc, char *argv[])
 			screen_resume();
 		} else if (escaped) {
 			interact();
+			trace_event("Done interacting.\n");
 			screen_resume();
 		}
 
+#if !defined(_WIN32) /*[*/
 		if (children && waitpid(0, (int *)0, WNOHANG) > 0)
 			--children;
+#else /*][*/
+		printer_check();
+#endif /*]*/
 		screen_disp(False);
 	}
 }
 
+#if !defined(_WIN32) /*[*/
 /*
  * SIGTSTP handler for use while a command is running.  Sets a flag so that
- * c3270 will stop before the next c3270> prompt is printed.
+ * c3270 will stop before the next prompt is printed.
  */
 static void
 running_sigtstp_handler(int ignored unused)
@@ -326,7 +452,7 @@ running_sigtstp_handler(int ignored unused)
 }
 
 /*
- * SIGTSTP haandler for use while the c3270> prompt is being displayed.
+ * SIGTSTP haandler for use while the prompt is being displayed.
  * Acts immediately by setting SIGTSTP to the default and sending it to
  * ourselves, but also sets a flag so that the user gets one free empty line
  * of input before resuming the connection.
@@ -339,6 +465,7 @@ prompt_sigtstp_handler(int ignored unused)
 	signal(SIGTSTP, SIG_DFL);
 	kill(getpid(), SIGTSTP);
 }
+#endif /*]*/
 
 static void
 interact(void)
@@ -346,23 +473,26 @@ interact(void)
 	/* In case we got here because a command output, stop the pager. */
 	stop_pager();
 
+	trace_event("Interacting.\n");
 	if (appres.secure) {
 		char s[10];
 
-		printf("Press <RETURN> ");
+		printf("[Press <Enter>] ");
 		fflush(stdout);
 		(void) fgets(s, sizeof(s), stdin);
 		return;
 	}
 
-	/* Handle SIGTSTP differently at the c3270> prompt. */
+#if !defined(_WIN32) /*[*/
+	/* Handle SIGTSTP differently at the prompt. */
 	signal(SIGTSTP, SIG_DFL);
 
 	/*
-	 * Ignore SIGINT at the c3270> prompt.
+	 * Ignore SIGINT at the prompt.
 	 * I'm sure there's more we could do.
 	 */
 	signal(SIGINT, SIG_IGN);
+#endif /*]*/
 
 	for (;;) {
 		int sl;
@@ -378,13 +508,20 @@ interact(void)
 		/* Process a pending stop now. */
 		if (stop_pending) {
 			stop_pending = False;
+#if !defined(_WIN32) /*[*/
 			signal(SIGTSTP, SIG_DFL);
 			kill(getpid(), SIGTSTP);
+#endif /*]*/
 			continue;
 		}
 
+#if !defined(_WIN32) /*[*/
 		/* Process SIGTSTPs immediately. */
 		signal(SIGTSTP, prompt_sigtstp_handler);
+#endif /*]*/
+		/* Display the prompt. */
+		if (CONNECTED)
+		    	(void) printf("Press <Enter> to resume session.\n");
 #if defined(HAVE_LIBREADLINE) /*[*/
 		s = rl_s = readline("c3270> ");
 		if (s == CN) {
@@ -392,8 +529,11 @@ interact(void)
 			exit(0);
 		}
 #else /*][*/
-		/* Display the prompt. */
+#if defined(_WIN32) /*[*/
+		(void) printf("wc3270> ");
+#else /*][*/
 		(void) printf("c3270> ");
+#endif /*]*/
 		(void) fflush(stdout);
 
 		/* Get the command, and trim white space. */
@@ -403,8 +543,10 @@ interact(void)
 		}
 		s = buf;
 #endif /*]*/
+#if !defined(_WIN32) /*[*/
 		/* Defer SIGTSTP until the next prompt display. */
 		signal(SIGTSTP, running_sigtstp_handler);
+#endif /*]*/
 
 		while (isspace(*s))
 			s++;
@@ -453,13 +595,16 @@ interact(void)
 
 	/* Ignore SIGTSTP again. */
 	stop_pending = False;
+#if !defined(_WIN32) /*[*/
 	signal(SIGTSTP, SIG_IGN);
+#endif /*]*/
 }
 
 /* A command is about to produce output.  Start the pager. */
 FILE *
 start_pager(void)
 {
+#if !defined(_WIN32) /*[*/
 	static char *lesspath = LESSPATH;
 	static char *lesscmd = LESSPATH " -EX";
 	static char *morepath = MOREPATH;
@@ -489,6 +634,9 @@ start_pager(void)
 	if (pager == NULL)
 		pager = stdout;
 	return pager;
+#else /*][*/
+	return stdout;
+#endif /*]*/
 }
 
 /* Stop the pager. */
@@ -683,6 +831,7 @@ status_dump(void)
 #if defined(X3270_TN3270E) /*[*/
 	const char *eopts;
 #endif /*]*/
+	const char *ptype;
 	extern int linemode; /* XXX */
 	extern time_t ns_time;
 	extern int ns_bsent, ns_rsent, ns_brcvd, ns_rrcvd;
@@ -710,7 +859,7 @@ status_dump(void)
 #if defined(LOCAL_PROCESS) /*[*/
 		    (local_process && !strlen(current_host))? "(shell)":
 #endif /*]*/
-		    current_host);
+			current_host);
 #if defined(LOCAL_PROCESS) /*[*/
 		if (!local_process) {
 #endif /*]*/
@@ -719,6 +868,17 @@ status_dump(void)
 #if defined(LOCAL_PROCESS) /*[*/
 		}
 #endif /*]*/
+#if defined(HAVE_LIBSSL) /*[*/
+		if (secure_connection)
+			action_output("  %s", get_message("secure"));
+#endif /*]*/
+		ptype = net_proxy_type();
+		if (ptype) {
+		    	action_output("  %s %s  %s %s  %s %s",
+				get_message("proxyType"), ptype,
+				get_message("server"), net_proxy_host(),
+				get_message("port"), net_proxy_port());
+		}
 		ts = hms(ns_time);
 		if (IN_E)
 			emode = "TN3270E ";
@@ -800,12 +960,47 @@ status_dump(void)
 		action_output("%s", get_message("notConnected"));
 }
 
+static void
+copyright_dump(void)
+{
+	printf(
+"\n"
+"Modifications and original code Copyright 1993, 1994, 1995, 1996,\n"
+" 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007 by Paul Mattes.\n"
+"Original X11 Port Copyright 1990 by Jeff Sparkes.\n"
+"DFT File Transfer Code Copyright October 1995 by Dick Altenbern.\n"
+"RPQNAMES Code Copyright 2004, 2005 by Don Russell.\n");
+	printf(
+"  Permission to use, copy, modify, and distribute this software and its\n"
+"  documentation for any purpose and without fee is hereby granted,\n"
+"  provided that the above copyright notice appear in all copies and that\n"
+"  both that copyright notice and this permission notice appear in\n"
+"  supporting documentation.\n");
+	printf(
+"\n"
+"Copyright 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.\n"
+"  All Rights Reserved.  GTRC hereby grants public use of this software.\n"
+"  Derivative works based on this software must incorporate this copyright\n"
+"  notice.\n"
+"\n"
+#if defined(_WIN32) /*[*/
+"wc3270"
+#else /*][*/
+"c3270"
+#endif /*]*/
+" is distributed in the hope that it will be useful, but WITHOUT ANY\n"
+"WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS\n"
+"FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.\n"
+"\n");
+}
+
 void
 Show_action(Widget w unused, XEvent *event unused, String *params,
     Cardinal *num_params)
 {
 	action_debug(Show_action, event, params, num_params);
 	if (*num_params == 0) {
+		action_output("  Show copyright   copyright information");
 		action_output("  Show stats       connection statistics");
 		action_output("  Show status      same as 'Show stats'");
 		action_output("  Show keymap      current keymap");
@@ -814,9 +1009,11 @@ Show_action(Widget w unused, XEvent *event unused, String *params,
 	if (!strncasecmp(params[0], "stats", strlen(params[0])) ||
 	    !strncasecmp(params[0], "status", strlen(params[0]))) {
 		status_dump();
-	} else if (!strncasecmp(params[0], "keymap", strlen(params[0])))
+	} else if (!strncasecmp(params[0], "keymap", strlen(params[0]))) {
 		keymap_dump();
-	else
+	} else if (!strncasecmp(params[0], "copyright", strlen(params[0]))) {
+		copyright_dump();
+	} else
 		popup_an_error("Unknown 'Show' keyword");
 }
 
@@ -899,6 +1096,8 @@ Escape_action(Widget w unused, XEvent *event unused, String *params unused,
 		screen_suspend();
 }
 
+#if !defined(_WIN32) /*[*/
+
 /* Support for c3270 profiles. */
 
 #define PROFILE_ENV	"C3270PRO"
@@ -924,3 +1123,5 @@ merge_profile(void)
 	(void) read_resource_file(profile_name, False);
 	Free(profile_name);
 }
+
+#endif /*]*/

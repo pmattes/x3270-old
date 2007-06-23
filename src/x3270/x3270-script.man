@@ -1,5 +1,5 @@
 '\" t
-.TH X3270-SCRIPT 1 "02 February 2007"
+.TH X3270-SCRIPT 1 "23 June 2007"
 .SH "NAME"
 Scripting Facilities for x3270, s3270 and c3270
 .SH "SYNOPSIS"
@@ -785,6 +785,11 @@ This action requires that the \fBIND$FILE\fP
 program be installed on the \s-1IBM\s+1 host, and that the 3270 cursor
 be located in a field that will accept a \s-1TSO\s+1 or \s-1VM/CMS\s+1 command.
 .LP
+The \fBTransfer\fP action
+can be entered at the command prompt with no parameters, which will cause it
+to prompt interactively for the file names and options.
+It can also be invoked with parameters to define the entire transfer.
+.LP
 Because of the complexity and number of options for file transfer, the
 parameters to the \fBTransfer\fP action take the unique form
 of \fIoption\fP=\fIvalue\fP, and can appear in any order.
@@ -1134,4 +1139,4 @@ c3270(1)
 .br
 s3270(1)
 .SH "VERSION"
-Version 3.3.5
+Version 3.3.6

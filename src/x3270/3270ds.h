@@ -1,5 +1,6 @@
 /*
- * Modifications Copyright 1993, 1994, 1995, 1999, 2000, 2002 by Paul Mattes.
+ * Modifications Copyright 1993, 1994, 1995, 1999, 2000, 2002, 2003, 2004,
+ *   2005 by Paul Mattes.
  * RPQNAMES modifications Copyright 2004 by Don Russell.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
@@ -315,6 +316,7 @@
 #define EBC_nobreakspace 0x41   
 #define EBC_period	0x4b    
 #define EBC_ampersand	0x50    
+#define EBC_underscore	0x6d
 #define EBC_greater	0x6e    
 #define EBC_question	0x6f    
 #define EBC_Yacute	0xad

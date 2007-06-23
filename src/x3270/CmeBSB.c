@@ -1,7 +1,7 @@
 /* (from) $XConsortium: SmeBSB.c,v 1.16 91/03/15 15:59:41 gildea Exp $ */
 
 /*
- * Modifications Copyright 1995, 1999, 2000 by Paul Mattes.
+ * Modifications Copyright 1995, 1999, 2000, 2002, 2003, 2005 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that

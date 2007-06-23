@@ -1,6 +1,6 @@
 /*
- * Modifications Copyright 1993, 1994, 1995, 1996, 2000, 2001, 2004, 2005,
- *  2007 by Paul Mattes.
+ * Modifications Copyright 1993, 1994, 1995, 1996, 2000, 2001, 2002, 2003,
+ *   2004, 2005, 2007 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *   Permission to use, copy, modify, and distribute this software and its
  *   documentation for any purpose and without fee is hereby granted,
@@ -31,7 +31,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tcl3270.c,v 1.32 2007/02/02 22:00:04 pdm Exp $
+ * RCS: @(#) $Id: tcl3270.c,v 1.33 2007/02/17 22:51:10 pdm Exp $
  */
 
 /*

@@ -1,12 +1,10 @@
-<!DOCTYPE doctype PUBLIC "-//w3c//dtd html 4.0 transitional//en">
 <html>
-<head>
-  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
-  <title>x3270 Frequently Asked Questions</title>
-  <link HREF="http://www.w3.org/StyleSheets/Core/Steely" TYPE="text/css" REL="stylesheet">
-</head>
-<body>
-<h1>x3270, c3270, s3270, tcl3270 and pr3287 Frequently Asked Questions</h1>
+ <head>
+ <title>x3270 Frequently Asked Questions</title>
+ <link HREF="http://www.w3.org/StyleSheets/Core/Steely" TYPE="text/css" REL="stylesheet">
+ </head>
+ <body>
+<h1>x3270, c3270, wc3270, s3270, tcl3270 and pr3287 Frequently Asked Questions</h1>
 
 If you have a problem building, installing, or running
 one of the programs in the <b class=bluer>x3270</b> suite,
@@ -16,8 +14,9 @@ please browse through this file first.
 
 <H3>How do I change the keyboard mapping?</H3>
 
-Look at the <A HREF="Keymap.html">x3270 Keymap</A> document or the
-<a href="c3270Keymap.html">c3270 Keymap</a> documents.
+Look at the <A HREF="Keymap.html">x3270 Keymap</A> document,
+the <a href="c3270Keymap.html">c3270 Keymap</a> document or the
+<a href="wc3270Keymap.html">wc3270 Keymap</a> document.
 
 <h3>Why can't I map the Alt, Ctrl or Shift keys in c3270?</h3>
 
@@ -52,19 +51,21 @@ event, but no "Shifted Function Key 1" event and no "Alt Function Key 1" event.
 <h3>Is there a Windows version?</h3>
 
 Yes!
-Both <b class=bluer>x3270</b> and
+<p>First, there is <b class=bluer>wc3270</b>, the native Windows console
+version of <b class=bluer>c3270</b>.</p>
+<p>Second, <b class=bluer>x3270</b> and
 <b class=bluer>c3270</b> compile and run under Cygwin,
 the free Unix emulator for Windows.
 (In fact, they are standard packages with more recent versions of Cygwin).
-You can get Cygwin <a href="http://www.cygwin.com">here</a>.
+You can get Cygwin <a href="http://www.cygwin.com">here</a>.</p>
 <p>
 If disk space is a concern, you can run
 <b class=bluer>c3270</b> with a minimal set of
 Cygwin DLLs and one text file -- there is no need to install all of Cygwin.
 </p>
 <p>
-Note that there is not a native Win32 port of x3270, nor are there plans for
-one.
+Note that there is not a native Win32 port of x3270, nor are there concrete
+plans for one.
 </p>
 
 <H3>Why are the <b>[</b> and <b>]</b> characters displayed wrong?</H3>

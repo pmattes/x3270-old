@@ -3,18 +3,19 @@
 
 [Setup]
 AppName=wc3270
-AppVerName=wc3270 3.3.5
+AppVerName=wc3270 3.3.6
 AppPublisher=Paul Mattes
 AppPublisherURL=http://x3270.bgp.nu
 AppSupportURL=http://x3270.bgp.nu
 AppUpdatesURL=http://x3270.bgp.nu
 DefaultDirName={pf}\wc3270
-DisableDirPage=yes
+DisableDirPage=no
 DefaultGroupName=wc3270
 AllowNoIcons=yes
 OutputBaseFilename=setup
 Compression=lzma
 SolidCompression=yes
+ChangesAssociations=yes
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
@@ -29,13 +30,18 @@ Source: "\\Melville\pdm\psrc\x3270\Source\3.3\wc3270\html\Bugs.html"; DestDir: "
 Source: "\\Melville\pdm\psrc\x3270\Source\3.3\wc3270\html\Build.html"; DestDir: "{app}\html"; Flags: ignoreversion
 Source: "\\Melville\pdm\psrc\x3270\Source\3.3\wc3270\html\FAQ.html"; DestDir: "{app}\html"; Flags: ignoreversion
 Source: "\\Melville\pdm\psrc\x3270\Source\3.3\wc3270\html\Intro.html"; DestDir: "{app}\html"; Flags: ignoreversion
+Source: "\\Melville\pdm\psrc\x3270\Source\3.3\wc3270\html\Keymap.html"; DestDir: "{app}\html"; Flags: ignoreversion
 Source: "\\Melville\pdm\psrc\x3270\Source\3.3\wc3270\html\Lineage.html"; DestDir: "{app}\html"; Flags: ignoreversion
 Source: "\\Melville\pdm\psrc\x3270\Source\3.3\wc3270\html\New.html"; DestDir: "{app}\html"; Flags: ignoreversion
 Source: "\\Melville\pdm\psrc\x3270\Source\3.3\wc3270\html\README.html"; DestDir: "{app}\html"; Flags: ignoreversion
 Source: "\\Melville\pdm\psrc\x3270\Source\3.3\wc3270\html\wc3270-man.html"; DestDir: "{app}\html"; Flags: ignoreversion
 Source: "\\Melville\pdm\psrc\x3270\Source\3.3\wc3270\html\Wishlist.html"; DestDir: "{app}\html"; Flags: ignoreversion
+Source: "\\Melville\pdm\psrc\x3270\Source\3.3\wpr3287\html\wpr3287-man.html"; DestDir: "{app}\html"; Flags: ignoreversion
 Source: "\\Melville\pdm\psrc\x3270\Source\3.3\wc3270\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 Source: "\\Melville\pdm\psrc\x3270\Source\3.3\wc3270\README"; DestDir: "{app}"; Flags: ignoreversion
+Source: "\\Melville\pdm\psrc\x3270\Source\3.3\wpr3287\wpr3287.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "\\Melville\pdm\psrc\x3270\Source\3.3\wc3270\mkshort.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "\\Melville\pdm\psrc\x3270\Source\3.3\wc3270\catf.exe"; DestDir: "{app}"; Flags: ignoreversion
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Code]
@@ -45,13 +51,21 @@ begin
 end;
 
 [Icons]
-Name: "{group}\New wc3270 Session"; Filename: "{app}\wc3270wiz.exe"
-Name: "{group}\Run wc3270"; Filename: "{app}\wc3270.exe"
+Name: "{group}\New wc3270 Session"; Filename: "{app}\wc3270wiz.exe"; WorkingDir: "{app}"
+Name: "{group}\Run wc3270"; Filename: "{app}\wc3270.exe"; WorkingDir: "{app}"
 Name: "{group}\wc3270 Documentation"; Filename: "{app}\html\README.html"
-Name: "{userdesktop}\New wc3270 Session"; Filename: "{app}\wc3270wiz.exe"; Tasks: desktopicon
-Name: "{userdesktop}\wc3270"; Filename: "{app}\wc3270.exe"; Tasks: desktopicon
+Name: "{userdesktop}\New wc3270 Session"; Filename: "{app}\wc3270wiz.exe"; WorkingDir: "{app}"; Tasks: desktopicon
+
+[Registry]
+Root: HKCR; Subkey: ".wc3270"; ValueType: string; ValueName: ""; ValueData: "wc3270"; Flags: uninsdeletevalue
+Root: HKCR; Subkey: "wc3270"; ValueType: string; ValueName: ""; ValueData: "wc3270 Emulator Session"; Flags: uninsdeletekey
+Root: HKCR; Subkey: "wc3270\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\wc3270.exe,0"
+Root: HKCR; Subkey: "wc3270\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\wc3270"" ""%1"""
 
 [Run]
 Filename: "{app}\wc3270wiz.exe"; Description: "{cm:LaunchProgram,wc3270 New Session Wizard}"; Flags: nowait postinstall skipifsilent
 Filename: "{sys}\cmd.exe"; Parameters: {code:MyHelp}; Description: "{cm:LaunchProgram,Online Documentation}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\mkshort.exe"; Parameters: """{app}"""; Flags: nowait skipifsilent runhidden; Tasks: desktopicon
 
+[UninstallRun]
+Filename: "{sys}\cmd.exe"; Parameters: "/c erase ""{userdesktop}\wc3270.lnk"""; Tasks: desktopicon; Flags: runhidden

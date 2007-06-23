@@ -1,6 +1,6 @@
 /*
- * Modifications Copyright 1993, 1994, 1995, 1999,
- *  2000, 2001, 2002, 2005 by Paul Mattes.
+ * Modifications Copyright 1993, 1994, 1995, 1999, 2000, 2001, 2002, 2003,
+ *   2004, 2005, 2007 by Paul Mattes.
  * RPQNAMES modifications Copyright 2004 by Don Russell.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
@@ -63,6 +63,7 @@
 #include "kybdc.h"
 #include "macrosc.h"
 #include "popupsc.h"
+#include "proxyc.h"
 #include "statusc.h"
 #include "tablesc.h"
 #include "telnetc.h"
@@ -159,6 +160,11 @@ static char	plu_name[BIND_PLU_NAME_MAX+1];
 static char	**lus = (char **)NULL;
 static char	**curr_lu = (char **)NULL;
 static char	*try_lu = CN;
+
+static int	proxy_type = 0;
+static char	*proxy_host = CN;
+static char	*proxy_portname = CN;
+static unsigned short proxy_port = 0;
 
 static int telnet_fsm(unsigned char c);
 static void net_rawout(unsigned const char *buf, int len);
@@ -356,8 +362,7 @@ static union {
 	struct sockaddr_in6 sin6;
 #endif /*]*/
 } haddr;
-
-static void popup_a_sockerr(char *fmt, ...) printflike(1, 2);
+socklen_t ha_len = sizeof(haddr);
 
 #if defined(_WIN32) /*[*/
 static char *
@@ -379,7 +384,7 @@ winsock_strerror(int e)
 	return buffer;
 }
 
-static void
+void
 popup_a_sockerr(char *fmt, ...)
 {
 	va_list args;
@@ -391,7 +396,7 @@ popup_a_sockerr(char *fmt, ...)
 	 popup_an_error("%s: %s", buffer, winsock_strerror(socket_errno()));
 }
 #else /*][*/
-static void
+void
 popup_a_sockerr(char *fmt, ...)
 {
 	va_list args;
@@ -403,6 +408,86 @@ popup_a_sockerr(char *fmt, ...)
 	 popup_an_errno(errno, buffer);
 }
 #endif /*]*/
+
+static int
+resolve_host_and_port(const char *host, char *portname, unsigned short *pport)
+{
+#if defined(AF_INET6) /*[*/
+	struct addrinfo	 hints, *res;
+	int		 rc;
+
+	/* Use getaddrinfo() to resolve the hostname and port together. */
+	(void) memset(&hints, '\0', sizeof(struct addrinfo));
+	hints.ai_flags = 0;
+	hints.ai_family = PF_UNSPEC;
+	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_protocol = IPPROTO_TCP;
+	rc = getaddrinfo(host, portname, &hints, &res);
+	if (rc != 0) {
+		popup_an_error("%s/%s: %s", host, portname,
+				gai_strerror(rc));
+		return -1;
+	}
+	switch (res->ai_family) {
+	case AF_INET:
+		*pport =
+		    ntohs(((struct sockaddr_in *)res->ai_addr)->sin_port);
+		break;
+	case AF_INET6:
+		*pport =
+		    ntohs(((struct sockaddr_in6 *)res->ai_addr)->sin6_port);
+		break;
+	default:
+		popup_an_error("%s: unknown family %d", host,
+			res->ai_family);
+		freeaddrinfo(res);
+		return -1;
+	}
+	(void) memcpy(&haddr.sa, res->ai_addr, res->ai_addrlen);
+	ha_len = res->ai_addrlen;
+	freeaddrinfo(res);
+
+#else /*][*/
+
+	struct hostent	*hp;
+	struct servent	*sp;
+	unsigned short	 port;
+	unsigned long	 lport;
+	char		*ptr;
+
+	/* Get the port number. */
+	lport = strtoul(portname, &ptr, 0);
+	if (ptr == portname || *ptr != '\0' || lport == 0L || lport & ~0xffff) {
+		if (!(sp = getservbyname(portname, "tcp"))) {
+			popup_an_error("Unknown port number or service: %s",
+			    portname);
+			return -1;
+		}
+		port = sp->s_port;
+	} else
+		port = htons((unsigned short)lport);
+	*pport = ntohs(port);
+
+	/* Use gethostbyname() to resolve the hostname. */
+	hp = gethostbyname(host);
+	if (hp == (struct hostent *) 0) {
+		haddr.sin.sin_family = AF_INET;
+		haddr.sin.sin_addr.s_addr = inet_addr(host);
+		if (haddr.sin.sin_addr.s_addr == (unsigned long)-1) {
+			popup_an_error("Unknown host:\n%s", host);
+			return -1;
+		}
+	} else {
+		haddr.sin.sin_family = hp->h_addrtype;
+		(void) memmove(&haddr.sin.sin_addr, hp->h_addr,
+				   hp->h_length);
+	}
+	haddr.sin.sin_port = port;
+	ha_len = sizeof(struct sockaddr_in);
+#endif /*]*/
+
+	return 0;
+}
 
 /*
  * net_connect
@@ -416,15 +501,9 @@ net_connect(const char *host, char *portname, Boolean ls, Boolean *resolving,
 {
 	struct servent	*sp;
 	struct hostent	*hp;
-#if !defined(AF_INET6) /*[*/
-	unsigned long		lport;
-	unsigned short		port;
-	char			*ptr;
-#endif /*]*/
 	char	        	passthru_haddr[8];
 	int			passthru_len = 0;
 	unsigned short		passthru_port = 0;
-	socklen_t		ha_len = sizeof(haddr);
 	int			on = 1;
 #if defined(OMTU) /*[*/
 	int			mtu = OMTU;
@@ -479,22 +558,28 @@ net_connect(const char *host, char *portname, Boolean ls, Boolean *resolving,
 			passthru_port = sp->s_port;
 		else
 			passthru_port = htons(3514);
-	}
+	} else if (appres.proxy != CN && !proxy_type) {
+	    	proxy_type = proxy_setup(&proxy_host, &proxy_portname);
+		if (proxy_type > 0) {
+		    	unsigned long lport;
+			char *ptr;
+			struct servent *sp;
 
-#if !defined(AF_INET6) /*[*/
-	/* get the port number */
-	lport = strtoul(portname, &ptr, 0);
-	if (ptr == portname || *ptr != '\0' || lport == 0L || lport & ~0xffff) {
-		if (!(sp = getservbyname(portname, "tcp"))) {
-			popup_an_error("Unknown port number or service: %s",
-			    portname);
-			return -1;
+			lport = strtoul(portname, &ptr, 0);
+			if (ptr == portname || *ptr != '\0' || lport == 0L ||
+				    lport & ~0xffff) {
+				if (!(sp = getservbyname(portname, "tcp"))) {
+					popup_an_error("Unknown port number "
+						"or service: %s", portname);
+					return -1;
+				}
+				current_port = ntohs(sp->s_port);
+			} else
+				current_port = (unsigned short)lport;
 		}
-		port = sp->s_port;
-	} else
-		port = htons((unsigned short)lport);
-	current_port = ntohs(port);
-#endif /*]*/
+		if (proxy_type < 0)
+		    	return -1;
+	}
 
 	/* fill in the socket address of the given host */
 	(void) memset((char *) &haddr, 0, sizeof(haddr));
@@ -504,68 +589,23 @@ net_connect(const char *host, char *portname, Boolean ls, Boolean *resolving,
 			       passthru_len);
 		haddr.sin.sin_port = passthru_port;
 		ha_len = sizeof(struct sockaddr_in);
+	} else if (proxy_type > 0) {
+	    	if (resolve_host_and_port(proxy_host, proxy_portname,
+			    &proxy_port) < 0) {
+		    	return -1;
+		}
 	} else {
 #if defined(LOCAL_PROCESS) /*[*/
 		if (ls) {
 			local_process = True;
 		} else {
 #endif /*]*/
-#if defined(AF_INET6) /*[*/
-			struct addrinfo hints, *res;
-			int rc;
-
-			/* Use getaddrinfo(). */
 #if defined(LOCAL_PROCESS) /*[*/
 			local_process = False;
 #endif /*]*/
-			(void) memset(&hints, '\0', sizeof(struct addrinfo));
-			hints.ai_flags = 0;
-			hints.ai_family = PF_UNSPEC;
-			hints.ai_socktype = SOCK_STREAM;
-			hints.ai_protocol = IPPROTO_TCP;
-			rc = getaddrinfo(host, portname, &hints, &res);
-			if (rc != 0) {
-				popup_an_error("%s/%s: %s", hostname, portname,
-						gai_strerror(rc));
-				return -1;
-			}
-			switch (res->ai_family) {
-			case AF_INET:
-				current_port = ntohs(((struct sockaddr_in *)res->ai_addr)->sin_port);
-				break;
-			case AF_INET6:
-				current_port = ntohs(((struct sockaddr_in6 *)res->ai_addr)->sin6_port);
-				break;
-			default:
-				popup_an_error("%s: unknown family %d",
-						hostname, res->ai_family);
-				freeaddrinfo(res);
-				return -1;
-			}
-			(void) memcpy(&haddr.sa, res->ai_addr, res->ai_addrlen);
-			ha_len = res->ai_addrlen;
-			freeaddrinfo(res);
-
-#else /*][*/
-			/* Use gethostbyname(). */
-			hp = gethostbyname(host);
-			if (hp == (struct hostent *) 0) {
-				haddr.sin.sin_family = AF_INET;
-				haddr.sin.sin_addr.s_addr = inet_addr(host);
-				if (haddr.sin.sin_addr.s_addr == (unsigned long)-1) {
-					popup_an_error("Unknown host:\n%s",
-					    hostname);
-					return -1;
-				}
-			}
-			else {
-				haddr.sin.sin_family = hp->h_addrtype;
-				(void) memmove(&haddr.sin.sin_addr, hp->h_addr,
-						   hp->h_length);
-			}
-			haddr.sin.sin_port = port;
-			ha_len = sizeof(struct sockaddr_in);
-#endif /*]*/
+			if (resolve_host_and_port(host, portname,
+				    &current_port) < 0)
+			    	return -1;
 #if defined(LOCAL_PROCESS) /*[*/
 		}
 #endif /*]*/
@@ -774,6 +814,19 @@ setup_lus(void)
 static void
 net_connected(void)
 {
+	if (proxy_type > 0) {
+
+		/* Negotiate with the proxy. */
+	    	trace_dsn("Connected to proxy server %s, port %u.\n",
+			proxy_host, proxy_port);
+
+	    	if (proxy_negotiate(proxy_type, sock, hostname,
+			    current_port) < 0) {
+		    	host_disconnect(True);
+			return;
+		}
+	}
+
 	trace_dsn("Connected to %s, port %u%s.\n", hostname, current_port,
 	    ssl_host? " via SSL": "");
 
@@ -975,7 +1028,12 @@ net_input(void)
 		else
 #else /*][*/
 #endif /*]*/
-		nr = recv(sock, (char *) netrbuf, BUFSZ, 0);
+#if defined(LOCAL_PROCESS) /*[*/
+		if (local_process)
+		    	nr = read(sock, (char *) netrbuf, BUFSZ);
+		else
+#endif /*]*/
+			nr = recv(sock, (char *) netrbuf, BUFSZ, 0);
 		if (nr < 0) {
 			if (socket_errno() == SE_EWOULDBLOCK) {
 				return;
@@ -1988,7 +2046,12 @@ net_rawout(unsigned const char *buf, int len)
 			nw = SSL_write(ssl_con, (const char *) buf, n2w);
 		else
 #endif /*]*/
-		nw = send(sock, (const char *) buf, n2w, 0);
+#if defined(LOCAL_PROCESS) /*[*/
+		if (local_process)
+			nw = write(sock, (const char *) buf, n2w);
+		else
+#endif /*]*/
+			nw = send(sock, (const char *) buf, n2w, 0);
 		if (nw < 0) {
 #if defined(HAVE_LIBSSL) /*[*/
 			if (ssl_con != NULL) {
@@ -3442,4 +3505,34 @@ net_getsockname(void *buf, int *len)
 	if (sock < 0)
 		return -1;
 	return getsockname(sock, buf, (socklen_t *)(void *)len);
+}
+
+/* Return a text version of the current proxy type, or NULL. */
+char *
+net_proxy_type(void)
+{
+    	if (proxy_type > 0)
+	    	return proxy_type_name(proxy_type);
+	else
+	    	return NULL;
+}
+
+/* Return the current proxy host, or NULL. */
+char *
+net_proxy_host(void)
+{
+    	if (proxy_type > 0)
+	    	return proxy_host;
+	else
+	    	return NULL;
+}
+
+/* Return the current proxy port, or NULL. */
+char *
+net_proxy_port(void)
+{
+    	if (proxy_type > 0)
+	    	return proxy_portname;
+	else
+	    	return NULL;
 }

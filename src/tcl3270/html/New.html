@@ -9,16 +9,24 @@
 <h1>New Features in tcl3270 3.3
 <hr width="100%"></h1>
 tcl3270 3.3 is the current development line for tcl3270.
-It is functionally equivalent
-to tcl3270 3.2.20, with the addition of SSL (Secure Sockets Layer) support
-and DBCS (Double Byte Character Set) support for East Asian languages --
-Chinese, Japanese and Korean.
-<p>The DBCS work required a significant change in the internal workings of
-tcl3270. For those familiar with the source code, the change was to store EBCDIC
-codes internally, and to dispense with the confusing CG-code representation
-of the 3270 display. This required changing all of the logic that manipulates
-field attributes, as well as the logic that translates the host output
-and macro input.
+<h2>Changes in tcl3270 3.3.6, 23. June 2007</h2>
+<ul>
+  <li>Bug Fixes:
+    <ul>
+      <li>The code now builds with ICU 3.6.</li>
+      <li>Removed the <b>-mono</b> option and <b>mono</b> resource.</li>
+    </ul>
+  </li>
+  <li>New Features:
+    <ul>
+      <li>Added proxy support via the <b>-proxy</b> option or the <b>proxy</b>
+      resource.</li>
+      <li>Modified <i>Blank Fill</i> mode to treat trailing underscore
+      chararacters ('<b>_</b>') like blanks when checking for input
+      overflow.</li>
+    </ul>
+  </li>
+</ul>
 <h2>Changes in x3270 3.3.5, 1. February 2007</h2>
 <ul>
   <li>Bug Fixes:

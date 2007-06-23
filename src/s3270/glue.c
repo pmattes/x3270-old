@@ -1,6 +1,6 @@
 /*
- * Modifications Copyright 1993, 1994, 1995, 1996,
- *   2000, 2001, 2002, 2004, 2006 by Paul Mattes.
+ * Modifications Copyright 1993, 1994, 1995, 1996, 2000, 2001, 2002, 2003,
+ *    2004, 2005, 2006, 2007 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *   Permission to use, copy, modify, and distribute this software and its
  *   documentation for any purpose and without fee is hereby granted,
@@ -88,6 +88,9 @@ Boolean		exiting = False;
 char	       *command_string = CN;
 static Boolean	sfont = False;
 Boolean	       *standard_font = &sfont;
+#if defined(WC3270) /*[*/
+char	       *profile_name = CN;
+#endif /*]*/
 
 struct toggle_name toggle_names[N_TOGGLES] = {
 	{ ResMonoCase,        MONOCASE },
@@ -139,7 +142,11 @@ parse_command_line(int argc, const char **argv, const char **cl_hostname)
 #endif /*]*/
 
 	/* Figure out who we are */
+#if defined(_WIN32) /*[*/
+	programname = strrchr(argv[0], '\\');
+#else /*][*/
 	programname = strrchr(argv[0], '/');
+#endif /*]*/
 	if (programname)
 		++programname;
 	else
@@ -210,6 +217,8 @@ parse_command_line(int argc, const char **argv, const char **cl_hostname)
 		if (appres.hostname == CN) {
 		    Error("Hostname not specified in session file.");
 		}
+		profile_name = NewString(*cl_hostname);
+		profile_name[sl - PROFILE_SFX_LEN] = '\0';
 		*cl_hostname = appres.hostname;
 	}
 #endif /*]*/
@@ -229,9 +238,10 @@ parse_command_line(int argc, const char **argv, const char **cl_hostname)
 		model_number = 4;
 #endif /*]*/
 	}
-	if (appres.mono) {
+#if defined(C3270) && !defined(_WIN32) /*[*/
+	if (appres.mono)
 		appres.m3279 = False;
-	}
+#endif /*]*/
 	if (!appres.extended)
 		appres.oversize = CN;
 
@@ -327,6 +337,8 @@ parse_options(int *argcp, const char **argv)
 	} opts[] = {
 #if defined(C3270) /*[*/
     { OptAllBold,  OPT_BOOLEAN, True,  ResAllBold,   offset(all_bold_on) },
+#endif /*]*/
+#if defined(C3270) /*[*/
     { OptAltScreen,OPT_STRING,  False, ResAltScreen, offset(altscreen) },
 #endif /*]*/
     { OptAplMode,  OPT_BOOLEAN, True,  ResAplMode,   offset(apl_mode) },
@@ -352,13 +364,16 @@ parse_options(int *argcp, const char **argv)
     { OptLocalEncoding,OPT_STRING,False,ResLocalEncoding,offset(local_encoding) },
 #endif /*]*/
     { OptModel,    OPT_STRING,  False, ResKeymap,    offset(model) },
+#if defined(C3270) && !defined(_WIN32) /*[*/
     { OptMono,     OPT_BOOLEAN, True,  ResMono,      offset(mono) },
+#endif /*]*/
     { OptOnce,     OPT_BOOLEAN, True,  ResOnce,      offset(once) },
     { OptOversize, OPT_STRING,  False, ResOversize,  offset(oversize) },
     { OptPort,     OPT_STRING,  False, ResPort,      offset(port) },
 #if defined(C3270) /*[*/
     { OptPrinterLu,OPT_STRING,  False, ResPrinterLu, offset(printer_lu) },
 #endif /*]*/
+    { OptProxy,	   OPT_STRING,  False, ResProxy,     offset(proxy) },
 #if defined(S3270) /*[*/
     { OptScripted, OPT_NOP,     False, ResScripted,  NULL },
 #endif /*]*/
@@ -370,6 +385,9 @@ parse_options(int *argcp, const char **argv)
     { OptSocket,   OPT_BOOLEAN, True,  ResSocket,    offset(socket) },
 #endif /*]*/
     { OptTermName, OPT_STRING,  False, ResTermName,  offset(termname) },
+#if defined(WC3270) /*[*/
+    { OptTitle,    OPT_STRING,  False, ResTitle,     offset(title) },
+#endif /*]*/
 #if defined(X3270_TRACE) /*[*/
     { OptTraceFile,OPT_STRING,  False, ResTraceFile, offset(trace_file) },
     { OptTraceFileSize,OPT_STRING,False,ResTraceFileSize,offset(trace_file_size) },
@@ -380,7 +398,9 @@ parse_options(int *argcp, const char **argv)
 };
 
 	/* Set the defaults. */
+#if defined(C3270) && !defined(_WIN32) /*[*/
 	appres.mono = False;
+#endif /*]*/
 	appres.extended = True;
 #if defined(C3270) /*[*/
 	appres.m3279 = True;
@@ -413,7 +433,12 @@ parse_options(int *argcp, const char **argv)
 	appres.charset = "bracket";
 	appres.termname = CN;
 	appres.macros = CN;
+#if defined(X3270_TRACE) && !defined(_WIN32) /*[*/
 	appres.trace_dir = "/tmp";
+#endif /*]*/
+#if defined(WC3270) /*[*/
+	appres.trace_monitor = True;
+#endif /*]*/
 	appres.oversize = CN;
 #if defined(C3270) /*[*/
 	appres.meta_escape = "auto";
@@ -452,7 +477,7 @@ parse_options(int *argcp, const char **argv)
 	appres.plugin_command = "x3270hist.pl";
 #endif /*]*/
 
-#if defined(C3270) /*[*/
+#if defined(C3270) && !defined(_WIN32) /*[*/
 	/* Merge in the profile. */
 	merge_profile();
 #endif /*]*/
@@ -698,7 +723,9 @@ static struct {
 	{ ResM3279,	offset(m3279),		XRM_BOOLEAN },
 	{ ResModel,	offset(model),		XRM_STRING },
 	{ ResModifiedSel, offset(modified_sel),	XRM_BOOLEAN },
+#if defined(C3270) && !defined(_WIN32) /*[*/
 	{ ResMono,	offset(mono),		XRM_BOOLEAN },
+#endif /*]*/
 	{ ResNumericLock, offset(numeric_lock),	XRM_BOOLEAN },
 	{ ResOerrLock,	offset(oerr_lock),	XRM_BOOLEAN },
 	{ ResOversize,	offset(oversize),	XRM_STRING },
@@ -707,16 +734,25 @@ static struct {
 	{ ResPrinterLu,	offset(printer_lu),	XRM_STRING },
 	{ ResPrintTextCommand,	NULL,		XRM_STRING },
 #endif /*]*/
+	{ ResProxy,	offset(proxy),		XRM_STRING },
 #if defined(X3270_ANSI) /*[*/
 	{ ResQuit,	offset(quit),		XRM_STRING },
 	{ ResRprnt,	offset(rprnt),		XRM_STRING },
 #endif /*]*/
 	{ ResSecure,	offset(secure),		XRM_BOOLEAN },
 	{ ResTermName,	offset(termname),	XRM_STRING },
+#if defined(WC3270) /*[*/
+	{ ResTitle,	offset(title),		XRM_STRING },
+#endif /*]*/
 #if defined(X3270_TRACE) /*[*/
+#if !defined(_WIN32) /*[*/
 	{ ResTraceDir,	offset(trace_dir),	XRM_STRING },
+#endif /*]*/
 	{ ResTraceFile,	offset(trace_file),	XRM_STRING },
 	{ ResTraceFileSize,offset(trace_file_size),XRM_STRING },
+#if defined(WC3270) /*[*/
+	{ ResTraceMonitor,offset(trace_monitor),XRM_BOOLEAN },
+#endif /*]*/
 #endif /*]*/
 	{ ResTypeahead,	offset(typeahead),	XRM_BOOLEAN },
 	{ ResUnlockDelay,offset(unlock_delay),	XRM_BOOLEAN },
@@ -1090,7 +1126,7 @@ popup_an_error(const char *fmt, ...)
 		sms_error(vmsgbuf);
 		return;
 	} else {
-#if defined(C3270) /*[*/
+#if defined(C3270) || defined(WC3270) /*[*/
 		screen_suspend();
 		any_error_output = True;
 #endif /*]*/
@@ -1132,7 +1168,7 @@ action_output(const char *fmt, ...)
 	} else {
 		FILE *aout;
 
-#if defined(C3270) /*[*/
+#if defined(C3270) || defined(WC3270) /*[*/
 		screen_suspend();
 		aout = start_pager();
 		any_error_output = True;

@@ -1,5 +1,5 @@
 /*
- * Modifications Copyright 1993-1996, 1999-2004 by Paul Mattes.
+ * Modifications Copyright 1993-1996, 1999-2004, 2005, 2006 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -450,6 +450,9 @@ void
 screen_init(void)
 {
 	register int i;
+
+	if (!appres.m3279)
+	    	appres.highlight_bold = True;
 
 	visible_control = toggled(VISIBLE_CONTROL);
 

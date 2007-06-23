@@ -13,6 +13,7 @@
 #include <string.h>
 #include <signal.h>
 #include <memory.h>
+#include <stdlib.h>
 #include <sys/types.h>
 #include <sys/time.h>
 #include <sys/socket.h>
@@ -61,7 +62,7 @@ main(int argc, char *argv[])
 	} addr;
 	int addrlen = sizeof(struct sockaddr_in);
 	int one = 1;
-	int len;
+	socklen_t len;
 	int proto = AF_INET;
 
 	/* Parse command-line arguments */
@@ -292,6 +293,8 @@ step(FILE *f, int s, int to_eor)
 
     top:
 	while (again || ((c = fgetc(f)) != EOF)) {
+		if (c == '\r')
+			continue;
 		if (!again) {
 			if (!fdisp || c == '\n') {
 				printf("\nfile ");

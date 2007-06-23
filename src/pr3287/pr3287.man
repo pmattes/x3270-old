@@ -1,5 +1,5 @@
 '\" t
-.TH PR3287 1 "02 February 2007"
+.TH PR3287 1 "23 June 2007"
 .SH "NAME"
 pr3287 \-
 \s-1IBM\s+1
@@ -83,8 +83,7 @@ this:
 .TP
 \fB\-command\fP \fIcommand\fP
 Specifies the command to run for each print job.
-The default is
-\fBlpr\fP.
+The default is \fBlpr\fP.
 .TP
 \fB\-crlf\fP
 Causes newline characters in the output to be expanded to
@@ -111,6 +110,10 @@ at the top of a page.
 In SCS mode, causes \fIpr3287\fP to pass FF (formfeed) orders through to the
 printer as ASCII formfeed characters, rather than simulating them based on the
 values of the MPL (maximum presentation line) and TM (top margin) parameters.
+
+.LP
+The printer can be the name of a local printer, or a UNC path to a remote
+printer, e.g., <b>\\server\printer1</b>.
 .TP
 \fB\-reconnect\fP
 Causes \fIpr3287\fP to reconnect to the host, whenever the connection is
@@ -131,8 +134,9 @@ pending data to be printed) and \fIpr3287\fP to exit.
 .LP
 SIGUSR1 causes the current print job to be flushed without otherwise
 affecting the \fIpr3287\fP process.
+
 .SH "SEE ALSO"
-x3270(1), telnet(1), tn3270(1)
+x3270(1), c3270(1), telnet(1), tn3270(1)
 .br
 Data Stream Programmer's Reference, IBM GA23\-0059
 .br
@@ -147,7 +151,7 @@ RFC 1646, TN3270 Extensions for LUname and Printer Selection
 RFC 2355, TN3270 Enhancements
 .SH "COPYRIGHTS"
 .LP
-Modifications Copyright  1993-1996, 1997, 1999-2005 by Paul Mattes.
+Modifications Copyright  1993-1996, 1997, 1999-2005, 2007 by Paul Mattes.
 .br
 Original X11 Port Copyright 1990 by Jeff Sparkes.
 .RS
@@ -164,4 +168,4 @@ Derivative works based on this software must incorporate this copyright
 notice.
 .RE
 .SH "VERSION"
-pr3287 3.3.5
+pr3287 3.3.6

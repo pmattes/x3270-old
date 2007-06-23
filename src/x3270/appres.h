@@ -1,6 +1,6 @@
 /*
- * Modifications Copyright 1993, 1994, 1995, 1996, 1999,
- *   2000, 2001, 2002, 2004 by Paul Mattes.
+ * Modifications Copyright 1993, 1994, 1995, 1996, 1999, 2000, 2001, 2002,
+ *  2003, 2004, 2005, 2007 by Paul Mattes.
  * Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -81,7 +81,9 @@ typedef struct {
 #endif /*]*/
 
 	/* Options (not toggles) */
+#if defined(X3270_DISPLAY) || (defined(C3270) && !defined(_WIN32)) /*[*/
 	Boolean mono;
+#endif /*]*/
 	Boolean extended;
 	Boolean m3279;
 	Boolean modified_sel;
@@ -175,12 +177,14 @@ typedef struct {
 	char	*termname;
 	char	*login_macro;
 	char	*macros;
-	char	*trace_dir;
 #if defined(X3270_TRACE) /*[*/
+#if !defined(_WIN32) /*[*/
+	char	*trace_dir;
+#endif /*]*/
 	char	*trace_file;
 	char	*screentrace_file;
 	char	*trace_file_size;
-# if defined(X3270_DISPLAY) /*[*/
+# if defined(X3270_DISPLAY) || defined(WC3270) /*[*/
 	Boolean	trace_monitor;
 # endif /*]*/
 #endif /*]*/
@@ -196,10 +200,10 @@ typedef struct {
 #if defined(X3270_SCRIPT) /*[*/
 	char	*plugin_command;
 #endif /*]*/
-
 #if defined(HAVE_LIBSSL) /*[*/
 	char	*cert_file;
 #endif /*]*/
+	char	*proxy;
 
 	/* Toggles */
 	struct toggle toggle[N_TOGGLES];
@@ -228,6 +232,7 @@ typedef struct {
 
 #if defined(WC3270) /*[*/
 	char	*hostname;
+	char	*title;
 #endif /*]*/
 
 #if defined(USE_APP_DEFAULTS) /*[*/

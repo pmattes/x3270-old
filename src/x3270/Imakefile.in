@@ -1,5 +1,6 @@
 /*
- * Copyright 1995, 1999, 2000, 2001, 2002, 2004, 2005 by Paul Mattes.
+ * Copyright 1995, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007 by Paul
+ *   Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -20,7 +21,7 @@ LOCAL_LIBRARIES = $(XAWLIB) $(XMULIB) $(XTOOLLIB) $(XLIB)
 		  actions.c ansi.c apl.c charset.c child.c ctlr.c \
 		  dialog.c ft.c ft_cut.c ft_dft.c host.c idle.c keymap.c \
 		  keypad.c kybd.c macros.c main.c menubar.c popups.c \
-		  printer.c print.c resources.c rpq.c save.c screen.c \
+		  printer.c print.c proxy.c resources.c rpq.c save.c screen.c \
 		  scroll.c see.c select.c sf.c status.c tables.c toggles.c \
 		  telnet.c trace_ds.c util.c xio.c \
 		  @DBCS_C@
@@ -28,7 +29,7 @@ LOCAL_LIBRARIES = $(XAWLIB) $(XMULIB) $(XTOOLLIB) $(XLIB)
 		  actions.o ansi.o apl.o charset.o child.o ctlr.o dialog.o \
 		  @FALLBACKS_O@ ft.o ft_cut.o ft_dft.o host.o idle.o keymap.o \
 		  keypad.o kybd.o macros.o main.o menubar.o popups.o \
-		  printer.o print.o resources.o rpq.o save.o screen.o \
+		  printer.o print.o proxy.o resources.o rpq.o save.o screen.o \
 		  scroll.o see.o select.o sf.o status.o tables.o telnet.o \
 		  toggles.o trace_ds.o util.o xio.o @LIBOBJS@ \
 		  @DBCS_O@ 
@@ -47,11 +48,11 @@ LOCAL_LIBRARIES = $(XAWLIB) $(XMULIB) $(XTOOLLIB) $(XLIB)
       HOSTSFILE = ibm_hosts
 @INSTALL_CNV@
 #ifdef INSTALL_CNV
-            IDP = @ICU_DATA_PREFIX@
+            IDP = @ICU_DATA_PREFIX_@
         ICU_UCM = ibm-837_P100-2000.ucm ibm-300_P110-1997.ucm \
                   ibm-1027_P100-1995.ucm ibm-1388_P103-2001.ucm
-        ICU_CNV = $(IDP)_ibm-837_P100-2000.cnv $(IDP)_ibm-300_P110-1997.cnv \
-                  $(IDP)_ibm-1027_P100-1995.cnv $(IDP)_ibm-1388_P103-2001.cnv
+        ICU_CNV = $(IDP)ibm-837_P100-2000.cnv $(IDP)ibm-300_P110-1997.cnv \
+                  $(IDP)ibm-1027_P100-1995.cnv $(IDP)ibm-1388_P103-2001.cnv
 #endif
 
 /* Variables set by autoconf. */
@@ -188,14 +189,14 @@ all::
 
 #ifdef INSTALL_CNV
 all:: $(ICU_CNV)
-$(IDP)_ibm-837_P100-2000.cnv: ibm-837_P100-2000.ucm
-	makeconv -d . -p $(IDP) ibm-837_P100-2000.ucm
-$(IDP)_ibm-300_P110-1997.cnv: ibm-300_P110-1997.ucm
-	makeconv -d . -p $(IDP) ibm-300_P110-1997.ucm
-$(IDP)_ibm-1027_P100-1995.cnv: ibm-1027_P100-1995.ucm
-	makeconv -d . -p $(IDP) ibm-1027_P100-1995.ucm
-$(IDP)_ibm-1388_P103-2001.cnv: ibm-1388_P103-2001.ucm
-	makeconv -d . -p $(IDP) ibm-1388_P103-2001.ucm
+$(IDP)ibm-837_P100-2000.cnv: ibm-837_P100-2000.ucm
+	makeconv -d . @ICU_DASHP@ ibm-837_P100-2000.ucm
+$(IDP)ibm-300_P110-1997.cnv: ibm-300_P110-1997.ucm
+	makeconv -d . @ICU_DASHP@ ibm-300_P110-1997.ucm
+$(IDP)ibm-1027_P100-1995.cnv: ibm-1027_P100-1995.ucm
+	makeconv -d . @ICU_DASHP@ ibm-1027_P100-1995.ucm
+$(IDP)ibm-1388_P103-2001.cnv: ibm-1388_P103-2001.ucm
+	makeconv -d . @ICU_DASHP@ ibm-1388_P103-2001.ucm
 #endif
 
 /******************************************************************************
@@ -205,10 +206,6 @@ $(IDP)_ibm-1388_P103-2001.cnv: ibm-1388_P103-2001.ucm
 /* Install rule for x3270if. */
 install:: ProgramTargetName(x3270if)
 	$(INSTALL) $(INSTALLFLAGS) $(INSTPGMFLAGS) ProgramTargetName(x3270if) $(DESTDIR)$(autoconf_bindir)/ProgramTargetName(x3270if)
-
-/* Install rule for x3270hist.pl. */
-install:: x3270hist.pl
-	$(INSTALL) $(INSTALLFLAGS) $(INSTPGMFLAGS) x3270hist.pl $(DESTDIR)$(autoconf_bindir)/x3270hist.pl
 
 /* Extra install rule to regenerate fonts.dir. */
 install:: $(DESTDIR)$(FONTINSTDIR)/fonts.dir
@@ -252,7 +249,7 @@ XCOMM Rules for installing everything in $(PREFIX), rather than in the system
 XCOMM X11 directory.  This is hideous, but I see no way around it.
 install.byprefix::
 	$(INSTALL) -c $(INSTBINFLAGS) ProgramTargetName(x3270) $(DESTDIR)$(autoconf_bindir)/ProgramTargetName(x3270)
-	$(INSTALL) -c $(INSTBINFLAGS) ProgramTargetName(x3270hist.pl) $(DESTDIR)$(autoconf_bindir)/ProgramTargetName(x3270hist.pl)
+#	$(INSTALL) -c $(INSTBINFLAGS) ProgramTargetName(x3270hist.pl) $(DESTDIR)$(autoconf_bindir)/ProgramTargetName(x3270hist.pl)
 	$(INSTALL) -c $(INSTBINFLAGS) ProgramTargetName(x3270if) $(DESTDIR)$(autoconf_bindir)/ProgramTargetName(x3270if)
 	$(INSTALL) -c $(INSTMANFLAGS) x3270.man $(DESTDIR)$(autoconf_mandir)/man1/x3270.1
 	$(INSTALL) -c $(INSTMANFLAGS) x3270if.man $(DESTDIR)$(autoconf_mandir)/man1/x3270if.1

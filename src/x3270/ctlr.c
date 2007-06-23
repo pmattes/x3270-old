@@ -1,6 +1,6 @@
 /*
- * Modifications Copyright 1993, 1994, 1995, 1996, 1999,
- *  2000, 2001, 2002, 2004 by Paul Mattes.
+ * Modifications Copyright 1993, 1994, 1995, 1996, 1999, 2000, 2001, 2002,
+ *  2003, 2004, 2005, 2006 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -85,6 +85,7 @@ static void set_formatted(void);
 static void ctlr_blanks(void);
 static Boolean  trace_primed = False;
 static unsigned char default_fg;
+static unsigned char default_bg;
 static unsigned char default_gr;
 static unsigned char default_cs;
 static unsigned char default_ic;
@@ -312,6 +313,7 @@ ctlr_connect(Boolean ignored unused)
 	}
 
 	default_fg = 0x00;
+	default_bg = 0x00;
 	default_gr = 0x00;
 	default_cs = 0x00;
 	default_ic = 0x00;
@@ -577,13 +579,16 @@ host_cs(unsigned char cs)
 }
 
 static void
-insert_sa(int baddr, unsigned char *current_fgp, unsigned char *current_grp, unsigned char *current_csp, Boolean *anyp)
+insert_sa(int baddr, unsigned char *current_fgp, unsigned char *current_bgp,
+	unsigned char *current_grp, unsigned char *current_csp, Boolean *anyp)
 {
 	if (reply_mode != SF_SRM_CHAR)
 		return;
 
 	if (memchr((char *)crm_attr, XA_FOREGROUND, crm_nattr))
 		insert_sa1(XA_FOREGROUND, ea_buf[baddr].fg, current_fgp, anyp);
+	if (memchr((char *)crm_attr, XA_BACKGROUND, crm_nattr))
+		insert_sa1(XA_BACKGROUND, ea_buf[baddr].bg, current_bgp, anyp);
 	if (memchr((char *)crm_attr, XA_HIGHLIGHTING, crm_nattr)) {
 		unsigned char gr;
 
@@ -610,6 +615,7 @@ ctlr_read_modified(unsigned char aid_byte, Boolean all)
 	Boolean		send_data = True;
 	Boolean		short_read = False;
 	unsigned char	current_fg = 0x00;
+	unsigned char	current_bg = 0x00;
 	unsigned char	current_gr = 0x00;
 	unsigned char	current_cs = 0x00;
 
@@ -688,6 +694,7 @@ ctlr_read_modified(unsigned char aid_byte, Boolean all)
 					    ea_buf[baddr].cc) {
 						insert_sa(baddr,
 						    &current_fg,
+						    &current_bg,
 						    &current_gr,
 						    &current_cs,
 						    &any);
@@ -733,6 +740,7 @@ ctlr_read_modified(unsigned char aid_byte, Boolean all)
 			if (ea_buf[baddr].cc) {
 				insert_sa(baddr,
 				    &current_fg,
+				    &current_bg,
 				    &current_gr,
 				    &current_cs,
 				    &any);
@@ -782,6 +790,7 @@ ctlr_read_buffer(unsigned char aid_byte)
 	Boolean		any = False;
 	int		attr_count = 0;
 	unsigned char	current_fg = 0x00;
+	unsigned char	current_bg = 0x00;
 	unsigned char	current_gr = 0x00;
 	unsigned char	current_cs = 0x00;
 
@@ -829,6 +838,14 @@ ctlr_read_buffer(unsigned char aid_byte)
 					    ea_buf[baddr].fg));
 					(*(obuf + attr_count))++;
 				}
+				if (ea_buf[baddr].bg) {
+					space3270out(2);
+					*obptr++ = XA_BACKGROUND;
+					*obptr++ = ea_buf[baddr].bg;
+					trace_ds("%s", see_efa(XA_BACKGROUND,
+					    ea_buf[baddr].bg));
+					(*(obuf + attr_count))++;
+				}
 				if (ea_buf[baddr].gr) {
 					space3270out(2);
 					*obptr++ = XA_HIGHLIGHTING;
@@ -850,6 +867,7 @@ ctlr_read_buffer(unsigned char aid_byte)
 		} else {
 			insert_sa(baddr,
 			    &current_fg,
+			    &current_bg,
 			    &current_gr,
 			    &current_cs,
 			    &any);
@@ -896,6 +914,7 @@ ctlr_snap_buffer(void)
 	register int	baddr = 0;
 	int		attr_count;
 	unsigned char	current_fg = 0x00;
+	unsigned char	current_bg = 0x00;
 	unsigned char	current_gr = 0x00;
 	unsigned char	current_cs = 0x00;
 	unsigned char   av;
@@ -918,6 +937,12 @@ ctlr_snap_buffer(void)
 				*obptr++ = ea_buf[baddr].fg;
 				(*(obuf + attr_count))++;
 			}
+			if (ea_buf[baddr].bg) {
+				space3270out(2);
+				*obptr++ = XA_BACKGROUND;
+				*obptr++ = ea_buf[baddr].fg;
+				(*(obuf + attr_count))++;
+			}
 			if (ea_buf[baddr].gr) {
 				space3270out(2);
 				*obptr++ = XA_HIGHLIGHTING;
@@ -937,6 +962,14 @@ ctlr_snap_buffer(void)
 				space3270out(3);
 				*obptr++ = ORDER_SA;
 				*obptr++ = XA_FOREGROUND;
+				*obptr++ = av;
+			}
+			av = ea_buf[baddr].bg;
+			if (current_bg != av) {
+				current_bg = av;
+				space3270out(3);
+				*obptr++ = ORDER_SA;
+				*obptr++ = XA_BACKGROUND;
 				*obptr++ = av;
 			}
 			av = ea_buf[baddr].gr;
@@ -1074,6 +1107,7 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 	unsigned char	na;
 	int		any_fa;
 	unsigned char	efa_fg;
+	unsigned char	efa_bg;
 	unsigned char	efa_gr;
 	unsigned char	efa_cs;
 	unsigned char	efa_ic;
@@ -1099,6 +1133,7 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 			ctlr_add_fa(buffer_addr, fa, 0); \
 			ctlr_add_cs(buffer_addr, 0); \
 			ctlr_add_fg(buffer_addr, 0); \
+			ctlr_add_bg(buffer_addr, 0); \
 			ctlr_add_gr(buffer_addr, 0); \
 			ctlr_add_ic(buffer_addr, 0); \
 			trace_ds(see_attr(fa)); \
@@ -1111,6 +1146,7 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 		return PDS_BAD_CMD;
 
 	default_fg = 0;
+	default_bg = 0;
 	default_gr = 0;
 	default_cs = 0;
 	default_ic = 0;
@@ -1175,6 +1211,7 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 			cp++;		/* skip field attribute */
 			START_FIELD(*cp);
 			ctlr_add_fg(buffer_addr, 0);
+			ctlr_add_bg(buffer_addr, 0);
 			INC_BA(buffer_addr);
 			last_cmd = True;
 			last_zpt = False;
@@ -1237,6 +1274,7 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 					ctlr_add(buffer_addr, EBC_null, 0);
 					ctlr_add_cs(buffer_addr, 0);
 					ctlr_add_fg(buffer_addr, 0);
+					ctlr_add_bg(buffer_addr, 0);
 					ctlr_add_gr(buffer_addr, 0);
 					ctlr_add_ic(buffer_addr, 0);
 					INC_BA(buffer_addr);
@@ -1341,6 +1379,7 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 					ctlr_add(buffer_addr, add_c2,
 					    default_cs);
 					ctlr_add_fg(buffer_addr, default_fg);
+					ctlr_add_bg(buffer_addr, default_bg);
 					ctlr_add_gr(buffer_addr, default_gr);
 					ctlr_add_ic(buffer_addr, default_ic);
 					INC_BA(buffer_addr);
@@ -1393,6 +1432,7 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 				trace_ds("'");
 			ctlr_add(buffer_addr, *cp, CS_GE);
 			ctlr_add_fg(buffer_addr, default_fg);
+			ctlr_add_bg(buffer_addr, default_bg);
 			ctlr_add_gr(buffer_addr, default_gr);
 			ctlr_add_ic(buffer_addr, default_ic);
 			INC_BA(buffer_addr);
@@ -1423,12 +1463,19 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 						cp++;
 						if (appres.m3279)
 							ctlr_add_fg(buffer_addr, *cp);
+					} else if (*cp == XA_BACKGROUND) {
+						trace_ds("%s",
+						    see_efa(*cp,
+							*(cp + 1)));
+						cp++;
+						if (appres.m3279)
+							ctlr_add_bg(buffer_addr, *cp);
 					} else if (*cp == XA_HIGHLIGHTING) {
 						trace_ds("%s",
 						    see_efa(*cp,
 							*(cp + 1)));
 						cp++;
-						ctlr_add_gr(buffer_addr, *cp & 0x07);
+						ctlr_add_gr(buffer_addr, *cp & 0x0f);
 					} else if (*cp == XA_CHARSET) {
 						int cs = 0;
 
@@ -1473,6 +1520,7 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 			na = *cp;
 			any_fa = 0;
 			efa_fg = 0;
+			efa_bg = 0;
 			efa_gr = 0;
 			efa_cs = 0;
 			efa_ic = 0;
@@ -1488,6 +1536,11 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 					cp++;
 					if (appres.m3279)
 						efa_fg = *cp;
+				} else if (*cp == XA_BACKGROUND) {
+					trace_ds("%s", see_efa(*cp, *(cp + 1)));
+					cp++;
+					if (appres.m3279)
+						efa_bg = *cp;
 				} else if (*cp == XA_HIGHLIGHTING) {
 					trace_ds("%s", see_efa(*cp, *(cp + 1)));
 					cp++;
@@ -1518,6 +1571,7 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 				START_FIELD(0);
 			ctlr_add_cs(buffer_addr, efa_cs);
 			ctlr_add_fg(buffer_addr, efa_fg);
+			ctlr_add_bg(buffer_addr, efa_bg);
 			ctlr_add_gr(buffer_addr, efa_gr);
 			ctlr_add_ic(buffer_addr, efa_ic);
 			INC_BA(buffer_addr);
@@ -1532,12 +1586,17 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 				trace_ds("%s", see_efa(*cp, *(cp + 1)));
 				if (appres.m3279)
 					default_fg = *(cp + 1);
+			} else if (*cp == XA_BACKGROUND)  {
+				trace_ds("%s", see_efa(*cp, *(cp + 1)));
+				if (appres.m3279)
+					default_bg = *(cp + 1);
 			} else if (*cp == XA_HIGHLIGHTING)  {
 				trace_ds("%s", see_efa(*cp, *(cp + 1)));
-				default_gr = *(cp + 1) & 0x07;
+				default_gr = *(cp + 1) & 0x0f;
 			} else if (*cp == XA_ALL)  {
 				trace_ds("%s", see_efa(*cp, *(cp + 1)));
 				default_fg = 0;
+				default_bg = 0;
 				default_gr = 0;
 				default_cs = 0;
 				default_ic = 0;
@@ -1583,6 +1642,7 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 			}
 			ctlr_add(buffer_addr, *cp, default_cs);
 			ctlr_add_fg(buffer_addr, default_fg);
+			ctlr_add_bg(buffer_addr, default_bg);
 			ctlr_add_gr(buffer_addr, default_gr);
 			ctlr_add_ic(buffer_addr, default_ic);
 			INC_BA(buffer_addr);
@@ -1606,6 +1666,7 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 			previous = ORDER;
 			ctlr_add(buffer_addr, *cp, default_cs);
 			ctlr_add_fg(buffer_addr, default_fg);
+			ctlr_add_bg(buffer_addr, default_bg);
 			ctlr_add_gr(buffer_addr, default_gr);
 			ctlr_add_ic(buffer_addr, default_ic);
 			INC_BA(buffer_addr);
@@ -1644,6 +1705,7 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 			previous = ORDER;
 			ctlr_add(buffer_addr, *cp, default_cs);
 			ctlr_add_fg(buffer_addr, default_fg);
+			ctlr_add_bg(buffer_addr, default_bg);
 			ctlr_add_gr(buffer_addr, default_gr);
 			ctlr_add_ic(buffer_addr, default_ic);
 			INC_BA(buffer_addr);
@@ -1696,14 +1758,16 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 			}
 			ctlr_add(buffer_addr, add_c1, default_cs);
 			ctlr_add_fg(buffer_addr, default_fg);
+			ctlr_add_bg(buffer_addr, default_bg);
 			ctlr_add_gr(buffer_addr, default_gr);
-			ctlr_add_gr(buffer_addr, default_ic);
+			ctlr_add_ic(buffer_addr, default_ic);
 			INC_BA(buffer_addr);
 			if (add_dbcs) {
 				ctlr_add(buffer_addr, add_c2, default_cs);
 				ctlr_add_fg(buffer_addr, default_fg);
+				ctlr_add_bg(buffer_addr, default_bg);
 				ctlr_add_gr(buffer_addr, default_gr);
-				ctlr_add_gr(buffer_addr, default_ic);
+				ctlr_add_ic(buffer_addr, default_ic);
 				INC_BA(buffer_addr);
 			}
 			last_cmd = False;
@@ -1752,6 +1816,7 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 #endif /*]*/
 			ctlr_add(buffer_addr, add_c1, default_cs);
 			ctlr_add_fg(buffer_addr, default_fg);
+			ctlr_add_bg(buffer_addr, default_bg);
 			ctlr_add_gr(buffer_addr, default_gr);
 			ctlr_add_ic(buffer_addr, default_ic);
 			INC_BA(buffer_addr);
@@ -1759,8 +1824,9 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 			if (add_dbcs) {
 				ctlr_add(buffer_addr, add_c2, default_cs);
 				ctlr_add_fg(buffer_addr, default_fg);
+				ctlr_add_bg(buffer_addr, default_bg);
 				ctlr_add_gr(buffer_addr, default_gr);
-				ctlr_add_gr(buffer_addr, default_ic);
+				ctlr_add_ic(buffer_addr, default_ic);
 				INC_BA(buffer_addr);
 			}
 #endif /*]*/
@@ -1837,6 +1903,7 @@ ctlr_write_sscp_lu(unsigned char buf[], int buflen)
 			while ((buffer_addr / COLS) == s_row) {
 				ctlr_add(buffer_addr, EBC_null, default_cs);
 				ctlr_add_fg(buffer_addr, default_fg);
+				ctlr_add_bg(buffer_addr, default_bg);
 				ctlr_add_gr(buffer_addr, default_gr);
 				ctlr_add_ic(buffer_addr, default_ic);
 				INC_BA(buffer_addr);
@@ -1851,6 +1918,7 @@ ctlr_write_sscp_lu(unsigned char buf[], int buflen)
 			    rcba(buffer_addr), see_attr(*cp));
 			ctlr_add(buffer_addr, EBC_space, default_cs);
 			ctlr_add_fg(buffer_addr, default_fg);
+			ctlr_add_bg(buffer_addr, default_bg);
 			ctlr_add_gr(buffer_addr, default_gr);
 			ctlr_add_ic(buffer_addr, default_ic);
 			INC_BA(buffer_addr);
@@ -1876,6 +1944,7 @@ ctlr_write_sscp_lu(unsigned char buf[], int buflen)
 				c = *cp;
 			ctlr_add(buffer_addr, c, CS_GE);
 			ctlr_add_fg(buffer_addr, default_fg);
+			ctlr_add_bg(buffer_addr, default_bg);
 			ctlr_add_gr(buffer_addr, default_gr);
 			ctlr_add_ic(buffer_addr, default_ic);
 			INC_BA(buffer_addr);
@@ -1884,6 +1953,7 @@ ctlr_write_sscp_lu(unsigned char buf[], int buflen)
 		default:
 			ctlr_add(buffer_addr, *cp, default_cs);
 			ctlr_add_fg(buffer_addr, default_fg);
+			ctlr_add_bg(buffer_addr, default_bg);
 			ctlr_add_gr(buffer_addr, default_gr);
 			ctlr_add_ic(buffer_addr, default_ic);
 			INC_BA(buffer_addr);
@@ -2246,6 +2316,7 @@ ctlr_clear(Boolean can_snap)
 	unselect(0, ROWS*COLS);
 	formatted = False;
 	default_fg = 0;
+	default_bg = 0;
 	default_gr = 0;
 	default_ic = 0;
 	sscp_start = 0;
@@ -2363,7 +2434,6 @@ ctlr_add_fg(int baddr, unsigned char color)
 	}
 }
 
-#if defined(X3270_ANSI) /*[*/
 /*
  * Change the background color for a character in the 3270 buffer.
  */
@@ -2381,7 +2451,6 @@ ctlr_add_bg(int baddr, unsigned char color)
 		ea_buf[baddr].bg = color;
 	}
 }
-#endif /*]*/
 
 /*
  * Change the input control bit for a character in the 3270 buffer.

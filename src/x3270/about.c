@@ -1,5 +1,6 @@
 /*
- * Copyright 1993, 1994, 1995, 1999, 2000, 2001, 2002, 2005 by Paul Mattes.
+ * Copyright 1993, 1994, 1995, 1999, 2000, 2001, 2002, 2003, 2004, 2005,
+ *   2006, 2007 by Paul Mattes.
  * RPQNAMES modifications copyright 2004 by Don Russell.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -450,6 +451,7 @@ popup_about_status(void)
 #if defined(X3270_TN3270E) /*[*/
 	const char *eopts;
 #endif /*]*/
+	const char *ptype;
 
 	/* Create the popup */
 
@@ -513,6 +515,18 @@ popup_about_status(void)
 			MAKE_LABEL2(fbuf);
 		}
 #endif /*]*/
+		ptype = net_proxy_type();
+		if (ptype) {
+		    	MAKE_LABEL(get_message("proxyType"), 4);
+			MAKE_VALUE(ptype);
+			(void) sprintf(fbuf, "  %s", get_message("server"));
+			MAKE_LABEL2(fbuf);
+			MAKE_VALUE(net_proxy_host());
+			(void) sprintf(fbuf, "  %s", get_message("port"));
+			MAKE_LABEL2(fbuf);
+			MAKE_VALUE(net_proxy_port());
+		}
+
 		if (IN_E)
 			emode = "TN3270E ";
 		else

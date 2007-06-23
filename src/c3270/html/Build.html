@@ -14,6 +14,29 @@
   To install <i>c3270</i> in the default install directory (<tt>/usr/local</tt>),
  type:  
 <pre>&nbsp;&nbsp;&nbsp; make install</pre>
+
+<h3>Notes for Cygwin</h3>
+The minimum set of Cygwin packages needed to compile <i>c3270</i> are:
+<ul>
+    <li>The default set (bash, etc.)</li>
+    <li>The <b>make</b> package from the <b>Devel</b> group</li>
+    <li>The <b>gcc-core</b> package from the <b>Devel</b> group</li>
+    <li>The <b>libncurses-devel</b> package from the <b>Devel</b> group</li>
+</ul>
+Optional features require some additional packages:
+<ul>
+    <li>For SSL support, you need the <b>openssl-devel</b> package from the
+    <b>Devel</b> group</li>
+    <li>For command-line editing and history, you need the <b>readline</b>
+    package from the <b>Devel</b> group</li>
+    <li>To build a standalone ZIP file (see below), you need the <b>zip</b>
+    package from the <b>Archive</b> group</li>
+</ul>
+To build a standalone version of <i>c3270</i> (a ZIP file containing
+<tt>c3270.exe</tt> and the minimum set of Cygwin libraries and configuration
+files -- thus allowing c3270 to be installed and run without a
+full Cygwin installation), type:
+<pre>&nbsp;&nbsp;&nbsp; make c3270-standalone-zip</pre>
     
 <h3> Notes for Sun's C Compiler</h3>
   <font size="+0">Do not use Sun's BSD-compatibility compiler, <tt>/usr/ucb/cc</tt>.

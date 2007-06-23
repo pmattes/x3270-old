@@ -1,5 +1,5 @@
 /*
- * Copyright 1999, 2000, 2001, 2005 by Paul Mattes.
+ * Copyright 1999, 2000, 2001, 2005, 2007 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -52,6 +52,7 @@ static struct {
 	{ "message.mono",       "monochrome" },
 	{ "message.notConnected",       "Not connected" },
 	{ "message.port",       "Port:" },
+	{ "message.proxyType",  "Proxy type:" },
 	{ "message.Received",   "Received" },
 	{ "message.received",   "received" },
 	{ "message.record",     "record" },
@@ -59,7 +60,9 @@ static struct {
 	{ "message.rows",       "rows" },
 	{ "message.second",     "second" },
 	{ "message.seconds",    "seconds" },
+	{ "message.secure",     "via TLS/SSL" },
 	{ "message.sent",       "Sent" },
+	{ "message.server",     "Server:" },
 	{ "message.specialCharacters",  "Special characters:" },
 	{ "message.sscpMode",   "SSCP-LU mode" },
 	{ "message.standardDs", "standard data stream" },

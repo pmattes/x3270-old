@@ -1,4 +1,5 @@
-! Copyright 1995, 1999, 2000, 2001, 2004, 2005 by Paul Mattes.
+! Copyright 1995, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007 by Paul
+!    Mattes.
 !  Permission to use, copy, modify, and distribute this software and its
 !  documentation for any purpose and without fee is hereby granted,
 !  provided that the above copyright notice appear in all copies and that
@@ -120,6 +121,7 @@ x3270.charsetList:			U.S. English (CP 37): us-intl\n\
 					Euro>Icelandic (CP 1149): icelandic-euro\n\
 					Euro>Italian (CP 1144): italian-euro\n\
 					Euro>Norwegian (CP 1142): norwegian-euro\n\
+					Euro>Spanish (CP 1145): spanish-euro\n\
 					Euro>United Kingdom (CP 1146): uk-euro\n\
 					Belgian (CP 500): belgian\n\
 					Brazilian (CP 275): brazilian\n\
@@ -146,6 +148,7 @@ x3270.charsetList:			U.S. English (CP 37): us-intl\n\
 					Polish (CP 870): cp870\n\
 					Russian (CP 880): russian\n\
 					Slovenian (CP 870): cp870\n\
+					Spanish (CP 284): spanish\n\
 					Thai (CP 838): thai\n\
 					Turkish (CP 1026): turkish\n\
 					United Kingdom (CP 285): uk\n
@@ -155,6 +158,12 @@ x3270.charsetList:			U.S. English (CP 37): us-intl\n\
 ! x3270.colorBackground:		black
 ! x3270.selectBackground:		dimGrey
 ! x3270.normalColor:			green
+!    Note: the following values are the new defaults, which cause 3278's
+!     to display everything in green.
+! x3270.inputColor:			green
+! x3270.boldColor:			green
+!    To resurrect x3270's Pseudo-Color mode, which was how 3278's were
+!      displayed up through x3270 3.3.5, set the following resource values:
 ! x3270.inputColor:			orange
 ! x3270.boldColor:			cyan
 !
@@ -282,9 +291,15 @@ x3270.traceCommand:			tail -f
 !
 ! Printer session options
 #endif
+#ifdef _WIN32
+x3270.printer.assocCommandLine:		wpr3287.exe -assoc %L% %R% %H%
+x3270.printer.luCommandLine:		wpr3287.exe %R% %L%@%H%
+! x3270.printer.name:
+#else
 x3270.printer.command:			lpr
 x3270.printer.assocCommandLine:		pr3287 -assoc %L% -command "%C%" %R% "%H%"
 x3270.printer.luCommandLine:		pr3287 -command "%C%" %R% "%L%@%H%"
+#endif
 #ifndef STANDALONE
 !
 ! Translation table for the '@server' pseudo-keymap, which is the keymap
@@ -399,7 +414,9 @@ x3270.keymap.base.3270: #override \
 	Ctrl<Key>c:			set-select(CLIPBOARD)\n\
 	Ctrl<Key>u:			DeleteField()\n\
 	Ctrl<Key>w:			DeleteWord()\n\
-	Ctrl<Key>v:			insert-selection(CLIPBOARD)\n\
+	Ctrl<Key>v:			insert-selection(CLIPBOARD)
+! Keymap that exercises the optional history plugin.
+x3270.keymap.hist:
 	Shift<Key>Prior:		Plugin(command,prev)\n\
 	Shift<Key>Next:			Plugin(command,next)
 ! Keymap that restores the old (pre 3.3) mouse-click behavior.
@@ -1076,6 +1093,8 @@ x3270.message.staticIcon:			Static bitmap icon
 x3270.message.connectedTo:			Connected to:
 x3270.message.port:				Port:
 x3270.message.secure:				via TLS/SSL
+x3270.message.proxyType:			Proxy type:
+x3270.message.server:				Server:
 x3270.message.charMode:				NVT character mode
 x3270.message.lineMode:				NVT line mode
 x3270.message.dsMode:				3270 mode
@@ -1764,6 +1783,15 @@ x3270.composeMap.apl: \
 	minus + parenright	= apl_righttack		\n
 #endif
 #endif
+#ifdef STANDALONE
+#ifdef _WIN32
+! wc3270 keymap for more 3270-ish behavior: The Enter key is Newline and the
+! Right-Ctrl key is Enter.
+x3270.keymap.rctrl.3270: \
+	RightCtrl<Key>CTRL: Enter()\n\
+	<Key>Return: Newline()
+#endif
+#endif
 !
 ! EBCDIC character sets.
 ! A charset is a series of newline-separated strings that define how an EBCDIC
@@ -2316,3 +2344,31 @@ x3270.charset.persian: \
 	*0xcd: 0x061f
 x3270.codepage.persian: 37
 x3270.displayCharset.persian: iso10646-1
+! IBM codepage 1047, used by Unix System Services
+x3270.charset.cp1047: \
+	0xad: [			\n	0xba: Yacute		\n\
+	0xbd: ]			\n	0xbb: diaeresis		\n\
+	0x5f: asciicircum	\n	0xb0: notsign
+! Spanish character set for x3270.
+x3270.codepage.spanish: 284
+x3270.displayCharset.spanish: 3270cg-1a,3270cg-1,iso8859-1
+x3270.charset.spanish: #table\n\
+  0   1   2   3 156   9 134 127 151 141 142  11  12  13  14  15 \
+ 16  17  18  19 157 133   8 135  24  25 146 143  28  29  30  31 \
+128 129 130 131 132  10  23  27 136 137 138 139 140   5   6   7 \
+144 145  22 147 148 149 150   4 152 153 154 155  20  21 158  26 \
+ 32 160 226 228 224 225 227 229 231 166  91  46  60  40  43 124 \
+ 38 233 234 235 232 237 238 239 236 223  93  36  42  41  59 172 \
+ 45  47 194 196 192 193 195 197 199  35 241  44  37  95  62  63 \
+248 201 202 203 200 205 206 207 204  96  58 209  64  39  61  34 \
+216  97  98  99 100 101 102 103 104 105 171 187 240 253 254 177 \
+176 106 107 108 109 110 111 112 113 114 170 186 230 184 198 164 \
+181 168 115 116 117 118 119 120 121 122 161 191 208 221 222 174 \
+162 163 165 183 169 167 182 188 189 190  94  33 175 126 180 215 \
+123  65  66  67  68  69  70  71  72  73 173 244 246 242 243 245 \
+125  74  75  76  77  78  79  80  81  82 185 251 252 249 250 255 \
+ 92 247  83  84  85  86  87  88  89  90 178 212 214 210 211 213 \
+ 48  49  50  51  52  53  54  55  56  57 179 219 220 217 218 159
+! Spanish w/Euro (code page 1145)
+x3270.codepage.spanish-euro:	0x02b70479
+x3270.displayCharset.spanish-euro:	3270cg-15a,3270cg-15,iso8859-15

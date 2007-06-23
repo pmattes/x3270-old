@@ -1,6 +1,6 @@
 /*
- * Modifications Copyright 1993, 1994, 1995, 1999, 2000, 2001, 2002, 2004 by
- *  Paul Mattes.
+ * Modifications Copyright 1993, 1994, 1995, 1999, 2000, 2001, 2002, 2003,
+ *  2004 2005, 2006, 2007 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -48,7 +48,7 @@
 #include "keypadc.h"
 #include "menubarc.h"
 #endif /*]*/
-#if defined(X3270_DISPLAY) || defined(C3270) /*[*/
+#if defined(X3270_DISPLAY) || defined(C3270) || defined(WC3270) /*[*/
 #include "screenc.h"
 #endif /*]*/
 
@@ -178,12 +178,17 @@ XtActionsRec all_actions[] = {
 	{ "EraseInput",		EraseInput_action },
 #if defined(X3270_SCRIPT) /*[*/
 	{ "Execute",		Execute_action },
+#endif /*]*/
+#if defined(C3270) || defined(WC3270) /*[*/
+	{ "Exit",		Quit_action },
+#endif /*]*/
+#if defined(X3270_SCRIPT) /*[*/
 	{ "Expect",		Expect_action },
 #endif /*]*/
 	{ "FieldEnd",		FieldEnd_action },
 	{ "FieldMark",		FieldMark_action },
 	{ "HexString",		HexString_action},
-#if defined(C3270) /*[*/
+#if defined(C3270) || defined(WC3270) /*[*/
 	{ "Help",		Help_action},
 #endif/*]*/
 #if defined(X3270_SCRIPT) /*[*/
@@ -208,16 +213,19 @@ XtActionsRec all_actions[] = {
 	{ "MoveCursor",		MoveCursor_action },
 	{ "Newline",		Newline_action },
 	{ "NextWord",		NextWord_action },
-#if defined(C3270) /*[*/
+#if defined(C3270) || defined(WC3270) /*[*/
 	{ "Open",		Connect_action },
 #endif /*]*/
 	{ "PA",			PA_action },
 	{ "PF",			PF_action },
+#if defined(WC3270) /*[*/
+	{ "Paste",		Paste_action },
+#endif /*]*/
 #if defined(X3270_SCRIPT) /*[*/
 	{ "PauseScript",	PauseScript_action },
 #endif /*]*/
 	{ "PreviousWord",	PreviousWord_action },
-#if defined(X3270_SCRIPT) && defined(X3270_PRINTER) /*[*/
+#if defined(X3270_PRINTER) /*[*/
 	{ "Printer",		Printer_action },
 #endif /*]*/
 #if defined(X3270_SCRIPT) /*[*/
@@ -253,7 +261,7 @@ XtActionsRec all_actions[] = {
 	{ "String",		String_action },
 	{ "SysReq",		SysReq_action },
 	{ "Tab",		Tab_action },
-#if defined(X3270_DISPLAY) /*[*/
+#if defined(X3270_DISPLAY) || defined(WC3270) /*[*/
 	{ "Title",		Title_action },
 #endif /*]*/
 	{ "Toggle",		Toggle_action },

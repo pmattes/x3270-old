@@ -9,16 +9,36 @@
 <h1>New Features in c3270 3.3
 <hr width="100%"></h1>
 c3270 3.3 is the current development line for c3270.
-It is functionally equivalent
-to c3270 3.2.20, with the addition of SSL (Secure Sockets Layer) support and
-DBCS (Double Byte Character Set) support for East Asian languages -- Chinese,
-Japanese and Korean.
-<p>The DBCS work required a significant change in the internal workings of
-c3270. For those familiar with the source code, the change was to store EBCDIC
-codes internally, and to dispense with the confusing CG-code representation
-of the 3270 display. This required changing all of the logic that manipulates
-field attributes, as well as the logic that translates the host output, keyboard
-input, and display output.</p>
+<h2>Changes in c3270 3.3.6, 23. June 2007</h2>
+<ul>
+  <li>Bug Fixes:
+    <ul>
+      <li>The code now builds with ICU 3.6.</li>
+      <li>Got local process (<b>-e</b>) support to work again.</li>
+      <li>Fixed <b>-mono -allbold</b> mode.</li>
+      <li><b>c3270</b> now paints the entire screen, not just the areas it
+      intends to use, so there are no uninitialized regions.</li>
+    </ul>
+  </li>
+  <li>New Features:
+    <ul>
+      <li>Added support for IBM Code Page 1047 (<b>-charset cp1047</b>).</li>
+      <li>Added proxy support via the <b>-proxy</b> option or the <b>proxy</b>
+      resource.</li>
+      <li>Added support for the 3270 background color attribute.</li>
+      <li>Added more mappings to the 3270 default keymap (<b>IC</b> -&gt;
+      <b>ToggleInsert</b>, <b>Ctrl&lt;Key&gt;U</b> -&gt; <b>DeleteField</b>,
+      etc.).</li>
+      <li>Modified <i>Blank Fill</i> mode to treat trailing underscore
+      chararacters ('<b>_</b>') like blanks when checking for input
+      overflow.</li>
+      <li>Like <b>x3270</b> and <b>wc3270</b>, <b>-model 3278</b> now
+      specifies a green-screen 3278 (if the terminal supports color), and
+      like <b>x3270</b>, <b>-mono</b> specifies that any color capabilities
+      reported by the terminal should be ignored.</li>
+    </ul>
+  </li>
+</ul>
 <h2>Changes in c3270 3.3.5, 1. February 2007</h2>
 <ul>
   <li>Bug Fixes:

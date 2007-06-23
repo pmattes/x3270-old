@@ -1,5 +1,5 @@
 /*
- * Copyright 2000, 2001, 2002, 2006 by Paul Mattes.
+ * Copyright 2000, 2001, 2002, 2006, 2007 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -25,3 +25,4 @@ extern void keymap_init(void);
 extern char *lookup_key(unsigned long xk, unsigned long state);
 extern void keymap_dump(void);
 extern const char *decode_key(int k, int hint, char *buf);
+extern const char *lookup_cname(unsigned long ccode, Boolean special_only);

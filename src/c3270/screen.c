@@ -1,5 +1,5 @@
 /*
- * Copyright 2000, 2001, 2002, 2004, 2005 by Paul Mattes.
+ * Copyright 2000, 2001, 2002, 2003, 2004, 2005 by Paul Mattes.
  *   Permission to use, copy, modify, and distribute this software and its
  *   documentation for any purpose and without fee is hereby granted,
  *   provided that the above copyright notice appear in all copies and that
@@ -63,13 +63,13 @@ static int cmap[16] = {
 	COLOR_YELLOW,	/* yellow */
 	COLOR_WHITE,	/* neutral white */
 
-	COLOR_BLACK,	/* black */
+	COLOR_BLACK,	/* black */ /* alas, in bold, this may be gray */
 	COLOR_BLUE,	/* deep blue */
 	COLOR_YELLOW,	/* orange */
 	COLOR_BLUE,	/* deep blue */
 	COLOR_GREEN,	/* pale green */
 	COLOR_CYAN,	/* pale turquoise */
-	COLOR_BLACK,	/* grey */
+	COLOR_BLACK,	/* gray */
 	COLOR_WHITE	/* white */
 };
 static int defattr = A_NORMAL;
@@ -255,10 +255,17 @@ screen_init(void)
 	register_schange(ST_PRINTER, status_printer);
 
 	/* Play with curses color. */
-	if (appres.m3279) {
+	if (!appres.mono) {
 		start_color();
 		if (has_colors() && COLORS >= 8) {
-			defattr = get_color_pair(COLOR_BLUE, COLOR_BLACK);
+		    	if (appres.m3279)
+				defattr =
+				    get_color_pair(COLOR_BLUE, COLOR_BLACK);
+			else
+				defattr =
+				    get_color_pair(COLOR_GREEN, COLOR_BLACK);
+			if (COLORS < 16)
+			    	appres.color8 = True;
 #if defined(C3270_80_132) && defined(NCURSES_VERSION)  /*[*/
 			if (def_screen != NULL) {
 				SCREEN *s = cur_screen;
@@ -281,6 +288,7 @@ screen_init(void)
 #endif /*]*/
 		}
 		else {
+		    	appres.mono = True;
 			appres.m3279 = False;
 			/* Get the terminal name right. */
 			set_rows_cols(model_num, want_ov_cols, want_ov_rows);
@@ -353,6 +361,7 @@ screen_init2(void)
 
 	/* Set up the keyboard. */
 	setup_tty();
+	scrollok(stdscr, FALSE);
 #if defined(C3270_80_132) /*[*/
 	if (def_screen != NULL) {
 		/*
@@ -362,6 +371,7 @@ screen_init2(void)
 		 */
 		swap_screens(def_screen);
 		setup_tty();
+		scrollok(stdscr, FALSE);
 	}
 #endif /*]*/
 
@@ -440,8 +450,12 @@ get_color_pair(int fg, int bg)
 	return COLOR_PAIR(pair);
 }
 
+/*
+ * Map a field attribute to a 3270 color index.
+ * Applies only to m3270 mode -- does not work for mono.
+ */
 static int
-color_from_fa(unsigned char fa)
+color3270_from_fa(unsigned char fa)
 {
 	static int field_colors[4] = {
 	    COLOR_GREEN,	/* default */
@@ -453,14 +467,90 @@ color_from_fa(unsigned char fa)
 
 	};
 
+	return field_colors[DEFCOLOR_MAP(fa)];
+}
+
+static int
+color_from_fa(unsigned char fa)
+{
 	if (appres.m3279) {
 		int fg;
 
-		fg = field_colors[DEFCOLOR_MAP(fa)];
+		fg = color3270_from_fa(fa);
 		return get_color_pair(fg, COLOR_BLACK) |
 		    (((ab_mode == TS_ON) || FA_IS_HIGH(fa))? A_BOLD: A_NORMAL);
-	} else
+	} else if (!appres.mono) {
+		return get_color_pair(COLOR_GREEN, COLOR_BLACK) |
+		    (((ab_mode == TS_ON) || FA_IS_HIGH(fa))? A_BOLD: A_NORMAL);
+	} else {
+	    	/* No color at all. */
 		return ((ab_mode == TS_ON) || FA_IS_HIGH(fa))? A_BOLD: A_NORMAL;
+	}
+}
+
+/*
+ * Find the display attributes for a baddr, fa_addr and fa.
+ */
+static int
+calc_attrs(int baddr, int fa_addr, int fa)
+{
+    	int fg, bg, gr, a;
+
+	/* Compute the color. */
+
+	/*
+	 * Monochrome is easy, and so is color if nothing is
+	 * specified.
+	 */
+	if (!appres.m3279 ||
+		(!ea_buf[baddr].fg &&
+		 !ea_buf[fa_addr].fg &&
+		 !ea_buf[baddr].bg &&
+		 !ea_buf[fa_addr].bg)) {
+
+	    	a = color_from_fa(fa);
+
+	} else {
+
+		/* The current location or the fa specifies the fg or bg. */
+
+		if (ea_buf[baddr].fg)
+			fg = cmap[ea_buf[baddr].fg & 0x0f];
+		else if (ea_buf[fa_addr].fg)
+			fg = cmap[ea_buf[fa_addr].fg & 0x0f];
+		else
+			fg = color3270_from_fa(fa);
+
+		if (ea_buf[baddr].bg)
+			bg = cmap[ea_buf[baddr].bg & 0x0f];
+		else if (ea_buf[fa_addr].bg)
+			bg = cmap[ea_buf[fa_addr].bg & 0x0f];
+		else
+			bg = COLOR_NEUTRAL_BLACK;
+
+		a = get_color_pair(fg, bg);
+
+	}
+
+	/* Compute the display attributes. */
+
+	if (ea_buf[baddr].gr)
+		gr = ea_buf[baddr].gr;
+	else if (ea_buf[fa_addr].gr)
+		gr = ea_buf[fa_addr].gr;
+	else
+		gr = 0;
+
+	if (gr & GR_BLINK)
+		a |= A_BLINK;
+	if (gr & GR_REVERSE)
+		a |= A_REVERSE;
+	if (gr & GR_UNDERLINE)
+		a |= A_UNDERLINE;
+	if ((gr & GR_INTENSIFY) || (ab_mode == TS_ON) || FA_IS_HIGH(fa))
+		a |= A_BOLD;
+
+	return a;
 }
 
 /* Display what's in the buffer. */
@@ -468,7 +558,7 @@ void
 screen_disp(Boolean erasing unused)
 {
 	int row, col;
-	int a;
+	int field_attrs;
 	int c;
 	unsigned char fa;
 	extern Boolean screen_alt;
@@ -476,6 +566,7 @@ screen_disp(Boolean erasing unused)
 #if defined(X3270_DBCS) /*[*/
 	enum dbcs_state d;
 #endif /*]*/
+	int fa_addr;
 
 	/* This may be called when it isn't time. */
 	if (escaped)
@@ -512,7 +603,8 @@ screen_disp(Boolean erasing unused)
 #endif /*]*/
 
 	fa = get_field_attribute(0);
-	a = color_from_fa(fa);
+	fa_addr = find_field_attribute(0);
+	field_attrs = calc_attrs(0, fa_addr, fa);
 	for (row = 0; row < ROWS; row++) {
 		int baddr;
 
@@ -523,82 +615,27 @@ screen_disp(Boolean erasing unused)
 				move(row, cCOLS-1 - col);
 			baddr = row*cCOLS+col;
 			if (ea_buf[baddr].fa) {
+			    	fa_addr = baddr;
 				fa = ea_buf[baddr].fa;
-				if (appres.m3279) {
-					if (ea_buf[baddr].fg ||
-					    ea_buf[baddr].bg) {
-						int fg, bg;
-
-						if (ea_buf[baddr].fg)
-							fg = cmap[ea_buf[baddr].fg
-							    & 0x0f];
-						else
-							fg = COLOR_WHITE;
-						if (ea_buf[baddr].bg)
-							bg = cmap[ea_buf[baddr].bg
-							    & 0x0f];
-						else
-							bg = COLOR_BLACK;
-						a = get_color_pair(fg, bg) |
-							((ab_mode == TS_ON)?
-							  A_BOLD: A_NORMAL);
-					} else {
-						a = color_from_fa(fa);
-					}
-				} else {
-					a = FA_IS_HIGH(fa)? A_BOLD: A_NORMAL;
-				}
-				if (ea_buf[baddr].gr & GR_BLINK)
-					a |= A_BLINK;
-				if (ea_buf[baddr].gr & GR_REVERSE)
-					a |= A_REVERSE;
-				if (ea_buf[baddr].gr & GR_UNDERLINE)
-					a |= A_UNDERLINE;
-				if (ea_buf[baddr].gr & GR_INTENSIFY)
-					a |= A_BOLD;
-				attrset(defattr);
+				field_attrs = calc_attrs(baddr, baddr, fa);
+				(void) attrset(defattr);
 				addch(' ');
 			} else if (FA_IS_ZERO(fa)) {
-				attrset(a);
+				(void) attrset(field_attrs);
 				addch(' ');
 			} else {
-				if (ea_buf[baddr].gr ||
-				    ea_buf[baddr].fg ||
-				    ea_buf[baddr].bg) {
-					int b = ((ab_mode == TS_ON) ||
-						 FA_IS_HIGH(fa))? A_BOLD:
-						                  A_NORMAL;
+				if (!(ea_buf[baddr].gr ||
+				      ea_buf[baddr].fg ||
+				      ea_buf[baddr].bg)) {
 
-					if (ea_buf[baddr].gr & GR_BLINK)
-						b |= A_BLINK;
-					if (ea_buf[baddr].gr & GR_REVERSE)
-						b |= A_REVERSE;
-					if (ea_buf[baddr].gr & GR_UNDERLINE)
-						b |= A_UNDERLINE;
-					if (ea_buf[baddr].gr & GR_INTENSIFY)
-						b |= A_BOLD;
-					if (appres.m3279 &&
-					    (ea_buf[baddr].fg ||
-					     ea_buf[baddr].bg)) {
-						int fg, bg;
+					(void) attrset(field_attrs);
 
-						if (ea_buf[baddr].fg)
-							fg = cmap[ea_buf[baddr].fg
-							    & 0x0f];
-						else
-							fg = COLOR_WHITE;
-						if (ea_buf[baddr].bg)
-							bg = cmap[ea_buf[baddr].bg
-							    & 0x0f];
-						else
-							bg = COLOR_BLACK;
-						b |= get_color_pair(fg, bg);
-					} else
-						b |= a;
-		
-					attrset(b);
 				} else {
-					(void) attrset(a);
+				    	int buf_attrs;
+		
+				    	buf_attrs = calc_attrs(baddr, fa_addr,
+						fa);
+					(void) attrset(buf_attrs);
 				}
 #if defined(X3270_DBCS) /*[*/
 				d = ctlr_dbcs_state(baddr);
@@ -914,6 +951,7 @@ toggle_monocase(struct toggle *t unused, enum toggle_type tt unused)
 static Boolean status_ta = False;
 static Boolean status_rm = False;
 static Boolean status_im = False;
+static Boolean status_secure = False;
 static Boolean oia_boxsolid = False;
 static Boolean oia_undera = True;
 static Boolean oia_compose = False;
@@ -1022,9 +1060,13 @@ status_connect(Boolean connected)
 			status_msg = "X";
 		else
 			status_msg = "";
+#if defined(HAVE_LIBSSL) /*[*/
+		status_secure = secure_connection;
+#endif /*]*/
 	} else {
 		oia_boxsolid = False;
 		status_msg = "X Disconnected";
+		status_secure = False;
 	}       
 }
 
@@ -1042,10 +1084,11 @@ status_printer(Boolean on)
 	oia_printer = on;
 }
 
-static void
+/*static*/ void
 draw_oia(void)
 {
 	int rmargin;
+	static Boolean filled_extra[2] = { False, False };
 
 #if defined(C3270_80_132) /*[*/
 	if (def_screen != NULL) {
@@ -1059,11 +1102,30 @@ draw_oia(void)
 		rmargin = maxCOLS - 1;
 	}
 
-	/* Make sure the status line region is filled in properly. */
-	if (appres.m3279) {
-		int i;
+	/* Black out the parts of the screen we aren't using. */
+	if (!appres.mono && !filled_extra[!!curses_alt]) {
+	    	int r, c;
 
 		attrset(defattr);
+		for (r = 0; r <= status_row; r++) {
+		    	int c0;
+
+			if (r >= maxROWS && r != status_row)
+			    	c0 = 0;
+			else
+			    	c0 = maxCOLS;
+		    	move(r, c0);
+		    	for (c = c0; c < COLS; c++) {
+			    	printw(" ");
+			}
+		}
+	}
+
+	/* Make sure the status line region is filled in properly. */
+	if (!appres.mono) {
+		int i;
+
+		(void) attrset(defattr);
 		if (status_skip) {
 			move(status_skip, 0);
 			for (i = 0; i < rmargin; i++) {
@@ -1103,10 +1165,20 @@ draw_oia(void)
 	    status_rm? 'R': ' ',
 	    status_im? 'I': ' ',
 	    oia_printer? 'P': ' ');
+	if (status_secure) {
+	    	if (appres.m3279)
+			attrset(get_color_pair(COLOR_GREEN, COLOR_BLACK) |
+				A_BOLD);
+		else
+		    	attrset(A_BOLD);
+		printw("S");
+	    	attrset(defattr);
+	} else
+	    	printw(" ");
 
 	mvprintw(status_row, rmargin-25, "%s", oia_lu);
 	mvprintw(status_row, rmargin-7,
-	    "%03d/%03d", cursor_addr/cCOLS + 1, cursor_addr%cCOLS + 1);
+	    "%03d/%03d ", cursor_addr/cCOLS + 1, cursor_addr%cCOLS + 1);
 }
 
 void

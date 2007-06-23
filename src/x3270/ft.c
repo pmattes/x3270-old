@@ -1,5 +1,6 @@
 /*
- * Modifications Copyright 1996, 1999, 2000, 2001, 2002, 2004 by Paul Mattes.
+ * Modifications Copyright 1996, 1999, 2000, 2001, 2002, 2003, 2004, 2005 by
+ *  Paul Mattes.
  * Copyright October 1995 by Dick Altenbern.
  * Based in part on code Copyright 1993, 1994, 1995 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
@@ -44,10 +45,14 @@
 #include "ftc.h"
 #include "dialogc.h"
 #include "hostc.h"
+#if defined(C3270) || defined(WC3270) /*[*/
+#include "icmdc.h"
+#endif /*]*/
 #include "kybdc.h"
 #include "macrosc.h"
 #include "objects.h"
 #include "popupsc.h"
+#include "screenc.h"
 #include "tablesc.h"
 #include "telnetc.h"
 #include "utilc.h"
@@ -1602,6 +1607,9 @@ Transfer_action(Widget w unused, XEvent *event, String *params,
 	char *cmd;
 	unsigned flen;
 
+	String *xparams = params;
+	Cardinal xnparams = *num_params;
+
         action_debug(Transfer_action, event, params, num_params);
 
 	ft_is_action = True;
@@ -1611,6 +1619,15 @@ Transfer_action(Widget w unused, XEvent *event, String *params,
 		popup_an_error("Not connected");
 		return;
 	}
+
+#if defined(C3270) || defined(WC3270) /*[*/
+	/* Check for interactive mode. */
+	if (xnparams == 0 && escaped) {
+	    	if (interactive_transfer(&xparams, &xnparams) < 0) {
+		    	return;
+		}
+	}
+#endif /*]*/
 
 	/* Set everything to the default. */
 	for (i = 0; i < N_PARMS; i++) {
@@ -1623,19 +1640,19 @@ Transfer_action(Widget w unused, XEvent *event, String *params,
 	}
 
 	/* See what they specified. */
-	for (j = 0; j < *num_params; j++) {
+	for (j = 0; j < xnparams; j++) {
 		for (i = 0; i < N_PARMS; i++) {
 			char *eq;
 			int kwlen;
 
-			eq = strchr(params[j], '=');
-			if (eq == CN || eq == params[j] || !*(eq + 1)) {
+			eq = strchr(xparams[j], '=');
+			if (eq == CN || eq == xparams[j] || !*(eq + 1)) {
 				popup_an_error("Invalid option syntax: '%s'",
-					params[j]);
+					xparams[j]);
 				return;
 			}
-			kwlen = eq - params[j];
-			if (!strncasecmp(params[j], tp[i].name, kwlen)
+			kwlen = eq - xparams[j];
+			if (!strncasecmp(xparams[j], tp[i].name, kwlen)
 					&& !tp[i].name[kwlen]) {
 				if (tp[i].keyword[0]) {
 					for (k = 0;
@@ -1673,7 +1690,7 @@ Transfer_action(Widget w unused, XEvent *event, String *params,
 			}
 		}
 		if (i >= N_PARMS) {
-			popup_an_error("Unknown option: %s", params[j]);
+			popup_an_error("Unknown option: %s", xparams[j]);
 			return;
 		}
 	}

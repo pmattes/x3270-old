@@ -11,6 +11,7 @@
 <a HREF="#Synopsis">Synopsis</a><br>
 <a HREF="#Description">Description</a><br>
 <a HREF="#Options">Options</a><br>
+<a HREF="#Modes">Modes</a><br>
 <a HREF="#Character-Sets">Character Sets</a><br>
 <a HREF="#NVT-ANSI-Mode">NVT (ANSI) Mode</a><br>
 <a HREF="#Toggles">Toggles</a><br>
@@ -19,6 +20,8 @@
 <a HREF="#Keymaps">Keymaps</a><br>
 <a HREF="#File-Transfer">File Transfer</a><br>
 <a HREF="#Nested-Scripts">Nested Scripts</a><br>
+<a HREF="#Printer-Support">Printer Support</a><br>
+<a HREF="#Proxy">Proxy</a><br>
 <a HREF="#Resources">Resources</a><br>
 <a HREF="#See-Also">See Also</a><br>
 <a HREF="#Copyrights">Copyrights</a><br>
@@ -78,9 +81,17 @@ a <i>port</i> to the <i>hostname</i> with a colon
 (For compatability with previous versions of <b>wc3270</b>
 and with <i>tn3270</i>(1), the <i>port</i>
 may also be specified as a second, separate argument.)
+
 <a NAME="Options"></a><h2>Options</h2>
  <b>wc3270</b> understands
 the following options:<dl>
+<dt><b>-allbold</b></dt><dd>
+Forces all characters to be displayed using the `bold' colors
+(colors 8 through 15, rather than colors 0 through 7).
+This helps with PC console windows in which colors 0 through 7 are
+unreadably dim.
+All-bold mode is the default for color (3279) emulation, but not for monochrome
+(3278) emulation.
 <dt><b>-charset</b> <i>name</i></dt><dd>
 Specifies an <font size=-1>EBCDIC</font> host character set.
 See <a HREF="#Character-Sets"><font size=-1>CHARACTER SETS</font></a> below.
@@ -95,7 +106,7 @@ The model name is in two parts, either of which may be omitted:
 The first part is the
 <b>base model</b>,
 which is either <b>3278</b> or <b>3279</b>.
-<b>3278</b> specifies a monochrome 3270 display;
+<b>3278</b> specifies a monochrome (green on black) 3270 display;
 <b>3279</b> specifies a color 3270 display.
 <p>
 The second part is the
@@ -117,8 +128,6 @@ most hosts seem to work with them anyway.
 <p>
 The default model
 is <b>3278-4</b>.
-<dt><b>-mono</b></dt><dd>
-Forces 3278 emulation.
 <dt><b>-oversize</b> <i>cols</i><b>x</b><i>rows</i></dt><dd>
 Makes the screen larger than the default for the chosen model number.
 This option has effect only in combination with extended data stream support
@@ -132,12 +141,22 @@ Specifies a different <font size=-1>TCP</font> port to connect to.
 number.
 This option changes the default port number used for all connections.
 (The positional parameter affects only the initial connection.)
+<dt><b>-proxy <i>type</i>:<i>host</i>[:<i>port</i>]</b></dt><dd>
+Causes <b>wc3270</b> to connect via the specified proxy, instead of
+using a direct connection.
+The <i>host</i> can be an IP address or hostname.
+The optional <i>port</i> can be a number or a service name.
+For a list of supported proxy <i>types</i>, see <a HREF="#Proxy"><font size=-1>PROXY</font></a>
+below.
 <dt><b>-set</b> <i>toggle</i></dt><dd>
 Sets the initial value of <i>toggle</i> to <b>true</b>.
 The list of toggle names is under <a HREF="#Toggles"><font size=-1>TOGGLES</font></a>
 below.
 The <b>-p</b> option of <i>x3270if</i> causes it to use this socket,
 instead of pipes specified by environment variables.
+<dt><b>-title</b> <i>text</i></dt><dd>
+Sets the console window title to <i>text</i>, overriding the automatic
+setting of the hostname and the string <b>wc3270</b>.
 <dt><a NAME="tn"></a><b>-tn</b> <i>name</i></dt><dd>
 Specifies the terminal name to be transmitted over the telnet connection.
 The default name is
@@ -172,6 +191,25 @@ Sets the value of the named <i>resource</i> to <i>value</i>.
 Resources control less common <b>wc3270</b>
 options, and are defined under <a HREF="#Resources"><font size=-1>RESOURCES</font></a> below.
 </dl>
+<a NAME="Modes"></a><h2>Modes</h2>
+<b>wc3270</b> has two basic modes: <i>command-prompt</i> and <i>session</i>.
+<p>
+<i>Command-prompt</i> mode is where the <b>wc3270></b> prompt is
+displayed.
+Interactive commands can be entered at this prompt, to connect to a host,
+disconnect from a host, transfer files, display statistics, exit
+<b>wc3270</b>, etc.
+The complete list of interactive commands is listed under
+<a HREF="#Actions"><font size=-1>ACTIONS</font></a>.
+<p>
+<i>Session</i> mode is where the emulated 3270 screen is displayed;
+keyboard commands cause the display buffer to be modified or data to be
+sent to the host.
+<p>
+To switch from display mode to command-prompt mode, press
+the Escape key.
+To switch from command-prompt mode to display mode, press <b>Enter</b>
+(without entering a command) at the <b>wc3270></b> prompt.
 <a NAME="Character-Sets"></a><h2>Character Sets</h2>
 The <b>-charset</b>
 option or the "wc3270.charset" resource controls the <font size=-1>EBCDIC</font>
@@ -185,19 +223,21 @@ Available sets include:
 <tr><td ><center>belgian</center></td>	<td ><center>500</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
 <tr><td ><center>bracket</center></td>	<td ><center>37</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
 <tr><td ><center>brazilian</center></td>	<td ><center>275</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
+<tr><td ><center>cp1047</center></td>	<td ><center>cp1047</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
 <tr><td ><center>finnish</center></td>	<td ><center>278</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
 <tr><td ><center>french</center></td>	<td ><center>297</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
 <tr><td ><center>german</center></td>	<td ><center>273</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
 <tr><td ><center>icelandic</center></td>	<td ><center>871</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
 <tr><td ><center>hebrew</center></td>	<td ><center>424</center></td>	<td ><center>iso8859-8</center></td></tr>
-<tr><td ><center>turkish</center></td>	<td ><center>1026</center></td>	<td ><center>iso8859-9</center></td></tr>
 <tr><td ><center>italian</center></td>	<td ><center>280</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
 <tr><td ><center>japanese</center></td>	<td ><center>1027+300</center></td>	<td ><center>jisx0201.1976-0 + jisx0208.1983-0</center></td></tr>
 <tr><td ><center>norwegian</center></td>	<td ><center>277</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
 <tr><td ><center>russian</center></td>	<td ><center>880</center></td>	<td ><center>koi8-r</center></td></tr>
 <tr><td ><center>simplified-chinese</center></td>	<td ><center>836+837</center></td>	<td ><center>3270cg-1a iso8859-1 + gb2312.1980-0</center></td></tr>
 <tr><td ><center>slovenian</center></td>	<td ><center>870</center></td>	<td ><center>iso8859-2</center></td></tr>
+<tr><td ><center>spanish</center></td>	<td ><center>284</center></td>	<td ><center>iso8859-1</center></td></tr>
 <tr><td ><center>thai</center></td>	<td ><center>838</center></td>	<td ><center>iso8859-11 tis620.2529-0</center></td></tr>
+<tr><td ><center>turkish</center></td>	<td ><center>1026</center></td>	<td ><center>iso8859-9</center></td></tr>
 <tr><td ><center>uk</center></td>	<td ><center>285</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
 <tr><td ><center>us-intl</center></td>	<td ><center>37</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
 </table>
@@ -257,6 +297,10 @@ into an field with (apparent) space at the end.
 <dt><b>lineWrap</b></dt><dd>
 If set, the <font size=-1>ANSI</font> terminal emulator automatically assumes
 a <font size=-1>NEWLINE</font> character when it reaches the end of a line.
+<dt><b>marginedPaste</b></dt><dd>
+If set, pasting multi-line input via the <b>Paste</b> action will maintain a
+left margin (it will not move the cursor further left than where the paste
+begins).
 </dl>
 <p>
 The names of the toggles for use with the <b>-set</b>
@@ -273,6 +317,7 @@ options are as follows:
 <tr><td >Trace Events</td>	<td >eventTrace</td></tr>
 <tr><td >Save Screen(s) in File</td>	<td >screenTrace</td></tr>
 <tr><td >Wraparound</td>	<td >lineWrap</td></tr>
+<tr><td >Paste with Left Margin</td>	<td >marginedPaste</td></tr>
 </table>
 <p>
 These names are also used as the first parameter to the <b>Toggle</b>
@@ -281,9 +326,12 @@ action.
 The <b>wc3270</b> status line contains a variety of information.
 From left to right, the fields are:
 <dl><dt><b>comm status</b></dt><dd>
-Three symbols indicate the state of the connection to the host.
-If connected, the right-hand symbol is a solid box; if not, it is a
-question mark.
+The first symbol is always a <b>4</b>.
+If <b>wc3270</b> is in TN3270E mode, the second symbol is a <b>B</b>;
+otherwise it is an <b>A</b>.
+If 
+<b>wc3270</b> is in SSCP-LU mode, the third symbol is an <b>S</b>.
+Otherwise it is blank.
 <dt><b>keyboard lock</b></dt><dd>
 If the keyboard is locked, an "X" symbol and a message field indicate the
 reason for the keyboard lock.
@@ -299,11 +347,14 @@ The
 letter "I" indicates that the keyboard is in insert mode.
 <dt><b>printer session</b></dt><dd>
 The letter "P" indicates that a <i>pr3287</i> session is active.
+<dt><b>secure connection</b></dt><dd>
+A green letter "S" indicates that the connection is secured via SSL/TLS.
 <dt><b>LU name</b></dt><dd>
 The LU name associated with the session, if there is one.
 <dt><b>cursor position</b></dt><dd>
 The cursor row and column are optionally displayed, separated by a "/".
 </dl>
+
 <a NAME="actions"></a><a NAME="Actions"></a><h2>Actions</h2>
 Here is a complete list of basic wc3270 actions.
 <p>
@@ -348,7 +399,7 @@ possibly waiting for a response.
 <tr><td >*PA(<i>n</i>)</td>	<td >Program Attention <font size=-1>AID</font> (<i>n</i> from 1 to 3)</td></tr>
 <tr><td >*PF(<i>n</i>)</td>	<td >Program Function <font size=-1>AID</font> (<i>n</i> from 1 to 24)</td></tr>
 <tr><td >PreviousWord</td>	<td >move cursor to previous word</td></tr>
-<tr><td >Printer(Start[,<i>lu</i>]|Stop)</td>	<td >Start or stop printer session</td></tr>
+<tr><td >Paste</td>	<td >insert clipboard contents</td></tr><tr><td >Printer(Start[,<i>lu</i>]|Stop)</td>	<td >start or stop printer session</td></tr>
 <tr><td >PrintText(<i>command</i>)</td>	<td >print screen text on printer</td></tr>
 <tr><td >Quit</td>	<td >exit <b>wc3270</b></td></tr>
 <tr><td >Redraw</td>	<td >redraw window</td></tr>
@@ -366,51 +417,108 @@ possibly waiting for a response.
 <tr><td >Up</td>	<td >move cursor up</td></tr>
 </table>
 <a NAME="Keymaps"></a><h2>Keymaps</h2>
-The <b>-keymap</b> option allows a <b>keymap</b> to be specified.
-If the option <b>-keymap</b> <i>xxx</i> is given, then <b>wc3270</b>
-will first look for a resource named <b>wc3270.keymap.</b><i>xxx</i>;
-if that is not found, then it will look for a file named <i>xxx</i>.
+The <b>-keymap</b> option
+or the <b>wc3270.keymap</b> resource
+allow a custom keymap to be specified.
+If the option <b>-keymap</b> <i>xxx</i> is given (or the
+<b>wc3270.keymap</b> resource has the value <i>xxx</i>),
+<b>wc3270</b>
+will look for a resource named <b>wc3270.keymap.</b><i>xxx</i>.
+If no resource definition is found, it will look for a file named
+<i>xxx</i><b>.wc3270km</b>.
 <p>
 Multiple keymaps may be specified be separating their names with commas.
 Definitions in later keymaps supercede those in earlier keymaps.
 <p>
 In addition, separate keymaps may be defined that apply only in 3270 mode or
-only in <font size=-1>NVT</font> mode.
+<font size=-1>NVT</font> mode.
 For example, the resource definition
-<b>wc3270.keymap.</b><i>xxx</i><b>.nvt</b> will augment the definition
-of <b>wc3270.keymap.</b><i>xxx</i>, when <b>wc3270</b> is in <font size=-1>NVT</font>
-mode.
+<b>wc3270.keymap.</b><i>xxx</i><b>.nvt</b>
+or the file
+<i>xxx</i><b>.nvt.wc3270km</b>
+will augment the definition
+of keymap <i>xxx</i> in <font size=-1>NVT</font> mode.
 Similarly, the resource definition
-<b>wc3270.keymap.</b><i>xxx</i><b>.3270</b> will augment the definition
-of <b>wc3270.keymap.</b><i>xxx</i>, when <b>wc3270</b> is in 3270
-mode.
+<b>wc3270.keymap.</b><i>xxx</i><b>.3270</b>
+or the file
+<i>xxx</i><b>.3270.wc3270km</b>
+will augment the definition
+of keymap <i>xxx</i> in 3270 mode.
 <p>
-Keymaps specify actions to perform when a particular sequence of keys is
-pressed.
-Each line in a keymap has the following syntax:
+Each line (rule) in a keymap specifies actions to perform when a
+particular key or sequence of keys is pressed.
+Keymap rules have the following syntax:
 <p>
-<blockquote>[<b>Shift</b>][<b>Ctrl</b>][<b>LeftCtrl</b>][<b>RightCtrl</b>][<b>Alt</b>][<b>LeftAlt</b>][<b>RightAlt</b>]<b>&lt;Key></b><i>key</i>...: <i>Action</i>[(<i>param</i>[,...])] ...</blockquote><p>
-For example:
+<blockquote>[<i>modifier</i>...]<b>&lt;Key></b><i>key</i>...: <i>action</i>[(<i>param</i>[,...])] ...</blockquote>
 <p>
-<blockquote>Alt&lt;Key>c: Clear()
+Here is a sample keymap definition from a file:
+<p>
+<blockquote>! Lines beginning with ! are ignored and can
 <br>
-&lt;Key>PRIOR: PF(7)<br>
-Ctrl&lt;Key>A &lt;Key>F1: PF(13)</blockquote>
+! occur anywhere.
 <br>
+! The line below will be displayed
+<br>
+! by the New Session Wizard.
+<br>
+!description: An example.
+<br>
+! Definition of keymap xxx
+<br>
+! &nbsp;When Alt-c is pressed, clear the screen.
+<br>
+Alt&lt;Key>c: Clear()
+<br>
+! &nbsp;When PageUp is pressed, send PF7 to the host.
+<br>
+&lt;Key>PRIOR: PF(7)
+<br>
+! &nbsp;When Ctrl-a is pressed, then F1, send PF13
+<br>
+! &nbsp;to the host.
+<br>
+Ctrl&lt;Key>a &lt;Key>F1: PF(13)</blockquote>
+<p>
+Here is the same definition as a resource:
+<p>
+<blockquote>! Lines beginning with ! are ignored, but NOT
+<br>
+! within a definition.
+<br>
+! Note that the &#92; is required at the end of the
+<br>
+! first line, and &#92;n&#92; is
+<br>
+! required at the end of every other line except
+<br>
+! the last.
+<br>
+! Definition of keymap xxx
+<br>
+wc3270.keymap.xxx: &#92;
+<br>
+&nbsp;Alt&lt;Key>c: Clear() &#92;n&#92;
+<br>
+&nbsp;&lt;Key>PRIOR: PF(7) \n\
+<br>
+&nbsp;Ctrl&lt;Key>A &lt;Key>F1: PF(13)</blockquote>
 <p>
 The optional
-<b>Shift</b>, <b>Alt</b> or <b>Ctrl</b> qualifiers specify that
+<b>Shift</b>, <b>Alt</b> or <b>Ctrl</b> modifiers specify that
 the
 <b>Shift</b>, <b>Alt</b> and <b>Ctrl</b> keys are pressed along with the
 specified <i>key</i>, respectively.
 The <b>LeftCtrl</b>, <b>RightCtrl</b>, <b>LeftAlt</b>, and <b>RightAlt</b>
-qualifiers specifify a particular <b>Ctrl</b> or <b>Alt</b> key; <b>Ctrl</b>
-and <b>Alt</b> allow either key to be pressed.The <i>key</i> is either a valid X11 keysym (these are
-the <font size=-1>ISO</font> 8859-1 symbol names, such as <b>equal</b> for `='
-and <b>a</b> for `a') or a valid symbolic  key name,
+modifiers specifify a particular <b>Ctrl</b> or <b>Alt</b> key.
+<i>Key</i> is either an <font size=-1>ISO</font> 8859-1 symbol name, such as <b>equal</b>
+for `=' and <b>a</b> for `a', or a symbolic
+Windows key name,
 such as <b>UP</b>.
-The <i>Action</i> is an action from the <font size=-1>ACTIONS</font> list, above.
-More than one action may be specified.
+More than one <i>key</i> can be specified, indicating that a sequence of
+keys must be pressed in order for the rule to be matched.
+The <i>action</i> is an action from the <a HREF="#Actions"><font size=-1>ACTIONS</font></a> list
+above.
+More than one <i>action</i> may be specified; they will be executed in order.
 <p>
 Keymap entries are case-sensitive and modifier-specific.
 This means that a keymap for the <b>b</b> key will match only a
@@ -422,6 +530,7 @@ Available symbolic key names are:
 <b>ADD</b>,
 <b>ALT</b>,
 <b>APPS</b>,
+<b>BACK</b> (Backspace),
 <b>CLEAR</b>,
 <b>CTRL</b>,
 <b>DECIMAL</b>,
@@ -432,6 +541,14 @@ Available symbolic key names are:
 <b>ESCAPE</b>,
 <b>EXECUTE</b>,
 <b>F1</b>,
+<b>F2</b>,
+<b>F3</b>,
+<b>F4</b>,
+<b>F5</b>,
+<b>F6</b>,
+<b>F7</b>,
+<b>F8</b>,
+<b>F9</b>,
 <b>F10</b>,
 <b>F11</b>,
 <b>F12</b>,
@@ -442,27 +559,19 @@ Available symbolic key names are:
 <b>F17</b>,
 <b>F18</b>,
 <b>F19</b>,
-<b>F2</b>,
 <b>F20</b>,
 <b>F21</b>,
 <b>F22</b>,
 <b>F23</b>,
 <b>F24</b>,
-<b>F3</b>,
-<b>F4</b>,
-<b>F5</b>,
-<b>F6</b>,
-<b>F7</b>,
-<b>F8</b>,
-<b>F9</b>,
 <b>HELP</b>,
 <b>HOME</b>,
 <b>INSERT</b>,
 <b>LEFT</b>,
 <b>LMENU</b>,
-<b>LWIN</b>,
+<b>LWIN</b> (Left Windows key),
 <b>MULTIPLY</b>,
-<b>NEXT</b>,
+<b>NEXT</b> (Page Down),
 <b>NUMLOCK</b>,
 <b>NUMPAD0</b>,
 <b>NUMPAD1</b>,
@@ -476,10 +585,11 @@ Available symbolic key names are:
 <b>NUMPAD9</b>,
 <b>PAUSE</b>,
 <b>PRINT</b>,
-<b>PRIOR</b>,
+<b>PRIOR</b> (Page Up),
+<b>RETURN</b> (Enter),
 <b>RIGHT</b>,
 <b>RMENU</b>,
-<b>RWIN</b>,
+<b>RWIN</b> (Right Windows key),
 <b>SCROLL</b>,
 <b>SELECT</b>,
 <b>SEPARATOR</b>,
@@ -487,8 +597,9 @@ Available symbolic key names are:
 <b>SLEEP</b>,
 <b>SNAPSHOT</b>,
 <b>SUBTRACT</b>,
-<b>TAB</b>,
-<b>UP</b>
+<b>TAB</b>
+and
+<b>UP</b>.
 <p>
 The base keymap is:
 <p>
@@ -541,12 +652,25 @@ The base 3270-mode keymap adds:
 <tr><td >Ctrl&lt;Key>a</td>	<td >Attn</td></tr>
 <tr><td >Alt&lt;Key>a</td>	<td >Attn</td></tr>
 <tr><td >&lt;Key>End</td>	<td >FieldEnd</td></tr>
+<tr><td >Ctrl&lt;Key>v</td>	<td >Paste</td></tr>
+<tr><td >Ctrl&lt;Key>f</td>	<td >FieldMark</td></tr>
+<tr><td >Ctrl&lt;Key>d</td>	<td >Dup</td></tr>
+<tr><td >Ctrl&lt;Key>u</td>	<td >DeleteField</td></tr>
+<tr><td >Shift&lt;Key>Left</td>	<td >PreviousWord</td></tr>
+<tr><td >Shift&lt;Key>Right</td>	<td >NextWord</td></tr>
+<tr><td >Shift&lt;Key>End</td>	<td >EraseEOF</td></tr>
 </table>
+
 <a NAME="File-Transfer"></a><h2>File Transfer</h2>
 The <b>Transfer</b> action implements <b>IND$FILE</b> file transfer.
 This action requires that the <b>IND$FILE</b>
 program be installed on the <font size=-1>IBM</font> host, and that the 3270 cursor
 be located in a field that will accept a <font size=-1>TSO</font> or <font size=-1>VM/CMS</font> command.
+<p>
+The <b>Transfer</b> action
+can be entered at the command prompt with no parameters, which will cause it
+to prompt interactively for the file names and options.
+It can also be invoked with parameters to define the entire transfer.
 <p>
 Because of the complexity and number of options for file transfer, the
 parameters to the <b>Transfer</b> action take the unique form
@@ -632,6 +756,7 @@ Can range from 256 to 32768.
 Larger values give better performance, but some hosts may not be able to
 support them.
 </dl>
+
 <a NAME="Nested-Scripts"></a><h2>Nested Scripts</h2>
 <dl><dt><b>The String Action</b></dt><dd>
 The simplest method for
@@ -671,10 +796,75 @@ are entered into the current field.
 In <font size=-1>NVT</font> mode, the hexadecimal data represent <font size=-1>ASCII</font> characters,
 which are sent directly to the host.
 </dl>
+<a NAME="Printer-Support"></a><h2>Printer Support</h2>
+wc3270 supports associated printer sessions via the <i>wpr3287</i>(1)
+program.
+The <b>Printer</b> action is used to start or stop a <i>wpr3287</i> session.
+<p>
+The action <b>Printer Start</b> starts a printer session, associated with the
+current LU.  (This works only if the host supports TN3270E.)
+<p>
+The action <b>Printer Start</b> <i>lu</i> starts a printer session, associated
+with a specific <i>lu</i>.
+<p>
+The action <b>Printer Stop</b> stops a printer session.
+<p>
+The resource <b>wc3270.printer.name</b> specifies the Windows printer used to
+print each job.
+It defaults to the value of the <b>$PRINTER</b> environment
+variable, if set.
+Otherwise the default system printer is used.
+<p>
+The resource <b>wc3270.printer.assocCommandLine</b> specifies the command
+used to start an associated printer session.  It defaults to:
+<p>
+<blockquote>wpr3287.exe -assoc %L% %R% %H%</blockquote>
+<p>
+The resource <b>wc3270.printer.luCommandLine</b> specifies the command used
+to start a specific-LU printer session.  It defaults to:
+<p>
+<blockquote>wpr3287.exe %R% %L%@%H%</blockquote>
+<p>
+When the printer session command is run, the following substitutions are made:
+<p>
+<table BORDER cols=2 width="75%">
+<tr><td >Token</td>	<td >Substitition</td></tr>
+<tr><td >%H%</td>	<td >Host IP address</td></tr>
+<tr><td >%L%</td>	<td >Current or specified LU</td></tr>
+<tr><td >%R%</td>	<td >Character set</td></tr>
+</table>
+<p>
+See <i>wpr3287</i>(1) for further details.
+<p>
+The resource <b>wc3270.printerLu</b> controls automatic printer session
+start-up.  If it is set to `<b>.</b>', then whenever a login session is started,
+a printer session will automatically be started, associated with the login
+session.  If it is set an LU name, then the automatic printer session will be
+associated with the specified LU.
+<a NAME="Proxy"></a><h2>Proxy</h2>
+The <b>-proxy</b> option or the <b>wc3270.proxy</b> resource
+causes wc3270 to use a proxy server to connect to the host.
+The syntax of the option or resource is:
+<blockquote><i>type</i>:<i>host</i>[:<i>port</i>]
+</blockquote>
+The supported values for <i>type</i> are:
+<table BORDER cols=3 width="75%">
+<tr><td ><center>Proxy Type</center></td>	<td ><center>Protocol</center></td>	<td ><center>Default Port</center></td></tr>
+
+<tr><td ><center>http</center></td>	<td ><center>RFC 2817 HTTP tunnel (squid)</center></td>	<td ><center>3128</center></td></tr>
+<tr><td ><center>passthru</center></td>	<td ><center>Sun in.telnet-gw</center></td>	<td ><center>none</center></td></tr>
+<tr><td ><center>socks4</center></td>	<td ><center>SOCKS version 4</center></td>	<td ><center>1080</center></td></tr>
+<tr><td ><center>socks5</center></td>	<td ><center>SOCKS version 5 (RFC 1928)</center></td>	<td ><center>1080</center></td></tr>
+<tr><td ><center>telnet</center></td>	<td ><center>No protocol (just send <b>connect</b> <i>host port</i>)</center></td>	<td ><center>none</center></td></tr>
+</table>
+<p>
+The special types <b>socks4a</b> and <b>socks5d</b> can also be used to force
+the proxy server to do the hostname resolution for the SOCKS protocol.
 <a NAME="Resources"></a><h2>Resources</h2>
 Certain <b>wc3270</b>
 options can be configured via resources.
 Resources are defined
+in the session file, or
 by <b>-xrm</b> options.
 The definitions are similar to X11 resources, and use a similar syntax.
 The resources available in <b>wc3270</b> are:
@@ -697,22 +887,28 @@ The resources available in <b>wc3270</b> are:
 <tr><td >kill</td>	<td >^U</td>	<td >&nbsp;</td>	<td ><font size=-1>NVT</font>-mode kill character</td></tr>
 <tr><td >lineWrap</td>	<td >False</td>	<td >-set lineWrap</td>	<td ><font size=-1>NVT</font> line wrap mode</td></tr>
 <tr><td >lnext</td>	<td >^V</td>	<td >&nbsp;</td>	<td ><font size=-1>NVT</font>-mode lnext character</td></tr>
-<tr><td >m3279</td>	<td ><a HREF="#rn1">(note 1)</a></td>	<td >-mono</td>	<td >3279 (color) emulation</td></tr>
+<tr><td >m3279</td>	<td ><a HREF="#rn1">(note 1)</a></td>	<td >-model</td>	<td >3279 (color) emulation</td></tr>
+<tr><td >marginedPaste</td>	<td >False</td>	<td >-set marginedPaste</td>	<td >Keep left margin when pasting</td></tr>
 <tr><td >monoCase</td>	<td >False</td>	<td >-set monoCase</td>	<td >Mono-case mode</td></tr>
 <tr><td >numericLock</td>	<td >False</td>	<td >&nbsp;</td>	<td >Lock keyboard for numeric field error</td></tr>
 <tr><td >oerrLock</td>	<td >False</td>	<td >&nbsp;</td>	<td >Lock keyboard for input error</td></tr>
 <tr><td >oversize</td>	<td >&nbsp;</td>	<td >-oversize</td>	<td >Oversize screen dimensions</td></tr>
 <tr><td >port</td>	<td >telnet</td>	<td >-port</td>	<td >Non-default TCP port</td></tr>
+<tr><td >printer.*</td>	<td ><a HREF="#rn4">(note 4)</a></td>	<td >&nbsp;</td>	<td >Printer session config</td></tr>
+<tr><td >printerLu</td>	<td ><a HREF="#rn4">(note 4)</a></td>	<td >&nbsp;</td>	<td >Printer session config</td></tr>
 <tr><td >quit</td>	<td >^\</td>	<td >&nbsp;</td>	<td ><font size=-1>NVT</font>-mode quit character</td></tr>
 <tr><td >rprnt</td>	<td >^R</td>	<td >&nbsp;</td>	<td ><font size=-1>NVT</font>-mode reprint character</td></tr>
 <tr><td >secure</td>	<td >False</td>	<td >&nbsp;</td>	<td >Disable "dangerous" options</td></tr>
 <tr><td >termName</td>	<td ><a HREF="#rn2">(note 2)</a></td>	<td >-tn</td>	<td ><font size=-1>TELNET</font> terminal type string</td></tr>
+<tr><td >title</td>	<td >&nbsp;</td>	<td >&nbsp;</td>	<td >Console window title</td></tr>
 <tr><td >traceFile</td>	<td ><a HREF="#rn3">(note 3)</a></td>	<td >-tracefile</td>	<td >File for trace output</td></tr>
 <tr><td >werase</td>	<td >^W</td>	<td >&nbsp;</td>	<td ><font size=-1>NVT</font>-mode word-erase character</td></tr>
 </table>
 <p>
 <blockquote><a NAME="rn1"></a><i>Note 1</i>: <b>m3279</b> defaults to
-<b>False</b>.  It can be forced to <b>True</b> with the <b>-model</b> option.
+<b>True</b>.
+It can be forced to <b>False</b> with the proper <b>-model</b>
+option.
 <p>
 <a NAME="rn2"></a><i>Note 2</i>:
 The default terminal type string is constructed from the model number, color
@@ -720,14 +916,22 @@ emulation, and extended data stream modes.
 E.g., a model 2 with color emulation and the extended data stream option
 would be sent as <b>IBM-3279-2-E</b>.
 Note also that when <font size=-1>TN3270E</font>
-mode is used, the terminal type is always sent as some type of 3278.
+mode is used, the terminal type is always sent as 3278, but this does not
+affect color capabilities.
 <p>
 <a NAME="rn3"></a><i>Note 3</i>: The default trace file is
-<b>x3trc.</b><i>pid</i><b>.txt</b> in the directory where wc3270 was started.</blockquote>
+<b>x3trc.</b><i>pid</i><b>.txt</b> in the
+directory where wc3270 was started.
+
+<p>
+<a NAME="rn4"></a><i>Note 4</i>: See <a HREF="#Printer-Support"><font size=-1>PRINTER SUPPORT</font></a> for details.
+</blockquote>
 <p>
 If more than one <b>-xrm</b> option is given for the same resource,
 the last one on the command line is used.
 <a NAME="See-Also"></a><h2>See Also</h2>
+<a HREF="wpr3287-man.html">wpr3287(1)</a>
+<br>
 Data Stream Programmer's Reference, IBM GA23-0059
 <br>
 Character Set Reference, IBM GA27-3831
@@ -739,7 +943,11 @@ RFC 1646, TN3270 Extensions for LUname and Printer Selection
 RFC 2355, TN3270 Enhancements
 <a NAME="Copyrights"></a><h2>Copyrights</h2>
 <p>
-Modifications Copyright &copy; 1993, 1994, 1995, 1996, 1997, 1999, 2000, 2001, 2002, 2004, 2005, 2006, 2007 by Paul Mattes.
+Modifications and original code Copyright &copy; 1993, 1994, 1995, 1996, 1997, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007 by Paul Mattes.
+<br>
+DFT File Transfer Code Copyright  &copy; October 1995 by Dick Altenbern.
+<br>
+RPQNAMES Code Copyright  &copy; 2004, 2005 by Don Russell.
 <br>
 Original X11 Port Copyright &copy; 1990 by Jeff Sparkes.
 <blockquote>Permission to use, copy, modify, and distribute this software and its
@@ -756,12 +964,12 @@ wc3270 is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
 <a NAME="Version"></a><h2>Version</h2>
-wc3270 3.3.5
+wc3270 3.3.6
 <hr>
-<address>
+<i>
 This HTML document and the accompanying troff document were generated with
 a set of write-only <b>m4</b> macros and the powerful <b>vi</b> editor.
-<br>Last modified 02 February 2007.
-</address>
+<br>Last modified 23 June 2007.
+</i>
 </body>
 </html>

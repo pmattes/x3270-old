@@ -1,7 +1,7 @@
 /* (from) $XConsortium: SimpleMenu.c,v 1.41 92/09/10 16:25:07 converse Exp $ */
 
 /*
- * Modifications Copyright 1995, 1999 by Paul Mattes.
+ * Modifications Copyright 1995, 1999, 2000, 2002, 2003, 2005 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that

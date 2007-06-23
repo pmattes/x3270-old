@@ -49,10 +49,9 @@ x3270.bellVolume	Default 0
     This resource can be overridden by the x3270.visualBell resource, which
     if set to true, will replace the bell with a flash of the screen.
 
-x3270.boldColor		Default cyan
-    On color X displays in 3278 (pseudo-color) mode, this is the color of
-    high-intensity text.  (See the description of boldFont for how it works on
-    monochrome X displays.)
+x3270.boldColor		Default green
+    To emulate the old 'pseudo-color' mode, set this resource to 'cyan'.
+    It will be used in 3278 mode to display intensified text.
 
 x3270.blankFill		Default false		Option Blank Fill
 			Switch -set blankFill
@@ -140,10 +139,10 @@ x3270.color8		Default False
 
 x3270.colorBackground	Default black
     The background color for the emulator window.  This resource is used only
-    on color X displays when the x3270.model specifies 3278 (pseudo-color)
-    mode.  On monochrome X displays, the background color is white, unless -rv
-    (reverse video) is selected on the command line; in 3279 mode, the screen
-    background is determined by the x3270.colorScheme resource.
+    on color X displays when the x3270.model specifies 3278 mode.  On
+    monochrome X displays, the background color is white, unless -rv (reverse
+    video) is selected on the command line; in 3279 mode, the screen background
+    is determined by the x3270.colorScheme resource.
 
 x3270.colorScheme	Default default
 			Options Default 3279: default
@@ -415,11 +414,10 @@ x3270.inlcr		Default false
     Controls whether input newlines are mapped to carriage returns.
 
 x3270.inputColor	Default orange
-    On color X displays in 3278 (pseudo-color) mode, this is the color of
-    light-pen selectable fields.  If the resource x3270.modifiedSel is set to
-    true, modified fields are also displayed in this color.  On monochrome X
-    displays, these fields are indistinguishable from other normal-intensity
-    text.
+    To emulate the old 'pseudo-color' mode, set this resource to 'orange'.
+    It will be used in 3278 mode to display light-pen selectable text.
+    If the resource x3270.modifiedSel is set to true, modified fields are also
+    displayed in this color.
 
 x3270.inputMethod	No Default		Switch -im
     Specifies the name of the input method to use for multi-byte input.  The
@@ -548,8 +546,7 @@ x3270.lockedCursor	Default X_cursor
 x3270.m3279		Default false		Switch -color
     *** DEPRECATED RESOURCE -- REPLACED BY NEW x3270.model SYNTAX ***
     If true and running on a color X display, x3270 runs in full 3279 color
-    mode.  If false, x3270 runs in 3278 (pseudo-color) mode, with colors
-    representing different field attributes.
+    mode.  If false, x3270 runs in 3278 (green screen) mode.
 
 x3270.macros
 x3270.macros.host1
@@ -584,9 +581,8 @@ x3270.model		Default 3278-4-E (mono)	Switch -model
     separated by dashes; each part is optional.
 	3278 or 3279
 	    "3278" specifies a monochrome 3270 display.  If used on a color
-	     X display, it will cause fields to be drawn in pseudo-color
-	     (different colors for different field attributes).  This is
-	     the default for monochrome X displays.
+	     X display, it will cause all fields to be drawn in green.
+	     3278 is the default for monochrome X displays.
 	    "3279" specifies a color 3270 display.  This is the default for
 	     color X displays.
 	2, 3, 4 or 5
@@ -630,9 +626,8 @@ x3270.numericLock	Default false
     entered into fields with the Numeric attribute.
 
 x3270.normalColor	Default green
-    On color X displays in 3278 (pseudo-color) mode, this is the color of
-    normal-intensity text.  On monochrome X displays, normal text uses the
-    foreground color.
+    On color X displays in 3278 mode, this is the color of normal-intensity
+    text.  On monochrome X displays, normal text uses the foreground color.
 
 x3270.onlcr		Default true
     Used in ANSI line mode; similar to the "stty" parameter of the same name.
@@ -658,6 +653,11 @@ x3270.oversize					Switch -oversize
 x3270.port		Default telnet		Switch -port
     The name of the default TCP port for x3270 to connect to.  This can be
     either a symbolic name from /etc/services, or an integer.
+
+x3270.proxy					Switch -proxy
+    Defines a proxy server that x3270 will use to connect to hosts.
+    The value is of the form "type:server[:port]", where the value of "type"
+    is defined on the manual page.
 
 x3270.preeditType	Default OverTheSpot+1	Switch -pt
     The preedit type for the multi-byte input method.  Valid values are

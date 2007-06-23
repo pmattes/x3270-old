@@ -1,5 +1,6 @@
 /*
- * Copyright 1995, 1996, 1999, 2000, 2001, 2002, 2003, 2005 by Paul Mattes.
+ * Copyright 1995, 1996, 1999, 2000, 2001, 2002, 2003, 2005, 2007 by Paul
+ *   Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -45,8 +46,9 @@ unsigned n_fallbacks = 0;	/* number of fallback entries */
 #define MODE_STANDALONE	0x00000100
 #define MODE_SCRIPT	0x00000200
 #define MODE_DBCS	0x00000400
+#define MODE__WIN32	0x00000800
 
-#define MODEMASK	0x000007ff
+#define MODEMASK	0x00000fff
 
 struct {
 	unsigned long ifdefs;
@@ -69,7 +71,8 @@ struct {
 	{ "X3270_PRINTER", MODE_PRINTER },
 	{ "STANDALONE", MODE_STANDALONE },
 	{ "X3270_SCRIPT", MODE_SCRIPT },
-	{ "X3270_DBCS", MODE_DBCS }
+	{ "X3270_DBCS", MODE_DBCS },
+	{ "_WIN32", MODE__WIN32 }
 };
 #define NPARTS	(sizeof(parts)/sizeof(parts[0]))
 
@@ -125,6 +128,12 @@ unsigned long is_defined =
 |
 #if defined(X3270_DBCS)
 	MODE_DBCS
+#else
+	0
+#endif
+|
+#if defined(_WIN32)
+	MODE__WIN32
 #else
 	0
 #endif

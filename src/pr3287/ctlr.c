@@ -1,6 +1,6 @@
 /*
- * Modifications Copyright 1993, 1994, 1995, 1996, 1999,
- *  2000, 2001, 2002, 2004 by Paul Mattes.
+ * Modifications Copyright 1993, 1994, 1995, 1996, 1999, 2000, 2001, 2002,
+ *   2003, 2004, 2005, 2007 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -32,7 +32,9 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <sys/types.h>
+#if !defined(_WIN32) /*[*/
 #include <sys/wait.h>
+#endif /*]*/
 #include <signal.h>
 #include "globals.h"
 #include "3270ds.h"
@@ -41,8 +43,15 @@
 #include "sfc.h"
 #include "tablesc.h"
 #include "widec.h"
+#if defined(_WIN32) /*[*/
+#include "wsc.h"
+#endif /*]*/
 
+#if !defined(_WIN32) /*[*/
 extern char *command;
+#else /*][*/
+extern char *printer;
+#endif /*]*/
 extern int blanklines;	/* display blank lines even if empty (formatted LU3) */
 extern int ignoreeoj;	/* ignore PRINT-EOJ commands */
 extern int crlf;	/* expand newline to CR/LF */
@@ -77,8 +86,12 @@ static int baddr = 0;
 static Boolean page_buf_initted = False;
 static Boolean any_3270_printable = False;
 static int any_3270_output = 0;
+#if !defined(_WIN32) /*[*/
 static FILE *prfile = NULL;
 static int prpid = -1;
+#else /*][*/
+static int ws_initted = 0;
+#endif /*]*/
 static unsigned char wcc_line_length;
 
 static int ctlr_erase(void);
@@ -1294,6 +1307,7 @@ process_scs(unsigned char *buf, int buflen)
 
 
 
+#if !defined(_WIN32) /*[*/
 /*
  * SIGCHLD handler.  Does nothing, but on systems that conform to the Single
  * Unix Specification, defining it ensures that the print command process will
@@ -1368,6 +1382,7 @@ pclose_no_sigint(FILE *f)
 	else
 		return status;
 }
+#endif /*]*/
 
 /*
  * Send a character to the printer.
@@ -1375,6 +1390,18 @@ pclose_no_sigint(FILE *f)
 static int
 stash(unsigned char c)
 {
+#if defined(_WIN32) /*[*/
+	if (!ws_initted) {
+	    	if (ws_start(printer) < 0) {
+		    return -1;
+		}
+		ws_initted = 1;
+	}
+
+	if (ws_putc((char)c)) {
+	    	return -1;
+	}
+#else /*][*/
 	if (prfile == NULL) {
 		prfile = popen_no_sigint(command);
 		if (prfile == NULL) {
@@ -1382,12 +1409,15 @@ stash(unsigned char c)
 			return -1;
 		}
 	}
+
 	if (fputc(c, prfile) == EOF) {
 		errmsg("Write error to '%s': %s", command, strerror(errno));
 		(void) pclose_no_sigint(prfile);
 		prfile = NULL;
 		return -1;
 	}
+#endif /*]*/
+
 	return 0;
 }
 
@@ -1398,6 +1428,10 @@ stash(unsigned char c)
 static int
 prflush(void)
 {
+#if defined(_WIN32) /*[*/
+    	if (ws_initted && ws_flush() < 0)
+		return -1;
+#else /*][*/
 	if (prfile != NULL) {
 		if (fflush(prfile) < 0) {
 			errmsg("Flush error to '%s': %s", command,
@@ -1407,6 +1441,7 @@ prflush(void)
 			return -1;
 		}
 	}
+#endif /*]*/
 	return 0;
 }
 
@@ -1576,7 +1611,12 @@ dump_unformatted(void)
 	(void) memset(page_buf, '\0', MAX_BUF);
 
 	/* Flush buffered data. */
+#if defined(_WIN32) /*[*/
+	if (ws_initted)
+		(void) ws_flush();
+#else /*][*/
 	fflush(prfile);
+#endif /*]*/
 	any_3270_output = 0;
 
 	return 0;
@@ -1672,7 +1712,12 @@ dump_formatted(void)
 			newlines++;
 	}
 	(void) memset(page_buf, '\0', MAX_BUF);
+#if defined(_WIN32) /*[*/
+	if (ws_initted)
+		(void) ws_flush();
+#else /*][*/
 	fflush(prfile);
+#endif /*]*/
 	any_3270_output = 0;
 
 	return 0;
@@ -1699,9 +1744,12 @@ print_eoj(void)
 	}
 
 	/* Close the stream to the print process. */
+#if defined(_WIN32) /*[*/
+	trace_ds("End of print job.\n");
+	if (ws_initted && ws_endjob() < 0)
+		rc = -1;
+#else /*]*/
 	if (prfile != NULL) {
-		int rc;
-
 		trace_ds("End of print job.\n");
 		rc = pclose_no_sigint(prfile);
 		if (rc) {
@@ -1721,6 +1769,7 @@ print_eoj(void)
 		}
 		prfile = NULL;
 	}
+#endif /*]*/
 
 	/* Make sure the next 3270 job starts with clean conditions. */
 	page_buf_initted = 0;

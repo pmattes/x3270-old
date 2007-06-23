@@ -1,5 +1,5 @@
 '\" t
-.TH x3270 1 "02 February 2007"
+.TH x3270 1 "23 June 2007"
 .SH "NAME"
 x3270 \-
 \s-1IBM\s+1 host access tool
@@ -27,7 +27,8 @@ The full syntax for \fIhost\fP is:
 .LP
 Prepending a \fBP:\fP onto \fIhostname\fP causes the connection to go
 through the \fItelnet-passthru\fP service rather than directly to the host.
-See \s-1PASSTHRU\s+1 below..LP
+See \s-1PASSTHRU\s+1 below.
+.LP
 Prepending an \fBS:\fP onto \fIhostname\fP removes the "extended data
 stream" option reported to the host.
 See \fB\-tn\fP below for further information.
@@ -57,7 +58,8 @@ This allows numeric IPv6 addresses to be used as hostnames.
 On systems that support the \fIforkpty\fP library call, the
 \fIhostname\fP may be replaced with \fB\-e\fP and a command string.
 This will cause \fBx3270\fP to connect to a local child process, such as
-a shell..LP
+a shell.
+.LP
 The port to connect to defaults to
 \fBtelnet\fP.
 This can be overridden with the \fB\-port\fP option, or by appending
@@ -66,6 +68,7 @@ a \fIport\fP to the \fIhostname\fP with a colon
 (For compatability with previous versions of \fBx3270\fP
 and with \fItn3270\fP(1), the \fIport\fP
 may also be specified as a second, separate argument.)
+
 .SH "OPTIONS"
 \fBx3270\fP is a toolkit based program, so it understands standard Xt options and
 resources.
@@ -109,7 +112,8 @@ Specifies the initial y coordinate for the program icon.
 .TP
 \fB\-im\fP \fImethod\fP
 Specifies the name of the input method to use for multi-byte input.
-(Supported only when x3270 is compiled with DBCS support.).TP
+(Supported only when x3270 is compiled with DBCS support.)
+.TP
 \fB\-keymap\fP \fIname\fP
 Specifies a keymap name and optional modifiers.
 See \s-1KEYMAPS\s+1 below.
@@ -121,7 +125,8 @@ Turns on the keypad as soon as \fBx3270\fP starts.
 Specifies the local encoding method for multi-byte text.
 \fIname\fP is an encoding name recognized by the ICU library.
 (Supported only when x3270 is compiled with DBCS support, and necessary
-only when x3270 cannot figure it out from the locale.).TP
+only when x3270 cannot figure it out from the locale.)
+.TP
 \fB\-model\fP \fIname\fP
 The model of 3270 display to be emulated.
 The model name is in two parts, either of which may be omitted:
@@ -129,10 +134,8 @@ The model name is in two parts, either of which may be omitted:
 The first part is the
 \fBbase model\fP,
 which is either \fB3278\fP or \fB3279\fP.
-\fB3278\fP specifies a monochrome 3270 display;
+\fB3278\fP specifies a monochrome (green on black) 3270 display;
 \fB3279\fP specifies a color 3270 display.
-When 3278 emulation is specified for a color X display, fields are displayed
-using pseudo-colors; see \s-1PSEUDO-COLOR\s+1 below.
 .IP
 The second part is the
 \fBmodel number\fP,
@@ -218,8 +221,6 @@ for a color X display
 is \fB3279\-4\fP.
 For a monochrome X display, it is
 \fB3278\-4\fP.
-(The behavior of early versions of \fBx3270\fP on color X displays
-can be specified as \fB3278\-4)\fP.
 .TP
 \fB\-mono\fP
 Forces \fBx3270\fP to believe it is running on a monochrome X display.
@@ -250,6 +251,14 @@ If \fIluname\fP is ".", then the printer session will be associated with the
 interactive terminal session (this requires that the host support TN3270E).
 Otherwise, the value is used as the explicit LU name to associate with the
 printer session.
+.TP
+\fB\-proxy \fItype\fP:\fIhost\fP[:\fIport\fP]\fP
+Causes \fBx3270\fP to connect via the specified proxy, instead of
+using a direct connection.
+The \fIhost\fP can be an IP address or hostname.
+The optional \fIport\fP can be a number or a service name.
+For a list of supported proxy \fItypes\fP, see \s-1PROXY\s+1
+below.
 .TP
 \fB\-pt\fP \fItype\fP
 Specifies the preedit type for the multi-byte input method.
@@ -466,6 +475,19 @@ T}
 T{
 .na
 .nh
+cp1047
+T}	T{
+.na
+.nh
+cp1047
+T}	T{
+.na
+.nh
+3270cg-1a 3270-cg1 iso8859-1
+T}
+T{
+.na
+.nh
 finnish
 T}	T{
 .na
@@ -557,19 +579,6 @@ T}
 T{
 .na
 .nh
-turkish
-T}	T{
-.na
-.nh
-1026
-T}	T{
-.na
-.nh
-iso8859-9
-T}
-T{
-.na
-.nh
 italian
 T}	T{
 .na
@@ -648,6 +657,19 @@ T}
 T{
 .na
 .nh
+spanish
+T}	T{
+.na
+.nh
+284
+T}	T{
+.na
+.nh
+iso8859-1
+T}
+T{
+.na
+.nh
 thai
 T}	T{
 .na
@@ -657,6 +679,19 @@ T}	T{
 .na
 .nh
 iso8859-11 tis620.2529-0
+T}
+T{
+.na
+.nh
+turkish
+T}	T{
+.na
+.nh
+1026
+T}	T{
+.na
+.nh
+iso8859-9
 T}
 T{
 .na
@@ -795,24 +830,6 @@ file with the \fBx3270\fP source.
 .LP
 The color scheme may also be changed while \fBx3270\fP
 is running with a selection from the \fBOptions\fP menu.
-.SH "PSEUDO-COLOR"
-When emulating a 3278 display on a color X display, \fBx3270\fP
-does not understand \s-1IBM\s+1 3270 color protocols.
-Instead, it draws text in one of three colors depending on the field attributes.
-Those colors may be customized using the following resources (shown with their
-default values):
-.RS
-.br
-x3270.normalColor:	green
-.br
-x3270.boldColor:	cyan
-.br
-x3270.inputColor:	orange
-.br
-x3270.colorBackground:	black
-.br
-x3270.selectBackground:	dim gray
-.RE
 .SH "NVT (ANSI) MODE"
 Some hosts use an \s-1ASCII\s+1 front-end to do initial login negotiation,
 then later switch to 3270 mode.
@@ -1276,9 +1293,13 @@ The \fBx3270\fP status line contains a variety of information.
 From left to right, the fields are:
 .TP
 \fBcomm status\fP
-Three symbols indicate the state of the connection to the host.
-If connected, the right-hand symbol is a solid box; if not, it is a
-question mark.
+The first symbol is always a \fB4\fP.
+If \fBx3270\fP is in TN3270E mode, the second symbol is a \fBB\fP;
+otherwise it is an \fBA\fP.
+If \fBx3270\fP is disconnected, the third symbol
+is a question mark.  Otherwise, if 
+\fBx3270\fP is in SSCP-LU mode, the third symbol is an \fBS\fP.
+Otherwise it is blank.
 .TP
 \fBkeyboard lock\fP
 If the keyboard is locked, an "X" symbol and a message field indicate the
@@ -2204,6 +2225,7 @@ still others are defined for internal use by \fBx3270\fP
 and are not documented here.
 Note that when an action with no parameters is used in a keymap, the
 parentheses and empty argument list are still required.
+
 .PP
 Actions marked with an asterisk (*) may block, sending data to the host and
 possibly waiting for a response.
@@ -2714,7 +2736,7 @@ Printer(Start[,\fIlu\fP]|Stop)
 T}	T{
 .na
 .nh
-Start or stop printer session
+start or stop printer session
 T}
 T{
 .na
@@ -5681,7 +5703,103 @@ It contacts the machine named \fBinternet-gateway\fP at the port defined in
 \fB/etc/services\fP as \fBtelnet-passthru\fP
 (which defaults to 3514).
 It then passes the requested hostname and port to the
-\fBin.telnet-gw\fP server..SH "FILES"
+\fBin.telnet-gw\fP server.
+.SH "PROXY"
+The \fB\-proxy\fP option or the \fBx3270.proxy\fP resource
+causes x3270 to use a proxy server to connect to the host.
+The syntax of the option or resource is:
+.RS
+\fItype\fP:\fIhost\fP[:\fIport\fP]
+
+.RE
+The supported values for \fItype\fP are:
+.TS
+center;
+c l c .
+T{
+.na
+.nh
+Proxy Type
+T}	T{
+.na
+.nh
+Protocol
+T}	T{
+.na
+.nh
+Default Port
+T}
+_
+T{
+.na
+.nh
+http
+T}	T{
+.na
+.nh
+RFC 2817 HTTP tunnel (squid)
+T}	T{
+.na
+.nh
+3128
+T}
+T{
+.na
+.nh
+passthru
+T}	T{
+.na
+.nh
+Sun in.telnet-gw
+T}	T{
+.na
+.nh
+none
+T}
+T{
+.na
+.nh
+socks4
+T}	T{
+.na
+.nh
+SOCKS version 4
+T}	T{
+.na
+.nh
+1080
+T}
+T{
+.na
+.nh
+socks5
+T}	T{
+.na
+.nh
+SOCKS version 5 (RFC 1928)
+T}	T{
+.na
+.nh
+1080
+T}
+T{
+.na
+.nh
+telnet
+T}	T{
+.na
+.nh
+No protocol (just send \fBconnect\fP \fIhost port\fP)
+T}	T{
+.na
+.nh
+none
+T}
+.TE
+.LP
+The special types \fBsocks4a\fP and \fBsocks5d\fP can also be used to force
+the proxy server to do the hostname resolution for the SOCKS protocol.
+.SH "FILES"
 /usr/lib/X11/x3270/ibm_hosts
 .br
 $HOME/.x3270pro
@@ -5704,7 +5822,7 @@ file but before the command-line options.
 s3270(1), c3270(1), tcl3270(1), ibm_hosts(5), x3270-script(1), pr3287(1), telnet(1), tn3270(1)
 .br
 X Toolkit Intrinsics
-XX_BRdnl
+.br
 Data Stream Programmer's Reference, IBM GA23-0059
 .br
 Character Set Reference, IBM GA27-3831
@@ -5716,7 +5834,11 @@ RFC 1646, TN3270 Extensions for LUname and Printer Selection
 RFC 2355, TN3270 Enhancements
 .SH "COPYRIGHTS"
 .LP
-Modifications Copyright 1993, 1994, 1995, 1996, 1997, 1999, 2000, 2001, 2002, 2004, 2005, 2006, 2007 by Paul Mattes.
+Modifications and original code Copyright 1993, 1994, 1995, 1996, 1997, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007 by Paul Mattes.
+.br
+DFT File Transfer Code Copyright  October 1995 by Dick Altenbern.
+.br
+RPQNAMES Code Copyright  2004, 2005 by Don Russell.
 .br
 Original X11 Port Copyright 1990 by Jeff Sparkes.
 .RS
@@ -5737,4 +5859,4 @@ x3270 is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
 .SH "VERSION"
-x3270 3.3.5
+x3270 3.3.6

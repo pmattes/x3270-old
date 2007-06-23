@@ -1,5 +1,6 @@
 /*
- * Copyright 1993, 1994, 1995, 1996, 1999, 2000, 2001 by Paul Mattes.
+ * Copyright 1993, 1994, 1995, 1996, 1999, 2000, 2001, 2002, 2003, 2005,
+ *  2006 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -806,13 +807,21 @@ ansi_sgr(int ig1 unused, int ig2 unused)
 		    fg = 0xf1;	/* blue */
 		    break;
 		case 35:
-		    fg = 0xf3;	/* megenta */
+		    fg = 0xf3;	/* magenta */
 		    break;
 		case 36:
+#if defined(WC3270) /*[*/
+		    fg = 0xf6;	/* turquoise */
+#else /*][*/
 		    fg = 0xfd;	/* cyan */
+#endif /*]*/
 		    break;
 		case 37:
+#if defined(WC3270) /*[*/
+		    fg = 0xf7;	/* white */
+#else /*][*/
 		    fg = 0xff;	/* white */
+#endif /*]*/
 		    break;
 		case 39:
 		    fg = 0;	/* default */
@@ -833,13 +842,21 @@ ansi_sgr(int ig1 unused, int ig2 unused)
 		    bg = 0xf1;	/* blue */
 		    break;
 		case 45:
-		    bg = 0xf3;	/* megenta */
+		    bg = 0xf3;	/* magenta */
 		    break;
 		case 46:
+#if defined(WC3270) /*[*/
+		    bg = 0xf6;	/* turquoise */
+#else /*][*/
 		    bg = 0xfd;	/* cyan */
+#endif /*]*/
 		    break;
 		case 47:
+#if defined(WC3270) /*[*/
+		    bg = 0xf7;	/* white */
+#else /*][*/
 		    bg = 0xff;	/* white */
+#endif /*]*/
 		    break;
 		case 49:
 		    bg = 0;	/* default */
@@ -1448,9 +1465,11 @@ xterm_text(int ig1 unused, int ig2 unused)
 static enum state
 xterm_text_do(int ig1 unused, int ig2 unused)
 {
-#if defined(X3270_DISPLAY) /*[*/
+#if defined(X3270_DISPLAY) || defined(WC3270) /*[*/
 	text[tx] = '\0';
+#endif /*]*/
 
+#if defined(X3270_DISPLAY) /*[*/
 	switch (n[0]) {
 	    case 0:	/* icon name and window title */
 		XtVaSetValues(toplevel, XtNiconName, text, NULL);
@@ -1465,8 +1484,22 @@ xterm_text_do(int ig1 unused, int ig2 unused)
 	    case 50:	/* font */
 		screen_newfont(text, False, False);
 		break;
+	    default:
+		break;
 	}
 #endif /*]*/
+
+#if defined(WC3270) /*[*/
+	switch (n[0]) {
+	    case 0:	/* icon name and window title */
+	    case 2:	/* window_title */
+		screen_title(text);
+		break;
+	    default:
+		break;
+	}
+#endif /*]*/
+
 	return DATA;
 }
 

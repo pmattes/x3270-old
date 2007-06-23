@@ -1,5 +1,5 @@
 '\" t
-.TH c3270 1 "02 February 2007"
+.TH c3270 1 "23 June 2007"
 .SH "NAME"
 c3270 \-
 curses-based 
@@ -26,7 +26,8 @@ The full syntax for \fIhost\fP is:
 .LP
 Prepending a \fBP:\fP onto \fIhostname\fP causes the connection to go
 through the \fItelnet-passthru\fP service rather than directly to the host.
-See \s-1PASSTHRU\s+1 below..LP
+See \s-1PASSTHRU\s+1 below.
+.LP
 Prepending an \fBS:\fP onto \fIhostname\fP removes the "extended data
 stream" option reported to the host.
 See \fB\-tn\fP below for further information.
@@ -56,7 +57,8 @@ This allows numeric IPv6 addresses to be used as hostnames.
 On systems that support the \fIforkpty\fP library call, the
 \fIhostname\fP may be replaced with \fB\-e\fP and a command string.
 This will cause \fBc3270\fP to connect to a local child process, such as
-a shell..LP
+a shell.
+.LP
 The port to connect to defaults to
 \fBtelnet\fP.
 This can be overridden with the \fB\-port\fP option, or by appending
@@ -65,6 +67,7 @@ a \fIport\fP to the \fIhostname\fP with a colon
 (For compatability with previous versions of \fBc3270\fP
 and with \fItn3270\fP(1), the \fIport\fP
 may also be specified as a second, separate argument.)
+
 .SH "OPTIONS"
  \fBc3270\fP understands
 the following options:
@@ -73,6 +76,8 @@ the following options:
 Forces all characters to be displayed in bold.
 This helps with PC consoles which display non-bold characters in unreadably
 dim colors.
+All-bold mode is the default for color displays, but not for monochrome
+displays.
 .TP
 \fB\-altscreen \fIrows\fP\fBx\fP\fIcols\fP\fB=\fP\fIinit_string\fP\fP
 Defines the dimensions and escape sequence for the alternate (132-column)
@@ -111,7 +116,8 @@ See \fIibm_hosts\fP(1) for details.
 .TP
 \fB\-im\fP \fImethod\fP
 Specifies the name of the input method to use for multi-byte input.
-(Supported only when c3270 is compiled with DBCS support.).TP
+(Supported only when c3270 is compiled with DBCS support.)
+.TP
 \fB\-keymap\fP \fIname\fP
 Specifies a keyboard map to be found in the resource
 \fBc3270.keymap.\fP\fIname\fP or the file \fIname\fP.
@@ -121,7 +127,8 @@ See \s-1KEYMAPS\s+1 below for details.
 Specifies the local encoding method for multi-byte text.
 \fIname\fP is an encoding name recognized by the ICU library.
 (Supported only when c3270 is compiled with DBCS support, and necessary
-only when c3270 cannot figure it out from the locale.).TP
+only when c3270 cannot figure it out from the locale.)
+.TP
 \fB\-model\fP \fIname\fP
 The model of 3270 display to be emulated.
 The model name is in two parts, either of which may be omitted:
@@ -129,7 +136,7 @@ The model name is in two parts, either of which may be omitted:
 The first part is the
 \fBbase model\fP,
 which is either \fB3278\fP or \fB3279\fP.
-\fB3278\fP specifies a monochrome 3270 display;
+\fB3278\fP specifies a monochrome (green on black) 3270 display;
 \fB3279\fP specifies a color 3270 display.
 .IP
 The second part is the
@@ -216,7 +223,8 @@ for a color display is \fB3279\-4\fP.
 For a monochrome display, it is \fB3278\-4\fP.
 .TP
 \fB\-mono\fP
-Forces 3278 emulation.
+Prevents \fBc3270\fP from using color, ignoring any color capabilities
+reported by the terminal.
 .TP
 \fB\-oversize\fP \fIcols\fP\fBx\fP\fIrows\fP
 Makes the screen larger than the default for the chosen model number.
@@ -232,6 +240,14 @@ Specifies a different \s-1TCP\s+1 port to connect to.
 number.
 This option changes the default port number used for all connections.
 (The positional parameter affects only the initial connection.)
+.TP
+\fB\-proxy \fItype\fP:\fIhost\fP[:\fIport\fP]\fP
+Causes \fBc3270\fP to connect via the specified proxy, instead of
+using a direct connection.
+The \fIhost\fP can be an IP address or hostname.
+The optional \fIport\fP can be a number or a service name.
+For a list of supported proxy \fItypes\fP, see \s-1PROXY\s+1
+below.
 .TP
 \fB\-printerlu \fIluname\fP\fP
 Causes \fBc3270\fP to automatically start a \fIpr3287\fP printer
@@ -297,6 +313,25 @@ kilobytes or megabytes respectively.
 Sets the value of the named \fIresource\fP to \fIvalue\fP.
 Resources control less common \fBc3270\fP
 options, and are defined under \s-1RESOURCES\s+1 below.
+.SH "MODES"
+\fBc3270\fP has two basic modes: \fIcommand-prompt\fP and \fIsession\fP.
+.PP
+\fICommand-prompt\fP mode is where the \fBc3270>\fP prompt is
+displayed.
+Interactive commands can be entered at this prompt, to connect to a host,
+disconnect from a host, transfer files, display statistics, exit
+\fBc3270\fP, etc.
+The complete list of interactive commands is listed under
+\s-1ACTIONS\s+1.
+.PP
+\fISession\fP mode is where the emulated 3270 screen is displayed;
+keyboard commands cause the display buffer to be modified or data to be
+sent to the host.
+.PP
+To switch from display mode to command-prompt mode, press
+Ctrl-].
+To switch from command-prompt mode to display mode, press \fBEnter\fP
+(without entering a command) at the \fBc3270>\fP prompt.
 .SH "CHARACTER SETS"
 The \fB\-charset\fP
 option or the "c3270.charset" resource controls the \s-1EBCDIC\s+1
@@ -376,6 +411,19 @@ T}
 T{
 .na
 .nh
+cp1047
+T}	T{
+.na
+.nh
+cp1047
+T}	T{
+.na
+.nh
+3270cg-1a 3270-cg1 iso8859-1
+T}
+T{
+.na
+.nh
 finnish
 T}	T{
 .na
@@ -437,19 +485,6 @@ T}	T{
 .na
 .nh
 iso8859-8
-T}
-T{
-.na
-.nh
-turkish
-T}	T{
-.na
-.nh
-1026
-T}	T{
-.na
-.nh
-iso8859-9
 T}
 T{
 .na
@@ -532,6 +567,19 @@ T}
 T{
 .na
 .nh
+spanish
+T}	T{
+.na
+.nh
+284
+T}	T{
+.na
+.nh
+iso8859-1
+T}
+T{
+.na
+.nh
 thai
 T}	T{
 .na
@@ -541,6 +589,19 @@ T}	T{
 .na
 .nh
 iso8859-11 tis620.2529-0
+T}
+T{
+.na
+.nh
+turkish
+T}	T{
+.na
+.nh
+1026
+T}	T{
+.na
+.nh
+iso8859-9
 T}
 T{
 .na
@@ -863,9 +924,12 @@ The \fBc3270\fP status line contains a variety of information.
 From left to right, the fields are:
 .TP
 \fBcomm status\fP
-Three symbols indicate the state of the connection to the host.
-If connected, the right-hand symbol is a solid box; if not, it is a
-question mark.
+The first symbol is always a \fB4\fP.
+If \fBc3270\fP is in TN3270E mode, the second symbol is a \fBB\fP;
+otherwise it is an \fBA\fP.
+If 
+\fBc3270\fP is in SSCP-LU mode, the third symbol is an \fBS\fP.
+Otherwise it is blank.
 .TP
 \fBkeyboard lock\fP
 If the keyboard is locked, an "X" symbol and a message field indicate the
@@ -888,15 +952,20 @@ letter "I" indicates that the keyboard is in insert mode.
 \fBprinter session\fP
 The letter "P" indicates that a \fIpr3287\fP session is active.
 .TP
+\fBsecure connection\fP
+A green letter "S" indicates that the connection is secured via SSL/TLS.
+.TP
 \fBLU name\fP
 The LU name associated with the session, if there is one.
 .TP
 \fBcursor position\fP
 The cursor row and column are optionally displayed, separated by a "/".
+
 .SH "ACTIONS"
 Here is a complete list of basic c3270 actions.
 Script-specific actions are described on the
-\fIx3270-script\fP(1) manual page..PP
+\fIx3270-script\fP(1) manual page.
+.PP
 Actions marked with an asterisk (*) may block, sending data to the host and
 possibly waiting for a response.
 .PP
@@ -1318,7 +1387,7 @@ Printer(Start[,\fIlu\fP]|Stop)
 T}	T{
 .na
 .nh
-Start or stop printer session
+start or stop printer session
 T}
 T{
 .na
@@ -1530,61 +1599,111 @@ before \fBon\fP or \fBoff\fP to enable or disable a particular trace.
 After \fBon\fP, a filename may be specified to override the default
 trace file name of \fB/tmp/x3trc.\fP\fIpid\fP.
 .SH "KEYMAPS"
-The \fB\-keymap\fP option allows a \fBkeymap\fP to be specified.
-If the option \fB\-keymap\fP \fIxxx\fP is given, then \fBc3270\fP
-will first look for a resource named \fBc3270.keymap.\fP\fIxxx\fP;
-if that is not found, then it will look for a file named \fIxxx\fP.
+The \fB\-keymap\fP option
+or the \fBc3270.keymap\fP resource
+allow a custom keymap to be specified.
+If the option \fB\-keymap\fP \fIxxx\fP is given (or the
+\fBc3270.keymap\fP resource has the value \fIxxx\fP),
+\fBc3270\fP
+will look for a resource named \fBc3270.keymap.\fP\fIxxx\fP.
+If no resource definition is found, it will look for a file named
+\fIxxx\fP.
 .LP
 Multiple keymaps may be specified be separating their names with commas.
 Definitions in later keymaps supercede those in earlier keymaps.
 .LP
 In addition, separate keymaps may be defined that apply only in 3270 mode or
-only in \s-1NVT\s+1 mode.
+\s-1NVT\s+1 mode.
 For example, the resource definition
-\fBc3270.keymap.\fP\fIxxx\fP\fB.nvt\fP will augment the definition
-of \fBc3270.keymap.\fP\fIxxx\fP, when \fBc3270\fP is in \s-1NVT\s+1
-mode.
+\fBc3270.keymap.\fP\fIxxx\fP\fB.nvt\fP
+or the file
+\fIxxx\fP\fB.nvt\fP
+will augment the definition
+of keymap \fIxxx\fP in \s-1NVT\s+1 mode.
 Similarly, the resource definition
-\fBc3270.keymap.\fP\fIxxx\fP\fB.3270\fP will augment the definition
-of \fBc3270.keymap.\fP\fIxxx\fP, when \fBc3270\fP is in 3270
-mode.
+\fBc3270.keymap.\fP\fIxxx\fP\fB.3270\fP
+or the file
+\fIxxx\fP\fB.3270\fP
+will augment the definition
+of keymap \fIxxx\fP in 3270 mode.
 .LP
-Keymaps specify actions to perform when a particular sequence of keys is
-pressed.
-Each line in a keymap has the following syntax:
+Each line (rule) in a keymap specifies actions to perform when a
+particular key or sequence of keys is pressed.
+Keymap rules have the following syntax:
 .LP
 .RS
-[\fBMeta\fP][\fBCtrl\fP]\fB<Key>\fP\fIkey\fP...: \fIAction\fP[(\fIparam\fP[,...])] ...
+[\fBMeta\fP][\fBCtrl\fP]\fB<Key>\fP\fIkey\fP...: \fIaction\fP[(\fIparam\fP[,...])] ...
 .RE
 .LP
-For example:
+Here is a sample keymap definition from a file:
 .LP
 .RS
-Meta<Key>c: Clear()
+! Lines beginning with ! are ignored and can
+.br
+! occur anywhere.
+.br
+! Definition of keymap xxx
+.br
+! \ When Alt-c is pressed, clear the screen.
+.br
+Alt<Key>c: Clear()
+.br
+! \ When PageUp is pressed, send PF7 to the host.
 .br
 <Key>PPAGE: PF(7)
 .br
-Ctrl<Key>A <Key>F1: PF(13)
-.RE
+! \ When Ctrl-a is pressed, then F1, send PF13
 .br
+! \ to the host.
+.br
+Ctrl<Key>a <Key>F1: PF(13)
+.RE
 .LP
-The optional \fBMeta\fP or \fBCtrl\fP qualifiers specify that
-the \fBMeta\fP and \fBCtrl\fP keys are pressed along with the
+Here is the same definition as a resource:
+.LP
+.RS
+! Lines beginning with ! are ignored, but NOT
+.br
+! within a definition.
+.br
+! Note that the \\ is required at the end of the
+.br
+! first line, and \\n\\ is
+.br
+! required at the end of every other line except
+.br
+! the last.
+.br
+! Definition of keymap xxx
+.br
+c3270.keymap.xxx: \\
+.br
+\ Alt<Key>c: Clear() \\n\\
+.br
+\ <Key>PPAGE: PF(7) \\n\\
+.br
+\ Ctrl<Key>A <Key>F1: PF(13)
+.RE
+.LP
+The optional
+\fBAlt\fP or \fBCtrl\fP modifiers specify that
+the
+\fBAlt\fP and \fBCtrl\fP keys are pressed along with the
 specified \fIkey\fP, respectively.
-The \fIkey\fP is either a valid X11 keysym (these are
-the \s-1ISO\s+1 8859-1 symbol names, such as \fBequal\fP for `='
-and \fBa\fP for `a') or a valid symbolic \fBncurses\fP key name,
+\fIKey\fP is either an \s-1ISO\s+1 8859-1 symbol name, such as \fBequal\fP
+for `=' and \fBa\fP for `a', or a symbolic
+\fBncurses\fP key name,
 such as \fBUP\fP.
-The \fIAction\fP is an action from the \s-1ACTIONS\s+1 list, above.
-More than one action may be specified.
-(Note that symbolic \fBncurses\fP key names can be used only if the
-\fBc3270.cursesKeymap\fP resource is set to \fBTrue\fP, which enables
-ncurses keymap mode.)
+More than one \fIkey\fP can be specified, indicating that a sequence of
+keys must be pressed in order for the rule to be matched.
+The \fIaction\fP is an action from the \s-1ACTIONS\s+1 list
+above.
+More than one \fIaction\fP may be specified; they will be executed in order.
 .LP
 Keymap entries are case-sensitive and modifier-specific.
 This means that a keymap for the \fBb\fP key will match only a
 lowercase \fBb\fP.
-Actions for uppercase \fBB\fP, or for \fBMeta-b\fP or \fBControl-B\fP,
+Actions for uppercase \fBB\fP, or for \fBAlt-b\fP or \fBControl-B\fP,
 must be specified separately.
 .LP
 The base keymap is:
@@ -1800,11 +1919,29 @@ T}
 T{
 .na
 .nh
-Ctrl<Key>r
+Ctrl<Key>d
 T}	T{
 .na
 .nh
-Reset
+Dup
+T}
+T{
+.na
+.nh
+Ctrl<Key>f
+T}	T{
+.na
+.nh
+FieldMark
+T}
+T{
+.na
+.nh
+Ctrl<Key>i
+T}	T{
+.na
+.nh
+Tab
 T}
 T{
 .na
@@ -1818,29 +1955,20 @@ T}
 T{
 .na
 .nh
-<Key>Tab
+Ctrl<Key>r
 T}	T{
 .na
 .nh
-Tab
+Reset
 T}
 T{
 .na
 .nh
-<Key>DC
+Ctrl<Key>u
 T}	T{
 .na
 .nh
-Delete
-T}
-T{
-.na
-.nh
-<Key>BACKSPACE
-T}	T{
-.na
-.nh
-BackSpace
+DeleteField
 T}
 T{
 .na
@@ -1863,11 +1991,56 @@ T}
 T{
 .na
 .nh
+<Key>Tab
+T}	T{
+.na
+.nh
+Tab
+T}
+T{
+.na
+.nh
 <Key>Linefeed
 T}	T{
 .na
 .nh
 Newline
+T}
+T{
+.na
+.nh
+<Key>BACKSPACE
+T}	T{
+.na
+.nh
+BackSpace
+T}
+T{
+.na
+.nh
+<Key>DC
+T}	T{
+.na
+.nh
+Delete
+T}
+T{
+.na
+.nh
+<Key>HOME
+T}	T{
+.na
+.nh
+Home
+T}
+T{
+.na
+.nh
+<Key>IC
+T}	T{
+.na
+.nh
+ToggleInsert
 T}
 .TE
 .SH "THE META OR ALT KEY"
@@ -1907,6 +2080,11 @@ The \fBTransfer\fP action implements \fBIND$FILE\fP file transfer.
 This action requires that the \fBIND$FILE\fP
 program be installed on the \s-1IBM\s+1 host, and that the 3270 cursor
 be located in a field that will accept a \s-1TSO\s+1 or \s-1VM/CMS\s+1 command.
+.LP
+The \fBTransfer\fP action
+can be entered at the command prompt with no parameters, which will cause it
+to prompt interactively for the file names and options.
+It can also be invoked with parameters to define the entire transfer.
 .LP
 Because of the complexity and number of options for file transfer, the
 parameters to the \fBTransfer\fP action take the unique form
@@ -2246,6 +2424,7 @@ Buffer size for DFT-mode transfers.
 Can range from 256 to 32768.
 Larger values give better performance, but some hosts may not be able to
 support them.
+
 .SH "SCRIPTS"
 There are several types of
 script functions available.
@@ -2413,7 +2592,7 @@ The resource \fBc3270.printer.luCommandLine\fP specifies the command used
 to start a specific-LU printer session.  It defaults to:
 .LP
 .RS
-pr3287 -command "%C%" %L%@%H%
+pr3287 -command "%C%" %R% %L%@%H%
 .RE
 .LP
 When the printer session command is run, the following substitutions are made:
@@ -2456,9 +2635,24 @@ T}	T{
 .nh
 Current or specified LU
 T}
+T{
+.na
+.nh
+%R%
+T}	T{
+.na
+.nh
+Character set
+T}
 .TE
 .LP
 See \fIpr3287\fP(1) for further details.
+.LP
+The resource \fBc3270.printerLu\fP controls automatic printer session
+start-up.  If it is set to `\fB.\fP', then whenever a login session is started,
+a printer session will automatically be started, associated with the login
+session.  If it is set an LU name, then the automatic printer session will be
+associated with the specified LU.
 
 .SH "PASSTHRU"
 \fBc3270\fP supports the Sun \fItelnet-passthru\fP
@@ -2470,7 +2664,103 @@ It contacts the machine named \fBinternet-gateway\fP at the port defined in
 \fB/etc/services\fP as \fBtelnet-passthru\fP
 (which defaults to 3514).
 It then passes the requested hostname and port to the
-\fBin.telnet-gw\fP server..SH "SCREEN SIZE SWITCHING"
+\fBin.telnet-gw\fP server.
+.SH "PROXY"
+The \fB\-proxy\fP option or the \fBc3270.proxy\fP resource
+causes c3270 to use a proxy server to connect to the host.
+The syntax of the option or resource is:
+.RS
+\fItype\fP:\fIhost\fP[:\fIport\fP]
+
+.RE
+The supported values for \fItype\fP are:
+.TS
+center;
+c l c .
+T{
+.na
+.nh
+Proxy Type
+T}	T{
+.na
+.nh
+Protocol
+T}	T{
+.na
+.nh
+Default Port
+T}
+_
+T{
+.na
+.nh
+http
+T}	T{
+.na
+.nh
+RFC 2817 HTTP tunnel (squid)
+T}	T{
+.na
+.nh
+3128
+T}
+T{
+.na
+.nh
+passthru
+T}	T{
+.na
+.nh
+Sun in.telnet-gw
+T}	T{
+.na
+.nh
+none
+T}
+T{
+.na
+.nh
+socks4
+T}	T{
+.na
+.nh
+SOCKS version 4
+T}	T{
+.na
+.nh
+1080
+T}
+T{
+.na
+.nh
+socks5
+T}	T{
+.na
+.nh
+SOCKS version 5 (RFC 1928)
+T}	T{
+.na
+.nh
+1080
+T}
+T{
+.na
+.nh
+telnet
+T}	T{
+.na
+.nh
+No protocol (just send \fBconnect\fP \fIhost port\fP)
+T}	T{
+.na
+.nh
+none
+T}
+.TE
+.LP
+The special types \fBsocks4a\fP and \fBsocks5d\fP can also be used to force
+the proxy server to do the hostname resolution for the SOCKS protocol.
+.SH "SCREEN SIZE SWITCHING"
 When running as a 3270 Model 5, \fBc3270\fP can take advantage of terminals
 that can switch between 80 and 132 column modes.
 .LP
@@ -2931,7 +3221,7 @@ T}	T{
 T}	T{
 .na
 .nh
-\-mono
+\-model
 T}	T{
 .na
 .nh
@@ -2953,6 +3243,23 @@ T}	T{
 .na
 .nh
 Interpret ESC-x as Meta-x
+T}
+T{
+.na
+.nh
+mono
+T}	T{
+.na
+.nh
+(note 5)
+T}	T{
+.na
+.nh
+\-mono
+T}	T{
+.na
+.nh
+Ignore terminal color capabilities
 T}
 T{
 .na
@@ -3059,6 +3366,23 @@ T}
 T{
 .na
 .nh
+printerLu
+T}	T{
+.na
+.nh
+(note 4)
+T}	T{
+.na
+.nh
+\ 
+T}	T{
+.na
+.nh
+Printer session config
+T}
+T{
+.na
+.nh
 quit
 T}	T{
 .na
@@ -3140,7 +3464,8 @@ T}	T{
 .na
 .nh
 Directory for trace files
-T}T{
+T}
+T{
 .na
 .nh
 traceFile
@@ -3197,7 +3522,8 @@ T}
 \fINote 1\fP: \fBm3279\fP defaults to
 \fBTrue\fP if the terminal supports color,
 \fBFalse\fP otherwise.
-It can be forced to \fBFalse\fP with the \fB\-mono\fP option.
+It can be forced to \fBFalse\fP with the proper \fB\-model\fP
+option.
 .LP
 \fINote 2\fP:
 The default terminal type string is constructed from the model number, color
@@ -3205,10 +3531,19 @@ emulation, and extended data stream modes.
 E.g., a model 2 with color emulation and the extended data stream option
 would be sent as \fBIBM-3279-2-E\fP.
 Note also that when \s-1TN3270E\s+1
-mode is used, the terminal type is always sent as some type of 3278.
+mode is used, the terminal type is always sent as 3278, but this does not
+affect color capabilities.
 .LP
 \fINote 3\fP: The default trace file is
+\fBx3trc.\fP\fIpid\fP in the directory specified by
+the \fBtraceDir\fP resource.
+.LP
+\fINote 4\fP: See \s-1PRINTER SUPPORT\s+1 for details.
 
+.LP
+\fINote 5\fP: \fBmono\fP defaults to \fBfalse\fP if the
+terminal supports at least 8 colors and to \fBtrue\fP otherwise.
+.RE
 .LP
 In \fB.c3270pro\fP, lines are continued with a
 backslash character.
@@ -3224,7 +3559,7 @@ $HOME/.c3270pro
 .SH "SEE ALSO"
 
 x3270(1), s3270(1), tcl3270(1), ibm_hosts(5), x3270-script(1), pr3287(1), telnet(1), tn3270(1)
-XX_BRdnl
+.br
 Data Stream Programmer's Reference, IBM GA23-0059
 .br
 Character Set Reference, IBM GA27-3831
@@ -3236,7 +3571,11 @@ RFC 1646, TN3270 Extensions for LUname and Printer Selection
 RFC 2355, TN3270 Enhancements
 .SH "COPYRIGHTS"
 .LP
-Modifications Copyright 1993, 1994, 1995, 1996, 1997, 1999, 2000, 2001, 2002, 2004, 2005, 2006, 2007 by Paul Mattes.
+Modifications and original code Copyright 1993, 1994, 1995, 1996, 1997, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007 by Paul Mattes.
+.br
+DFT File Transfer Code Copyright  October 1995 by Dick Altenbern.
+.br
+RPQNAMES Code Copyright  2004, 2005 by Don Russell.
 .br
 Original X11 Port Copyright 1990 by Jeff Sparkes.
 .RS
@@ -3257,4 +3596,4 @@ c3270 is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
 .SH "VERSION"
-c3270 3.3.5
+c3270 3.3.6

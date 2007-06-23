@@ -1,5 +1,5 @@
 /*
- * Copyright 2000, 2002, 2004 by Paul Mattes.
+ * Copyright 2000, 2001, 2002, 2003, 2004, 2005, 2007 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -23,6 +23,9 @@
 #if defined(X3270_DISPLAY) /*[*/
 #include <X11/StringDefs.h>
 #include <X11/Xaw/Dialog.h>
+#endif /*]*/
+#if defined(_WIN32) /*[*/
+#include "windows.h"
 #endif /*]*/
 #include <errno.h>
 #include <signal.h>
@@ -54,6 +57,9 @@
 
 /* Statics */
 static int      printer_pid = -1;
+#if defined(_WIN32) /*[*/
+static HANDLE	printer_handle = NULL;
+#endif /*]*/
 #if defined(X3270_DISPLAY) /*[*/
 static Widget	lu_shell = (Widget)NULL;
 #endif /*]*/
@@ -65,14 +71,16 @@ static struct pr3o {
 	char buf[PRINTER_BUF];	/* input buffer */
 } printer_stdout = { -1, 0L, 0L, 0 },
   printer_stderr = { -1, 0L, 0L, 0 };
-static char charset_file[9 + 16];	/* /tmp/cs$PID */
+static char charset_file[256];	/* /tmp/cs$PID */
 static Boolean need_cs = False;
 
+#if !defined(_WIN32) /*[*/
 static void	printer_output(void);
 static void	printer_error(void);
 static void	printer_otimeout(void);
 static void	printer_etimeout(void);
 static void	printer_dump(struct pr3o *p, Boolean is_err, Boolean is_dead);
+#endif /*]*/
 static void	printer_host_connect(Boolean connected unused);
 static void	printer_exiting(Boolean b unused);
 
@@ -100,14 +108,26 @@ printer_start(const char *lu)
 {
 	const char *cmdlineName;
 	const char *cmdline;
+#if !defined(_WIN32) /*[*/
 	const char *cmd;
+#else /*][*/
+	const char *printerName;
+#endif /*]*/
 	int cmd_len = 0;
 	const char *s;
 	char *cmd_text;
 	char c;
+	char charset_cmd[256];	/* -charset @/tmp/cs$PID */
+#if defined(_WIN32) /*[*/
+	char *tmp;
+	STARTUPINFO startupinfo;
+	PROCESS_INFORMATION process_information;
+	char subcommand[124];
+	char *space;
+#else /*][*/
 	int stdout_pipe[2];
 	int stderr_pipe[2];
-	char charset_cmd[18 + 16];	/* -charset @/tmp/cs$PID */
+#endif /*]*/
 
 #if defined(X3270_DISPLAY) /*[*/
 	/* Make sure the popups are initted. */
@@ -154,14 +174,26 @@ printer_start(const char *lu)
 		popup_an_error("%s resource not defined", cmdlineName);
 		return;
 	}
+#if !defined(_WIN32) /*[*/
 	cmd = get_resource(ResPrinterCommand);
 	if (cmd == CN) {
 		popup_an_error("printer.command resource not defined");
 		return;
 	}
+#else /*][*/
+	printerName = get_resource(ResPrinterName);
+#endif /*]*/
 
 	/* Construct the charset option. */
+#if defined(_WIN32) /*[*/
+	if ((tmp = getenv("TMP"))) {
+		(void) sprintf(charset_file, "%s\\cs%u", tmp, getpid());
+	} else {
+		(void) sprintf(charset_file, "cs%u", getpid());
+	}
+#else /*][*/
 	(void) sprintf(charset_file, "/tmp/cs%u", getpid());
+#endif /*]*/
 	(void) sprintf(charset_cmd, "-charset @%s", charset_file);
 	need_cs = False;
 
@@ -179,11 +211,13 @@ printer_start(const char *lu)
 		cmd_len += strlen(qualified_host) - 3;
 		s += 3;
 	}
+#if !defined(_WIN32) /*[*/
 	s = cmdline;
 	while ((s = strstr(s, "%C%")) != CN) {
 		cmd_len += strlen(cmd) - 3;
 		s += 3;
 	}
+#endif /*]*/
 	s = cmdline;
 	while ((s = strstr(s, "%R%")) != CN) {
 		need_cs = True;
@@ -206,10 +240,12 @@ printer_start(const char *lu)
 				(void) strcat(cmd_text, qualified_host);
 				s += 2;
 				continue;
+#if !defined(_WIN32) /*[*/
 			} else if (!strncmp(s+1, "C%", 2)) {
 				(void) strcat(cmd_text, cmd);
 				s += 2;
 				continue;
+#endif /*]*/
 			} else if (!strncmp(s+1, "R%", 2)) {
 				(void) strcat(cmd_text, charset_cmd);
 				s += 2;
@@ -258,6 +294,7 @@ printer_start(const char *lu)
 		(void) fclose(f);
 	}
 
+#if !defined(_WIN32) /*[*/
 	/* Make pipes for printer's stdout and stderr. */
 	if (pipe(stdout_pipe) < 0) {
 		popup_an_errno(errno, "pipe() failed");
@@ -307,6 +344,43 @@ printer_start(const char *lu)
 		(void) close(stderr_pipe[1]);
 		break;
 	}
+#else /*][*/
+	/* Pass the command via the environment. */
+	if (printerName != NULL) {
+		static char pn_buf[1024];
+
+		sprintf(pn_buf, "PRINTER=%s", printerName);
+		putenv(pn_buf);
+	}
+
+	/* Create the wpr3287 process. */
+	(void) memset(&startupinfo, '\0', sizeof(STARTUPINFO));
+	startupinfo.cb = sizeof(STARTUPINFO);
+	(void) memset(&process_information, '\0', sizeof(PROCESS_INFORMATION));
+	strcpy(subcommand, cmd_text);
+	space = strchr(subcommand, ' ');
+	if (space) {
+		*space = '\0';
+	}
+	if (CreateProcess(
+	    subcommand,
+	    cmd_text,
+	    NULL,
+	    NULL,
+	    FALSE,
+	    0, /* creation flags */
+	    NULL,
+	    NULL,
+	    &startupinfo,
+	    &process_information) == 0) {
+		popup_an_error("CreateProcess(%s) failed: Windows "
+		    "error %d", subcommand, GetLastError());
+	}
+	printer_handle = process_information.hProcess;
+	CloseHandle(process_information.hThread);
+	printer_pid = process_information.dwProcessId;
+	
+#endif /*]*/
 
 	Free(cmd_text);
 
@@ -314,6 +388,7 @@ printer_start(const char *lu)
 	st_changed(ST_PRINTER, True);
 }
 
+#if !defined(_WIN32) /*[*/
 /* There's data from the printer session. */
 static void
 printer_data(struct pr3o *p, Boolean is_err)
@@ -436,6 +511,33 @@ printer_dump(struct pr3o *p, Boolean is_err, Boolean is_dead)
 		p->count = 0;
 	}
 }
+#endif /*]*/
+
+#if defined(_WIN32) /*[*/
+/* Check for an exited printer session. */
+void
+printer_check(void)
+{
+	DWORD exit_code;
+
+	if (printer_pid != -1 &&
+	    GetExitCodeProcess(printer_handle, &exit_code) != 0 &&
+	    exit_code != STILL_ACTIVE) {
+
+		printer_pid = -1;
+		CloseHandle(printer_handle);
+		printer_handle = NULL;
+
+		if (need_cs)
+		    (void) unlink(charset_file);
+
+		st_changed(ST_PRINTER, False);
+
+		popup_an_error("Printer process exited with status %d",
+		    exit_code);
+	}
+}
+#endif /*]*/
 
 /* Close the printer session. */
 void
@@ -467,8 +569,15 @@ printer_stop(void)
 
 	/* Kill the process. */
 	if (printer_pid != -1) {
+#if !defined(_WIN32) /*[*/
 		(void) kill(-printer_pid, SIGTERM);
+#else /*][*/
+		TerminateProcess(printer_handle, 0);
+#endif /*]*/
 		printer_pid = -1;
+#if defined(_WIN32) /*[*/
+		printer_handle = NULL;
+#endif /*]*/
 	}
 
 	/* Delete the character set file. */

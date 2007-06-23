@@ -1,5 +1,6 @@
 /*
- * Copyright 1995, 1999, 2000, 2002 by Paul Mattes.
+ * Copyright 1995, 1999, 2000, 2001, 2002, 2003, 2004, 2005,
+ *   2007 by Paul Mattes.
  * RPQNAMES modifications Copyright 2004 by Don Russell.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -55,3 +56,7 @@ extern Boolean net_snap_options(void);
 extern void space3270out(int n);
 extern const char *tn3270e_current_opts(void);
 extern void trace_netdata(char direction, unsigned const char *buf, int len);
+extern void popup_a_sockerr(char *fmt, ...) printflike(1, 2);
+extern char *net_proxy_type(void);
+extern char *net_proxy_host(void);
+extern char *net_proxy_port(void);
