@@ -1,3 +1,14 @@
+# Copyright 2007 by Paul Mattes.
+#  Permission to use, copy, modify, and distribute this software and its
+#  documentation for any purpose and without fee is hereby granted,
+#  provided that the above copyright notice appear in all copies and that
+#  both that copyright notice and this permission notice appear in
+#  supporting documentation.
+#
+# wpr3287 is distributed in the hope that it will be useful, but WITHOUT ANY
+# WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
+
 # Makefile for wpr3287
 
 # Figure out if they've installed MinGW OpenSSL.
@@ -8,12 +19,23 @@ SSLCPP = -DHAVE_LIBSSL=1 -I$(SSLDIR)/include
 SSLLIB = -L$(SSLDIR)/lib -lssl -lcrypto -lwsock32 -ladvapi32 -lgdi32 -luser32
 endif
 
+# Set command paths based on whether compiling natively on Cygwin, or
+# cross-compiling on Linux.
+ifeq ($(CROSS),1)
+CC = mingw32-gcc
+WINDRES = mingw32-windres
+else
 CC = gcc
-XCPPFLAGS = -D_WIN32 -DWPR3287
+WINDRES = windres
+endif
+
+XCPPFLAGS = -D_WIN32 -DPR3287 -DWPR3287
 CFLAGS = -mno-cygwin -g -Wall -Werror $(XCPPFLAGS) -I. $(SSLCPP)
-SRCS = charset.c ctlr.c pr3287.c see.c sf.c tables.c telnet.c trace_ds.c
-OBJECTS = charset.o ctlr.o pr3287.o see.o sf.o tables.o telnet.o trace_ds.o \
-	wpr3287res.o ws.o version.o
+SRCS = charset.c ctlr.c pr3287.c proxy.c resolver.c see.c sf.c tables.c \
+	telnet.c trace_ds.c utf8.c w3misc.c
+VOBJS = charset.o ctlr.o pr3287.o proxy.o resolver.o see.o sf.o tables.o \
+	telnet.o trace_ds.o utf8.o wpr3287res.o ws.o w3misc.o
+OBJECTS = $(VOBJS) version.o
 LIBS = $(SSLLIB) -lws2_32 -lwinspool
 
 all: wpr3287.exe
@@ -23,10 +45,10 @@ version.o: $(VOBJS) version.txt mkversion.sh
 	sh ./mkversion.sh $(CC) wpr3287
 
 wpr3287res.o: wpr3287.rc pr3287.ico
-	windres -i wpr3287.rc -o wpr3287res.o
+	$(WINDRES) -i wpr3287.rc -o wpr3287res.o
 
 wpr3287.exe: $(OBJECTS)
-	$(CC) -o wpr3287 $(CFLAGS) $(OBJECTS) $(LIBS)
+	$(CC) -o wpr3287.exe $(CFLAGS) $(OBJECTS) $(LIBS)
 
 clean:
 	rm -f *.o
