@@ -1,6 +1,6 @@
 /*
  * Modifications Copyright 1993, 1994, 1995, 1996, 1999, 2000, 2001, 2002,
- *   2003, 2004, 2005, 2006 by Paul Mattes.
+ *   2003, 2004, 2005, 2006, 2007 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -63,6 +63,7 @@
 #include "telnetc.h"
 #include "togglesc.h"
 #include "trace_dsc.h"
+#include "utf8c.h"
 #include "utilc.h"
 #if defined(X3270_DBCS) /*[*/
 #include "widec.h"
@@ -94,7 +95,7 @@ static void kybdlock_set(unsigned int bits, const char *cause);
 static KeySym MyStringToKeysym(char *s, enum keytype *keytypep);
 
 #if defined(X3270_DBCS) /*[*/
-static Boolean key_WCharacter(unsigned char code[], Boolean *skipped);
+Boolean key_WCharacter(unsigned char code[], Boolean *skipped);
 #endif /*]*/
 
 static int nxk = 0;
@@ -899,7 +900,7 @@ key_WCharacter_wrapper(Widget w unused, XEvent *event unused, String *params,
  * Input a DBCS character.
  * Returns True if a character was stored in the buffer, False otherwise.
  */
-static Boolean
+Boolean
 key_WCharacter(unsigned char code[], Boolean *skipped)
 {
 	int baddr;
@@ -1190,7 +1191,7 @@ retry:
 /*
  * Handle an ordinary character key, given an ASCII code.
  */
-static void
+void
 key_ACharacter(unsigned char c, enum keytype keytype, enum iaction cause,
 	       Boolean *skipped)
 {
@@ -2906,7 +2907,7 @@ String_action(Widget w unused, XEvent *event, String *params, Cardinal *num_para
 {
 	Cardinal i;
 	int len = 0;
-	char *s;
+	char *s0, *s;
 
 	action_debug(String_action, event, params, num_params);
 	reset_idle_timer();
@@ -2918,13 +2919,42 @@ String_action(Widget w unused, XEvent *event, String *params, Cardinal *num_para
 		return;
 
 	/* Allocate a block of memory and copy them in. */
-	s = Malloc(len + 1);
+	s0 = s = Malloc(len + 1);
 	*s = '\0';
-	for (i = 0; i < *num_params; i++)
-		(void) strcat(s, params[i]);
+	for (i = 0; i < *num_params; i++) {
+	    	char *t = params[i];
+		unsigned char c;
+
+		while ((c = (unsigned char)*t) != '\0') {
+		    	if (c & 0x80) {
+			    	unsigned char xc;
+			    	enum ulfail fail;
+				int consumed;
+
+				xc = utf8_lookup(t, &fail, &consumed);
+				if (xc == 0) {
+					switch (fail) {
+					case ULFAIL_NOUTF8:
+					    	*s++ = (char)c;
+						break;
+					case ULFAIL_INCOMPLETE:
+					case ULFAIL_INVALID:
+						*s++ = ' ';
+						break;
+					}
+				} else {
+				    	*s++ = (char)xc;
+					t += (consumed - 1);
+				}
+			} else
+				*s++ = (char)c;
+			t++;
+		}
+	}
+	*s = '\0';
 
 	/* Set a pending string. */
-	ps_set(s, False);
+	ps_set(s0, False);
 }
 
 /*
@@ -3650,6 +3680,7 @@ MyStringToKeysym(char *s, enum keytype *keytypep)
 	KeySym k;
 	int cc;
 	char *ptr;
+	unsigned char xc;
 
 #if defined(X3270_APL) /*[*/
 	if (!strncmp(s, "apl_", 4)) {
@@ -3666,6 +3697,8 @@ MyStringToKeysym(char *s, enum keytype *keytypep)
 		k = StringToKeysym(s);
 		*keytypep = KT_STD;
 	}
+	if (k == NoSymbol && ((xc = utf8_lookup(s, NULL, NULL)) != 0))
+		k = xc;
 	if (k == NoSymbol && !strcasecmp(s, "euro"))
 		k = 0xa4;
 	if (k == NoSymbol && strlen(s) == 1)

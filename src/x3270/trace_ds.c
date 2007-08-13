@@ -51,6 +51,7 @@
 #include "telnetc.h"
 #include "trace_dsc.h"
 #include "utilc.h"
+#include "w3miscc.h"
 
 /* Maximum size of a tracefile header. */
 #define MAX_HEADER_SIZE		(10*1024)
@@ -417,7 +418,7 @@ create_tracefile_header(const char *mode)
 #endif /*]*/
 	if (appres.extended)
 		wtrace(", extended data stream");
-	wtrace(", %s emulation", appres.m3279 ? "color " : "monochrome");
+	wtrace(", %s emulation", appres.m3279 ? "color" : "monochrome");
 	wtrace(", %s charset", get_charset_name());
 	if (appres.apl_mode)
 		wtrace(", APL mode");
@@ -716,8 +717,8 @@ tracefile_callback(Widget w, XtPointer client_data, XtPointer call_data unused)
 		    NULL,
 		    &startupinfo,
 		    &process_information) == 0) {
-		    	popup_an_error("CreateProcess(catf) failed: Windows "
-				"error %d", GetLastError());
+		    	popup_an_error("CreateProcess(catf) failed: %s",
+				win32_strerror(GetLastError()));
 			Free(args);
 		} else {
 		    	Free(args);

@@ -37,6 +37,7 @@
 #include "popupsc.h"
 #include "screenc.h"
 #include "telnetc.h"
+#include "utf8c.h"
 #include "utilc.h"
 
 static Widget about_shell = NULL;
@@ -379,6 +380,8 @@ popup_about_config(void)
 		}
 	}
 #endif /*]*/
+	MAKE_LABEL(get_message("localeCodeset"), 4);
+	MAKE_VALUE(locale_codeset);
 
 	if (trans_list != (struct trans_list *)NULL ||
 	    temp_keymaps != (struct trans_list *)NULL) {

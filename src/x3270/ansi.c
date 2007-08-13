@@ -40,6 +40,7 @@
 #include "tablesc.h"
 #include "telnetc.h"
 #include "trace_dsc.h"
+#include "utf8c.h"
 #if defined(X3270_DBCS) /*[*/
 #include "widec.h"
 #endif /*]*/
@@ -98,10 +99,12 @@
 #define G3	52	/* select G3 character set */
 #define S2	53	/* select G2 for next character */
 #define S3	54	/* select G3 for next character */
+#define MB	55	/* process multi-byte character */
 
 static enum state {
     DATA = 0, ESC = 1, CSDES = 2,
-    N1 = 3, DECP = 4, TEXT = 5, TEXT2 = 6
+    N1 = 3, DECP = 4, TEXT = 5, TEXT2 = 6,
+    MBPEND = 7
 } state = DATA;
 
 static enum state ansi_data_mode(int, int);
@@ -159,6 +162,7 @@ static enum state ansi_select_g2(int, int);
 static enum state ansi_select_g3(int, int);
 static enum state ansi_one_g2(int, int);
 static enum state ansi_one_g3(int, int);
+static enum state ansi_multibyte(int, int);
 
 typedef enum state (*afn_t)(int, int);
 static afn_t ansi_fn[] = {
@@ -216,10 +220,11 @@ static afn_t ansi_fn[] = {
 /* 51 */	&ansi_select_g2,
 /* 52 */	&ansi_select_g3,
 /* 53 */	&ansi_one_g2,
-/* 54 */	&ansi_one_g3
+/* 54 */	&ansi_one_g3,
+/* 55 */	&ansi_multibyte,
 };
 
-static unsigned char st[7][256] = {
+static unsigned char st[8][256] = {
 /*
  * State table for base processing (state == DATA)
  */
@@ -380,6 +385,28 @@ static unsigned char st[7][256] = {
 /* e0 */       TX,TX,TX,TX,TX,TX,TX,TX,TX,TX,TX,TX,TX,TX,TX,TX,
 /* f0 */       TX,TX,TX,TX,TX,TX,TX,TX,TX,TX,TX,TX,TX,TX,TX,TX
 },
+/*
+ * State table for multi-byte characters (state == MBPEND)
+ */
+{
+	     /* 0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f  */
+/* 00 */       MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,
+/* 10 */       MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,
+/* 20 */       MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,
+/* 30 */       MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,
+/* 40 */       MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,
+/* 50 */       MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,
+/* 60 */       MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,
+/* 70 */       MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,
+/* 80 */       MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,
+/* 90 */       MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,
+/* a0 */       MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,
+/* b0 */       MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,
+/* c0 */       MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,
+/* d0 */       MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,
+/* e0 */       MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,
+/* f0 */       MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB,MB
+},
 };
 
 /* Character sets. */
@@ -436,6 +463,8 @@ static unsigned char mb_pending = 0;
 static char	mb_buffer[MB_MAX];
 static int	dbcs_process(int ch, unsigned char ebc[]);
 #endif /*]*/
+static int	pmi = 0;
+static char	pending_mbs[MB_MAX];
 
 static Boolean  held_wrap = False;
 
@@ -565,6 +594,7 @@ ansi_reset(int ig1 unused, int ig2 unused)
 		screen_80();
 	}
 	first = False;
+	pmi = 0;
 	return DATA;
 }
 
@@ -982,6 +1012,36 @@ ansi_printing(int ig1 unused, int ig2 unused)
 	Boolean preserve_right = False;
 #endif /*]*/
 
+	if ((pmi == 0) && (ansi_ch & 0x80)) {
+	    	char mbs[2];
+		enum ulfail fail;
+		unsigned char ch;
+
+		mbs[0] = (char)ansi_ch;
+		mbs[1] = '\0';
+		ch = utf8_lookup(mbs, &fail, NULL);
+		if (ch == 0) {
+			switch (fail) {
+			case ULFAIL_NOUTF8:
+			    	/* Leave it alone. */
+				break;
+			case ULFAIL_INCOMPLETE:
+				/* Start munching multi-byte. */
+				pmi = 0;
+				pending_mbs[pmi++] = (char)ansi_ch;
+				return MBPEND;
+			case ULFAIL_INVALID:
+				/* Invalid multi-byte -> '?' */
+				ansi_ch = '?';
+				/* XXX: If DBCS, we should let
+				 * ICU have a crack at it
+				 */
+				break;
+			}
+		}
+	}
+	pmi = 0;
+
 	if (held_wrap) {
 		PWRAP;
 		held_wrap = False;
@@ -1114,6 +1174,52 @@ ansi_printing(int ig1 unused, int ig2 unused)
 			cursor_move(cursor_addr + 1);
 	}
 	return DATA;
+}
+
+static enum state
+ansi_multibyte(int ig1, int ig2)
+{
+    	char mbs[MB_MAX];
+	unsigned char ch;
+	enum ulfail fail;
+	afn_t fn;
+
+	if (pmi >= MB_MAX - 2) {
+	    	/* String too long. */
+		pmi = 0;
+	    	ansi_ch = '?';
+		return ansi_printing(ig1, ig2);
+	}
+
+	strncpy(mbs, pending_mbs, pmi);
+	mbs[pmi] = (char)ansi_ch;
+	mbs[pmi + 1] = '\0';
+
+	ch = utf8_lookup(mbs, &fail, NULL);
+	if (ch != 0) {
+	    	/* Success! */
+	    	ansi_ch = ch;
+		return ansi_printing(ig1, ig2);
+	}
+	if (fail == ULFAIL_INCOMPLETE) {
+	    	/* Go get more. */
+	    	pending_mbs[pmi++] = (char)ansi_ch;
+		return MBPEND;
+	}
+
+	/* Failure. */
+
+	/* Replace the sequence with '?'. */
+	ch = ansi_ch; /* save for later */
+	pmi = 0;
+	ansi_ch = '?';
+	(void) ansi_printing(ig1, ig2);
+
+	/* Reprocess whatever we choked on. */
+	ansi_ch = ch;
+	state = DATA;
+	fn = ansi_fn[st[(int)DATA][ansi_ch]];
+	return (*fn)(n[0], n[1]);
 }
 
 static enum state
@@ -1715,7 +1821,7 @@ toggle_lineWrap(struct toggle *t unused, enum toggle_type type unused)
 static int
 dbcs_process(int ch, unsigned char ebc[])
 {
-	UChar Ubuf;
+	UChar Ubuf[2];
 	UErrorCode err = U_ZERO_ERROR;
 
 	/* See if we have too many. */
@@ -1727,21 +1833,26 @@ dbcs_process(int ch, unsigned char ebc[])
 		return 0;
 	}
 
+
 	/* Store it and see if we're done. */
 	mb_buffer[mb_pending++] = ch & 0xff;
-	if (mb_to_unicode(mb_buffer, mb_pending, &Ubuf, 1, &err) > 0) {
+	/* An interesting idea. */
+	if (mb_pending == 1)
+	    	return 0;
+
+	if (mb_to_unicode(mb_buffer, mb_pending, Ubuf, 2, &err) > 0) {
 		/* It translated! */
-		if (dbcs_map8(Ubuf, ebc)) {
+		if (dbcs_map8(Ubuf[0], ebc)) {
 			mb_pending = 0;
 			return 1;
-		} else if (dbcs_map16(Ubuf, ebc)) {
+		} else if (dbcs_map16(Ubuf[0], ebc)) {
 			mb_pending = 0;
 			return 2;
 		} else {
 			trace_ds("Can't map multi-byte character");
 			trace_pending_mb();
 			trace_ds(" -> U+%04x to SBCS or DBCS, dropping\n",
-			    Ubuf & 0xffff);
+			    Ubuf[0] & 0xffff);
 			mb_pending = 0;
 			return 0;
 		}

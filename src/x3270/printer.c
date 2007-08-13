@@ -52,6 +52,7 @@
 #include "telnetc.h"
 #include "trace_dsc.h"
 #include "utilc.h"
+#include "w3miscc.h"
 
 #define PRINTER_BUF	1024
 
@@ -118,6 +119,7 @@ printer_start(const char *lu)
 	char *cmd_text;
 	char c;
 	char charset_cmd[256];	/* -charset @/tmp/cs$PID */
+	char *proxy_cmd = CN;	/* -proxy <spec> */
 #if defined(_WIN32) /*[*/
 	char *tmp;
 	STARTUPINFO startupinfo;
@@ -197,6 +199,15 @@ printer_start(const char *lu)
 	(void) sprintf(charset_cmd, "-charset @%s", charset_file);
 	need_cs = False;
 
+	/* Construct proxy option. */
+	if (appres.proxy != CN) {
+#if !defined(_WIN32) /*[*/
+	    	proxy_cmd = xs_buffer("-proxy \"%s\"", appres.proxy);
+#else /*][ */
+		proxy_cmd = xs_buffer("-proxy %s", appres.proxy);
+#endif /*]*/
+	}
+
 	/* Construct the command line. */
 
 	/* Figure out how long it will be. */
@@ -222,6 +233,12 @@ printer_start(const char *lu)
 	while ((s = strstr(s, "%R%")) != CN) {
 		need_cs = True;
 		cmd_len += strlen(charset_cmd) - 3;
+		s += 3;
+	}
+	s = cmdline;
+	while ((s = strstr(s, "%P%")) != CN) {
+		need_cs = True;
+		cmd_len += (proxy_cmd? strlen(proxy_cmd): 0) - 3;
 		s += 3;
 	}
 
@@ -250,6 +267,11 @@ printer_start(const char *lu)
 				(void) strcat(cmd_text, charset_cmd);
 				s += 2;
 				continue;
+			} else if (!strncmp(s+1, "P%", 2)) {
+			    	if (proxy_cmd != CN)
+					(void) strcat(cmd_text, proxy_cmd);
+				s += 2;
+				continue;
 			}
 		}
 		buf1[0] = c;
@@ -266,6 +288,8 @@ printer_start(const char *lu)
 		if (f == NULL) {
 		    popup_an_errno(errno, charset_file);
 		    Free(cmd_text);
+		    if (proxy_cmd != CN)
+			    Free(proxy_cmd);
 		    return;
 		}
 		(void) fprintf(f, "# EBCDIC-to-ASCII conversion file "
@@ -299,6 +323,8 @@ printer_start(const char *lu)
 	if (pipe(stdout_pipe) < 0) {
 		popup_an_errno(errno, "pipe() failed");
 		Free(cmd_text);
+		if (proxy_cmd != CN)
+			Free(proxy_cmd);
 		return;
 	}
 	(void) fcntl(stdout_pipe[0], F_SETFD, 1);
@@ -307,11 +333,14 @@ printer_start(const char *lu)
 		(void) close(stdout_pipe[0]);
 		(void) close(stdout_pipe[1]);
 		Free(cmd_text);
+		if (proxy_cmd != CN)
+			Free(proxy_cmd);
 		return;
 	}
 	(void) fcntl(stderr_pipe[0], F_SETFD, 1);
 
 	/* Fork and exec the printer session. */
+	trace_dsn("Printer command line: %s\n", cmd_text);
 	switch (printer_pid = fork()) {
 	    case 0:	/* child process */
 		(void) dup2(stdout_pipe[1], 1);
@@ -362,6 +391,7 @@ printer_start(const char *lu)
 	if (space) {
 		*space = '\0';
 	}
+	trace_dsn("Printer command line: %s\n", cmd_text);
 	if (CreateProcess(
 	    subcommand,
 	    cmd_text,
@@ -373,8 +403,8 @@ printer_start(const char *lu)
 	    NULL,
 	    &startupinfo,
 	    &process_information) == 0) {
-		popup_an_error("CreateProcess(%s) failed: Windows "
-		    "error %d", subcommand, GetLastError());
+		popup_an_error("CreateProcess(%s) failed: %s", subcommand,
+			win32_strerror(GetLastError()));
 	}
 	printer_handle = process_information.hProcess;
 	CloseHandle(process_information.hThread);
@@ -383,6 +413,8 @@ printer_start(const char *lu)
 #endif /*]*/
 
 	Free(cmd_text);
+	if (proxy_cmd != CN)
+		Free(proxy_cmd);
 
 	/* Tell everyone else. */
 	st_changed(ST_PRINTER, True);

@@ -40,6 +40,7 @@
 #include "actionsc.h"
 #include "popupsc.h"
 #include "printc.h"
+#include "utf8c.h"
 #include "utilc.h"
 #if defined(X3270_DBCS) /*[*/
 #include "widec.h"
@@ -235,11 +236,15 @@ fprint_screen(FILE *f, Boolean even_if_empty, Boolean use_html)
 					current_high = high;
 				}
 				if (!any) {
-					fprintf(f, "<html>\n "
+					fprintf(f, "<html>\n"
+						   "<head>\n"
+						   " <meta http-equiv=\"Content-Type\" content=\"text/html; charset=%s\">\n"
+						   "</head>\n"
 						   " <body>\n"
 						   "  <table border=0>"
 						   "<tr bgcolor=black><td>"
 						   "<pre><font color=%s>%s",
+						   locale_codeset,
 						   html_color(current_color),
 						   current_high? "<b>": "");
 				}
@@ -256,7 +261,7 @@ fprint_screen(FILE *f, Boolean even_if_empty, Boolean use_html)
 				if (use_html && c == '<')
 					fprintf(f, "&lt;");
 				else
-					(void) fputc(c, f);
+					(void) fputs(utf8_expand(c), f);
 			}
 		}
 	}

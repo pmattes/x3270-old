@@ -1,5 +1,5 @@
 '\" t
-.TH X3270-SCRIPT 1 "23 June 2007"
+.TH X3270-SCRIPT 1 "13 August 2007"
 .SH "NAME"
 Scripting Facilities for x3270, s3270 and c3270
 .SH "SYNOPSIS"
@@ -226,6 +226,11 @@ parameter is given, that many characters are output, starting at the cursor
 position.
 .IP
 If no parameters are given, the entire screen is output.
+.IP
+The EBCDIC-to-ASCII translation and output character set depend on the both the
+emulator character set (the \fB\-charset\fP option) and the locale.
+UTF-8 and certain DBCS locales may result in multi-byte expansions of EBCDIC
+characters that translate to ASCII codes greater than 0x7f.
 .TP
 \fBAsciiField\fP
 Outputs an \s-1ASCII\s+1 text representation of the field containing the cursor.
@@ -336,9 +341,13 @@ Returns the current screen contents as HTML.
 .TP
 \fBReadBuffer\fP(\fBAscii\fP)
 Dumps the contents of the screen buffer, one line at a time.
-Positions inside data fields are output as 2-digit hexadecimal codes in the
-current display character set (typically ISO 8859-1, but it varies with the
-host character set).
+Positions inside data fields are generally output as 2-digit hexadecimal codes
+in the current display character set.
+If the current locale specifies UTF-8 (or certain DBCS character sets), some
+positions may be output as multi-byte strings (4-, 6- or 8-digit codes).
+DBCS characters take two positions in the screen buffer; the first location
+is output as a multi-byte string in the current locale codeset, and the second
+location is output as a dash.
 Start-of-field characters (each of which takes up a display position) are
 output as \fBSF(aa=nn[,...])\fP, where \fIaa\fP is a field
 attribute type and \fInn\fP is its value.
@@ -1139,4 +1148,4 @@ c3270(1)
 .br
 s3270(1)
 .SH "VERSION"
-Version 3.3.6
+Version 3.3.7alpha2

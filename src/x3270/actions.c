@@ -242,6 +242,7 @@ XtActionsRec all_actions[] = {
 	{ "Right",		Right_action },
 	{ "Right2",		Right2_action },
 #if defined(X3270_DISPLAY) /*[*/
+	{ "SelectAll",		SelectAll_action },
 	{ "SelectDown",		SelectDown_action },
 	{ "SelectMotion",	SelectMotion_action },
 	{ "SelectUp",		SelectUp_action },

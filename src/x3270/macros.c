@@ -61,6 +61,7 @@
 #include "tablesc.h"
 #include "telnetc.h"
 #include "trace_dsc.h"
+#include "utf8c.h"
 #include "utilc.h"
 #include "xioc.h"
 #include "widec.h"
@@ -1591,7 +1592,7 @@ dump_range(int first, int len, Boolean in_ascii, struct ea *buf,
 	char *linebuf;
 	char *s;
 
-	linebuf = Malloc(maxCOLS * 3 + 1);
+	linebuf = Malloc(maxCOLS * 4 + 1);
 	s = linebuf;
 
 	/*
@@ -1660,7 +1661,7 @@ dump_range(int first, int len, Boolean in_ascii, struct ea *buf,
 					break;
 				}
 			}
-			s += sprintf(s, "%c", c ? c : ' ');
+			s += sprintf(s, "%s", c ? utf8_expand(c) : " ");
 		} else {
 			s += sprintf(s, "%s%02x",
 				i ? " " : "",
@@ -1899,6 +1900,26 @@ do_read_buffer(String *params, Cardinal num_params, struct ea *buf, int fd)
 				else
 					rpf(&r, " %02x", buf[baddr].cc);
 			} else {
+			    	Boolean done = False;
+#if defined(X3270_DBCS) /*[*/
+				if (IS_LEFT(ctlr_dbcs_state(baddr))) {
+					int len;
+					char mb[16];
+					int j;
+
+					len = dbcs_to_mb(buf[baddr].cc,
+						buf[baddr + 1].cc,
+						mb);
+					rpf(&r, " ");
+					for (j = 0; j < len; j++)
+						rpf(&r, "%02x", mb[j] & 0xff);
+					done = True;
+				} else if (IS_RIGHT(ctlr_dbcs_state(baddr))) {
+					rpf(&r, " -");
+					done = True;
+				}
+#endif /*]*/
+
 				switch (buf[baddr].cs & CS_MASK) {
 				case CS_BASE:
 				default:
@@ -1908,7 +1929,11 @@ do_read_buffer(String *params, Cardinal num_params, struct ea *buf, int fd)
 							c = ' ';
 					} else if (buf[baddr].cc == EBC_null)
 						c = 0;
-					else 
+					else if (buf[baddr].cc == EBC_so)
+					    	c = 0x0e;
+					else if (buf[baddr].cc == EBC_si)
+					    	c = 0x0f;
+					else
 						c = ebc2asc[buf[baddr].cc];
 					break;
 				case CS_APL:
@@ -1919,13 +1944,19 @@ do_read_buffer(String *params, Cardinal num_params, struct ea *buf, int fd)
 				case CS_LINEDRAW:
 					c = ' ';
 					break;
-#if defined(X3270_DBCS) /*[*/
-				case CS_DBCS:
-					c = ' '; /* XXX */
-					break;
-#endif /*]*/
 				}
-				rpf(&r, " %02x", c);
+
+				if (!done) {
+					rpf(&r, " ");
+					if (c == 0)
+						rpf(&r, "00");
+					else {
+						char *expanded = utf8_expand(c);
+
+						while ((c = *expanded++))
+							rpf(&r, "%02x", c);
+					}
+				}
 			}
 		}
 		INC_BA(baddr);

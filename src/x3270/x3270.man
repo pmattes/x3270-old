@@ -1,5 +1,5 @@
 '\" t
-.TH x3270 1 "23 June 2007"
+.TH x3270 1 "13 August 2007"
 .SH "NAME"
 x3270 \-
 \s-1IBM\s+1 host access tool
@@ -44,10 +44,13 @@ Note that TLS-encrypted sessions using the TELNET START-TLS option are
 negotiated with the host automatically; for these sessions the \fBL:\fP prefix
 should not be used.
 .LP
-A specific LU name to use may be specified by prepending it to the
-\fIhostname\fP with an `\fB@\fP'.
+A specific Logical Unit (LU) name to use may be specified by prepending it to
+the \fIhostname\fP with an `\fB@\fP'.
 Multiple LU names to try can be separated by commas.
 An empty LU can be placed in the list with an extra comma.
+(Note that the LU name is used for different purposes by different kinds of
+hosts.
+For example, CICS uses the LU name as the Terminal ID.)
 .LP
 The \fIhostname\fP may optionally be placed inside square-bracket
 characters `\fB[\fP' and `\fB]\fP'.
@@ -413,7 +416,7 @@ Charset Name
 T}	T{
 .na
 .nh
-Code Page
+Host Code Page
 T}	T{
 .na
 .nh
@@ -444,7 +447,20 @@ T}	T{
 T}	T{
 .na
 .nh
-3270cg-1a 3270-cg1 iso8859-1
+3270cg-1a 3270cg-1 iso8859-1
+T}
+T{
+.na
+.nh
+belgian-euro
+T}	T{
+.na
+.nh
+1148
+T}	T{
+.na
+.nh
+3270cg-15a 3270cg-15 iso8859-15
 T}
 T{
 .na
@@ -457,7 +473,7 @@ T}	T{
 T}	T{
 .na
 .nh
-3270cg-1a 3270-cg1 iso8859-1
+3270cg-1a 3270cg-1 iso8859-1
 T}
 T{
 .na
@@ -470,7 +486,7 @@ T}	T{
 T}	T{
 .na
 .nh
-3270cg-1a 3270-cg1 iso8859-1
+3270cg-1a 3270cg-1 iso8859-1
 T}
 T{
 .na
@@ -479,11 +495,24 @@ cp1047
 T}	T{
 .na
 .nh
-cp1047
+1047
 T}	T{
 .na
 .nh
-3270cg-1a 3270-cg1 iso8859-1
+3270cg-1a 3270cg-1 iso8859-1
+T}
+T{
+.na
+.nh
+cp870
+T}	T{
+.na
+.nh
+870
+T}	T{
+.na
+.nh
+3270cg-1a 3270cg-1 iso8859-2
 T}
 T{
 .na
@@ -496,7 +525,20 @@ T}	T{
 T}	T{
 .na
 .nh
-3270cg-1a 3270-cg1 iso8859-1
+3270cg-1a 3270cg-1 iso8859-1
+T}
+T{
+.na
+.nh
+finnish-euro
+T}	T{
+.na
+.nh
+1143
+T}	T{
+.na
+.nh
+3270cg-15a 3270cg-15 iso8859-15
 T}
 T{
 .na
@@ -509,7 +551,20 @@ T}	T{
 T}	T{
 .na
 .nh
-3270cg-1a 3270-cg1 iso8859-1
+3270cg-1a 3270cg-1 iso8859-1
+T}
+T{
+.na
+.nh
+french-euro
+T}	T{
+.na
+.nh
+1147
+T}	T{
+.na
+.nh
+3270cg-15a 3270cg-15 iso8859-15
 T}
 T{
 .na
@@ -522,7 +577,20 @@ T}	T{
 T}	T{
 .na
 .nh
-3270cg-1a 3270-cg1 iso8859-1
+3270cg-1a 3270cg-1 iso8859-1
+T}
+T{
+.na
+.nh
+german-euro
+T}	T{
+.na
+.nh
+1141
+T}	T{
+.na
+.nh
+3270cg-15a 3270cg-15 iso8859-15
 T}
 T{
 .na
@@ -535,7 +603,7 @@ T}	T{
 T}	T{
 .na
 .nh
-3270cg-7
+3270cg-7 iso8859-7
 T}
 T{
 .na
@@ -548,7 +616,7 @@ T}	T{
 T}	T{
 .na
 .nh
-3270cg-8
+3270cg-8 iso8859-8
 T}
 T{
 .na
@@ -561,20 +629,20 @@ T}	T{
 T}	T{
 .na
 .nh
-3270cg-1a 3270-cg1 iso8859-1
+3270cg-1a 3270cg-1 iso8859-1
 T}
 T{
 .na
 .nh
-hebrew
+icelandic-euro
 T}	T{
 .na
 .nh
-424
+1149
 T}	T{
 .na
 .nh
-iso8859-8
+3270cg-15a 3270cg-15 iso8859-15
 T}
 T{
 .na
@@ -587,7 +655,20 @@ T}	T{
 T}	T{
 .na
 .nh
-3270cg-1a 3270-cg1 iso8859-1
+3270cg-1a 3270cg-1 iso8859-1
+T}
+T{
+.na
+.nh
+italian-euro
+T}	T{
+.na
+.nh
+1144
+T}	T{
+.na
+.nh
+3270cg-15a 3270cg-15 iso8859-15
 T}
 T{
 .na
@@ -613,7 +694,20 @@ T}	T{
 T}	T{
 .na
 .nh
-3270cg-1a 3270-cg1 iso8859-1
+3270cg-1a 3270cg-1 iso8859-1
+T}
+T{
+.na
+.nh
+norwegian-euro
+T}	T{
+.na
+.nh
+1142
+T}	T{
+.na
+.nh
+3270cg-15a 3270cg-15 iso8859-15
 T}
 T{
 .na
@@ -665,7 +759,20 @@ T}	T{
 T}	T{
 .na
 .nh
-iso8859-1
+3270cg-1a 3270cg-1 iso8859-1
+T}
+T{
+.na
+.nh
+spanish-euro
+T}	T{
+.na
+.nh
+1145
+T}	T{
+.na
+.nh
+3270cg-15a 3270cg-15 iso8859-15
 T}
 T{
 .na
@@ -704,7 +811,33 @@ T}	T{
 T}	T{
 .na
 .nh
-3270cg-1a 3270-cg1 iso8859-1
+3270cg-1a 3270cg-1 iso8859-1
+T}
+T{
+.na
+.nh
+uk-euro
+T}	T{
+.na
+.nh
+1146
+T}	T{
+.na
+.nh
+3270cg-15a 3270cg-15 iso8859-15
+T}
+T{
+.na
+.nh
+us-euro
+T}	T{
+.na
+.nh
+1140
+T}	T{
+.na
+.nh
+3270cg-15a 3270cg-15 iso8859-15
 T}
 T{
 .na
@@ -717,7 +850,7 @@ T}	T{
 T}	T{
 .na
 .nh
-3270cg-1a 3270-cg1 iso8859-1
+3270cg-1a 3270cg-1 iso8859-1
 T}
 .TE
 .PP
@@ -2069,6 +2202,15 @@ T}
 T{
 .na
 .nh
+Ctrl<Key>a
+T}	T{
+.na
+.nh
+SelectAll(PRIMARY)
+T}
+T{
+.na
+.nh
 Meta<Key>a
 T}	T{
 .na
@@ -2083,6 +2225,15 @@ T}	T{
 .na
 .nh
 PrintWindow()
+T}
+T{
+.na
+.nh
+Ctrl<Key>c
+T}	T{
+.na
+.nh
+set-select(CLIPBOARD)
 T}
 T{
 .na
@@ -2164,6 +2315,15 @@ T}	T{
 .na
 .nh
 DeleteField()
+T}
+T{
+.na
+.nh
+Ctrl<Key>v
+T}	T{
+.na
+.nh
+insert-selection(CLIPBOARD)
 T}
 T{
 .na
@@ -2831,22 +2991,33 @@ T{
 .nh
 .in +2
 .ti -2
-SetFont(\fIfont\fP)
+*Script(\fIcommand\fP[,\fIarg\fP...])
 T}	T{
 .na
 .nh
-change emulator font
+run a script
 T}
 T{
 .na
 .nh
 .in +2
 .ti -2
-*Script(\fIcommand\fP[,\fIarg\fP...])
+SelectAll(\fIatom\fP)
 T}	T{
 .na
 .nh
-run a script
+select entire screen
+T}
+T{
+.na
+.nh
+.in +2
+.ti -2
+SetFont(\fIfont\fP)
+T}	T{
+.na
+.nh
+change emulator font
 T}
 T{
 .na
@@ -5859,4 +6030,4 @@ x3270 is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
 .SH "VERSION"
-x3270 3.3.6
+x3270 3.3.7alpha2

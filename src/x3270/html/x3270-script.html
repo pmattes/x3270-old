@@ -227,6 +227,11 @@ parameter is given, that many characters are output, starting at the cursor
 position.
 <p>
 If no parameters are given, the entire screen is output.
+<p>
+The EBCDIC-to-ASCII translation and output character set depend on the both the
+emulator character set (the <b>-charset</b> option) and the locale.
+UTF-8 and certain DBCS locales may result in multi-byte expansions of EBCDIC
+characters that translate to ASCII codes greater than 0x7f.
 <dt><b>AsciiField</b></dt><dd>
 Outputs an <font size=-1>ASCII</font> text representation of the field containing the cursor.
 The text is preceded by the string "data:&nbsp;".
@@ -319,9 +324,13 @@ ASCII.
 Returns the current screen contents as HTML.
 <dt><b>ReadBuffer</b>(<b>Ascii</b>)</dt><dd>
 Dumps the contents of the screen buffer, one line at a time.
-Positions inside data fields are output as 2-digit hexadecimal codes in the
-current display character set (typically ISO 8859-1, but it varies with the
-host character set).
+Positions inside data fields are generally output as 2-digit hexadecimal codes
+in the current display character set.
+If the current locale specifies UTF-8 (or certain DBCS character sets), some
+positions may be output as multi-byte strings (4-, 6- or 8-digit codes).
+DBCS characters take two positions in the screen buffer; the first location
+is output as a multi-byte string in the current locale codeset, and the second
+location is output as a dash.
 Start-of-field characters (each of which takes up a display position) are
 output as <b>SF(aa=nn[,...])</b>, where <i>aa</i> is a field
 attribute type and <i>nn</i> is its value.
@@ -608,12 +617,12 @@ ksh(1)
 <br>
 <a HREF="s3270-man.html">s3270(1)</a>
 <a NAME="Version"></a><h2>Version</h2>
-Version 3.3.6
+Version 3.3.7alpha2
 <hr>
 <i>
 This HTML document and the accompanying troff document were generated with
 a set of write-only <b>m4</b> macros and the powerful <b>vi</b> editor.
-<br>Last modified 23 June 2007.
+<br>Last modified 13 August 2007.
 </i>
 </body>
 </html>

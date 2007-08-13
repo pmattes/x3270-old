@@ -26,6 +26,7 @@
 #define ResAllowResize		"allowResize"
 #define ResAltCursor		"altCursor"
 #define ResAltScreen		"altScreen"
+#define ResAplMap		"aplMap"
 #define ResAplMode		"aplMode"
 #define ResAssocCommand		"printer.assocCommandLine"
 #define ResAutoKeymap		"autoKeymap"

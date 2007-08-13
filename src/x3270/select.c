@@ -928,6 +928,38 @@ Unselect_action(Widget w unused, XEvent *event, String *params,
 	unselect(0, ROWS*COLS);
 }
 
+void
+SelectAll_action(Widget w unused, XEvent *event, String *params,
+    Cardinal *num_params)
+{
+	int i;
+
+	action_debug(SelectUp_action, event, params, num_params);
+	if (event == NULL) {
+		popup_an_error("%s can only be used as a keymap action",
+		    action_name(SelectAll_action));
+		return;
+	}
+	if (w != *screen)
+		return;
+
+	if (n_owned == -1) {
+		for (i = 0; i < NS; i++)
+			own_sel[i].atom = None;
+		n_owned = 0;
+	}
+	for (i = 0; i < NS; i++) {
+		if (i < *num_params)
+			want_sel[i] = XInternAtom(display, params[i], False);
+		else
+			want_sel[i] = None;
+	}
+	if (*num_params == 0)
+		want_sel[0] = XA_PRIMARY;
+
+	grab_sel(0, (ROWS * COLS) - 1, True, event_time(event));
+}
+
 
 /*
  * Screen side.
@@ -1499,6 +1531,13 @@ insert_selection_action(Widget w, XEvent *event, String *params,
 	XButtonEvent *be = (XButtonEvent *)event;
 
 	action_debug(insert_selection_action, event, params, num_params);
+
+	if (event == NULL) {
+	    	popup_an_error("%s must be called from a keymap\n",
+			action_name(insert_selection_action));
+		return;
+	}
+
 	n_pasting = 0;
 	for (i = 0; i < *num_params; i++) {
 		a = XInternAtom(display, params[i], True);

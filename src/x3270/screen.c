@@ -62,6 +62,7 @@
 #include "statusc.h"
 #include "tablesc.h"
 #include "trace_dsc.h"
+#include "utf8c.h"
 #include "utilc.h"
 #include "xioc.h"
 #if defined(X3270_DBCS) /*[*/
@@ -95,7 +96,6 @@ extern int      last_changed;
 /* Globals */
 unsigned char  *selected;	/* selection bitmap */
 Dimension       main_width;
-#include <X11/bitmaps/gray>
 Boolean         scrollbar_changed = False;
 Boolean         model_changed = False;
 Boolean		efont_changed = False;
@@ -116,6 +116,10 @@ char	       *full_efontname_dbcs;
 Boolean		visible_control = False;
 unsigned	fixed_width, fixed_height;
 int		hhalo = HHALO, vhalo = VHALO;
+
+#define gray_width 2
+#define gray_height 2
+static char gray_bits[] = { 0x01, 0x02 };
 
 /* Statics */
 static Boolean	allow_resize;
@@ -3678,6 +3682,10 @@ screen_new_display_charsets(const char *display_charsets, const char *csnames)
 	allow_resize = appres.allow_resize;
 
     done:
+	if (!utf8_set_display_charsets((char *)display_charsets,
+		    (char *)csnames))
+		return False;
+
 	/* Set the appropriate global. */
 	Replace(required_display_charsets,
 	    display_charsets? NewString(display_charsets): CN);
@@ -5124,7 +5132,6 @@ stream_end(XtPointer closure unused, XtIntervalId *id unused)
 		trace_event("  bigger\n    asserting desired size\n");
 		set_toplevel_sizes();
 		screen_redo = REDO_NONE;
-		goto done;
 	}
 
 	/* They're not correct. */

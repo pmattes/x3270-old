@@ -33,14 +33,17 @@
 #include "charsetc.h"
 #include "kybdc.h"
 #include "popupsc.h"
-#if defined(X3270_DISPLAY) /*[*/
+#if defined(X3270_DISPLAY) || (defined(C3270) && !defined(_WIN32)) /*[*/
 #include "screenc.h"
 #endif /*]*/
 #include "tablesc.h"
+#include "utf8c.h"
 #include "utilc.h"
 #include "widec.h"
 
 #include <errno.h>
+#include <locale.h>
+#include <langinfo.h>
 
 #define EURO_SUFFIX	"-euro"
 #define ES_SIZE		(sizeof(EURO_SUFFIX) - 1)
@@ -174,18 +177,33 @@ charset_init(char *csname)
 	char *xks;
 #endif /*]*/
 	char *ak;
+#if !defined(_WIN32) /*[*/
+	char *codeset_name;
+#endif /*]*/
+
+#if !defined(_WIN32) /*[*/
+	/* Get all of the locale stuff right. */
+	setlocale(LC_ALL, "");
+
+	/* Figure out the locale code set (character set encoding). */
+	codeset_name = nl_langinfo(CODESET);
+	set_codeset(codeset_name);
+#endif /*]*/
 
 	/* Do nothing, successfully. */
 	if (csname == CN || !strcasecmp(csname, "us")) {
 		charset_defaults();
 		set_cgcsgids(CN);
 		set_charset_name(CN);
-#if defined(X3270_DISPLAY) /*[*/
+#if defined(X3270_DISPLAY) || (defined(C3270) && !defined(_WIN32)) /*[*/
 		(void) screen_new_display_charsets(default_display_charset,
 		    "us");
-#endif /*]*/
+#else /*][*/
 #if defined(_WIN32) /*[*/
 		set_display_charset("iso8859-1");
+#else /*][*/
+		utf8_set_display_charsets(default_display_charset, "us");
+#endif /*]*/
 #endif /*]*/
 		return CS_OKAY;
 	}
@@ -395,13 +413,16 @@ resource_charset(char *csname, char *cs, char *ftcs)
 	}
 #endif /*]*/
 
-#if defined(X3270_DISPLAY) /*[*/
+#if defined(X3270_DISPLAY) || (defined(C3270) && !defined(_WIN32)) /*[*/
 	if (!screen_new_display_charsets(
 		    rcs? rcs: default_display_charset,
 		    csname)) {
 		return CS_PREREQ;
 	}
 #else /*][*/
+#if !defined(_WIN32) /*[*/
+	utf8_set_display_charsets(rcs? rcs: default_display_charset, csname);
+#endif /*]*/
 #if defined(X3270_DBCS) /*[*/
 	if (n_rcs > 1)
 		dbcs = True;

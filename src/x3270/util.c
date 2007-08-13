@@ -867,7 +867,7 @@ RemoveInput(unsigned long cookie)
 		if (prev != NULL)
 			prev->next = iorec->next;
 		else
-			iorecs->next = iorec->next;
+			iorecs = iorec->next;
 		XtFree((XtPointer)iorec);
 	}
 }

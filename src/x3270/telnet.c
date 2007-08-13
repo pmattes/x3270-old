@@ -30,7 +30,6 @@
 #if defined(_WIN32) /*[*/
 #include <winsock2.h>
 #include <ws2tcpip.h>
-#undef AF_INET6
 #else /*][*/
 #include <sys/socket.h>
 #include <sys/ioctl.h>
@@ -64,11 +63,13 @@
 #include "macrosc.h"
 #include "popupsc.h"
 #include "proxyc.h"
+#include "resolverc.h"
 #include "statusc.h"
 #include "tablesc.h"
 #include "telnetc.h"
 #include "trace_dsc.h"
 #include "utilc.h"
+#include "w3miscc.h"
 #include "xioc.h"
 
 #if !defined(TELOPT_NAWS) /*[*/
@@ -343,7 +344,8 @@ sockstart(void)
 	wVersionRequested = MAKEWORD(2, 2);
  
 	if (WSAStartup(wVersionRequested, &wsaData) != 0) {
-		fprintf(stderr, "WSAStartup failed: %ld\n", GetLastError());
+		fprintf(stderr, "WSAStartup failed: %s\n",
+			win32_strerror(GetLastError()));
 		x3270_exit(1);
 	}
  
@@ -365,25 +367,6 @@ static union {
 socklen_t ha_len = sizeof(haddr);
 
 #if defined(_WIN32) /*[*/
-static char *
-winsock_strerror(int e)
-{
-	static char buffer[4096];
-
-	if (FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM,
-	    NULL,
-	    e,
-	    MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-	    buffer,
-	    sizeof(buffer),
-	    NULL) == 0) {
-	    
-	    sprintf(buffer, "Windows error %d", e);
-	}
-
-	return buffer;
-}
-
 void
 popup_a_sockerr(char *fmt, ...)
 {
@@ -393,7 +376,7 @@ popup_a_sockerr(char *fmt, ...)
 	 va_start(args, fmt);
 	 vsprintf(buffer, fmt, args);
 	 va_end(args);
-	 popup_an_error("%s: %s", buffer, winsock_strerror(socket_errno()));
+	 popup_an_error("%s: %s", buffer, win32_strerror(socket_errno()));
 }
 #else /*][*/
 void
@@ -408,86 +391,6 @@ popup_a_sockerr(char *fmt, ...)
 	 popup_an_errno(errno, buffer);
 }
 #endif /*]*/
-
-static int
-resolve_host_and_port(const char *host, char *portname, unsigned short *pport)
-{
-#if defined(AF_INET6) /*[*/
-	struct addrinfo	 hints, *res;
-	int		 rc;
-
-	/* Use getaddrinfo() to resolve the hostname and port together. */
-	(void) memset(&hints, '\0', sizeof(struct addrinfo));
-	hints.ai_flags = 0;
-	hints.ai_family = PF_UNSPEC;
-	hints.ai_socktype = SOCK_STREAM;
-	hints.ai_protocol = IPPROTO_TCP;
-	rc = getaddrinfo(host, portname, &hints, &res);
-	if (rc != 0) {
-		popup_an_error("%s/%s: %s", host, portname,
-				gai_strerror(rc));
-		return -1;
-	}
-	switch (res->ai_family) {
-	case AF_INET:
-		*pport =
-		    ntohs(((struct sockaddr_in *)res->ai_addr)->sin_port);
-		break;
-	case AF_INET6:
-		*pport =
-		    ntohs(((struct sockaddr_in6 *)res->ai_addr)->sin6_port);
-		break;
-	default:
-		popup_an_error("%s: unknown family %d", host,
-			res->ai_family);
-		freeaddrinfo(res);
-		return -1;
-	}
-	(void) memcpy(&haddr.sa, res->ai_addr, res->ai_addrlen);
-	ha_len = res->ai_addrlen;
-	freeaddrinfo(res);
-
-#else /*][*/
-
-	struct hostent	*hp;
-	struct servent	*sp;
-	unsigned short	 port;
-	unsigned long	 lport;
-	char		*ptr;
-
-	/* Get the port number. */
-	lport = strtoul(portname, &ptr, 0);
-	if (ptr == portname || *ptr != '\0' || lport == 0L || lport & ~0xffff) {
-		if (!(sp = getservbyname(portname, "tcp"))) {
-			popup_an_error("Unknown port number or service: %s",
-			    portname);
-			return -1;
-		}
-		port = sp->s_port;
-	} else
-		port = htons((unsigned short)lport);
-	*pport = ntohs(port);
-
-	/* Use gethostbyname() to resolve the hostname. */
-	hp = gethostbyname(host);
-	if (hp == (struct hostent *) 0) {
-		haddr.sin.sin_family = AF_INET;
-		haddr.sin.sin_addr.s_addr = inet_addr(host);
-		if (haddr.sin.sin_addr.s_addr == (unsigned long)-1) {
-			popup_an_error("Unknown host:\n%s", host);
-			return -1;
-		}
-	} else {
-		haddr.sin.sin_family = hp->h_addrtype;
-		(void) memmove(&haddr.sin.sin_addr, hp->h_addr,
-				   hp->h_length);
-	}
-	haddr.sin.sin_port = port;
-	ha_len = sizeof(struct sockaddr_in);
-#endif /*]*/
-
-	return 0;
-}
 
 /*
  * net_connect
@@ -505,6 +408,7 @@ net_connect(const char *host, char *portname, Boolean ls, Boolean *resolving,
 	int			passthru_len = 0;
 	unsigned short		passthru_port = 0;
 	int			on = 1;
+	char			errmsg[1024];
 #if defined(OMTU) /*[*/
 	int			mtu = OMTU;
 #endif /*]*/
@@ -591,7 +495,9 @@ net_connect(const char *host, char *portname, Boolean ls, Boolean *resolving,
 		ha_len = sizeof(struct sockaddr_in);
 	} else if (proxy_type > 0) {
 	    	if (resolve_host_and_port(proxy_host, proxy_portname,
-			    &proxy_port) < 0) {
+			    &proxy_port, &haddr.sa, &ha_len, errmsg,
+			    sizeof(errmsg)) < 0) {
+		    	popup_an_error(errmsg);
 		    	return -1;
 		}
 	} else {
@@ -604,8 +510,11 @@ net_connect(const char *host, char *portname, Boolean ls, Boolean *resolving,
 			local_process = False;
 #endif /*]*/
 			if (resolve_host_and_port(host, portname,
-				    &current_port) < 0)
+				    &current_port, &haddr.sa, &ha_len,
+				    errmsg, sizeof(errmsg)) < 0) {
+			    	popup_an_error(errmsg);
 			    	return -1;
+			}
 #if defined(LOCAL_PROCESS) /*[*/
 		}
 #endif /*]*/
@@ -739,15 +648,15 @@ net_connect(const char *host, char *portname, Boolean ls, Boolean *resolving,
 
 		sock_handle = CreateEvent(NULL, TRUE, FALSE, ename);
 		if (sock_handle == NULL) {
-			fprintf(stderr, "Cannot create socket handle: %ld\n",
-			    GetLastError());
+			fprintf(stderr, "Cannot create socket handle: %s\n",
+			    win32_strerror(GetLastError()));
 			x3270_exit(1);
 		}
 	}
 	if (WSAEventSelect(sock, sock_handle, FD_READ | FD_CONNECT | FD_CLOSE)
 		    != 0) {
-		fprintf(stderr, "WSAEventSelect failed: %ld\n",
-		    GetLastError());
+		fprintf(stderr, "WSAEventSelect failed: %s\n",
+		    win32_strerror(GetLastError()));
 		x3270_exit(1);
 	}
 
@@ -1006,8 +915,8 @@ net_input(void)
 					return;
 				default:
 					fprintf(stderr,
-					    "second connect() failed: %d\n",
-					    err);
+					    "second connect() failed: %s\n",
+					    win32_strerror(err));
 					x3270_exit(1);
 				}
 			}
@@ -3308,7 +3217,7 @@ client_info_callback(INFO_CONST SSL *s, int where, int ret)
 			    SSL_state_string_long(s));
 		} else if (ret < 0) {
 			unsigned long e;
-			char err_buf[121];
+			char err_buf[1024];
 
 			err_buf[0] = '\n';
 			e = ERR_get_error();
@@ -3316,8 +3225,8 @@ client_info_callback(INFO_CONST SSL *s, int where, int ret)
 				(void) ERR_error_string(e, err_buf + 1);
 #if defined(_WIN32) /*[*/
 			else if (GetLastError() != 0)
-				sprintf(err_buf + 1, "error %ld",
-				    GetLastError());
+				strcpy(err_buf + 1,
+					win32_strerror(GetLastError()));
 #else /*][*/
 			else if (errno != 0)
 				strcpy(err_buf + 1, strerror(errno));

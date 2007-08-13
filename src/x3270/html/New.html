@@ -9,9 +9,34 @@
 <h1>New Features in x3270 3.3
 <hr width="100%"></h1>
 x3270 3.3 is the current development line for x3270.
+<h2>Changes in x3270 3.3.7alpha2, 13. August 2007</h2>
+<ul>
+  <li>Bug Fixes:
+    <ul>
+      <li><b>x3270</b> will now compile on platforms that do not support
+      IPv6, such as Cygwin.</li>
+      <li><b>x3270</b> will no longer crash or spin when the <b>-script</b>
+      option is used.</li>
+      <li>Shifted function keys should work again (they map to PF13-PF24).</li>
+      <li>The screen can now be resized larger, as well as smaller.</li>
+      <li>Removed the dependency on <tt>&lt;bitmaps/gray&gt;</tt>, which
+      required installing an obscure X11 development package on some
+      platforms.</li>
+    </ul>
+  <li>New Features:
+    <ul>
+      <li>Added UTF-8 support.  If the current locale specifies UTF-8 encoding,
+      then all text output (trace data, script interactions, screen snapshots,
+      etc.) will be UTF-8 encoded, and all text input (arguments to the
+      <b>Key</b> and <b>String</b> actions, etc.) must be UTF-8 encoded.
+      In addition, the NVT-mode xterm/VT100 emulator will expect UTF-8.</li>
+      <li>Added a <b>SelectAll</b> action, mapped to Ctrl-A.</li>
+    </ul>
+  </li>
+</ul>
 <h2>Changes in x3270 3.3.6, 23. June 2007</h2>
 <ul>
-  <li>Bug Fixes:</li>
+  <li>Bug Fixes:
     <ul>
       <li>Fixed the <b>highlighted</b> attribute for individual regions of the
       screen (versus the <b>highlighted</b> field attribute); it had been
