@@ -31,6 +31,9 @@
 #include "3270ds.h"
 
 #include "tablesc.h"
+#if !defined(PR3287) /*[*/
+#include "utf8c.h"
+#endif /*]*/
 #include "seec.h"
 
 const char *
@@ -72,7 +75,13 @@ see_ebc(unsigned char ch)
 		return "SO";
 	}
 	if (ebc2asc[ch])
-		(void) sprintf(buf, "%c", ebc2asc[ch]);
+		(void) sprintf(buf,
+#if !defined(PR3287) /*[*/
+			       "%s", utf8_expand(ebc2asc[ch])
+#else /*][*/
+			       "%c", ebc2asc[ch]
+#endif /*]*/
+			       );
 	else
 		(void) sprintf(buf, "\\%o", ch);
 	return buf;

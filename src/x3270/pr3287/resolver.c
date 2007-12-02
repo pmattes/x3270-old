@@ -192,7 +192,7 @@ dresolve_host_and_port(const char *host, char *portname, unsigned short *pport,
 		 * For XP and later, use the IPv4/IPv6 DLL.
 		 */
 		if (info.dwMajorVersion < 5 ||
-		    info.dwMinorVersion < 1)
+		    (info.dwMajorVersion == 5 && info.dwMinorVersion < 1))
 		    	dllname = "w3n4.dll";
 		else
 		    	dllname = "w3n46.dll";

@@ -644,7 +644,7 @@ socket_connection(void)
 {
 	int fd;
 	struct sockaddr_un ssun;
-	size_t len = sizeof(ssun);
+	socklen_t len = sizeof(ssun);
 	sms_t *s;
 
 	/* Accept the connection. */

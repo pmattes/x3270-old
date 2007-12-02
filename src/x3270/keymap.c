@@ -97,6 +97,8 @@ static void km_regen(void);
 #define km_regen()
 #endif /*]*/
 
+char *current_keymap = CN;
+
 /* Keymap initialization. */
 void
 keymap_init(const char *km, Boolean interactive)
@@ -147,21 +149,22 @@ keymap_3270_mode(Boolean ignored unused)
 static void
 setup_keymaps(const char *km, Boolean do_popup)
 {
+    	char *bkm;
 	Boolean saw_apl_keymod = False;
 	struct trans_list *t;
 	struct trans_list *next;
 
 	/* Make sure it starts with "base". */
 	if (km == CN)
-		km = "base";
+		bkm = XtNewString("base");
 	else
-		km = xs_buffer("base,%s", km);
+		bkm = xs_buffer("base,%s", km);
 
 	if (do_popup)
 		keymap_changed = True;
 
 	/* Clear out any existing translations. */
-	appres.key_map = (char *)NULL;
+	Replace(current_keymap, CN);
 	for (t = trans_list; t != (struct trans_list *)NULL; t = next) {
 		next = t->next;
 		Free(t->name);
@@ -172,8 +175,8 @@ setup_keymaps(const char *km, Boolean do_popup)
 	last_trans = &trans_list;
 
 	/* Build up the new list. */
-	if (km != CN) {
-		char *ns = XtNewString(km);
+	if (bkm != CN) {
+		char *ns = XtNewString(bkm);
 		char *n0 = ns;
 		char *comma;
 
@@ -194,6 +197,7 @@ setup_keymaps(const char *km, Boolean do_popup)
 	}
 	if (appres.apl_mode && !saw_apl_keymod)
 		add_keymap(Apl, do_popup);
+	XtFree(bkm);
 }
 
 /*
@@ -250,13 +254,12 @@ add_keymap(const char *name, Boolean do_popup)
 	Boolean is_from_server = False;
 
 	if (strcmp(name, "base")) {
-		if (appres.key_map == (char *)NULL)
-			appres.key_map = XtNewString(name);
+		if (current_keymap == CN)
+			current_keymap = XtNewString(name);
 		else {
-			char *t = xs_buffer("%s,%s", appres.key_map, name);
 
-			XtFree(appres.key_map);
-			appres.key_map = t;
+			Replace(current_keymap,
+				xs_buffer("%s,%s", current_keymap, name));
 		}
 	}
 

@@ -1,5 +1,6 @@
 /*
- * Modifications Copyright 1993-1996, 1999-2004, 2005, 2006 by Paul Mattes.
+ * Modifications Copyright 1993-1996, 1999-2004, 2005, 2006, 2007
+ *   by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -855,7 +856,13 @@ set_toplevel_sizes(void)
 	configure_ticking = True;
 
 	keypad_move();
-	popups_move();
+	{
+	    	static Boolean first = True;
+		if (first)
+		    	first = False;
+		else
+		    	popups_move();
+	}
 }
 
 static void
@@ -3392,6 +3399,7 @@ query_window_state(void)
 			keypad_first_up();
 		}
 	}
+	XFree(data);
 }
 
 void
@@ -3818,6 +3826,11 @@ check_charset(const char *name, XFontStruct *f, const char *dcsname,
 #if defined(DEBUG_FONTPICK) /*[*/
 	printf("'%s' seems %s\n", name, r? "okay": "bad");
 #endif /*]*/
+
+	if (font_registry != CN)
+	    	XtFree(font_registry);
+	if (font_encoding != CN)
+	    	XtFree(font_encoding);
 	return r;
 }
 
@@ -3971,6 +3984,7 @@ lff_single(const char *name, const char *reqd_display_charset, Boolean is_dbcs)
 	const char *best_weight = CN;
 	unsigned long best_pixel_size = 0L;
 	Boolean scalable;
+	char *wname = CN;
 
 #if defined(DEBUG_FONTPICK) /*[*/
 	fprintf(stderr, "lff_single: name %s, cs %s, %s\n", name,
@@ -4026,12 +4040,13 @@ lff_single(const char *name, const char *reqd_display_charset, Boolean is_dbcs)
 					Free(xp);
 				}
 				XFreeFontInfo(matches, f, count);
+				if (wname != CN)
+				    	XtFree(wname);
 				return r;
 			}
 		} else {
 			unsigned long pixel_size = get_pixel_size(&f[i]);
 			Atom w = get_weight(&f[i]);
-			const char *wname = CN;
 
 			/* Correct. */
 			if (is_dbcs) {
@@ -4040,7 +4055,7 @@ lff_single(const char *name, const char *reqd_display_charset, Boolean is_dbcs)
 				Replace(efont_charset, font_csname);
 			}
 			if (w) {
-				wname = XGetAtomName(display, w);
+				Replace(wname, XGetAtomName(display, w));
 #if defined(DEBUG_FONTPICK) /*[*/
 				printf("%s weight is %s\n", matches[i], wname);
 #endif /*]*/
@@ -4086,6 +4101,8 @@ lff_single(const char *name, const char *reqd_display_charset, Boolean is_dbcs)
 			}
 		}
 	}
+	if (wname != NULL)
+	    	XtFree(wname);
 	if (best < 0) {
 	    XFreeFontInfo(matches, f, count);
 	    return xs_buffer("None of the %d fonts matching\n"
@@ -4679,6 +4696,7 @@ add_font_to_menu(char *label, char *font)
 	}
 	f->font = NewString(font);
 	f->next = NULL;
+	f->label = label;
 	if (font_list)
 		font_last->next = f;
 	else
@@ -5142,7 +5160,14 @@ stream_end(XtPointer closure unused, XtIntervalId *id unused)
     done:
 	if (needs_moving && !iconic) {
 		keypad_move();
-		popups_move();
+		{
+		    	static Boolean first = True;
+
+			if (first)
+			    	first = False;
+			else
+			    	popups_move();
+		}
 	}
 }
 

@@ -45,6 +45,8 @@
 #include "widec.h"
 #endif /*]*/
 
+#define MB_MAX	16
+
 #define	SC	1	/* save cursor position */
 #define RC	2	/* restore cursor position */
 #define NL	3	/* new line */
@@ -459,7 +461,6 @@ static char	csnames[] = "0AB";
 static int	cs_to_change;
 #if defined(X3270_DBCS) /*[*/
 static unsigned char mb_pending = 0;
-#define MB_MAX	16
 static char	mb_buffer[MB_MAX];
 static int	dbcs_process(int ch, unsigned char ebc[]);
 #endif /*]*/
