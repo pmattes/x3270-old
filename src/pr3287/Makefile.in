@@ -1,4 +1,4 @@
-# Copyright 1999, 2000, 2001, 2002, 2003, 2004, 2005 by Paul Mattes.
+# Copyright 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007 by Paul Mattes.
 #  Permission to use, copy, modify, and distribute this software and its
 #  documentation for any purpose and without fee is hereby granted,
 #  provided that the above copyright notice appear in all copies and that
@@ -31,10 +31,10 @@ LDFLAGS = @LDFLAGS@
 LIBS = @LIBS@
 INSTALL = @INSTALL@
 
-SRCS = pr3287.c ctlr.c trace_ds.c tables.c telnet.c sf.c charset.c see.c \
-	@DBCS_C@
-OBJECTS = pr3287.o ctlr.o trace_ds.o tables.o telnet.o sf.o charset.o see.o \
-	@DBCS_O@
+SRCS = pr3287.c ctlr.c trace_ds.c tables.c telnet.c sf.c charset.c resolver.c \
+	see.c proxy.c @DBCS_C@
+OBJECTS = pr3287.o ctlr.o trace_ds.o tables.o telnet.o sf.o charset.o \
+	resolver.o see.o proxy.o @DBCS_O@
 
 version.o: version.txt mkversion.sh
 	@chmod +x mkversion.sh version.txt

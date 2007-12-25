@@ -54,6 +54,10 @@
 #include "trace_dsc.h"
 #include "utilc.h"
 
+#if defined(_WIN32) /*[*/
+#include "winversc.h"
+#endif /*]*/
+
 extern void usage(char *);
 
 #define LAST_ARG	"--"
@@ -61,6 +65,8 @@ extern void usage(char *);
 #if defined(WC3270) /*[*/
 #define PROFILE_SFX	".wc3270"
 #define PROFILE_SFX_LEN	(sizeof(PROFILE_SFX) - 1)
+#define PROFILE_SSFX	".wc3"
+#define PROFILE_SSFX_LEN (sizeof(PROFILE_SSFX) - 1)
 #endif /*]*/
 
 #if defined(C3270) /*[*/
@@ -211,8 +217,10 @@ parse_command_line(int argc, const char **argv, const char **cl_hostname)
 #if defined(WC3270) /*[*/
 	/* Merge in the profile. */
 	if (*cl_hostname != CN &&
-	    (sl = strlen(*cl_hostname)) > PROFILE_SFX_LEN &&
-	    !strcasecmp(*cl_hostname + sl - PROFILE_SFX_LEN, PROFILE_SFX)) {
+	    (((sl = strlen(*cl_hostname)) > PROFILE_SFX_LEN &&
+	      !strcasecmp(*cl_hostname + sl - PROFILE_SFX_LEN, PROFILE_SFX)) ||
+	     ((sl = strlen(*cl_hostname)) > PROFILE_SSFX_LEN &&
+	      !strcasecmp(*cl_hostname + sl - PROFILE_SSFX_LEN, PROFILE_SSFX)))) {
 		(void) read_resource_file(*cl_hostname, False);
 		if (appres.hostname == CN) {
 		    Error("Hostname not specified in session file.");
@@ -430,7 +438,16 @@ parse_options(int *argcp, const char **argv)
 	appres.model = "4";
 	appres.hostsfile = CN;
 	appres.port = "telnet";
+
+#if !defined(_WIN32) /*[*/
 	appres.charset = "bracket";
+#else /*][*/
+	if (is_nt)
+		appres.charset = "bracket";
+	else
+		appres.charset = "bracket437";
+#endif /*]*/
+
 	appres.termname = CN;
 	appres.macros = CN;
 #if defined(X3270_TRACE) && !defined(_WIN32) /*[*/
@@ -475,6 +492,10 @@ parse_options(int *argcp, const char **argv)
 
 #if defined(C3270) && defined(X3270_SCRIPT) /*[*/
 	appres.plugin_command = "x3270hist.pl";
+#endif /*]*/
+
+#if defined(C3270) && defined(_WIN32) /*[*/
+	appres.highlight_underline = True;
 #endif /*]*/
 
 #if defined(C3270) && !defined(_WIN32) /*[*/
@@ -704,6 +725,9 @@ static struct {
 #if defined(X3270_SCRIPT) /*[*/
 	{ ResPluginCommand, offset(plugin_command), XRM_STRING },
 #endif /*]*/
+#if defined(C3270) && defined(_WIN32) /*[*/
+	{ ResHighlightUnderline, offset(highlight_underline), XRM_BOOLEAN },
+#endif /*]*/
 #if defined(C3270) && defined(X3270_SCRIPT) /*[*/
 	{ ResIdleCommand,offset(idle_command),	XRM_STRING },
 	{ ResIdleCommandEnabled,offset(idle_command_enabled),	XRM_BOOLEAN },
@@ -810,6 +834,8 @@ parse_xrm(const char *arg, const char *where)
 	enum resource_type type = XRM_STRING;
 #if defined(C3270) /*[*/
 	char *add_buf = CN;
+	char *hide;
+	Boolean arbitrary = False;
 #endif /*]*/
 
 	/* Enforce "-3270." or "-3270*" or "*". */
@@ -883,10 +909,20 @@ parse_xrm(const char *arg, const char *where)
 		    !strncasecmp(ResCodepage ".", arg + match_len,
 		                 strlen(ResCodepage ".")) ||
 		    !strncasecmp("host.", arg + match_len, 5) ||
-		    !strncasecmp("printer.", arg + match_len, 8)) {
-			add_buf = Malloc(strlen(s) + 1);
-			address = add_buf;
+		    !strncasecmp("printer.", arg + match_len, 8) ||
+#if defined(_WIN32) /*[*/
+		    !strncasecmp(ResHostColorFor, arg + match_len,
+			    strlen(ResHostColorFor)) ||
+		    !strncasecmp(ResConsoleColorForHostColor, arg + match_len,
+			    strlen(ResConsoleColorForHostColor))
+#else /*][*/
+		    !strncasecmp(ResCursesColorFor, arg + match_len,
+			    strlen(ResCursesColorFor))
+#endif /*]*/
+		    ) {
+			address = &hide;
 			type = XRM_STRING;
+			arbitrary = True;
 		}
 	}
 #endif /*]*/
@@ -963,13 +999,13 @@ parse_xrm(const char *arg, const char *where)
 
 #if defined(C3270) /*[*/
 	/* Add a new, arbitrarily-named resource. */
-	{
+	if (arbitrary) {
 		char *rsname;
 
 		rsname = Malloc(rnlen + 1);
 		(void) strncpy(rsname, arg + match_len, rnlen);
 		rsname[rnlen] = '\0';
-		add_resource(rsname, NewString(s));
+		add_resource(rsname, hide);
 	}
 #endif /*]*/
 }

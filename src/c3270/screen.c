@@ -1,5 +1,5 @@
 /*
- * Copyright 2000, 2001, 2002, 2003, 2004, 2005 by Paul Mattes.
+ * Copyright 2000, 2001, 2002, 2003, 2004, 2005, 2007 by Paul Mattes.
  *   Permission to use, copy, modify, and distribute this software and its
  *   documentation for any purpose and without fee is hereby granted,
  *   provided that the above copyright notice appear in all copies and that
@@ -30,9 +30,11 @@
 #include "keymapc.h"
 #include "kybdc.h"
 #include "macrosc.h"
+#include "popupsc.h"
 #include "screenc.h"
 #include "tablesc.h"
 #include "trace_dsc.h"
+#include "utf8c.h"
 #include "utilc.h"
 #include "widec.h"
 #include "xioc.h"
@@ -46,10 +48,14 @@ extern int cCOLS;
 #undef COLOR_YELLOW
 #undef COLOR_BLUE
 #undef COLOR_WHITE
+#if defined(HAVE_LIBNCURSESW) /*[*/
+#include <ncursesw/ncurses.h>
+#else /*][*/
 #if defined(HAVE_NCURSES_H) /*[*/
-#include <ncurses.h>
+#include <ncursesw/ncurses.h>
 #else /*][*/ 
 #include <curses.h>
+#endif /*]*/
 #endif /*]*/
 
 static int cp[8][8][2];
@@ -72,6 +78,12 @@ static int cmap[16] = {
 	COLOR_BLACK,	/* gray */
 	COLOR_WHITE	/* white */
 };
+static int field_colors[4] = {
+	COLOR_GREEN,	/* default */
+	COLOR_RED,		/* intensified */
+	COLOR_BLUE,		/* protected */
+	COLOR_WHITE		/* protected, intensified */
+};
 static int defattr = A_NORMAL;
 static unsigned long input_id;
 
@@ -92,6 +104,21 @@ static SCREEN *cur_screen = NULL;
 static void parse_screen_spec(const char *str, struct screen_spec *spec);
 #endif /*]*/
 
+static struct {
+	char *name;
+	int index;
+} cc_name[] = {
+	{ "black",	COLOR_BLACK },
+	{ "red",	COLOR_RED },
+	{ "green",	COLOR_GREEN },
+	{ "yellow",	COLOR_YELLOW },
+	{ "blue",	COLOR_BLUE },
+	{ "magenta", COLOR_MAGENTA },
+	{ "cyan",	COLOR_CYAN },
+	{ "white",	COLOR_WHITE },
+	{ CN,	0 }
+};
+
 static int status_row = 0;	/* Row to display the status line on */
 static int status_skip = 0;	/* Row to blank above the status line */
 
@@ -110,6 +137,8 @@ static void set_status_row(int screen_rows, int emulator_rows);
 static Boolean ts_value(const char *s, enum ts *tsp);
 static int linedraw_to_acs(unsigned char c);
 static int apl_to_acs(unsigned char c);
+static void init_user_colors(void);
+static void init_user_attribute_colors(void);
 
 /* Initialize the screen. */
 void
@@ -313,6 +342,10 @@ screen_init(void)
 	if (ab_mode == TS_ON)
 		defattr |= A_BOLD;
 
+	/* Pull in the user's color mappings. */
+	init_user_colors();
+	init_user_attribute_colors();
+
 	/* Set up the controller. */
 	ctlr_init(-1);
 	ctlr_reinit(-1);
@@ -451,21 +484,54 @@ get_color_pair(int fg, int bg)
 }
 
 /*
- * Map a field attribute to a 3270 color index.
+ * Initialize the user-specified attribute color mappings.
+ */
+static void
+init_user_attribute_color(int *a, const char *resname)
+{
+    	char *r;
+	unsigned long l;
+	char *ptr;
+	int i;
+
+    	if ((r = get_resource(resname)) == CN)
+		return;
+	for (i = 0; cc_name[i].name != CN; i++) {
+	    	if (!strcasecmp(r, cc_name[i].name)) {
+		    	*a = cc_name[i].index;
+			return;
+		}
+	}
+	l = strtoul(r, &ptr, 0);
+	if (ptr == r || *ptr != '\0' || l > 7) {
+	    	xs_warning("Invalid %s value: %s", resname, r);
+	    	return;
+	}
+	*a = (int)l;
+}
+
+static void
+init_user_attribute_colors(void)
+{
+	init_user_attribute_color(&field_colors[0],
+		ResCursesColorForDefault);
+	init_user_attribute_color(&field_colors[1],
+		ResCursesColorForIntensified);
+	init_user_attribute_color(&field_colors[2],
+		ResCursesColorForProtected);
+	init_user_attribute_color(&field_colors[3],
+		ResCursesColorForProtectedIntensified);
+}
+
+/*
+ * Map a field attribute to a curses color index.
  * Applies only to m3270 mode -- does not work for mono.
  */
 static int
-color3270_from_fa(unsigned char fa)
+default_color_from_fa(unsigned char fa)
 {
-	static int field_colors[4] = {
-	    COLOR_GREEN,	/* default */
-	    COLOR_RED,		/* intensified */
-	    COLOR_BLUE,		/* protected */
-	    COLOR_WHITE		/* protected, intensified */
 #	define DEFCOLOR_MAP(f) \
 		((((f) & FA_PROTECT) >> 4) | (((f) & FA_INT_HIGH_SEL) >> 3))
-
-	};
 
 	return field_colors[DEFCOLOR_MAP(fa)];
 }
@@ -476,7 +542,7 @@ color_from_fa(unsigned char fa)
 	if (appres.m3279) {
 		int fg;
 
-		fg = color3270_from_fa(fa);
+		fg = default_color_from_fa(fa);
 		return get_color_pair(fg, COLOR_BLACK) |
 		    (((ab_mode == TS_ON) || FA_IS_HIGH(fa))? A_BOLD: A_NORMAL);
 	} else if (!appres.mono) {
@@ -485,6 +551,72 @@ color_from_fa(unsigned char fa)
 	} else {
 	    	/* No color at all. */
 		return ((ab_mode == TS_ON) || FA_IS_HIGH(fa))? A_BOLD: A_NORMAL;
+	}
+}
+
+/*
+ * Set up the user-specified color mappings.
+ */
+static void
+init_user_color(const char *name, int ix)
+{
+    	char *r;
+	int i;
+	unsigned long l;
+	char *ptr;
+
+	r = get_fresource("%s%s", ResCursesColorForHostColor, name);
+	if (r == CN)
+		r = get_fresource("%s%d", ResCursesColorForHostColor, ix);
+	if (r == CN)
+	    	return;
+
+	for (i = 0; cc_name[i].name != CN; i++) {
+	    	if (!strcasecmp(r, cc_name[i].name)) {
+		    	cmap[ix] = cc_name[i].index;
+			return;
+		}
+	}
+
+	l = strtoul(r, &ptr, 0);
+	if (ptr != r && *ptr == '\0' && l <= 7) {
+	    	cmap[ix] = (int)l;
+		return;
+	}
+
+	xs_warning("Invalid %s value '%s'", ResCursesColorForHostColor, r);
+}
+
+static void
+init_user_colors(void)
+{
+	static struct {
+		char *name;
+		int index;
+	} host_color[] = {
+	    	{ "NeutralBlack",	COLOR_NEUTRAL_BLACK },
+	    	{ "Blue",		COLOR_BLUE },
+	    	{ "Red",		COLOR_RED },
+	    	{ "Pink",		COLOR_PINK },
+	    	{ "Green",		COLOR_GREEN },
+	    	{ "Turquoise",		COLOR_TURQUOISE },
+	    	{ "Yellow",		COLOR_YELLOW },
+	    	{ "NeutralWhite",	COLOR_NEUTRAL_WHITE },
+	    	{ "Black",		COLOR_BLACK },
+	    	{ "DeepBlue",		COLOR_DEEP_BLUE },
+	    	{ "Orange",		COLOR_ORANGE },
+	    	{ "Purple",		COLOR_PURPLE },
+	    	{ "PaleGreen",		COLOR_PALE_GREEN },
+	    	{ "PaleTurquoise",	COLOR_PALE_TURQUOISE },
+	    	{ "Grey",		COLOR_GREY },
+	    	{ "Gray",		COLOR_GREY }, /* alias */
+	    	{ "White",		COLOR_WHITE },
+		{ CN,			0 }
+	};
+	int i;
+
+	for (i = 0; host_color[i].name != CN; i++) {
+	    	init_user_color(host_color[i].name, host_color[i].index);
 	}
 }
 
@@ -519,7 +651,7 @@ calc_attrs(int baddr, int fa_addr, int fa)
 		else if (ea_buf[fa_addr].fg)
 			fg = cmap[ea_buf[fa_addr].fg & 0x0f];
 		else
-			fg = color3270_from_fa(fa);
+			fg = default_color_from_fa(fa);
 
 		if (ea_buf[baddr].bg)
 			bg = cmap[ea_buf[baddr].bg & 0x0f];
@@ -552,6 +684,20 @@ calc_attrs(int baddr, int fa_addr, int fa)
 
 	return a;
 }
+
+#if defined(CURSES_WIDE) /*[*/
+static void
+myaddch(int c)
+{
+    	if (c & 0x80) {
+	    	addstr(utf8_expand(c));
+	} else {
+		addch(c);
+	}
+}
+#else /*][*/
+#define myaddch(c) addch(c)
+#endif /*]*/
 
 /* Display what's in the buffer. */
 void
@@ -619,10 +765,10 @@ screen_disp(Boolean erasing unused)
 				fa = ea_buf[baddr].fa;
 				field_attrs = calc_attrs(baddr, baddr, fa);
 				(void) attrset(defattr);
-				addch(' ');
+				myaddch(' ');
 			} else if (FA_IS_ZERO(fa)) {
 				(void) attrset(field_attrs);
-				addch(' ');
+				myaddch(' ');
 			} else {
 				if (!(ea_buf[baddr].gr ||
 				      ea_buf[baddr].fg ||
@@ -643,35 +789,31 @@ screen_disp(Boolean erasing unused)
 					int xaddr = baddr;
 					char mb[16];
 					int len;
-					int i;
-
 					INC_BA(xaddr);
 					len = dbcs_to_mb(ea_buf[baddr].cc,
 					    ea_buf[xaddr].cc,
 					    mb);
-					for (i = 0; i < len; i++) {
-						addch(mb[i] & 0xff);
-					}
+					addstr(mb);
 				} else if (!IS_RIGHT(d)) {
 #endif /*]*/
 					if (ea_buf[baddr].cs == CS_LINEDRAW) {
 						c = linedraw_to_acs(ea_buf[baddr].cc);
 						if (c != -1)
-							addch(c);
+							myaddch(c);
 						else
-							addch(' ');
+							myaddch(' ');
 					} else if (ea_buf[baddr].cs == CS_APL ||
 						   (ea_buf[baddr].cs & CS_GE)) {
 						c = apl_to_acs(ea_buf[baddr].cc);
 						if (c != -1)
-							addch(c);
+							myaddch(c);
 						else
-							addch(' ');
+							myaddch(' ');
 					} else {
 						if (toggled(MONOCASE))
-							addch(asc2uc[ebc2asc[ea_buf[baddr].cc]]);
+							myaddch(asc2uc[ebc2asc[ea_buf[baddr].cc]]);
 						else
-							addch(ebc2asc[ea_buf[baddr].cc]);
+							myaddch(ebc2asc[ea_buf[baddr].cc]);
 					}
 #if defined(X3270_DBCS) /*[*/
 				}
@@ -703,21 +845,69 @@ escape_timeout(void)
 	kybd_input2(0x1b, False);
 }
 
+#if defined(X3270_DBCS) /*[*/
+/*
+ * Accept a character of DBCS input.
+ * The character is a multi-byte string encoded according to the current
+ * locale.
+ */
+static int
+dbcs_input(char *mbs)
+{
+    	UChar Ubuf[16];
+	int wlen;
+	unsigned char asc;
+	unsigned char ebc[2];
+	/* XXX */
+	extern Boolean key_WCharacter(unsigned char code[], Boolean *skipped);
+	extern void key_ACharacter(unsigned char c, enum keytype keytype,
+		enum iaction cause, Boolean *skipped);
+
+    	if (!dbcs)
+	    	return -1;
+	wlen = mb_to_unicode(mbs, strlen(mbs), Ubuf, 16, NULL);
+	if (wlen < 0)
+	    	return -1;
+	if (dbcs_map8(Ubuf[0], &asc)) {
+	    	trace_event("U+%04x -> EBCDIC SBCS X'%02x'\n",
+			Ubuf[0] & 0xffff, asc2ebc[asc]);
+	    	key_ACharacter(asc, KT_STD, ia_cause, NULL);
+	} else if (dbcs_map16(Ubuf[0], ebc)) {
+	    	trace_event("U+%04x -> EBCDIC DBCS X'%02x%02x'\n",
+			Ubuf[0] & 0xffff, ebc[0], ebc[1]);
+	    	key_WCharacter(ebc, NULL);
+	} else {
+	    	trace_event("Cannot convert U+%04x to EBCDIC\n",
+			Ubuf[0] & 0xffff);
+	    	return -1;
+	}
+	return 0;
+}
+#endif /*]*/
+
 /* Keyboard input. */
 static void
 kybd_input(void)
 {
-	int k;
+	int k = 0;
 	Boolean first = True;
 	static Boolean failed_first = False;
 
 	for (;;) {
 		Boolean derived = False;
 		char dbuf[128];
+#if defined(CURSES_WIDE) /*[*/
+		wint_t wch;
+		size_t sz;
+#endif /*]*/
 
 		if (isendwin())
 			return;
+#if defined(CURSES_WIDE) /*[*/
+		k = wget_wch(stdscr, &wch);
+#else /*][*/
 		k = wgetch(stdscr);
+#endif /*]*/
 		if (k == ERR) {
 			if (first) {
 				if (failed_first) {
@@ -730,6 +920,36 @@ kybd_input(void)
 		} else {
 			failed_first = False;
 		}
+#if defined(CURSES_WIDE) /*[*/
+		if (k == KEY_CODE_YES)
+			k = (int)wch;
+		else {
+			char mbs[16];
+			wchar_t wcs[2];
+
+			wcs[0] = wch;
+			wcs[1] = 0;
+			sz = wcstombs(mbs, wcs, sizeof(mbs));
+			if (sz < 0) {
+				trace_event("Invalid input wchar %x\n", wch);
+				return;
+			}
+			if (sz == 1) {
+				k = mbs[0];
+			} else {
+			    	k = utf8_lookup(mbs, NULL, NULL);
+				if (k == 0) {
+#if defined(X3270_DBCS) /*[*/
+					if (dbcs_input(mbs) == 0)
+						return;
+#endif /*]*/
+					trace_event("Unsupported input "
+						"wchar %x\n", wch);
+					return;
+				}
+			}
+		}
+#endif /*]*/
 		trace_event("Key %s (0x%x)\n", decode_key(k, 0, dbuf), k);
 
 		/* Handle Meta-Escapes. */
@@ -1486,4 +1706,11 @@ apl_to_acs(unsigned char c)
 	default:
 		return -1;
 	}
+}
+
+Boolean
+screen_new_display_charsets(char *cslist, char *csname)
+{
+    	/* It's all in the UTF-8 logic. */
+    	return utf8_set_display_charsets(cslist, csname);
 }

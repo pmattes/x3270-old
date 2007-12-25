@@ -1,5 +1,5 @@
 '\" t
-.TH PR3287 1 "23 June 2007"
+.TH PR3287 1 "24 December 2007"
 .SH "NAME"
 pr3287 \-
 \s-1IBM\s+1
@@ -115,6 +115,14 @@ values of the MPL (maximum presentation line) and TM (top margin) parameters.
 The printer can be the name of a local printer, or a UNC path to a remote
 printer, e.g., <b>\\server\printer1</b>.
 .TP
+\fB\-proxy \fItype\fP:\fIhost\fP[:\fIport\fP]\fP
+Causes \fBpr3287\fP to connect via the specified proxy, instead of
+using a direct connection.
+The \fIhost\fP can be an IP address or hostname.
+The optional \fIport\fP can be a number or a service name.
+For a list of supported proxy \fItypes\fP, see \s-1PROXY\s+1
+below.
+.TP
 \fB\-reconnect\fP
 Causes \fIpr3287\fP to reconnect to the host, whenever the connection is
 broken.
@@ -135,6 +143,101 @@ pending data to be printed) and \fIpr3287\fP to exit.
 SIGUSR1 causes the current print job to be flushed without otherwise
 affecting the \fIpr3287\fP process.
 
+.SH "PROXY"
+The \fB\-proxy\fP option
+causes pr3287 to use a proxy server to connect to the host.
+The syntax of the option is:
+.RS
+\fItype\fP:\fIhost\fP[:\fIport\fP]
+
+.RE
+The supported values for \fItype\fP are:
+.TS
+center;
+c l c .
+T{
+.na
+.nh
+Proxy Type
+T}	T{
+.na
+.nh
+Protocol
+T}	T{
+.na
+.nh
+Default Port
+T}
+_
+T{
+.na
+.nh
+http
+T}	T{
+.na
+.nh
+RFC 2817 HTTP tunnel (squid)
+T}	T{
+.na
+.nh
+3128
+T}
+T{
+.na
+.nh
+passthru
+T}	T{
+.na
+.nh
+Sun in.telnet-gw
+T}	T{
+.na
+.nh
+none
+T}
+T{
+.na
+.nh
+socks4
+T}	T{
+.na
+.nh
+SOCKS version 4
+T}	T{
+.na
+.nh
+1080
+T}
+T{
+.na
+.nh
+socks5
+T}	T{
+.na
+.nh
+SOCKS version 5 (RFC 1928)
+T}	T{
+.na
+.nh
+1080
+T}
+T{
+.na
+.nh
+telnet
+T}	T{
+.na
+.nh
+No protocol (just send \fBconnect\fP \fIhost port\fP)
+T}	T{
+.na
+.nh
+none
+T}
+.TE
+.LP
+The special types \fBsocks4a\fP and \fBsocks5d\fP can also be used to force
+the proxy server to do the hostname resolution for the SOCKS protocol.
 .SH "SEE ALSO"
 x3270(1), c3270(1), telnet(1), tn3270(1)
 .br
@@ -168,4 +271,4 @@ Derivative works based on this software must incorporate this copyright
 notice.
 .RE
 .SH "VERSION"
-pr3287 3.3.6
+pr3287 3.3.7

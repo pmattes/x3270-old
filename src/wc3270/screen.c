@@ -34,16 +34,18 @@
 #include "tablesc.h"
 #include "trace_dsc.h"
 #include "utilc.h"
+#include "w3miscc.h"
 #include "widec.h"
 #include "xioc.h"
 
 #include <windows.h>
 #include <wincon.h>
+#include "winversc.h"
 
 extern int screen_changed;
 extern char *profile_name;
 
-#define MAX_COLORS	8
+#define MAX_COLORS	16
 static int cmap_fg[MAX_COLORS] = {
 	0,						/* neutral black */
 	FOREGROUND_INTENSITY | FOREGROUND_BLUE,		/* blue */
@@ -56,6 +58,15 @@ static int cmap_fg[MAX_COLORS] = {
 	FOREGROUND_INTENSITY | FOREGROUND_GREEN | FOREGROUND_RED,
 							/* yellow */
 	FOREGROUND_INTENSITY | FOREGROUND_GREEN | FOREGROUND_RED | FOREGROUND_BLUE,
+	0,						/* black */
+	FOREGROUND_BLUE,				/* deep blue */
+	FOREGROUND_INTENSITY | FOREGROUND_RED,		/* orange */
+	FOREGROUND_RED | FOREGROUND_BLUE,		/* purple */
+	FOREGROUND_GREEN,				/* pale green */
+	FOREGROUND_GREEN | FOREGROUND_BLUE,		/* pale turquoise */
+	FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE, /* gray */
+	FOREGROUND_INTENSITY | FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE,							/* white */
+
 							/* neutral white */
 };
 static int cmap_bg[MAX_COLORS] = {
@@ -71,6 +82,43 @@ static int cmap_bg[MAX_COLORS] = {
 							/* yellow */
 	BACKGROUND_INTENSITY | BACKGROUND_GREEN | BACKGROUND_RED | BACKGROUND_BLUE,
 							/* neutral white */
+	0,						/* black */
+	BACKGROUND_BLUE,				/* deep blue */
+	BACKGROUND_INTENSITY | BACKGROUND_RED,		/* orange */
+	BACKGROUND_RED | BACKGROUND_BLUE,		/* purple */
+	BACKGROUND_GREEN,				/* pale green */
+	BACKGROUND_GREEN | BACKGROUND_BLUE,		/* pale turquoise */
+	BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE, /* gray */
+	BACKGROUND_INTENSITY | BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE,							/* white */
+};
+static int field_colors[4] = {
+	COLOR_GREEN,		/* default */
+	COLOR_RED,		/* intensified */
+	COLOR_BLUE,		/* protected */
+	COLOR_NEUTRAL_WHITE	/* protected, intensified */
+};
+static struct {
+	char *name;
+	int index;
+} host_color[] = {
+	{ "NeutralBlack",	COLOR_NEUTRAL_BLACK },
+	{ "Blue",		COLOR_BLUE },
+	{ "Red",		COLOR_RED },
+	{ "Pink",		COLOR_PINK },
+	{ "Green",		COLOR_GREEN },
+	{ "Turquoise",		COLOR_TURQUOISE },
+	{ "Yellow",		COLOR_YELLOW },
+	{ "NeutralWhite",	COLOR_NEUTRAL_WHITE },
+	{ "Black",		COLOR_BLACK },
+	{ "DeepBlue",		COLOR_DEEP_BLUE },
+	{ "Orange",		COLOR_ORANGE },
+	{ "Purple",		COLOR_PURPLE },
+	{ "PaleGreen",		COLOR_PALE_GREEN },
+	{ "PaleTurquoise",	COLOR_PALE_TURQUOISE },
+	{ "Grey",		COLOR_GREY },
+	{ "Gray",		COLOR_GREY }, /* alias */
+	{ "White",		COLOR_WHITE },
+	{ CN,			0 }
 };
 
 static int defattr = 0;
@@ -80,6 +128,8 @@ Boolean escaped = True;
 
 enum ts { TS_AUTO, TS_ON, TS_OFF };
 enum ts ab_mode = TS_AUTO;
+
+int windows_cp = 0;
 
 #if defined(MAYBE_SOMETIME) /*[*/
 /*
@@ -116,6 +166,9 @@ static Boolean ts_value(const char *s, enum ts *tsp);
 static int linedraw_to_acs(unsigned char c);
 static int apl_to_acs(unsigned char c);
 static void relabel(Boolean ignored);
+static void check_aplmap(int codepage);
+static void init_user_colors(void);
+static void init_user_attribute_colors(void);
 
 static HANDLE chandle;	/* console input handle */
 static HANDLE cohandle;	/* console screen buffer handle */
@@ -173,28 +226,28 @@ initscr(void)
 	chandle = CreateFile("CONIN$", GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ,
 		NULL, OPEN_EXISTING, 0, NULL);
 	if (chandle == NULL) {
-		fprintf(stderr, "CreateFile(CONIN$) failed: %ld\n",
-			GetLastError());
+		fprintf(stderr, "CreateFile(CONIN$) failed: %s\n",
+			win32_strerror(GetLastError()));
 		return NULL;
 	}
 	if (SetConsoleMode(chandle, ENABLE_PROCESSED_INPUT) == 0) {
-		fprintf(stderr, "SetConsoleMode failed: %ld\n",
-			GetLastError());
+		fprintf(stderr, "SetConsoleMode failed: %s\n",
+			win32_strerror(GetLastError()));
 		return NULL;
 	}
 
 	cohandle = CreateFile("CONOUT$", GENERIC_READ | GENERIC_WRITE, FILE_SHARE_WRITE,
 		NULL, OPEN_EXISTING, 0, NULL);
 	if (cohandle == NULL) {
-		fprintf(stderr, "CreateFile(CONOUT$) failed: %ld\n",
-			GetLastError());
+		fprintf(stderr, "CreateFile(CONOUT$) failed: %s\n",
+			win32_strerror(GetLastError()));
 		return NULL;
 	}
 
 	/* Get its dimensions. */
 	if (GetConsoleScreenBufferInfo(cohandle, &info) == 0) {
-		fprintf(stderr, "GetConsoleScreenBufferInfo failed: %ld\n",
-			GetLastError());
+		fprintf(stderr, "GetConsoleScreenBufferInfo failed: %s\n",
+			win32_strerror(GetLastError()));
 		return NULL;
 	}
 	console_rows = info.srWindow.Bottom - info.srWindow.Top + 1;
@@ -202,8 +255,8 @@ initscr(void)
 
 	/* Get its cursor configuration. */
 	if (GetConsoleCursorInfo(cohandle, &cursor_info) == 0) {
-		fprintf(stderr, "GetConsoleCursorInfo failed: %ld\n",
-			GetLastError());
+		fprintf(stderr, "GetConsoleCursorInfo failed: %s\n",
+			win32_strerror(GetLastError()));
 		return NULL;
 	}
 
@@ -216,22 +269,22 @@ initscr(void)
 		NULL);
 	if (sbuf == NULL) {
 		fprintf(stderr,
-			"CreateConsoleScreenBuffer failed: %ld\n",
-			GetLastError());
+			"CreateConsoleScreenBuffer failed: %s\n",
+			win32_strerror(GetLastError()));
 		return NULL;
 	}
 
 	/* Set its cursor state. */
 	if (SetConsoleCursorInfo(sbuf, &cursor_info) == 0) {
-		fprintf(stderr, "SetConsoleScreenBufferInfo failed: %ld\n",
-			GetLastError());
+		fprintf(stderr, "SetConsoleScreenBufferInfo failed: %s\n",
+			win32_strerror(GetLastError()));
 		return NULL;
 	}
 
 	/* Define a console handler. */
 	if (!SetConsoleCtrlHandler((PHANDLER_ROUTINE)cc_handler, TRUE)) {
-		fprintf(stderr, "SetConsoleCtrlHandler failed: %ld\n",
-				GetLastError());
+		fprintf(stderr, "SetConsoleCtrlHandler failed: %s\n",
+				win32_strerror(GetLastError()));
 		return NULL;
 	}
 
@@ -254,56 +307,41 @@ set_display_charset(char *dcs)
 	char *copy;
 	char *s;
 	char *cs;
-	int success = 0;
+	int want_cp = 0;
+
+	windows_cp = GetConsoleCP();
 
 	copy = strdup(dcs);
 	s = copy;
 	while ((cs = strtok(s, ",")) != NULL) {
 		s = NULL;
 
-		/* Skip 3270 CG proprietary stuff. */
-		if (!strncmp(cs, "3270cg", 6))
-			continue;
-
-		if (!strncmp(cs, "iso8859-", 8)) {
-			/* Try ISO. */
-			int v = atoi(cs + 8);
-			int cp;
-
-			cp = 28590 + v;
-			if (SetConsoleOutputCP(cp)) {
-#if defined(DEBUG_WINCS) /*[*/
-				fprintf(stderr, "Set CP to %d\n", cp);
-#endif /*]*/
-				success = 1;
-				break;
-			}
-			if (v == 1) {
-				if (SetConsoleOutputCP(1252)) {
-#if defined(DEBUG_WINCS) /*[*/
-					fprintf(stderr, "Set CP to 1252\n");
-#endif /*]*/
-					success = 1;
-					break;
-				}
-			}
+		if (!strncmp(cs, "windows-", 8)) {
+			want_cp = atoi(cs + 8);
+			break;
+		} else if (!strncmp(cs, "iso8859-", 8)) {
+			want_cp = 28590 + atoi(cs + 8);
+			break;
 		} else if (!strcmp(cs, "koi8-r")) {
-			if (SetConsoleOutputCP(20866)) {
-#if defined(DEBUG_WINCS) /*[*/
-				fprintf(stderr, "Set CP to 20866\n");
-#endif /*]*/
-				success = 1;
-				break;
-			}
+			want_cp = 20866;
+			break;
 		}
 	}
-	
 	free(copy);
 
-	if (!success) {
-		fprintf(stderr, "Unable to set output character set to '%s'.\n",
-			dcs);
+	if (want_cp != 0 && windows_cp != want_cp) {
+	    	if (SetConsoleOutputCP(want_cp)) {
+			(void)SetConsoleCP(want_cp);
+		    	windows_cp = want_cp;
+		} else {
+			fprintf(stderr,
+				"Unable to set output character set to '%s' "
+				"(Windows code page %d).\n",
+				dcs, want_cp);
+		}
 	}
+
+	check_aplmap(windows_cp);
 }
 
 /*
@@ -485,8 +523,8 @@ hdraw(int row, int lrow, int col, int lcol)
 			bufferCoord, &writeRegion);
 	if (rc == 0) {
 
-		fprintf(stderr, "WriteConsoleOutput failed: %ld\n",
-			GetLastError());
+		fprintf(stderr, "WriteConsoleOutput failed: %s\n",
+			win32_strerror(GetLastError()));
 		x3270_exit(1);
 	}
 
@@ -687,8 +725,10 @@ refresh(void)
 	coord.X = cur_col;
 	coord.Y = cur_row;
 	if (SetConsoleCursorPosition(sbuf, coord) == 0) {
-		fprintf(stderr, "\nSetConsoleCursorPosition failed: %ld\n",
-			GetLastError());
+		fprintf(stderr,
+			"\nrefresh: SetConsoleCursorPosition(x=%d,y=%d) "
+			"failed: %s\n",
+			coord.X, coord.Y, win32_strerror(GetLastError()));
 		x3270_exit(1);
 	}
 
@@ -696,8 +736,8 @@ refresh(void)
 	if (screen_swapped == FALSE) {
 		if (SetConsoleActiveScreenBuffer(sbuf) == 0) {
 			fprintf(stderr,
-				"\nSetConsoleActiveScreenBuffer failed: %ld\n",
-				GetLastError());
+				"\nSetConsoleActiveScreenBuffer failed: %s\n",
+				win32_strerror(GetLastError()));
 			x3270_exit(1);
 		}
 		screen_swapped = TRUE;
@@ -711,21 +751,21 @@ endwin(void)
 	if (SetConsoleMode(chandle, ENABLE_ECHO_INPUT |
 				    ENABLE_LINE_INPUT |
 				    ENABLE_PROCESSED_INPUT) == 0) {
-		fprintf(stderr, "\nSetConsoleMode(CONIN$) failed: %ld\n",
-			GetLastError());
+		fprintf(stderr, "\nSetConsoleMode(CONIN$) failed: %s\n",
+			win32_strerror(GetLastError()));
 		x3270_exit(1);
 	}
 	if (SetConsoleMode(cohandle, ENABLE_PROCESSED_OUTPUT |
 				     ENABLE_WRAP_AT_EOL_OUTPUT) == 0) {
-		fprintf(stderr, "\nSetConsoleMode(CONOUT$) failed: %ld\n",
-			GetLastError());
+		fprintf(stderr, "\nSetConsoleMode(CONOUT$) failed: %s\n",
+			win32_strerror(GetLastError()));
 		x3270_exit(1);
 	}
 
 	/* Swap in the original buffer. */
 	if (SetConsoleActiveScreenBuffer(cohandle) == 0) {
-		fprintf(stderr, "\nSetConsoleActiveScreenBuffer failed: %ld\n",
-			GetLastError());
+		fprintf(stderr, "\nSetConsoleActiveScreenBuffer failed: %s\n",
+			win32_strerror(GetLastError()));
 		x3270_exit(1);
 	}
 
@@ -751,6 +791,9 @@ screen_init(void)
 		x3270_exit(1);
 	}
 
+	/*
+	 * Respect the console size we are given.
+	 */
 	while (console_rows < maxROWS || console_cols < maxCOLS) {
 		char buf[2];
 
@@ -821,6 +864,10 @@ screen_init(void)
 		if (ab_mode == TS_ON)
 			defattr |= FOREGROUND_INTENSITY;
 	}
+
+	/* Pull in the user's color mappings. */
+	init_user_colors();
+	init_user_attribute_colors();
 
 	/* Set up the controller. */
 	ctlr_init(-1);
@@ -908,20 +955,54 @@ get_color_pair(int fg, int bg)
 }
 
 /*
+ * Initialize the user-specified attribute color mappings.
+ */
+static void
+init_user_attribute_color(int *a, const char *resname)
+{
+	char *r;
+	unsigned long l;
+	char *ptr;
+	int i;
+
+	if ((r = get_resource(resname)) == CN)
+		return;
+	for (i = 0; host_color[i].name != CN; i++) {
+	    	if (!strcasecmp(r, host_color[i].name)) {
+		    	*a = host_color[i].index;
+			return;
+		}
+	}
+	l = strtoul(r, &ptr, 0);
+	if (ptr == r || *ptr != '\0' || l >= MAX_COLORS) {
+		xs_warning("Invalid %s value: %s", resname, r);
+		return;
+	}
+	*a = (int)l;
+}
+
+static void
+init_user_attribute_colors(void)
+{
+	init_user_attribute_color(&field_colors[0],
+		ResHostColorForDefault);
+	init_user_attribute_color(&field_colors[1],
+		ResHostColorForIntensified);
+	init_user_attribute_color(&field_colors[2],
+		ResHostColorForProtected);
+	init_user_attribute_color(&field_colors[3],
+		ResHostColorForProtectedIntensified);
+}
+
+/*
  * Map a field attribute to a 3270 color index.
  * Applies only to m3270 mode -- does not work for mono.
  */
 static int
 color3270_from_fa(unsigned char fa)
 {
-	static int field_colors[4] = {
-	    COLOR_GREEN,	/* default */
-	    COLOR_RED,		/* intensified */
-	    COLOR_BLUE,		/* protected */
-	    COLOR_NEUTRAL_WHITE		/* protected, intensified */
 #	define DEFCOLOR_MAP(f) \
 		((((f) & FA_PROTECT) >> 4) | (((f) & FA_INT_HIGH_SEL) >> 3))
-	};
 
 	return field_colors[DEFCOLOR_MAP(fa)];
 }
@@ -967,6 +1048,42 @@ reverse_colors(int a)
 	    	rv |= FOREGROUND_INTENSITY;
 
 	return rv;
+}
+
+/*
+ * Set up the user-specified color mappings.
+ */
+static void
+init_user_color(const char *name, int ix)
+{
+    	char *r;
+	unsigned long l;
+	char *ptr;
+
+	r = get_fresource("%s%s", ResConsoleColorForHostColor, name);
+	if (r == CN)
+		r = get_fresource("%s%d", ResConsoleColorForHostColor, ix);
+	if (r == CN)
+	    	return;
+
+	l = strtoul(r, &ptr, 0);
+	if (ptr != r && *ptr == '\0' && l <= 15) {
+	    	cmap_fg[ix] = (int)l;
+	    	cmap_bg[ix] = (int)l + 16;
+		return;
+	}
+
+	xs_warning("Invalid %s value '%s'", ResConsoleColorForHostColor, r);
+}
+
+static void
+init_user_colors(void)
+{
+	int i;
+
+	for (i = 0; host_color[i].name != CN; i++) {
+	    	init_user_color(host_color[i].name, host_color[i].index);
+	}
 }
 
 /*
@@ -1017,7 +1134,8 @@ calc_attrs(int baddr, int fa_addr, int fa)
 	else
 		gr = 0;
 
-	if (appres.m3279 &&
+	if (appres.highlight_underline &&
+		appres.m3279 &&
 		(gr & (GR_BLINK | GR_UNDERLINE)) &&
 		!(gr & GR_REVERSE) &&
 		!bg) {
@@ -1077,8 +1195,11 @@ screen_disp(Boolean erasing unused)
 			coord.Y = cur_row;
 			if (SetConsoleCursorPosition(sbuf, coord) == 0) {
 				fprintf(stderr,
-					"\nSetConsoleCursorPosition failed: %ld\n",
-					GetLastError());
+					"\nscreen_disp: "
+					"SetConsoleCursorPosition(x=%d,y=%d) "
+					"failed: %s\n",
+					coord.X, coord.Y,
+					win32_strerror(GetLastError()));
 				x3270_exit(1);
 			}
 		}
@@ -1266,8 +1387,8 @@ kybd_input(void)
 
 	/* Get the next input event. */
 	if (ReadConsoleInput(chandle, &ir, 1, &nr) == 0) {
-		fprintf(stderr, "ReadConsoleInput failed: %ld\n",
-			GetLastError());
+		fprintf(stderr, "ReadConsoleInput failed: %s\n",
+			win32_strerror(GetLastError()));
 		x3270_exit(1);
 	}
 	if (nr == 0)
@@ -1290,7 +1411,7 @@ kybd_input(void)
 			ir.Event.KeyEvent.bKeyDown? "Down": "Up",
 			ir.Event.KeyEvent.wVirtualKeyCode, s,
 			ir.Event.KeyEvent.wVirtualScanCode,
-			ir.Event.KeyEvent.uChar.AsciiChar,
+			ir.Event.KeyEvent.uChar.AsciiChar & 0xff,
 			(int)ir.Event.KeyEvent.dwControlKeyState,
 			decode_state(ir.Event.KeyEvent.dwControlKeyState,
 			    False, CN));
@@ -1473,7 +1594,7 @@ kybd_input2(INPUT_RECORD *ir)
 	}
 
 	/* Then any other 8-bit ASCII character. */
-	k = ir->Event.KeyEvent.uChar.AsciiChar;
+	k = ir->Event.KeyEvent.uChar.AsciiChar & 0xff;
 	if (k && !(k & ~0xff)) {
 		char ks[6];
 		String params[2];
@@ -1782,112 +1903,216 @@ screen_80(void)
 static int
 linedraw_to_acs(unsigned char c)
 {
+    	int r;
+
+	/* FIXME: Need aplmap equivalent functionality for xterm linedraw. */
+
+	/* Use Unicode. */
 	switch (c) {
 	case 0x0:	/* '_', block */
-		return -1;
+		r = -1;
+		break;
 	case 0x1:	/* '`', diamond */
-		return 0x25c6;
+		r = 0x25c6;
+		break;
 	case 0x2:	/* 'a', checkerboard */
-		return -1;
+		r = -1;
+		break;
 	case 0x7:	/* 'f', degree */
-		return 0xb0;
+		r = 0xb0;
+		break;
 	case 0x8:	/* 'g', plusminus */
-		return 0xb1;
+		r = 0xb1;
+		break;
 	case 0x9:	/* 'h', board? */
-		return -1;
+		r = -1;
+		break;
 	case 0xa:	/* 'i', lantern? */
-		return -1;
+		r = -1;
+		break;
 	case 0xb:	/* 'j', LR corner */
-		return 0x2518;
+		r = 0x2518;
+		break;
 	case 0xc:	/* 'k', UR corner */
-		return 0x2510;
+		r = 0x2510;
+		break;
 	case 0xd:	/* 'l', UL corner */
-		return 0x250c;
+		r = 0x250c;
+		break;
 	case 0xe:	/* 'm', LL corner */
-		return 0x2514;
+		r = 0x2514;
+		break;
 	case 0xf:	/* 'n', plus */
-		return 0x253c;
+		r = 0x253c;
+		break;
 	case 0x10:	/* 'o', top horizontal */
-		return '-';
+		r = '-';
+		break;
 	case 0x11:	/* 'p', row 3 horizontal */
-		return '-';
+		r = '-';
+		break;
 	case 0x12:	/* 'q', middle horizontal */
-		return 0x2500;
+		r = 0x2500;
+		break;
 	case 0x13:	/* 'r', row 7 horizontal */
-		return '-';
+		r = '-';
+		break;
 	case 0x14:	/* 's', bottom horizontal */
-		return '_';
+		r = '_';
+		break;
 	case 0x15:	/* 't', left tee */
-		return 0x251c;
+		r = 0x251c;
+		break;
 	case 0x16:	/* 'u', right tee */
-		return 0x2524;
+		r = 0x2524;
+		break;
 	case 0x17:	/* 'v', bottom tee */
-		return 0x2534;
+		r = 0x2534;
+		break;
 	case 0x18:	/* 'w', top tee */
-		return 0x252c;
+		r = 0x252c;
+		break;
 	case 0x19:	/* 'x', vertical line */
-		return 0x2502;
+		r = 0x2502;
+		break;
 	case 0x1a:	/* 'y', less or equal */
-		return 0x2264;
+		r = 0x2264;
+		break;
 	case 0x1b:	/* 'z', greater or equal */
-		return 0x2265;
+		r = 0x2265;
+		break;
 	case 0x1c:	/* '{', pi */
-		return 0x03c0;
+		r = 0x03c0;
+		break;
 	case 0x1d:	/* '|', not equal */
-		return 0x2260;
+		r = 0x2260;
+		break;
 	case 0x1e:	/* '}', sterling */
-		return 0xa3;
+		r = 0xa3;
+		break;
 	case 0x1f:	/* '~', bullet */
-		return 0x2022;
+		r = 0x2022;
+		break;
 	default:
-		return -1;
+		r = -1;
+		break;
 	}
+
+	/* If we're pre-NT, we can't assume that Unicode works. */
+	if (!is_nt && (r & ~0xff))
+	    	r = -1;
+
+	return r;
 }
+
+int have_aplmap = 0;
+unsigned char aplmap[256];
 
 static int
 apl_to_acs(unsigned char c)
 {
+    	int r;
+
+	/* If there's an explicit map for this Windows code page, use it. */
+	if (have_aplmap) {
+	    	r = aplmap[c];
+		return r? r: -1;
+	}
+
+	/* Use Unicode. */
 	switch (c) {
 	case 0xaf: /* CG 0xd1, degree */
-		return 0xb0;	/* XXX may not map to bullet in current
+		r = 0xb0;	/* XXX may not map to bullet in current
 				       codepage */
+		break;
 	case 0xd4: /* CG 0xac, LR corner */
-		return 0x2518;
+		r = 0x2518;
+		break;
 	case 0xd5: /* CG 0xad, UR corner */
-		return 0x2510;
+		r = 0x2510;
+		break;
 	case 0xc5: /* CG 0xa4, UL corner */
-		return 0x250c;
+		r = 0x250c;
+		break;
 	case 0xc4: /* CG 0xa3, LL corner */
-		return 0x2514;
+		r = 0x2514;
+		break;
 	case 0xd3: /* CG 0xab, plus */
-		return 0x253c;
+		r = 0x253c;
+		break;
 	case 0xa2: /* CG 0x92, horizontal line */
-		return 0x2500;
+		r = 0x2500;
+		break;
 	case 0xc6: /* CG 0xa5, left tee */
-		return 0x251c;
+		r = 0x251c;
+		break;
 	case 0xd6: /* CG 0xae, right tee */
-		return 0x2524;
+		r = 0x2524;
+		break;
 	case 0xc7: /* CG 0xa6, bottom tee */
-		return 0x2534;
+		r = 0x2534;
+		break;
 	case 0xd7: /* CG 0xaf, top tee */
-		return 0x252c;
+		r = 0x252c;
+		break;
 	case 0x85: /* CG 0xa84?, vertical line */
-		return 0x2502;
+		r = 0x2502;
+		break;
 	case 0x8c: /* CG 0xf7, less or equal */
-		return 0x2264;
+		r = 0x2264;
+		break;
 	case 0xae: /* CG 0xd9, greater or equal */
-		return 0x2265;
+		r = 0x2265;
+		break;
 	case 0xbe: /* CG 0x3e, not equal */
-		return 0x2260;
+		r = 0x2260;
+		break;
 	case 0xa3: /* CG 0x93, bullet */
-		return 0x2022;
+		r = 0x2022;
+		break;
 	case 0xad:
-		return '[';
+		r = '[';
+		break;
 	case 0xbd:
-		return ']';
+		r = ']';
+		break;
 	default:
-		return -1;
+		r = -1;
+		break;
 	}
+
+	/* If pre-NT, we can't assume that Unicode works. */
+	if (!is_nt && (r & ~0xff))
+	    	r = -1;
+
+	return r;
+}
+
+/* Read the aplMap.<windows-codepage> resource into aplmap[]. */
+static void
+check_aplmap(int codepage)
+{
+	char *r = get_fresource("%s.%d", ResAplMap, codepage);
+	char *s;
+	char *left, *right;
+
+	if (r == CN) {
+	    	return;
+	}
+
+	have_aplmap = 1;
+	r = NewString(r);
+	s = r;
+	while (split_dresource(&s, &left, &right) == 1) {
+	    	unsigned long l, r;
+
+		l = strtoul(left, NULL, 0);
+		r = strtoul(right, NULL, 0);
+		if (l > 0 && l <= 0xff && r > 0 && r <= 0xff) {
+		    	aplmap[l] = (unsigned char)r;
+		}
+	}
+	Free(r);
 }
 
 /*

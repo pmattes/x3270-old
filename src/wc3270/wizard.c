@@ -18,6 +18,7 @@
  */
 
 #include "globals.h"
+
 #include <signal.h>
 #include "appres.h"
 #include "3270ds.h"
@@ -42,6 +43,10 @@
 #include <shlobj.h>
 #include "shlobj_missing.h"
 
+#include "winversc.h"
+#include "shortcutc.h"
+#include "windirsc.h"
+
 #define STR_SIZE	256
 #define LEGAL_CNAME	"ABCDEFGHIJKLMNOPQRSTUVWXYZ" \
 			"abcedfghijklmnopqrstuvwxyz" \
@@ -63,42 +68,46 @@ extern char *wversion;
 
 struct {
     	char *name;
-	char *cp;
+	char *hostcp;
+	char *wincp;
 } charsets[] = {
-	{ "belgian",		"500"	},
-	{ "belgian-euro",	"1148"	},
-	{ "bracket",		"37+"	},
-	{ "brazilian",		"275"	},
-	{ "cp1047",		"1047"	},
-	{ "cp870",		"870"	},
-	{ "finnish",		"278"	},
-	{ "finnish-euro",	"1143"	},
-	{ "french",		"297"	},
-	{ "french-euro",	"1147"	},
-	{ "german",		"273"	},
-	{ "german-euro",	"1141"	},
-	{ "greek",		"875"	},
-	{ "hebrew",		"424"	},
-	{ "icelandic",		"871"	},
-	{ "icelandic-euro",	"1149"	},
-	{ "italian",		"280"	},
-	{ "italian-euro",	"1144"	},
-	{ "norwegian",		"277"	},
-	{ "norwegian-euro",	"1142"	},
-	{ "russian",		"880"	},
-	{ "spanish",		"284"	},
-	{ "spanish-euro",	"1145"	},
-	{ "thai",		"838"	},
-	{ "turkish",		"1026"	},
-	{ "uk",			"285"	},
-	{ "uk-euro",		"1146"	},
-	{ "us-euro",		"1140"	},
-	{ "us-intl",		"37"	},
+	{ "belgian",		"500",	"28591"	},
+	{ "belgian-euro",	"1148",	"28605"	},
+	{ "bracket",		"37+",	"28591"	},
+	{ "bracket437",		"37+",	"437"	},
+	{ "brazilian",		"275",	"28591"	},
+	{ "cp1047",		"1047",	"28591"	},
+	{ "cp1153",		"1153",	"1250"	},
+	{ "cp870",		"870",	"28592"	},
+	{ "finnish",		"278",	"28591"	},
+	{ "finnish-euro",	"1143",	"28605"	},
+	{ "french",		"297",	"28591"	},
+	{ "french-euro",	"1147",	"28605"	},
+	{ "german",		"273",	"28591"	},
+	{ "german-euro",	"1141",	"28605"	},
+	{ "greek",		"875",	"28597"	},
+	{ "hebrew",		"424",	"28598"	},
+	{ "icelandic",		"871",	"28591"	},
+	{ "icelandic-euro",	"1149",	"28605"	},
+	{ "italian",		"280",	"28591"	},
+	{ "italian-euro",	"1144",	"28605"	},
+	{ "norwegian",		"277",	"28591"	},
+	{ "norwegian-euro",	"1142",	"28605"	},
+	{ "russian",		"880",	"20866"	},
+	{ "spanish",		"284",	"28591"	},
+	{ "spanish-euro",	"1145",	"28605"	},
+	{ "thai",		"838",	"28601"	},
+	{ "turkish",		"1026",	"28599"	},
+	{ "uk",			"285",	"28591"	},
+	{ "uk-euro",		"1146",	"28605"	},
+	{ "us-euro",		"1140",	"28605"	},
+	{ "us-intl",		"37",	"28591"	},
 	{ NULL,			NULL	}
 };
-#define CS_WIDTH	19
+#define CS_WIDTH	14
 #define CP_WIDTH	7
-#define	CS_COLS		(79 / (CS_WIDTH + CP_WIDTH))
+#define WP_WIDTH	6
+#define	CS_COLS		2
 
              /*  model  2   3   4   5 */
 int wrows[6] = { 0, 0, 25, 33, 44, 28  };
@@ -150,126 +159,7 @@ typedef struct {
 
 int create_session_file(session_t *s);
 
-
-// CreateLink - uses the shell's IShellLink and IPersistFile interfaces 
-//   to create and store a shortcut to the specified object. 
-// Returns the result of calling the member functions of the interfaces. 
-// lpszPathObj - address of a buffer containing the path of the object 
-// lpszPathLink - address of a buffer containing the path where the 
-//   shell link is to be stored 
-// lpszDesc - address of a buffer containing the description of the 
-//   shell link 
-HRESULT
-CreateLink(LPCSTR lpszPathObj, LPSTR lpszPathLink, LPSTR lpszDesc,
-    LPSTR lpszArgs, LPSTR lpszDir, int rows, int cols)
-{
-	HRESULT			hres;
-	int	 		initialized;
-	IShellLink*		psl = NULL; 
-	IShellLinkDataList* 	psldl = NULL; 
-	IPersistFile*		ppf = NULL;
-	NT_CONSOLE_PROPS	p;
-	WORD			wsz[MAX_PATH];
-
-	hres = CoInitialize(NULL);
-	if (!SUCCEEDED(hres))
-		goto out;
-	initialized = 1;
-
-	// Get a pointer to the IShellLink interface.
-	hres = CoCreateInstance(&CLSID_ShellLink, NULL, CLSCTX_INPROC_SERVER,
-	    &IID_IShellLink, (LPVOID *)&psl);
-
-	if (!SUCCEEDED(hres))
-		goto out;
-
-	// Set the path to the shortcut target, and add the description.
-	psl->lpVtbl->SetPath(psl, lpszPathObj);
-	psl->lpVtbl->SetDescription(psl, lpszDesc);
-	if (lpszArgs)
-	    psl->lpVtbl->SetArguments(psl, lpszArgs);
-	if (lpszDir)
-	    psl->lpVtbl->SetWorkingDirectory(psl, lpszDir);
-
-	hres = psl->lpVtbl->QueryInterface(psl, &IID_IShellLinkDataList,
-	    (void **)&psldl);
-	if (!SUCCEEDED(hres))
-		goto out;
-
-	memset(&p, '\0', sizeof(NT_CONSOLE_PROPS));
-	p.dbh.cbSize = sizeof(p);
-	p.dbh.dwSignature = NT_CONSOLE_PROPS_SIG;
-	p.wFillAttribute = 7;	/* ? */
-	p.wPopupFillAttribute = 245;	/* ? */
-	p.dwScreenBufferSize.X = cols;
-	p.dwScreenBufferSize.Y = 0x012c;
-	p.dwWindowSize.X = cols;
-	p.dwWindowSize.Y = rows;
-	p.dwWindowOrigin.X = 0;
-	p.dwWindowOrigin.Y = 0;
-	p.nFont = 0;
-	p.nInputBufferSize = 0;
-	p.dwFontSize.X = 0;
-	p.dwFontSize.Y = 0;
-	p.uFontFamily = 54; /* ? */
-	p.uFontWeight = 400; /* ? */
-	wcscpy(p.FaceName, L"Lucida Console");
-	p.uCursorSize = 0x19;
-	p.bFullScreen = 0;
-	p.bQuickEdit = 0;
-	p.bInsertMode = 1;
-	p.bAutoPosition = 1;
-	p.uHistoryBufferSize = 0x32;
-	p.uNumberOfHistoryBuffers = 4;
-	p.bHistoryNoDup = 0;
-	p.ColorTable[0] = 0;
-	p.ColorTable[1] =  0x00800000;
-	p.ColorTable[2] =  0x00008000;
-	p.ColorTable[3] =  0x00808000;
-	p.ColorTable[4] =  0x00000080;
-	p.ColorTable[5] =  0x00800080;
-	p.ColorTable[6] =  0x00008080;
-	p.ColorTable[7] =  0x00c0c0c0;
-	p.ColorTable[8] =  0x00808080;
-	p.ColorTable[9] =  0x00ff0000;
-	p.ColorTable[10] = 0x0000ff00;
-	p.ColorTable[11] = 0x00ffff00;
-	p.ColorTable[12] = 0x000000ff;
-	p.ColorTable[13] = 0x00ff00ff;
-	p.ColorTable[14] = 0x0000ffff;
-	p.ColorTable[15] = 0x00ffffff;
-
-	hres = psldl->lpVtbl->AddDataBlock(psldl, &p);
-	if (!SUCCEEDED(hres))
-		goto out;
-
-	// Query IShellLink for the IPersistFile interface for saving
-	// the shortcut in persistent storage.
-	hres = psl->lpVtbl->QueryInterface(psl, &IID_IPersistFile,
-	    (void **)&ppf);
-
-	if (!SUCCEEDED(hres))
-		goto out;
-
-	// Ensure that the string is ANSI.
-	MultiByteToWideChar(CP_ACP, 0, lpszPathLink, -1, wsz, MAX_PATH);
-
-	// Save the link by calling IPersistFile::Save.
-	hres = ppf->lpVtbl->Save(ppf, wsz, TRUE);
-
-out:
-	if (ppf != NULL)
-		ppf->lpVtbl->Release(ppf);
-	if (psldl != NULL)
-		psldl->lpVtbl->Release(psldl);
-	if (psl != NULL)
-		psl->lpVtbl->Release(psl);
-
-	if (initialized)
-		CoUninitialize();
-
-	return hres;
-} 
+static char mya[MAX_PATH];
 
 char *
 get_input(char *buf, int bufsize)
@@ -384,7 +274,7 @@ km_t *km_last = NULL;
 
 /* Save a keymap name.  If it is unique, return its node. */
 km_t *
-save_keymap_name(char *keymap_name)
+save_keymap_name(char *path, char *keymap_name)
 {
 	km_t *km;
     	int sl;
@@ -429,21 +319,23 @@ save_keymap_name(char *keymap_name)
 	km_last = km;
 
 	/* Dig for a description. */
-	f = fopen(keymap_name, "r");
-	if (f != NULL) {
-	    	char buf[STR_SIZE];
+	if (path != NULL) {
+		f = fopen(path, "r");
+		if (f != NULL) {
+			char buf[STR_SIZE];
 
-		while (fgets(buf, STR_SIZE, f) != NULL) {
-		    	sl = strlen(buf);
-			if (sl > 0 && buf[sl - 1] == '\n')
-			    	buf[--sl] = '\0';
-			if (!strncasecmp(buf, KM_DESC, LEN_DESC)) {
-			    	strncpy(km->description, buf + LEN_DESC,
-					sl - LEN_DESC + 1);
-				break;
+			while (fgets(buf, STR_SIZE, f) != NULL) {
+				sl = strlen(buf);
+				if (sl > 0 && buf[sl - 1] == '\n')
+					buf[--sl] = '\0';
+				if (!strncasecmp(buf, KM_DESC, LEN_DESC)) {
+					strncpy(km->description, buf + LEN_DESC,
+						sl - LEN_DESC + 1);
+					break;
+				}
 			}
+			fclose(f);
 		}
-		fclose(f);
 	}
 
 	return km;
@@ -489,7 +381,7 @@ shortcut on your desktop.");
 
 /* Session name screen. */
 int
-get_session(session_t *s, char *installdir)
+get_session(session_t *s)
 {
     	FILE *f;
 	int rc;
@@ -519,7 +411,7 @@ and dash '-')\n");
 
 		break;
 	}
-	sprintf(s->path, "%s\\%s.wc3270", installdir, s->session);
+	sprintf(s->path, "%s%s.wc3270", mya, s->session);
 	f = fopen(s->path, "r");
 	if (f != NULL) {
 		for (;;) {
@@ -542,12 +434,36 @@ and dash '-')\n");
 int
 get_host(session_t *s)
 {
-	new_screen(s, "\
+        OSVERSIONINFO info;
+	int has_ipv6 = 1;
+
+	/* Win2K and earlier is IPv4-only.  WinXP and later can have IPv6. */
+	memset(&info, '\0', sizeof(info));
+	info.dwOSVersionInfoSize = sizeof(info);
+	if (GetVersionEx(&info) == 0 ||
+		info.dwMajorVersion < 5 ||
+		(info.dwMajorVersion == 5 && info.dwMinorVersion < 1)) {
+	    has_ipv6 = 0;
+	}
+
+#define COMMON_HOST_TEXT1 "\
 Host Name\n\
 \n\
 This specifies the IBM host to connect to.  It can be a symbolic name like\n\
-'foo.company.com', an IPv4 address in dotted-decimal notation such as\n\
-'1.2.3.4', or an IPv6 address in colon notation, such as 'fec0:0:0:1::27'.");
+'foo.company.com'"
+
+#define COMMON_HOST_TEXT2 "\
+an IPv4 address in dotted-decimal notation such as\n\
+'1.2.3.4'"
+
+#define IPV6_HOST_TEXT "\
+an IPv6 address in colon notation, such as 'fec0:0:0:1::27'"
+
+	if (has_ipv6)
+	    	new_screen(s, COMMON_HOST_TEXT1 ", " COMMON_HOST_TEXT2 " or "
+			IPV6_HOST_TEXT ".");
+	else
+	    	new_screen(s, COMMON_HOST_TEXT1 " or " COMMON_HOST_TEXT2 ".");
 
 	for (;;) {
 		if (strchr(s->session, ' ') == NULL)
@@ -663,6 +579,7 @@ get_model(session_t *s)
     	char inbuf[STR_SIZE];
 	char *ptr;
 	unsigned long u;
+	int max_model = is_nt? 5: 4;
 
 	new_screen(s, "\
 Model Number\n\
@@ -671,14 +588,15 @@ This specifies the dimensions of the screen.");
 
 	s->model = 4;
 	printf("\n");
-	for (i = 2; i <= 5; i++) {
+	for (i = 2; i <= max_model; i++) {
 		if (wrows[i]) {
 			printf(" Model %d has %2d rows and %3d columns.\n",
 			    i, wrows[i] - 1, wcols[i]);
 		}
 	}
 	for (;;) {
-		printf("\nEnter model number: (2, 3, 4 or 5) [4] ");
+		printf("\nEnter model number: (2, 3%s) [4] ",
+			is_nt? ", 4 or 5": " or 4");
 		fflush(stdout);
 		if (get_input(inbuf, sizeof(inbuf)) == NULL) {
 			return -1;
@@ -687,7 +605,7 @@ This specifies the dimensions of the screen.");
 			break;
 		}
 		u = strtoul(inbuf, &ptr, 10);
-		if (u < 2 || u > 5 || *ptr != '\0') {
+		if (u < 2 || u > max_model || *ptr != '\0') {
 			printf("Invalid model number.\n");
 			continue;
 		}
@@ -700,35 +618,56 @@ This specifies the dimensions of the screen.");
 int
 get_charset(session_t *s)
 {
-    	int i;
+    	int i, k;
 	char *ptr;
 	unsigned long u;
+#define NCS ((sizeof(charsets) / sizeof(charsets[0])) - 1)
 
 	new_screen(s, "\
 Character Set\n\
 \n\
 This specifies the EBCDIC character set used by the host.");
 
+	printf("\
+\nAvailable character sets:\n\n\
+     Name           Host CP Win CP        Name           Host CP Win CP\n\
+     -------------- ------- ------        -------------- ------- ------\n");
+	k = 0;
+	for (i = 0; i < NCS; i++) {
+	    	int j;
 
-	printf("\nAvailable character sets:\n");
-	for (i = 0; charsets[i].name != NULL; i++) {
-		if (i && !(i % CS_COLS))
-			printf("\n");
-		printf(" %2d) %-*s CP%-*s",
-			i + 1,
-			CS_WIDTH - 5,
-			charsets[i].name,
-			CP_WIDTH - 3,
-			charsets[i].cp);
+	    	if (i) {
+			if (!(i % CS_COLS))
+				printf("\n");
+			else
+				printf("   ");
+		}
+		if (!(i % 2))
+		    	j = k;
+		else {
+		    	j += NCS / 2;
+			k++;
+		}
+		printf(" %2d. %-*s %-*s %-*s",
+			j + 1,
+			CS_WIDTH,
+			charsets[j].name,
+			CP_WIDTH,
+			charsets[j].hostcp,
+			WP_WIDTH,
+			charsets[j].wincp);
 	}
 	printf("\n");
 	for (;;) {
-		printf("\nCharacter set: [bracket] ");
+		printf("\nCharacter set: [bracket%s] ", is_nt? "": "437");
 		if (get_input(s->charset, sizeof(s->charset)) == NULL) {
 			return -1;
 		}
 		if (!s->charset[0]) {
-			strcpy(s->charset, "bracket");
+		    	if (is_nt)
+				strcpy(s->charset, "bracket");
+			else
+				strcpy(s->charset, "bracket437");
 			break;
 		}
 		u = strtoul(s->charset, &ptr, 10);
@@ -934,12 +873,12 @@ printer, or specify a remote printer with a UNC path, e.g.,\n\
 	if (num_printers) {
 		printf("\nWindows printers (default is '*'):\n");
 		for (i = 0; i < num_printers; i++) {
-			printf(" %2d) %c %s\n", i + 1,
+			printf(" %2d. %c %s\n", i + 1,
 				strcasecmp(default_printer,
 				    printer_info[i].pName)? ' ': '*',
 				printer_info[i].pName);
 		}
-		printf(" %2d)   Other\n", num_printers + 1);
+		printf(" %2d.   Other\n", num_printers + 1);
 		for (;;) {
 			printf("\nEnter Windows printer (1-%d): [use system default] ",
 				num_printers + 1);
@@ -969,33 +908,56 @@ printer, or specify a remote printer with a UNC path, e.g.,\n\
 }
 
 int
-get_keymaps(session_t *s)
+get_keymaps(session_t *s, char *installdir)
 {
     	int i;
 	HANDLE h;
 	WIN32_FIND_DATA find_data;
 	km_t *km;
+	char dpath[MAX_PATH];
+	char fpath[MAX_PATH];
 
 	new_screen(s, "\
 Keymaps\n\
 \n\
 A keymap is a mapping from the PC keyboard to the virtual 3270 keyboard.\n\
 You can override the default keymap and specify one or more built-in or \n\
-user-defined keymaps (if any), separated by commas.");
+user-defined keymaps, separated by commas.");
 
 	printf("\n");
 	for (i = 0; builtin_keymaps[i].name != NULL; i++) {
 	    	printf(" %s\n    %s\n",
 			builtin_keymaps[i].name,
 			builtin_keymaps[i].description);
-		(void) save_keymap_name(builtin_keymaps[i].name);
+		(void) save_keymap_name(NULL, builtin_keymaps[i].name);
 	}
-	h = FindFirstFile(".\\*.wc3270km", &find_data);
+	sprintf(dpath, "%s*.wc3270km", mya);
+	h = FindFirstFile(dpath, &find_data);
 	if (h != INVALID_HANDLE_VALUE) {
 		do {
 		    	km_t *km;
 
-			km = save_keymap_name(find_data.cFileName);
+			sprintf(fpath, "%s%s", mya, find_data.cFileName);
+			km = save_keymap_name(fpath, find_data.cFileName);
+			if (km != NULL) {
+				printf(" %s\n    User-defined",
+					km->name);
+				if (km->description[0])
+				    	printf(": %s", km->description);
+				printf("\n");
+			}
+		} while (FindNextFile(h, &find_data) != 0);
+		FindClose(h);
+	}
+	sprintf(dpath, "%s\\*.wc3270km", installdir);
+	h = FindFirstFile(dpath, &find_data);
+	if (h != INVALID_HANDLE_VALUE) {
+		do {
+		    	km_t *km;
+
+			sprintf(fpath, "%s\\%s", installdir,
+				find_data.cFileName);
+			km = save_keymap_name(fpath, find_data.cFileName);
 			if (km != NULL) {
 				printf(" %s\n    User-defined",
 					km->name);
@@ -1078,8 +1040,8 @@ summarize_and_proceed(session_t *s)
 		printf("   wpr3287 Windows printer: %s\n",
 			s->printer[0]? s->printer: "(system default)");
 	}
-	if (s->keymaps[0])
-	    	printf("                   Keymaps: %s\n", s->keymaps);
+	printf("                   Keymaps: %s\n",
+		s->keymaps[0]? s->keymaps: "none");
 
 	for (;;) {
 		printf("\nCreate the session? (y/n) [y] ");
@@ -1098,12 +1060,11 @@ session_wizard(void)
 {
     	session_t session;
 	int rc;
-	char *userprof;
 	char desktop[MAX_PATH];
 	char installdir[MAX_PATH];
-	char path[1024];
 	char linkpath[MAX_PATH];
 	char exepath[MAX_PATH];
+	char args[MAX_PATH];
 	HRESULT hres;
 
 	/* Start with nothing. */
@@ -1115,21 +1076,16 @@ session_wizard(void)
 		return -1;
 	}
 
-	/* Figure out where the desktop is. */
-	userprof = getenv("USERPROFILE");
-	if (userprof == NULL) {
-		printf("Sorry, I can't figure out where your user profile "
-			"is.\n");
-		return -1;
-	}
-	sprintf(desktop, "%s\\Desktop", userprof);
+	/* Get some paths from Windows. */
+	if (get_dirs(desktop, mya) < 0)
+	    	return -1;
 
 	/* Intro screen. */
 	if (intro(&session) < 0)
 		return -1;
 
 	/* Get the session name. */
-	rc = get_session(&session, installdir);
+	rc = get_session(&session);
 	if (rc == -1)
 	    	return -1;
 
@@ -1177,7 +1133,7 @@ session_wizard(void)
 	    }
 
 	    /* Ask about keymaps. */
-	    if (get_keymaps(&session) < 0)
+	    if (get_keymaps(&session, installdir) < 0)
 		    return -1;
 
 	    /* Summarize and make sure they want to proceed. */
@@ -1185,7 +1141,7 @@ session_wizard(void)
 		    return -1;
 
 	    /* Create the session file. */
-	    printf("\nCreating session file... ");
+	    printf("\nCreating session file '%s'... ", session.path);
 	    fflush(stdout);
 	    if (create_session_file(&session) < 0)
 		    return -1;
@@ -1204,19 +1160,34 @@ session_wizard(void)
 	}
 
 	/* Create the desktop shorcut. */
-	printf("\nCreating desktop shortcut... ");
+	if (is_nt)
+		sprintf(linkpath, "%s\\%s.lnk", desktop, session.session);
+	else
+		sprintf(linkpath, "%s\\%s.pif", desktop, session.session);
+	printf("\nCreating desktop shortcut '%s'... ", linkpath);
 	fflush(stdout);
-	sprintf(linkpath, "%s\\%s.lnk", desktop, session.session);
-	sprintf(path, "\"%s.wc3270\"", session.session);
 	sprintf(exepath, "%s\\wc3270.exe", installdir);
-	hres = CreateLink(
-		exepath,			/* path to executable */
-		linkpath,			/* where to put the link */
-		"wc3270 session",		/* description */
-		path,				/* arguments */
-		installdir,			/* working directory */
-		wrows[session.model], wcols[session.model]);
+	sprintf(args, "\"%s\"", session.path);
+	if (is_nt)
+		hres = CreateLink(
+			exepath,		/* path to executable */
+			linkpath,		/* where to put the link */
+			"wc3270 session",	/* description */
+			args,			/* arguments */
+			installdir,		/* working directory */
+			wrows[session.model], wcols[session.model]);
 						/* console rows, columns */
+	else
+		hres = Piffle(
+			session.session,	/* window title */
+			exepath,		/* path to executable */
+			linkpath,		/* where to put the link */
+			"wc3270 session",	/* description */
+			args,			/* arguments */
+			installdir,		/* working directory */
+			wrows[session.model], wcols[session.model]);
+						/* console rows, columns */
+
 	if (SUCCEEDED(hres)) {
 		printf("done\n");
 		fflush(stdout);
@@ -1290,13 +1261,80 @@ create_session_file(session_t *session)
 	return 0;
 }
 
+/* Make sure the console window is long enough. */
+int
+resize_window(int rows)
+{
+    	int rv = 0;
+	HANDLE h;
+    	CONSOLE_SCREEN_BUFFER_INFO info;
+
+	do {
+	    	/* Get a handle to the console. */
+		h = CreateFile("CONOUT$",
+			GENERIC_READ | GENERIC_WRITE, FILE_SHARE_WRITE, NULL,
+			OPEN_EXISTING, 0, NULL);
+		if (h == NULL) {
+		    	rv = -1;
+			break;
+		}
+
+		/* Get its current geometry. */
+		if (GetConsoleScreenBufferInfo(h, &info) == 0) {
+		    	rv = -1;
+			break;
+		}
+
+		/* If the buffer isn't big enough, make it bigger. */
+		if (info.dwSize.Y < rows) {
+			COORD new_size;
+
+			new_size.X = info.dwSize.X;
+			new_size.Y = rows;
+
+			if (SetConsoleScreenBufferSize(h, new_size) == 0) {
+				rv = -1;
+				break;
+			}
+		}
+
+		/* If the window isn't big enough, make it bigger. */
+		if (info.srWindow.Bottom - info.srWindow.Top < rows) {
+		    	SMALL_RECT sr;
+
+			sr.Top = 0;
+			sr.Bottom = rows;
+			sr.Left = 0;
+			sr.Right = info.srWindow.Right - info.srWindow.Left;
+
+		    	if (SetConsoleWindowInfo(h, TRUE, &sr) == 0) {
+				rv = -1;
+				break;
+			}
+		}
+
+	} while(0);
+
+	if (h != NULL)
+	    	CloseHandle(h);
+	return rv;
+}
+
 int
 main(int argc, char *argv[])
 {
 	int rc;
 	char buf[2];
 
-	system("cls");
+	/* Figure out the version. */
+	if (get_version_info() < 0)
+	    	return -1;
+
+	if (is_nt)
+		resize_window(44);
+	else
+	    	system("mode con lines=50");
+
 	rc = session_wizard();
 
 	printf("\nWizard %s.  [Press <Enter>] ",

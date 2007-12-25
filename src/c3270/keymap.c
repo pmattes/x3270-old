@@ -40,10 +40,14 @@ extern int cCOLS;
 #undef COLOR_YELLOW
 #undef COLOR_BLUE   
 #undef COLOR_WHITE
+#if defined(HAVE_LIBNCURSESW) /*[*/
+#include <ncursesw/ncurses.h>
+#else /*][*/
 #if defined(HAVE_NCURSES_H) /*[*/
 #include <ncurses.h>
 #else /*][*/
 #include <curses.h>
+#endif /*]*/
 #endif /*]*/
 
 #define KM_3270_ONLY	0x0010	/* used in 3270 mode only */

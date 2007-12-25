@@ -318,7 +318,7 @@ sockerrmsg(void)
 }
 
 void
-sockerr(char *fmt, ...)
+popup_a_sockerr(char *fmt, ...)
 {
 	va_list args;
 	char buf[1024];
@@ -341,12 +341,12 @@ negotiate(int s, char *lu, char *assoc)
 	/* Set options for inline out-of-band data and keepalives. */
 	if (setsockopt(s, SOL_SOCKET, SO_OOBINLINE, (char *)&on,
 		    sizeof(on)) < 0) {
-		sockerr("setsockopt(SO_OOBINLINE)");
+		popup_a_sockerr("setsockopt(SO_OOBINLINE)");
 		return -1;
 	}
 	if (setsockopt(s, SOL_SOCKET, SO_KEEPALIVE, (char *)&on,
 		    sizeof(on)) < 0) {
-		sockerr("setsockopt(SO_KEEPALIVE)");
+		popup_a_sockerr("setsockopt(SO_KEEPALIVE)");
 		return -1;
 	}
 
@@ -363,7 +363,7 @@ negotiate(int s, char *lu, char *assoc)
 			return -1;
 		SSL_set_fd(ssl_con, s);
 		if (!SSL_connect(ssl_con)) {
-			sockerr("SSL_connect failed");
+			popup_a_sockerr("SSL_connect failed");
 			return -1;
 		}       
 		secure_connection = True;
@@ -566,7 +566,7 @@ net_input(int s)
 		}
 #endif /*]*/
 		vtrace_str("RCVD socket error %s\n", sockerrmsg());
-		sockerr("Socket read");
+		popup_a_sockerr("Socket read");
 		cstate = NOT_CONNECTED;
 		return -1;
 	} else if (nr == 0) {
@@ -1344,7 +1344,7 @@ net_rawout(unsigned const char *buf, int len)
 			} else if (socket_errno() == SE_EINTR) {
 				goto bot;
 			} else {
-				sockerr("Socket write");
+				popup_a_sockerr("Socket write");
 				cstate = NOT_CONNECTED;
 				return;
 			}
@@ -1942,7 +1942,7 @@ continue_tls(unsigned char *sbbuf, int len)
 	/* Set up the TLS/SSL connection. */
 	SSL_set_fd(ssl_con, sock);
 	if (!SSL_connect(ssl_con)) {
-		sockerr("SSL_connect failed");
+		popup_a_sockerr("SSL_connect failed");
 		return -1;
 	}
 	secure_connection = True;

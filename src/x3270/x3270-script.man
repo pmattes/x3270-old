@@ -1,5 +1,5 @@
 '\" t
-.TH X3270-SCRIPT 1 "02 December 2007"
+.TH X3270-SCRIPT 1 "24 December 2007"
 .SH "NAME"
 Scripting Facilities for x3270, s3270 and c3270
 .SH "SYNOPSIS"
@@ -138,7 +138,7 @@ If the previous command did not require a host response, this is a dash.
 When an action is initiated by a script, the emulators
 behave in several different ways:
 .PP
-If an error occurs in processing an ection, the usual pop-up window does not
+If an error occurs in processing an action, the usual pop-up window does not
 appear.
 Instead, the text is written to standard error output.
 .PP
@@ -1148,4 +1148,4 @@ c3270(1)
 .br
 s3270(1)
 .SH "VERSION"
-Version 3.3.7alpha6
+Version 3.3.7

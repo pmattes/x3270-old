@@ -52,6 +52,7 @@
 #include "telnetc.h"
 #include "togglesc.h"
 #include "trace_dsc.h"
+#include "utf8c.h"
 #include "utilc.h"
 #include "xioc.h"
 
@@ -60,6 +61,12 @@
 #if defined(HAVE_READLINE_HISTORY_H) /*[*/
 #include <readline/history.h>
 #endif /*]*/
+#endif /*]*/
+
+#if defined(_WIN32) /*[*/
+#include <windows.h>
+#include "winversc.h"
+#include "windirsc.h"
 #endif /*]*/
 
 static void interact(void);
@@ -248,6 +255,11 @@ Boolean escape_pending = False;
 Boolean stop_pending = False;
 Boolean dont_return = False;
 
+#if defined(_WIN32) /*[*/
+char *instdir = NULL;
+char myappdata[MAX_PATH];
+#endif /*]*/
+
 void
 usage(char *msg)
 {
@@ -256,6 +268,29 @@ usage(char *msg)
 	xs_error("Usage: %s [options] [ps:][LUname@]hostname[:port]",
 		programname);
 }
+
+#if defined(_WIN32) /*[*/
+/*
+ * Figure out the install directory and our data directory.
+ */
+static void
+save_dirs(char *argv0)
+{
+    	char *bsl;
+
+	/* Extract the installation directory from argv[0]. */
+	bsl = strrchr(argv0, '\\');
+	if (bsl != NULL) {
+	    	instdir = NewString(argv0);
+		instdir[(bsl - argv0) + 1] = '\0';
+	} else
+	    	instdir = "";
+
+	/* Figure out the application data directory. */
+	if (get_dirs(NULL, myappdata) < 0)
+	    	x3270_exit(1);
+}
+#endif /*]*/
 
 /* Callback for connection state changes. */
 static void
@@ -310,6 +345,11 @@ int
 main(int argc, char *argv[])
 {
 	const char	*cl_hostname = CN;
+
+#if defined(_WIN32) /*[*/
+	(void) get_version_info();
+	(void) save_dirs(argv[0]);
+#endif /*]*/
 
 	printf("%s\n\n"
 		"Copyright 1989-2007 by Paul Mattes, GTRC and others.\n"
@@ -847,8 +887,37 @@ status_dump(void)
 	action_output("%s %s", get_message("terminalName"), termtype);
 	if (connected_lu != CN && connected_lu[0])
 		action_output("%s %s", get_message("luName"), connected_lu);
-	action_output("%s %s", get_message("characterSet"),
-	    get_charset_name());
+	action_output("%s %s (%s)", get_message("characterSet"),
+	    get_charset_name(),
+#if defined(X3270_DBCS) /*[*/
+	    dbcs? "DBCS": "SBCS"
+#else /*][*/
+	    "SBCS"
+#endif /*]*/
+	    );
+	action_output("%s %ld/%ld (CGCSGID X'%08lX')",
+		get_message("hostCodePage"),
+		cgcsgid & 0xffff,
+		(cgcsgid >> 16) & 0xffff,
+		cgcsgid);
+#if !defined(_WIN32) /*[*/
+	action_output("%s %s", get_message("localeCodeset"), locale_codeset);
+	action_output("%s DBCS %s, UTF-8 (wide curses) %s",
+		get_message("buildOpts"),
+#if defined(X3270_DBCS) /*[*/
+		get_message("buildEnabled"),
+#else /*][*/
+		get_message("buildDisabled"),
+#endif /*]*/
+#if defined(CURSES_WIDE) /*[*/
+		get_message("buildEnabled")
+#else /*][*/
+		get_message("buildDisabled")
+#endif /*]*/
+		);
+#else /*][*/
+	action_output("%s %d", get_message("windowsCodePage"), windows_cp);
+#endif /*]*/
 	if (appres.key_map) {
 		action_output("%s %s", get_message("keyboardMap"),
 		    appres.key_map);
@@ -963,35 +1032,33 @@ status_dump(void)
 static void
 copyright_dump(void)
 {
-	printf(
-"\n"
-"Modifications and original code Copyright 1993, 1994, 1995, 1996,\n"
-" 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007 by Paul Mattes.\n"
-"Original X11 Port Copyright 1990 by Jeff Sparkes.\n"
-"DFT File Transfer Code Copyright October 1995 by Dick Altenbern.\n"
-"RPQNAMES Code Copyright 2004, 2005 by Don Russell.\n");
-	printf(
-"  Permission to use, copy, modify, and distribute this software and its\n"
-"  documentation for any purpose and without fee is hereby granted,\n"
-"  provided that the above copyright notice appear in all copies and that\n"
-"  both that copyright notice and this permission notice appear in\n"
-"  supporting documentation.\n");
-	printf(
-"\n"
-"Copyright 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.\n"
-"  All Rights Reserved.  GTRC hereby grants public use of this software.\n"
-"  Derivative works based on this software must incorporate this copyright\n"
-"  notice.\n"
-"\n"
+	action_output(" ");
+	action_output("Modifications and original code Copyright 1993, 1994, 1995, 1996,");
+	action_output(" 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007 by Paul Mattes.");
+	action_output("Original X11 Port Copyright 1990 by Jeff Sparkes.");
+	action_output("DFT File Transfer Code Copyright October 1995 by Dick Altenbern.");
+	action_output("RPQNAMES Code Copyright 2004, 2005 by Don Russell.");
+	action_output("  Permission to use, copy, modify, and distribute this software and its");
+	action_output("  documentation for any purpose and without fee is hereby granted,");
+	action_output("  provided that the above copyright notice appear in all copies and that");
+	action_output("  both that copyright notice and this permission notice appear in");
+	action_output("  supporting documentation.");
+	action_output(" ");
+	action_output("Copyright 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.");
+	action_output("  All Rights Reserved.  GTRC hereby grants public use of this software.");
+	action_output("  Derivative works based on this software must incorporate this copyright");
+	action_output("  notice.");
+	action_output(" ");
+	action_output(
 #if defined(_WIN32) /*[*/
-"wc3270"
+	"wc3270"
 #else /*][*/
-"c3270"
+	"c3270"
 #endif /*]*/
-" is distributed in the hope that it will be useful, but WITHOUT ANY\n"
-"WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS\n"
-"FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.\n"
-"\n");
+	" is distributed in the hope that it will be useful, but WITHOUT ANY");
+	action_output("WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS");
+	action_output("FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.");
+	action_output(" ");
 }
 
 void

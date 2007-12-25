@@ -32,6 +32,9 @@ static struct {
 	{ "message.hour",       "hour" },
 	{ "message.hours",      "hours" },
 	{ "message.minute",     "minute" },
+	{ "message.buildDisabled",	"disabled" },
+	{ "message.buildEnabled",	"enabled" },
+	{ "message.buildOpts",	"Build options:" },
 	{ "message.byte",       "byte" },
 	{ "message.bytes",      "bytes" },
 	{ "message.characterSet",       "EBCDIC character set:" },
@@ -43,8 +46,10 @@ static struct {
 	{ "message.dsMode",     "3270 mode" },
 	{ "message.extendedDs", "extended data stream" },
 	{ "message.fullColor",  "color" },
+	{ "message.hostCodePage", "Host code page:" },
 	{ "message.keyboardMap",        "Keyboard map:" },
 	{ "message.lineMode",   "NVT line mode" },
+	{ "message.localeCodeset",	"Locale codeset:" },
 	{ "message.luName",     "LU name:" },
 	{ "message.minute",     "minute" },
 	{ "message.minutes",    "minutes" },
@@ -69,6 +74,9 @@ static struct {
 	{ "message.terminalName",       "Terminal name:" },
 	{ "message.tn3270eNoOpts",      "No TN3270E options" },
 	{ "message.tn3270eOpts",        "TN3270E options:" },
+#if defined(_WIN32) /*[*/
+	{ "message.windowsCodePage",	"Windows code page:" },
+#endif /*][*/
 	{ NULL, NULL }
 };
 #endif /*]*/

@@ -62,10 +62,13 @@ Note that TLS-encrypted sessions using the TELNET START-TLS option are
 negotiated with the host automatically; for these sessions the <b>L:</b> prefix
 should not be used.
 <p>
-A specific LU name to use may be specified by prepending it to the
-<i>hostname</i> with an `<b>@</b>'.
+A specific Logical Unit (LU) name to use may be specified by prepending it to
+the <i>hostname</i> with an `<b>@</b>'.
 Multiple LU names to try can be separated by commas.
 An empty LU can be placed in the list with an extra comma.
+(Note that the LU name is used for different purposes by different kinds of
+hosts.
+For example, CICS uses the LU name as the Terminal ID.)
 <p>
 The <i>hostname</i> may optionally be placed inside square-bracket
 characters `<b>[</b>' and `<b>]</b>'.
@@ -175,7 +178,8 @@ The name can also be specified with the "wc3270.termName" resource.
 <dt><b>-trace</b></dt><dd>
 Turns on data stream and event tracing at startup.
 The default trace file name is
-<b>w3trc.</b><i>process_id</i>.
+<b>x3trc.</b><i>process_id</i><b>.txt</b> in the
+<b>wc3270</b> <i>Application Data</i> directory.
 <dt><b>-tracefile</b> <i>file</i></dt><dd>
 Specifies a file to save data stream and event traces into.
 <dt><b>-tracefilesize</b> <i>size</i></dt><dd>
@@ -217,29 +221,39 @@ host character set used by <b>wc3270</b>.
 Available sets include:
 <p>
 <table BORDER cols=3 width="75%">
-<tr><td ><center>Charset Name</center></td>	<td ><center>Code Page</center></td>	<td ><center>Display Character Sets</center></td></tr>
+<tr><td ><center>Charset Name</center></td>	<td ><center>Host Code Page</center></td>	<td ><center>Windows Code Page</center></td></tr>
 
-<tr><td ><center>apl</center></td>	<td ><center>37</center></td>	<td ><center>3270cg-1a</center></td></tr>
-<tr><td ><center>belgian</center></td>	<td ><center>500</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
-<tr><td ><center>bracket</center></td>	<td ><center>37</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
-<tr><td ><center>brazilian</center></td>	<td ><center>275</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
-<tr><td ><center>cp1047</center></td>	<td ><center>cp1047</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
-<tr><td ><center>finnish</center></td>	<td ><center>278</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
-<tr><td ><center>french</center></td>	<td ><center>297</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
-<tr><td ><center>german</center></td>	<td ><center>273</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
-<tr><td ><center>icelandic</center></td>	<td ><center>871</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
-<tr><td ><center>hebrew</center></td>	<td ><center>424</center></td>	<td ><center>iso8859-8</center></td></tr>
-<tr><td ><center>italian</center></td>	<td ><center>280</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
-<tr><td ><center>japanese</center></td>	<td ><center>1027+300</center></td>	<td ><center>jisx0201.1976-0 + jisx0208.1983-0</center></td></tr>
-<tr><td ><center>norwegian</center></td>	<td ><center>277</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
-<tr><td ><center>russian</center></td>	<td ><center>880</center></td>	<td ><center>koi8-r</center></td></tr>
-<tr><td ><center>simplified-chinese</center></td>	<td ><center>836+837</center></td>	<td ><center>3270cg-1a iso8859-1 + gb2312.1980-0</center></td></tr>
-<tr><td ><center>slovenian</center></td>	<td ><center>870</center></td>	<td ><center>iso8859-2</center></td></tr>
-<tr><td ><center>spanish</center></td>	<td ><center>284</center></td>	<td ><center>iso8859-1</center></td></tr>
-<tr><td ><center>thai</center></td>	<td ><center>838</center></td>	<td ><center>iso8859-11 tis620.2529-0</center></td></tr>
-<tr><td ><center>turkish</center></td>	<td ><center>1026</center></td>	<td ><center>iso8859-9</center></td></tr>
-<tr><td ><center>uk</center></td>	<td ><center>285</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
-<tr><td ><center>us-intl</center></td>	<td ><center>37</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
+<tr><td ><center>belgian</center></td>	<td ><center>500</center></td>	<td ><center>  28591</center></td></tr>
+<tr><td ><center>belgian-euro</center></td>	<td ><center>1148</center></td>	<td ><center>  28605</center></td></tr>
+<tr><td ><center>bracket</center></td>	<td ><center>37</center></td>	<td ><center>  28591</center></td></tr>
+<tr><td ><center>brazilian</center></td>	<td ><center>275</center></td>	<td ><center>  28591</center></td></tr>
+<tr><td ><center>cp1047</center></td>	<td ><center>1047</center></td>	<td ><center>  28591</center></td></tr>
+<tr><td ><center>cp1153</center></td>	<td ><center>1153</center></td>	<td ><center>1250</center></td></tr>
+<tr><td ><center>cp870</center></td>	<td ><center>870</center></td>	<td ><center>  28592</center></td></tr>
+<tr><td ><center>finnish</center></td>	<td ><center>278</center></td>	<td ><center>  28591</center></td></tr>
+<tr><td ><center>finnish-euro</center></td>	<td ><center>1143</center></td>	<td ><center>  28605</center></td></tr>
+<tr><td ><center>french</center></td>	<td ><center>297</center></td>	<td ><center>  28591</center></td></tr>
+<tr><td ><center>french-euro</center></td>	<td ><center>1147</center></td>	<td ><center>  28605</center></td></tr>
+<tr><td ><center>german</center></td>	<td ><center>273</center></td>	<td ><center>  28591</center></td></tr>
+<tr><td ><center>german-euro</center></td>	<td ><center>1141</center></td>	<td ><center>  28605</center></td></tr>
+<tr><td ><center>greek</center></td>	<td ><center>423</center></td>	<td ><center> 28597</center></td></tr>
+<tr><td ><center>hebrew</center></td>	<td ><center>424</center></td>	<td ><center> 28598</center></td></tr>
+<tr><td ><center>icelandic</center></td>	<td ><center>871</center></td>	<td ><center>  28591</center></td></tr>
+<tr><td ><center>icelandic-euro</center></td>	<td ><center>1149</center></td>	<td ><center>  28605</center></td></tr>
+<tr><td ><center>italian</center></td>	<td ><center>280</center></td>	<td ><center>  28591</center></td></tr>
+<tr><td ><center>italian-euro</center></td>	<td ><center>1144</center></td>	<td ><center>  28605</center></td></tr>
+<tr><td ><center>norwegian</center></td>	<td ><center>277</center></td>	<td ><center>  28591</center></td></tr>
+<tr><td ><center>norwegian-euro</center></td>	<td ><center>1142</center></td>	<td ><center>  28605</center></td></tr>
+<tr><td ><center>russian</center></td>	<td ><center>880</center></td>	<td ><center>20866</center></td></tr>
+<tr><td ><center>slovenian</center></td>	<td ><center>870</center></td>	<td ><center>28592</center></td></tr>
+<tr><td ><center>spanish</center></td>	<td ><center>284</center></td>	<td ><center>  28591</center></td></tr>
+<tr><td ><center>spanish-euro</center></td>	<td ><center>1145</center></td>	<td ><center>  28605</center></td></tr>
+<tr><td ><center>thai</center></td>	<td ><center>838</center></td>	<td ><center>28601 </center></td></tr>
+<tr><td ><center>turkish</center></td>	<td ><center>1026</center></td>	<td ><center>28599</center></td></tr>
+<tr><td ><center>uk</center></td>	<td ><center>285</center></td>	<td ><center>  28591</center></td></tr>
+<tr><td ><center>uk-euro</center></td>	<td ><center>1146</center></td>	<td ><center>  28605</center></td></tr>
+<tr><td ><center>us-euro</center></td>	<td ><center>1140</center></td>	<td ><center>  28605</center></td></tr>
+<tr><td ><center>us-intl</center></td>	<td ><center>37</center></td>	<td ><center>  28591</center></td></tr>
 </table>
 <p>
 The default character set is
@@ -818,12 +832,12 @@ Otherwise the default system printer is used.
 The resource <b>wc3270.printer.assocCommandLine</b> specifies the command
 used to start an associated printer session.  It defaults to:
 <p>
-<blockquote>wpr3287.exe -assoc %L% %R% %H%</blockquote>
+<blockquote>wpr3287.exe -assoc %L% %R% %P% %H%</blockquote>
 <p>
 The resource <b>wc3270.printer.luCommandLine</b> specifies the command used
 to start a specific-LU printer session.  It defaults to:
 <p>
-<blockquote>wpr3287.exe %R% %L%@%H%</blockquote>
+<blockquote>wpr3287.exe %R% %P% %L%@%H%</blockquote>
 <p>
 When the printer session command is run, the following substitutions are made:
 <p>
@@ -831,6 +845,7 @@ When the printer session command is run, the following substitutions are made:
 <tr><td >Token</td>	<td >Substitition</td></tr>
 <tr><td >%H%</td>	<td >Host IP address</td></tr>
 <tr><td >%L%</td>	<td >Current or specified LU</td></tr>
+<tr><td >%P%</td>	<td >Proxy specification</td></tr>
 <tr><td >%R%</td>	<td >Character set</td></tr>
 </table>
 <p>
@@ -860,6 +875,7 @@ The supported values for <i>type</i> are:
 <p>
 The special types <b>socks4a</b> and <b>socks5d</b> can also be used to force
 the proxy server to do the hostname resolution for the SOCKS protocol.
+snl Copyright 2000, 2001, 2002, 2007 by Paul Mattes.
 <a NAME="Resources"></a><h2>Resources</h2>
 Certain <b>wc3270</b>
 options can be configured via resources.
@@ -875,13 +891,13 @@ The resources available in <b>wc3270</b> are:
 <tr><td >blankFill</td>	<td >False</td>	<td >-set blankFill</td>	<td >Blank Fill mode</td></tr>
 <tr><td >charset</td>	<td >bracket</td>	<td >-charset</td>	<td ><font size=-1>EBCDIC</font> character set</td></tr>
 <tr><td >charset.<i>foo</i></td>	<td >&nbsp;</td>	<td >&nbsp;</td>	<td >Definition of character set <i>foo</i></td></tr>
-<tr><td >dsTrace</td>	<td >False</td>	<td >-trace</td>	<td >Data stream tracing</td></tr>
+<tr><td >consoleColorForHostColor<i>n</i></td>	<td ><a HREF="#rn4">(note 6)</a></td>	<td >&nbsp;</td>	<td >Color mapping</td></tr><tr><td >dsTrace</td>	<td >False</td>	<td >-trace</td>	<td >Data stream tracing</td></tr>
 <tr><td >eof</td>	<td >^D</td>	<td >&nbsp;</td>	<td ><font size=-1>NVT</font>-mode <font size=-1>EOF</font> character</td></tr>
 <tr><td >erase</td>	<td >^H</td>	<td >&nbsp;</td>	<td ><font size=-1>NVT</font>-mode erase character</td></tr>
 <tr><td >extended</td>	<td >True</td>	<td >&nbsp;</td>	<td >Use 3270 extended data stream</td></tr>
 <tr><td >eventTrace</td>	<td >False</td>	<td >-trace</td>	<td >Event tracing</td></tr>
 <tr><td >ftCommand</td>	<td >ind$file</td>	<td >&nbsp;</td>	<td >Host file transfer command</td></tr>
-<tr><td >icrnl</td>	<td >False</td>	<td >&nbsp;</td>	<td >Map <font size=-1>CR</font> to <font size=-1>NL</font> on <font size=-1>NVT</font>-mode input</td></tr>
+<tr><td >hostColorForDefault</td>	<td >green</td>	<td >&nbsp;</td>	<td >Default color mapping</td></tr><tr><td >hostColorForIntensified</td>	<td >red</td>	<td >&nbsp;</td>	<td >Default color mapping</td></tr><tr><td >hostColorForProtected</td>	<td >blue</td>	<td >&nbsp;</td>	<td >Default color mapping</td></tr><tr><td >hostColorForProtectedIntensified</td>	<td >neutralWhite</td>	<td >&nbsp;</td>	<td >Default color mapping</td></tr><tr><td >icrnl</td>	<td >False</td>	<td >&nbsp;</td>	<td >Map <font size=-1>CR</font> to <font size=-1>NL</font> on <font size=-1>NVT</font>-mode input</td></tr>
 <tr><td >inlcr</td>	<td >False</td>	<td >&nbsp;</td>	<td >Map <font size=-1>NL</font> to <font size=-1>CR</font> in <font size=-1>NVT</font>-mode input</td></tr>
 <tr><td >intr</td>	<td >^C</td>	<td >&nbsp;</td>	<td ><font size=-1>NVT</font>-mode interrupt character</td></tr>
 <tr><td >kill</td>	<td >^U</td>	<td >&nbsp;</td>	<td ><font size=-1>NVT</font>-mode kill character</td></tr>
@@ -925,8 +941,11 @@ directory where wc3270 was started.
 
 <p>
 <a NAME="rn4"></a><i>Note 4</i>: See <a HREF="#Printer-Support"><font size=-1>PRINTER SUPPORT</font></a> for details.
-</blockquote>
+
 <p>
+<a NAME="rn6"></a><i>Note 6</i>: The default console color mappings for host colors
+0 through 15 are: 0, 9, 12, 13, 10, 11, 14, 15, 0, 1, 12, 5, 2, 3, 7, and 15.
+</blockquote><p>
 If more than one <b>-xrm</b> option is given for the same resource,
 the last one on the command line is used.
 <a NAME="See-Also"></a><h2>See Also</h2>
@@ -964,12 +983,12 @@ wc3270 is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
 <a NAME="Version"></a><h2>Version</h2>
-wc3270 3.3.6
+wc3270 3.3.7
 <hr>
 <i>
 This HTML document and the accompanying troff document were generated with
 a set of write-only <b>m4</b> macros and the powerful <b>vi</b> editor.
-<br>Last modified 23 June 2007.
+<br>Last modified 24 December 2007.
 </i>
 </body>
 </html>

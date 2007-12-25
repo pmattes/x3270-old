@@ -35,6 +35,7 @@ extern void screen_resume(void);
 extern void screen_suspend(void);
 extern FILE *start_pager(void);
 extern void toggle_monocase(struct toggle *t, enum toggle_type tt);
+extern Boolean screen_new_display_charsets(char *cslist, char *csname);
 
 extern Boolean escaped;
 
@@ -55,4 +56,5 @@ extern void Paste_action(Widget w, XEvent *event, String *params,
 extern void Title_action(Widget w, XEvent *event, String *params,
     Cardinal *num_params);
 extern void screen_title(char *text);
+extern int windows_cp;
 #endif /*]*/

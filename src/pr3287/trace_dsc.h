@@ -1,5 +1,5 @@
 /*
- * Copyright 1995, 1999, 2000 by Paul Mattes.
+ * Copyright 1995, 1999, 2000, 2007 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -32,6 +32,7 @@ const char *see_qcode(unsigned char id);
 void trace_ansi_disc(void);
 void trace_char(char c);
 void trace_ds(const char *fmt, ...);
+void trace_dsn(const char *fmt, ...);
 void trace_event(const char *fmt, ...);
 void trace_screen(void);
 const char *unknown(unsigned char value);
@@ -40,6 +41,7 @@ const char *unknown(unsigned char value);
 
 #define tracef 0
 #define trace_ds 0 &&
+#define trace_dsn 0 &&
 #define trace_event 0 &&
 #define rcba 0 &&
 #define see_aid 0 &&

@@ -9,6 +9,23 @@
 <h1>New Features in tcl3270 3.3
 <hr width="100%"></h1>
 tcl3270 3.3 is the current development line for tcl3270.
+<h2>Changes in tcl3270 3.3.7, 25. December 2007</h2>
+<ul>
+  <li>Bug Fixes:</li>
+    <ul>
+      <li>(none)</li>
+    </ul>
+  <li>New Features:
+    <ul>
+      <li>Added UTF-8 support.  If the current locale specifies UTF-8 encoding,
+      then all text output (trace data, screen snapshots, the <b>Ascii</b>
+      and <b>ReadBuffer</b> actions, etc.) will be UTF-8 encoded, and all text
+      input (arguments to the <b>Key</b> and <b>String</b> actions, etc.) must
+      be UTF-8 encoded.
+      In addition, the NVT-mode xterm/VT100 emulator will expect UTF-8.</li>
+    </ul>
+  </li>
+</ul>
 <h2>Changes in tcl3270 3.3.6, 23. June 2007</h2>
 <ul>
   <li>Bug Fixes:

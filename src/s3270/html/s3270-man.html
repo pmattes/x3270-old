@@ -66,10 +66,13 @@ Note that TLS-encrypted sessions using the TELNET START-TLS option are
 negotiated with the host automatically; for these sessions the <b>L:</b> prefix
 should not be used.
 <p>
-A specific LU name to use may be specified by prepending it to the
-<i>hostname</i> with an `<b>@</b>'.
+A specific Logical Unit (LU) name to use may be specified by prepending it to
+the <i>hostname</i> with an `<b>@</b>'.
 Multiple LU names to try can be separated by commas.
 An empty LU can be placed in the list with an extra comma.
+(Note that the LU name is used for different purposes by different kinds of
+hosts.
+For example, CICS uses the LU name as the Terminal ID.)
 <p>
 The <i>hostname</i> may optionally be placed inside square-bracket
 characters `<b>[</b>' and `<b>]</b>'.
@@ -209,29 +212,40 @@ host character set used by <b>s3270</b>.
 Available sets include:
 <p>
 <table BORDER cols=3 width="75%">
-<tr><td ><center>Charset Name</center></td>	<td ><center>Code Page</center></td>	<td ><center>Display Character Sets</center></td></tr>
+<tr><td ><center>Charset Name</center></td>	<td ><center>Host Code Page</center></td>	<td ><center>Character Set</center></td></tr>
 
-<tr><td ><center>apl</center></td>	<td ><center>37</center></td>	<td ><center>3270cg-1a</center></td></tr>
-<tr><td ><center>belgian</center></td>	<td ><center>500</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
-<tr><td ><center>bracket</center></td>	<td ><center>37</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
-<tr><td ><center>brazilian</center></td>	<td ><center>275</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
-<tr><td ><center>cp1047</center></td>	<td ><center>cp1047</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
-<tr><td ><center>finnish</center></td>	<td ><center>278</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
-<tr><td ><center>french</center></td>	<td ><center>297</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
-<tr><td ><center>german</center></td>	<td ><center>273</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
-<tr><td ><center>icelandic</center></td>	<td ><center>871</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
-<tr><td ><center>hebrew</center></td>	<td ><center>424</center></td>	<td ><center>iso8859-8</center></td></tr>
-<tr><td ><center>italian</center></td>	<td ><center>280</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
+<tr><td ><center>belgian</center></td>	<td ><center>500</center></td>	<td ><center>  iso8859-1</center></td></tr>
+<tr><td ><center>belgian-euro</center></td>	<td ><center>1148</center></td>	<td ><center>  iso8859-15</center></td></tr>
+<tr><td ><center>bracket</center></td>	<td ><center>37</center></td>	<td ><center>  iso8859-1</center></td></tr>
+<tr><td ><center>brazilian</center></td>	<td ><center>275</center></td>	<td ><center>  iso8859-1</center></td></tr>
+<tr><td ><center>cp1047</center></td>	<td ><center>1047</center></td>	<td ><center>  iso8859-1</center></td></tr>
+<tr><td ><center>cp870</center></td>	<td ><center>870</center></td>	<td ><center>  iso8859-2</center></td></tr>
+<tr><td ><center>finnish</center></td>	<td ><center>278</center></td>	<td ><center>  iso8859-1</center></td></tr>
+<tr><td ><center>finnish-euro</center></td>	<td ><center>1143</center></td>	<td ><center>  iso8859-15</center></td></tr>
+<tr><td ><center>french</center></td>	<td ><center>297</center></td>	<td ><center>  iso8859-1</center></td></tr>
+<tr><td ><center>french-euro</center></td>	<td ><center>1147</center></td>	<td ><center>  iso8859-15</center></td></tr>
+<tr><td ><center>german</center></td>	<td ><center>273</center></td>	<td ><center>  iso8859-1</center></td></tr>
+<tr><td ><center>german-euro</center></td>	<td ><center>1141</center></td>	<td ><center>  iso8859-15</center></td></tr>
+<tr><td ><center>greek</center></td>	<td ><center>423</center></td>	<td ><center> iso8859-7</center></td></tr>
+<tr><td ><center>hebrew</center></td>	<td ><center>424</center></td>	<td ><center> iso8859-8</center></td></tr>
+<tr><td ><center>icelandic</center></td>	<td ><center>871</center></td>	<td ><center>  iso8859-1</center></td></tr>
+<tr><td ><center>icelandic-euro</center></td>	<td ><center>1149</center></td>	<td ><center>  iso8859-15</center></td></tr>
+<tr><td ><center>italian</center></td>	<td ><center>280</center></td>	<td ><center>  iso8859-1</center></td></tr>
+<tr><td ><center>italian-euro</center></td>	<td ><center>1144</center></td>	<td ><center>  iso8859-15</center></td></tr>
 <tr><td ><center>japanese</center></td>	<td ><center>1027+300</center></td>	<td ><center>jisx0201.1976-0 + jisx0208.1983-0</center></td></tr>
-<tr><td ><center>norwegian</center></td>	<td ><center>277</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
+<tr><td ><center>norwegian</center></td>	<td ><center>277</center></td>	<td ><center>  iso8859-1</center></td></tr>
+<tr><td ><center>norwegian-euro</center></td>	<td ><center>1142</center></td>	<td ><center>  iso8859-15</center></td></tr>
 <tr><td ><center>russian</center></td>	<td ><center>880</center></td>	<td ><center>koi8-r</center></td></tr>
-<tr><td ><center>simplified-chinese</center></td>	<td ><center>836+837</center></td>	<td ><center>3270cg-1a iso8859-1 + gb2312.1980-0</center></td></tr>
+<tr><td ><center>simplified-chinese</center></td>	<td ><center>836+837</center></td>	<td ><center> iso8859-1 + gb2312.1980-0</center></td></tr>
 <tr><td ><center>slovenian</center></td>	<td ><center>870</center></td>	<td ><center>iso8859-2</center></td></tr>
-<tr><td ><center>spanish</center></td>	<td ><center>284</center></td>	<td ><center>iso8859-1</center></td></tr>
+<tr><td ><center>spanish</center></td>	<td ><center>284</center></td>	<td ><center>  iso8859-1</center></td></tr>
+<tr><td ><center>spanish-euro</center></td>	<td ><center>1145</center></td>	<td ><center>  iso8859-15</center></td></tr>
 <tr><td ><center>thai</center></td>	<td ><center>838</center></td>	<td ><center>iso8859-11 tis620.2529-0</center></td></tr>
 <tr><td ><center>turkish</center></td>	<td ><center>1026</center></td>	<td ><center>iso8859-9</center></td></tr>
-<tr><td ><center>uk</center></td>	<td ><center>285</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
-<tr><td ><center>us-intl</center></td>	<td ><center>37</center></td>	<td ><center>3270cg-1a 3270-cg1 iso8859-1</center></td></tr>
+<tr><td ><center>uk</center></td>	<td ><center>285</center></td>	<td ><center>  iso8859-1</center></td></tr>
+<tr><td ><center>uk-euro</center></td>	<td ><center>1146</center></td>	<td ><center>  iso8859-15</center></td></tr>
+<tr><td ><center>us-euro</center></td>	<td ><center>1140</center></td>	<td ><center>  iso8859-15</center></td></tr>
+<tr><td ><center>us-intl</center></td>	<td ><center>37</center></td>	<td ><center>  iso8859-1</center></td></tr>
 </table>
 <p>
 The default character set is
@@ -533,6 +547,7 @@ The supported values for <i>type</i> are:
 <p>
 The special types <b>socks4a</b> and <b>socks5d</b> can also be used to force
 the proxy server to do the hostname resolution for the SOCKS protocol.
+snl Copyright 2000, 2001, 2002, 2007 by Paul Mattes.
 <a NAME="Resources"></a><h2>Resources</h2>
 Certain <b>s3270</b>
 options can be configured via resources.
@@ -592,8 +607,9 @@ affect color capabilities.
 <b>x3trc.</b><i>pid</i> in the directory specified by
 the <b>traceDir</b> resource.
 
-</blockquote>
-<p>
+
+
+</blockquote><p>
 If more than one <b>-xrm</b> option is given for the same resource,
 the last one on the command line is used.
 <a NAME="Files"></a><h2>Files</h2>
@@ -636,12 +652,12 @@ s3270 is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
 <a NAME="Version"></a><h2>Version</h2>
-s3270 3.3.6
+s3270 3.3.7
 <hr>
 <i>
 This HTML document and the accompanying troff document were generated with
 a set of write-only <b>m4</b> macros and the powerful <b>vi</b> editor.
-<br>Last modified 23 June 2007.
+<br>Last modified 24 December 2007.
 </i>
 </body>
 </html>

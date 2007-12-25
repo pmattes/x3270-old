@@ -60,7 +60,7 @@ dnl Check for libraries.
 dnl Note that the order here is important.  The last libraries should appear
 dnl first, so that objects in them can be used by subsequent libraries.
 AC_CHECK_LIB(util, forkpty)
-AC_CHECK_LIB(ncurses, newterm, , [AC_CHECK_LIB(curses, newterm, , [AC_MSG_ERROR(Can't find libncurses or new-enough libcurses)])])
+AC_CHECK_LIB(ncursesw, newterm, , [AC_CHECK_LIB(ncurses, newterm, , [AC_CHECK_LIB(curses, newterm, , [AC_MSG_ERROR(Can't find libncurses or new-enough libcurses)])])])
 if test "$with_readline" != no; then
 AC_CHECK_LIB(readline, rl_initialize)
 fi
@@ -85,12 +85,12 @@ AC_CHECK_HEADERS(pty.h)
 AC_CHECK_HEADERS(libutil.h)
 AC_CHECK_HEADERS(util.h)
 AC_CHECK_HEADERS(getopt.h)
-AC_CHECK_HEADERS(ncurses.h, , [AC_CHECK_HEADERS(curses.h, , [AC_MSG_ERROR(Can't find ncurses.h or curses.h)])])
+AC_CHECK_HEADERS(ncursesw/ncurses.h, , [AC_CHECK_HEADERS(ncurses.h, , [AC_CHECK_HEADERS(curses.h, , [AC_MSG_ERROR(Can't find ncurses.h or curses.h)])])])
 
 dnl Check for libncurses/ncurses.h inconsistency
-if test $ac_cv_lib_ncurses_newterm != $ac_cv_header_ncurses_h
-then	AC_MSG_ERROR(Found libncurses but not ncurses.h or vice-versa)
-fi
+dnl if test $ac_cv_lib_ncurses_newterm != $ac_cv_header_ncurses_h
+dnl then	AC_MSG_ERROR(Found libncurses but not ncurses.h or vice-versa)
+dnl fi
 
 dnl Check for SSL header file.
 AC_ARG_WITH(ssl,[  --with-ssl=DIR          specify OpenSSL install directory])
@@ -285,6 +285,16 @@ then	orig_LDFLAGS="$LDFLAGS"
 		enable_dbcs="no"
 	fi
 fi
+
+dnl Check for curses wide character support.
+if test "ac_cv_lib_ncursesw_newterm"
+then	AC_CHECK_LIB(ncursesw, wadd_wch, [AC_DEFINE(CURSES_WIDE,1)])
+elif test "ac_cv_lib_ncurses_newterm"
+then	AC_CHECK_LIB(ncurses, wadd_wch, [AC_DEFINE(CURSES_WIDE,1)])
+elif test "ac_cv_lib_curses_newterm"
+then	AC_CHECK_LIB(curses, wadd_wch, [AC_DEFINE(CURSES_WIDE,1)])
+fi
+AC_SUBST(CURSES_WIDE)
 
 dnl Check for default pager
 AC_PATH_PROG(LESSPATH, less)

@@ -1,2 +1,0 @@
-version="3.3.7alpha6"
-adversion="3.3.4"

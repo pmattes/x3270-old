@@ -186,7 +186,8 @@ locate_keymap(const char *name, char **fullname, char **r)
 	char *rs;			/* resource value */
 	char *fnx;			/* expanded file name */
 	char *fny;
-	int a;				/* access(fnx) */
+	char *fnp;
+	int a;
 
 	/* Return nothing, to begin with. */
 	*fullname = CN;
@@ -204,20 +205,32 @@ locate_keymap(const char *name, char **fullname, char **r)
 
 	/* See if it's a file. */
 	fnx = do_subst(name, True, True);
-	fny = Malloc(strlen(fnx) + SUFFIX_LEN + 1);
-	sprintf(fny, "%s.%s", fnx, WC3270KM_SUFFIX);
+	fny = xs_buffer("%s.%s", fnx, WC3270KM_SUFFIX);
 	Free(fnx);
-	fnx = fny;
-	a = access(fnx, R_OK);
+	fnx = CN;
 
-	/* If there's a plain version, return it. */
+	/*
+	 * Try the application data directory first, then (for compatiblity
+	 * with older releases) the install directory.
+	 */
+	fnp = xs_buffer("%s%s", myappdata, fny);
+	a = access(fnp, R_OK);
+	Free(fnp);
 	if (a == 0) {
-		*fullname = fnx;
+	    	*fullname = fny;
+		return 1;
+	}
+
+	fnp = xs_buffer("%s%s", instdir, fny);
+	a = access(fny, R_OK);
+	Free(fnp);
+	if (a == 0) {
+	    	*fullname = fny;
 		return 1;
 	}
 
 	/* No dice. */
-	Free(fnx);
+	Free(fny);
 	return -1;
 }
 
@@ -361,13 +374,26 @@ read_one_keymap(const char *name, const char *fn, const char *r0, int flags)
 		r = r_copy = NewString(r0);
 		xfn = (char *)fn;
 	} else {
+		char *path;
 	    	int sl;
 
-		f = fopen(fn, "r");
+		/*
+		 * Try the application data directory first, then (for
+		 * compatiblity with older releases) the install directory.
+		 */
+		path = xs_buffer("%s%s", myappdata, fn);
+		f = fopen(path, "r");
 		if (f == NULL) {
-			xs_warning("Cannot open file: %s", fn);
-			return;
+		    	Free(path);
+		    	path = xs_buffer("%s%s", instdir, fn);
+			f = fopen(path, "r");
+			if (f == NULL) {
+				Free(path);
+				xs_warning("Cannot open file: %s", fn);
+				return;
+			}
 		}
+		Free(path);
 		sl = strlen(fn);
 		if (sl > SUFFIX_LEN &&
 		    !strcmp(fn + sl - SUFFIX_LEN, "." WC3270KM_SUFFIX)) {

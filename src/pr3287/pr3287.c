@@ -41,12 +41,14 @@
  *	    -printer "printer name"
  *	        printer to use (default is $PRINTER or system default,
  *	        Windows only)
+ *	    -proxy "spec"
+ *	    	proxy specification
  *          -reconnect
  *		keep trying to reconnect
  *	    -trace
  *		trace data stream to a file
  *          -tracedir dir
- *              directory to write trace file in
+ *              directory to write trace file in (POSIX only)
  *          -v
  *		verbose output about negotiation
  */
@@ -76,9 +78,13 @@
 #include "globals.h"
 #include "trace_dsc.h"
 #include "ctlrc.h"
+#include "popupsc.h"
+#include "proxyc.h"
+#include "resolverc.h"
 #include "telnetc.h"
 #if defined(_WIN32) /*[*/
 #include "wsc.h"
+#include "windirsc.h"
 #endif /*]*/
 
 #if defined(_IOLBF) /*[*/
@@ -98,7 +104,6 @@ extern FILE *tracef;
 #if defined(_WIN32) /*[*/
 extern void sockstart(void);
 #endif /*]*/
-extern void sockerr(char *fmt, ...);
 
 /* Globals. */
 char *programname = NULL;	/* program name */
@@ -127,7 +132,19 @@ const char *command = "lpr";	/* command to run for printing */
 const char *printer = NULL;	/* printer to use */
 #endif /*]*/
 static int tracing = 0;		/* are we tracing? */
+#if !defined(_WIN32) /*[*/
 static char *tracedir = "/tmp";	/* where we are tracing */
+#endif /*]*/
+char *proxy_spec;		/* proxy specification */
+
+static int proxy_type = 0;
+static char *proxy_host = CN;
+static char *proxy_portname = CN;
+static unsigned short proxy_port = 0;
+
+#if defined(_WIN32) /*[*/
+char appdata[MAX_PATH];
+#endif /* ]*/
 
 void pr3287_exit(int);
 
@@ -164,9 +181,14 @@ usage(void)
 "                   use specific printer (default is $PRINTER or the system\n"
 "                   default printer)\n"
 #endif /*]*/
+"  -proxy \"<spec>\"\n"
+"                   connect to host via specified proxy\n"
 "  -reconnect       keep trying to reconnect\n"
 "  -trace           trace data stream to /tmp/x3trc.<pid>\n"
-"  -tracedir <dir>  directory to keep trace information in");
+#if !defined(_WIN32) /*[*/
+"\n  -tracedir <dir>  directory to keep trace information in"
+#endif /*]*/
+);
 	pr3287_exit(1);
 }
 
@@ -296,11 +318,7 @@ main(int argc, char *argv[])
 	char const *charset = NULL;
 	char *lu = NULL;
 	char *host = NULL;
-	const char *port = "telnet";
-#if !defined(AF_INET6) /*[*/
-	struct hostent *he;
-	struct servent *se;
-#endif /*]*/
+	char *port = "telnet";
 	unsigned short p;
 	union {
 		struct sockaddr sa;
@@ -339,6 +357,9 @@ main(int argc, char *argv[])
 	if ((printer = getenv("PRINTER")) == NULL) {
 		printer = ws_default_printer();
 	}
+
+	if (get_dirs(NULL, appdata) < 0)
+	    	exit(1);
 #endif /*]*/
 
 	/* Gather the options. */
@@ -413,6 +434,7 @@ main(int argc, char *argv[])
 			verbose = 1;
 		} else if (!strcmp(argv[i], "-trace")) {
 			tracing = 1;
+#if !defined(_WIN32) /*[*/
 		} else if (!strcmp(argv[i], "-tracedir")) {
 			if (argc <= i + 1 || !argv[i + 1][0]) {
 				(void) fprintf(stderr,
@@ -420,6 +442,15 @@ main(int argc, char *argv[])
 				usage();
 			}
 			tracedir = argv[i + 1];
+			i++;
+#endif /*]*/
+		} else if (!strcmp(argv[i], "-proxy")) {
+			if (argc <= i + 1 || !argv[i + 1][0]) {
+				(void) fprintf(stderr,
+				    "Missing value for -proxy\n");
+				usage();
+			}
+			proxy_spec = argv[i + 1];
 			i++;
 		} else if (!strcmp(argv[i], "--help")) {
 			usage();
@@ -489,28 +520,6 @@ main(int argc, char *argv[])
 		}
 	}
 
-#if !defined(AF_INET6) /*[*/
-	/* Resolve the port number. */
-	se = getservbyname(port, "tcp");
-	if (se != NULL)
-		p = se->s_port;
-	else {
-		unsigned long l;
-		char *ptr;
-
-		l = strtoul(port, &ptr, 0);
-		if (ptr == port || *ptr != '\0') {
-			(void) fprintf(stderr, "Unknown port: %s\n", port);
-			pr3287_exit(1);
-		}
-		if (l & ~0xffff) {
-			(void) fprintf(stderr, "Invalid port: %s\n", port);
-			pr3287_exit(1);
-		}
-		p = htons((unsigned short)l);
-	}
-#endif /* AF_INET6 */
-
 	/* Remap the character set. */
 	if (charset_init(charset) < 0)
 		pr3287_exit(1);
@@ -522,7 +531,7 @@ main(int argc, char *argv[])
 		int i;
 
 #if defined(_WIN32) /*[*/
-		(void) sprintf(tracefile, "x3trc.%d.txt", getpid());
+		(void) sprintf(tracefile, "%sx3trc.%d.txt", appdata, getpid());
 #else /*][*/
 		(void) sprintf(tracefile, "%s/x3trc.%d", tracedir, getpid());
 #endif /*]*/
@@ -574,78 +583,88 @@ main(int argc, char *argv[])
 	(void) signal(SIGPIPE, SIG_IGN);
 #endif /*]*/
 
+	/* Set up the proxy. */
+	if (proxy_spec != CN) {
+	    	proxy_type = proxy_setup(&proxy_host, &proxy_portname);
+		if (proxy_type < 0)
+			pr3287_exit(1);
+	}
+
 	/*
 	 * One-time initialization is now complete.
 	 * (Most) everything beyond this will now be retried, if the -reconnect
 	 * option is in effect.
 	 */
 	for (;;) {
-		/* Resolve the host name. */
-#if defined(AF_INET6) /*[*/
-		struct addrinfo hints, *res;
-		int rc;
+		char errtxt[1024];
 
-		(void) memset(&hints, '\0', sizeof(struct addrinfo));
-		hints.ai_flags = 0;
-		hints.ai_family = PF_UNSPEC;
-		hints.ai_socktype = SOCK_STREAM;
-		hints.ai_protocol = IPPROTO_TCP;
-		rc = getaddrinfo(host, port, &hints, &res);
-		if (rc != 0) {
-			errmsg("%s/%s: %s", host, port, gai_strerror(rc));
-			rc = 1;
-			goto retry;
-		}
-		switch (res->ai_family) {
-		case AF_INET:
-			p = ((struct sockaddr_in *)res->ai_addr)->sin_port;
-			break;
-		case AF_INET6:
-			p = ((struct sockaddr_in6 *)res->ai_addr)->sin6_port;
-			break;
-		default:
-			errmsg("%s: unknown family %d", host, res->ai_family);
-			rc = 1;
-			freeaddrinfo(res);
-			goto retry;
-		}
-		(void) memcpy(&ha.sa, res->ai_addr, res->ai_addrlen);
-		ha_len = res->ai_addrlen;
-		freeaddrinfo(res);
-#else /*][*/
-		(void) memset(&ha, '\0', sizeof(ha));
-		ha.sin.sin_family = AF_INET;
-		ha.sin.sin_port = p;
-		he = gethostbyname(host);
-		if (he != NULL) {
-			(void) memcpy(&ha.sin.sin_addr, he->h_addr_list[0],
-				      he->h_length);
+		/* Resolve the host name. */
+	    	if (proxy_type > 0) {
+		    	unsigned long lport;
+			char *ptr;
+			struct servent *sp;
+
+			if (resolve_host_and_port(proxy_host, proxy_portname,
+				    &proxy_port, &ha.sa, &ha_len, errtxt,
+				    sizeof(errtxt)) < 0) {
+			    popup_an_error("%s/%s: %s", proxy_host,
+				    proxy_portname, errtxt);
+			    rc = 1;
+			    goto retry;
+			}
+
+			lport = strtoul(port, &ptr, 0);
+			if (ptr == port || *ptr != '\0' || lport == 0L ||
+				    lport & ~0xffff) {
+				if (!(sp = getservbyname(port, "tcp"))) {
+					popup_an_error("Unknown port number "
+						"or service: %s", port);
+					rc = 1;
+					goto retry;
+				}
+				p = ntohs(sp->s_port);
+			} else
+				p = (unsigned short)lport;
 		} else {
-			ha.sin.sin_addr.s_addr = inet_addr(host);
-			if (ha.sin.sin_addr.s_addr == INADDR_NONE) {
-				errmsg("Unknown host: %s", host);
-				rc = 1;
-				goto retry;
+			if (resolve_host_and_port(host, port, &p, &ha.sa,
+				    &ha_len, errtxt, sizeof(errtxt)) < 0) {
+			    popup_an_error("%s/%s: %s", host, port, errtxt);
+			    rc = 1;
+			    goto retry;
 			}
 		}
-#endif /*]*/
 
 		/* Connect to the host. */
 		s = socket(ha.sa.sa_family, SOCK_STREAM, 0);
 		if (s < 0) {
-			sockerr("socket");
+			popup_a_sockerr("socket");
 			pr3287_exit(1);
 		}
+
 		if (connect(s, &ha.sa, ha_len) < 0) {
-			sockerr("%s", host);
+			popup_a_sockerr("%s", (proxy_type > 0)? proxy_host:
+								host);
 			rc = 1;
 			goto retry;
+		}
+
+		if (proxy_type > 0) {
+		    	/* Connect to the host through the proxy. */
+		    	if (verbose) {
+			    	(void) fprintf(stderr, "Connected to proxy "
+					       "server %s, port %u\n",
+					       proxy_host, proxy_port);
+			}
+		    	if (proxy_negotiate(proxy_type, s, host, p) < 0) {
+				rc = 1;
+				goto retry;
+			}
 		}
 
 		/* Say hello. */
 		if (verbose) {
 			(void) fprintf(stderr, "Connected to %s, port %u%s\n",
-			    host, ntohs(p),
+			    host, p,
 			    ssl_host? " via SSL": "");
 			if (assoc != NULL)
 				(void) fprintf(stderr, "Associating with LU "
@@ -669,7 +688,7 @@ main(int argc, char *argv[])
 
 		/* Report sudden success. */
 		if (report_success) {
-			errmsg("Connected to %s, port %u", host, ntohs(p));
+			errmsg("Connected to %s, port %u", host, p);
 			report_success = 0;
 		}
 

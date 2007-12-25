@@ -1,5 +1,5 @@
 /*
- * Copyright 1993, 1994, 1995, 1999, 2000, 2001, 2002 by Paul Mattes.
+ * Copyright 1993, 1994, 1995, 1999, 2000, 2001, 2002, 2007 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -82,6 +82,24 @@ trace_ds(const char *fmt, ...)
 
 	/* print out remainder of message */
 	(void) vsprintf(tdsbuf, fmt, args);
+	trace_ds_s(tdsbuf);
+	va_end(args);
+}
+
+void
+trace_dsn(const char *fmt, ...)
+{
+	va_list args;
+
+	va_start(args, fmt);
+
+	/* allocate buffer */
+	if (tdsbuf == CN)
+		tdsbuf = Malloc(4096);
+
+	/* print out remainder of message */
+	(void) vsprintf(tdsbuf, fmt, args);
+	strcat(tdsbuf, "\n");
 	trace_ds_s(tdsbuf);
 	va_end(args);
 }

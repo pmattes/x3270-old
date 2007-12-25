@@ -31,7 +31,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tcl3270.c,v 1.33 2007/02/17 22:51:10 pdm Exp $
+ * RCS: @(#) $Id: tcl3270.c,v 1.35 2007/07/17 15:58:53 pdm Exp $
  */
 
 /*
@@ -74,6 +74,7 @@
 #include "telnetc.h"
 #include "togglesc.h"
 #include "trace_dsc.h"
+#include "utf8c.h"
 #include "utilc.h"
 #include "widec.h"
 
@@ -738,6 +739,8 @@ dump_range(int first, int len, Boolean in_ascii, struct ea *buf,
 				row = Tcl_NewListObj(0, NULL);
 		}
 		if (in_ascii) {
+		    	char *xs;
+
 			if (buf[first + i].fa) {
 				is_zero = FA_IS_ZERO(buf[first + i].fa);
 				c = ' ';
@@ -784,7 +787,8 @@ dump_range(int first, int len, Boolean in_ascii, struct ea *buf,
 			}
 			if (!c)
 				c = ' ';
-			Tcl_AppendToObj(row, (char *)&c, 1);
+			xs = utf8_expand(c);
+			Tcl_AppendToObj(row, xs, strlen(xs));
 		} else {
 			char s[5];
 
@@ -1189,6 +1193,28 @@ do_read_buffer(String *params, Cardinal num_params, struct ea *buf)
 				Tcl_ListObjAppendElement(sms_interp, row,
 					Tcl_NewStringObj(field_buf, -1));
 			} else {
+			    	Boolean done = False;
+
+#if defined(X3270_DBCS) /*[*/
+				if (IS_LEFT(ctlr_dbcs_state(baddr))) {
+					int len;
+					char mb[16];
+					int j;
+
+					len = dbcs_to_mb(buf[baddr].cc,
+						buf[baddr + 1].cc,
+						mb);
+					field_buf[0] = '\0';
+					for (j = 0; j < len; j++)
+					    	sprintf(strchr(field_buf, '\0'),
+							    "%02x",
+							    mb[j] & 0xff);
+					done = True;
+				} else if (IS_RIGHT(ctlr_dbcs_state(baddr))) {
+					strcpy(field_buf, " -");
+					done = True;
+				}
+#endif /*]*/
 				switch (buf[baddr].cs & CS_MASK) {
 				case CS_BASE:
 				default:
@@ -1209,13 +1235,19 @@ do_read_buffer(String *params, Cardinal num_params, struct ea *buf)
 				case CS_LINEDRAW:
 					c = ' ';
 					break;
-#if defined(X3270_DBCS) /*[*/
-				case CS_DBCS:
-					c = ' '; /* XXX */
-					break;
-#endif /*]*/
 				}
-				sprintf(field_buf, "%02x", c);
+
+				if (!done) {
+				    	if (c == 0)
+					    	sprintf(field_buf, "00");
+					else {
+					    	char *expanded = utf8_expand(c);
+
+						field_buf[0] = '\0';
+						while ((c = *expanded++))
+						    	sprintf(strchr(field_buf, '\0'), "%02x", c);
+					}
+				}
 				Tcl_ListObjAppendElement(sms_interp, row,
 					Tcl_NewStringObj(field_buf, -1));
 			}
@@ -1565,7 +1597,7 @@ sms_info(const char *fmt, ...)
 	va_start(args, fmt);
 	(void) vsprintf(buf, fmt, args);
 	va_end(args);
-	Tcl_SetResult(sms_interp, buf, TCL_VOLATILE);
+	Tcl_AppendResult(sms_interp, buf, NULL);
 }
 
 /*

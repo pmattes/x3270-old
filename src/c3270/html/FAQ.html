@@ -24,6 +24,34 @@ through this file first.
     You are also free to modify it and to redistribute it, provided you
     preserve the existing copyright notices.
 
+<H3>Why are notsign characters (and other accented characters) displayed as
+blanks or strings of garbage?</H3>
+
+<P>
+The most common cause of this is a problem with locales, in particular, the
+codeset (LC_CTYPE) in use.
+There could be a mismatch between the locale that the <b>c3270</b>
+process is using and the locale supported by the terminal hardware or
+terminal emulation software that <b>c3270</b> is running on.
+For example, <b>c3270</b> may be running in a locale that uses UTF-8
+encoding (e.g., en_US.UTF-8), while the terminal it is running on does
+not support UTF-8.
+Or it may be running on a terminal emulator (<b>xterm</b>,
+<b>gnome-terminal</b> that is running in a non-UTF-8 locale, such as
+en_US.ISO8859-1.
+<p>Use the <b>show stats</b> command at the <b>c3270&lt;</b> prompt to
+display the locale codeset that the <b>c3270</b> process is using.
+<p>Note that the locale conflict can easily arise when <b>c3270</b> is run on
+a remote host, e.g., in an <b>ssh</b> session.
+The remote host (where the output is being generated) and the local host
+(where the output is being interpreted and displayed) can often have different
+default locales.
+<p>It is also possible that <b>c3270</b> was built without UTF-8 support.
+In order to support UTF-8, <b>c3270</b> must be built with an <b>ncurses</b>
+or <b>curses</b> library that supports wide characters.
+The <b>show stats</b> command will also indicate whether or not <b>c3270</b>
+supports UTF-8.
+
 <H2>Getting Help</H2>
 
     If you are still having a problem with c3270, feel free to send e-mail to

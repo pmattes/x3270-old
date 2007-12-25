@@ -12,6 +12,7 @@
 <a HREF="#Description">Description</a><br>
 <a HREF="#Options">Options</a><br>
 <a HREF="#Environment">Environment</a><br>
+<a HREF="#Proxy">Proxy</a><br>
 <a HREF="#See-Also">See Also</a><br>
 <a HREF="#Copyrights">Copyrights</a><br>
 <a HREF="#Version">Version</a><br>
@@ -116,6 +117,13 @@ variable, if defined, and otherwise to use the default Windows printer.
 <p>
 The printer can be the name of a local printer, or a UNC path to a remote
 printer, e.g., <b>\\server\printer1</b>.
+<dt><b>-proxy <i>type</i>:<i>host</i>[:<i>port</i>]</b></dt><dd>
+Causes <b>wpr3287</b> to connect via the specified proxy, instead of
+using a direct connection.
+The <i>host</i> can be an IP address or hostname.
+The optional <i>port</i> can be a number or a service name.
+For a list of supported proxy <i>types</i>, see <a HREF="#Proxy"><font size=-1>PROXY</font></a>
+below.
 <dt><b>-reconnect</b></dt><dd>
 Causes <i>wpr3287</i> to reconnect to the host, whenever the connection is
 broken.
@@ -133,6 +141,25 @@ Trace information is usually saved in the file
 Specifies the Windows printer to use for print jobs.
 The <b>-printer</b> command-line option overrides <b>$PRINTER</b>.
 </dl>
+<a NAME="Proxy"></a><h2>Proxy</h2>
+The <b>-proxy</b> option
+causes wpr3287 to use a proxy server to connect to the host.
+The syntax of the option is:
+<blockquote><i>type</i>:<i>host</i>[:<i>port</i>]
+</blockquote>
+The supported values for <i>type</i> are:
+<table BORDER cols=3 width="75%">
+<tr><td ><center>Proxy Type</center></td>	<td ><center>Protocol</center></td>	<td ><center>Default Port</center></td></tr>
+
+<tr><td ><center>http</center></td>	<td ><center>RFC 2817 HTTP tunnel (squid)</center></td>	<td ><center>3128</center></td></tr>
+<tr><td ><center>passthru</center></td>	<td ><center>Sun in.telnet-gw</center></td>	<td ><center>none</center></td></tr>
+<tr><td ><center>socks4</center></td>	<td ><center>SOCKS version 4</center></td>	<td ><center>1080</center></td></tr>
+<tr><td ><center>socks5</center></td>	<td ><center>SOCKS version 5 (RFC 1928)</center></td>	<td ><center>1080</center></td></tr>
+<tr><td ><center>telnet</center></td>	<td ><center>No protocol (just send <b>connect</b> <i>host port</i>)</center></td>	<td ><center>none</center></td></tr>
+</table>
+<p>
+The special types <b>socks4a</b> and <b>socks5d</b> can also be used to force
+the proxy server to do the hostname resolution for the SOCKS protocol.
 <a NAME="See-Also"></a><h2>See Also</h2>
 wc3270(1)
 <br>
@@ -162,12 +189,12 @@ Copyright &copy; 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.
 Derivative works based on this software must incorporate this copyright
 notice.</blockquote>
 <a NAME="Version"></a><h2>Version</h2>
-wpr3287 3.3.7alpha1
+wpr3287 3.3.7
 <hr>
 <i>
 This HTML document and the accompanying troff document were generated with
 a set of write-only <b>m4</b> macros and the powerful <b>vi</b> editor.
-<br>Last modified 16 July 2007.
+<br>Last modified 24 December 2007.
 </i>
 </body>
 </html>

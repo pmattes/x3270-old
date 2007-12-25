@@ -20,6 +20,7 @@
 
 
 /* Libraries. */
+#undef HAVE_LIBNCURSESW
 #undef HAVE_LIBNCURSES
 #undef HAVE_LIBCURSES
 #undef HAVE_LIBUTIL
@@ -28,6 +29,7 @@
 #undef HAVE_LIBSSL
 
 /* Header files. */
+#undef HAVE_NCURSESW_H
 #undef HAVE_NCURSES_H
 #undef HAVE_CURSES_H
 #undef HAVE_SYS_SELECT_H
@@ -44,6 +46,9 @@
 /* Default pager. */
 #define LESSPATH ""
 #define MOREPATH ""
+
+/* Wide curses. */
+#undef CURSES_WIDE
 
 /* Broken stuff. */
 #undef BROKEN_NEWTERM
