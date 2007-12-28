@@ -4370,7 +4370,8 @@ fi
 
 done
 
-
+if test $ac_cv_lib_ncursesw_newterm
+then
 for ac_header in ncursesw/ncurses.h
 do
 as_ac_Header=`echo "ac_cv_header_$ac_header" | $as_tr_sh`
@@ -4517,8 +4518,16 @@ if test `eval echo '${'$as_ac_Header'}'` = yes; then
 _ACEOF
 
 else
+  { { echo "$as_me:$LINENO: error: Found ncursesw library but not <ncursesw/ncurses.h>" >&5
+echo "$as_me: error: Found ncursesw library but not <ncursesw/ncurses.h>" >&2;}
+   { (exit 1); exit 1; }; }
+fi
 
-for ac_header in ncurses.h
+done
+
+elif test $ac_cv_lib_ncurses_newterm
+then
+for ac_header in ncurses/ncurses.h
 do
 as_ac_Header=`echo "ac_cv_header_$ac_header" | $as_tr_sh`
 if eval "test \"\${$as_ac_Header+set}\" = set"; then
@@ -4664,7 +4673,14 @@ if test `eval echo '${'$as_ac_Header'}'` = yes; then
 _ACEOF
 
 else
+  { { echo "$as_me:$LINENO: error: Found ncurses library but not <ncurses/ncurses.h>" >&5
+echo "$as_me: error: Found ncurses library but not <ncurses/ncurses.h>" >&2;}
+   { (exit 1); exit 1; }; }
+fi
 
+done
+
+else
 for ac_header in curses.h
 do
 as_ac_Header=`echo "ac_cv_header_$ac_header" | $as_tr_sh`
@@ -4811,22 +4827,14 @@ if test `eval echo '${'$as_ac_Header'}'` = yes; then
 _ACEOF
 
 else
-  { { echo "$as_me:$LINENO: error: Can't find ncurses.h or curses.h" >&5
-echo "$as_me: error: Can't find ncurses.h or curses.h" >&2;}
+  { { echo "$as_me:$LINENO: error: Found curses library but not <curses.h>" >&5
+echo "$as_me: error: Found curses library but not <curses.h>" >&2;}
    { (exit 1); exit 1; }; }
 fi
 
 done
 
 fi
-
-done
-
-fi
-
-done
-
-
 
 
 # Check whether --with-ssl or --without-ssl was given.
