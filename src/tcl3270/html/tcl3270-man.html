@@ -329,11 +329,11 @@ Actions marked with an asterisk (*) may block, sending data to the host and
 possibly waiting for a response.
 <p>
 <table BORDER cols=2 width="75%">
-<tr><td >Ascii</td>	<td >return entire screen contents in <font size=-1>ASCII</font></td></tr>
-<tr><td >Ascii <i>length</i></td>	<td >return screen contents at cursor in <font size=-1>ASCII</font></td></tr>
-<tr><td >Ascii <i>row</i> <i>col</i> <i>length</i></td>	<td >return screen contents in <font size=-1>ASCII</font></td></tr>
-<tr><td >Ascii <i>row</i> <i>col</i> <i>rows</i> <i>cols</i></td>	<td >return screen region in <font size=-1>ASCII</font></td></tr>
-<tr><td >AsciiField</td>	<td >return current field in <font size=-1>ASCII</font></td></tr>
+<tr><td >Ascii</td>	<td >return entire screen contents as text</td></tr>
+<tr><td >Ascii <i>length</i></td>	<td >return screen contents at cursor as text</td></tr>
+<tr><td >Ascii <i>row</i> <i>col</i> <i>length</i></td>	<td >return screen contents as text</td></tr>
+<tr><td >Ascii <i>row</i> <i>col</i> <i>rows</i> <i>cols</i></td>	<td >return screen region as text</td></tr>
+<tr><td >AsciiField</td>	<td >return current field as text</td></tr>
 <tr><td >*Attn</td>	<td >attention key</td></tr>
 <tr><td >BackSpace</td>	<td >move cursor left (or send <font size=-1>ASCII BS</font>)</td></tr>
 <tr><td >BackTab</td>	<td >tab to start of previous input field</td></tr>
@@ -364,7 +364,7 @@ possibly waiting for a response.
 <tr><td >Insert</td>	<td >set insert mode</td></tr>
 <tr><td >*Interrupt</td>	<td >send <font size=-1>TELNET IP</font> to host</td></tr>
 <tr><td >Key <i>keysym</i></td>	<td >insert key <i>keysym</i></td></tr>
-<tr><td >Key 0x<i>xx</i></td>	<td >insert key with <font size=-1>ASCII</font> code <i>xx</i></td></tr>
+<tr><td >Key 0x<i>xx</i></td>	<td >insert key with character code <i>xx</i></td></tr>
 <tr><td >Left</td>	<td >move cursor left</td></tr>
 <tr><td >Left2</td>	<td >move cursor left 2 positions</td></tr>
 <tr><td >MonoCase</td>	<td >toggle uppercase-only mode</td></tr>
@@ -379,7 +379,7 @@ possibly waiting for a response.
 <tr><td >Reset</td>	<td >reset locked keyboard</td></tr>
 <tr><td >Right</td>	<td >move cursor right</td></tr>
 <tr><td >Right2</td>	<td >move cursor right 2 positions</td></tr>
-<tr><td >ReadBuffer Ascii</td>	<td >dump screen buffer in ASCII</td></tr>
+<tr><td >ReadBuffer Ascii</td>	<td >dump screen buffer as text</td></tr>
 <tr><td >ReadBuffer Ebcdic</td>	<td >dump screen buffer in EBCDIC</td></tr>
 <tr><td >Rows</td>	<td >report screen size</td></tr>
 <tr><td >Snap</td>	<td >same as <b>Snap Save</b></td></tr>
@@ -666,12 +666,12 @@ tcl3270 is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
 <a NAME="Version"></a><h2>Version</h2>
-tcl3270 3.3.7
+tcl3270 3.3.7p3
 <hr>
 <i>
 This HTML document and the accompanying troff document were generated with
 a set of write-only <b>m4</b> macros and the powerful <b>vi</b> editor.
-<br>Last modified 24 December 2007.
+<br>Last modified 18 February 2008.
 </i>
 </body>
 </html>
