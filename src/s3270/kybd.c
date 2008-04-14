@@ -657,6 +657,8 @@ key_Character(int code, Boolean with_ge, Boolean pasting, Boolean *skipped)
 	register unsigned char	fa;
 	enum dbcs_why why;
 
+	reset_idle_timer();
+
 	if (skipped != NULL)
 		*skipped = False;
 
@@ -911,6 +913,8 @@ key_WCharacter(unsigned char code[], Boolean *skipped)
 	Boolean done = False;
 	Boolean no_si = False;
 	extern unsigned char reply_mode; /* XXX */
+
+	reset_idle_timer();
 
 	if (kybdlock) {
 		char codename[64];
@@ -1197,6 +1201,8 @@ key_ACharacter(unsigned char c, enum keytype keytype, enum iaction cause,
 {
 	register int i;
 	struct akeysym ak;
+
+	reset_idle_timer();
 
 	if (skipped != NULL)
 		*skipped = False;
@@ -3117,7 +3123,8 @@ int
 emulate_input(char *s, int len, Boolean pasting)
 {
 	enum {
-	    BASE, BACKSLASH, BACKX, BACKP, BACKPA, BACKPF, OCTAL, HEX, XGE
+	    BASE, BACKSLASH, BACKX, BACKE, BACKP, BACKPA, BACKPF, OCTAL, HEX,
+	    EBC, XGE
 	} state = BASE;
 	int literal = 0;
 	int nc = 0;
@@ -3335,6 +3342,9 @@ emulate_input(char *s, int len, Boolean pasting)
 			    case 'x':
 				state = BACKX;
 				break;
+			    case 'e':
+				state = BACKE;
+				break;
 			    case '\\':
 				key_ACharacter((unsigned char) c, KT_STD, ia,
 						&skipped);
@@ -3429,6 +3439,19 @@ emulate_input(char *s, int len, Boolean pasting)
 				state = BASE;
 				continue;
 			}
+		    case BACKE:	/* last two characters were "\x" */
+			if (isxdigit(c)) {
+				state = EBC;
+				literal = 0;
+				nc = 0;
+				continue;
+			} else {
+				popup_an_error("%s: Missing hex digits after \\e",
+				    action_name(String_action));
+				cancel_if_idle_command();
+				state = BASE;
+				continue;
+			}
 		    case OCTAL:	/* have seen \ and one or more octal digits */
 			if (nc < 3 && isdigit(c) && c < '8') {
 				literal = (literal * 8) + FROM_HEX(c);
@@ -3440,7 +3463,7 @@ emulate_input(char *s, int len, Boolean pasting)
 				state = BASE;
 				continue;
 			}
-		    case HEX:	/* have seen \ and one or more hex digits */
+		    case HEX:	/* have seen \x and one or more hex digits */
 			if (nc < 2 && isxdigit(c)) {
 				literal = (literal * 16) + FROM_HEX(c);
 				nc++;
@@ -3448,6 +3471,17 @@ emulate_input(char *s, int len, Boolean pasting)
 			} else {
 				key_ACharacter((unsigned char) literal, KT_STD,
 				    ia, &skipped);
+				state = BASE;
+				continue;
+			}
+		    case EBC:	/* have seen \e and one or more hex digits */
+			if (nc < 2 && isxdigit(c)) {
+				literal = (literal * 16) + FROM_HEX(c);
+				nc++;
+				break;
+			} else {
+				key_Character((unsigned char) literal, False,
+					True, &skipped);
 				state = BASE;
 				continue;
 			}
@@ -3481,6 +3515,14 @@ emulate_input(char *s, int len, Boolean pasting)
 	    case OCTAL:
 	    case HEX:
 		key_ACharacter((unsigned char) literal, KT_STD, ia, &skipped);
+		state = BASE;
+		if (toggled(MARGINED_PASTE) &&
+		    BA_TO_COL(cursor_addr) < orig_col) {
+			(void) remargin(orig_col);
+		}
+		break;
+	    case EBC:
+		key_Character((unsigned char) literal, False, True, &skipped);
 		state = BASE;
 		if (toggled(MARGINED_PASTE) &&
 		    BA_TO_COL(cursor_addr) < orig_col) {

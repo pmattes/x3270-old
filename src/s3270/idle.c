@@ -130,9 +130,9 @@ idle_init(void)
 	register_schange(ST_CONNECT, idle_in3270);
 
 	/* Get values from resources. */
-	cmd = get_resource(ResIdleCommand);
+	cmd = appres.idle_command;
 	idle_command = cmd? NewString(cmd): CN;
-	tmo = get_resource(ResIdleTimeout);
+	tmo = appres.idle_timeout;
 	idle_timeout_string = tmo? NewString(tmo): CN;
 	if (appres.idle_command_enabled)
 		idle_user_enabled = IDLE_PERM;
@@ -224,6 +224,7 @@ static void
 idle_timeout(void)
 {
 	trace_event("Idle timeout\n");
+	idle_ticking = False;
 	push_idle(idle_command);
 	reset_idle_timer();
 }
