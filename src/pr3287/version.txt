@@ -1,1 +1,2 @@
-../s3270/version.txt
+version="3.3.7"
+adversion="3.3.4"

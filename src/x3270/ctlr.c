@@ -711,11 +711,19 @@ ctlr_read_modified(unsigned char aid_byte, Boolean all)
 						}
 						space3270out(1);
 						*obptr++ = ea_buf[baddr].cc;
-						if (!any)
-							trace_ds(" '");
-						trace_ds("%s",
-						    see_ebc(ea_buf[baddr].cc));
-						any = True;
+						if (ea_buf[baddr].cc <= 0x3f ||
+						    ea_buf[baddr].cc == 0xff) {
+							if (any)
+								trace_ds("'");
+
+							trace_ds(" %s", see_ebc(ea_buf[baddr].cc));
+							any = False;
+						} else {
+							if (!any)
+								trace_ds(" '");
+							trace_ds("%s", see_ebc(ea_buf[baddr].cc));
+							any = True;
+						}
 					}
 					INC_BA(baddr);
 				}
@@ -757,10 +765,19 @@ ctlr_read_modified(unsigned char aid_byte, Boolean all)
 				}
 				space3270out(1);
 				*obptr++ = ea_buf[baddr].cc;
-				if (!any)
-					trace_ds("'");
-				trace_ds(see_ebc(ea_buf[baddr].cc));
-				any = True;
+				if (ea_buf[baddr].cc <= 0x3f ||
+				    ea_buf[baddr].cc == 0xff) {
+					if (any)
+						trace_ds("'");
+
+					trace_ds(" %s", see_ebc(ea_buf[baddr].cc));
+					any = False;
+				} else {
+					if (!any)
+						trace_ds(" '");
+					trace_ds("%s", see_ebc(ea_buf[baddr].cc));
+					any = True;
+				}
 				nbytes++;
 			}
 			INC_BA(baddr);

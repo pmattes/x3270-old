@@ -620,31 +620,15 @@ The base keymap is:
 <table BORDER cols=2 width="75%">
 <tr><td >Key</td>	<td >Action</td></tr>
 
-<tr><td >Alt Ctrl&lt;Key>]</td>	<td >Key(0x1d)</td></tr>
-<tr><td >Ctrl&lt;Key>]</td>	<td >Escape</td></tr>
-<tr><td >Alt&lt;Key>c</td>	<td >Clear</td></tr>
-<tr><td >Alt&lt;Key>i</td>	<td >Insert</td></tr>
-<tr><td >Alt&lt;Key>r</td>	<td >Reset</td></tr>
-<tr><td >Alt&lt;Key>l</td>	<td >Redraw</td></tr>
-<tr><td >Alt&lt;Key>m</td>	<td >Compose</td></tr>
-<tr><td >Alt&lt;Key>^</td>	<td >Key(notsign)</td></tr>
-<tr><td >&lt;Key>Delete</td>	<td >Delete</td></tr>
-<tr><td >&lt;Key>Up</td>	<td >Up</td></tr>
-<tr><td >&lt;Key>Down</td>	<td >Down</td></tr>
-<tr><td >&lt;Key>Left</td>	<td >Left</td></tr>
-<tr><td >&lt;Key>Right</td>	<td >Right</td></tr>
 <tr><td >Alt&lt;Key>1</td>	<td >PA(1)</td></tr>
 <tr><td >Alt&lt;Key>2</td>	<td >PA(2)</td></tr>
 <tr><td >Alt&lt;Key>3</td>	<td >PA(3)</td></tr>
-<tr><td >&lt;Key>Insert</td>	<td >ToggleInsert</td></tr>
-<tr><td >&lt;Key>Multiply</td>	<td >Key(*)</td></tr>
-<tr><td >&lt;Key>Add</td>	<td >Key(+)</td></tr>
-<tr><td >&lt;Key>Separator</td>	<td >Key(|)</td></tr>
-<tr><td >&lt;Key>Subtract</td>	<td >Key(-)</td></tr>
-<tr><td >&lt;Key>Decimal</td>	<td >Key(.)</td></tr>
-<tr><td >&lt;Key>Divide</td>	<td >Key(/)</td></tr>
-<tr><td >&lt;Key>Numpad<i>n</i></td>	<td >Key(<i>n</i>)</td></tr>
-<tr><td >&lt;Key>F<i>n</i></td>	<td >PF(<i>n</i>)</td></tr>
+<tr><td >Alt Ctrl&lt;Key>]</td>	<td >Key(0x1d)</td></tr>
+<tr><td >Ctrl&lt;Key>]</td>	<td >Escape</td></tr>
+<tr><td >Alt&lt;Key>^</td>	<td >Key(notsign)</td></tr>
+<tr><td >Alt&lt;Key>c</td>	<td >Clear</td></tr>
+<tr><td >Alt&lt;Key>l</td>	<td >Redraw</td></tr>
+<tr><td >Alt&lt;Key>m</td>	<td >Compose</td></tr>
 <tr><td >Shift&lt;Key>F<i>n</i></td>	<td >PF(<i>n</i>+12)</td></tr>
 </table>
 <p>
@@ -653,26 +637,31 @@ The base 3270-mode keymap adds:
 <table BORDER cols=2 width="75%">
 <tr><td >Key</td>	<td >Action</td></tr>
 
-<tr><td >Ctrl&lt;Key>[</td>	<td >Escape</td></tr>
-<tr><td >Ctrl&lt;Key>c</td>	<td >Clear</td></tr>
-<tr><td >Ctrl&lt;Key>r</td>	<td >Reset</td></tr>
-<tr><td >Ctrl&lt;Key>l</td>	<td >Redraw</td></tr>
-<tr><td >Shift Ctrl&lt;Key>i</td>	<td >BackTab</td></tr>
-<tr><td >&lt;Key>Delete</td>	<td >Delete</td></tr>
-<tr><td >Ctrl&lt;Key>h</td>	<td >Erase</td></tr>
-<tr><td >Ctrl&lt;Key>j</td>	<td >Newline</td></tr>
-<tr><td >Ctrl&lt;Key>m</td>	<td >Enter</td></tr>
-<tr><td >&lt;Key>Home</td>	<td >Home</td></tr>
 <tr><td >Ctrl&lt;Key>a</td>	<td >Attn</td></tr>
 <tr><td >Alt&lt;Key>a</td>	<td >Attn</td></tr>
-<tr><td >&lt;Key>End</td>	<td >FieldEnd</td></tr>
-<tr><td >Ctrl&lt;Key>v</td>	<td >Paste</td></tr>
-<tr><td >Ctrl&lt;Key>f</td>	<td >FieldMark</td></tr>
+<tr><td >Ctrl&lt;Key>c</td>	<td >Clear</td></tr>
 <tr><td >Ctrl&lt;Key>d</td>	<td >Dup</td></tr>
+<tr><td >Alt&lt;Key>d</td>	<td >Dup</td></tr>
+<tr><td >Ctrl&lt;Key>f</td>	<td >FieldMark</td></tr>
+<tr><td >Alt&lt;Key>f</td>	<td >FieldMark</td></tr>
+<tr><td >Ctrl&lt;Key>h</td>	<td >Erase</td></tr>
+<tr><td >Alt&lt;Key>i</td>	<td >Insert</td></tr>
+<tr><td >Shift Ctrl&lt;Key>i</td>	<td >BackTab</td></tr>
+<tr><td >Ctrl&lt;Key>i</td>	<td >Tab</td></tr>
+<tr><td >Ctrl&lt;Key>j</td>	<td >Newline</td></tr>
+<tr><td >Ctrl&lt;Key>l</td>	<td >Redraw</td></tr>
+<tr><td >Ctrl&lt;Key>m</td>	<td >Enter</td></tr>
+<tr><td >Ctrl&lt;Key>r</td>	<td >Reset</td></tr>
+<tr><td >Alt&lt;Key>r</td>	<td >Reset</td></tr>
 <tr><td >Ctrl&lt;Key>u</td>	<td >DeleteField</td></tr>
-<tr><td >Shift&lt;Key>Left</td>	<td >PreviousWord</td></tr>
-<tr><td >Shift&lt;Key>Right</td>	<td >NextWord</td></tr>
-<tr><td >Shift&lt;Key>End</td>	<td >EraseEOF</td></tr>
+<tr><td >Ctrl&lt;Key>v</td>	<td >Paste</td></tr>
+<tr><td >&lt;Key>INSERT</td>	<td >ToggleInsert</td></tr>
+<tr><td >Shift&lt;Key>TAB</td>	<td >BackTab</td></tr>
+<tr><td >&lt;Key>BACK</td>	<td >Erase</td></tr>
+<tr><td >Shift&lt;Key>END</td>	<td >EraseEOF</td></tr>
+<tr><td >&lt;Key>END</td>	<td >FieldEnd</td></tr>
+<tr><td >Shift&lt;Key>LEFT</td>	<td >PreviousWord</td></tr>
+<tr><td >Shift&lt;Key>RIGHT</td>	<td >NextWord</td></tr>
 </table>
 
 <a NAME="File-Transfer"></a><h2>File Transfer</h2>
@@ -784,6 +773,7 @@ The C backslash conventions are honored as follows.
 processing the string.)
 <table BORDER cols=2 width="75%">
 <tr><td >\b</td>	<td >Left</td></tr>
+<tr><td >\e<i>xx</i></td>	<td >EBCDIC character in hex</td></tr>
 <tr><td >\f</td>	<td >Clear*</td></tr>
 <tr><td >\n</td>	<td >Enter*</td></tr>
 <tr><td >\pa<i>n</i></td>	<td >PA(<i>n</i>)*</td></tr>
@@ -791,6 +781,7 @@ processing the string.)
 <tr><td >\r</td>	<td >Newline</td></tr>
 <tr><td >\t</td>	<td >Tab</td></tr>
 <tr><td >\T</td>	<td >BackTab</td></tr>
+<tr><td >\x<i>xx</i></td>	<td >ASCII character in hex</td></tr>
 </table>
 <p>
 An example keymap entry would be:
@@ -983,12 +974,12 @@ wc3270 is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
 <a NAME="Version"></a><h2>Version</h2>
-wc3270 3.3.7p3
+wc3270 3.3.7p7
 <hr>
 <i>
 This HTML document and the accompanying troff document were generated with
 a set of write-only <b>m4</b> macros and the powerful <b>vi</b> editor.
-<br>Last modified 22 February 2008.
+<br>Last modified 04 July 2008.
 </i>
 </body>
 </html>

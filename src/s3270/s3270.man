@@ -302,4 +302,4 @@ s3270 is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
 .SH "VERSION"
-s3270 3.3.7p6
+s3270 3.3.7p7

@@ -3123,7 +3123,8 @@ int
 emulate_input(char *s, int len, Boolean pasting)
 {
 	enum {
-	    BASE, BACKSLASH, BACKX, BACKP, BACKPA, BACKPF, OCTAL, HEX, XGE
+	    BASE, BACKSLASH, BACKX, BACKE, BACKP, BACKPA, BACKPF, OCTAL, HEX,
+	    EBC, XGE
 	} state = BASE;
 	int literal = 0;
 	int nc = 0;
@@ -3341,6 +3342,9 @@ emulate_input(char *s, int len, Boolean pasting)
 			    case 'x':
 				state = BACKX;
 				break;
+			    case 'e':
+				state = BACKE;
+				break;
 			    case '\\':
 				key_ACharacter((unsigned char) c, KT_STD, ia,
 						&skipped);
@@ -3435,6 +3439,19 @@ emulate_input(char *s, int len, Boolean pasting)
 				state = BASE;
 				continue;
 			}
+		    case BACKE:	/* last two characters were "\x" */
+			if (isxdigit(c)) {
+				state = EBC;
+				literal = 0;
+				nc = 0;
+				continue;
+			} else {
+				popup_an_error("%s: Missing hex digits after \\e",
+				    action_name(String_action));
+				cancel_if_idle_command();
+				state = BASE;
+				continue;
+			}
 		    case OCTAL:	/* have seen \ and one or more octal digits */
 			if (nc < 3 && isdigit(c) && c < '8') {
 				literal = (literal * 8) + FROM_HEX(c);
@@ -3446,7 +3463,7 @@ emulate_input(char *s, int len, Boolean pasting)
 				state = BASE;
 				continue;
 			}
-		    case HEX:	/* have seen \ and one or more hex digits */
+		    case HEX:	/* have seen \x and one or more hex digits */
 			if (nc < 2 && isxdigit(c)) {
 				literal = (literal * 16) + FROM_HEX(c);
 				nc++;
@@ -3454,6 +3471,19 @@ emulate_input(char *s, int len, Boolean pasting)
 			} else {
 				key_ACharacter((unsigned char) literal, KT_STD,
 				    ia, &skipped);
+				state = BASE;
+				continue;
+			}
+		    case EBC:	/* have seen \e and one or more hex digits */
+			if (nc < 2 && isxdigit(c)) {
+				literal = (literal * 16) + FROM_HEX(c);
+				nc++;
+				break;
+			} else {
+			    	trace_event(" %s -> Key(X'%02X')\n",
+					ia_name[(int) ia], literal);
+				key_Character((unsigned char) literal, False,
+					True, &skipped);
 				state = BASE;
 				continue;
 			}
@@ -3487,6 +3517,17 @@ emulate_input(char *s, int len, Boolean pasting)
 	    case OCTAL:
 	    case HEX:
 		key_ACharacter((unsigned char) literal, KT_STD, ia, &skipped);
+		state = BASE;
+		if (toggled(MARGINED_PASTE) &&
+		    BA_TO_COL(cursor_addr) < orig_col) {
+			(void) remargin(orig_col);
+		}
+		break;
+	    case EBC:
+		/* XXX: line below added after 3.3.7p7 */
+		trace_event(" %s -> Key(X'%02X')\n", ia_name[(int) ia],
+			literal);
+		key_Character((unsigned char) literal, False, True, &skipped);
 		state = BASE;
 		if (toggled(MARGINED_PASTE) &&
 		    BA_TO_COL(cursor_addr) < orig_col) {
@@ -3936,6 +3977,22 @@ Default_action(Widget w unused, XEvent *event, String *params, Cardinal *num_par
 			return;
 #endif /*]*/
 		ll = XLookupString(kevent, buf, 32, &ks, (XComposeStatus *) 0);
+		if (ll > 1) {
+			char tmp[33];
+
+			/*
+			 * Translate from (local) UTF-8 to the implied
+			 * 8-bit character set.
+			 */
+			strncpy(tmp, buf, ll);
+			tmp[ll] = '\0';
+			buf[0] = utf8_lookup(tmp, NULL, NULL);
+			if (buf[0]) {
+				key_ACharacter((unsigned char) buf[0], KT_STD,
+				    IA_DEFAULT, NULL);
+				return;
+			}
+		}
 		if (ll == 1) {
 			/* Add Meta; XLookupString won't. */
 			if (event_is_meta(kevent->state))

@@ -1487,21 +1487,21 @@ kybd_input2(INPUT_RECORD *ir)
 	/*
 	 * Translate the INPUT_RECORD into an integer we can match keymaps
 	 * against.
-	 * In theory, this is simple -- if it's a VK_xxx, put it in the high
-	 * 16 bits and leave the low 16 clear; otherwise if there's an ASCII
-	 * value, put it in the low 16; otherwise give up.
 	 *
-	 * In practice, this is harder, because some of the VK_ codes are
-	 * aliases for ASCII characters and you get both.  So the rule becomes
-	 * that if you get both VK_xxx and ASCII, and they are equal, ignore
-	 * the VK.
+	 * If VK and ASCII are the same, use VK.
+	 * If VK is 0x6x, use VK.  These are aliases like ADD and NUMPAD0.
+	 * Otherwise, if there's ASCII, use it.
+	 * Otherwise, use VK.
 	 */
-	if (ir->Event.KeyEvent.uChar.AsciiChar != 0)
-		xk = ir->Event.KeyEvent.uChar.AsciiChar & 0xffff;
-	else if (ir->Event.KeyEvent.wVirtualKeyCode != 0)
+	if (ir->Event.KeyEvent.wVirtualKeyCode ==
+		    ir->Event.KeyEvent.uChar.AsciiChar)
 		xk = (ir->Event.KeyEvent.wVirtualKeyCode << 16) & 0xffff0000;
+	else if ((ir->Event.KeyEvent.wVirtualKeyCode & 0xf0) == 0x60)
+		xk = (ir->Event.KeyEvent.wVirtualKeyCode << 16) & 0xffff0000;
+	else if (ir->Event.KeyEvent.uChar.AsciiChar > 0)
+		xk = ir->Event.KeyEvent.uChar.AsciiChar & 0xffff;
 	else
-		xk = 0;
+		xk = (ir->Event.KeyEvent.wVirtualKeyCode << 16) & 0xffff0000;
 
 	if (xk) {
 	    	trace_as_keymap(&ir->Event.KeyEvent);
@@ -1537,6 +1537,42 @@ kybd_input2(INPUT_RECORD *ir)
 	case VK_HOME:
 		action_internal(Home_action, IA_DEFAULT, CN, CN);
 		return;
+	case VK_ADD:
+		k = '+';
+		break;
+	case VK_SUBTRACT:
+		k = '+';
+		break;
+	case VK_NUMPAD0:
+		k = '0';
+		break;
+	case VK_NUMPAD1:
+		k = '1';
+		break;
+	case VK_NUMPAD2:
+		k = '2';
+		break;
+	case VK_NUMPAD3:
+		k = '3';
+		break;
+	case VK_NUMPAD4:
+		k = '4';
+		break;
+	case VK_NUMPAD5:
+		k = '5';
+		break;
+	case VK_NUMPAD6:
+		k = '6';
+		break;
+	case VK_NUMPAD7:
+		k = '7';
+		break;
+	case VK_NUMPAD8:
+		k = '8';
+		break;
+	case VK_NUMPAD9:
+		k = '9';
+		break;
 	default:
 		break;
 	}
@@ -1544,17 +1580,6 @@ kybd_input2(INPUT_RECORD *ir)
 	/* Then look for 3270-only cases. */
 	if (IN_3270) switch(k) {
 	/* These cases apply only to 3270 mode. */
-#if 0
-	case VK_OEM_CLEAR:
-		action_internal(Clear_action, IA_DEFAULT, CN, CN);
-		return;
-	case 0x12:
-		action_internal(Reset_action, IA_DEFAULT, CN, CN);
-		return;
-	case 'L' & 0x1f:
-		action_internal(Redraw_action, IA_DEFAULT, CN, CN);
-		return;
-#endif
 	case VK_TAB:
 		action_internal(Tab_action, IA_DEFAULT, CN, CN);
 		return;
@@ -1567,11 +1592,6 @@ kybd_input2(INPUT_RECORD *ir)
 	case VK_RETURN:
 		action_internal(Enter_action, IA_DEFAULT, CN, CN);
 		return;
-#if 0
-	case '\n':
-		action_internal(Newline_action, IA_DEFAULT, CN, CN);
-		return;
-#endif
 	default:
 		break;
 	}

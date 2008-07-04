@@ -1,1 +1,1 @@
-../s3270/version.txt
+../pr3287/version.txt

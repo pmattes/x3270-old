@@ -924,7 +924,7 @@ static void
 screen_scroll_proc(Widget w unused, XtPointer client_data unused,
     XtPointer position)
 {
-	scroll_proc((int)position, (int)nss.screen_height);
+	scroll_proc((long)position, (int)nss.screen_height);
 }
 
 static void

@@ -49,6 +49,7 @@ const char *
 see_ebc(unsigned char ch)
 {
 	static char buf[8];
+	unsigned char e;
 
 	switch (ch) {
 	    case FCORDER_NULL:
@@ -74,16 +75,17 @@ see_ebc(unsigned char ch)
 	    case FCORDER_SO:
 		return "SO";
 	}
-	if (ebc2asc[ch])
+	e = ebc2asc[ch];
+	if (e && (e != ' ' || ch == 0x40))
 		(void) sprintf(buf,
 #if !defined(PR3287) /*[*/
-			       "%s", utf8_expand(ebc2asc[ch])
+			       "%s", utf8_expand(e)
 #else /*][*/
-			       "%c", ebc2asc[ch]
+			       "%c", ebc2asc[e]
 #endif /*]*/
 			       );
 	else
-		(void) sprintf(buf, "\\%o", ch);
+		(void) sprintf(buf, "X'%02X'", ch);
 	return buf;
 }
 

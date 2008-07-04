@@ -218,7 +218,8 @@ charset_init(char *csname)
 		char *basename;
 
 		/* Grab the non-Euro definition. */
-		basename = xs_buffer("%.*s", strlen(csname) - ES_SIZE, csname);
+		basename = xs_buffer("%.*s", (int)(strlen(csname) - ES_SIZE),
+			csname);
 		cs = get_charset_def(basename);
 		Free(basename);
 	}
