@@ -128,7 +128,7 @@ static unsigned char	code_table[64] = {
 	(((c1) & 0x3F) << 6) | ((c2) & 0x3F))
 
 #define ENCODE_BADDR(ptr, addr) { \
-	if ((addr) > 0xfff) { \
+    	if ((ROWS * COLS) > 0x1000) { \
 		*(ptr)++ = ((addr) >> 8) & 0x3F; \
 		*(ptr)++ = (addr) & 0xFF; \
 	} else { \

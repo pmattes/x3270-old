@@ -1,1 +1,1 @@
-../pr3287/proxy.c
+../x3270/proxy.c

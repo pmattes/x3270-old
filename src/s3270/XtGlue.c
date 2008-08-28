@@ -370,8 +370,8 @@ ms_ts(unsigned long long *u)
 	GetSystemTimeAsFileTime(&t);
 	memcpy(u, &t, sizeof(unsigned long long));
 
-	/* Divide by 10 to get ms. */
-	*u /= 10ULL;
+	/* Divide by 10,000 to get ms. */
+	*u /= 10000ULL;
 }
 #endif /*]*/
 

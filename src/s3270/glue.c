@@ -748,7 +748,7 @@ static struct {
 #if defined(C3270) && defined(_WIN32) /*[*/
 	{ ResHighlightUnderline, offset(highlight_underline), XRM_BOOLEAN },
 #endif /*]*/
-#if defined(C3270) && defined(X3270_SCRIPT) /*[*/
+#if defined(C3270) /*[*/
 	{ ResIdleCommand,offset(idle_command),	XRM_STRING },
 	{ ResIdleCommandEnabled,offset(idle_command_enabled),	XRM_BOOLEAN },
 	{ ResIdleTimeout,offset(idle_timeout),	XRM_STRING },
