@@ -1,5 +1,5 @@
 /*
- * Modifications Copyright 1996, 1999, 2000, 2001, 2002, 2003 by Paul Mattes.
+ * Modifications Copyright 1996-2008 by Paul Mattes.
  * Copyright October 1995 by Dick Altenbern
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -35,6 +35,18 @@ enum ft_state {
 extern Boolean ft_last_cr;
 extern enum ft_state ft_state;
 extern Boolean remap_flag;
+extern unsigned char i_ft2asc[], i_asc2ft[];
+
+#if defined(X3270_DBCS) /*[*/
+enum ftd {
+    FT_DBCS_NONE,
+    FT_DBCS_SO,
+    FT_DBCS_LEFT
+};
+extern enum ftd ft_dbcs_state;
+extern unsigned char ft_dbcs_byte1;
+extern Boolean ft_last_dbcs;
+#endif /*]*/
 
 extern void ft_aborting(void);
 extern void ft_complete(const char *errmsg);

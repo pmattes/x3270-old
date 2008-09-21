@@ -1,6 +1,5 @@
 /*
- * Modifications Copyright 1993, 1994, 1995, 1999, 2000, 2002, 2003, 2004,
- *   2005 by Paul Mattes.
+ * Modifications Copyright 1993-2008 by Paul Mattes.
  * RPQNAMES modifications Copyright 2004 by Don Russell.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
@@ -312,6 +311,7 @@
 #define EBC_em		0x19
 #define EBC_dup		0x1c
 #define EBC_fm		0x1e
+#define EBC_sub		0x3f
 #define EBC_space	0x40
 #define EBC_nobreakspace 0x41   
 #define EBC_period	0x4b    
@@ -325,6 +325,19 @@
 #define EBC_0		0xf0    
 #define EBC_9		0xf9    
 #define EBC_eo		0xff
+#define EBC_less	0x4c
+#define EBC_greaer	0x6e
+#define EBC_P		0xd7
+#define EBC_M		0xd4
+#define EBC_U		0xe4
+
+/* Unicode private-use definitions. */
+#define UPRIV_GE_00	0xf700	/* first GE */
+#define UPRIV_GE_ff	0xf7ff	/* last GE */
+#define UPRIV_sub	0xf8fc
+#define UPRIV_eo	0xf8fd
+#define UPRIV_fm	0xf8fe
+#define UPRIV_dup	0xf8ff
 
 /* BIND definitions. */
 #define BIND_RU			0x31

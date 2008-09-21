@@ -1,6 +1,5 @@
 /*
- * Modifications Copyright 1993-1996, 1999-2004, 2005, 2006, 2007
- *   by Paul Mattes.
+ * Modifications Copyright 1993-2008 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -50,6 +49,7 @@
 #include "ansic.h"
 #include "charsetc.h"
 #include "ctlrc.h"
+#include "display8c.h"
 #include "hostc.h"
 #include "keymapc.h"
 #include "keypadc.h"
@@ -63,12 +63,11 @@
 #include "statusc.h"
 #include "tablesc.h"
 #include "trace_dsc.h"
+#include "unicodec.h"
+#include "unicode_dbcsc.h"
 #include "utf8c.h"
 #include "utilc.h"
 #include "xioc.h"
-#if defined(X3270_DBCS) /*[*/
-#include "widec.h"
-#endif /*]*/
 
 #if defined(HAVE_SYS_SELECT_H) /*[*/
 #include <sys/select.h>		/* fd_set declaration */
@@ -195,6 +194,7 @@ static struct {
     int ascent;
     int descent;
     int xtra_width;
+    int d16_ix;
 } dbcs_font;
 static void xim_init(void);
 XIM im;
@@ -275,10 +275,11 @@ struct sstate {
 	Boolean         standard_font;
 	Boolean		extended_3270font;
 	Boolean         font_8bit;
+	Boolean		font_16bit;
 	Boolean		funky_font;
 	Boolean         obscured;
 	Boolean         copied;
-	unsigned short  *xfmap;	/* standard font CG-to-ASCII map */
+	int		d8_ix;
 	unsigned long	odd_width[256 / BPW];
 	unsigned long	odd_lbearing[256 / BPW];
 };
@@ -307,6 +308,7 @@ int            *ascent = &nss.ascent;
 int            *descent = &nss.descent;
 Boolean        *standard_font = &nss.standard_font;
 Boolean        *font_8bit = &nss.font_8bit;
+Boolean        *font_16bit = &nss.font_16bit;
 Boolean        *extended_3270font = &nss.extended_3270font;
 Boolean        *funky_font = &nss.funky_font;
 int            *xtra_width = &nss.xtra_width;
@@ -489,7 +491,7 @@ screen_init(void)
 	/* Initialize the blank map. */
 	(void) memset((char *)blank_map, '\0', sizeof(blank_map));
 	for (i = 0; i < 256; i++) {
-		if (ebc2asc[i] == 0x20 || ebc2asc[i] == 0xa0)
+		if (ebc2asc0[i] == 0x20 || ebc2asc0[i] == 0xa0)
 			BKM_SET(i);
 	}
 
@@ -924,7 +926,7 @@ static void
 screen_scroll_proc(Widget w unused, XtPointer client_data unused,
     XtPointer position)
 {
-	scroll_proc((int)position, (int)nss.screen_height);
+	scroll_proc((long)position, (int)nss.screen_height);
 }
 
 static void
@@ -1731,6 +1733,143 @@ resync_text(int baddr, int len, union sp *buffer)
 }
 
 /*
+ * Get a font index for an EBCDIC character.
+ * Returns a blank if there is no mapping.
+ *
+ * Note that the EBCDIC character can be 16 bits (DBCS), and the output might
+ * be 16 bits as well.
+ */
+static unsigned short
+font_index(ebc_t ebc, int d8_ix, Boolean upper)
+{
+	ucs4_t ucs4;
+	int d;
+
+	ucs4 = ebcdic_base_to_unicode(ebc, True, True);
+	if (upper && ucs4 < 0x80 && islower(ucs4))
+	    	ucs4 = toupper(ucs4);
+	d = display8_lookup(d8_ix, ucs4);
+	if (d < 0) {
+	    	d = display8_lookup(d8_ix, ' ');
+	}
+	return d;
+}
+
+/*
+ * Attempt to map an APL character to a DEC line-drawing character in the
+ * first 32 bytes of an old 8-bit X11 font.
+ */
+static int
+apl_to_linedraw(ebc_t c)
+{
+    	switch (c) {
+	case 0xaf:	/* degree */
+	    return 0x7;
+	case 0xd4:	/* LR corner */
+	    return 0xb;
+	case 0xd5:	/* UR corner */
+	    return 0xc;
+	case 0xc5:	/* UL corner */
+	    return 0xd;
+	case 0xc4:	/* LL corner */
+	    return 0xe;
+	case 0xd3:	/* plus */
+	    return 0xf;
+	case 0xa2:	/* middle horizontal */
+	    return 0x12;
+	case 0xc6:	/* left tee */
+	    return 0x15;
+	case 0xd6:	/* right tee */
+	    return 0x16;
+	case 0xc7:	/* bottom tee */
+	    return 0x17;
+	case 0xd7:	/* top tee */
+	    return 0x18;
+	case 0xbf:	/* stile */
+	case 0x85:	/* vertical line */
+	    return 0x19;
+	case 0x8c:	/* less or equal */
+	    return 0x1a;
+	case 0xae:	/* greater or equal */
+	    return 0x1b;
+	case 0xbe:	/* not equal */
+	    return 0x1d;
+	case 0xa3:	/* bullet */
+	    return 0x1f;
+	case 0xad:
+	    return '[';
+	case 0xbd:
+	    return ']';
+	default:
+	    return -1;
+	}
+}
+
+/* Map an APL character to the current display character set. */
+static XChar2b
+apl_to_udisplay(int d8_ix, unsigned char c)
+{
+	XChar2b x;
+	int u = -1;
+	int d = 0;
+
+	/* Look it up. */
+	u = apl_to_unicode(c);
+	if (u != -1)
+	    	d = display8_lookup(d8_ix, u);
+
+	/* Default to a space. */
+	if (d == 0)
+		d = display8_lookup(d8_ix, ' ');
+
+	/* Return it. */
+	x.byte1 = (d >> 8) & 0xff;
+	x.byte2 = d & 0xff;
+	return x;
+}
+
+/* Map an APL character to the old first-32 8-bit X11 display character set. */
+static XChar2b
+apl_to_ldisplay(unsigned char c)
+{
+	XChar2b x;
+	int u = -1;
+
+	/* Look it up, defaulting to a space. */
+	u = apl_to_linedraw(c);
+	if (u == -1)
+	    	u = ' ';
+
+	/* Return it. */
+	x.byte1 = 0;
+	x.byte2 = u;
+	return x;
+}
+
+/* Map a line-drawing character to the current display character set. */
+static XChar2b
+linedraw_to_udisplay(int d8_ix, unsigned char c)
+{
+	XChar2b x;
+	int u = -1;
+	int d = 0;
+
+	/* Look it up. */
+	u = linedraw_to_unicode(c);
+	if (u != -1)
+	    	d = display8_lookup(d8_ix, u);
+
+	/* Default to a space. */
+	if (d == 0)
+		d = display8_lookup(d8_ix, ' ');
+
+	/* Return it. */
+	x.byte1 = (d >> 8) & 0xff;
+	x.byte2 = d & 0xff;
+	return x;
+}
+
+/*
  * Render text onto the X display.  The region must not span lines.
  */
 static void
@@ -1744,7 +1883,7 @@ render_text(union sp *buffer, int baddr, int len, Boolean block_cursor,
 	int sel = attrs->bits.sel;
 	register int i, j;
 	Boolean one_at_a_time = False;
-	register unsigned short *xfmap = ss->xfmap;
+	int d8_ix = ss->d8_ix;
 	XTextItem16 text[64]; /* fixed size is a hack */
 	int n_texts = -1;
 	Boolean in_dbcs = False;
@@ -1825,46 +1964,69 @@ render_text(union sp *buffer, int baddr, int len, Boolean block_cursor,
 			rt_buf[j].byte1 = 0;
 			if (toggled(MONOCASE))
 				rt_buf[j].byte2 =
-				    xfmap[ebc2uc[buffer[i].bits.cc]];
+				    font_index(buffer[i].bits.cc, d8_ix, True);
 			else {
 				if (visible_control) {
 					if (buffer[i].bits.cc == EBC_so) {
 						rt_buf[j].byte1 = 0;
 						rt_buf[j].byte2 =
-						    xfmap[asc2ebc['<']];
+						    font_index(EBC_less, d8_ix,
+							    False);
 					} else if (buffer[i].bits.cc == EBC_si) {
 						rt_buf[j].byte1 = 0;
 						rt_buf[j].byte2 =
-						    xfmap[asc2ebc['>']];
+						    font_index(EBC_greater,
+							    d8_ix, False);
 					} else {
+					    	unsigned short c = font_index(
+							buffer[i].bits.cc,
+							d8_ix, False);
+
 						rt_buf[j].byte1 =
-						  xfmap[buffer[i].bits.cc] >> 8;
-						rt_buf[j].byte2 =
-						    xfmap[buffer[i].bits.cc];
+						    (c >> 8) & 0xff;
+						rt_buf[j].byte2 = c & 0xff;
 					}
 				} else {
+				    	unsigned short c = font_index(
+						buffer[i].bits.cc, d8_ix,
+						False);
+
 					rt_buf[j].byte1 =
-					    xfmap[buffer[i].bits.cc] >> 8;
-					rt_buf[j].byte2 =
-					    xfmap[buffer[i].bits.cc];
+					    (c >> 8) & 0xff;
+					rt_buf[j].byte2 = c & 0xff;
 				}
 			}
 			j++;
 			break;
 		    case CS_APL:	/* GE (apl) */
+		    case CS_BASE | CS_GE:
 			if (ss->extended_3270font) {
 				rt_buf[j].byte1 = 1;
 				rt_buf[j].byte2 = ebc2cg0[buffer[i].bits.cc];
 			} else {
-				rt_buf[j].byte1 = 0;
-				rt_buf[j].byte2 = ge2asc[buffer[i].bits.cc];
+			    	if (ss->font_16bit) {
+				    	rt_buf[j] = apl_to_udisplay(d8_ix,
+						buffer[i].bits.cc);
+				} else {
+				    	rt_buf[j] = apl_to_ldisplay(
+						buffer[i].bits.cc);
+				}
 			}
 			j++;
 			break;
 		    case CS_LINEDRAW:	/* DEC line drawing */
 			if (ss->standard_font) {
-				rt_buf[j].byte1 = 0;
-				rt_buf[j].byte2 = buffer[i].bits.cc;
+			    	if (ss->font_16bit) {
+				    	rt_buf[j] = linedraw_to_udisplay(
+						d8_ix, buffer[i].bits.cc);
+				} else {
+				    	/*
+					 * Assume the first 32 characters are
+					 * line-drawing.
+					 */
+					rt_buf[j].byte1 = 0;
+					rt_buf[j].byte2 = buffer[i].bits.cc;
+				}
 			} else {
 				if (ss->extended_3270font) {
 					rt_buf[j].byte1 = 2;
@@ -1886,11 +2048,12 @@ render_text(union sp *buffer, int baddr, int len, Boolean block_cursor,
 				i++;
 			} else {
 				rt_buf[j].byte1 = 0;
-				rt_buf[j].byte2 = xfmap[EBC_space];
+				rt_buf[j].byte2 = font_index(EBC_space, d8_ix,
+					False);
 			}
 #else /*][*/
 			rt_buf[j].byte1 = 0;
-			rt_buf[j].byte2 = xfmap[EBC_space];
+			rt_buf[j].byte2 = font_index(EBC_space, d8_ix, False);
 #endif /*]*/
 			j++;
 			break;
@@ -2201,11 +2364,11 @@ draw_fields(union sp *buffer, int first, int last)
 				field_color = fa_color(fa);
 			if (visible_control) {
 				if (FA_IS_PROTECTED(fa))
-					b.bits.cc = asc2ebc['P'];
+					b.bits.cc = EBC_P;
 				else if (FA_IS_MODIFIED(fa))
-					b.bits.cc = asc2ebc['M'];
+					b.bits.cc = EBC_M;
 				else
-					b.bits.cc = asc2ebc['U'];
+					b.bits.cc = EBC_U;
 				b.bits.gr = GR_UNDERLINE;
 			}
 		} else {
@@ -2256,13 +2419,13 @@ draw_fields(union sp *buffer, int first, int last)
 					b.bits.cc = EBC_space;
 				else {
 					if (visible_control && c == EBC_null) {
-						b.bits.cc = asc2ebc['.'];
+						b.bits.cc = EBC_period;
 						is_vc = True;
 					} else if (visible_control &&
 					    (c == EBC_so || c == EBC_si)) {
 						b.bits.cc = (c == EBC_so)?
-						    asc2ebc['<']:
-						    asc2ebc['>'];
+						    EBC_less:
+						    EBC_greater;
 						is_vc = True;
 					} else
 						b.bits.cc = c;
@@ -3381,22 +3544,24 @@ query_window_state(void)
 	unsigned long nitems;
 	unsigned long leftover;
 	unsigned char *data = NULL;
-
-	/* If using an active icon, the expose events are more reliable. */
-	if (appres.active_icon)
-		return;
+	static Boolean was_up = False;
 
 	if (XGetWindowProperty(display, XtWindow(toplevel), a_state, 0L,
 	    (long)BUFSIZ, False, a_state, &actual_type, &actual_format,
 	    &nitems, &leftover, &data) != Success)
 		return;
 	if (actual_type == a_state && actual_format == 32) {
-		if (*(unsigned long *)data == IconicState)
+		if (*(unsigned long *)data == IconicState) {
 			iconic = True;
-		else {
+			keypad_popdown(&was_up);
+		} else {
 			iconic = False;
 			invert_icon(False);
 			keypad_first_up();
+			if (was_up) {
+			    	keypad_popup();
+				was_up = False;
+			}
 		}
 	}
 	XFree(data);
@@ -3642,6 +3807,13 @@ screen_new_display_charsets(const char *display_charsets, const char *csnames)
 				buf = CN;
 				n_parts = split_dbcs_resource(cs, '+',
 					    &part1, &part2);
+
+				if (n_parts == 1 &&
+					!strncasecmp(cs, "3270cg", 6)) {
+				    	free(part1);
+					continue;
+				}
+
 				if (n_parts == 2) {
 					wild = xs_buffer(
 					    "*-r-*-c-*-%s+*-r-*-c-*-%s",
@@ -3690,10 +3862,6 @@ screen_new_display_charsets(const char *display_charsets, const char *csnames)
 	allow_resize = appres.allow_resize;
 
     done:
-	if (!utf8_set_display_charsets((char *)display_charsets,
-		    (char *)csnames))
-		return False;
-
 	/* Set the appropriate global. */
 	Replace(required_display_charsets,
 	    display_charsets? NewString(display_charsets): CN);
@@ -3967,6 +4135,62 @@ load_fixed_font(const char *names, const char *reqd_display_charsets)
 }
 
 /*
+ * Load a list of fonts, possibly from the local cache.
+ */
+static char **
+xlfwi(char *pattern, int max_names, int *count_return,
+	XFontStruct **info_return)
+{
+    	struct fi_cache {
+	    struct fi_cache *next;
+	    char *pattern;
+	    char **names;
+	    int count;
+	    XFontStruct *info;
+	};
+	static struct fi_cache *fi_cache = NULL, *fi_last = NULL;
+	struct fi_cache *f;
+	char **names;
+	int count;
+	XFontStruct *info;
+
+	/* Check the cache. */
+	for (f = fi_cache; f != NULL; f = f->next) {
+	    	if (!strcmp(pattern, f->pattern)) {
+#if defined(XLFWI_DEBUG) /*[*/
+		    	printf("xlfwi cache hit on %s\n", pattern);
+#endif /*]*/
+		    	*count_return = f->count;
+			*info_return = f->info;
+		    	return f->names;
+		}
+	}
+#if defined(XLFWI_DEBUG) /*[*/
+	printf("xlfwi no hit on %s\n", pattern);
+#endif /*]*/
+
+	/* Ask the server. */
+	names = XListFontsWithInfo(display, pattern, max_names, &count, &info);
+	if (names == NULL)
+	    	return NULL;
+
+	/* Save the answer and return it. */
+	f = (struct fi_cache *)XtMalloc(sizeof(struct fi_cache));
+	f->pattern = XtNewString(pattern);
+	f->names = names;
+	f->count = *count_return = count;
+	f->info = *info_return = info;
+	f->next = NULL;
+	if (fi_last != NULL)
+	    	fi_last->next = f;
+	else
+	    	fi_cache = f;
+	fi_last = f;
+
+	return names;
+}
+
+/*
  * Load and query one font.
  * Returns NULL (okay) or an error message.
  */
@@ -3981,7 +4205,7 @@ lff_single(const char *name, const char *reqd_display_charset, Boolean is_dbcs)
 	const char *font_csname = "?";
 	int i;
 	int best = -1;
-	const char *best_weight = CN;
+	char *best_weight = CN;
 	unsigned long best_pixel_size = 0L;
 	Boolean scalable;
 	char *wname = CN;
@@ -3996,7 +4220,7 @@ lff_single(const char *name, const char *reqd_display_charset, Boolean is_dbcs)
 		force = True;
 	}
 
-	matches = XListFontsWithInfo(display, name, 1000, &count, &f);
+	matches = xlfwi((char *)name, 1000, &count, &f);
 	if (matches == (char **)NULL) {
 #if defined(DEBUG_FONTPICK) /*[*/
 		printf("Font '%s' not found\n", name);
@@ -4039,7 +4263,6 @@ lff_single(const char *name, const char *reqd_display_charset, Boolean is_dbcs)
 					Free(font_csname);
 					Free(xp);
 				}
-				XFreeFontInfo(matches, f, count);
 				if (wname != CN)
 				    	XtFree(wname);
 				return r;
@@ -4089,7 +4312,8 @@ lff_single(const char *name, const char *reqd_display_charset, Boolean is_dbcs)
 			       strcasecmp(wname, "bold"))))) {
 				best = i;
 				if (w)
-					best_weight = wname;
+					Replace(best_weight,
+						XtNewString(wname));
 				best_pixel_size = pixel_size;
 #if defined(DEBUG_FONTPICK) /*[*/
 				printf("best pixel size: %ld '%s'\n", pixel_size, matches[i]);
@@ -4103,8 +4327,9 @@ lff_single(const char *name, const char *reqd_display_charset, Boolean is_dbcs)
 	}
 	if (wname != NULL)
 	    	XtFree(wname);
+	if (best_weight != NULL)
+	    	XtFree(best_weight);
 	if (best < 0) {
-	    XFreeFontInfo(matches, f, count);
 	    return xs_buffer("None of the %d fonts matching\n"
 			     "%s\n"
 			     "appears to be appropriate",
@@ -4113,7 +4338,6 @@ lff_single(const char *name, const char *reqd_display_charset, Boolean is_dbcs)
 
 	g = XLoadQueryFont(display, matches[best]);
 	set_font_globals(g, name, matches[best], g->fid, is_dbcs);
-	XFreeFontInfo(matches, f, count);
 	return CN;
 }
 
@@ -4135,32 +4359,42 @@ set_font_globals(XFontStruct *f, const char *ef, const char *fef, Font ff,
     Boolean is_dbcs)
 {
 	unsigned long svalue;
-	int i;
+	unsigned i;
+	char *family_name = NULL;
+	char *font_encoding = NULL;
+	char *font_charset = NULL;
+
+	if (XGetFontProperty(f, a_registry, &svalue))
+		family_name = XGetAtomName(display, svalue);
+	if (family_name == NULL)
+	    	Error("Cannot get font family_name");
+	if (XGetFontProperty(f, a_encoding, &svalue))
+		font_encoding = XGetAtomName(display, svalue);
+	if (font_encoding == NULL)
+	    	Error("Cannot get font encoding");
 
 #if defined(X3270_DBCS) /*[*/
 	if (is_dbcs) {
 		/* Hack. */
 		dbcs_font.font_struct = f;
 		dbcs_font.font = f->fid;
-		if (XGetFontProperty(f, a_registry, &svalue)) {
-			char *family_name;
-
-			family_name = XGetAtomName(display, svalue);
-			if (family_name != CN) {
-				dbcs_font.unicode = !strcasecmp(family_name,
-				    "iso10646");
-				XFree(family_name);
-			}
-		}
+		dbcs_font.unicode = !strcasecmp(family_name, "iso10646");
 		dbcs_font.ascent = f->max_bounds.ascent;
 		dbcs_font.descent = f->max_bounds.descent;
 		dbcs_font.char_width  = fCHAR_WIDTH(f);
 		dbcs_font.char_height = dbcs_font.ascent + dbcs_font.descent;
+		dbcs_font.d16_ix = display16_init(xs_buffer("%s-%s",
+			    family_name, font_encoding));
 		dbcs = True;
 		Replace(full_efontname_dbcs, XtNewString(fef));
+		Free(family_name);
+		Free(font_encoding);
 		return;
 	}
 #endif /*]*/
+	font_charset = xs_buffer("%s-%s", family_name, font_encoding);
+	Free(family_name);
+	Free(font_encoding);
 	Replace(efontname, XtNewString(ef));
 	Replace(full_efontname, XtNewString(fef));
 
@@ -4186,7 +4420,9 @@ set_font_globals(XFontStruct *f, const char *ef, const char *fef, Font ff,
 	if (nss.standard_font) {
 		nss.extended_3270font = False;
 		nss.font_8bit = efont_matches;
-		nss.xfmap = nss.font_8bit ? ebc2asc : ebc2asc7;
+		nss.font_16bit = (f->max_byte1 > 0);
+		nss.d8_ix = display8_init(nss.font_8bit? font_charset:
+							 "ascii-7");
 	} else {
 #if defined(BROKEN_MACH32)
 		nss.extended_3270font = False;
@@ -4195,8 +4431,11 @@ set_font_globals(XFontStruct *f, const char *ef, const char *fef, Font ff,
 			f->max_char_or_byte2 > 255;
 #endif
 		nss.font_8bit = False;
-		nss.xfmap = ebc2cg;
+		nss.font_16bit = False;
+		nss.d8_ix = display8_init(font_charset);
 	}
+	Free(font_charset);
+	font_charset = NULL;
 
 	/* See if this font has any unusually-shaped characters. */
 	INIT_ODD(nss.odd_width);
@@ -4494,7 +4733,7 @@ aicon_font_init(void)
 	iss.extended_3270font = False;
 	iss.font_8bit = False;
 	iss.obscured = True;
-	iss.xfmap = ebc2asc7;
+	iss.d8_ix = display8_init("ascii-7");
 	if (appres.label_icon) {
 		matches = XListFontsWithInfo(display, appres.icon_label_font,
 		    1, &count, &ailabel_font);
@@ -4696,7 +4935,7 @@ add_font_to_menu(char *label, char *font)
 	}
 	f->font = NewString(font);
 	f->next = NULL;
-	f->label = label;
+	/*f->label = label;*/
 	if (font_list)
 		font_last->next = f;
 	else
@@ -4794,17 +5033,14 @@ init_rsfonts(char *charset_name)
 		free(ns);
 	}
 
-	/*
-	 * If we've found at least one appropriate font from the list,
-	 * we're done.
-	 */
-	if (rsfonts != NULL
 #if defined(X3270_DBCS) /*[*/
-	                    || dbcs
-#endif /*]*/
-                                   ) {
+	/*
+	 * In DBCS mode, if we've found at least one appropriate font from the
+	 * list, we're done.
+	 */
+	if (dbcs)
 		return;
-	}
+#endif /*]*/
 
 	/* Add 'fixed' to the menu, so there's at least one alternative. */
 	(void) add_font_to_menu("fixed", "!fixed");
@@ -4813,41 +5049,77 @@ init_rsfonts(char *charset_name)
 	buf = dupcsn = NewString(charset_name);
 	while ((csn = strtok_r(buf, ",", &lasts)) != CN) {
 		buf = CN;
+	    	if (!strncasecmp(csn, "3270cg", 6))
+		    	continue;
 		wild = xs_buffer("*-r-*-c-*-%s", csn);
 		count = 0;
-		names = XListFontsWithInfo(display, wild, 1000, &count, &fs);
+		names = xlfwi(wild, 1000, &count, &fs);
 		Free(wild);
 		if (count != 0) {
 			for (i = 0; i < count; i++) {
 				if (check_charset(names[i], &fs[i], csn, False,
 					NULL, &scalable) &&
 				   !font_in_menu(names[i])) {
-					hier_name = xs_buffer("%s>%s",
-							csn, names[i]);
+				    	char *dash1 = NULL, *dash2 = NULL;
+
+					if (names[i][0] == '-') {
+					    	dash1 = strchr(names[i] + 1,
+							'-');
+						if (dash1 != NULL)
+						    	dash2 = strchr(
+								dash1 + 1,
+								'-');
+					}
+					if (dash2 != NULL) {
+					    	hier_name =
+						    xs_buffer("%s>%.*s>%s",
+							csn,
+							dash2 - names[i] - 1,
+							 names[i] + 1,
+							dash2 + 1);
+					} else
+						hier_name = xs_buffer("%s>%s",
+								csn, names[i]);
 					(void) add_font_to_menu(hier_name,
 								names[i]);
 					Free(hier_name);
 				}
 			}
-			XFreeFontInfo(names, fs, count);
 		}
 		wild = xs_buffer("*-r-*-m-*-%s", csn);
 		count = 0;
-		names = XListFontsWithInfo(display, wild, 1000, &count, &fs);
+		names = xlfwi(wild, 1000, &count, &fs);
 		Free(wild);
 		if (count != 0) {
 			for (i = 0; i < count; i++) {
 				if (check_charset(names[i], &fs[i], csn, False,
 					NULL, &scalable) &&
 				   !font_in_menu(names[i])) {
-					hier_name = xs_buffer("%s>%s",
-							csn, names[i]);
+				    	char *dash1 = NULL, *dash2 = NULL;
+
+					if (names[i][0] == '-') {
+					    	dash1 = strchr(names[i] + 1,
+							'-');
+						if (dash1 != NULL)
+						    	dash2 = strchr(
+								dash1 + 1,
+								'-');
+					}
+					if (dash2 != NULL) {
+					    	hier_name =
+						    xs_buffer("%s>%.*s>%s",
+							csn,
+							dash2 - names[i] - 1,
+							 names[i] + 1,
+							dash2 + 1);
+					} else
+						hier_name = xs_buffer("%s>%s",
+								csn, names[i]);
 					(void) add_font_to_menu(hier_name,
 								names[i]);
 					Free(hier_name);
 				}
 			}
-			XFreeFontInfo(names, fs, count);
 		}
 	}
 	Free(dupcsn);
@@ -5324,7 +5596,8 @@ name2cs_3270(const char *name)
 static void
 xlate_dbcs(unsigned char c0, unsigned char c1, XChar2b *r)
 {
-	unsigned char wc[2];
+	unsigned long u;
+	int d;
 
 	/* Translate NULLs to spaces. */
 	if (c0 == EBC_null && c1 == EBC_null) {
@@ -5336,17 +5609,17 @@ xlate_dbcs(unsigned char c0, unsigned char c1, XChar2b *r)
 		/* Junk. */
 		r->byte1 = 0;
 		r->byte2 = 0;
-	} else if (dbcs_font.unicode) {
-		/* Translate from DBCS to Unicode. */
-		dbcs_to_unicode16(c0, c1, wc);
-		r->byte1 = wc[0];
-		r->byte2 = wc[1];
-	} else {
-		/* Translate from DBCS to the font encoding. */
-		dbcs_to_display(c0, c1, wc);
-		r->byte1 = wc[0] & 0x7f;
-		r->byte2 = wc[1] & 0x7f;
 	}
+	u = ebcdic_dbcs_to_unicode((c0 << 8) | c1, True);
+	d = display16_lookup(dbcs_font.d16_ix, u);
+	if (d >= 0) {
+		r->byte1 = (d >> 8) & 0xff;
+		r->byte2 = d & 0xff;
+	} else {
+		r->byte1 = 0;
+		r->byte2 = 0;
+	}
+
 #if defined(_ST) /*[*/
 	printf("EBC %02x%02x -> X11 font %02x%02x\n",
 		c0, c1, r->byte1, r->byte2);
@@ -5553,12 +5826,6 @@ xim_init(void)
 	Replace(locale_name, s);
 	if (s == CN) {
 		popup_an_error("setlocale(LC_CTYPE) failed\n"
-		    "XIM-based input disabled");
-		xim_error = True;
-		return;
-	}
-	if (local_encoding == CN) {
-		popup_an_error("Local encoding not specified or unsuccessful\n"
 		    "XIM-based input disabled");
 		xim_error = True;
 		return;

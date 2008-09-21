@@ -1,6 +1,5 @@
 /*
- * Copyright 1993, 1994, 1995, 1999, 2000, 2001, 2002, 2004, 2005 by Paul
- *   Mattes.
+ * Copyright 1993-2008 by Paul Mattes.
  * RPQNAMES modifications copyright 2004 by Don Russell.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -31,10 +30,9 @@
 #include "3270ds.h"
 
 #include "tablesc.h"
-#if !defined(PR3287) /*[*/
 #include "utf8c.h"
-#endif /*]*/
 #include "seec.h"
+#include "unicodec.h"
 
 const char *
 unknown(unsigned char value)
@@ -49,6 +47,8 @@ const char *
 see_ebc(unsigned char ch)
 {
 	static char buf[8];
+	char mb[16];
+	ucs4_t uc;
 
 	switch (ch) {
 	    case FCORDER_NULL:
@@ -74,16 +74,11 @@ see_ebc(unsigned char ch)
 	    case FCORDER_SO:
 		return "SO";
 	}
-	if (ebc2asc[ch])
-		(void) sprintf(buf,
-#if !defined(PR3287) /*[*/
-			       "%s", utf8_expand(ebc2asc[ch])
-#else /*][*/
-			       "%c", ebc2asc[ch]
-#endif /*]*/
-			       );
+	if (ebcdic_to_multibyte_x(ch, CS_BASE, mb, sizeof(mb), False, &uc)
+		    && (mb[0] != ' ' || ch == 0x40))
+		strcpy(buf, mb);
 	else
-		(void) sprintf(buf, "\\%o", ch);
+	    	(void) sprintf(buf, "X'%02X'", ch);
 	return buf;
 }
 

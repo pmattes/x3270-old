@@ -1,1 +1,0 @@
-../x3270/arpa_telnet.h

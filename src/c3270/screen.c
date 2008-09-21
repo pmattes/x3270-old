@@ -1,5 +1,5 @@
 /*
- * Copyright 2000, 2001, 2002, 2003, 2004, 2005, 2007 by Paul Mattes.
+ * Copyright 2000-2008 by Paul Mattes.
  *   Permission to use, copy, modify, and distribute this software and its
  *   documentation for any purpose and without fee is hereby granted,
  *   provided that the above copyright notice appear in all copies and that
@@ -25,6 +25,7 @@
 #include "ctlr.h"
 
 #include "actionsc.h"
+#include "charsetc.h"
 #include "ctlrc.h"
 #include "hostc.h"
 #include "keymapc.h"
@@ -34,9 +35,9 @@
 #include "screenc.h"
 #include "tablesc.h"
 #include "trace_dsc.h"
+#include "unicodec.h"
 #include "utf8c.h"
 #include "utilc.h"
-#include "widec.h"
 #include "xioc.h"
 
 #undef COLS
@@ -48,14 +49,14 @@ extern int cCOLS;
 #undef COLOR_YELLOW
 #undef COLOR_BLUE
 #undef COLOR_WHITE
-#if defined(HAVE_LIBNCURSESW) /*[*/
+#if defined(HAVE_NCURSESW_NCURSES_H) /*[*/
 #include <ncursesw/ncurses.h>
-#else /*][*/
-#if defined(HAVE_NCURSES_H) /*[*/
+#elif defined(HAVE_NCURSES_NCURSES_H) /*][*/
 #include <ncurses/ncurses.h>
-#else /*][*/ 
+#elif defined(HAVE_NCURSES_H) /*][*/
+#include <ncurses.h>
+#else /*][*/
 #include <curses.h>
-#endif /*]*/
 #endif /*]*/
 
 static int cp[8][8][2];
@@ -125,7 +126,7 @@ static int status_skip = 0;	/* Row to blank above the status line */
 static Boolean curses_alt = False;
 
 static void kybd_input(void);
-static void kybd_input2(int k, Boolean derived);
+static void kybd_input2(int k, ucs4_t ucs4, int alt);
 static void draw_oia(void);
 static void status_connect(Boolean ignored);
 static void status_3270_mode(Boolean ignored);
@@ -135,8 +136,8 @@ static int color_from_fa(unsigned char);
 static void screen_init2(void);
 static void set_status_row(int screen_rows, int emulator_rows);
 static Boolean ts_value(const char *s, enum ts *tsp);
-static int linedraw_to_acs(unsigned char c);
-static int apl_to_acs(unsigned char c);
+static void display_linedraw(unsigned char ebc);
+static void display_ge(unsigned char ebc);
 static void init_user_colors(void);
 static void init_user_attribute_colors(void);
 
@@ -324,12 +325,23 @@ screen_init(void)
 		}
 	}
 
-	/* See about keyboard Meta-key behavior. */
+	/*
+	 * See about keyboard Meta-key behavior.
+	 *
+	 * Note: Formerly, "auto" meant to use the terminfo 'km' capability (if
+	 * set, then disable metaEscape).  But popular terminals like the
+	 * Linux console and xterms are actually configurable, though they have
+	 * fixed terminfo capabilities.  It is harmless to enable metaEscape
+	 * when the terminal supports it, so the default is now 'on'.
+	 *
+	 * Setting the high bit for the Meta key is a pretty achaic idea, IMO,
+	 * so we no loger support it.
+	 */
 	if (!ts_value(appres.meta_escape, &me_mode))
 		(void) fprintf(stderr, "invalid %s value: '%s', "
 		    "assuming 'auto'\n", ResMetaEscape, appres.meta_escape);
 	if (me_mode == TS_AUTO)
-		me_mode = tigetflag("km")? TS_OFF: TS_ON;
+		me_mode = TS_ON;
 
 	/* See about all-bold behavior. */
 	if (appres.all_bold_on)
@@ -685,27 +697,12 @@ calc_attrs(int baddr, int fa_addr, int fa)
 	return a;
 }
 
-#if defined(CURSES_WIDE) /*[*/
-static void
-myaddch(int c)
-{
-    	if (c & 0x80) {
-	    	addstr(utf8_expand(c));
-	} else {
-		addch(c);
-	}
-}
-#else /*][*/
-#define myaddch(c) addch(c)
-#endif /*]*/
-
 /* Display what's in the buffer. */
 void
 screen_disp(Boolean erasing unused)
 {
 	int row, col;
 	int field_attrs;
-	int c;
 	unsigned char fa;
 	extern Boolean screen_alt;
 	struct screen_spec *cur_spec;
@@ -758,6 +755,8 @@ screen_disp(Boolean erasing unused)
 			move(row, 0);
 		for (col = 0; col < cCOLS; col++) {
 		    	Boolean underlined = False;
+			int attr_mask =
+			    toggled(UNDERSCORE)? (int)~A_UNDERLINE: -1;
 
 			if (flipped)
 				move(row, cCOLS-1 - col);
@@ -767,18 +766,21 @@ screen_disp(Boolean erasing unused)
 				fa = ea_buf[baddr].fa;
 				field_attrs = calc_attrs(baddr, baddr, fa);
 				(void) attrset(defattr);
-				myaddch(' ');
+				addch(' ');
 			} else if (FA_IS_ZERO(fa)) {
-				(void) attrset(field_attrs & ~A_UNDERLINE);
+				(void) attrset(field_attrs & attr_mask);
 				if (field_attrs & A_UNDERLINE)
 				    underlined = True;
-				myaddch(' ');
+				addch(' ');
 			} else {
+				char mb[16];
+				int len;
+
 				if (!(ea_buf[baddr].gr ||
 				      ea_buf[baddr].fg ||
 				      ea_buf[baddr].bg)) {
 
-					(void) attrset(field_attrs & ~A_UNDERLINE);
+					(void) attrset(field_attrs & attr_mask);
 					if (field_attrs & A_UNDERLINE)
 					    underlined = True;
 
@@ -787,7 +789,7 @@ screen_disp(Boolean erasing unused)
 		
 				    	buf_attrs = calc_attrs(baddr, fa_addr,
 						fa);
-					(void) attrset(buf_attrs & ~A_UNDERLINE);
+					(void) attrset(buf_attrs & attr_mask);
 					if (buf_attrs & A_UNDERLINE)
 					    underlined = True;
 				}
@@ -795,39 +797,46 @@ screen_disp(Boolean erasing unused)
 				d = ctlr_dbcs_state(baddr);
 				if (IS_LEFT(d)) {
 					int xaddr = baddr;
-					char mb[16];
-					int len;
+
 					INC_BA(xaddr);
-					len = dbcs_to_mb(ea_buf[baddr].cc,
-					    ea_buf[xaddr].cc,
-					    mb);
+					len = ebcdic_to_multibyte(
+						(ea_buf[baddr].cc << 8) |
+						 ea_buf[xaddr].cc,
+						mb, sizeof(mb));
 					addstr(mb);
 				} else if (!IS_RIGHT(d)) {
 #endif /*]*/
 					if (ea_buf[baddr].cs == CS_LINEDRAW) {
-						c = linedraw_to_acs(ea_buf[baddr].cc);
-						if (c != -1)
-							myaddch(c);
-						else
-							myaddch(' ');
+					    	display_linedraw(
+							ea_buf[baddr].cc);
 					} else if (ea_buf[baddr].cs == CS_APL ||
 						   (ea_buf[baddr].cs & CS_GE)) {
-						c = apl_to_acs(ea_buf[baddr].cc);
-						if (c != -1)
-							myaddch(c);
-						else
-							myaddch(' ');
+						display_ge(ea_buf[baddr].cc);
 					} else {
-					    	unsigned char ac;
-
-						ac = ebc2asc[ea_buf[baddr].cc];
-						if (underlined && ac == ' ')
-							ac = '_';
-
-						if (toggled(MONOCASE))
-							myaddch(asc2uc[ac]);
+						len = ebcdic_to_multibyte(
+							ea_buf[baddr].cc,
+							mb, sizeof(mb));
+						if (len > 0)
+							len--;
+						if (toggled(UNDERSCORE) &&
+							(len == 1) &&
+							mb[0] == ' ') {
+							mb[0] = '_';
+						}
+						if (toggled(MONOCASE) &&
+							(len == 1) &&
+							!(mb[0] & 0x80) &&
+							islower(mb[0])) {
+							mb[0] = toupper(mb[0]);
+						}
+#if defined(CURSES_WIDE) /*[*/
+						addstr(mb);
+#else /*][*/
+						if (len > 1)
+						    	addch(' ');
 						else
-							myaddch(ac);
+						    	addch(mb[0] & 0xff);
+#endif /*]*/
 					}
 #if defined(X3270_DBCS) /*[*/
 				}
@@ -856,59 +865,20 @@ escape_timeout(void)
 	    "separately\n");
 	eto = 0L;
 	meta_escape = False;
-	kybd_input2(0x1b, False);
+	kybd_input2(0, 0x1b, 0);
 }
-
-#if defined(X3270_DBCS) /*[*/
-/*
- * Accept a character of DBCS input.
- * The character is a multi-byte string encoded according to the current
- * locale.
- */
-static int
-dbcs_input(char *mbs)
-{
-    	UChar Ubuf[16];
-	int wlen;
-	unsigned char asc;
-	unsigned char ebc[2];
-	/* XXX */
-	extern Boolean key_WCharacter(unsigned char code[], Boolean *skipped);
-	extern void key_ACharacter(unsigned char c, enum keytype keytype,
-		enum iaction cause, Boolean *skipped);
-
-    	if (!dbcs)
-	    	return -1;
-	wlen = mb_to_unicode(mbs, strlen(mbs), Ubuf, 16, NULL);
-	if (wlen < 0)
-	    	return -1;
-	if (dbcs_map8(Ubuf[0], &asc)) {
-	    	trace_event("U+%04x -> EBCDIC SBCS X'%02x'\n",
-			Ubuf[0] & 0xffff, asc2ebc[asc]);
-	    	key_ACharacter(asc, KT_STD, ia_cause, NULL);
-	} else if (dbcs_map16(Ubuf[0], ebc)) {
-	    	trace_event("U+%04x -> EBCDIC DBCS X'%02x%02x'\n",
-			Ubuf[0] & 0xffff, ebc[0], ebc[1]);
-	    	key_WCharacter(ebc, NULL);
-	} else {
-	    	trace_event("Cannot convert U+%04x to EBCDIC\n",
-			Ubuf[0] & 0xffff);
-	    	return -1;
-	}
-	return 0;
-}
-#endif /*]*/
 
 /* Keyboard input. */
 static void
 kybd_input(void)
 {
-	int k = 0;
+	int k = 0;		/* KEY_XXX, or 0 */
+	ucs4_t ucs4 = 0;	/* input character, or 0 */
 	Boolean first = True;
 	static Boolean failed_first = False;
 
 	for (;;) {
-		Boolean derived = False;
+		volatile int alt = 0;
 		char dbuf[128];
 #if defined(CURSES_WIDE) /*[*/
 		wint_t wch;
@@ -917,6 +887,7 @@ kybd_input(void)
 
 		if (isendwin())
 			return;
+		ucs4 = 0;
 #if defined(CURSES_WIDE) /*[*/
 		k = wget_wch(stdscr, &wch);
 #else /*][*/
@@ -934,29 +905,48 @@ kybd_input(void)
 		} else {
 			failed_first = False;
 		}
+#if !defined(CURSES_WIDE) /*[*/
+		/* Differentiate between KEY_XXX and regular input. */
+		if (!(k & ~0xff)) {
+			char mb[2];
+			int consumed;
+			enum me_fail error;
+
+			/* Convert from local multi-byte to Unicode. */
+			mb[0] = k;
+			mb[1] = '\0';
+			ucs4 = multibyte_to_unicode(mb, 1, &consumed, &error);
+			if (ucs4 == 0) {
+				trace_event("Invalid input char 0x%x\n", k);
+				return;
+			}
+			k = 0;
+		}
+#endif /*]*/
 #if defined(CURSES_WIDE) /*[*/
 		if (k == KEY_CODE_YES)
-			k = (int)wch;
+			k = (int)wch;	/* KEY_XXX */
 		else {
 			char mbs[16];
 			wchar_t wcs[2];
 
+			k = 0;
 			wcs[0] = wch;
 			wcs[1] = 0;
 			sz = wcstombs(mbs, wcs, sizeof(mbs));
 			if (sz < 0) {
-				trace_event("Invalid input wchar %x\n", wch);
+				trace_event("Invalid input wchar 0x%x\n", wch);
 				return;
 			}
 			if (sz == 1) {
-				k = mbs[0];
+				ucs4 = mbs[0];
 			} else {
-			    	k = utf8_lookup(mbs, NULL, NULL);
-				if (k == 0) {
-#if defined(X3270_DBCS) /*[*/
-					if (dbcs_input(mbs) == 0)
-						return;
-#endif /*]*/
+			    	int consumed;
+				enum me_fail error;
+
+			    	ucs4 = multibyte_to_unicode(mbs, sz, &consumed,
+					&error);
+				if (ucs4 == 0) {
 					trace_event("Unsupported input "
 						"wchar %x\n", wch);
 					return;
@@ -964,7 +954,6 @@ kybd_input(void)
 			}
 		}
 #endif /*]*/
-		trace_event("Key %s (0x%x)\n", decode_key(k, 0, dbuf), k);
 
 		/* Handle Meta-Escapes. */
 		if (meta_escape) {
@@ -973,32 +962,31 @@ kybd_input(void)
 				eto = 0L;
 			}
 			meta_escape = False;
-			k |= 0x80;
-			derived = True;
-		} else if (me_mode == TS_ON && k == 0x1b) {
+			alt = KM_ALT;
+		} else if (me_mode == TS_ON && ucs4 == 0x1b) {
+			trace_event("Key '%s' (curses key 0x%x, char code 0x%x)\n",
+				decode_key(k, ucs4, alt, dbuf), k, ucs4);
 			eto = AddTimeOut(100L, escape_timeout);
 			trace_event(" waiting to see if Escape is followed by"
 			    " another key\n");
 			meta_escape = True;
 			continue;
 		}
-		kybd_input2(k, derived);
+		trace_event("Key '%s' (curses key 0x%x, char code 0x%x)\n",
+			decode_key(k, ucs4, alt, dbuf), k, ucs4);
+		kybd_input2(k, ucs4, alt);
 		first = False;
 	}
 }
 
 static void
-kybd_input2(int k, Boolean derived)
+kybd_input2(int k, ucs4_t ucs4, int alt)
 {
 	char buf[16];
 	char *action;
-	char dbuf1[128], dbuf2[128];
+	int i;
 
-	if (derived)
-		trace_event(" combining <Key>Escape and %s into %s (0x%x)\n",
-		    decode_key(k & 0x7f, 0, dbuf1),
-		    decode_key(k, KM_META, dbuf2), k);
-	action = lookup_key(k);
+	action = lookup_key(k, ucs4, alt);
 	if (action != CN) {
 		if (strcmp(action, "[ignore]"))
 			push_keymap_action(action);
@@ -1008,9 +996,6 @@ kybd_input2(int k, Boolean derived)
 
 	/* These first cases apply to both 3270 and NVT modes. */
 	switch (k) {
-	case 0x1d:
-		action_internal(Escape_action, IA_DEFAULT, CN, CN);
-		return;
 	case KEY_UP:
 		action_internal(Up_action, IA_DEFAULT, CN, CN);
 		return;
@@ -1029,72 +1014,86 @@ kybd_input2(int k, Boolean derived)
 	default:
 		break;
 	}
+	switch (ucs4) {
+	case 0x1d:
+		action_internal(Escape_action, IA_DEFAULT, CN, CN);
+		return;
+	}
 
 	/* Then look for 3270-only cases. */
-	if (IN_3270) switch(k) {
-	/* These cases apply only to 3270 mode. */
-	case 0x03:
-		action_internal(Clear_action, IA_DEFAULT, CN, CN);
-		return;
-	case 0x12:
-		action_internal(Reset_action, IA_DEFAULT, CN, CN);
-		return;
-	case 'L' & 0x1f:
-		action_internal(Redraw_action, IA_DEFAULT, CN, CN);
-		return;
-	case '\t':
-		action_internal(Tab_action, IA_DEFAULT, CN, CN);
-		return;
-	case 0177:
-	case KEY_DC:
-		action_internal(Delete_action, IA_DEFAULT, CN, CN);
-		return;
-	case '\b':
-	case KEY_BACKSPACE:
-		action_internal(BackSpace_action, IA_DEFAULT, CN, CN);
-		return;
-	case '\r':
-		action_internal(Enter_action, IA_DEFAULT, CN, CN);
-		return;
-	case '\n':
-		action_internal(Newline_action, IA_DEFAULT, CN, CN);
-		return;
-	case KEY_HOME:
-		action_internal(Home_action, IA_DEFAULT, CN, CN);
-		return;
-	default:
-		break;
+	if (IN_3270) {
+	    	switch(k) {
+		case KEY_DC:
+			action_internal(Delete_action, IA_DEFAULT, CN, CN);
+			return;
+		case KEY_BACKSPACE:
+			action_internal(BackSpace_action, IA_DEFAULT, CN, CN);
+			return;
+		case KEY_HOME:
+			action_internal(Home_action, IA_DEFAULT, CN, CN);
+			return;
+		default:
+			break;
+		}
+	    	switch(ucs4) {
+		case 0x03:
+			action_internal(Clear_action, IA_DEFAULT, CN, CN);
+			return;
+		case 0x12:
+			action_internal(Reset_action, IA_DEFAULT, CN, CN);
+			return;
+		case 'L' & 0x1f:
+			action_internal(Redraw_action, IA_DEFAULT, CN, CN);
+			return;
+		case '\t':
+			action_internal(Tab_action, IA_DEFAULT, CN, CN);
+			return;
+		case 0177:
+			action_internal(Delete_action, IA_DEFAULT, CN, CN);
+			return;
+		case '\b':
+			action_internal(BackSpace_action, IA_DEFAULT, CN, CN);
+			return;
+		case '\r':
+			action_internal(Enter_action, IA_DEFAULT, CN, CN);
+			return;
+		case '\n':
+			action_internal(Newline_action, IA_DEFAULT, CN, CN);
+			return;
+		default:
+			break;
+		}
+
 	}
 
 	/* Do some NVT-only translations. */
-	if (IN_ANSI) switch(k) {
+	if (IN_ANSI) switch (k) {
 	case KEY_DC:
-		k = 0x7f;
+	    	ucs4 = 0x7f;
+		k = 0;
 		break;
 	case KEY_BACKSPACE:
-		k = '\b';
+		ucs4 = '\b';
+		k = 0;
 		break;
 	}
 
 	/* Catch PF keys. */
-	if (k >= KEY_F(1) && k <= KEY_F(24)) {
-		(void) sprintf(buf, "%d", k - KEY_F0);
-		action_internal(PF_action, IA_DEFAULT, buf, CN);
-		return;
+	for (i = 0; i < 63; i++) {
+		if (k == KEY_F(i)) {
+			(void) sprintf(buf, "%d", i);
+			action_internal(PF_action, IA_DEFAULT, buf, CN);
+			return;
+		}
 	}
 
 	/* Then any other 8-bit ASCII character. */
-	if (!(k & ~0xff)) {
-		char ks[6];
+	if (ucs4) {
+		char ks[16];
 		String params[2];
 		Cardinal one;
 
-		if (k >= ' ') {
-			ks[0] = k;
-			ks[1] = '\0';
-		} else {
-			(void) sprintf(ks, "0x%x", k);
-		}
+		sprintf(ks, "U+%04x", ucs4);
 		params[0] = ks;
 		params[1] = CN;
 		one = 1;
@@ -1176,6 +1175,12 @@ cursor_move(int baddr)
 
 void
 toggle_monocase(struct toggle *t unused, enum toggle_type tt unused)
+{
+	screen_disp(False);
+}
+
+void
+toggle_underscore(struct toggle *t unused, enum toggle_type tt unused)
 {
 	screen_disp(False);
 }
@@ -1645,6 +1650,41 @@ linedraw_to_acs(unsigned char c)
 	}
 }
 
+static void
+display_linedraw(unsigned char ebc)
+{
+    	int c;
+	char mb[16];
+	ucs4_t uc;
+	int len;
+
+#if defined(CURSES_WIDE) /*[*/
+	if (appres.acs)
+#endif /*]*/
+	{
+	    	/* Try UCS first. */
+		c = linedraw_to_acs(ebc);
+		if (c != -1) {
+			addch(c);
+			return;
+		}
+	}
+
+	/* Then try Unicode. */
+	len = ebcdic_to_multibyte_x(ebc, CS_LINEDRAW, mb, sizeof(mb), True,
+		&uc);
+	if (len > 0)
+		len--;
+#if defined(CURSES_WIDE) /*[*/
+	addstr(mb);
+#else /*][*/
+	if (len > 1)
+		addch(mb[0] & 0xff);
+	else
+		addch(' ');
+#endif /*]*/
+}
+
 static int
 apl_to_acs(unsigned char c)
 {
@@ -1722,9 +1762,37 @@ apl_to_acs(unsigned char c)
 	}
 }
 
-Boolean
-screen_new_display_charsets(char *cslist, char *csname)
+static void
+display_ge(unsigned char ebc)
 {
-    	/* It's all in the UTF-8 logic. */
-    	return utf8_set_display_charsets(cslist, csname);
+    	int c;
+	char mb[16];
+	ucs4_t uc;
+	int len;
+
+#if defined(CURSES_WIDE) /*[*/
+	if (appres.acs)
+#endif /*]*/
+	{
+	    	/* Try UCS first. */
+		c = apl_to_acs(ebc);
+		if (c != -1) {
+			addch(c);
+			return;
+		}
+	}
+
+	/* Then try Unicode. */
+	len = ebcdic_to_multibyte_x(ebc, CS_GE, mb, sizeof(mb), True,
+		&uc);
+	if (len > 0)
+		len--;
+#if defined(CURSES_WIDE) /*[*/
+	addstr(mb);
+#else /*][*/
+	if (len > 1)
+		addch(mb[0] & 0xff);
+	else
+		addch(' ');
+#endif /*]*/
 }

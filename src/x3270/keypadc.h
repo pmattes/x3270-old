@@ -1,5 +1,5 @@
 /*
- * Copyright 1995, 1996, 1999, 2000, 2002, 2003, 2005 by Paul Mattes.
+ * Copyright 1995-2008 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -36,6 +36,8 @@ extern void keypad_set_keymap(void);
 extern void keypad_set_temp_keymap(XtTranslations trans);
 extern void keypad_shift(void);
 extern Dimension min_keypad_width(void);
+extern void keypad_popdown(Boolean *was_up);
+extern void keypad_popup(void);
 
 #else /*][*/
 
@@ -49,5 +51,7 @@ extern Dimension min_keypad_width(void);
 #define keypad_set_keymap()
 #define keypad_set_temp_keymap(n)
 #define keypad_shift()
+#define keypad_popdown(w)
+#define keypad_popup()
 
 #endif /*]*/

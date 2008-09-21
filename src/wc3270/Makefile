@@ -1,4 +1,4 @@
-# Copyright 2007 by Paul Mattes.
+# Copyright 2007-2008 by Paul Mattes.
 #  Permission to use, copy, modify, and distribute this software and its
 #  documentation for any purpose and without fee is hereby granted,
 #  provided that the above copyright notice appear in all copies and that
@@ -33,25 +33,26 @@ NATIVECC = gcc
 WINDRES = windres
 endif
 
-XCPPFLAGS = -D_WIN32 -DWC3270 -D_WIN32_WINNT=0x0500
+XCPPFLAGS = -D_WIN32 -DWC3270 -D_WIN32_WINNT=0x0500 -D_WIN32_IE=0x0500
 CFLAGS = $(EXTRA_FLAGS) -mno-cygwin -g -Wall -Werror $(XCPPFLAGS) -I. $(SSLCPP)
 SRCS = XtGlue.c actions.c ansi.c apl.c c3270.c charset.c ctlr.c \
 	ft.c ft_cut.c ft_dft.c glue.c help.c host.c icmd.c idle.c kybd.c \
 	macros.c print.c printer.c proxy.c resources.c rpq.c screen.c see.c \
-	sf.c tables.c telnet.c toggles.c trace_ds.c utf8.c util.c \
+	sf.c tables.c telnet.c toggles.c trace_ds.c unicode.c utf8.c util.c \
 	xio.c fallbacks.c keymap.c w3misc.c winvers.c windirs.c resolver.c
 VOBJS = XtGlue.o actions.o ansi.o apl.o c3270.o charset.o ctlr.o \
 	fallbacks.o ft.o ft_cut.o ft_dft.o glue.o help.o host.o icmd.o idle.o \
 	keymap.o kybd.o macros.o print.o printer.o proxy.o resolver.o \
 	resources.o rpq.o screen.o see.o sf.o tables.o telnet.o toggles.o \
-	trace_ds.o utf8.o util.o xio.o w3misc.c winvers.o windirs.o wc3270res.o
+	trace_ds.o unicode.o utf8.o util.o xio.o w3misc.c winvers.o windirs.o \
+	wc3270res.o
 OBJECTS = $(VOBJS) version.o
 LIBS = $(SSLLIB) -lws2_32
 SHRTLIBS = -lole32 -luuid
 WIZLIBS = -lole32 -luuid -lwinspool
 DLLFLAGS = $(EXTRA_FLAGS) -mno-cygwin -shared -Wl,--export-all-symbols -Wl,--enable-auto-import
 
-PROGS = wc3270.exe mkshort.exe wc3270wiz.exe catf.exe w3n4.dll w3n46.dll
+PROGS = wc3270.exe mkshort.exe wc3270wiz.exe catf.exe w3n4.dll w3n46.dll shf.dll ead3270.exe
 all: $(PROGS)
 
 version.o: $(VOBJS) version.txt mkversion.sh Makefile
@@ -98,6 +99,18 @@ w3n4.o: resolver.c
 
 w3n46.o: resolver.c
 	$(CC) $(CFLAGS) -DW3N46 -c -o w3n46.o resolver.c
+
+shf.dll: shellfolder.o
+	$(CC) $(DLLFLAGS) -o shf.dll shellfolder.o
+
+shellfolder.o: shellfolder.c
+	$(CC) $(CFLAGS) -c -o shellfolder.o shellfolder.c
+
+ead3270.exe: ead3270.o windirs.o
+	$(CC) -o $@ $(CFLAGS) ead3270.o windirs.o
+
+ead3270.o: ead3270.c
+	$(CC) $(CFLAGS) -c ead3270.c
 
 clean:
 	rm -f *.o mkfb mkfb.exe fallbacks.c

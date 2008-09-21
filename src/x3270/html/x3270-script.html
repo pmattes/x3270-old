@@ -18,22 +18,27 @@
 <a HREF="#Version">Version</a><br>
 </blockquote>
 <a NAME="Name"></a><h2>Name</h2>
-Scripting Facilities for x3270, s3270 and c3270
+Scripting Facilities for x3270, s3270, ws3270 and c3270
 <a NAME="Synopsis"></a><h2>Synopsis</h2>
 <b>x3270</b> <b>-script</b> [ <i>x3270-options</i> ]
 <br>
-<b>s3270</b> [ <i>x3270-options</i> ]
+<b>s3270</b> [ <i>s3270-options</i> ]
+<br>
+<b>ws3270</b> [ <i>ws3270-options</i> ]
 <br>
 <b>Script</b> ( <i>command</i> [ ,<i>arg</i>... ] )
 <a NAME="Description"></a><h2>Description</h2>
 The <b>x3270</b> scripting facilities allow the interactive 3270 emulators
 <b>x3270</b> and <b>c3270</b> to be operated under the control of another
-program, and form the basis for the script-only emulator <b>s3270</b>.
+program, and form the basis for the script-only emulators <b>s3270</b>
+and <b>ws3270</b>.
 <p>
 There are two basic scripting methods.
 The first is the <b>peer script</b> facility, invoked by the <b>x3270</b>
-<b>-script</b> switch, and the default mode for <b>s3270</b>.
-This runs <b>x3270</b> or <b>s3270</b> as a child of another process.
+<b>-script</b> switch, and the default mode for <b>s3270</b> and
+<b>ws3270</b>.
+This runs <b>x3270</b>, <b>s3270</b> or <b>ws3270</b> as a child of another
+process.
 Typically this would be a script using
 <i>expect</i>(1), <i>perl</i>(1),
 or the co-process facility of the Korn Shell
@@ -133,7 +138,7 @@ The X window identifier for the main
 window, in hexadecimal preceded by
 <b>0x</b>.
 For
-<b>s3270</b> and <b>c3270</b>,
+<b>s3270</b>, <b>ws3270</b> and <b>c3270</b>,
 this is zero.
 <dt>12 Command Execution Time</dt><dd>
 The time that it took for the host to respond to the previous commnd, in
@@ -420,6 +425,11 @@ fully processed the last command.
 <p>
 The optional <i>timeout</i> parameter specifies a number of seconds to wait
 before failing the <b>Snap</b> action.  The default is to wait indefinitely.
+<dt><b>Source</b>(<i>file</i>)</dt><dd>
+Read and execute commands from <i>file</i>.
+Any output from those commands will become the output from <b>Source</b>.
+If any of the commands fails, the <b>Source</b> command will <i>not</i> abort;
+it will continue reading commands until EOF.
 <dt><b>Title</b>(<i>text</i>)</dt><dd>
 Changes the x3270 window title to <i>text</i>.
 <dt><b>Transfer</b>(<i>keyword</i>=<i>value</i>,...)</dt><dd>
@@ -616,13 +626,15 @@ ksh(1)
 <a HREF="c3270-man.html">c3270(1)</a>
 <br>
 <a HREF="s3270-man.html">s3270(1)</a>
+<br>
+<a HREF="ws3270-man.html">ws3270(1)</a>
 <a NAME="Version"></a><h2>Version</h2>
-Version 3.3.7
+Version 3.3.8b1
 <hr>
 <i>
 This HTML document and the accompanying troff document were generated with
 a set of write-only <b>m4</b> macros and the powerful <b>vi</b> editor.
-<br>Last modified 24 December 2007.
+<br>Last modified 15 September 2008.
 </i>
 </body>
 </html>

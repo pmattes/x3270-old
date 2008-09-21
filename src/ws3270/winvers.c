@@ -1,1 +1,0 @@
-../wc3270/winvers.c

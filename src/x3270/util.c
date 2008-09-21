@@ -1,6 +1,5 @@
 /*
- * Copyright 1993, 1994, 1995, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006,
- *   2007 by Paul Mattes.
+ * Copyright 1993-2008 by Paul Mattes.
  * Parts Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -25,6 +24,7 @@
 #endif /*]*/
 #include <stdarg.h>
 #include "resources.h"
+#include "charsetc.h"
 
 #include "utilc.h"
 
@@ -959,3 +959,109 @@ StringToKeysym(char *s)
 	return XStringToKeysym(s);
 }
 #endif /*]*/
+
+/* Return configuration options. */
+const char *
+build_options(void)
+{
+    	return "Options:"
+#if defined(X3270_ANSI) /*[*/
+		" --enable-ansi"
+#else /*][*/
+		" --disable-ansi"
+#endif /*]*/
+#if defined(X3270_APL) /*[*/
+		" --enable-apl"
+#else /*][*/
+		" --disable-apl"
+#endif /*]*/
+#if defined(X3270_DBCS) /*[*/
+		" --enable-dbcs"
+#else /*][*/
+		" --disable-dbcs"
+#endif /*]*/
+#if defined(X3270_FT) /*[*/
+		" --enable-ft"
+#else /*][*/
+		" --disable-ft"
+#endif /*]*/
+#if defined(X3270_DISPLAY) /*[*/
+# if defined(X3270_KEYPAD) /*[*/
+		" --enable-keypad"
+# else /*][*/
+		" --disable-keypad"
+# endif /*]*/
+#endif /*]*/
+#if defined(X3270_LOCAL_PROCESS) /*[*/
+		" --enable-local-process"
+#else /*][*/
+		" --disable-local-process"
+#endif /*]*/
+#if defined(X3270_DISPLAY) /*[*/
+# if defined(X3270_MENUS) /*[*/
+		" --enable-menus"
+# else /*][*/
+		" --disable-menus"
+# endif /*]*/
+#endif /*]*/
+#if defined(X3270_DISPLAY) || defined(C3270) /*[*/
+# if defined(X3270_PRINTER) /*[*/
+		" --enable-printer"
+# else /*][*/
+		" --disable-printer"
+# endif /*]*/
+#endif /*]*/
+#if defined(X3270_DISPLAY) || defined(C3270) /*[*/
+# if defined(X3270_SCRIPT) /*[*/
+		" --enable-script"
+# else /*][*/
+		" --disable-script"
+# endif /*]*/
+#endif /*]*/
+#if defined(X3270_TN3270E) /*[*/
+		" --enable-tn3270e"
+#else /*][*/
+		" --disable-tn3270e"
+#endif /*]*/
+#if defined(X3270_TRACE) /*[*/
+		" --enable-trace"
+#else /*][*/
+		" --disable-trace"
+#endif /*]*/
+#if defined(HAVE_LIBSSL) /*[*/
+		" --with-ssl"
+#else /*][*/
+		" --without-ssl"
+#endif /*]*/
+#if defined(C3270) /*[*/
+# if defined(HAVE_LIBREADLINE) /*[*/
+		" --with-readline"
+# else /*][*/
+		" --without-readline"
+# endif /*]*/
+# if !defined(_WIN32) /*[*/
+#  if defined(CURSES_WIDE) /*[*/
+		" --with-curses-wide"
+#  else /*][*/
+		" --without-curses-wide"
+#  endif /*]*/
+# endif /*]*/
+#endif /*]*/
+#if defined(USE_ICONV) /*[*/
+		" --with-iconv"
+#endif /*]*/
+		;
+}
+
+void
+dump_version(void)
+{
+	printf("%s\n%s\n", build, build_options());
+	charset_list();
+	printf("\n"
+"Copyright 1989-2008 by Paul Mattes, GTRC and others.\n"
+"See the source code for licensing details.  Distributed WITHOUT ANY WARRANTY;\n"
+"without even the implied warranty of MERCHANTABILITY or FITNESS FOR A\n"
+"PARTICULAR PURPOSE.\n");
+	exit(0);
+}

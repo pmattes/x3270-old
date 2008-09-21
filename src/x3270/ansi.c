@@ -1,6 +1,5 @@
 /*
- * Copyright 1993, 1994, 1995, 1996, 1999, 2000, 2001, 2002, 2003, 2005,
- *  2006 by Paul Mattes.
+ * Copyright 1993-2008 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -33,6 +32,7 @@
 #endif /*]*/
 
 #include "ansic.h"
+#include "charsetc.h"
 #include "ctlrc.h"
 #include "hostc.h"
 #include "screenc.h"
@@ -40,10 +40,8 @@
 #include "tablesc.h"
 #include "telnetc.h"
 #include "trace_dsc.h"
+#include "unicodec.h"
 #include "utf8c.h"
-#if defined(X3270_DBCS) /*[*/
-#include "widec.h"
-#endif /*]*/
 
 #define MB_MAX	16
 
@@ -459,11 +457,6 @@ static unsigned char *tabs = (unsigned char *) NULL;
 static char	gnnames[] = "()*+";
 static char	csnames[] = "0AB";
 static int	cs_to_change;
-#if defined(X3270_DBCS) /*[*/
-static unsigned char mb_pending = 0;
-static char	mb_buffer[MB_MAX];
-static int	dbcs_process(int ch, unsigned char ebc[]);
-#endif /*]*/
 static int	pmi = 0;
 static char	pending_mbs[MB_MAX];
 
@@ -1006,42 +999,50 @@ static enum state
 ansi_printing(int ig1 unused, int ig2 unused)
 {
 	int nc;
-	unsigned char ebc_ch;
-	int default_cs = CS_BASE;
+	unsigned short ebc_ch;
 #if defined(X3270_DBCS) /*[*/
 	enum dbcs_state d;
-	Boolean preserve_right = False;
 #endif /*]*/
 
 	if ((pmi == 0) && (ansi_ch & 0x80)) {
 	    	char mbs[2];
-		enum ulfail fail;
-		unsigned char ch;
+		int consumed;
+		enum me_fail fail;
+		unsigned long ucs4;
 
 		mbs[0] = (char)ansi_ch;
 		mbs[1] = '\0';
-		ch = utf8_lookup(mbs, &fail, NULL);
-		if (ch == 0) {
+		ucs4 = multibyte_to_unicode(mbs, 1, &consumed, &fail);
+		if (ucs4 == 0) {
 			switch (fail) {
-			case ULFAIL_NOUTF8:
-			    	/* Leave it alone. */
-				break;
-			case ULFAIL_INCOMPLETE:
+			case ME_SHORT:
 				/* Start munching multi-byte. */
 				pmi = 0;
 				pending_mbs[pmi++] = (char)ansi_ch;
 				return MBPEND;
-			case ULFAIL_INVALID:
+			case ME_INVALID:
+			default:
 				/* Invalid multi-byte -> '?' */
 				ansi_ch = '?';
-				/* XXX: If DBCS, we should let
-				 * ICU have a crack at it
-				 */
 				break;
 			}
+		} else {
+			ansi_ch = ucs4;
 		}
 	}
 	pmi = 0;
+
+	/* Translate to EBCDIC to see if it's DBCS. */
+	ebc_ch = unicode_to_ebcdic(ansi_ch);
+	if (ebc_ch & ~0xff) {
+#if defined(X3270_DBCS) /*[*/
+		if (!dbcs)
+#endif
+		{
+			ansi_ch = '?';
+			ebc_ch = asc2ebc0['?'];
+		}
+	}
 
 	if (held_wrap) {
 		PWRAP;
@@ -1050,103 +1051,124 @@ ansi_printing(int ig1 unused, int ig2 unused)
 
 	if (insert_mode)
 		(void) ansi_insert_chars(1, 0);
+#if defined(X3270_DBCS) /*[*/
+	d = ctlr_dbcs_state(cursor_addr);
+#endif /*]*/
 	switch (csd[(once_cset != -1) ? once_cset : cset]) {
 	    case CSD_LD:	/* line drawing "0" */
 		if (ansi_ch >= 0x5f && ansi_ch <= 0x7e)
 			ctlr_add(cursor_addr, (unsigned char)(ansi_ch - 0x5f),
 			    CS_LINEDRAW);
+		else if (ebc_ch & ~0xff)
+			ctlr_add(cursor_addr, unicode_to_ebcdic('?'), CS_BASE);
 		else
-			ctlr_add(cursor_addr, asc2ebc[ansi_ch], CS_BASE);
+			ctlr_add(cursor_addr, ebc_ch, CS_BASE);
 		break;
 	    case CSD_UK:	/* UK "A" */
 		if (ansi_ch == '#')
 			ctlr_add(cursor_addr, 0x1e, CS_LINEDRAW);
+		else if (ebc_ch & ~0xff)
+			ctlr_add(cursor_addr, unicode_to_ebcdic('?'), CS_BASE);
 		else
-			ctlr_add(cursor_addr, asc2ebc[ansi_ch], CS_BASE);
+			ctlr_add(cursor_addr, ebc_ch, CS_BASE);
 		break;
 	    case CSD_US:	/* US "B" */
-		ebc_ch = asc2ebc[ansi_ch];
-#if defined(X3270_DBCS) /*[*/
-		d = ctlr_dbcs_state(cursor_addr);
-		if (dbcs) {
-			if (mb_pending || (ansi_ch & 0x80)) {
-				int len;
-				unsigned char ebc[2];
+#if !defined(X3270_DBCS) /*[*/
+		if (ebc_ch & ~0xff)
+			ctlr_add(cursor_addr, unicode_to_ebcdic('?'), CS_BASE);
+		else
+			ctlr_add(cursor_addr, ebc_ch, CS_BASE);
+#else /*][*/
+		if (ebc_ch & ~0xff) {
 
-				len = dbcs_process(ansi_ch, ebc);
-				switch (len) {
-				    default:
-				    case 0:
-					/* Translation failed. */
-					return DATA;
-				    case 1:
-					/* It was really SBCS. */
-					ebc_ch = ebc[0];
-					break;
-				    case 2:
-					/* DBCS. */
-					if ((cursor_addr % COLS) == (COLS-1)) {
-						ebc_ch = EBC_space;
-						break;
-					}
-					ctlr_add(cursor_addr, ebc[0], CS_DBCS);
-					ctlr_add_gr(cursor_addr, gr);
-					ctlr_add_fg(cursor_addr, fg);
-					ctlr_add_bg(cursor_addr, bg);
-					if (wraparound_mode) {
-						if (!((cursor_addr + 1) % COLS)) {
-							held_wrap = True;
-						} else {
-							PWRAP;
-						}
-					} else {
-						if ((cursor_addr % COLS) != (COLS - 1))
-							cursor_move(cursor_addr + 1);
-					}
-
-					/*
-					 * Set up the right-hand side to be
-					 * stored below.
-					 */
-					ebc_ch = ebc[1];
-					default_cs = CS_DBCS;
-					preserve_right = True;
-					break;
-				}
-			} else if (ansi_ch & 0x80) {
-				(void) dbcs_process(ansi_ch, NULL);
-				ebc_ch = EBC_space;
+		    	/* Add a DBCS character to the buffer. */
+		    	if (!dbcs) {
+				/* Not currently using a DBCS character set. */
+				ctlr_add(cursor_addr, unicode_to_ebcdic('?'),
+					CS_BASE);
+				break;
 			}
-		}
 
-		/* Handle conflicts with existing DBCS characters. */
-		if (!preserve_right &&
-		    (d == DBCS_RIGHT || d == DBCS_RIGHT_WRAP)) {
-			int xaddr;
+			/* Get past the last column. */
+			if ((cursor_addr % COLS) == (COLS-1)) {
+				if (!wraparound_mode)
+				    	return DATA;
+				ctlr_add(cursor_addr, EBC_space, CS_BASE);
+				ctlr_add_gr(cursor_addr, gr);
+				ctlr_add_fg(cursor_addr, fg);
+				ctlr_add_bg(cursor_addr, bg);
+				cursor_addr = cursor_addr + 1;
+				d = ctlr_dbcs_state(cursor_addr);
+			}
 
-			xaddr = cursor_addr;
-			DEC_BA(xaddr);
-			ctlr_add(xaddr, EBC_space, CS_BASE);
-			ea_buf[xaddr].db = DBCS_NONE;
-			ea_buf[cursor_addr].db = DBCS_NONE;
-		}
-		if (d == DBCS_LEFT || d == DBCS_LEFT_WRAP) {
-			int xaddr;
+			/* Add the left half. */
+			ctlr_add(cursor_addr, (ebc_ch >> 8) & 0xff, CS_DBCS);
+			ctlr_add_gr(cursor_addr, gr);
+			ctlr_add_fg(cursor_addr, fg);
+			ctlr_add_bg(cursor_addr, bg);
 
-			xaddr = cursor_addr;
-			INC_BA(xaddr);
-			ctlr_add(xaddr, EBC_space, CS_BASE);
-			ea_buf[xaddr].db = DBCS_NONE;
-			ea_buf[cursor_addr].db = DBCS_NONE;
-		}
-#endif /*]*/
-		ctlr_add(cursor_addr, ebc_ch, default_cs);
-#if defined(X3270_DBCS) /*[*/
-		if (default_cs == CS_DBCS)
+			/* Handle unaligned DBCS overwrite. */
+			if (d == DBCS_RIGHT || d == DBCS_RIGHT_WRAP) {
+			    	int xaddr;
+
+				xaddr = cursor_addr;
+				DEC_BA(xaddr);
+				ctlr_add(xaddr, EBC_space, CS_BASE);
+				ea_buf[xaddr].db = DBCS_NONE;
+			}
+
+			/* Add the right half. */
+			INC_BA(cursor_addr);
+			ctlr_add(cursor_addr, ebc_ch & 0xff, CS_DBCS);
+			ctlr_add_gr(cursor_addr, gr);
+			ctlr_add_fg(cursor_addr, fg);
+			ctlr_add_bg(cursor_addr, bg);
+
+			/* Handle cursor wrap. */
+			if (wraparound_mode) {
+			    	if (!((cursor_addr + 1) % COLS)) {
+					held_wrap = True;
+				} else {
+					PWRAP;
+				}
+			} else {
+				if ((cursor_addr % COLS) != (COLS - 1))
+					cursor_move(cursor_addr + 1);
+			}
 			(void) ctlr_dbcs_postprocess();
+			return DATA;
+		}
+
+		/* Add an SBCS character to the buffer. */
+		ctlr_add(cursor_addr, ebc_ch, CS_BASE);
 #endif /*]*/
 		break;
 	}
+
+#if defined(X3270_DBCS) /*[*/
+	/* Handle conflicts with existing DBCS characters. */
+	if (d == DBCS_RIGHT || d == DBCS_RIGHT_WRAP) {
+		int xaddr;
+
+		xaddr = cursor_addr;
+		DEC_BA(xaddr);
+		ctlr_add(xaddr, EBC_space, CS_BASE);
+		ea_buf[xaddr].db = DBCS_NONE;
+		ea_buf[cursor_addr].db = DBCS_NONE;
+		(void) ctlr_dbcs_postprocess();
+	}
+	if (d == DBCS_LEFT || d == DBCS_LEFT_WRAP) {
+		int xaddr;
+
+		xaddr = cursor_addr;
+		INC_BA(xaddr);
+		ctlr_add(xaddr, EBC_space, CS_BASE);
+		ea_buf[xaddr].db = DBCS_NONE;
+		ea_buf[cursor_addr].db = DBCS_NONE;
+		(void) ctlr_dbcs_postprocess();
+	}
+#endif /*]*/
+
 	once_cset = -1;
 	ctlr_add_gr(cursor_addr, gr);
 	ctlr_add_fg(cursor_addr, fg);
@@ -1180,9 +1202,9 @@ ansi_printing(int ig1 unused, int ig2 unused)
 static enum state
 ansi_multibyte(int ig1, int ig2)
 {
-    	char mbs[MB_MAX];
-	unsigned char ch;
-	enum ulfail fail;
+	unsigned long ucs4;
+	int consumed;
+	enum me_fail fail;
 	afn_t fn;
 
 	if (pmi >= MB_MAX - 2) {
@@ -1192,32 +1214,32 @@ ansi_multibyte(int ig1, int ig2)
 		return ansi_printing(ig1, ig2);
 	}
 
-	strncpy(mbs, pending_mbs, pmi);
-	mbs[pmi] = (char)ansi_ch;
-	mbs[pmi + 1] = '\0';
-
-	ch = utf8_lookup(mbs, &fail, NULL);
-	if (ch != 0) {
+	pending_mbs[pmi++] = (char)ansi_ch;
+	pending_mbs[pmi] = '\0';
+	ucs4 = multibyte_to_unicode(pending_mbs, pmi, &consumed, &fail);
+	if (ucs4 != 0) {
 	    	/* Success! */
-	    	ansi_ch = ch;
+	    	ansi_ch = ucs4;
 		return ansi_printing(ig1, ig2);
 	}
-	if (fail == ULFAIL_INCOMPLETE) {
+	if (fail == ME_SHORT) {
 	    	/* Go get more. */
-	    	pending_mbs[pmi++] = (char)ansi_ch;
 		return MBPEND;
 	}
 
 	/* Failure. */
 
 	/* Replace the sequence with '?'. */
-	ch = ansi_ch; /* save for later */
+	ucs4 = ansi_ch; /* save for later */
 	pmi = 0;
 	ansi_ch = '?';
 	(void) ansi_printing(ig1, ig2);
 
-	/* Reprocess whatever we choked on. */
-	ansi_ch = ch;
+	/*
+	 * Reprocess whatever we choked on (especially if it's a control
+	 * character).
+	 */
+	ansi_ch = ucs4;
 	state = DATA;
 	fn = ansi_fn[st[(int)DATA][ansi_ch]];
 	return (*fn)(n[0], n[1]);
@@ -1672,18 +1694,6 @@ ansi_in3270(Boolean in3270)
 		(void) ansi_reset(0, 0);
 }
 
-#if defined(X3270_DBCS) /*[*/
-static void
-trace_pending_mb(void)
-{
-	int i;
-
-	for (i = 0; i < mb_pending; i++) {
-		trace_ds(" %02x", mb_buffer[i] & 0xff);
-	}
-}
-#endif /*]*/
-
 
 /*
  * External entry points
@@ -1711,14 +1721,6 @@ ansi_process(unsigned int c)
 #endif /*]*/
 
 	fn = ansi_fn[st[(int)state][c]];
-#if defined(X3270_DBCS) /*[*/
-	if (mb_pending && fn != &ansi_printing) {
-		trace_ds("Dropped incomplete multi-byte character");
-		trace_pending_mb();
-		trace_ds("\n");
-		mb_pending = 0;
-	}
-#endif /*]*/
 	state = (*fn)(n[0], n[1]);
 }
 
@@ -1790,7 +1792,7 @@ ansi_send_pf(int nn)
 		35, 36, 37, 38
 	};
 
-	if (nn < 1 || nn > sizeof(code)/sizeof(code[0]))
+	if (nn < 1 || (unsigned)nn > sizeof(code)/sizeof(code[0]))
 		return;
 	(void) sprintf(fn_buf, "\033[%d~", code[nn-1]);
 	net_sends(fn_buf);
@@ -1816,70 +1818,5 @@ toggle_lineWrap(struct toggle *t unused, enum toggle_type type unused)
 	else
 		wraparound_mode = 0;
 }
-
-#if defined(X3270_DBCS) /*[*/
-/* Accumulate and process pending DBCS characters. */
-static int
-dbcs_process(int ch, unsigned char ebc[])
-{
-	UChar Ubuf[2];
-	UErrorCode err = U_ZERO_ERROR;
-
-	/* See if we have too many. */
-	if (mb_pending >= MB_MAX) {
-		trace_ds("Multi-byte character ");
-		trace_pending_mb();
-		trace_ds(" too long, dropping\n");
-		mb_pending = 0;
-		return 0;
-	}
-
-
-	/* Store it and see if we're done. */
-	mb_buffer[mb_pending++] = ch & 0xff;
-	/* An interesting idea. */
-	if (mb_pending == 1)
-	    	return 0;
-
-	if (mb_to_unicode(mb_buffer, mb_pending, Ubuf, 2, &err) > 0) {
-		/* It translated! */
-		if (dbcs_map8(Ubuf[0], ebc)) {
-			mb_pending = 0;
-			return 1;
-		} else if (dbcs_map16(Ubuf[0], ebc)) {
-			mb_pending = 0;
-			return 2;
-		} else {
-			trace_ds("Can't map multi-byte character");
-			trace_pending_mb();
-			trace_ds(" -> U+%04x to SBCS or DBCS, dropping\n",
-			    Ubuf[0] & 0xffff);
-			mb_pending = 0;
-			return 0;
-		}
-	}
-
-	/* It failed.  See why. */
-	switch (err) {
-	case U_TRUNCATED_CHAR_FOUND:
-		/* 'Cause we're not finished. */
-		return 0;
-	case U_INVALID_CHAR_FOUND:
-	case U_ILLEGAL_CHAR_FOUND:
-		trace_ds("Invalid multi-byte character");
-		trace_pending_mb();
-		trace_ds(", dropping\n");
-		break;
-	default:
-		trace_ds("Unexpected ICU error %d translating multi-type "
-		    "character", (int)err);
-		trace_pending_mb();
-		trace_ds(", dropping\n");
-		break;
-	}
-	mb_pending = 0;
-	return 0;
-}
-#endif /*]*/
 
 #endif /*]*/

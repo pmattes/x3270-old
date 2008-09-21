@@ -257,6 +257,8 @@ If specified, the trace file cannot already exist, and the (silently enforced)
 minimum size is 64 Kbytes.
 The value of <i>size</i> can have a <b>K</b> or <b>M</b> suffix, indicating
 kilobytes or megabytes respectively.
+<dt><b>-v</b>
+Display the version and build options for <b>c3270</b></dt><dd> and exit.
 <dt><b>-xrm</b> "c3270.<i>resource</i>: <i>value</i>"</dt><dd>
 Sets the value of the named <i>resource</i> to <i>value</i>.
 Resources control less common <b>c3270</b>
@@ -316,7 +318,7 @@ Available sets include:
 <tr><td ><center>slovenian</center></td>	<td ><center>870</center></td>	<td ><center>iso8859-2</center></td></tr>
 <tr><td ><center>spanish</center></td>	<td ><center>284</center></td>	<td ><center>  iso8859-1</center></td></tr>
 <tr><td ><center>spanish-euro</center></td>	<td ><center>1145</center></td>	<td ><center>  iso8859-15</center></td></tr>
-<tr><td ><center>thai</center></td>	<td ><center>838</center></td>	<td ><center>iso8859-11 tis620.2529-0</center></td></tr>
+<tr><td ><center>thai</center></td>	<td ><center>1160</center></td>	<td ><center>iso8859-11 tis620.2529-0</center></td></tr>
 <tr><td ><center>turkish</center></td>	<td ><center>1026</center></td>	<td ><center>iso8859-9</center></td></tr>
 <tr><td ><center>uk</center></td>	<td ><center>285</center></td>	<td ><center>  iso8859-1</center></td></tr>
 <tr><td ><center>uk-euro</center></td>	<td ><center>1146</center></td>	<td ><center>  iso8859-15</center></td></tr>
@@ -387,6 +389,12 @@ into an field with (apparent) space at the end.
 <dt><b>lineWrap</b></dt><dd>
 If set, the <font size=-1>ANSI</font> terminal emulator automatically assumes
 a <font size=-1>NEWLINE</font> character when it reaches the end of a line.
+<dt><b>underscore</b></dt><dd>
+If set, c3270 will display underlined fields by substituting
+underscore `_' characters for blanks or nulls in the field.
+Otherwise, these fields will be displayed
+using the terminal's native
+unerlining mode, if one is defined.
 </dl>
 <p>
 The names of the toggles for use with the <b>-set</b>
@@ -403,6 +411,7 @@ options are as follows:
 <tr><td >Trace Events</td>	<td >eventTrace</td></tr>
 <tr><td >Save Screen(s) in File</td>	<td >screenTrace</td></tr>
 <tr><td >Wraparound</td>	<td >lineWrap</td></tr>
+<tr><td >Underscore Mode</td>	<td >underscore</td></tr>
 </table>
 <p>
 These names are also used as the first parameter to the <b>Toggle</b>
@@ -479,7 +488,7 @@ possibly waiting for a response.
 <tr><td >Insert</td>	<td >set insert mode</td></tr>
 <tr><td >*Interrupt</td>	<td >send <font size=-1>TELNET IP</font> to host</td></tr>
 <tr><td >Key(<i>keysym</i>)</td>	<td >insert key <i>keysym</i></td></tr>
-<tr><td >Key(0x<i>xx</i>)</td>	<td >insert key with <font size=-1>ASCII</font> code <i>xx</i></td></tr>
+<tr><td >Key(0x<i>xx</i>)</td>	<td >insert key with character code <i>xx</i></td></tr>
 <tr><td >Left</td>	<td >move cursor left</td></tr>
 <tr><td >Left2</td>	<td >move cursor left 2 positions</td></tr>
 <tr><td >MonoCase</td>	<td >toggle uppercase-only mode</td></tr>
@@ -825,6 +834,7 @@ The C backslash conventions are honored as follows.
 processing the string.)
 <table BORDER cols=2 width="75%">
 <tr><td >\b</td>	<td >Left</td></tr>
+<tr><td >\e<i>xx</i></td>	<td >EBCDIC character in hex</td></tr>
 <tr><td >\f</td>	<td >Clear*</td></tr>
 <tr><td >\n</td>	<td >Enter*</td></tr>
 <tr><td >\pa<i>n</i></td>	<td >PA(<i>n</i>)*</td></tr>
@@ -832,6 +842,7 @@ processing the string.)
 <tr><td >\r</td>	<td >Newline</td></tr>
 <tr><td >\t</td>	<td >Tab</td></tr>
 <tr><td >\T</td>	<td >BackTab</td></tr>
+<tr><td >\x<i>xx</i></td>	<td >ASCII character in hex</td></tr>
 </table>
 <p>
 An example keymap entry would be:
@@ -957,7 +968,6 @@ The supported values for <i>type</i> are:
 <p>
 The special types <b>socks4a</b> and <b>socks5d</b> can also be used to force
 the proxy server to do the hostname resolution for the SOCKS protocol.
-snl Copyright 2000, 2001, 2002, 2007 by Paul Mattes.
 <a NAME="Screen-Size-Switching"></a><h2>Screen Size Switching</h2>
 When running as a 3270 Model 5, <b>c3270</b> can take advantage of terminals
 that can switch between 80 and 132 column modes.
@@ -1085,7 +1095,7 @@ $HOME/.c3270pro
 
 <a NAME="See-Also"></a><h2>See Also</h2>
 
-<a HREF="x3270-man.html">x3270(1)</a>, <a HREF="s3270-man.html">s3270(1)</a>, <a HREF="tcl3270-man.html">tcl3270(1)</a>, <a HREF="ibm_hosts.html">ibm_hosts(5)</a>, <a HREF="x3270-script.html">x3270-script(1)</a>, <a HREF="pr3287-man.html">pr3287(1)</a>, telnet(1), tn3270(1)
+<a HREF="x3270-man.html">x3270(1)</a>, <a HREF="s3270-man.html">s3270(1)</a>, <a HREF="tcl3270-man.html">tcl3270(1)</a>, <a HREF="ibm_hosts.html">ibm_hosts(5)</a>, <a HREF="x3270-script.html">x3270-script(1)</a>, telnet(1), tn3270(1)
 <br>
 Data Stream Programmer's Reference, IBM GA23-0059
 <br>
@@ -1098,7 +1108,7 @@ RFC 1646, TN3270 Extensions for LUname and Printer Selection
 RFC 2355, TN3270 Enhancements
 <a NAME="Copyrights"></a><h2>Copyrights</h2>
 <p>
-Modifications and original code Copyright &copy; 1993, 1994, 1995, 1996, 1997, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007 by Paul Mattes.
+Modifications and original code Copyright &copy; 1993-2008 by Paul Mattes.
 <br>
 DFT File Transfer Code Copyright  &copy; October 1995 by Dick Altenbern.
 <br>
@@ -1119,12 +1129,12 @@ c3270 is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
 <a NAME="Version"></a><h2>Version</h2>
-c3270 3.3.8a1
+c3270 3.3.8b1
 <hr>
 <i>
 This HTML document and the accompanying troff document were generated with
 a set of write-only <b>m4</b> macros and the powerful <b>vi</b> editor.
-<br>Last modified 10 January 2008.
+<br>Last modified 15 September 2008.
 </i>
 </body>
 </html>

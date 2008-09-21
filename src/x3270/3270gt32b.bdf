@@ -6,7 +6,7 @@ COMMENT " Page 1: EBCDIC APL/APL2 set, CG order (incomplete)"
 COMMENT " Page 2: (first 16 characters only) DEC line-drawing characters from"
 COMMENT "  fixed-width X fonts"
 COMMENT ""
-COMMENT "Modifications Copyright 1994, 1995, 2000, 2001 by Paul Mattes."
+COMMENT "Modifications Copyright 1994-2008 by Paul Mattes."
 COMMENT " Permission to use, copy, modify, and distribute this software and"
 COMMENT " its documentation for any purpose and without fee is hereby granted,"
 COMMENT " provided that the above copyright notice appear in all copies and"
@@ -136,7 +136,7 @@ BITMAP
 000000
 000000
 ENDCHAR
-STARTCHAR ff
+STARTCHAR euro
 ENCODING 2
 SWIDTH 563 0
 DWIDTH 18 0
@@ -146,26 +146,26 @@ BITMAP
 000000
 000000
 000000
-000000
-000000
-000000
-000000
-000000
-000000
-000000
-000000
-000000
-000000
-000000
-000000
-000000
-000000
-000000
-000000
-000000
-000000
-000000
-000000
+01FC00
+03FE00
+078F00
+0F0700
+1E0000
+1C0000
+1C0000
+7FFF00
+7FFE00
+1C0000
+1C0000
+7FFE00
+7FFC00
+1C0000
+1C0000
+1E0000
+0F0700
+078F00
+03FE00
+01FC00
 000000
 000000
 000000

@@ -1,6 +1,5 @@
 /*
- * Modifications Copyright 1993, 1994, 1995, 1996, 1999, 2000, 2002, 2004, 2005
- *   by Paul Mattes.
+ * Modifications Copyright 1993-2008 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -93,6 +92,9 @@ initialize_toggles(void)
 	appres.toggle[BLANK_FILL].upcall =       toggle_nop;
 #if defined(X3270_SCRIPT) || defined(TCL3270) /*[*/
 	appres.toggle[AID_WAIT].upcall =         toggle_nop;
+#endif /*]*/
+#if defined(C3270) /*[*/
+	appres.toggle[UNDERSCORE].upcall =	 toggle_underscore;
 #endif /*]*/
 
 #if defined(X3270_TRACE) /*[*/

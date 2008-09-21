@@ -1,5 +1,5 @@
 /*
- * Copyright 1993, 1994, 1995, 2002, 2003, 2005 by Paul Mattes.
+ * Copyright 1993-2008 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -19,7 +19,7 @@
 
 #include "globals.h"
 
-#if defined(X3270_SCRIPT) /*[*/
+#if defined(X3270_DISPLAY) || defined(C3270) /*[*/
 
 #if defined(X3270_DISPLAY) /*[*/
 #include <X11/StringDefs.h>
@@ -130,9 +130,9 @@ idle_init(void)
 	register_schange(ST_CONNECT, idle_in3270);
 
 	/* Get values from resources. */
-	cmd = get_resource(ResIdleCommand);
+	cmd = appres.idle_command;
 	idle_command = cmd? NewString(cmd): CN;
-	tmo = get_resource(ResIdleTimeout);
+	tmo = appres.idle_timeout;
 	idle_timeout_string = tmo? NewString(tmo): CN;
 	if (appres.idle_command_enabled)
 		idle_user_enabled = IDLE_PERM;
@@ -144,7 +144,11 @@ idle_init(void)
 		idle_enabled = True;
 
 	/* Seed the random number generator (we seem to be the only user). */
+#if defined(_WIN32) /*[*/
+	srand(time(NULL));
+#else /*][*/
 	srandom(time(NULL));
+#endif /*]*/
 }
 
 /*
@@ -224,6 +228,7 @@ static void
 idle_timeout(void)
 {
 	trace_event("Idle timeout\n");
+	idle_ticking = False;
 	push_idle(idle_command);
 	reset_idle_timer();
 }
@@ -245,7 +250,11 @@ reset_idle_timer(void)
 		idle_ms_now = idle_ms;
 		if (idle_randomize) {
 			idle_ms_now = idle_ms;
+#if defined(_WIN32) /*[*/
+			idle_ms_now -= rand() % (idle_ms / 10L);
+#else /*][*/
 			idle_ms_now -= random() % (idle_ms / 10L);
+#endif /*]*/
 		}
 #if defined(DEBUG_IDLE_TIMEOUT) /*[*/
 		trace_event("Setting idle timeout to %lu\n", idle_ms_now);

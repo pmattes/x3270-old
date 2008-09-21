@@ -1,6 +1,5 @@
 /*
- * Copyright 1995, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006 by Paul
- *    Mattes.
+ * Copyright 1995-2008 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -56,3 +55,5 @@ extern void rpf_init(rpf_t *r);
 extern void rpf_reset(rpf_t *r);
 extern void rpf(rpf_t *r, char *fmt, ...) printflike(2, 3);
 extern void rpf_free(rpf_t *r);
+extern const char *build_options(void);
+extern void dump_version(void);

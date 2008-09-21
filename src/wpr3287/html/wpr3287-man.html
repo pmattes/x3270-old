@@ -65,33 +65,11 @@ characters.
 <dt><b>-charset</b> <i>name</i></dt><dd>
 Specifies an alternate <font size=-1>EBCDIC</font>-to-<font size=-1>ASCII</font> mapping.
 The default maps the EBCDIC U.S. English character set to <font size=-1>ISO</font> 8859-1.
-Other built-in character sets are <b>bracket</b>, which corresponds to
+Other built-in character sets include <b>bracket</b>, which corresponds to
 many older <font size=-1>IBM</font> hosts' mapping of the <b>[</b> and <b>]</b> characters,
 and the non-U.S. character sets <b>german</b>, <b>finnish</b>, <b>uk</b>,
 <b>norwegian</b>, <b>french</b>, <b>icelandic</b> and <b>belgian</b>.
 These correspond to the <b>x3270</b> character sets of the same names.
-<p>
-If <i>name</i> begins with an <b>@</b>, then the balance is intepreted as
-the name of a file containing character mappings.
-The file contains whitespace-separated tokens.
-Each token is a number specifying an EBCDIC code, an <b>=</b> character,
-and a number specifying the 8-bit ASCII character used to print that code.
-Blank lines and lines beginning with <b>#</b> are ignored.
-<p>
-If <i>name</i> begins with an <b>=</b>, then the balance is intepreted as
-a string containing mapping tokens, as in a file.
-<p>
-For example, a file defining the <b>uk</b> character set would look like
-this:
-<p>
-<blockquote><br>
-# UK character set
-<br>
-0x4a=0x24 0x5b=0xa3 0xa1=0xaf
-<br>
-0xb0=0xa2 0xb1=0x5b 0xba=0x5e
-<br>
-0xbc=0x7e</blockquote>
 
 <dt><b>-nocrlf</b></dt><dd>
 Causes newline characters in the output to be left as-is, and not expanded to
@@ -114,6 +92,9 @@ values of the MPL (maximum presentation line) and TM (top margin) parameters.
 Specifies the Windows printer to use for each print job.
 The default is to use the printer specified by the <b>$PRINTER</b> environment
 variable, if defined, and otherwise to use the default Windows printer.
+<dt><b>-printercp</b> <i>codepage</i></dt><dd>
+Specifies the code page to use when generating printer output.
+The default is to use the system ANSI code page.
 <p>
 The printer can be the name of a local printer, or a UNC path to a remote
 printer, e.g., <b>\\server\printer1</b>.
@@ -134,6 +115,18 @@ Turns on data stream tracing.
 Trace information is usually saved in the file
 <b>x3trc.</b><i>pid</i><b>.txt</b>.
 
+<dt><b>-trnpre <i>file</i></b></dt><dd>
+Specifies a file containing data that will be sent to the printer before each
+print job.
+The file contents are treated as transparent data, i.e., they are not
+translated in any way.
+<dt><b>-trnpost <i>file</i></b></dt><dd>
+Specifies a file containing data that will be sent to the printer after each
+print job.
+The file contents are treated as transparent data, i.e., they are not
+translated in any way.
+<dt><b>-v</b></dt><dd>
+Display build and version information and exit.
 </dl>
 
 <a NAME="Environment"></a><h2>Environment</h2>
@@ -176,7 +169,7 @@ RFC 1646, TN3270 Extensions for LUname and Printer Selection
 RFC 2355, TN3270 Enhancements
 <a NAME="Copyrights"></a><h2>Copyrights</h2>
 <p>
-Modifications Copyright  &copy; 1993-1996, 1997, 1999-2005, 2007 by Paul Mattes.
+Modifications Copyright  &copy; 1993-2008 by Paul Mattes.
 <br>
 Original X11 Port Copyright &copy; 1990 by Jeff Sparkes.
 <blockquote>Permission to use, copy, modify, and distribute this software and its
@@ -189,12 +182,12 @@ Copyright &copy; 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.
 Derivative works based on this software must incorporate this copyright
 notice.</blockquote>
 <a NAME="Version"></a><h2>Version</h2>
-wpr3287 3.3.7
+wpr3287 3.3.8b1
 <hr>
 <i>
 This HTML document and the accompanying troff document were generated with
 a set of write-only <b>m4</b> macros and the powerful <b>vi</b> editor.
-<br>Last modified 24 December 2007.
+<br>Last modified 19 September 2008.
 </i>
 </body>
 </html>

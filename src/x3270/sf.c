@@ -1,6 +1,5 @@
 /*
- * Copyright 1994, 1995, 1996, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007
- *   by Paul Mattes.
+ * Copyright 1994-2008 by Paul Mattes.
  * RPQNAMES modifications Copyright 2004 by Don Russell.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -625,7 +624,7 @@ query_reply_start(void)
 static void
 do_query_reply(unsigned char code)
 {
-	int i;
+	unsigned i;
 	unsigned subindex = 0;
 	Boolean more = False;
 
@@ -682,7 +681,7 @@ do_qr_null(void)
 static void
 do_qr_summary(void)
 {
-	int i;
+	unsigned i;
 	const char *comma = "";
 
 	trace_ds("> QueryReply(Summary(");

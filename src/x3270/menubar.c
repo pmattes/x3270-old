@@ -1,6 +1,5 @@
 /*
- * Copyright 1993, 1994, 1995, 1996, 1999, 2000, 2001, 2002, 2003, 2004, 2005
- *   by Paul Mattes.
+ * Copyright 1993-2008 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -59,8 +58,6 @@
 #include "xioc.h"
 
 #define MACROS_MENU	"macrosMenu"
-
-#define MAX_MENU_OPTIONS	30
 
 extern Widget		keypad_shell;
 extern int		linemode;
@@ -268,7 +265,7 @@ add_menu_hier(struct menu_hier *root, char **parents, ArgList args,
 			 */
 			sprintf(namebuf, "csMenu%d", menu_num++);
 			for (i = 0, m = namebuf + strlen(namebuf);
-			     (*parents)[i] && (m - namebuf < sizeof(namebuf));
+			     (*parents)[i] && ((size_t)(m - namebuf) < sizeof(namebuf));
 			     i++) {
 				if (isalnum((*parents)[i])) {
 					*m++ = (*parents)[i];
@@ -1765,8 +1762,6 @@ create_font_menu(Boolean regen, Boolean even_if_unknown)
 	    XtNbackground, fm_background,
 	    NULL);
 	count = font_count;
-	if (count > MAX_MENU_OPTIONS)
-		count = MAX_MENU_OPTIONS;
 	if (font_count)
 		font_widgets = (Widget *)XtCalloc(count, sizeof(Widget));
 	else
@@ -1774,8 +1769,6 @@ create_font_menu(Boolean regen, Boolean even_if_unknown)
 	for (f = font_list, ix = 0; f; f = f->next, ix++) {
 		Arg args[3];
 
-		if (ix >= MAX_MENU_OPTIONS)
-			break;
 		XtSetArg(args[0], XtNleftMargin, fm_leftMargin);
 		XtSetArg(args[1], XtNrightMargin, fm_rightMargin);
 		XtSetArg(args[2], XtNbackground, fm_background);
@@ -1885,8 +1878,6 @@ options_menu_init(Boolean regen, Position x, Position y)
 		if (font_widgets != NULL) {
 			/* Set the current font. */
 			for (f = font_list, ix = 0; f; f = f->next, ix++) {
-				if (ix >= MAX_MENU_OPTIONS)
-					break;
 				XtVaSetValues(font_widgets[ix], XtNleftBitmap,
 					is_efont(f->font)? diamond: no_diamond,
 					NULL);

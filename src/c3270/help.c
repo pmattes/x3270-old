@@ -1,5 +1,5 @@
 /*
- * Copyright 2000, 2001, 2002, 2003, 2005, 2006, 2007 by Paul Mattes.
+ * Copyright 2000-2008 by Paul Mattes.
  *   Permission to use, copy, modify, and distribute this software and its
  *   documentation for any purpose and without fee is hereby granted,
  *   provided that the above copyright notice appear in all copies and that
@@ -121,6 +121,8 @@ static struct {
 	{ "String", "<text>", P_3270|P_SCRIPTING, "Input a string" },
 	{ "SysReq", CN, P_3270, "Send 3270 Attention (TELNET ABORT or SYSREQ AID)" },
 	{ "Tab", CN, P_3270, "Move cursor to next field" },
+	{ "Toggle", "<toggle-name> [set|clear]", P_INTERACTIVE|P_SCRIPTING,
+	    "Change a toggle" },
 	{ "ToggleInsert", CN, P_3270, "Set or clear 3270 insert mode" },
 #if 0
 	{ "ToggleReverse", CN, P_3270, "Set or clear reverse-input mode" },

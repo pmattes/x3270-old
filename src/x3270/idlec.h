@@ -1,5 +1,5 @@
 /*
- * Copyright 2002, 2003 by Paul Mattes.
+ * Copyright 2002-2008 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -23,7 +23,7 @@ enum idle_enum {
 	IDLE_PERM = 2
 };
 
-#if defined(X3270_SCRIPT) /*[*/
+#if defined(X3270_DISPLAY) || defined(C3270) /*[*/
 extern void cancel_idle_timer(void);
 extern void idle_init(void);
 extern void reset_idle_timer(void);

@@ -1,5 +1,5 @@
 /*
- * Copyright 1999, 2000, 2001 by Paul Mattes.
+ * Copyright 1999-2008 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -320,12 +320,14 @@ static struct {
 	 * The following are, umm, hacks to allow symbolic names for
 	 * control codes.
 	 */
+#if !defined(_WIN32) /*[*/
 	{ "BackSpace", 0x08 },
 	{ "Tab", 0x09 },
 	{ "Linefeed", 0x0a },
 	{ "Return", 0x0d },
 	{ "Escape", 0x1b },
 	{ "Delete", 0x7f },
+#endif /*]*/
 
 	{ (char *)NULL, NoSymbol }
 };
@@ -368,8 +370,8 @@ ms_ts(unsigned long long *u)
 	GetSystemTimeAsFileTime(&t);
 	memcpy(u, &t, sizeof(unsigned long long));
 
-	/* Divide by 10 to get ms. */
-	*u /= 10ULL;
+	/* Divide by 10,000 to get ms. */
+	*u /= 10000ULL;
 }
 #endif /*]*/
 

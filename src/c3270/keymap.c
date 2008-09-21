@@ -1,5 +1,5 @@
 /*
- * Copyright 2000, 2001, 2002, 2003, 2005 by Paul Mattes.
+ * Copyright 2000-2008 by Paul Mattes.
  *   Permission to use, copy, modify, and distribute this software and its
  *   documentation for any purpose and without fee is hereby granted,
  *   provided that the above copyright notice appear in all copies and that
@@ -29,6 +29,7 @@
 #include "screenc.h"
 #include "statusc.h"
 #include "trace_dsc.h"
+#include "unicodec.h"
 #include "utilc.h"
 
 #undef COLS
@@ -40,14 +41,14 @@ extern int cCOLS;
 #undef COLOR_YELLOW
 #undef COLOR_BLUE   
 #undef COLOR_WHITE
-#if defined(HAVE_LIBNCURSESW) /*[*/
+#if defined(HAVE_NCURSESW_NCURSES_H) /*[*/
 #include <ncursesw/ncurses.h>
-#else /*][*/
-#if defined(HAVE_NCURSES_H) /*[*/
+#elif defined(HAVE_NCURSES_NCURSES_H) /*][*/
+#include <ncurses/ncurses.h>
+#elif defined(HAVE_NCURSES_H) /*][*/
 #include <ncurses.h>
 #else /*][*/
 #include <curses.h>
-#endif /*]*/
 #endif /*]*/
 
 #define KM_3270_ONLY	0x0010	/* used in 3270 mode only */
@@ -55,13 +56,19 @@ extern int cCOLS;
 #define KM_INACTIVE	0x0040	/* wrong NVT/3270 mode, or overridden */
 
 #define KM_KEYMAP	0x8000
-#define KM_HINTS	(KM_CTRL|KM_META)
+#define KM_HINTS	(KM_CTRL|KM_ALT)
+
+typedef struct {
+    	int key;	/* KEY_XXX or 0 */
+	int modifiers;	/* KM_ALT */
+	ucs4_t ucs4;	/* character value */
+} k_t;
 
 struct keymap {
 	struct keymap *next;
 	struct keymap *successor;
 	int ncodes;		/* number of key codes */
-	int *codes;		/* key codes (ASCII or ncurses symbols) */
+	k_t *codes;		/* key codes */
 	int *hints;		/* hints (flags) */
 	char *file;		/* file or resource name */
 	int line;		/* keymap line number */
@@ -80,12 +87,48 @@ static int lookup_ccode(const char *s);
 static void keymap_3270_mode(Boolean);
 
 #define codecmp(k1, k2, len)	\
-	memcmp((k1)->codes, (k2)->codes, (len)*sizeof(int))
+	kvcmp((k1)->codes, (k2)->codes, len)
 
 static void read_one_keymap(const char *name, const char *fn, const char *r0,
     int flags);
 static void clear_keymap(void);
 static void set_inactive(void);
+
+/*
+ * Compare two k_t's.
+ * Returns 0 if equal, nonzero if not.
+ */
+static int
+kcmp(k_t *a, k_t *b)
+{
+    	if (a->key && b->key && (a->key == b->key))
+		return 0;
+    	if (a->ucs4 && b->ucs4 &&
+	    (a->ucs4 == b->ucs4) &&
+	    (a->modifiers == b->modifiers))
+		return 0;
+
+	/* Special case for both a and b empty. */
+	if (!a->key && !b->key && !a->ucs4 && !b->ucs4)
+	    	return 0;
+
+	return 1;
+}
+
+/*
+ * Compare a vector of k_t's.
+ */
+static int
+kvcmp(k_t *a, k_t *b, int len)
+{
+    	int i;
+
+	for (i = 0; i < len; i++) {
+	    	if (kcmp(&a[i], &b[i]))
+			return 1;
+	}
+	return 0;
+}
 
 /*
  * Parse a key definition.
@@ -94,13 +137,18 @@ static void set_inactive(void);
  * Is destructive.
  */
 static int
-parse_keydef(char **str, int *ccode, int *hint)
+parse_keydef(char **str, k_t *ccode, int *hint)
 {
 	char *s = *str;
 	char *t;
 	char *ks;
 	int flags = 0;
 	KeySym Ks;
+	Boolean matched = False;
+
+	ccode->key = 0;
+	ccode->ucs4 = 0;
+	ccode->modifiers = 0;
 
 	/* Check for nothing. */
 	while (isspace(*s))
@@ -120,9 +168,9 @@ parse_keydef(char **str, int *ccode, int *hint)
 			s++;
 		if (!*s)
 			break;
-		if (!strncmp(s, "Meta", 4)) {
-			flags |= KM_META;
-			s += 4;
+		if (!strncmp(s, "Alt", 3)) {
+		    	ccode->modifiers |= KM_ALT;
+			s += 3;
 		} else if (!strncmp(s, "Ctrl", 4)) {
 			flags |= KM_CTRL;
 			s += 4;
@@ -140,20 +188,69 @@ parse_keydef(char **str, int *ccode, int *hint)
 		t++;
 	if (*t)
 		*t++ = '\0';
-	Ks = StringToKeysym(s);
-	if (Ks == NoSymbol) {
-		*ccode = lookup_ccode(s);
-		if (*ccode == -1)
-			return -4;
-		if (flags)
-			return -5;
-	} else
-		*ccode = (int)Ks;
 
-	if (flags & KM_CTRL)
-		*ccode &= 0x1f;
-	if (flags & KM_META)
-		*ccode |= 0x80;
+	if (!strncasecmp(s, "U+", 2) || !strncasecmp(s, "0x", 2)) {
+	    	unsigned long u;
+		char *ptr;
+
+		/* Direct specification of Unicode. */
+		u = strtoul(s + 2, &ptr, 16);
+		if (u == 0 || *ptr != '\0')
+			return -7;
+		ccode->ucs4 = (ucs4_t)u;
+		matched = True;
+	}
+	if (!matched) {
+	    	ucs4_t u;
+		int consumed;
+		enum me_fail error;
+
+	    	/*
+		 * Convert local multibyte to Unicode.  If the result is 1
+		 * character in length, use that code.
+		 */
+	    	u = multibyte_to_unicode(s, strlen(s), &consumed, &error);
+		if (u != 0 && (size_t)consumed == strlen(s)) {
+		    	ccode->ucs4 = u;
+			matched = True;
+		}
+	}
+	if (!matched) {
+	    	/*
+		 * Try an X11 keysym, for compatability with old c3270 keymaps. 
+		 * Note that X11 keysyms assume ISO 8859-1 Latin-1, so if we
+		 * are running in some other 8-bit locale (e.g., Latin-2),
+		 * keysyms > 0x7f will be wrong.  That's why we support
+		 * Unicode now.
+		 */
+		Ks = StringToKeysym(s);
+		if (Ks != NoSymbol) {
+			ccode->ucs4 = Ks;
+			matched = True;
+		}
+	}
+	if (!matched) {
+		int cc;
+
+		/* Try for a curses key name. */
+		cc = lookup_ccode(s);
+		if (cc == -1)
+			return -4;
+		if (flags || ccode->modifiers)
+			return -5; /* no Alt/Ctrl with KEY_XXX */
+		ccode->key = cc;
+		matched = True;
+	}
+
+	/* Apply Ctrl. */
+	if (ccode->ucs4) {
+		if (flags & KM_CTRL) {
+			if (ccode->ucs4 > 0x20 && ccode->ucs4 < 0x80)
+				ccode->ucs4 &= 0x1f;
+			else
+				return -6; /* Ctrl ASCII-7 only */
+		}
+	}
 
 	/* Return the remaining string, and success. */
 	*str = t;
@@ -166,7 +263,9 @@ static char *pk_errmsg[] = {
 	"Unknown modifier",
 	"Missing keysym",
 	"Unknown keysym",
-	"Can't use modifier with curses symbol"
+	"Can't use Ctrl or Alt modifier with curses symbol",
+	"Ctrl modifier is restricted to ASCII-7 printable characters",
+	"Invalid Unicode syntax"
 };
 
 /*
@@ -215,7 +314,7 @@ locate_keymap(const char *name, char **fullname, char **r)
 
 /* Add a keymap entry. */
 static void
-add_keymap_entry(int ncodes, int *codes, int *hints, const char *file,
+add_keymap_entry(int ncodes, k_t *codes, int *hints, const char *file,
     int line, const char *action)
 {
 	struct keymap *k;
@@ -226,8 +325,8 @@ add_keymap_entry(int ncodes, int *codes, int *hints, const char *file,
 	k->next = NULL;
 	k->successor = NULL;
 	k->ncodes = ncodes;
-	k->codes = Malloc(ncodes * sizeof(int));
-	(void) memcpy(k->codes, codes, ncodes * sizeof(int));
+	k->codes = Malloc(ncodes * sizeof(k_t));
+	(void) memcpy(k->codes, codes, ncodes * sizeof(k_t));
 	k->hints = Malloc(ncodes * sizeof(int));
 	(void) memcpy(k->hints, hints, ncodes * sizeof(int));
 	k->file = NewString(file);
@@ -314,7 +413,8 @@ read_one_keymap(const char *name, const char *fn, const char *r0, int flags)
 	char *left, *right;		/* chunks of line */
 	static int ncodes = 0;
 	static int maxcodes = 0;
-	static int *codes = NULL, *hints = NULL;
+	static k_t *codes = NULL;
+	static int *hints = NULL;
 	int rc = 0;
 
 	/* Find the resource or file. */
@@ -331,7 +431,7 @@ read_one_keymap(const char *name, const char *fn, const char *r0, int flags)
 	while ((r != CN)? (rc = split_dresource(&r, &left, &right)):
 		          fgets(buf, sizeof(buf), f) != CN) {
 		char *s;
-		int ccode;
+		k_t ccode;
 		int pkr;
 		int hint;
 
@@ -371,10 +471,10 @@ read_one_keymap(const char *name, const char *fn, const char *r0, int flags)
 		do {
 			if (++ncodes > maxcodes) {
 				maxcodes = ncodes;
-				codes = Realloc(codes, maxcodes * sizeof(int));
+				codes = Realloc(codes, maxcodes * sizeof(k_t));
 				hints = Realloc(hints, maxcodes * sizeof(int));
 			}
-			codes[ncodes - 1] = ccode;
+			codes[ncodes - 1] = ccode; /* struct copy */
 			hints[ncodes - 1] = hint;
 			pkr = parse_keydef(&left, &ccode, &hint);
 			if (pkr < 0) {
@@ -480,13 +580,18 @@ ambiguous(struct keymap *k, int nc)
  * This code implements the mutli-key lookup, by returning dummy actions for
  * partial matches.
  *
- * It also handles keyboards that generate ESC for the Meta or Alt key.
+ * It also handles keyboards that generate ESC for the Alt key.
  */
 char *
-lookup_key(int code)
+lookup_key(int kcode, ucs4_t ucs4, int modifiers)
 {
 	struct keymap *j, *k;
 	int n_shortest = 0;
+	k_t code;
+
+	code.key = kcode;
+	code.ucs4 = ucs4;
+	code.modifiers = modifiers;
 
 	/* If there's a timeout pending, cancel it. */
 	if (kto) {
@@ -502,7 +607,7 @@ lookup_key(int code)
 		for (k = master_keymap; k != NULL; k = k->next) {
 			if (IS_INACTIVE(k))
 				continue;
-			if (code == k->codes[0]) {
+			if (!kcmp(&code, &k->codes[0])) {
 				if (k->ncodes == 1) {
 					shortest = k;
 					break;
@@ -522,7 +627,7 @@ lookup_key(int code)
 	}
 
 	/* See if this character matches the next one we want. */
-	if (code == current_match->codes[consumed]) {
+	if (!kcmp(&code, &current_match->codes[consumed])) {
 		consumed++;
 		if (consumed == current_match->ncodes) {
 			/* Final match. */
@@ -548,7 +653,7 @@ lookup_key(int code)
 			continue;
 		if (k->ncodes > consumed &&
 		    !codecmp(k, current_match, consumed) &&
-		    k->codes[consumed] == code) {
+		    !kcmp(&k->codes[consumed], &code)) {
 			consumed++;
 			if (k->ncodes == consumed) {
 				j = ambiguous(k, consumed);
@@ -696,12 +801,14 @@ lookup_cname(int ccode)
 		if (ccode == ncurses_key[i].code)
 			return ncurses_key[i].name;
 	}
-	if (ccode >= KEY_F0 && ccode < KEY_F0 + 64) {
-		static char buf[10];
+	for (i = 0; i < 64; i++)
+		if (ccode == KEY_F(i)) {
+			static char buf[10];
 
-		(void) sprintf(buf, "F%d", ccode - KEY_F0);
-		return buf;
-	}
+			(void) sprintf(buf, "F%d", i);
+			return buf;
+		}
+
 	return CN;
 }
 
@@ -820,51 +927,48 @@ keymap_3270_mode(Boolean ignored unused)
  * keymap definition.
  */
 const char *
-decode_key(int k, int hint, char *buf)
+decode_key(int k, ucs4_t ucs4, int hint, char *buf)
 {
-	const char *n, *n2;
+	const char *n;
+	int len;
+	char mb[16];
 	char *s = buf;
 
-	/* Try ncurses first. */
-	if (k > 0xff) {
-		if ((n = lookup_cname(k)) != CN) {
+	if (k) {
+	    	/* Curses key. */
+		if ((n = lookup_cname(k)) != CN)
 			(void) sprintf(buf, "<Key>%s", n);
-			return buf;
-		} else
-			return "?";
-	}
-	n = KeysymToString((KeySym)k);
-	n2 = KeysymToString((KeySym)(k & 0x7f));
-	if (n != CN) {
-		if (hint) {
-			if ((hint & KM_META) && n2 != CN && n2 != n)
-				(void) sprintf(s, "Meta<Key>%s", n2);
-			else
-				(void) sprintf(s, "<Key>%s", n);
-		} else {
-			s += sprintf(s, "<Key>%s", n);
-			if (n2 != CN && n2 != n)
-				(void) sprintf(s, " (or Meta<Key>%s)", n2);
-		}
+		else
+			(void) sprintf(buf, "[unknown curses key 0x%x]", k);
 		return buf;
 	}
-	if ((k & 0x7f) < ' ') {
-		n = KeysymToString(k + '@');
-		n2 = KeysymToString((k & 0x7f) + '@');
 
-		if (hint) {
-			if ((hint & KM_META) && n2 != CN && n2 != n)
-				(void) sprintf(s, "Ctrl Meta<Key>%s", n2);
-			else
-				(void) sprintf(s, "Ctrl<Key>%s", n);
-		} else {
-			s += sprintf(s, "Ctrl<Key>%s", n);
-			if (n2 != CN && n2 != n)
-				(void) sprintf(s, " (or Ctrl Meta<Key>%s)", n2);
-		}
+	if (hint & KM_ALT)
+	    	s += sprintf(s, "Alt");
+
+	if (ucs4 < ' ') {
+	    	/* Control key. */
+		(void) sprintf(s, "Ctrl<Key>%c", (int)(ucs4 + '@') & 0xff);
 		return buf;
-	} else
-		return "?";
+	}
+
+	/* Special-case ':' and ' ' because of the keymap syntax. */
+	if (ucs4 == ':') {
+	    	strcpy(s, "colon");
+		return buf;
+	}
+	if (ucs4 == ' ') {
+	    	strcpy(s, "space");
+		return buf;
+	}
+
+	/* Convert from Unicode to local multi-byte. */
+	len = unicode_to_multibyte(ucs4, mb, sizeof(mb));
+	if (len > 0)
+		sprintf(s, "<Key>%s", mb);
+	else
+		sprintf(s, "<Key>U+%04x", k);
+	return buf;
 }
 
 /* Dump the current keymap. */
@@ -885,8 +989,11 @@ keymap_dump(void)
 
 			for (i = 0; i < k->ncodes; i++) {
 				s += sprintf(s, " %s",
-				    decode_key(k->codes[i],
-					(k->hints[i] & KM_HINTS) | KM_KEYMAP,
+				    decode_key(k->codes[i].key,
+					k->codes[i].ucs4,
+					(k->hints[i] & KM_HINTS) |
+					KM_KEYMAP |
+					k->codes[i].modifiers,
 					    dbuf));
 			}
 			action_output("[%s:%d]%s: %s", k->file, k->line,

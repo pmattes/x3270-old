@@ -1,6 +1,5 @@
 /*
- * Modifications Copyright 1993, 1994, 1995, 1996, 1999, 2000, 2001, 2002,
- *  2003, 2004, 2005, 2007 by Paul Mattes.
+ * Modifications Copyright 1993-2008 by Paul Mattes.
  * Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -65,7 +64,11 @@ struct toggle {
 #define AID_WAIT	15
 #endif /*]*/
 
-#define N_TOGGLES	16
+#if defined(C3270) /*[*/
+#define UNDERSCORE	16
+#endif /*]*/
+
+#define N_TOGGLES	17
 
 #define toggled(ix)		(appres.toggle[ix].value)
 #define toggle_toggle(t) \
@@ -126,9 +129,6 @@ typedef struct {
 #if defined(X3270_SCRIPT) /*[*/
 	Boolean socket;
 #endif /*]*/
-#if defined(C3270) && defined(_WIN32) /*[*/
-	Boolean highlight_underline;
-#endif /*]*/
 
 	/* Named resources */
 #if defined(X3270_KEYPAD) /*[*/
@@ -142,7 +142,6 @@ typedef struct {
 #if defined(X3270_DISPLAY) /*[*/
 	char	*efontname;
 	char	*fixed_size;
-	char	*debug_font;
 	char	*icon_font;
 	char	*icon_label_font;
 	int	save_lines;
@@ -171,6 +170,7 @@ typedef struct {
 	char	*all_bold;
 	char	*altscreen;
 	char	*defscreen;
+	Boolean	acs;
 #endif /*]*/
 	char	*conf_dir;
 	char	*model;
@@ -207,6 +207,10 @@ typedef struct {
 	char	*cert_file;
 #endif /*]*/
 	char	*proxy;
+#if defined(TCL3270) /*[*/
+	int	command_timeout;
+#endif /*]*/
+	int	unlock_delay_ms;
 
 	/* Toggles */
 	struct toggle toggle[N_TOGGLES];

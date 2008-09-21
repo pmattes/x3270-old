@@ -1,6 +1,5 @@
 /*
- * Copyright 1993, 1994, 1995, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007
- *   by Paul Mattes.
+ * Copyright 1993-2008 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -50,6 +49,7 @@
 #include "tablesc.h"
 #include "telnetc.h"
 #include "trace_dsc.h"
+#include "utf8c.h"
 #include "utilc.h"
 #include "w3miscc.h"
 
@@ -86,8 +86,9 @@ static char    *create_tracefile_header(const char *mode);
 static void	stop_tracing(void);
 
 /* Globals */
-struct timeval  ds_ts;
-Boolean         trace_skipping = False;
+struct timeval   ds_ts;
+Boolean          trace_skipping = False;
+char		*tracefile_name = NULL;
 
 /* display a (row,col) */
 const char *
@@ -104,39 +105,92 @@ rcba(int baddr)
 static char *tdsbuf = CN;
 #define TDS_LEN	75
 
+/*
+ * This function is careful to do line breaks based on wchar_t's, not
+ * bytes, so multi-byte characters are traced properly.
+ * However, it doesn't know that DBCS characters are two columns wide, so it
+ * will get those wrong and break too late.  To get that right, it needs some
+ * sort of function to tell it that a wchar_t is double-width, which we lack at
+ * the moment.
+ *
+ * If wchar_t's are Unicode, it could perhaps use some sort of heuristic based
+ * on which plane the character is in.
+ */
 static void
 trace_ds_s(char *s, Boolean can_break)
 {
-	int len = strlen(s);
+    	int len = strlen(s);
+	int len0 = len + 1;
+	int wlen;
 	Boolean nl = False;
+	wchar_t *w_buf;		/* wchar_t translation of s */
+	wchar_t *w_cur;		/* current wchar_t pointer */
+	wchar_t *w_chunk;	/* transient wchar_t buffer */
+	char *mb_chunk;		/* transient multibyte buffer */
 
 	if (!toggled(DS_TRACE) || tracef == NULL || !len)
 		return;
 
-	if (s && s[len-1] == '\n') {
-		len--;
+	/* Allocate buffers for chunks of output data. */
+	mb_chunk = Malloc(len0);
+	w_chunk = (wchar_t *)Malloc(len0 * sizeof(wchar_t));
+
+	/* Convert the input string to wchar_t's. */
+	w_buf = (wchar_t *)Malloc(len0 * sizeof(wchar_t));
+	wlen = mbstowcs(w_buf, s, len);
+	if (wlen < 0)
+	    Error("trace_ds_s: mbstowcs failed");
+	w_cur = w_buf;
+
+	/* Check for a trailing newline. */
+	if (len && s[len-1] == '\n') {
+		wlen--;
 		nl = True;
 	}
-	if (!can_break && dscnt + len >= 75) {
+
+	if (!can_break && dscnt + wlen >= 75) {
 		wtrace("...\n... ");
 		dscnt = 0;
 	}
-	while (dscnt + len >= 75) {
-		int plen = 75-dscnt;
 
-		wtrace("%.*s ...\n... ", plen, s);
+	while (dscnt + wlen >= 75) {
+		int plen = 75-dscnt;
+		int mblen;
+
+		if (plen) {
+		    memcpy(w_chunk, w_cur, plen * sizeof(wchar_t));
+		    w_chunk[plen] = 0;
+		    mblen = wcstombs(mb_chunk, w_chunk, len0);
+		    if (mblen <= 0)
+			Error("trace_ds_s: wcstombs 1 failed");
+		} else {
+		    mb_chunk[0] = '\0';
+		    mblen = 0;
+		}
+
+		wtrace("%.*s ...\n... ", mblen, mb_chunk);
 		dscnt = 4;
-		s += plen;
-		len -= plen;
+		w_cur += plen;
+		wlen -= plen;
 	}
-	if (len) {
-		wtrace("%.*s", len, s);
-		dscnt += len;
+	if (wlen) {
+		int mblen;
+
+		memcpy(w_chunk, w_cur, wlen * sizeof(wchar_t));
+		w_chunk[wlen] = 0;
+		mblen = wcstombs(mb_chunk, w_chunk, len0);
+		if (mblen <= 0)
+		    Error("trace_ds_s: wcstombs 2 failed");
+		wtrace("%.*s", mblen, mb_chunk);
+		dscnt += wlen;
 	}
 	if (nl) {
 		wtrace("\n");
 		dscnt = 0;
 	}
+	Free(mb_chunk);
+	Free(w_buf);
+	Free(w_chunk);
 }
 
 void
@@ -418,9 +472,10 @@ create_tracefile_header(const char *mode)
 	clk = time((time_t *)0);
 	wtrace("Trace %s %s", mode, ctime(&clk));
 	wtrace(" Version: %s\n", build);
+	wtrace(" %s\n", build_options());
 	save_yourself();
 	wtrace(" Command: %s\n", command_string);
-	wtrace(" Model %s", model_name);
+	wtrace(" Model %s, %d rows x %d cols", model_name, maxROWS, maxCOLS);
 #if defined(X3270_DISPLAY) || (defined(C3270) && !defined(_WIN32)) /*[*/
 	wtrace(", %s display", appres.mono ? "monochrome" : "color");
 #endif /*]*/
@@ -430,6 +485,17 @@ create_tracefile_header(const char *mode)
 	wtrace(", %s charset", get_charset_name());
 	if (appres.apl_mode)
 		wtrace(", APL mode");
+	wtrace("\n");
+#if !defined(_WIN32) /*[*/
+	wtrace(" Locale codeset: %s\n", locale_codeset);
+#else /*][*/
+	wtrace(" ANSI codepage: %d\n", GetACP());
+#endif /*]*/
+	wtrace(" Host codepage: %d", (int)(cgcsgid & 0xffff));
+#if defined(X3270_DBCS) /*[*/
+	if (dbcs)
+		wtrace("+%d", (int)(cgcsgid_dbcs & 0xffff));
+#endif /*]*/
 	wtrace("\n");
 	if (CONNECTED)
 		wtrace(" Connected to %s, port %u\n",
@@ -666,6 +732,7 @@ tracefile_callback(Widget w, XtPointer client_data, XtPointer call_data unused)
 				Free(tfn);
 				return;
 			}
+			Replace(tracefile_name, NewString(tfn));
 			(void) SETLINEBUF(tracef);
 #if !defined(_WIN32) /*[*/
 			(void) fcntl(fileno(tracef), F_SETFD, 1);
@@ -700,7 +767,7 @@ tracefile_callback(Widget w, XtPointer client_data, XtPointer call_data unused)
 	}
 #endif /*]*/
 
-#if defined(_WIN32) /*[*/
+#if defined(_WIN32) && defined(C3270) /*[*/
 	/* Start the monitor window. */
 	if (tracef != stdout && appres.trace_monitor) {
 		STARTUPINFO startupinfo;
@@ -895,7 +962,7 @@ do_screentrace(void)
 {
 	register int i;
 
-	if (fprint_screen(screentracef, False, False)) {
+	if (fprint_screen(screentracef, False, P_TEXT)) {
 		for (i = 0; i < COLS; i++)
 			(void) fputc('=', screentracef);
 		(void) fputc('\n', screentracef);

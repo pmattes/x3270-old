@@ -1,5 +1,5 @@
 /*
- * Copyright 1995, 1999, 2000, 2001, 2002, 2003, 2005, 2006 by Paul Mattes.
+ * Copyright 1995-2008 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -102,7 +102,7 @@ extern void sms_init(void);
 extern Boolean sms_in_macro(void);
 extern Boolean sms_redirect(void);
 extern void sms_store(unsigned char c);
-#if defined(X3270_SCRIPT) || defined(TCL3270) /*[*/
+#if defined(X3270_SCRIPT) || defined(TCL3270) || defined(S3270) /*[*/
 extern void Snap_action(Widget w, XEvent *event, String *params,
     Cardinal *num_params);
 #endif /*]*/
@@ -110,5 +110,7 @@ extern void Snap_action(Widget w, XEvent *event, String *params,
 extern void Status_action(Widget w, XEvent *event, String *params,
     Cardinal *num_params);
 #endif /*]*/
+extern void Source_action(Widget w, XEvent *event, String *params,
+    Cardinal *num_params);
 extern void Wait_action(Widget w, XEvent *event, String *params,
     Cardinal *num_params);

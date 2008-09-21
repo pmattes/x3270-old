@@ -1,6 +1,5 @@
 /*
- * Modifications Copyright 1993, 1994, 1995, 1996, 1999, 2000, 2001, 2002,
- *   2003, 2004, 2005, 2007 by Paul Mattes.
+ * Modifications Copyright 1993-2008 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -38,25 +37,32 @@
 #include <signal.h>
 #include "globals.h"
 #include "3270ds.h"
+#include "charsetc.h"
 #include "ctlrc.h"
 #include "trace_dsc.h"
 #include "sfc.h"
 #include "tablesc.h"
-#include "widec.h"
+#include "unicodec.h"
 #if defined(_WIN32) /*[*/
 #include "wsc.h"
+#include <windows.h>
 #endif /*]*/
 
 #if !defined(_WIN32) /*[*/
 extern char *command;
 #else /*][*/
 extern char *printer;
+extern int printercp;
 #endif /*]*/
 extern int blanklines;	/* display blank lines even if empty (formatted LU3) */
 extern int ignoreeoj;	/* ignore PRINT-EOJ commands */
 extern int crlf;	/* expand newline to CR/LF */
 extern int ffthru;	/* pass through SCS FF orders */
 extern int ffskip;	/* skip FF orders at top of page */
+extern char *trnpre_data;
+extern char *trnpost_data;
+extern size_t trnpre_size;
+extern size_t trnpost_size;
 
 #define CS_GE 0x04	/* hack */
 
@@ -67,12 +73,14 @@ extern int ffskip;	/* skip FF orders at top of page */
 #define WCC_80				0x30
 
 #define MAX_LL				132
-#define MAX_BUF				(MAX_LL * MAX_LL)
+#define MAX_BUF				(MAX_LL * MAX_LL)	/* swag */
 
 #define VISIBLE		0x01	/* visible field */
 #define INVISIBLE	0x02	/* invisible field */
 
 #define BUFSZ		4096
+
+#define FCORDER_NOP	0x0001	/* dummy filler for DBCS right half */
 
 static const char *ll_name[] = { "unformatted132", "formatted40", "formatted64", "formatted80" };
 static int ll_len[] = { 132, 40, 64, 80 };
@@ -81,7 +89,7 @@ static int ll_len[] = { 132, 40, 64, 80 };
 static unsigned char default_gr;
 static unsigned char default_cs;
 static int line_length = MAX_LL;
-static char page_buf[MAX_BUF];	/* swag */
+static ucs4_t page_buf[MAX_BUF];
 static int baddr = 0;
 static Boolean page_buf_initted = False;
 static Boolean any_3270_printable = False;
@@ -91,6 +99,7 @@ static FILE *prfile = NULL;
 static int prpid = -1;
 #else /*][*/
 static int ws_initted = 0;
+static int ws_needpre = 1;
 #endif /*]*/
 static unsigned char wcc_line_length;
 
@@ -109,7 +118,7 @@ static int prflush(void);
 #define MAX_MPP	132
 #define MAX_MPL	108
 
-static char linebuf[MAX_MPP+1];
+static ucs4_t linebuf[MAX_MPP+1];
 static struct {
     unsigned malloc_len;
     unsigned data_len;
@@ -223,7 +232,7 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 	unsigned char	efa_fg;
 	unsigned char	efa_gr;
 	unsigned char	efa_cs;
-	unsigned char	ra_xlate = 0;
+	ucs4_t		ra_xlate = 0;
 	const char	*paren = "(";
 	int		xbaddr;
 	enum { NONE, ORDER, SBA, TEXT, NULLCH } previous = NONE;
@@ -240,7 +249,7 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 		return;
 
 	if (!page_buf_initted) {
-		(void) memset(page_buf, '\0', MAX_BUF);
+		(void) memset(page_buf, '\0', MAX_BUF * sizeof(ucs4_t));
 		page_buf_initted = True;
 		baddr = 0;
 	}
@@ -368,7 +377,8 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 				if (*cp <= 0x3F) {
 					ra_xlate = '\0';
 				} else {
-					ra_xlate = ebc2asc[*cp];
+					ra_xlate = ebcdic_to_unicode(*cp,
+						ra_ge? CS_GE: CS_BASE, False);
 				}
 				break;
 			}
@@ -396,7 +406,8 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 			trace_ds(see_ebc(*cp));
 			if (*cp)
 				trace_ds("'");
-			ctlr_add(ebc2asc[*cp], CS_GE, default_gr);
+			ctlr_add(ebcdic_to_unicode(*cp, CS_GE, False), CS_GE,
+				default_gr);
 			last_cmd = False;
 			last_zpt = False;
 			break;
@@ -508,7 +519,7 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 		case FCORDER_FM:
 			END_TEXT(see_ebc(*cp));
 			previous = ORDER;
-			ctlr_add(ebc2asc[*cp], default_cs, default_gr);
+			ctlr_add(ebc2asc0[*cp], default_cs, default_gr);
 			last_cmd = True;
 			last_zpt = False;
 			break;
@@ -541,7 +552,8 @@ ctlr_write(unsigned char buf[], int buflen, Boolean erase)
 				trace_ds(" '");
 			previous = TEXT;
 			trace_ds(see_ebc(*cp));
-			ctlr_add(ebc2asc[*cp], default_cs, default_gr);
+			ctlr_add(ebcdic_to_unicode(*cp, default_cs, False),
+				default_cs, default_gr);
 			last_cmd = False;
 			last_zpt = False;
 			break;
@@ -603,7 +615,8 @@ init_scs(void)
 	pp = 1;
 	line = 1;
 	scs_any = 0;
-	(void) memset(linebuf, ' ', MAX_MPP+1);
+	for (i = 0; i < MAX_MPP+1; i++)
+	    	linebuf[i] = ' ';
 	for (i = 0; i < MAX_MPP+1; i++) {
 		if (trnbuf[i].malloc_len != 0) {
 			Free(trnbuf[i].buf);
@@ -621,6 +634,21 @@ init_scs(void)
 
 	scs_initted = True;
 }
+
+#if defined(_WIN32) /*[*/
+static int
+unicode_to_printer(ucs4_t u, char mb[], int mb_len)
+{
+    	int nc;
+	wchar_t wuc = u;
+
+	nc = WideCharToMultiByte(printercp, 0, &wuc, 1, mb, mb_len, NULL,
+		NULL);
+	if (nc > 0)
+	    	mb[nc++] = '\0';
+	return nc;
+}
+#endif /*[*/
 
 /*
  * Our philosophy for automatic newlines and formfeeds is that we generate them
@@ -658,6 +686,7 @@ dump_scs_line(Boolean reset_pp, Boolean always_nl)
 		int j;
 		int n_data = 0;
 		int n_trn = 0;
+		int k;
 
 		for (j = 1; j <= i; j++) {
 			/*
@@ -665,7 +694,7 @@ dump_scs_line(Boolean reset_pp, Boolean always_nl)
 			 * character.
 			 */
 			if (trnbuf[j].data_len) {
-				int k;
+				unsigned k;
 
 				n_trn += trnbuf[j].data_len;
 				for (k = 0; k < trnbuf[j].data_len; k++) {
@@ -675,17 +704,36 @@ dump_scs_line(Boolean reset_pp, Boolean always_nl)
 				trnbuf[j].data_len = 0;
 			}
 			if (j < i || linebuf[j] != ' ') {
+			    	char mb[16];
+				int len;
+
+				if (linebuf[j] == FCORDER_NOP)
+				    	continue;
 				n_data++;
 				any_data = True;
 				scs_any = True;
-				if (stash(linebuf[j]) < 0)
-					return -1;
+#if !defined(_WIN32) /*[*/
+				len = unicode_to_multibyte(linebuf[j],
+					mb, sizeof(mb));
+#else /*][*/
+				len = unicode_to_printer(linebuf[j],
+					mb, sizeof(mb));
+#endif /*]*/
+				if (len == 0) {
+				    	mb[0] = ' ';
+					len = 1;
+				} else
+				    	len--;
+				for (k = 0; k < len; k++)
+				    	if (stash(mb[k]) < 0)
+					    	return -1;
 			}
 		}
 #if defined(DEBUG_FF) /*[*/
 		trace_ds(" [dumping %d+%dt]", n_data, n_trn);
 #endif /*]*/
-		(void) memset(linebuf, ' ', MAX_MPP+1);
+		for (k = 0; k < MAX_MPP+1; k++)
+		    	linebuf[k] = ' ';
 	}
 	if (any_data || always_nl) {
 		if (crlf) {
@@ -777,7 +825,7 @@ scs_formfeed(Boolean explicit)
  * the left margin of the next line.
  */
 static int
-add_scs(char c)
+add_scs(ucs4_t c)
 {
 	/*
 	 * They're about to print something.
@@ -802,7 +850,10 @@ add_scs(char c)
 	 * Store this character in the line buffer and advance the print
 	 * position.
 	 */
-	linebuf[pp++] = c;
+	if (c != ' ')
+		linebuf[pp++] = c;
+	else
+	    	pp++;
 	any_scs_output = True;
 	return 0;
 }
@@ -815,7 +866,7 @@ static void
 add_scs_trn(unsigned char *cp, int cnt)
 {
 	int i;
-	int new_malloc_len;
+	unsigned new_malloc_len;
 
 	for (i = 0; i < cnt; i++) {
 	    trace_ds(" %02x", cp[i]);
@@ -858,6 +909,7 @@ process_scs_contig(unsigned char *buf, int buflen)
 	int i;
 	int cnt;
 	int tab;
+	ucs4_t uc;
 	enum { NONE, DATA, ORDER } last = NONE;
 #	define END_TEXT(s) { \
 		if (last == DATA) \
@@ -1222,41 +1274,31 @@ process_scs_contig(unsigned char *buf, int buflen)
 				if (scs_dbcs_subfield % 2) {
 					scs_dbcs_c1 = *cp;
 				} else {
-					char mb[16];
-					int len;
-
-					len = dbcs_to_mb(scs_dbcs_c1, *cp, mb);
-					if (len < 0) {
+					uc = ebcdic_to_unicode(
+						(scs_dbcs_c1 << 8) | *cp,
+						CS_BASE, False);
+					if (uc == 0) {
+					    	/* No translation. */
 						trace_ds("?DBCS(X'%02x%02x')",
-								scs_dbcs_c1, *cp);
-						if (add_scs(' ') < 0)
-							return PDS_FAILED;
-						if (add_scs(' ') < 0)
-							return PDS_FAILED;
+								scs_dbcs_c1,
+								*cp);
+					    	if (add_scs(' ') < 0)
+						    	return PDS_FAILED;
+					    	if (add_scs(' ') < 0)
+						    	return PDS_FAILED;
 					} else {
-						int i = 0;
-
 						/*
-						 * If the length exceeds 2
-						 * bytes, add the extra as
-						 * transparent data.
+						 * Add the Unicode character
+						 * and a no-op to account for
+						 * the right-hand side.
 						 */
-						if (len > 2) {
-							add_scs_trn((unsigned char *)mb, len-2);
-							i = len - 2;
-						}
-
-						for ( ; i < len; i++) {
-							if (add_scs(mb[i]) < 0)
-								return PDS_FAILED;
-						}
-
-						/* Force at least 2 bytes. */
-						if (len == 1 &&
-						    add_scs(' ') < 0)
+						trace_ds("DBCS(X'%02x%02x')",
+								scs_dbcs_c1,
+								*cp);
+					    	if (add_scs(uc) < 0)
+						    	return PDS_FAILED;
+						if (add_scs(FCORDER_NOP) < 0)
 							return PDS_FAILED;
-
-						trace_ds("%s", mb);
 					}
 				}
 				scs_dbcs_subfield++;
@@ -1264,8 +1306,15 @@ process_scs_contig(unsigned char *buf, int buflen)
 				break;
 			}
 #endif /*]*/
-			trace_ds("%c", ebc2asc[*cp]);
-			if (add_scs(ebc2asc[*cp]) < 0)
+			uc = ebcdic_to_unicode(*cp, CS_BASE, False);
+			{
+			    	char mb[16];
+				int len;
+
+				len = unicode_to_multibyte(uc, mb, sizeof(mb));
+				trace_ds("%s", mb);
+			}
+			if (add_scs(uc) < 0)
 				return PDS_FAILED;
 			last = DATA;
 			break;
@@ -1397,6 +1446,14 @@ stash(unsigned char c)
 		}
 		ws_initted = 1;
 	}
+	if (ws_needpre) {
+	    	if ((trnpre_data != NULL) &&
+			ws_write(trnpre_data, trnpre_size) < 0) {
+
+			return -1;
+		}
+		ws_needpre = 0;
+	}
 
 	if (ws_putc((char)c)) {
 	    	return -1;
@@ -1406,6 +1463,16 @@ stash(unsigned char c)
 		prfile = popen_no_sigint(command);
 		if (prfile == NULL) {
 			errmsg("%s: %s", command, strerror(errno));
+			return -1;
+		}
+		if ((trnpre_data != NULL) &&
+			fwrite(trnpre_data, 1, trnpre_size,
+					    prfile) != trnpre_size) {
+
+			errmsg("Write error to '%s': %s", command,
+				strerror(errno));
+			(void) pclose_no_sigint(prfile);
+			prfile = NULL;
 			return -1;
 		}
 	}
@@ -1449,7 +1516,7 @@ prflush(void)
  * Change a character in the 3270 buffer.
  */
 void
-ctlr_add(unsigned char c, unsigned char cs, unsigned char gr)
+ctlr_add(ucs4_t c, unsigned char cs, unsigned char gr)
 {
 	/* Map control characters, according to the write mode. */
 	if ((c & 0x7f) < ' ') {
@@ -1556,8 +1623,11 @@ dump_unformatted(void)
 {
 	int i;
 	int prcol = 0;
-	char c;
+	ucs4_t c;
 	int done = 0;
+	char mb[16];
+	int len;
+	int j;
 
 	if (!any_3270_output)
 		return 0;
@@ -1565,6 +1635,8 @@ dump_unformatted(void)
 	for (i = 0; i < MAX_BUF && !done; i++) {
 		switch (c = page_buf[i]) {
 		case '\0':
+			break;
+		case FCORDER_NOP:
 			break;
 		case FCORDER_CR:
 			if (uoutput('\r') < 0)
@@ -1588,8 +1660,21 @@ dump_unformatted(void)
 			done = 1;
 			break;
 		default:	/* printable */
-			if (uoutput(c) < 0)
-				return -1;
+#if !defined(_WIN32) /*[*/
+			len = unicode_to_multibyte(c, mb, sizeof(mb));
+#else /*][*/
+			len = unicode_to_printer(c, mb, sizeof(mb));
+#endif /*]*/
+			if (len == 0) {
+				mb[0] = ' ';
+				len = 1;
+			} else {
+				len--;
+			}
+			for (j = 0; j < len; j++) {
+				if (uoutput(mb[j]) < 0)
+					return -1;
+			}
 
 			/* Handle implied newlines. */
 			if (++prcol >= MAX_LL) {
@@ -1608,7 +1693,7 @@ dump_unformatted(void)
 	}
 
 	/* Clear out the buffer. */
-	(void) memset(page_buf, '\0', MAX_BUF);
+	(void) memset(page_buf, '\0', MAX_BUF * sizeof(ucs4_t));
 
 	/* Flush buffered data. */
 #if defined(_WIN32) /*[*/
@@ -1638,7 +1723,7 @@ static int
 dump_formatted(void)
 {
 	int i;
-	char *cp = page_buf;
+	ucs4_t *cp = page_buf;
 	int visible = 1;
 	int newlines = 0;
 
@@ -1701,8 +1786,33 @@ dump_formatted(void)
 					blanks--;
 				}
 				any_data++;
-				if (stash(visible? c: ' ') < 0)
-					return -1;
+				if (!visible) {
+				    	if (stash(' ') < 0)
+					    	return -1;
+				} else {
+					char mb[16];
+					int len;
+					int j;
+
+#if !defined(_WIN32) /*[*/
+					len = unicode_to_multibyte(c,
+						mb, sizeof(mb));
+#else /*][*/
+					len = unicode_to_printer(c,
+						mb, sizeof(mb));
+#endif /*]*/
+					if (len == 0) {
+					    	mb[0] = ' ';
+						len = 1;
+					} else {
+					    	len--;
+					}
+					for (j = 0; j < len; j++) {
+					    	if (stash(mb[j]) < 0)
+						    	return -1;
+					}
+
+				}
 				if (visible)
 					any_3270_printable = True;
 				break;
@@ -1711,7 +1821,7 @@ dump_formatted(void)
 		if (any_data || blanklines)
 			newlines++;
 	}
-	(void) memset(page_buf, '\0', MAX_BUF);
+	(void) memset(page_buf, '\0', MAX_BUF * sizeof(ucs4_t));
 #if defined(_WIN32) /*[*/
 	if (ws_initted)
 		(void) ws_flush();
@@ -1743,14 +1853,27 @@ print_eoj(void)
 			rc = -1;
 	}
 
+
 	/* Close the stream to the print process. */
 #if defined(_WIN32) /*[*/
-	trace_ds("End of print job.\n");
-	if (ws_initted && ws_endjob() < 0)
-		rc = -1;
+	if (ws_initted) {
+		trace_ds("End of print job.\n");
+		if (trnpost_data != NULL &&
+			    ws_write(trnpost_data, trnpost_size) < 0) {
+		    	rc = -1;
+		}
+	    	if (ws_endjob() < 0)
+			rc = -1;
+		ws_needpre = 1;
+	}
 #else /*]*/
 	if (prfile != NULL) {
 		trace_ds("End of print job.\n");
+		if (trnpost_data != NULL &&
+			fwrite(trnpost_data, 1, trnpost_size,
+						    prfile) != trnpost_size) {
+		    rc = -1;
+		}
 		rc = pclose_no_sigint(prfile);
 		if (rc) {
 			if (rc < 0)
@@ -1811,7 +1934,7 @@ ctlr_erase(void)
 	}
 
 	/* Make sure the buffer is clean. */
-	(void) memset(page_buf, '\0', MAX_BUF);
+	(void) memset(page_buf, '\0', MAX_BUF * sizeof(ucs4_t));
 	any_3270_output = 0;
 	baddr = 0;
 	return 0;

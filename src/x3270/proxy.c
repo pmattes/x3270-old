@@ -1,5 +1,5 @@
 /*
- * Copyright 2007 by Paul Mattes.
+ * Copyright 2007-2008 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -47,6 +47,10 @@
 
 #if defined(PR3287) /*[*/
 extern char *proxy_spec;
+#endif /*]*/
+
+#if defined(_WIN32) /*[*/
+typedef unsigned long in_addr_t;
 #endif /*]*/
 
 /*
@@ -306,7 +310,7 @@ proxy_passthru(int fd, char *host, unsigned short port)
 	(void) sprintf(buf, "%s %u\r\n", host, port);
 
 #if defined(X3270_TRACE) /*[*/
-	trace_dsn("Passthru Proxy: xmit '%.*s'", strlen(buf) - 2, buf);
+	trace_dsn("Passthru Proxy: xmit '%.*s'", (int)(strlen(buf) - 2), buf);
 	trace_netdata('>', (unsigned char *)buf, strlen(buf));
 #endif /*]*/
 
@@ -341,7 +345,7 @@ proxy_http(int fd, char *host, unsigned short port)
 		port);
 
 #if defined(X3270_TRACE) /*[*/
-	trace_dsn("HTTP Proxy: xmit '%.*s'\n", strlen(buf) - 2, buf);
+	trace_dsn("HTTP Proxy: xmit '%.*s'\n", (int)(strlen(buf) - 2), buf);
 	trace_netdata('>', (unsigned char *)buf, strlen(buf));
 #endif /*]*/
 
@@ -358,7 +362,7 @@ proxy_http(int fd, char *host, unsigned short port)
 		port);
 
 #if defined(X3270_TRACE) /*[*/
-	trace_dsn("HTTP Proxy: xmit '%.*s'\n", strlen(buf) - 2, buf);
+	trace_dsn("HTTP Proxy: xmit '%.*s'\n", (int)(strlen(buf) - 2), buf);
 	trace_netdata('>', (unsigned char *)buf, strlen(buf));
 #endif /*]*/
 
@@ -423,7 +427,7 @@ proxy_http(int fd, char *host, unsigned short port)
 		    	continue;
 		if (rbuf[nread] == '\n')
 		    	break;
-		if (++nread >= sizeof(rbuf)) {
+		if ((size_t)++nread >= sizeof(rbuf)) {
 			nread = sizeof(rbuf) - 1;
 		    	break;
 		}
@@ -457,7 +461,7 @@ proxy_telnet(int fd, char *host, unsigned short port)
 	(void) sprintf(buf, "connect %s %u\r\n", host, port);
 
 #if defined(X3270_TRACE) /*[*/
-	trace_dsn("TELNET Proxy: xmit '%.*s'", strlen(buf) - 2, buf);
+	trace_dsn("TELNET Proxy: xmit '%.*s'", (int)(strlen(buf) - 2), buf);
 	trace_netdata('>', (unsigned char *)buf, strlen(buf));
 #endif /*]*/
 
@@ -495,7 +499,7 @@ proxy_socks4(int fd, char *host, unsigned short port, int force_a)
 			memcpy(&ipaddr, hp->h_addr, hp->h_length);
 		} else {
 			ipaddr.s_addr = inet_addr(host);
-			if (ipaddr.s_addr == -1)
+			if (ipaddr.s_addr == (in_addr_t)-1)
 				use_4a = 1;
 		}
 	}
@@ -583,7 +587,7 @@ proxy_socks4(int fd, char *host, unsigned short port, int force_a)
 		}
 		if (nr == 0)
 		    	break;
-		if (++nread >= sizeof(rbuf))
+		if ((size_t)++nread >= sizeof(rbuf))
 		    	break;
 	}
 

@@ -1,6 +1,5 @@
 /*
- * Modifications Copyright 1993, 1994, 1995, 1996, 2000, 2001, 2002, 2003,
- *    2004, 2005, 2006, 2007 by Paul Mattes.
+ * Modifications Copyright 1993-2008 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *   Permission to use, copy, modify, and distribute this software and its
  *   documentation for any purpose and without fee is hereby granted,
@@ -132,6 +131,11 @@ struct toggle_name toggle_names[N_TOGGLES] = {
 #else /*][*/
 	{ ResAidWait,         -1 },
 #endif /*]*/
+#if defined(C3270) /*[*/
+	{ ResUnderscore,      UNDERSCORE },
+#else /*][*/
+	{ ResUnderscore,      -1 },
+#endif /*]*/
 };
 
 
@@ -221,12 +225,32 @@ parse_command_line(int argc, const char **argv, const char **cl_hostname)
 	      !strcasecmp(*cl_hostname + sl - PROFILE_SFX_LEN, PROFILE_SFX)) ||
 	     ((sl = strlen(*cl_hostname)) > PROFILE_SSFX_LEN &&
 	      !strcasecmp(*cl_hostname + sl - PROFILE_SSFX_LEN, PROFILE_SSFX)))) {
+
+		const char *pname;
+
 		(void) read_resource_file(*cl_hostname, False);
 		if (appres.hostname == CN) {
 		    Error("Hostname not specified in session file.");
 		}
-		profile_name = NewString(*cl_hostname);
-		profile_name[sl - PROFILE_SFX_LEN] = '\0';
+
+		pname = strrchr(*cl_hostname, '\\');
+		if (pname != CN)
+		    	pname++;
+		else
+		    	pname = *cl_hostname;
+		profile_name = NewString(pname);
+
+		sl = strlen(profile_name);
+		if (sl > PROFILE_SFX_LEN &&
+			!strcasecmp(profile_name + sl - PROFILE_SFX_LEN,
+				PROFILE_SFX)) {
+			profile_name[sl - PROFILE_SFX_LEN] = '\0';
+		} else if (sl > PROFILE_SSFX_LEN &&
+			!strcasecmp(profile_name + sl - PROFILE_SSFX_LEN,
+				PROFILE_SSFX)) {
+			profile_name[sl - PROFILE_SSFX_LEN] = '\0';
+		}
+
 		*cl_hostname = appres.hostname;
 	}
 #endif /*]*/
@@ -337,7 +361,7 @@ parse_options(int *argcp, const char **argv)
 		const char *name;
 		enum {
 		    OPT_BOOLEAN, OPT_STRING, OPT_XRM, OPT_SKIP2, OPT_NOP,
-		    OPT_DONE
+		    OPT_INT, OPT_V, OPT_DONE
 		} type;
 		Boolean flag;
 		const char *res_name;
@@ -368,9 +392,6 @@ parse_options(int *argcp, const char **argv)
 #if defined(C3270) /*[*/
     { OptKeymap,   OPT_STRING,  False, ResKeymap,    offset(key_map) },
 #endif /*]*/
-#if defined(X3270_DBCS) /*[*/
-    { OptLocalEncoding,OPT_STRING,False,ResLocalEncoding,offset(local_encoding) },
-#endif /*]*/
     { OptModel,    OPT_STRING,  False, ResKeymap,    offset(model) },
 #if defined(C3270) && !defined(_WIN32) /*[*/
     { OptMono,     OPT_BOOLEAN, True,  ResMono,      offset(mono) },
@@ -400,6 +421,8 @@ parse_options(int *argcp, const char **argv)
     { OptTraceFile,OPT_STRING,  False, ResTraceFile, offset(trace_file) },
     { OptTraceFileSize,OPT_STRING,False,ResTraceFileSize,offset(trace_file_size) },
 #endif /*]*/
+    { OptV,        OPT_V,	False, NULL,	     NULL },
+    { OptVersion,  OPT_V,	False, NULL,	     NULL },
     { "-xrm",      OPT_XRM,     False, NULL,         NULL },
     { LAST_ARG,    OPT_DONE,    False, NULL,         NULL },
     { CN,          OPT_SKIP2,   False, NULL,         NULL }
@@ -461,6 +484,9 @@ parse_options(int *argcp, const char **argv)
 	appres.meta_escape = "auto";
 	appres.curses_keypad = True;
 	appres.cbreak_mode = False;
+#if defined(CURSES_WIDE) /*[*/
+	appres.acs = True;
+#endif /*]*/
 #endif /*]*/
 
 #if defined(X3270_ANSI) /*[*/
@@ -478,6 +504,7 @@ parse_options(int *argcp, const char **argv)
 #endif /*]*/
 
 	appres.unlock_delay = True;
+	appres.unlock_delay_ms = 350;
 
 #if defined(X3270_FT) /*[*/
 	appres.dft_buffer_size = DFT_BUF;
@@ -489,13 +516,12 @@ parse_options(int *argcp, const char **argv)
 #if defined(X3270_SCRIPT) || defined(TCL3270) /*[*/
 	appres.toggle[AID_WAIT].value = True;
 #endif /*]*/
+#if defined(C3270) && defined(_WIN32) /*[*/
+	appres.toggle[UNDERSCORE].value = True;
+#endif /*]*/
 
 #if defined(C3270) && defined(X3270_SCRIPT) /*[*/
 	appres.plugin_command = "x3270hist.pl";
-#endif /*]*/
-
-#if defined(C3270) && defined(_WIN32) /*[*/
-	appres.highlight_underline = True;
 #endif /*]*/
 
 #if defined(C3270) && !defined(_WIN32) /*[*/
@@ -542,6 +568,17 @@ parse_options(int *argcp, const char **argv)
 				argv_out[argc_out++] = argv[i];
 			break;
 		    case OPT_NOP:
+			break;
+		    case OPT_INT:
+			if (i == *argcp - 1)	/* missing arg */
+				continue;
+			*(int *)opts[j].aoff = atoi(argv[++i]);
+			if (opts[j].res_name != CN)
+				add_resource(NewString(opts[j].name),
+					     NewString(argv[i]));
+			break;
+		    case OPT_V:
+			dump_version();
 			break;
 		    case OPT_DONE:
 			while (i < *argcp)
@@ -699,6 +736,9 @@ static struct {
 #endif /*]*/
 	{ ResCharset,	offset(charset),	XRM_STRING },
 	{ ResColor8,	offset(color8),		XRM_BOOLEAN },
+#if defined(TCL3270) /*[*/
+	{ ResCommandTimeout, offset(command_timeout), XRM_INT },
+#endif /*]*/
 	{ ResConfDir,	offset(conf_dir),	XRM_STRING },
 #if defined(C3270) /*[*/
 	{ ResDefScreen,	offset(defscreen),	XRM_STRING },
@@ -709,7 +749,6 @@ static struct {
 #endif /*]*/
 	{ ResExtended,	offset(extended),	XRM_BOOLEAN },
 #if defined(X3270_FT) /*[*/
-	{ ResFtCommand,	offset(ft_command),	XRM_STRING },
 	{ ResDftBufferSize,offset(dft_buffer_size),XRM_INT },
 #endif /*]*/
 #if defined(WC3270) /*[*/
@@ -725,10 +764,7 @@ static struct {
 #if defined(X3270_SCRIPT) /*[*/
 	{ ResPluginCommand, offset(plugin_command), XRM_STRING },
 #endif /*]*/
-#if defined(C3270) && defined(_WIN32) /*[*/
-	{ ResHighlightUnderline, offset(highlight_underline), XRM_BOOLEAN },
-#endif /*]*/
-#if defined(C3270) && defined(X3270_SCRIPT) /*[*/
+#if defined(C3270) /*[*/
 	{ ResIdleCommand,offset(idle_command),	XRM_STRING },
 	{ ResIdleCommandEnabled,offset(idle_command_enabled),	XRM_BOOLEAN },
 	{ ResIdleTimeout,offset(idle_timeout),	XRM_STRING },
@@ -738,6 +774,9 @@ static struct {
 	{ ResMetaEscape,offset(meta_escape),	XRM_STRING },
 	{ ResCursesKeypad,offset(curses_keypad),XRM_BOOLEAN },
 	{ ResCbreak,	offset(cbreak_mode),	XRM_BOOLEAN },
+#if defined(CURSES_WIDE) /*[*/
+	{ ResAcs,	offset(acs),		XRM_BOOLEAN },
+#endif /*]*/
 #endif /*]*/
 #if defined(X3270_ANSI) /*[*/
 	{ ResKill,	offset(kill),		XRM_STRING },
@@ -780,6 +819,7 @@ static struct {
 #endif /*]*/
 	{ ResTypeahead,	offset(typeahead),	XRM_BOOLEAN },
 	{ ResUnlockDelay,offset(unlock_delay),	XRM_BOOLEAN },
+	{ ResUnlockDelayMs,offset(unlock_delay_ms),XRM_INT },
 #if defined(X3270_ANSI) /*[*/
 	{ ResWerase,	offset(werase),		XRM_STRING },
 #endif /*]*/
@@ -902,12 +942,6 @@ parse_xrm(const char *arg, const char *where)
 	if (address == NULL) {
 		if (!strncasecmp(ResKeymap ".", arg + match_len,
 		                 strlen(ResKeymap ".")) ||
-		    !strncasecmp(ResCharset ".", arg + match_len,
-		                 strlen(ResCharset ".")) ||
-		    !strncasecmp(ResDisplayCharset ".", arg + match_len,
-		                 strlen(ResDisplayCharset ".")) ||
-		    !strncasecmp(ResCodepage ".", arg + match_len,
-		                 strlen(ResCodepage ".")) ||
 		    !strncasecmp("host.", arg + match_len, 5) ||
 		    !strncasecmp("printer.", arg + match_len, 8) ||
 #if defined(_WIN32) /*[*/
@@ -1085,7 +1119,7 @@ read_resource_file(const char *filename, Boolean fatal)
 		/* If this line is a continuation, try again. */
 		if (bsl) {
 			ilen += strlen(buf + ilen);
-			if (ilen >= sizeof(buf) - 1) {
+			if ((unsigned)ilen >= sizeof(buf) - 1) {
 				(void) sprintf(where, "%s:%d: Line too long\n",
 				    filename, lno);
 				Warning(where);

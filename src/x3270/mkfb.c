@@ -1,6 +1,5 @@
 /*
- * Copyright 1995, 1996, 1999, 2000, 2001, 2002, 2003, 2005, 2007 by Paul
- *   Mattes.
+ * Copyright 1995-2008 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -55,7 +54,7 @@ struct {
 	unsigned long ifndefs;
 	unsigned lno;
 } ss[SSSZ];
-int ssp = 0;
+unsigned ssp = 0;
 
 struct {
 	const char *name;
@@ -157,7 +156,7 @@ main(int argc, char *argv[])
 	char buf[BUFSZ];
 	int lno = 0;
 	int cc = 0;
-	int i;
+	unsigned i;
 	int continued = 0;
 	const char *filename = "standard input";
 	FILE *u, *t, *tc = NULL, *tm = NULL, *o;
@@ -206,7 +205,7 @@ main(int argc, char *argv[])
 	while (fgets(buf, BUFSZ, stdin) != (char *)NULL) {
 		char *s = buf;
 		int sl;
-		int i;
+		unsigned i;
 
 		lno++;
 

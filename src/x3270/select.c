@@ -1,6 +1,5 @@
 /*
- * Copyright 1993, 1994, 1995, 1999, 2000, 2001, 2002, 2003, 2004, 2005 by
- *   Paul Mattes.
+ * Copyright 1993-2008 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -52,16 +51,16 @@
 #include "resources.h"
 
 #include "actionsc.h"
+#include "charsetc.h"
 #include "ctlrc.h"
 #include "kybdc.h"
 #include "popupsc.h"
 #include "screenc.h"
 #include "selectc.h"
 #include "tablesc.h"
+#include "unicodec.h"
+#include "utf8c.h"
 #include "utilc.h"
-#if defined(X3270_DBCS) /*[*/
-#include "widec.h"
-#endif /*]*/
 
 #define Max(x, y)	(((x) > (y))? (x): (y))
 #define Min(x, y)	(((x) < (y))? (x): (y))
@@ -89,7 +88,7 @@ static void grab_sel(int start, int end, Boolean really, Time t);
 static Atom     want_sel[NS];
 static struct {			/* owned selections */
 	Atom            atom;	/* atom */
-	char           *buffer;	/* buffer contents */
+	char           *buffer;	/* buffer contents (UTF-8) */
 }               own_sel[NS];
 static Boolean  cursor_moved = False;
 static int      saved_cursor_addr;
@@ -223,7 +222,7 @@ select_word(int baddr, Time t)
 		ch = EBC_space;
 	else
 		ch = ea_buf[baddr].cc;
-	class = char_class[ebc2asc[ch]];
+	class = char_class[ebc2asc0[ch]];
 
 	/* Find the beginning */
 	for (f_start = baddr; f_start % COLS; f_start--) {
@@ -232,7 +231,7 @@ select_word(int baddr, Time t)
 			ch = EBC_space;
 		else
 			ch = ea_buf[f_start].cc;
-		if (char_class[ebc2asc[ch]] != class) {
+		if (char_class[ebc2asc0[ch]] != class) {
 			f_start++;
 			break;
 		}
@@ -245,7 +244,7 @@ select_word(int baddr, Time t)
 			ch = EBC_space;
 		else
 			ch = ea_buf[f_end].cc;
-		if (char_class[ebc2asc[ch]] != class) {
+		if (char_class[ebc2asc0[ch]] != class) {
 			f_end--;
 			break;
 		}
@@ -665,7 +664,7 @@ SelectUp_action(Widget w unused, XEvent *event, String *params,
 {
 	int x, y;
 	register int baddr;
-	int i;
+	Cardinal i;
 
 	action_debug(SelectUp_action, event, params, num_params);
 	if (event == NULL) {
@@ -830,7 +829,7 @@ KybdSelect_action(Widget w unused, XEvent *event, String *params,
 {
 	enum { UP, DOWN, LEFT, RIGHT } direction;
 	int x_start, x_end;
-	int i;
+	Cardinal i;
 
 	action_debug(KybdSelect_action, event, params, num_params);
 	if (event == NULL) {
@@ -932,7 +931,7 @@ void
 SelectAll_action(Widget w unused, XEvent *event, String *params,
     Cardinal *num_params)
 {
-	int i;
+	Cardinal i;
 
 	action_debug(SelectUp_action, event, params, num_params);
 	if (event == NULL) {
@@ -991,6 +990,49 @@ store_sel(char c)
 	*(sb_ptr++) = c;
 }
 
+/*
+ * Convert the UTF-8 string to an ICCCM-defined STRING (ISO 8859-1 printable
+ * plus tab and newline).
+ *
+ * Returns the length of the stored string.
+ */
+static unsigned long
+store_icccm_string(XtPointer value, const char *buf)
+{
+    	char *dst = (char *)value;
+	unsigned long len = 0;
+	Boolean skip = False;
+
+	while (*buf) {
+	    	int nw;
+		ucs4_t ucs;
+
+		if (*buf == '\033') {
+		    	/* Funky GE sequence.  Skip it. */
+		    	*dst++ = ' ';
+			len++;
+			buf++;
+		    	skip = True;
+			continue;
+		}
+	    	nw = utf8_to_unicode(buf, strlen(buf), &ucs);
+		if (nw <= 0)
+		    	return len;
+		if (skip) {
+		    	skip = False;
+			continue;
+		}
+		if (nw == '\n' ||
+		    (nw >= 0x20 && nw <= 0x7f) ||
+		    (nw >= 0xa0 && nw <= 0xff)) {
+			*dst++ = nw & 0xff;
+			len++;
+		}
+		buf += nw;
+	}
+	return len;
+}
+
 static Boolean
 convert_sel(Widget w, Atom *selection, Atom *target, Atom *type,
     XtPointer *value, unsigned long *length, int *format)
@@ -1011,12 +1053,19 @@ convert_sel(Widget w, Atom *selection, Atom *target, Atom *type,
 
 		XmuConvertStandardSelection(w, sel_time, selection,
 		    target, type, (caddr_t*) &std_targets, &std_length, format);
+#if defined(XA_UTF8_STRING) /*[*/
+		*length = std_length + 6;
+#else /*][*/
 		*length = std_length + 5;
+#endif /*]*/
 		*value = (XtPointer) XtMalloc(sizeof(Atom) * (*length));
 		targetP = *(Atom**)value;
 		*targetP++ = XA_STRING;
 		*targetP++ = XA_TEXT(display);
 		*targetP++ = XA_COMPOUND_TEXT(display);
+#if defined(XA_UTF8_STRING) /*[*/
+		*targetP++ = XA_UTF8_STRING(display);
+#endif /*]*/
 		*targetP++ = XA_LENGTH(display);
 		*targetP++ = XA_LIST_LENGTH(display);
 		(void) memmove(targetP,  std_targets,
@@ -1029,14 +1078,33 @@ convert_sel(Widget w, Atom *selection, Atom *target, Atom *type,
 
 	if (*target == XA_STRING ||
 	    *target == XA_TEXT(display) ||
-	    *target == XA_COMPOUND_TEXT(display)) {
-		if (*target == XA_COMPOUND_TEXT(display))
+	    *target == XA_COMPOUND_TEXT(display)
+#if defined(XA_UTF8_STRING) /*[*/
+	    || *target == XA_UTF8_STRING(display)
+#endif /*]*/
+	    ) {
+		if (*target == XA_COMPOUND_TEXT(display)
+#if defined(XA_UTF8_STRING) /*[*/
+		    || *target == XA_UTF8_STRING(display)
+#endif /*]*/
+			)
 			*type = *target;
 		else
 			*type = XA_STRING;
 		*length = strlen(own_sel[i].buffer);
 		*value = XtMalloc(*length);
-		(void) memmove(*value, own_sel[i].buffer, (int) *length);
+#if defined(XA_UTF8_STRING) /*[*/
+		if (*target == XA_UTF8_STRING(display))
+			(void) memmove(*value, own_sel[i].buffer,
+				       (int) *length);
+		else
+#endif /*]*/
+		    	/*
+			 * N.B.: We return a STRING for COMPOUND_TEXT.
+			 * Someday we may do real ISO 2022, but not today.
+			 */
+		    	*length = store_icccm_string(*value,
+				own_sel[i].buffer);
 		*format = 8;
 		return True;
 	}
@@ -1120,14 +1188,13 @@ osc_start(void)
  * Return a 'selection' version of a given character on the screen.
  * Returns a printable ASCII character, or 0 if the character is a NULL and
  * shouldn't be included in the selection.
- * Also returns in 'ge' whether or not an ESC (0x1b) should be included
- * in front of the character.
  */
 static void
-onscreen_char(int baddr, unsigned char *r, int *rlen, Boolean *ge)
+onscreen_char(int baddr, unsigned char *r, int *rlen)
 {
 	static int osc_baddr;
 	static unsigned char fa;
+	ucs4_t uc;
 #if defined(X3270_DBCS) /*[*/
 	int baddr2;
 #endif /*]*/
@@ -1155,9 +1222,6 @@ onscreen_char(int baddr, unsigned char *r, int *rlen, Boolean *ge)
 		osc_valid = True;
 	}
 
-	/* Assume it isn't a graphic escape. */
-	*ge = False;
-
 	/* If it isn't visible, then make it a blank. */
 	if (FA_IS_ZERO(fa)) {
 		*r = ' ';
@@ -1170,7 +1234,9 @@ onscreen_char(int baddr, unsigned char *r, int *rlen, Boolean *ge)
 	case DBCS_LEFT:
 	    baddr2 = baddr;
 	    INC_BA(baddr2);
-	    *rlen = dbcs_to_mb(ea_buf[baddr].cc, ea_buf[baddr2].cc, (char *)r);
+	    uc = ebcdic_to_unicode((ea_buf[baddr].cc << 8) | ea_buf[baddr2].cc,
+		    CS_BASE, False);
+	    *rlen = unicode_to_utf8(uc, (char *)r);
 	    return;
 	case DBCS_RIGHT:
 	    /* Returned the entire character when the left half was read. */
@@ -1204,16 +1270,20 @@ onscreen_char(int baddr, unsigned char *r, int *rlen, Boolean *ge)
 		    case EBC_null:
 			*r = 0;
 			return;
-		    case EBC_fm:
-			*ge = True;
-			*r = ';';
-			return;
-		    case EBC_dup:
-			*ge = True;
-			*r = '*';
-			return;
 		    default:
-			*r = ebc2asc[ea_buf[baddr].cc];
+			/*
+			 * Note that we use the 'for_display' flavor of
+			 * ebcdic_base_to_unicode here, so DUP and FM are
+			 * translated to special private-use Unicode values.
+			 * These will (hopefully) be ignored by other
+			 * applications, but translated back to DUP and FM if
+			 * pasted back into x3270.
+			 */
+			uc = ebcdic_base_to_unicode(ea_buf[baddr].cc, True,
+				True);
+			*rlen = unicode_to_utf8(uc, (char *)r);
+			if (*rlen < 0)
+			    	*rlen = 0;
 			return;
 		}
 	    case CS_GE:
@@ -1228,8 +1298,20 @@ onscreen_char(int baddr, unsigned char *r, int *rlen, Boolean *ge)
 			*r = ']';
 			return;
 		    default:
-			*ge = True;
-			*r = ebc2asc[ea_buf[baddr].cc];
+			/* Translate APL to Unicode. */
+			uc = apl_to_unicode(ea_buf[baddr].cc);
+			if (uc == (ucs4_t)-1 ||
+			    (appres.apl_mode && (uc < 0x100))) {
+			    	/*
+				 * No translation, or we're in APL mode and the
+				 * GE character maps back onto a non-GE
+				 * character.  Use private-use characters.
+				 */
+				uc = UPRIV_GE_00 + ea_buf[baddr].cc;
+			}
+			*rlen = unicode_to_utf8(uc, (char *)r);
+			if (*rlen < 0)
+				*rlen = 0;
 			return;
 		}
 	    case CS_LINEDRAW:
@@ -1307,7 +1389,6 @@ grab_sel(int start, int end, Boolean really, Time t)
 {
 	register int i, j;
 	int start_row, end_row;
-	Boolean ge;
 	int nulls = 0;
 	unsigned char osc[16];
 	int len;
@@ -1340,15 +1421,13 @@ grab_sel(int start, int end, Boolean really, Time t)
 					nulls = 0;
 					store_sel('\n');
 				}
-				onscreen_char(i, osc, &len, &ge);
+				onscreen_char(i, osc, &len);
 				for (j = 0; j < len; j++) {
 					if (osc[j]) {
 						while (nulls) {
 							store_sel(' ');
 							nulls--;
 						}
-						if (ge)
-							store_sel('\033');
 						store_sel((char)osc[j]);
 					} else
 						nulls++;
@@ -1360,7 +1439,7 @@ grab_sel(int start, int end, Boolean really, Time t)
 			Boolean all_blank = True;
 
 			for (i = end; i < end + (COLS - (end % COLS)); i++) {
-				onscreen_char(i, osc, &len, &ge);
+				onscreen_char(i, osc, &len);
 				for (j = 0; j < len; j++) {
 					if (osc[j]) {
 						all_blank = False;
@@ -1386,15 +1465,13 @@ grab_sel(int start, int end, Boolean really, Time t)
 			for (i = start; i <= end; i++) {
 				SET_SELECT(i);
 				if (really) {
-					onscreen_char(i, osc, &len, &ge);
+					onscreen_char(i, osc, &len);
 					for (j = 0; j < len; j++) {
 						if (osc[j]) {
 							while (nulls) {
 								store_sel(' ');
 								nulls--;
 							}
-							if (ge)
-								store_sel('\033');
 							store_sel((char)osc[j]);
 						} else
 							nulls++;
@@ -1430,15 +1507,13 @@ grab_sel(int start, int end, Boolean really, Time t)
 					SET_SELECT(row*COLS + col);
 					if (really) {
 						onscreen_char(row*COLS + col,
-						    osc, &len, &ge);
+						    osc, &len);
 						for (j = 0; j < len; j++) {
 							if (osc[j]) {
 								while (nulls) {
 									store_sel(' ');
 									nulls--;
 								}
-								if (ge)
-									store_sel('\033');
 								store_sel((char)osc[j]);
 							} else
 								nulls++;
@@ -1495,31 +1570,88 @@ static Atom	paste_atom[NP];
 static int	n_pasting = 0;
 static int	pix = 0;
 static Time	paste_time;
+#if defined(XA_UTF8_STRING) /*[*/
+static Boolean	paste_utf8;
+#endif /*]*/
 
 static void
 paste_callback(Widget w, XtPointer client_data unused, Atom *selection unused,
     Atom *type unused, XtPointer value, unsigned long *length,
     int *format unused)
 {
-	char *s;
-	unsigned long len;
+	char *s, *t;
+	unsigned long s_len, t_len;
+	char *ei_buf;
+	int ei_len;
 
 	if ((value == NULL) || (*length == 0)) {
 		XtFree(value);
 
 		/* Try the next one. */
-		if (n_pasting > pix)
-			XtGetSelectionValue(w, paste_atom[pix++], XA_STRING,
-			    paste_callback, NULL, paste_time);
+#if defined(XA_UTF8_STRING) /*[*/
+		if (paste_utf8) {
+		    	paste_utf8 = False;
+			XtGetSelectionValue(w, paste_atom[pix], XA_STRING,
+				paste_callback, NULL, paste_time);
+		} else
+#endif /*]*/
+		if (n_pasting > pix) {
+#if defined(XA_UTF8_STRING) /*[*/
+		    	paste_utf8 = True;
+#endif /*]*/
+			XtGetSelectionValue(w, paste_atom[pix++],
+#if defined(XA_UTF8_STRING) /*[*/
+				XA_UTF8_STRING(display),
+#else /*][*/
+				XA_STRING,
+#endif /*]*/
+				paste_callback, NULL,
+				paste_time);
+		}
 		return;
 	}
 
+	/* Convert the selection to local multibyte. */
+	t_len = 2 * *length;
+	t = ei_buf = Malloc(t_len);
+	s_len = *length;
 	s = (char *)value;
-	len = *length;
-	(void) emulate_input(s, (int) len, True);
-	n_pasting = 0;
+	ei_len = 0;
 
+	while (s_len) {
+	    	ucs4_t uc;
+		int nm;
+
+#if defined(XA_UTF8_STRING) /*[*/
+	    	if (paste_utf8) {
+		    	int nu;
+
+		    	nu = utf8_to_unicode(s, s_len, &uc);
+			if (nu <= 0)
+			    	break;
+			s += nu;
+			s_len -= nu;
+		} else
+#endif /*]*/
+		{
+		    	/* ISO 8859-1. */
+		    	uc = *s & 0xff;
+			s++;
+			s_len--;
+		}
+		nm = unicode_to_multibyte(uc, t, t_len);
+		if (nm > 0)
+			nm--;
+		t += nm;
+		t_len -= nm;
+		ei_len += nm;
+	}
+	(void) emulate_input(ei_buf, ei_len, True);
+
+	XtFree(ei_buf);
 	XtFree(value);
+
+	n_pasting = 0;
 }
 
 void
@@ -1550,9 +1682,18 @@ insert_selection_action(Widget w, XEvent *event, String *params,
 			paste_atom[n_pasting++] = a;
 	}
 	pix = 0;
+#if defined(XA_UTF8_STRING) /*[*/
+	paste_utf8 = True;
+#endif /*]*/
 	if (n_pasting > pix) {
 		paste_time = be->time;
-		XtGetSelectionValue(w, paste_atom[pix++], XA_STRING,
-		    paste_callback, NULL, paste_time);
+		XtGetSelectionValue(w, paste_atom[pix++],
+#if defined(XA_UTF8_STRING) /*[*/
+			XA_UTF8_STRING(display),
+#else /*][*/
+			XA_STRING,
+#endif /*]*/
+			paste_callback, NULL,
+			paste_time);
 	}
 }

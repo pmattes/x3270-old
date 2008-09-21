@@ -1,22 +1,27 @@
 '\" t
-.TH X3270-SCRIPT 1 "24 December 2007"
+.TH X3270-SCRIPT 1 "15 September 2008"
 .SH "NAME"
-Scripting Facilities for x3270, s3270 and c3270
+Scripting Facilities for x3270, s3270, ws3270 and c3270
 .SH "SYNOPSIS"
 \fBx3270\fP \fB\-script\fP [ \fIx3270-options\fP ]
 .br
-\fBs3270\fP [ \fIx3270-options\fP ]
+\fBs3270\fP [ \fIs3270-options\fP ]
+.br
+\fBws3270\fP [ \fIws3270-options\fP ]
 .br
 \fBScript\fP ( \fIcommand\fP [ ,\fIarg\fP... ] )
 .SH "DESCRIPTION"
 The \fBx3270\fP scripting facilities allow the interactive 3270 emulators
 \fBx3270\fP and \fBc3270\fP to be operated under the control of another
-program, and form the basis for the script-only emulator \fBs3270\fP.
+program, and form the basis for the script-only emulators \fBs3270\fP
+and \fBws3270\fP.
 .PP
 There are two basic scripting methods.
 The first is the \fBpeer script\fP facility, invoked by the \fBx3270\fP
-\fB\-script\fP switch, and the default mode for \fBs3270\fP.
-This runs \fBx3270\fP or \fBs3270\fP as a child of another process.
+\fB\-script\fP switch, and the default mode for \fBs3270\fP and
+\fBws3270\fP.
+This runs \fBx3270\fP, \fBs3270\fP or \fBws3270\fP as a child of another
+process.
 Typically this would be a script using
 \fIexpect\fP(1), \fIperl\fP(1),
 or the co-process facility of the Korn Shell
@@ -127,7 +132,7 @@ The X window identifier for the main
 window, in hexadecimal preceded by
 \fB0x\fP.
 For
-\fBs3270\fP and \fBc3270\fP,
+\fBs3270\fP, \fBws3270\fP and \fBc3270\fP,
 this is zero.
 .TP
 12 Command Execution Time
@@ -690,6 +695,12 @@ fully processed the last command.
 The optional \fItimeout\fP parameter specifies a number of seconds to wait
 before failing the \fBSnap\fP action.  The default is to wait indefinitely.
 .TP
+\fBSource\fP(\fIfile\fP)
+Read and execute commands from \fIfile\fP.
+Any output from those commands will become the output from \fBSource\fP.
+If any of the commands fails, the \fBSource\fP command will \fInot\fP abort;
+it will continue reading commands until EOF.
+.TP
 \fBTitle\fP(\fItext\fP)
 Changes the x3270 window title to \fItext\fP.
 .TP
@@ -1147,5 +1158,7 @@ x3270(1)
 c3270(1)
 .br
 s3270(1)
+.br
+ws3270(1)
 .SH "VERSION"
-Version 3.3.7
+Version 3.3.8b1

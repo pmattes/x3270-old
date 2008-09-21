@@ -190,6 +190,8 @@ If specified, the trace file cannot already exist, and the (silently enforced)
 minimum size is 64 Kbytes.
 The value of <i>size</i> can have a <b>K</b> or <b>M</b> suffix, indicating
 kilobytes or megabytes respectively.
+<dt><b>-v</b>
+Display the version and build options for <b>wc3270</b></dt><dd> and exit.
 <dt><b>-xrm</b> "wc3270.<i>resource</i>: <i>value</i>"</dt><dd>
 Sets the value of the named <i>resource</i> to <i>value</i>.
 Resources control less common <b>wc3270</b>
@@ -248,7 +250,7 @@ Available sets include:
 <tr><td ><center>slovenian</center></td>	<td ><center>870</center></td>	<td ><center>28592</center></td></tr>
 <tr><td ><center>spanish</center></td>	<td ><center>284</center></td>	<td ><center>  28591</center></td></tr>
 <tr><td ><center>spanish-euro</center></td>	<td ><center>1145</center></td>	<td ><center>  28605</center></td></tr>
-<tr><td ><center>thai</center></td>	<td ><center>838</center></td>	<td ><center>28601 </center></td></tr>
+<tr><td ><center>thai</center></td>	<td ><center>1160</center></td>	<td ><center>28601 </center></td></tr>
 <tr><td ><center>turkish</center></td>	<td ><center>1026</center></td>	<td ><center>28599</center></td></tr>
 <tr><td ><center>uk</center></td>	<td ><center>285</center></td>	<td ><center>  28591</center></td></tr>
 <tr><td ><center>uk-euro</center></td>	<td ><center>1146</center></td>	<td ><center>  28605</center></td></tr>
@@ -315,6 +317,14 @@ a <font size=-1>NEWLINE</font> character when it reaches the end of a line.
 If set, pasting multi-line input via the <b>Paste</b> action will maintain a
 left margin (it will not move the cursor further left than where the paste
 begins).
+<dt><b>underscore</b></dt><dd>
+If set, wc3270 will display underlined fields by substituting
+underscore `_' characters for blanks or nulls in the field.
+Otherwise, these fields will be displayed
+with a highlighted background.
+Note that setting <b>underscore</b> also disables the highlighted background
+for blinking fields.
+<b>underscore</b> is set by default.
 </dl>
 <p>
 The names of the toggles for use with the <b>-set</b>
@@ -332,6 +342,7 @@ options are as follows:
 <tr><td >Save Screen(s) in File</td>	<td >screenTrace</td></tr>
 <tr><td >Wraparound</td>	<td >lineWrap</td></tr>
 <tr><td >Paste with Left Margin</td>	<td >marginedPaste</td></tr>
+<tr><td >Underscore Mode</td>	<td >underscore</td></tr>
 </table>
 <p>
 These names are also used as the first parameter to the <b>Toggle</b>
@@ -403,7 +414,7 @@ possibly waiting for a response.
 <tr><td >Insert</td>	<td >set insert mode</td></tr>
 <tr><td >*Interrupt</td>	<td >send <font size=-1>TELNET IP</font> to host</td></tr>
 <tr><td >Key(<i>keysym</i>)</td>	<td >insert key <i>keysym</i></td></tr>
-<tr><td >Key(0x<i>xx</i>)</td>	<td >insert key with <font size=-1>ASCII</font> code <i>xx</i></td></tr>
+<tr><td >Key(0x<i>xx</i>)</td>	<td >insert key with character code <i>xx</i></td></tr>
 <tr><td >Left</td>	<td >move cursor left</td></tr>
 <tr><td >Left2</td>	<td >move cursor left 2 positions</td></tr>
 <tr><td >MonoCase</td>	<td >toggle uppercase-only mode</td></tr>
@@ -414,7 +425,7 @@ possibly waiting for a response.
 <tr><td >*PF(<i>n</i>)</td>	<td >Program Function <font size=-1>AID</font> (<i>n</i> from 1 to 24)</td></tr>
 <tr><td >PreviousWord</td>	<td >move cursor to previous word</td></tr>
 <tr><td >Paste</td>	<td >insert clipboard contents</td></tr><tr><td >Printer(Start[,<i>lu</i>]|Stop)</td>	<td >start or stop printer session</td></tr>
-<tr><td >PrintText(<i>command</i>)</td>	<td >print screen text on printer</td></tr>
+<tr><td >PrintText(<i>[printer-name]</i>)</td>	<td >print screen text on printer</td></tr>
 <tr><td >Quit</td>	<td >exit <b>wc3270</b></td></tr>
 <tr><td >Redraw</td>	<td >redraw window</td></tr>
 <tr><td >Reset</td>	<td >reset locked keyboard</td></tr>
@@ -620,31 +631,16 @@ The base keymap is:
 <table BORDER cols=2 width="75%">
 <tr><td >Key</td>	<td >Action</td></tr>
 
-<tr><td >Alt Ctrl&lt;Key>]</td>	<td >Key(0x1d)</td></tr>
-<tr><td >Ctrl&lt;Key>]</td>	<td >Escape</td></tr>
-<tr><td >Alt&lt;Key>c</td>	<td >Clear</td></tr>
-<tr><td >Alt&lt;Key>i</td>	<td >Insert</td></tr>
-<tr><td >Alt&lt;Key>r</td>	<td >Reset</td></tr>
-<tr><td >Alt&lt;Key>l</td>	<td >Redraw</td></tr>
-<tr><td >Alt&lt;Key>m</td>	<td >Compose</td></tr>
-<tr><td >Alt&lt;Key>^</td>	<td >Key(notsign)</td></tr>
-<tr><td >&lt;Key>Delete</td>	<td >Delete</td></tr>
-<tr><td >&lt;Key>Up</td>	<td >Up</td></tr>
-<tr><td >&lt;Key>Down</td>	<td >Down</td></tr>
-<tr><td >&lt;Key>Left</td>	<td >Left</td></tr>
-<tr><td >&lt;Key>Right</td>	<td >Right</td></tr>
 <tr><td >Alt&lt;Key>1</td>	<td >PA(1)</td></tr>
 <tr><td >Alt&lt;Key>2</td>	<td >PA(2)</td></tr>
 <tr><td >Alt&lt;Key>3</td>	<td >PA(3)</td></tr>
-<tr><td >&lt;Key>Insert</td>	<td >ToggleInsert</td></tr>
-<tr><td >&lt;Key>Multiply</td>	<td >Key(*)</td></tr>
-<tr><td >&lt;Key>Add</td>	<td >Key(+)</td></tr>
-<tr><td >&lt;Key>Separator</td>	<td >Key(|)</td></tr>
-<tr><td >&lt;Key>Subtract</td>	<td >Key(-)</td></tr>
-<tr><td >&lt;Key>Decimal</td>	<td >Key(.)</td></tr>
-<tr><td >&lt;Key>Divide</td>	<td >Key(/)</td></tr>
-<tr><td >&lt;Key>Numpad<i>n</i></td>	<td >Key(<i>n</i>)</td></tr>
-<tr><td >&lt;Key>F<i>n</i></td>	<td >PF(<i>n</i>)</td></tr>
+<tr><td >Alt Ctrl&lt;Key>]</td>	<td >Key(0x1d)</td></tr>
+<tr><td >Ctrl&lt;Key>]</td>	<td >Escape</td></tr>
+<tr><td >Alt&lt;Key>^</td>	<td >Key(notsign)</td></tr>
+<tr><td >Alt&lt;Key>c</td>	<td >Clear</td></tr>
+<tr><td >Alt&lt;Key>l</td>	<td >Redraw</td></tr>
+<tr><td >Alt&lt;Key>m</td>	<td >Compose</td></tr>
+<tr><td >Alt&lt;Key>p</td>	<td >PrintText</td></tr>
 <tr><td >Shift&lt;Key>F<i>n</i></td>	<td >PF(<i>n</i>+12)</td></tr>
 </table>
 <p>
@@ -653,26 +649,31 @@ The base 3270-mode keymap adds:
 <table BORDER cols=2 width="75%">
 <tr><td >Key</td>	<td >Action</td></tr>
 
-<tr><td >Ctrl&lt;Key>[</td>	<td >Escape</td></tr>
-<tr><td >Ctrl&lt;Key>c</td>	<td >Clear</td></tr>
-<tr><td >Ctrl&lt;Key>r</td>	<td >Reset</td></tr>
-<tr><td >Ctrl&lt;Key>l</td>	<td >Redraw</td></tr>
-<tr><td >Shift Ctrl&lt;Key>i</td>	<td >BackTab</td></tr>
-<tr><td >&lt;Key>Delete</td>	<td >Delete</td></tr>
-<tr><td >Ctrl&lt;Key>h</td>	<td >Erase</td></tr>
-<tr><td >Ctrl&lt;Key>j</td>	<td >Newline</td></tr>
-<tr><td >Ctrl&lt;Key>m</td>	<td >Enter</td></tr>
-<tr><td >&lt;Key>Home</td>	<td >Home</td></tr>
 <tr><td >Ctrl&lt;Key>a</td>	<td >Attn</td></tr>
 <tr><td >Alt&lt;Key>a</td>	<td >Attn</td></tr>
-<tr><td >&lt;Key>End</td>	<td >FieldEnd</td></tr>
-<tr><td >Ctrl&lt;Key>v</td>	<td >Paste</td></tr>
-<tr><td >Ctrl&lt;Key>f</td>	<td >FieldMark</td></tr>
+<tr><td >Ctrl&lt;Key>c</td>	<td >Clear</td></tr>
 <tr><td >Ctrl&lt;Key>d</td>	<td >Dup</td></tr>
+<tr><td >Alt&lt;Key>d</td>	<td >Dup</td></tr>
+<tr><td >Ctrl&lt;Key>f</td>	<td >FieldMark</td></tr>
+<tr><td >Alt&lt;Key>f</td>	<td >FieldMark</td></tr>
+<tr><td >Ctrl&lt;Key>h</td>	<td >Erase</td></tr>
+<tr><td >Alt&lt;Key>i</td>	<td >Insert</td></tr>
+<tr><td >Shift Ctrl&lt;Key>i</td>	<td >BackTab</td></tr>
+<tr><td >Ctrl&lt;Key>i</td>	<td >Tab</td></tr>
+<tr><td >Ctrl&lt;Key>j</td>	<td >Newline</td></tr>
+<tr><td >Ctrl&lt;Key>l</td>	<td >Redraw</td></tr>
+<tr><td >Ctrl&lt;Key>m</td>	<td >Enter</td></tr>
+<tr><td >Ctrl&lt;Key>r</td>	<td >Reset</td></tr>
+<tr><td >Alt&lt;Key>r</td>	<td >Reset</td></tr>
 <tr><td >Ctrl&lt;Key>u</td>	<td >DeleteField</td></tr>
-<tr><td >Shift&lt;Key>Left</td>	<td >PreviousWord</td></tr>
-<tr><td >Shift&lt;Key>Right</td>	<td >NextWord</td></tr>
-<tr><td >Shift&lt;Key>End</td>	<td >EraseEOF</td></tr>
+<tr><td >Ctrl&lt;Key>v</td>	<td >Paste</td></tr>
+<tr><td >&lt;Key>INSERT</td>	<td >ToggleInsert</td></tr>
+<tr><td >Shift&lt;Key>TAB</td>	<td >BackTab</td></tr>
+<tr><td >&lt;Key>BACK</td>	<td >Erase</td></tr>
+<tr><td >Shift&lt;Key>END</td>	<td >EraseEOF</td></tr>
+<tr><td >&lt;Key>END</td>	<td >FieldEnd</td></tr>
+<tr><td >Shift&lt;Key>LEFT</td>	<td >PreviousWord</td></tr>
+<tr><td >Shift&lt;Key>RIGHT</td>	<td >NextWord</td></tr>
 </table>
 
 <a NAME="File-Transfer"></a><h2>File Transfer</h2>
@@ -784,6 +785,7 @@ The C backslash conventions are honored as follows.
 processing the string.)
 <table BORDER cols=2 width="75%">
 <tr><td >\b</td>	<td >Left</td></tr>
+<tr><td >\e<i>xx</i></td>	<td >EBCDIC character in hex</td></tr>
 <tr><td >\f</td>	<td >Clear*</td></tr>
 <tr><td >\n</td>	<td >Enter*</td></tr>
 <tr><td >\pa<i>n</i></td>	<td >PA(<i>n</i>)*</td></tr>
@@ -791,6 +793,7 @@ processing the string.)
 <tr><td >\r</td>	<td >Newline</td></tr>
 <tr><td >\t</td>	<td >Tab</td></tr>
 <tr><td >\T</td>	<td >BackTab</td></tr>
+<tr><td >\x<i>xx</i></td>	<td >ASCII character in hex</td></tr>
 </table>
 <p>
 An example keymap entry would be:
@@ -828,6 +831,7 @@ print each job.
 It defaults to the value of the <b>$PRINTER</b> environment
 variable, if set.
 Otherwise the default system printer is used.
+This resource also controls the printer used by the <b>PrintText</b> action.
 <p>
 The resource <b>wc3270.printer.assocCommandLine</b> specifies the command
 used to start an associated printer session.  It defaults to:
@@ -875,7 +879,6 @@ The supported values for <i>type</i> are:
 <p>
 The special types <b>socks4a</b> and <b>socks5d</b> can also be used to force
 the proxy server to do the hostname resolution for the SOCKS protocol.
-snl Copyright 2000, 2001, 2002, 2007 by Paul Mattes.
 <a NAME="Resources"></a><h2>Resources</h2>
 Certain <b>wc3270</b>
 options can be configured via resources.
@@ -962,7 +965,7 @@ RFC 1646, TN3270 Extensions for LUname and Printer Selection
 RFC 2355, TN3270 Enhancements
 <a NAME="Copyrights"></a><h2>Copyrights</h2>
 <p>
-Modifications and original code Copyright &copy; 1993, 1994, 1995, 1996, 1997, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007 by Paul Mattes.
+Modifications and original code Copyright &copy; 1993-2008 by Paul Mattes.
 <br>
 DFT File Transfer Code Copyright  &copy; October 1995 by Dick Altenbern.
 <br>
@@ -983,12 +986,12 @@ wc3270 is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
 <a NAME="Version"></a><h2>Version</h2>
-wc3270 3.3.7
+wc3270 3.3.8b1
 <hr>
 <i>
 This HTML document and the accompanying troff document were generated with
 a set of write-only <b>m4</b> macros and the powerful <b>vi</b> editor.
-<br>Last modified 24 December 2007.
+<br>Last modified 19 September 2008.
 </i>
 </body>
 </html>

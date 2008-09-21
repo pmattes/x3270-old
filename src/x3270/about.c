@@ -1,6 +1,5 @@
 /*
- * Copyright 1993, 1994, 1995, 1999, 2000, 2001, 2002, 2003, 2004, 2005,
- *   2006, 2007 by Paul Mattes.
+ * Copyright 1993-2008 by Paul Mattes.
  * RPQNAMES modifications copyright 2004 by Don Russell.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -369,12 +368,6 @@ popup_about_config(void)
 		MAKE_LABEL2(get_message("ximLocale"));
 		if (locale_name != CN) {
 			MAKE_VALUE(locale_name);
-		} else {
-			MAKE_VALUE("(error)");
-		}
-		MAKE_LABEL2(get_message("ximEncoding"));
-		if (local_encoding != CN) {
-			MAKE_VALUE(local_encoding);
 		} else {
 			MAKE_VALUE("(error)");
 		}

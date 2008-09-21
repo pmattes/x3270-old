@@ -1,6 +1,5 @@
 /*
- * Modifications Copyright 1993, 1994, 1995, 1996, 1999, 2000, 2001, 2002,
- *   2003, 2004, 2005, 2006, 2007 by Paul Mattes.
+ * Modifications Copyright 1993-2008 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -143,9 +142,10 @@ XrmOptionDescRec options[]= {
 #endif /*]*/
 #if defined(X3270_DBCS) /*[*/
 	{ OptInputMethod,DotInputMethod,XrmoptionSepArg,	NULL },
-	{ OptLocalEncoding,DotLocalEncoding,XrmoptionSepArg,	NULL },
 	{ OptPreeditType,DotPreeditType,XrmoptionSepArg,	NULL },
 #endif /*]*/
+	{ OptV,		DotV,		XrmoptionNoArg,		ResTrue },
+	{ OptVersion,	DotV,		XrmoptionNoArg,		ResTrue },
 	{ "-xrm",	NULL,		XrmoptionResArg,	NULL }
 };
 int num_options = XtNumber(options);
@@ -234,6 +234,12 @@ main(int argc, char *argv[])
 	else
 		programname = argv[0];
 
+	/* Parse a lone "-v" first, without contacting a server. */
+	if (argc == 2 && (!strcmp(argv[1], OptV) ||
+		          !strcmp(argv[1], OptVersion))) {
+	    	dump_version();
+	}
+
 	/* Save a copy of the command-line args for merging later. */
 	save_args(argc, argv);
 
@@ -273,6 +279,9 @@ main(int argc, char *argv[])
 	    NULL);
 	display = XtDisplay(toplevel);
 	rdb = XtDatabase(display);
+
+	if (get_resource(ResV))
+	    	dump_version();
 
 	/*
 	 * Add the base translations to the toplevel object.

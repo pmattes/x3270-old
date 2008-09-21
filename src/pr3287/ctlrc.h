@@ -1,5 +1,5 @@
 /*
- * Copyright 1995, 1999, 2000, 2002, 2004 by Paul Mattes.
+ * Copyright 1995-2008 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -24,7 +24,7 @@ enum pds {
 	PDS_FAILED = -3		/* command failed */
 };
 
-extern void ctlr_add(unsigned char c, unsigned char cs, unsigned char gr);
+extern void ctlr_add(ucs4_t c, unsigned char cs, unsigned char gr);
 extern void ctlr_write(unsigned char buf[], int buflen, Boolean erase);
 extern int print_eoj(void);
 extern void print_unbind(void);

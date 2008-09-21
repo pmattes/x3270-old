@@ -1,6 +1,5 @@
 /*
- * Modifications Copyright 1993, 1994, 1995, 1996, 1999, 2000, 2001, 2002,
- *   2003, 2004, 2005, 2007 by Paul Mattes.
+ * Modifications Copyright 1993-2008 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -94,6 +93,8 @@ XtResource resources[] = {
 	  offset(modified_sel), XtRString, ResFalse },
 	{ ResUnlockDelay, ClsUnlockDelay, XtRBoolean, sizeof(Boolean),
 	  offset(unlock_delay), XtRString, ResTrue },
+	{ ResUnlockDelayMs, ClsUnlockDelayMs, XtRInt, sizeof(int),
+	  offset(unlock_delay_ms), XtRString, "350" },
 #if defined(X3270_SCRIPT) /*[*/
 	{ ResSocket, ClsSocket, XtRBoolean, sizeof(Boolean),
 	  offset(socket), XtRString, ResFalse },
@@ -166,8 +167,6 @@ XtResource resources[] = {
 	  offset(charset), XtRString, "bracket" },
 	{ ResTermName, ClsTermName, XtRString, sizeof(char *),
 	  offset(termname), XtRString, 0 },
-	{ ResDebugFont, ClsDebugFont, XtRString, sizeof(char *),
-	  offset(debug_font), XtRString, "3270d" },
 	{ ResIconFont, ClsIconFont, XtRString, sizeof(char *),
 	  offset(icon_font), XtRString, "nil2" },
 	{ ResIconLabelFont, ClsIconLabelFont, XtRString, sizeof(char *),
@@ -197,8 +196,6 @@ XtResource resources[] = {
 	{ ResColorScheme, ClsColorScheme, XtRString, sizeof(String),
 	  offset(color_scheme), XtRString, "default" },
 #if defined(X3270_FT) /*[*/
-	{ ResFtCommand, ClsFtCommand, XtRString, sizeof(String),
-	  offset(ft_command), XtRString, 0 },
 	{ ResDftBufferSize, ClsDftBufferSize, XtRInt, sizeof(int),
 	  offset(dft_buffer_size), XtRString, "4096" },
 #endif /*]*/
@@ -291,8 +288,6 @@ XtResource resources[] = {
 	  offset(input_method), XtRString, 0 },
 	{ ResPreeditType, ClsPreeditType, XtRString, sizeof(char *),
 	  offset(preedit_type), XtRString, PT_OVER_THE_SPOT "+1" },
-	{ ResLocalEncoding, ClsLocalEncoding, XtRString, sizeof(char *),
-	  offset(local_encoding), XtRString, 0 },
 #endif /*]*/
 #if defined(HAVE_LIBSSL) /*[*/
 	{ ResCertFile, ClsCertFile, XtRString, sizeof(char *),

@@ -1,5 +1,5 @@
 /*
- * Copyright 2006, 2007 by Paul Mattes.
+ * Copyright 2006-2008 by Paul Mattes.
  *   Permission to use, copy, modify, and distribute this software and its
  *   documentation for any purpose and without fee is hereby granted,
  *   provided that the above copyright notice appear in all copies and that
@@ -92,7 +92,7 @@ CreateLink(LPCSTR lpszPathObj, LPSTR lpszPathLink, LPSTR lpszDesc,
 		p.nFont = 0;
 		p.nInputBufferSize = 0;
 		p.dwFontSize.X = 0;
-		p.dwFontSize.Y = 0;
+		p.dwFontSize.Y = 12;
 		p.uFontFamily = 54; /* ? */
 		p.uFontWeight = 400; /* ? */
 		wcscpy(p.FaceName, L"Lucida Console");

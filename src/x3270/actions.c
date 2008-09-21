@@ -1,6 +1,5 @@
 /*
- * Modifications Copyright 1993, 1994, 1995, 1999, 2000, 2001, 2002, 2003,
- *  2004 2005, 2006, 2007 by Paul Mattes.
+ * Modifications Copyright 1993-2008 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -140,7 +139,7 @@ XtActionsRec all_actions[] = {
 	{ "set-select",		set_select_action },
 	{ "start-extend",	start_extend_action },
 #endif /*]*/
-#if defined(X3270_SCRIPT) /*[*/
+#if defined(X3270_SCRIPT) || defined(S3270) /*[*/
 	{ "AnsiText",		AnsiText_action },
 #endif /*]*/
 	{ "Ascii",		Ascii_action },
@@ -203,7 +202,7 @@ XtActionsRec all_actions[] = {
 #endif /*]*/
 	{ "Left",		Left_action },
 	{ "Left2", 		Left2_action },
-#if defined(X3270_SCRIPT) /*[*/
+#if defined(X3270_SCRIPT) || defined(S3270) /*[*/
 	{ "Macro", 		Macro_action },
 #endif /*]*/
 	{ "MonoCase",		MonoCase_action },
@@ -228,11 +227,11 @@ XtActionsRec all_actions[] = {
 #if defined(X3270_PRINTER) /*[*/
 	{ "Printer",		Printer_action },
 #endif /*]*/
-#if defined(X3270_SCRIPT) /*[*/
+#if defined(X3270_SCRIPT) || defined(S3270) /*[*/
 	{ "Query",		Query_action },
 #endif /*]*/
 	{ "Quit",		Quit_action },
-#if defined(X3270_SCRIPT) || defined(TCL3270) /*[*/
+#if defined(X3270_SCRIPT) || defined(TCL3270) || defined(S3270) /*[*/
 	{ "ReadBuffer",		ReadBuffer_action },
 #endif /*]*/
 #if defined(X3270_MENUS) /*[*/
@@ -253,8 +252,11 @@ XtActionsRec all_actions[] = {
 #if defined(C3270) /*[*/
 	{ "Show",		Show_action },
 #endif/*]*/
-#if defined(X3270_SCRIPT) || defined(TCL3270) /*[*/
+#if defined(X3270_SCRIPT) || defined(TCL3270) || defined(S3270) /*[*/
 	{ "Snap",		Snap_action },
+#endif /*]*/
+#if !defined(TCL3270) /*[*/
+	{ "Source",		Source_action },
 #endif /*]*/
 #if defined(TCL3270) /*[*/
 	{ "Status",		Status_action },
@@ -278,7 +280,7 @@ XtActionsRec all_actions[] = {
 	{ "Unselect",		Unselect_action },
 #endif /*]*/
 	{ "Up",			Up_action },
-#if defined(X3270_SCRIPT) || defined(TCL3270) /*[*/
+#if defined(X3270_SCRIPT) || defined(TCL3270) || defined(S3270) /*[*/
 	{ "Wait",		Wait_action },
 #endif /*]*/
 #if defined(X3270_DISPLAY) /*[*/

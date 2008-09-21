@@ -1,6 +1,5 @@
 /*
- * Copyright 1995, 1996, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
- *   by Paul Mattes.
+ * Copyright 1995-2008 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -19,6 +18,7 @@
  */
 
 /* Resources. */
+#define ResAcs			"acs"
 #define ResActiveIcon		"activeIcon"
 #define ResAdVersion		"adVersion"
 #define ResAidWait		"aidWait"
@@ -26,10 +26,8 @@
 #define ResAllowResize		"allowResize"
 #define ResAltCursor		"altCursor"
 #define ResAltScreen		"altScreen"
-#define ResAplMap		"aplMap"
 #define ResAplMode		"aplMode"
 #define ResAssocCommand		"printer.assocCommandLine"
-#define ResAutoKeymap		"autoKeymap"
 #define ResBaselevelTranslations	"baselevelTranslations"
 #define ResBellVolume		"bellVolume"
 #define ResBlankFill		"blankFill"
@@ -40,10 +38,10 @@
 #define ResCharClass		"charClass"
 #define ResCharset		"charset"
 #define ResCharsetList		"charsetList"
-#define ResCodepage		"codepage"
 #define ResColor8		"color8"
 #define ResColorBackground	"colorBackground"
 #define ResColorScheme		"colorScheme"
+#define ResCommandTimeout	"commandTimeout"
 #define ResComposeMap		"composeMap"
 #define ResConfDir		"confDir"
 #define ResConnectFileName	"connectFileName"
@@ -59,13 +57,10 @@
 #define ResCursorBlink		"cursorBlink"
 #define ResCursorColor		"cursorColor"
 #define ResCursorPos		"cursorPos"
-#define ResDbcsConverters	"dbcsConverters"
-#define ResDebugFont		"debugFont"
 #define ResDebugTracing		"debugTracing"
 #define ResDefScreen		"defScreen"
 #define ResDftBufferSize	"dftBufferSize"
 #define ResDisconnectClear	"disconnectClear"
-#define ResDisplayCharset	"displayCharset"
 #define ResDoConfirms		"doConfirms"
 #define ResDsTrace		"dsTrace"
 #define ResEmulatorFont		"emulatorFont"
@@ -74,8 +69,6 @@
 #define ResEventTrace		"eventTrace"
 #define ResExtended		"extended"
 #define ResFixedSize		"fixedSize"
-#define ResFtCharset		"ftCharset"
-#define ResFtCommand		"ftCommand"
 #define ResHighlightBold	"highlightBold"
 #define ResHighlightUnderline	"highlightUnderline"
 #define ResHostColorFor		"hostColorFor"
@@ -103,7 +96,6 @@
 #define ResLabelIcon		"labelIcon"
 #define ResLineWrap		"lineWrap"
 #define ResLnext		"lnext"
-#define ResLocalEncoding	"localEncoding"
 #define ResLoginMacro		"loginMacro"
 #define ResLockedCursor		"lockedCursor"
 #define ResLuCommandLine	"printer.luCommandLine"
@@ -158,15 +150,17 @@
 #define ResTraceFileSize	"traceFileSize"
 #define ResTraceMonitor		"traceMonitor"
 #define ResTypeahead		"typeahead"
+#define ResUnderscore		"underscore"
 #define ResUnlockDelay		"unlockDelay"
+#define ResUnlockDelayMs	"unlockDelayMs"
 #define ResUseCursorColor	"useCursorColor"
+#define ResV			"v"
 #define ResVisibleControl	"visibleControl"
 #define ResVisualBell		"visualBell"
 #define ResVisualSelect		"visualSelect"
 #define ResVisualSelectColor	"visualSelectColor"
 #define ResWaitCursor		"waitCursor"
 #define ResWerase		"werase"
-#define ResXkSelector		"xkSelector"
 
 /* Dotted resource names. */
 #define DotActiveIcon		"." ResActiveIcon
@@ -180,7 +174,6 @@
 #define DotEmulatorFont		"." ResEmulatorFont
 #define DotExtended		"." ResExtended
 #define DotInputMethod		"." ResInputMethod
-#define DotLocalEncoding	"." ResLocalEncoding
 #define DotKeymap		"." ResKeymap
 #define DotKeypadOn		"." ResKeypadOn
 #define DotM3279		"." ResM3279
@@ -201,6 +194,7 @@
 #define DotTitle		"." ResTitle
 #define DotTraceFile		"." ResTraceFile
 #define DotTraceFileSize	"." ResTraceFileSize
+#define DotV			"." ResV
 
 /* Resource classes. */
 #define ClsActiveIcon		"ActiveIcon"
@@ -229,7 +223,6 @@
 #define ClsCursorBlink		"CursorBlink"
 #define ClsCursorColor		"CursorColor"
 #define ClsCursorPos		"CursorPos"
-#define ClsDebugFont		"DebugFont"
 #define ClsDebugTracing		"DebugTracing"
 #define ClsDftBufferSize	"DftBufferSize"
 #define ClsDisconnectClear	"DisconnectClear"
@@ -263,7 +256,6 @@
 #define ClsLabelIcon		"LabelIcon"
 #define ClsLineWrap		"LineWrap"
 #define ClsLnext		"Lnext"
-#define ClsLocalEncoding	"LocalEncoding"
 #define ClsLockedCursor		"LockedCursor"
 #define ClsM3279		"M3279"
 #define ClsMacros		"Macros"
@@ -310,6 +302,7 @@
 #define ClsTraceMonitor		"TraceMonitor"
 #define ClsTypeahead		"Typeahead"
 #define ClsUnlockDelay		"UnlockDelay"
+#define ClsUnlockDelayMs	"UnlockDelayMs"
 #define ClsUseCursorColor	"UseCursorColor"
 #define ClsVisibleControl	"VisibleControl"
 #define ClsVisualBell		"VisualBell"
@@ -340,7 +333,6 @@
 #define OptInputMethod		"-im"
 #define OptKeymap		"-keymap"
 #define OptKeypadOn		"-keypad"
-#define OptLocalEncoding	"-km"
 #define OptLocalProcess		"-e"
 #define OptM3279		"-color"
 #define OptModel		"-model"
@@ -363,6 +355,8 @@
 #define OptTitle		"-title"
 #define OptTraceFile		"-tracefile"
 #define OptTraceFileSize	"-tracefilesize"
+#define OptV			"-v"
+#define OptVersion		"--version"
 
 /* Miscellaneous values. */
 #define ResTrue			"true"

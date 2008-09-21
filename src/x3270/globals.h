@@ -1,6 +1,5 @@
 /*
- * Modifications Copyright 1993, 1994, 1995, 1996, 1999, 2000, 2001, 2002,
- *  2003, 2004, 2005, 2006 by Paul Mattes.
+ * Modifications Copyright 1993-2008 by Paul Mattes.
  * RPQNAMES modifications copyright 2005 by Don Russell.
  * Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
@@ -59,8 +58,6 @@
 #define printflike(s, f) /* nothing */
 #endif /*]*/
 
-
-
 /*
  * Prerequisite #includes.
  */
@@ -75,15 +72,39 @@
 #include "localdefs.h"			/* {s,tcl,c}3270-specific defines */
 
 /*
+ * Locale-related definitions.
+ * Note that USE_ICONV can be used to override __STDC_ISO_10646__, so that
+ * development of iconv-based logic can be done on 10646-compliant systems.
+ */
+#if defined(__STDC_ISO_10646__) && !defined(USE_ICONV) /*[*/
+#define UNICODE_WCHAR	1
+#endif /*]*/
+#if !defined(_WIN32) && !defined(UNICODE_WCHAR) /*[*/
+#undef USE_ICONV
+#define USE_ICONV 1
+#include <iconv.h>
+#endif /*]*/
+
+/*
+ * Unicode UCS-4 characters are (hopefully) 32 bits.
+ * EBCDIC (including DBCS) is (hopefully) 16 bits.
+ */
+typedef unsigned int ucs4_t;
+typedef unsigned short ebc_t;
+
+/*
  * Cancel out contradictory parts.
  */
 #if !defined(X3270_DISPLAY) /*[*/
 #undef X3270_KEYPAD
 #undef X3270_MENUS
 #endif /*]*/
+#if defined(C3270) && defined(X3270_DBCS) && !defined(CURSES_WIDE) /*[*/
+#undef X3270_DBCS
+#endif /*]*/
 
 /* Local process (-e) header files. */
-#if defined(X3270_LOCAL_PROCESS) && defined(HAVE_LIBUTIL) /*[*/
+#if defined(X3270_LOCAL_PROCESS) && defined(HAVE_FORKPTY) /*[*/
 #define LOCAL_PROCESS	1
 #include <termios.h>
 #if defined(HAVE_PTY_H) /*[*/
@@ -145,7 +166,6 @@ extern char		full_model_name[];
 extern char		*funky_font;
 extern char		*hostname;
 #if defined(X3270_DBCS) /*[*/
-extern char		*local_encoding;
 #if defined(X3270_DISPLAY) /*[*/
 extern char		*locale_name;
 #endif /*]*/
@@ -189,10 +209,9 @@ extern Pixel		keypadbg_pixel;
 extern XrmDatabase	rdb;
 extern Window		root_window;
 extern char		*user_title;
-extern unsigned char	xk_selector;
 #endif /*]*/
 
-#if defined(C3270) && defined(_WIN32) /*[*/
+#if defined(_WIN32) && (defined(C3270) || defined(S3270)) /*[*/
 extern char		*instdir;
 extern char		myappdata[];
 #endif /*]*/
