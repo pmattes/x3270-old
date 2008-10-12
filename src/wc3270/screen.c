@@ -46,6 +46,11 @@ extern int screen_changed;
 extern char *profile_name;
 
 #define MAX_COLORS	16
+/* N.B.: "neutral black" means black on a screen (white-on-black device) and
+ *         white on a printer (black-on-white device).
+ *       "neutral white" means white on a screen (white-on-black device) and
+ *         black on a printer (black-on-white device).
+ */
 static int cmap_fg[MAX_COLORS] = {
 	0,						/* neutral black */
 	FOREGROUND_INTENSITY | FOREGROUND_BLUE,		/* blue */
@@ -58,6 +63,7 @@ static int cmap_fg[MAX_COLORS] = {
 	FOREGROUND_INTENSITY | FOREGROUND_GREEN | FOREGROUND_RED,
 							/* yellow */
 	FOREGROUND_INTENSITY | FOREGROUND_GREEN | FOREGROUND_RED | FOREGROUND_BLUE,
+							/* neutral white */
 	0,						/* black */
 	FOREGROUND_BLUE,				/* deep blue */
 	FOREGROUND_INTENSITY | FOREGROUND_RED,		/* orange */
@@ -66,8 +72,6 @@ static int cmap_fg[MAX_COLORS] = {
 	FOREGROUND_GREEN | FOREGROUND_BLUE,		/* pale turquoise */
 	FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE, /* gray */
 	FOREGROUND_INTENSITY | FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE,							/* white */
-
-							/* neutral white */
 };
 static int cmap_bg[MAX_COLORS] = {
 	0,						/* neutral black */
@@ -1046,7 +1050,8 @@ color_from_fa(unsigned char fa)
 	} else
 		return FOREGROUND_GREEN |
 		    (((ab_mode == TS_ON) || FA_IS_HIGH(fa))?
-		     FOREGROUND_INTENSITY: 0);
+		     FOREGROUND_INTENSITY: 0) |
+		    cmap_bg[COLOR_NEUTRAL_BLACK];
 }
 
 static int
@@ -1096,7 +1101,7 @@ init_user_color(const char *name, int ix)
 	l = strtoul(r, &ptr, 0);
 	if (ptr != r && *ptr == '\0' && l <= 15) {
 	    	cmap_fg[ix] = (int)l;
-	    	cmap_bg[ix] = (int)l + 16;
+	    	cmap_bg[ix] = (int)l << 4;
 		return;
 	}
 
@@ -1111,6 +1116,13 @@ init_user_colors(void)
 	for (i = 0; host_color[i].name != CN; i++) {
 	    	init_user_color(host_color[i].name, host_color[i].index);
 	}
+
+	if (appres.m3279)
+		defattr = cmap_fg[COLOR_NEUTRAL_WHITE] |
+			  cmap_bg[COLOR_NEUTRAL_BLACK];
+	else
+		defattr = cmap_fg[COLOR_PALE_GREEN] |
+			  cmap_bg[COLOR_NEUTRAL_BLACK];
 }
 
 /*
@@ -1232,7 +1244,7 @@ blinkmap(Boolean blinking, Boolean underlined, int c)
 
 /* Display what's in the buffer. */
 void
-screen_disp(Boolean erasing unused)
+screen_disp(Boolean erasing _is_unused)
 {
 	int row, col;
 	int a;
@@ -1805,14 +1817,14 @@ cursor_move(int baddr)
 }
 
 void
-toggle_monocase(struct toggle *t unused, enum toggle_type tt unused)
+toggle_monocase(struct toggle *t _is_unused, enum toggle_type tt _is_unused)
 {
     	screen_changed = True;
 	screen_disp(False);
 }
 
 void
-toggle_underscore(struct toggle *t unused, enum toggle_type tt unused)
+toggle_underscore(struct toggle *t _is_unused, enum toggle_type tt _is_unused)
 {
     	screen_changed = True;
 	screen_disp(False);
@@ -1943,7 +1955,7 @@ status_connect(Boolean connected)
 }
 
 static void
-status_3270_mode(Boolean ignored unused)
+status_3270_mode(Boolean ignored _is_unused)
 {
 	oia_boxsolid = IN_3270 && !IN_SSCP;
 	if (oia_boxsolid)
@@ -1960,28 +1972,25 @@ static void
 draw_oia(void)
 {
 	int rmargin;
+	int i, j;
 
 	rmargin = maxCOLS - 1;
 
 	/* Make sure the status line region is filled in properly. */
-	if (appres.m3279) {
-		int i;
-
-		attrset(defattr);
-		if (status_skip) {
-			move(status_skip, 0);
-			for (i = 0; i < rmargin; i++) {
-				printw(" ");
-			}
-		}
-		move(status_row, 0);
-		for (i = 0; i < rmargin; i++) {
+	attrset(defattr);
+	move(maxROWS, 0);
+	for (i = maxROWS; i < status_row; i++) {
+		for (j = 0; j <= rmargin; j++) {
 			printw(" ");
 		}
 	}
+	move(status_row, 0);
+	for (i = 0; i <= rmargin; i++) {
+		printw(" ");
+	}
 
 	if (appres.m3279)
-	    	attrset(BACKGROUND_INTENSITY);
+	    	attrset(reverse_colors(FOREGROUND_INTENSITY | cmap_bg[COLOR_NEUTRAL_WHITE]));
 	else
 		attrset(reverse_colors(defattr));
 	mvprintw(status_row, 0, "4");
@@ -1989,10 +1998,6 @@ draw_oia(void)
 		printw("%c", IN_E? 'B': 'A');
 	else
 		printw(" ");
-	if (appres.m3279)
-	    	attrset(BACKGROUND_INTENSITY);
-	else
-		attrset(reverse_colors(defattr));
 	if (IN_ANSI)
 		printw("N");
 	else if (oia_boxsolid)
@@ -2002,7 +2007,10 @@ draw_oia(void)
 	else
 		printw("?");
 
-	attrset(FOREGROUND_INTENSITY);
+	if (appres.m3279)
+	    	attrset(FOREGROUND_INTENSITY | cmap_bg[COLOR_NEUTRAL_BLACK]);
+	else
+		attrset(defattr);
 	mvprintw(status_row, 8, "%-11s", status_msg);
 	mvprintw(status_row, rmargin-36,
 	    "%c%c %c  %c%c%c",
@@ -2016,7 +2024,10 @@ draw_oia(void)
 	    	attrset(get_color_pair(COLOR_GREEN, COLOR_NEUTRAL_BLACK) |
 			FOREGROUND_INTENSITY);
 		printw("S");
-		attrset(FOREGROUND_INTENSITY);
+		if (appres.m3279)
+			attrset(FOREGROUND_INTENSITY | cmap_bg[COLOR_NEUTRAL_WHITE]);
+		else
+			attrset(defattr);
 	} else
 	    	printw(" ");
 
@@ -2026,8 +2037,8 @@ draw_oia(void)
 }
 
 void
-Redraw_action(Widget w unused, XEvent *event unused, String *params unused,
-    Cardinal *num_params unused)
+Redraw_action(Widget w _is_unused, XEvent *event _is_unused, String *params _is_unused,
+    Cardinal *num_params _is_unused)
 {
 	if (!escaped) {
 		endwin();
@@ -2066,7 +2077,7 @@ screen_80(void)
  * instrastructure for multi-line paste.
  */
 void
-Paste_action(Widget w unused, XEvent *event, String *params,
+Paste_action(Widget w _is_unused, XEvent *event, String *params,
     Cardinal *num_params)
 {
     	HGLOBAL hglb;
@@ -2099,7 +2110,7 @@ screen_title(char *text)
 }
 
 void
-Title_action(Widget w unused, XEvent *event, String *params,
+Title_action(Widget w _is_unused, XEvent *event, String *params,
     Cardinal *num_params)
 {
     	action_debug(Title_action, event, params, num_params);
@@ -2110,7 +2121,7 @@ Title_action(Widget w unused, XEvent *event, String *params,
 }
 
 static void
-relabel(Boolean ignored unused)
+relabel(Boolean ignored _is_unused)
 {
 	char *title;
 

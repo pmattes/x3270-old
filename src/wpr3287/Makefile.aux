@@ -27,9 +27,10 @@ HEADERS = 3270ds.h ctlrc.h globals.h localdefs.h popupsc.h proxyc.h \
 	utf8c.h w3miscc.h windirsc.h winversc.h wsc.h arpa_telnet.h \
 	charsetc.h unicodec.h unicode_dbcsc.h
 MISC = mkversion.sh version.txt LICENSE Makefile Makefile.aux \
-	pr3287.ico wpr3287.rc
+	pr3287.ico wpr3287.rc Msc/deprecated.h Msc/Makefile Msc/mkversion.c \
+	Msc/README.txt
 DEVKIT = pr3287.man.m4 m42man
-HTML = html/wpr3287-man.html html/Build.html html/New.html
+HTML = html/wpr3287-man.html html/Build.html html/ReleaseNotes.html
 
 FILES = $(SOURCES) $(HEADERS) $(MISC) $(HTML) 
 
@@ -53,6 +54,8 @@ wpr3287.tgz: wpr3287.tar
 man: html/wpr3287-man.html
 html/wpr3287-man.html: pr3287.man.m4 html.m4 version.txt
 	./m42html wpr3287 pr3287.man.m4 >$@
+html/ReleaseNotes.html: html/documentation-relnotes-body.html mkstand.bash
+	./mkstand.bash "wpr3287 Release Notes" html/documentation-relnotes-body.html $@
 
 configure: configure.in
 	autoconf

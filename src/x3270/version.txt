@@ -1,2 +1,2 @@
-version="3.3.8b1"
+version="3.3.8"
 adversion="3.3.4"

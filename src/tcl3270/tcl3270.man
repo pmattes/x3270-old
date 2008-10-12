@@ -1,5 +1,5 @@
 '\" t
-.TH tcl3270 1 "19 September 2008"
+.TH tcl3270 1 "11 October 2008"
 .SH "NAME"
 tcl3270 \-
 \s-1IBM\s+1 host access tool
@@ -2258,4 +2258,4 @@ tcl3270 is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
 .SH "VERSION"
-tcl3270 3.3.8b1
+tcl3270 3.3.8
