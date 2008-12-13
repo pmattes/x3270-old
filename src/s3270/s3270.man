@@ -1,5 +1,5 @@
 '\" t
-.TH s3270 1 "20 October 2008"
+.TH s3270 1 "13 December 2008"
 .SH "NAME"
 s3270 \-
 \s-1IBM\s+1 host access tool
@@ -1974,4 +1974,4 @@ s3270 is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
 .SH "VERSION"
-s3270 3.3.8p1
+s3270 3.3.8p2

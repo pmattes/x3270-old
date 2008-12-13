@@ -1564,7 +1564,7 @@ kybd_input(void)
 		 */
 		if ((ir.Event.MouseEvent.dwButtonState ==
 			FROM_LEFT_1ST_BUTTON_PRESSED) &&
-		    (ir.Event.MouseEvent.dwControlKeyState == 0) &&
+		    /*(ir.Event.MouseEvent.dwControlKeyState == 0) &&*/
 		    (ir.Event.MouseEvent.dwEventFlags == 0) &&
 		    (ir.Event.MouseEvent.dwMousePosition.X < COLS) &&
 		    (ir.Event.MouseEvent.dwMousePosition.Y < ROWS)) {
@@ -2049,9 +2049,27 @@ Redraw_action(Widget w _is_unused, XEvent *event _is_unused, String *params _is_
 void
 ring_bell(void)
 {
-    	/* Flash the console window -- it's much kinder. */
-	if (console_window != NULL)
-	    	FlashWindow(console_window, TRUE);
+    	/*
+	 * Always flash the window.
+	 * Unless they specified visualBell, beep too.
+	 */
+
+	if (console_window != NULL) {
+		FLASHWINFO w;
+
+		memset(&w, '\0', sizeof(FLASHWINFO));
+		w.cbSize = sizeof(FLASHWINFO);
+		w.hwnd = console_window;
+		w.dwFlags = FLASHW_ALL;
+		w.uCount = 2;
+		w.dwTimeout = 250; /* 1/4s */
+
+	    	FlashWindowEx(&w);
+	}
+
+	if (!appres.visual_bell) {
+	    	MessageBeep(-1);
+	}
 }
 
 void

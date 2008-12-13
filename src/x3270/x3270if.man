@@ -1,5 +1,5 @@
 '\" t
-.TH X3270IF 1 "20 October 2008"
+.TH X3270IF 1 "07 December 2008"
 .SH "NAME"
 x3270if \- command interface to x3270, c3270 and s3270
 .SH "SYNOPSIS"
