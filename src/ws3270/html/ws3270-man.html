@@ -95,6 +95,9 @@ See <a HREF="#Character-Sets"><font size=-1>CHARACTER SETS</font></a> below.
 Sets the initial value of <i>toggle</i> to <b>false</b>.
 The list of toggle names is under <a HREF="#Toggles"><font size=-1>TOGGLES</font></a>
 below.
+<dt><b>-localcp <i>codepage</i></b></dt><dd>
+Specifies the Windows code page to use for local I/O.
+The default is to use the system's ANSI code page.
 <dt><b>-model</b> <i>name</i></dt><dd>
 The model of 3270 display to be emulated.
 The model name is in two parts, either of which may be omitted:
@@ -545,13 +548,13 @@ The resources available in <b>ws3270</b> are:
 <tr><td >erase</td>	<td >^H</td>	<td >&nbsp;</td>	<td ><font size=-1>NVT</font>-mode erase character</td></tr>
 <tr><td >extended</td>	<td >True</td>	<td >&nbsp;</td>	<td >Use 3270 extended data stream</td></tr>
 <tr><td >eventTrace</td>	<td >False</td>	<td >-trace</td>	<td >Event tracing</td></tr>
-<tr><td >ftCommand</td>	<td >ind$file</td>	<td >&nbsp;</td>	<td >Host file transfer command</td></tr>
 <tr><td >icrnl</td>	<td >False</td>	<td >&nbsp;</td>	<td >Map <font size=-1>CR</font> to <font size=-1>NL</font> on <font size=-1>NVT</font>-mode input</td></tr>
 <tr><td >inlcr</td>	<td >False</td>	<td >&nbsp;</td>	<td >Map <font size=-1>NL</font> to <font size=-1>CR</font> in <font size=-1>NVT</font>-mode input</td></tr>
 <tr><td >intr</td>	<td >^C</td>	<td >&nbsp;</td>	<td ><font size=-1>NVT</font>-mode interrupt character</td></tr>
 <tr><td >kill</td>	<td >^U</td>	<td >&nbsp;</td>	<td ><font size=-1>NVT</font>-mode kill character</td></tr>
 <tr><td >lineWrap</td>	<td >False</td>	<td >-set lineWrap</td>	<td ><font size=-1>NVT</font> line wrap mode</td></tr>
 <tr><td >lnext</td>	<td >^V</td>	<td >&nbsp;</td>	<td ><font size=-1>NVT</font>-mode lnext character</td></tr>
+<tr><td >localCp</td>	<td >(system ANSI code page)</td>	<td >-localcp</td>	<td >Windows code page for local I/O</td></tr>
 <tr><td >m3279</td>	<td ><a HREF="#rn1">(note 1)</a></td>	<td >-model</td>	<td >3279 (color) emulation</td></tr>
 <tr><td >marginedPaste</td>	<td >False</td>	<td >-set marginedPaste</td>	<td >Keep left margin when pasting</td></tr>
 <tr><td >monoCase</td>	<td >False</td>	<td >-set monoCase</td>	<td >Mono-case mode</td></tr>
@@ -563,7 +566,6 @@ The resources available in <b>ws3270</b> are:
 <tr><td >rprnt</td>	<td >^R</td>	<td >&nbsp;</td>	<td ><font size=-1>NVT</font>-mode reprint character</td></tr>
 <tr><td >secure</td>	<td >False</td>	<td >&nbsp;</td>	<td >Disable "dangerous" options</td></tr>
 <tr><td >termName</td>	<td ><a HREF="#rn2">(note 2)</a></td>	<td >-tn</td>	<td ><font size=-1>TELNET</font> terminal type string</td></tr>
-<tr><td >traceDir</td>	<td >/tmp</td>	<td >&nbsp;</td>	<td >Directory for trace files</td></tr>
 <tr><td >traceFile</td>	<td ><a HREF="#rn3">(note 3)</a></td>	<td >-tracefile</td>	<td >File for trace output</td></tr>
 <tr><td >werase</td>	<td >^W</td>	<td >&nbsp;</td>	<td ><font size=-1>NVT</font>-mode word-erase character</td></tr>
 </table>
@@ -583,8 +585,8 @@ mode is used, the terminal type is always sent as 3278, but this does not
 affect color capabilities.
 <p>
 <a NAME="rn3"></a><i>Note 3</i>: The default trace file is
-<b>x3trc.</b><i>pid</i> in the directory specified by
-the <b>traceDir</b> resource.
+<b>x3trc.</b><i>pid</i><b>.txt</b> in the
+directory where ws3270 was started.
 
 
 
@@ -627,12 +629,12 @@ ws3270 is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
 <a NAME="Version"></a><h2>Version</h2>
-ws3270 3.3.9a2
+ws3270 3.3.9a3
 <hr>
 <i>
 This HTML document and the accompanying troff document were generated with
 a set of write-only <b>m4</b> macros and the powerful <b>vi</b> editor.
-<br>Last modified 24 December 2008.
+<br>Last modified 26 December 2008.
 </i>
 </body>
 </html>
