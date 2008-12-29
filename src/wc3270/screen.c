@@ -45,6 +45,15 @@
 extern int screen_changed;
 extern char *profile_name;
 
+#if defined(X3270_DBCS) /*[*/
+# if !defined(COMMON_LVB_LEAD_BYTE) /*[*/
+#  define COMMON_LVB_LEAD_BYTE		0x100
+# endif /*]*/
+# if !defined(COMMON_LVB_TRAILING_BYTE) /*[*/
+#  define COMMON_LVB_TRAILING_BYTE	0x200
+# endif /*]*/
+#endif /*]*/
+
 #define MAX_COLORS	16
 /* N.B.: "neutral black" means black on a screen (white-on-black device) and
  *         white on a printer (black-on-white device).
@@ -630,7 +639,11 @@ draw_rect(int pc_start, int pc_end, int pr_start, int pr_end)
 					}
 				}
 			}
+			if (tos_a(ul_row, ul_col) & COMMON_LVB_LEAD_BYTE)
+			    continue;
 			hdraw(ul_row, lr_row, ul_col, lr_col);
+			if (tos_a(ul_row, ul_col) & COMMON_LVB_TRAILING_BYTE)
+			    hdraw(ul_row, lr_row, ul_col-1, lr_col-1);
 		}
 	}
 }
@@ -739,6 +752,12 @@ refresh(void)
 	/* Move the cursor. */
 	coord.X = cur_col;
 	coord.Y = cur_row;
+#if defined(X3270_DBCS) /*[*/
+	if (onscreen[ix(cur_row, cur_col)].Attributes &
+		COMMON_LVB_TRAILING_BYTE) {
+	    coord.X--;
+	}
+#endif /*]*/
 	if (SetConsoleCursorPosition(sbuf, coord) == 0) {
 		fprintf(stderr,
 			"\nrefresh: SetConsoleCursorPosition(x=%d,y=%d) "
@@ -1282,6 +1301,12 @@ screen_disp(Boolean erasing _is_unused)
 
 			coord.X = cur_col;
 			coord.Y = cur_row;
+#if defined(X3270_DBCS) /*[*/
+			if (onscreen[ix(cur_row, cur_col)].Attributes &
+				COMMON_LVB_TRAILING_BYTE) {
+			    coord.X--;
+			}
+#endif /*]*/
 			if (SetConsoleCursorPosition(sbuf, coord) == 0) {
 				fprintf(stderr,
 					"\nscreen_disp: "
@@ -1350,17 +1375,21 @@ screen_disp(Boolean erasing _is_unused)
 				d = ctlr_dbcs_state(baddr);
 				if (IS_LEFT(d)) {
 					int xaddr = baddr;
-					char mb[16];
-					int len;
-					int i;
 
 					INC_BA(xaddr);
-					len = dbcs_to_mb(ea_buf[baddr].cc,
-					    ea_buf[xaddr].cc,
-					    mb);
-					for (i = 0; i < len; i++) {
-						addch(mb[i] & 0xff);
-					}
+					c = ebcdic_to_unicode(
+						(ea_buf[baddr].cc << 8) |
+						ea_buf[xaddr].cc,
+						CS_BASE,
+						False);
+					if (c == 0)
+					    	c = ' ';
+					cur_attr |= COMMON_LVB_LEAD_BYTE;
+					addch(c);
+					cur_attr &= ~COMMON_LVB_LEAD_BYTE;
+					cur_attr |= COMMON_LVB_TRAILING_BYTE;
+					addch(' ');
+					cur_attr &= ~COMMON_LVB_TRAILING_BYTE;
 				} else if (!IS_RIGHT(d)) {
 #endif /*]*/
 					c = ebcdic_to_unicode(ea_buf[baddr].cc,
@@ -1523,7 +1552,13 @@ kybd_input(void)
 
 	switch (ir.EventType) {
 	case FOCUS_EVENT:
-		/*trace_event("Focus\n");*/
+		trace_event("Focus\n");
+		/*
+		 * When we get a focus event, the system may have (incorrectly)
+		 * redrawn our window.  Do it again ourselves.
+		 */
+		onscreen_valid = FALSE;
+		refresh();
 		break;
 	case KEY_EVENT:
 		if (!ir.Event.KeyEvent.bKeyDown) {
@@ -1564,7 +1599,7 @@ kybd_input(void)
 		 */
 		if ((ir.Event.MouseEvent.dwButtonState ==
 			FROM_LEFT_1ST_BUTTON_PRESSED) &&
-		    (ir.Event.MouseEvent.dwControlKeyState == 0) &&
+		    /*(ir.Event.MouseEvent.dwControlKeyState == 0) &&*/
 		    (ir.Event.MouseEvent.dwEventFlags == 0) &&
 		    (ir.Event.MouseEvent.dwMousePosition.X < COLS) &&
 		    (ir.Event.MouseEvent.dwMousePosition.Y < ROWS)) {
@@ -1806,6 +1841,7 @@ screen_resume(void)
 	escaped = False;
 
 	screen_disp(False);
+	onscreen_valid = FALSE;
 	refresh();
 	input_id = AddInput((int)chandle, kybd_input);
 }
@@ -2041,7 +2077,7 @@ Redraw_action(Widget w _is_unused, XEvent *event _is_unused, String *params _is_
     Cardinal *num_params _is_unused)
 {
 	if (!escaped) {
-		endwin();
+		onscreen_valid = FALSE;
 		refresh();
 	}
 }
@@ -2049,9 +2085,27 @@ Redraw_action(Widget w _is_unused, XEvent *event _is_unused, String *params _is_
 void
 ring_bell(void)
 {
-    	/* Flash the console window -- it's much kinder. */
-	if (console_window != NULL)
-	    	FlashWindow(console_window, TRUE);
+    	/*
+	 * Always flash the window.
+	 * Unless they specified visualBell, beep too.
+	 */
+
+	if (console_window != NULL) {
+		FLASHWINFO w;
+
+		memset(&w, '\0', sizeof(FLASHWINFO));
+		w.cbSize = sizeof(FLASHWINFO);
+		w.hwnd = console_window;
+		w.dwFlags = FLASHW_ALL;
+		w.uCount = 2;
+		w.dwTimeout = 250; /* 1/4s */
+
+	    	FlashWindowEx(&w);
+	}
+
+	if (!appres.visual_bell) {
+	    	MessageBeep(-1);
+	}
 }
 
 void
@@ -2082,20 +2136,45 @@ Paste_action(Widget w _is_unused, XEvent *event, String *params,
 {
     	HGLOBAL hglb;
 	LPTSTR lptstr;
+	UINT format = is_nt? CF_UNICODETEXT: CF_TEXT;
 
     	action_debug(Paste_action, event, params, num_params);
 	if (check_usage(Paste_action, *num_params, 0, 0) < 0)
 	    	return;
 
-    	if (!IsClipboardFormatAvailable(CF_TEXT))
+    	if (!IsClipboardFormatAvailable(format))
 		return; 
 	if (!OpenClipboard(NULL))
 		return;
-	hglb = GetClipboardData(CF_TEXT);
+	hglb = GetClipboardData(format);
 	if (hglb != NULL) {
 		lptstr = GlobalLock(hglb);
 		if (lptstr != NULL) { 
-			emulate_input(lptstr, strlen(lptstr), True);
+		    	if (is_nt) {
+			    int sl = 0;
+			    wchar_t *w = (wchar_t *)lptstr;
+			    ucs4_t *u;
+			    ucs4_t *us;
+			    int i;
+
+			    for (i = 0; *w != 0x0000; i++, w++) {
+				sl++;
+			    }
+			    us = u = Malloc(sl * sizeof(ucs4_t));
+
+			    /*
+			     * Expand from UCS-2 to UCS-4.
+			     * XXX: It isn't UCS-2, it's UTF-16.
+			     */
+			    w = (wchar_t *)lptstr;
+			    for (i = 0; i < sl; i++) {
+				*us++ = *w++;
+			    }
+			    emulate_uinput(u, sl, True);
+			    Free(u);
+			} else {
+			    emulate_input(lptstr, strlen(lptstr), True);
+			}
 			GlobalUnlock(hglb); 
 		}
 	}

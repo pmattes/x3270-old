@@ -3,7 +3,7 @@
 
 [Setup]
 AppName=wc3270
-AppVerName=wc3270 3.3.8
+AppVerName=wc3270 3.3.9a4
 AppPublisher=Paul Mattes
 AppPublisherURL=http://x3270.bgp.nu
 AppSupportURL=http://x3270.bgp.nu
@@ -14,7 +14,7 @@ DefaultDirName={pf}\wc3270
 DisableDirPage=no
 DefaultGroupName=wc3270
 AllowNoIcons=yes
-OutputBaseFilename=wc3270-3.3.8-setup
+OutputBaseFilename=wc3270-3.3.9a4-setup
 OutputDir=\\Melville\pdm\psrc\x3270\Release\Inno\wc3270
 Compression=lzma
 SolidCompression=yes
@@ -37,19 +37,19 @@ Source: "\\Melville\pdm\psrc\x3270\Release\Inno\wc3270\catf.exe"; DestDir: "{app
 Source: "\\Melville\pdm\psrc\x3270\Release\Inno\wc3270\mkshort.exe"; DestDir: "{app}"; Flags: ignoreversion deleteafterinstall
 Source: "\\Melville\pdm\psrc\x3270\Release\Inno\wc3270\ead3270.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "\\Melville\pdm\psrc\x3270\Release\Inno\wc3270\wc3270wiz.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "\\Melville\pdm\psrc\x3270\Source\3.3.8-branch\wc3270\html\Bugs.html"; DestDir: "{app}\html"; Flags: ignoreversion
-Source: "\\Melville\pdm\psrc\x3270\Source\3.3.8-branch\wc3270\html\Build.html"; DestDir: "{app}\html"; Flags: ignoreversion
-Source: "\\Melville\pdm\psrc\x3270\Source\3.3.8-branch\wc3270\html\FAQ.html"; DestDir: "{app}\html"; Flags: ignoreversion
-Source: "\\Melville\pdm\psrc\x3270\Source\3.3.8-branch\wc3270\html\Intro.html"; DestDir: "{app}\html"; Flags: ignoreversion
-Source: "\\Melville\pdm\psrc\x3270\Source\3.3.8-branch\wc3270\html\Keymap.html"; DestDir: "{app}\html"; Flags: ignoreversion
-Source: "\\Melville\pdm\psrc\x3270\Source\3.3.8-branch\wc3270\html\Lineage.html"; DestDir: "{app}\html"; Flags: ignoreversion
-Source: "\\Melville\pdm\psrc\x3270\Source\3.3.8-branch\wc3270\html\ReleaseNotes.html"; DestDir: "{app}\html"; Flags: ignoreversion
-Source: "\\Melville\pdm\psrc\x3270\Source\3.3.8-branch\wc3270\html\README.html"; DestDir: "{app}\html"; Flags: ignoreversion
-Source: "\\Melville\pdm\psrc\x3270\Source\3.3.8-branch\wc3270\html\wc3270-man.html"; DestDir: "{app}\html"; Flags: ignoreversion
-Source: "\\Melville\pdm\psrc\x3270\Source\3.3.8-branch\wc3270\html\Wishlist.html"; DestDir: "{app}\html"; Flags: ignoreversion
-Source: "\\Melville\pdm\psrc\x3270\Source\3.3.8-branch\wpr3287\html\wpr3287-man.html"; DestDir: "{app}\html"; Flags: ignoreversion
-Source: "\\Melville\pdm\psrc\x3270\Source\3.3.8-branch\wc3270\LICENSE.txt"; DestDir: "{app}"; Flags: ignoreversion
-Source: "\\Melville\pdm\psrc\x3270\Source\3.3.8-branch\wc3270\README.txt"; DestDir: "{app}"; Flags: ignoreversion
+Source: "\\Melville\pdm\psrc\x3270\Source\3.3svn\wc3270\html\Bugs.html"; DestDir: "{app}\html"; Flags: ignoreversion
+Source: "\\Melville\pdm\psrc\x3270\Source\3.3svn\wc3270\html\Build.html"; DestDir: "{app}\html"; Flags: ignoreversion
+Source: "\\Melville\pdm\psrc\x3270\Source\3.3svn\wc3270\html\FAQ.html"; DestDir: "{app}\html"; Flags: ignoreversion
+Source: "\\Melville\pdm\psrc\x3270\Source\3.3svn\wc3270\html\Intro.html"; DestDir: "{app}\html"; Flags: ignoreversion
+Source: "\\Melville\pdm\psrc\x3270\Source\3.3svn\wc3270\html\Keymap.html"; DestDir: "{app}\html"; Flags: ignoreversion
+Source: "\\Melville\pdm\psrc\x3270\Source\3.3svn\wc3270\html\Lineage.html"; DestDir: "{app}\html"; Flags: ignoreversion
+Source: "\\Melville\pdm\psrc\x3270\Source\3.3svn\wc3270\html\ReleaseNotes.html"; DestDir: "{app}\html"; Flags: ignoreversion
+Source: "\\Melville\pdm\psrc\x3270\Source\3.3svn\wc3270\html\README.html"; DestDir: "{app}\html"; Flags: ignoreversion
+Source: "\\Melville\pdm\psrc\x3270\Source\3.3svn\wc3270\html\wc3270-man.html"; DestDir: "{app}\html"; Flags: ignoreversion
+Source: "\\Melville\pdm\psrc\x3270\Source\3.3svn\wc3270\html\Wishlist.html"; DestDir: "{app}\html"; Flags: ignoreversion
+Source: "\\Melville\pdm\psrc\x3270\Source\3.3svn\wpr3287\html\wpr3287-man.html"; DestDir: "{app}\html"; Flags: ignoreversion
+Source: "\\Melville\pdm\psrc\x3270\Source\3.3svn\wc3270\LICENSE.txt"; DestDir: "{app}"; Flags: ignoreversion
+Source: "\\Melville\pdm\psrc\x3270\Source\3.3svn\wc3270\README.txt"; DestDir: "{app}"; Flags: ignoreversion
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Dirs]
