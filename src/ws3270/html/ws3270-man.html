@@ -217,13 +217,16 @@ Available sets include:
 <tr><td ><center>icelandic-euro</center></td>	<td ><center>1149</center></td>	<td ><center>  </center></td></tr>
 <tr><td ><center>italian</center></td>	<td ><center>280</center></td>	<td ><center>  </center></td></tr>
 <tr><td ><center>italian-euro</center></td>	<td ><center>1144</center></td>	<td ><center>  </center></td></tr>
+<tr><td ><center>japanese</center></td>	<td ><center>1027+300</center></td>	<td ><center></center></td></tr>
 <tr><td ><center>norwegian</center></td>	<td ><center>277</center></td>	<td ><center>  </center></td></tr>
 <tr><td ><center>norwegian-euro</center></td>	<td ><center>1142</center></td>	<td ><center>  </center></td></tr>
 <tr><td ><center>russian</center></td>	<td ><center>880</center></td>	<td ><center></center></td></tr>
+<tr><td ><center>simplified-chinese</center></td>	<td ><center>836+837</center></td>	<td ><center></center></td></tr>
 <tr><td ><center>slovenian</center></td>	<td ><center>870</center></td>	<td ><center></center></td></tr>
 <tr><td ><center>spanish</center></td>	<td ><center>284</center></td>	<td ><center>  </center></td></tr>
 <tr><td ><center>spanish-euro</center></td>	<td ><center>1145</center></td>	<td ><center>  </center></td></tr>
 <tr><td ><center>thai</center></td>	<td ><center>1160</center></td>	<td ><center> </center></td></tr>
+<tr><td ><center>traditional-chinese</center></td>	<td ><center>937</center></td>	<td ><center></center></td></tr>
 <tr><td ><center>turkish</center></td>	<td ><center>1026</center></td>	<td ><center></center></td></tr>
 <tr><td ><center>uk</center></td>	<td ><center>285</center></td>	<td ><center>  </center></td></tr>
 <tr><td ><center>uk-euro</center></td>	<td ><center>1146</center></td>	<td ><center>  </center></td></tr>
@@ -473,7 +476,7 @@ The C backslash conventions are honored as follows.
 processing the string.)
 <table BORDER cols=2 width="75%">
 <tr><td >\b</td>	<td >Left</td></tr>
-<tr><td >\e<i>xx</i></td>	<td >EBCDIC character in hex</td></tr>
+<tr><td >\e<i>xxxx</i></td>	<td >EBCDIC character in hex</td></tr>
 <tr><td >\f</td>	<td >Clear*</td></tr>
 <tr><td >\n</td>	<td >Enter*</td></tr>
 <tr><td >\pa<i>n</i></td>	<td >PA(<i>n</i>)*</td></tr>
@@ -481,8 +484,15 @@ processing the string.)
 <tr><td >\r</td>	<td >Newline</td></tr>
 <tr><td >\t</td>	<td >Tab</td></tr>
 <tr><td >\T</td>	<td >BackTab</td></tr>
-<tr><td >\x<i>xx</i></td>	<td >ASCII character in hex</td></tr>
+<tr><td >\u<i>xxxx</i></td>	<td >Unicode character in hex</td></tr>
+<tr><td >\x<i>xxxx</i></td>	<td >Unicode character in hex</td></tr>
 </table>
+<p>
+Note that the numeric values for the \e, \u and \x sequences
+can be abbreviated to 2 digits.
+Note also that EBCDIC codes greater than 255 and some Unicode character codes
+represent DBCS characters, which will work only if ws3270 is built with
+DBCS support and the host allows DBCS input in the current field.
 <p>
 <b>Note:</b>
 The strings are in <font size=-1>ASCII</font> and converted to <font size=-1>EBCDIC</font>,
@@ -554,7 +564,6 @@ The resources available in <b>ws3270</b> are:
 <tr><td >kill</td>	<td >^U</td>	<td >&nbsp;</td>	<td ><font size=-1>NVT</font>-mode kill character</td></tr>
 <tr><td >lineWrap</td>	<td >False</td>	<td >-set lineWrap</td>	<td ><font size=-1>NVT</font> line wrap mode</td></tr>
 <tr><td >lnext</td>	<td >^V</td>	<td >&nbsp;</td>	<td ><font size=-1>NVT</font>-mode lnext character</td></tr>
-<tr><td >localCp</td>	<td >(system ANSI code page)</td>	<td >-localcp</td>	<td >Windows code page for local I/O</td></tr>
 <tr><td >m3279</td>	<td ><a HREF="#rn1">(note 1)</a></td>	<td >-model</td>	<td >3279 (color) emulation</td></tr>
 <tr><td >marginedPaste</td>	<td >False</td>	<td >-set marginedPaste</td>	<td >Keep left margin when pasting</td></tr>
 <tr><td >monoCase</td>	<td >False</td>	<td >-set monoCase</td>	<td >Mono-case mode</td></tr>
@@ -608,7 +617,7 @@ RFC 1646, TN3270 Extensions for LUname and Printer Selection
 RFC 2355, TN3270 Enhancements
 <a NAME="Copyrights"></a><h2>Copyrights</h2>
 <p>
-Modifications and original code Copyright &copy; 1993-2008 by Paul Mattes.
+Modifications and original code Copyright &copy; 1993-2009 by Paul Mattes.
 <br>
 DFT File Transfer Code Copyright  &copy; October 1995 by Dick Altenbern.
 <br>
@@ -629,12 +638,12 @@ ws3270 is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
 <a NAME="Version"></a><h2>Version</h2>
-ws3270 3.3.9a3
+ws3270 3.3.9a5
 <hr>
 <i>
 This HTML document and the accompanying troff document were generated with
 a set of write-only <b>m4</b> macros and the powerful <b>vi</b> editor.
-<br>Last modified 26 December 2008.
+<br>Last modified 05 January 2009.
 </i>
 </body>
 </html>

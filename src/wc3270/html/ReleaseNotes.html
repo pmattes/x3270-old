@@ -6,6 +6,16 @@
  <body>
 <h1>Changes in x3270, c3270, wc3270, s3270, tcl3270, pr3287 and wpr3287 3.3</h1>
 3.3 is the current development line for the x3270 suite.
+<h2>Changes in version 3.3.9a5, 5. January 2009</h2>
+<ul>
+ <li>[<i>ws3270</i>] Fixed a bug which resulted in all command timings
+  being displayed as '-'.</li>
+ <li>[all] Added support for carriage-return (0x0d) characters in the
+  <b>String</b> action, which imply the <b>Newline</b> action.</li>
+ <li>Extended the <b>String</b> action's <b>\e</b> and <b>\x</b> sequences
+  to accept 4-digit hex values, thus allowing EBCDIC DBCS input and arbitrary
+  Unicode input.  Also added <b>\u</b> as an alias for <b>\x</b>.</li>
+</ul>
 <h2>Changes in version 3.3.9a4, 28. December 2008</h2>
 <ul>
  <li>[<i>wc3270</i> and <i>wpr3287</i>] Added DBCS support.</li>

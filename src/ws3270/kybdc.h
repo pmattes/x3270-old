@@ -1,1 +1,1 @@
-../x3270/kybdc.h
+../wc3270/kybdc.h

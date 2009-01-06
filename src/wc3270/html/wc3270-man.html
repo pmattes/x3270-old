@@ -266,8 +266,8 @@ which is useful for common <font size=-1>IBM</font> hosts which use <font size=-
 codes 0xAD and 0xBD for the `[' and `]' characters,
 respectively.
 <p>
-Note that DBCS character sets (Chinese, Japanese) will not display properly on
-Windows 98 or Windows 2000.
+Note that DBCS character sets (Chinese, Japanese) display properly only on
+32-bit Windows XP.  Work is proceeding on other platforms.
 <a NAME="NVT-ANSI-Mode"></a><h2>NVT (ANSI) Mode</h2>
 Some hosts use an <font size=-1>ASCII</font> front-end to do initial login negotiation,
 then later switch to 3270 mode.
@@ -790,7 +790,7 @@ The C backslash conventions are honored as follows.
 processing the string.)
 <table BORDER cols=2 width="75%">
 <tr><td >\b</td>	<td >Left</td></tr>
-<tr><td >\e<i>xx</i></td>	<td >EBCDIC character in hex</td></tr>
+<tr><td >\e<i>xxxx</i></td>	<td >EBCDIC character in hex</td></tr>
 <tr><td >\f</td>	<td >Clear*</td></tr>
 <tr><td >\n</td>	<td >Enter*</td></tr>
 <tr><td >\pa<i>n</i></td>	<td >PA(<i>n</i>)*</td></tr>
@@ -798,8 +798,15 @@ processing the string.)
 <tr><td >\r</td>	<td >Newline</td></tr>
 <tr><td >\t</td>	<td >Tab</td></tr>
 <tr><td >\T</td>	<td >BackTab</td></tr>
-<tr><td >\x<i>xx</i></td>	<td >ASCII character in hex</td></tr>
+<tr><td >\u<i>xxxx</i></td>	<td >Unicode character in hex</td></tr>
+<tr><td >\x<i>xxxx</i></td>	<td >Unicode character in hex</td></tr>
 </table>
+<p>
+Note that the numeric values for the \e, \u and \x sequences
+can be abbreviated to 2 digits.
+Note also that EBCDIC codes greater than 255 and some Unicode character codes
+represent DBCS characters, which will work only if wc3270 is built with
+DBCS support and the host allows DBCS input in the current field.
 <p>
 An example keymap entry would be:
 <blockquote>Alt&lt;Key>p: String("probs clearrdr\n")</blockquote>
@@ -971,7 +978,7 @@ RFC 1646, TN3270 Extensions for LUname and Printer Selection
 RFC 2355, TN3270 Enhancements
 <a NAME="Copyrights"></a><h2>Copyrights</h2>
 <p>
-Modifications and original code Copyright &copy; 1993-2008 by Paul Mattes.
+Modifications and original code Copyright &copy; 1993-2009 by Paul Mattes.
 <br>
 DFT File Transfer Code Copyright  &copy; October 1995 by Dick Altenbern.
 <br>
@@ -992,12 +999,12 @@ wc3270 is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
 <a NAME="Version"></a><h2>Version</h2>
-wc3270 3.3.9a4
+wc3270 3.3.9a5
 <hr>
 <i>
 This HTML document and the accompanying troff document were generated with
 a set of write-only <b>m4</b> macros and the powerful <b>vi</b> editor.
-<br>Last modified 28 December 2008.
+<br>Last modified 05 January 2009.
 </i>
 </body>
 </html>
