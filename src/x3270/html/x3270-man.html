@@ -169,7 +169,7 @@ Model 4 is the default.
 <tr><td ><center>Model Number</center></td>	<td ><center>Columns</center></td>	<td ><center>Rows</center></td></tr>
 
 <tr><td ><center>2</center></td>	<td ><center>80</center></td>	<td ><center>24</center></td></tr>
-<tr><td ><center>3</center></td>	<td ><center>80</center></td>	<td ><center>30</center></td></tr>
+<tr><td ><center>3</center></td>	<td ><center>80</center></td>	<td ><center>32</center></td></tr>
 <tr><td ><center>4</center></td>	<td ><center>80</center></td>	<td ><center>43</center></td></tr>
 <tr><td ><center>5</center></td>	<td ><center>132</center></td>	<td ><center>27</center></td></tr>
 </table>
@@ -378,6 +378,7 @@ Available sets include:
 <tr><td ><center>spanish</center></td>	<td ><center>284</center></td>	<td ><center>3270cg-1a 3270cg-1 iso8859-1</center></td></tr>
 <tr><td ><center>spanish-euro</center></td>	<td ><center>1145</center></td>	<td ><center>3270cg-15a 3270cg-15 iso8859-15</center></td></tr>
 <tr><td ><center>thai</center></td>	<td ><center>1160</center></td>	<td ><center>iso8859-11 tis620.2529-0</center></td></tr>
+<tr><td ><center>traditional-chinese</center></td>	<td ><center>937</center></td>	<td ><center>3270cg-1a iso8859-1 + Big5-0</center></td></tr>
 <tr><td ><center>turkish</center></td>	<td ><center>1026</center></td>	<td ><center>iso8859-9</center></td></tr>
 <tr><td ><center>uk</center></td>	<td ><center>285</center></td>	<td ><center>3270cg-1a 3270cg-1 iso8859-1</center></td></tr>
 <tr><td ><center>uk-euro</center></td>	<td ><center>1146</center></td>	<td ><center>3270cg-15a 3270cg-15 iso8859-15</center></td></tr>
@@ -1046,7 +1047,7 @@ The C backslash conventions are honored as follows.
 processing the string.)
 <table BORDER cols=2 width="75%">
 <tr><td >\b</td>	<td >Left</td></tr>
-<tr><td >\e<i>xx</i></td>	<td >EBCDIC character in hex</td></tr>
+<tr><td >\e<i>xxxx</i></td>	<td >EBCDIC character in hex</td></tr>
 <tr><td >\f</td>	<td >Clear*</td></tr>
 <tr><td >\n</td>	<td >Enter*</td></tr>
 <tr><td >\pa<i>n</i></td>	<td >PA(<i>n</i>)*</td></tr>
@@ -1054,8 +1055,15 @@ processing the string.)
 <tr><td >\r</td>	<td >Newline</td></tr>
 <tr><td >\t</td>	<td >Tab</td></tr>
 <tr><td >\T</td>	<td >BackTab</td></tr>
-<tr><td >\x<i>xx</i></td>	<td >ASCII character in hex</td></tr>
+<tr><td >\u<i>xxxx</i></td>	<td >Unicode character in hex</td></tr>
+<tr><td >\x<i>xxxx</i></td>	<td >Unicode character in hex</td></tr>
 </table>
+<p>
+Note that the numeric values for the \e, \u and \x sequences
+can be abbreviated to 2 digits.
+Note also that EBCDIC codes greater than 255 and some Unicode character codes
+represent DBCS characters, which will work only if x3270 is built with
+DBCS support and the host allows DBCS input in the current field.
 <p>
 An example keymap entry would be:
 <blockquote>Meta&lt;Key>p: String("probs clearrdr\n")</blockquote>
@@ -1422,34 +1430,58 @@ RFC 1646, TN3270 Extensions for LUname and Printer Selection
 <br>
 RFC 2355, TN3270 Enhancements
 <a NAME="Copyrights"></a><h2>Copyrights</h2>
+Copyright &copy; 1993-2009, Paul Mattes.
+<br>
+Copyright &copy; 2004-2005, Don Russell.
+<br>
+Copyright &copy; 2004, Dick Altenbern.
+<br>
+Copyright &copy; 1990, Jeff Sparkes.
+<br>
+Copyright &copy; 1989, Georgia Tech Research Corporation (GTRC), Atlanta, GA
+ 30332.
+<br>
+All rights reserved.
 <p>
-Modifications and original code Copyright &copy; 1993-2008 by Paul Mattes.
-<br>
-DFT File Transfer Code Copyright  &copy; October 1995 by Dick Altenbern.
-<br>
-RPQNAMES Code Copyright  &copy; 2004, 2005 by Don Russell.
-<br>
-Original X11 Port Copyright &copy; 1990 by Jeff Sparkes.
-<blockquote>Permission to use, copy, modify, and distribute this software and its
-documentation for any purpose and without fee is hereby granted,
-provided that the above copyright notice appear in all copies and that
-both that copyright notice and this permission notice appear in
-supporting documentation.</blockquote>
-Copyright &copy; 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.
-<blockquote>All Rights Reserved.  GTRC hereby grants public use of this software.
-Derivative works based on this software must incorporate this copyright
-notice.</blockquote>
-<br>
-x3270 is distributed in the hope that it will be useful, but WITHOUT ANY
-WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+<dl>
+<dt>*</dt><dd>
+Redistributions of source code must retain the above copyright notice, this
+list of conditions and the following disclaimer.
+<dt>*</dt><dd>
+Redistributions in binary form must reproduce the above copyright
+notice, this list of conditions and the following disclaimer in the
+documentation and/or other materials provided with the distribution.
+<dt>*</dt><dd>
+Neither the names of Paul Mattes, Don Russell, Dick Altenbern, Jeff Sparkes,
+GTRC nor
+the names of their contributors may be used to endorse or promote
+products derived from this software without specific prior written
+permission.
+</dl>
+
+<p>
+THIS SOFTWARE IS PROVIDED BY PAUL MATTES, DON RUSSELL, DICK ALTENBERN, JEFF
+SPARKES AND GTRC
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
+TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL PAUL MATTES, DON RUSSELL, DICK
+ALTENBERN, JEFF
+SPARKES OR GTRC BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL
+EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 <a NAME="Version"></a><h2>Version</h2>
-x3270 3.3.9a1
+x3270 3.3.9a6
 <hr>
 <i>
 This HTML document and the accompanying troff document were generated with
 a set of write-only <b>m4</b> macros and the powerful <b>vi</b> editor.
-<br>Last modified 23 October 2008.
+<br>Last modified 15 January 2009.
 </i>
 </body>
 </html>

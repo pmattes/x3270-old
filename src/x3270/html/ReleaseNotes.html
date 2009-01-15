@@ -6,6 +6,55 @@
  <body>
 <h1>Changes in x3270, c3270, wc3270, s3270, tcl3270, pr3287 and wpr3287 3.3</h1>
 3.3 is the current development line for the x3270 suite.
+<h2>Changes in version 3.3.9a6, 15. January 2009</h2>
+ <ul>
+  <li>[<i>wc3270</i>] Included <b>ws3270</b> in the <b>wc3270</b> release.</li>
+  <li>[<i>x3270</i>] Included fonts for Traditional Chinese.</li>
+ </ul>
+<h2>Changes in version 3.3.9a5, 5. January 2009</h2>
+<ul>
+ <li>[<i>ws3270</i>] Fixed a bug which resulted in all command timings
+  being displayed as '-'.</li>
+ <li>[all] Added support for carriage-return (0x0d) characters in the
+  <b>String</b> action, which imply the <b>Newline</b> action.</li>
+ <li>Extended the <b>String</b> action's <b>\e</b> and <b>\x</b> sequences
+  to accept 4-digit hex values, thus allowing EBCDIC DBCS input and arbitrary
+  Unicode input.  Also added <b>\u</b> as an alias for <b>\x</b>.</li>
+</ul>
+<h2>Changes in version 3.3.9a4, 28. December 2008</h2>
+<ul>
+ <li>[<i>wc3270</i> and <i>wpr3287</i>] Added DBCS support.</li>
+</ul>
+<h2>Changes in version 3.3.9a3, 26. December 2008</h2>
+<ul>
+ <li>[<i>ws3270</i>] Added the <b>-localcp</b> option and
+  <b>localCP</b> resource to change the Windows code page used for local
+  workstation I/O.</li>
+ <li>[<i>ws3270</i>] Added DBCS support and support for building using
+  Microsoft tools.</li>
+ <li>[<i>all</i>] Changed the <b>Attn</b> action so that it sends an IAC
+  BREAK in TN3270 mode, and locks the keyboard in TN3270E mode when the
+  session is not SNA bound.</i>
+</ul>
+<h2>Changes in version 3.3.9a1, 20. October 2008</h2>
+<ul>
+ <li>[all but <i>wc3270</i>] Added Traditional Chinese (host code page 937)
+  support.</li>
+</ul>
+<h2>Changes in version 3.3.8p2, 13 December 2008</h2>
+<ul>
+ <li>[<i>wc3270</i>] Corrected the handling of 8-bit and DBCS characters in
+  the <b>PrintText</b> action.</li>
+ <li>[<i>tcl3270</i>] Extended <tt>configure</tt> to find the <b>Tcl</b>
+  library version automatically.</li>
+ <li>[<i>wc3270</i>] Corrected a problem which caused mouse clicks not to be
+  recognized (not moving the cursor) if <b>NumLock</b> was set.</li>
+ <li>[<i>all</i>] Corrected the <tt>configure</tt> script to recognize
+  a separately-installed <b>iconv</b> library even if the <i>iconv()</i>
+  function is defined in <b>libc</b>.</li>
+ <li>[<i>wc3270</i>] Restored the bell sound, and added a <b>visualBell</b>
+  resource to disable it.</li>
+</ul>
 <h2>Changes in version 3.3.8p1, 20 October 2008</h2>
 <ul>
  <li>[<i>wc3270</i>] Restored the <b>Ctrl-]</b> mapping for the

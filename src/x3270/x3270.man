@@ -1,5 +1,5 @@
 '\" t
-.TH x3270 1 "23 October 2008"
+.TH x3270 1 "15 January 2009"
 .SH "NAME"
 x3270 \-
 \s-1IBM\s+1 host access tool
@@ -186,7 +186,7 @@ T}	T{
 T}	T{
 .na
 .nh
-30
+32
 T}
 T{
 .na
@@ -2204,7 +2204,7 @@ T}
 T{
 .na
 .nh
-\ee\fIxx\fP
+\ee\fIxxxx\fP
 T}	T{
 .na
 .nh
@@ -2276,13 +2276,28 @@ T}
 T{
 .na
 .nh
-\ex\fIxx\fP
+\eu\fIxxxx\fP
 T}	T{
 .na
 .nh
-ASCII character in hex
+Unicode character in hex
+T}
+T{
+.na
+.nh
+\ex\fIxxxx\fP
+T}	T{
+.na
+.nh
+Unicode character in hex
 T}
 .TE
+.IP
+Note that the numeric values for the \ee, \eu and \ex sequences
+can be abbreviated to 2 digits.
+Note also that EBCDIC codes greater than 255 and some Unicode character codes
+represent DBCS characters, which will work only if x3270 is built with
+DBCS support and the host allows DBCS input in the current field.
 .IP
 An example keymap entry would be:
 .RS
@@ -4982,30 +4997,52 @@ RFC 1646, TN3270 Extensions for LUname and Printer Selection
 .br
 RFC 2355, TN3270 Enhancements
 .SH "COPYRIGHTS"
+Copyright 1993-2009, Paul Mattes.
+.br
+Copyright 2004-2005, Don Russell.
+.br
+Copyright 2004, Dick Altenbern.
+.br
+Copyright 1990, Jeff Sparkes.
+.br
+Copyright 1989, Georgia Tech Research Corporation (GTRC), Atlanta, GA
+ 30332.
+.br
+All rights reserved.
 .LP
-Modifications and original code Copyright 1993-2008 by Paul Mattes.
-.br
-DFT File Transfer Code Copyright  October 1995 by Dick Altenbern.
-.br
-RPQNAMES Code Copyright  2004, 2005 by Don Russell.
-.br
-Original X11 Port Copyright 1990 by Jeff Sparkes.
-.RS
-Permission to use, copy, modify, and distribute this software and its
-documentation for any purpose and without fee is hereby granted,
-provided that the above copyright notice appear in all copies and that
-both that copyright notice and this permission notice appear in
-supporting documentation.
-.RE
-Copyright 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.
-.RS
-All Rights Reserved.  GTRC hereby grants public use of this software.
-Derivative works based on this software must incorporate this copyright
-notice.
-.RE
-.br
-x3270 is distributed in the hope that it will be useful, but WITHOUT ANY
-WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+.TP
+*
+Redistributions of source code must retain the above copyright notice, this
+list of conditions and the following disclaimer.
+.TP
+*
+Redistributions in binary form must reproduce the above copyright
+notice, this list of conditions and the following disclaimer in the
+documentation and/or other materials provided with the distribution.
+.TP
+*
+Neither the names of Paul Mattes, Don Russell, Dick Altenbern, Jeff Sparkes,
+GTRC nor
+the names of their contributors may be used to endorse or promote
+products derived from this software without specific prior written
+permission.
+
+.LP
+THIS SOFTWARE IS PROVIDED BY PAUL MATTES, DON RUSSELL, DICK ALTENBERN, JEFF
+SPARKES AND GTRC
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
+TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL PAUL MATTES, DON RUSSELL, DICK
+ALTENBERN, JEFF
+SPARKES OR GTRC BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL
+EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 .SH "VERSION"
-x3270 3.3.9a1
+x3270 3.3.9a6

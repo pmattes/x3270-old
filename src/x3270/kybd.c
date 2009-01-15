@@ -1,5 +1,5 @@
 /*
- * Modifications Copyright 1993-2008 by Paul Mattes.
+ * Modifications Copyright 1993-2009 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -401,7 +401,34 @@ kybd_in3270(Boolean in3270 _is_unused)
 {
 	if (kybdlock & KL_DEFERRED_UNLOCK)
 		RemoveTimeOut(unlock_id);
-	kybdlock_clr(~KL_AWAITING_FIRST, "kybd_in3270");
+
+	switch ((int)cstate) {
+	case CONNECTED_INITIAL_E:
+		/*
+		 * Either we just negotiated TN3270E, or we just processed
+		 * and UNBIND from the host.  In either case, we are now
+		 * awaiting a first unlock from the host, or a transition to
+		 * 3270, NVT or SSCP-LU mode.
+		 */
+		kybdlock_set(KL_AWAITING_FIRST, "kybd_in3270");
+		break;
+	case CONNECTED_ANSI:
+	case CONNECTED_NVT:
+	case CONNECTED_SSCP:
+		/*
+		 * We just transitioned to ANSI, TN3270E NVT or TN3270E SSCP-LU
+		 * mode.  Remove all lock bits.
+		 */
+		kybdlock_clr(-1, "kybd_in3270");
+		break;
+	default:
+		/*
+		 * We just transitioned into or out of 3270 mode.
+		 * Remove all lock bits except AWAITING_FIRST.
+		 */
+		kybdlock_clr(~KL_AWAITING_FIRST, "kybd_in3270");
+		break;
+	}
 
 	/* There might be a macro pending. */
 	if (CONNECTED)
@@ -574,7 +601,17 @@ Attn_action(Widget w _is_unused, XEvent *event, String *params,
 	if (!IN_3270)
 		return;
 	reset_idle_timer();
-	net_interrupt();
+
+	if (IN_E) {
+	    if (net_bound()) {
+		net_interrupt();
+	    } else {
+		status_minus();
+		kybdlock_set(KL_OIA_MINUS, "Attn_action");
+	    }
+	} else {
+	    net_break();
+	}
 }
 
 /*
@@ -1636,8 +1673,14 @@ do_left(void)
 	baddr = cursor_addr;
 	DEC_BA(baddr);
 	d = ctlr_dbcs_state(baddr);
-	if (IS_LEFT(d))
+	if (IS_RIGHT(d)) {
 		DEC_BA(baddr);
+	} else if (IS_LEFT(d)) {
+		DEC_BA(baddr);
+		d = ctlr_dbcs_state(baddr);
+		if (IS_RIGHT(d))
+			DEC_BA(baddr);
+	}
 	cursor_move(baddr);
 }
 
@@ -1669,7 +1712,6 @@ Left_action(Widget w _is_unused, XEvent *event, String *params,
 
 		baddr = cursor_addr;
 		INC_BA(baddr);
-		/* XXX: DBCS? */
 		cursor_move(baddr);
 	}
 }
@@ -3205,11 +3247,11 @@ remargin(int lmargin)
  * Returns the number of unprocessed characters.
  */
 int
-emulate_input(char *s, int len, Boolean pasting)
+emulate_uinput(ucs4_t *ws, int xlen, Boolean pasting)
 {
 	enum {
-	    BASE, BACKSLASH, BACKX, BACKE, BACKP, BACKPA, BACKPF, OCTAL, HEX,
-	    EBC, XGE
+	    BASE, BACKSLASH, BACKX, BACKE, BACKP, BACKPA, BACKPF, OCTAL,
+	    HEX, EBC, XGE
 	} state = BASE;
 	int literal = 0;
 	int nc = 0;
@@ -3217,24 +3259,7 @@ emulate_input(char *s, int len, Boolean pasting)
 	int orig_addr = cursor_addr;
 	int orig_col = BA_TO_COL(cursor_addr);
 	Boolean skipped = False;
-	static ucs4_t *w_ibuf = NULL;
-	static size_t w_ibuf_len = 0;
 	ucs4_t c;
-	ucs4_t *ws;
-	int xlen;
-
-	/*
-	 * Convert from a multi-byte string to a Unicode string.
-	 */
-	if ((size_t)(len + 1) > w_ibuf_len) {
-		w_ibuf_len = len + 1;
-		w_ibuf = (ucs4_t *)Realloc(w_ibuf, w_ibuf_len * sizeof(ucs4_t));
-	}
-	xlen = multibyte_to_unicode_string(s, len, w_ibuf, w_ibuf_len);
-	if (xlen < 0) {
-		return 0; /* failed */
-	}
-	ws = w_ibuf;
 
 	/*
 	 * In the switch statements below, "break" generally means "consume
@@ -3301,7 +3326,12 @@ emulate_input(char *s, int len, Boolean pasting)
 						return xlen-1;
 				}
 				break;
-			    case '\r':	/* ignored */
+			    case '\r':
+				if (!pasting) {
+					action_internal(Newline_action, ia, CN,
+							CN);
+					skipped = False;
+				}
 				break;
 			    case '\t':
 				action_internal(Tab_action, ia, CN, CN);
@@ -3421,6 +3451,7 @@ emulate_input(char *s, int len, Boolean pasting)
 				cancel_if_idle_command();
 				state = BASE;
 				break;
+			    case 'u':
 			    case 'x':
 				state = BACKX;
 				break;
@@ -3508,7 +3539,7 @@ emulate_input(char *s, int len, Boolean pasting)
 				continue;
 			}
 			break;
-		    case BACKX:	/* last two characters were "\x" */
+		    case BACKX:	/* last two characters were "\x" or "\u" */
 			if (isxdigit(c)) {
 				state = HEX;
 				literal = 0;
@@ -3521,7 +3552,7 @@ emulate_input(char *s, int len, Boolean pasting)
 				state = BASE;
 				continue;
 			}
-		    case BACKE:	/* last two characters were "\x" */
+		    case BACKE:	/* last two characters were "\e" */
 			if (isxdigit(c)) {
 				state = EBC;
 				literal = 0;
@@ -3546,7 +3577,7 @@ emulate_input(char *s, int len, Boolean pasting)
 				continue;
 			}
 		    case HEX:	/* have seen \x and one or more hex digits */
-			if (nc < 2 && isxdigit(c)) {
+			if (nc < 4 && isxdigit(c)) {
 				literal = (literal * 16) + FROM_HEX(c);
 				nc++;
 				break;
@@ -3557,15 +3588,29 @@ emulate_input(char *s, int len, Boolean pasting)
 				continue;
 			}
 		    case EBC:	/* have seen \e and one or more hex digits */
-			if (nc < 2 && isxdigit(c)) {
+			if (nc < 4 && isxdigit(c)) {
 				literal = (literal * 16) + FROM_HEX(c);
 				nc++;
 				break;
 			} else {
 			    	trace_event(" %s -> Key(X'%02X')\n",
 					ia_name[(int) ia], literal);
-				key_Character((unsigned char) literal, False,
-					True, &skipped);
+				if (!(literal & ~0xff))
+					key_Character((unsigned char) literal,
+						False, True, &skipped);
+				else {
+#if defined(X3270_DBCS) /*[*/
+				    	unsigned char code[2];
+
+					code[0] = (literal >> 8) & 0xff;
+					code[1] = literal & 0xff;
+					key_WCharacter(code, &skipped);
+#else /*][*/
+					popup_an_error("%s: EBCDIC code > 255",
+					    action_name(String_action));
+					cancel_if_idle_command();
+#endif /*]*/
+				}
 				state = BASE;
 				continue;
 			}
@@ -3636,6 +3681,28 @@ emulate_input(char *s, int len, Boolean pasting)
 	}
 
 	return xlen;
+}
+
+/* Multibyte version of emulate_uinput. */
+int
+emulate_input(char *s, int len, Boolean pasting)
+{
+	static ucs4_t *w_ibuf = NULL;
+	static size_t w_ibuf_len = 0;
+	int xlen;
+
+	/* Convert from a multi-byte string to a Unicode string. */
+	if ((size_t)(len + 1) > w_ibuf_len) {
+		w_ibuf_len = len + 1;
+		w_ibuf = (ucs4_t *)Realloc(w_ibuf, w_ibuf_len * sizeof(ucs4_t));
+	}
+	xlen = multibyte_to_unicode_string(s, len, w_ibuf, w_ibuf_len);
+	if (xlen < 0) {
+		return 0; /* failed */
+	}
+
+	/* Process it as Unicode. */
+	return emulate_uinput(w_ibuf, xlen, pasting);
 }
 
 /*

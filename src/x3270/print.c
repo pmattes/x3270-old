@@ -166,7 +166,7 @@ fprint_screen(FILE *f, Boolean even_if_empty, ptype_t ptype)
 #if defined(_WIN32) /*[*/
 	if (ptype == P_RTF) {
 		fprintf(f, "{\\rtf1\\ansi\\ansicpg%u\\deff0\\deflang1033{\\fonttbl{\\f0\\fmodern\\fprq1\\fcharset0 Courier New;}}\n"
-			    "\\viewkind4\\uc1\\pard\\f0\\fs18 ",
+			    "\\viewkind4\\uc1\\pard\\f0\\fs16 ",
 			    GetACP());
 		if (current_high)
 		    	fprintf(f, "\\b ");
@@ -321,15 +321,12 @@ fprint_screen(FILE *f, Boolean even_if_empty, ptype_t ptype)
 			any = True;
 #if defined(_WIN32) /*[*/
 			if (ptype == P_RTF) {
-				if (uc & ~0xff) {
-					fprintf(f, "\\u%ld", uc);
+				if (uc & ~0x7f) {
+					fprintf(f, "\\u%ld?", uc);
 				} else {
 					nmb = unicode_to_multibyte(uc,
 						mb, sizeof(mb));
-					if (mb[0] & 0x80)
-						fprintf(f, "\\'%2x",
-							mb[0] & 0xff);
-					else if (mb[0] == '\\' ||
+					if (mb[0] == '\\' ||
 						mb[0] == '{' ||
 						mb[0] == '}')
 						fprintf(f, "\\%c",

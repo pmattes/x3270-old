@@ -1,5 +1,5 @@
 /*
- * Modifications Copyright 1993-2008 by Paul Mattes.
+ * Modifications Copyright 1993-2009 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -69,6 +69,7 @@ Boolean         is_altbuffer = False;
 struct ea      *ea_buf;		/* 3270 device buffer */
 				/* ea_buf[-1] is the dummy default field
 				   attribute */
+struct ea      *aea_buf;	/* alternate 3270 extended attribute buffer */
 Boolean         formatted = False;	/* set in screen_disp */
 Boolean         screen_changed = False;
 int             first_changed = -1;
@@ -79,7 +80,6 @@ unsigned char   crm_attr[16];
 Boolean		dbcs = False;
 
 /* Statics */
-static struct ea *aea_buf;	/* alternate 3270 extended attribute buffer */
 static unsigned char *zero_buf;	/* empty buffer, for area clears */
 static void set_formatted(void);
 static void ctlr_blanks(void);
@@ -306,10 +306,13 @@ ctlr_connect(Boolean ignored _is_unused)
 	ticking_stop();
 	status_untiming();
 
-	if (ever_3270)
+	if (ever_3270) {
 		ea_buf[-1].fa = FA_PRINTABLE | FA_MODIFY;
-	else
+		aea_buf[-1].fa = FA_PRINTABLE | FA_MODIFY;
+	} else {
 		ea_buf[-1].fa = FA_PRINTABLE | FA_PROTECT;
+		aea_buf[-1].fa = FA_PRINTABLE | FA_PROTECT;
+	}
 	if (!IN_3270 || (IN_SSCP && (kybdlock & KL_OIA_TWAIT))) {
 		kybdlock_clr(KL_OIA_TWAIT, "ctlr_connect");
 		status_reset();
@@ -926,7 +929,8 @@ ctlr_read_buffer(unsigned char aid_byte)
 
 #if defined(X3270_TRACE) /*[*/
 /*
- * Construct a 3270 command to reproduce the current state of the display.
+ * Construct a 3270 command to reproduce the current state of the display, if
+ * formatted.
  */
 void
 ctlr_snap_buffer(void)
@@ -1051,6 +1055,40 @@ ctlr_snap_modes(void)
 		for (i = 0; i < crm_nattr; i++)
 			*obptr++ = crm_attr[i];
 	return True;
+}
+
+/*
+ * Construct a 3270 command to reproduce the current state of the display
+ * in SSCP-LU mode.
+ */
+void
+ctlr_snap_buffer_sscp_lu(void)
+{
+	register int	baddr = 0;
+
+	/* Write out the screen contents once. */
+	do {
+	    	if (ea_buf[baddr].cc == 0xff) {
+			space3270out(1);
+			*obptr++ = 0xff;
+		}
+		space3270out(1);
+		*obptr++ = ea_buf[baddr].cc;
+		INC_BA(baddr);
+	} while (baddr != 0);
+
+	/* Write them out again, until we hit where the cursor is. */
+	if (cursor_addr != baddr) {
+		do {
+			if (ea_buf[baddr].cc == 0xff) {
+				space3270out(1);
+				*obptr++ = 0xff;
+			}
+			space3270out(1);
+			*obptr++ = ea_buf[baddr].cc;
+			INC_BA(baddr);
+		} while (baddr != cursor_addr);
+	}
 }
 #endif /*]*/
 
@@ -1907,6 +1945,7 @@ ctlr_write_sscp_lu(unsigned char buf[], int buflen)
 	int s_row;
 	unsigned char c;
 	int baddr;
+	int text = False;
 
 	/*
 	 * The 3174 Functionl Description says that anything but NL, NULL, FM,
@@ -1915,7 +1954,7 @@ ctlr_write_sscp_lu(unsigned char buf[], int buflen)
 	 * we display other control codes as spaces.
 	 */
 
-	trace_ds("SSCP-LU data\n");
+	trace_ds("SSCP-LU data\n< ");
 	for (i = 0; i < buflen; cp++, i++) {
 		switch (*cp) {
 		case FCORDER_NL:
@@ -1923,6 +1962,11 @@ ctlr_write_sscp_lu(unsigned char buf[], int buflen)
 			 * Insert NULLs to the end of the line and advance to
 			 * the beginning of the next line.
 			 */
+		        if (text) {
+			    trace_ds("'");
+			    text = False;
+			}
+		        trace_ds(" NL");
 			s_row = buffer_addr / COLS;
 			while ((buffer_addr / COLS) == s_row) {
 				ctlr_add(buffer_addr, EBC_null, default_cs);
@@ -1938,7 +1982,11 @@ ctlr_write_sscp_lu(unsigned char buf[], int buflen)
 			/* Some hosts forget they're talking SSCP-LU. */
 			cp++;
 			i++;
-			trace_ds(" StartField%s %s [translated to space]\n",
+			if (text) {
+			    trace_ds("'");
+			    text = False;
+			}
+			trace_ds(" SF%s %s [translated to space]\n",
 			    rcba(buffer_addr), see_attr(*cp));
 			ctlr_add(buffer_addr, EBC_space, default_cs);
 			ctlr_add_fg(buffer_addr, default_fg);
@@ -1948,12 +1996,16 @@ ctlr_write_sscp_lu(unsigned char buf[], int buflen)
 			INC_BA(buffer_addr);
 			break;
 		case ORDER_IC:
-			trace_ds(" InsertCursor%s [ignored]\n",
+			if (text) {
+			    trace_ds("'");
+			    text = False;
+			}
+			trace_ds(" IC%s [ignored]\n",
 			    rcba(buffer_addr));
 			break;
 		case ORDER_SBA:
 			baddr = DECODE_BADDR(*(cp+1), *(cp+2));
-			trace_ds(" SetBufferAddress%s [ignored]\n", rcba(baddr));
+			trace_ds(" SBA%s [ignored]\n", rcba(baddr));
 			cp += 2;
 			i += 2;
 			break;
@@ -1966,6 +2018,11 @@ ctlr_write_sscp_lu(unsigned char buf[], int buflen)
 				c = EBC_space;
 			else
 				c = *cp;
+			if (text) {
+			    trace_ds("'");
+			    text = False;
+			}
+			trace_ds(" GE '%s'", see_ebc(c));
 			ctlr_add(buffer_addr, c, CS_GE);
 			ctlr_add_fg(buffer_addr, default_fg);
 			ctlr_add_bg(buffer_addr, default_bg);
@@ -1975,6 +2032,11 @@ ctlr_write_sscp_lu(unsigned char buf[], int buflen)
 			break;
 
 		default:
+			if (!text) {
+			    trace_ds(" '");
+			    text = True;
+			}
+			trace_ds(see_ebc(*cp));
 			ctlr_add(buffer_addr, *cp, default_cs);
 			ctlr_add_fg(buffer_addr, default_fg);
 			ctlr_add_bg(buffer_addr, default_bg);
@@ -1984,6 +2046,9 @@ ctlr_write_sscp_lu(unsigned char buf[], int buflen)
 			break;
 		}
 	}
+	if (text)
+	    trace_ds("'");
+	trace_ds("\n");
 	cursor_move(buffer_addr);
 	sscp_start = buffer_addr;
 

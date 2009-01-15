@@ -1,5 +1,5 @@
 /*
- * Copyright 1993-2008 by Paul Mattes.
+ * Copyright 1993-2009 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -39,6 +39,7 @@
 #include "resources.h"
 #include "ctlr.h"
 
+#include "ansic.h"
 #include "charsetc.h"
 #include "childc.h"
 #include "ctlrc.h"
@@ -499,6 +500,9 @@ create_tracefile_header(const char *mode)
 	wtrace(" Locale codeset: %s\n", locale_codeset);
 #else /*][*/
 	wtrace(" ANSI codepage: %d\n", GetACP());
+# if defined(WS3270) /*[*/
+	wtrace(" Local codepage: %d\n", appres.local_cp);
+# endif /*]*/
 #endif /*]*/
 	wtrace(" Host codepage: %d", (int)(cgcsgid & 0xffff));
 #if defined(X3270_DBCS) /*[*/
@@ -526,7 +530,7 @@ create_tracefile_header(const char *mode)
 		 * mode.
 		 */
 		if (formatted) {
-			wtrace(" Screen contents:\n");
+			wtrace(" Screen contents (3270):\n");
 			obptr = obuf;
 #if defined(X3270_TN3270E) /*[*/
 			(void) net_add_dummy_tn3270e();
@@ -552,13 +556,35 @@ create_tracefile_header(const char *mode)
 #if defined(X3270_TN3270E) /*[*/
 		else if (IN_E) {
 			obptr = obuf;
-			if (net_add_dummy_tn3270e()) {
-				wtrace(" Screen contents:\n");
-				space3270out(2);
-				net_add_eor(obuf, obptr - obuf);
-				obptr += 2;
+			(void) net_add_dummy_tn3270e();
+			wtrace(" Screen contents (%s):\n",
+				IN_SSCP? "SSCP-LU": "TN3270E-NVT");
+			if (IN_SSCP) 
+			    	ctlr_snap_buffer_sscp_lu();
+			else if (IN_ANSI)
+			    	ansi_snap();
+			space3270out(2);
+			net_add_eor(obuf, obptr - obuf);
+			obptr += 2;
+			trace_netdata('<', obuf, obptr - obuf);
+			if (IN_ANSI) {
+				wtrace(" NVT modes:\n");
+				obptr = obuf;
+				ansi_snap_modes();
 				trace_netdata('<', obuf, obptr - obuf);
 			}
+		}
+#endif /*]*/
+#if defined(X3270_ANSI) /*[*/
+		else if (IN_ANSI) {
+			obptr = obuf;
+			wtrace(" Screen contents (NVT):\n");
+			ansi_snap();
+			trace_netdata('<', obuf, obptr - obuf);
+			wtrace(" NVT modes:\n");
+			obptr = obuf;
+			ansi_snap_modes();
+			trace_netdata('<', obuf, obptr - obuf);
 		}
 #endif /*]*/
 	}

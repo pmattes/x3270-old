@@ -1,15 +1,28 @@
 /*
- * Copyright 1993-2008 by Paul Mattes.
- *  Permission to use, copy, modify, and distribute this software and its
- *  documentation for any purpose and without fee is hereby granted,
- *  provided that the above copyright notice appear in all copies and that
- *  both that copyright notice and this permission notice appear in
- *  supporting documentation.
+ * Copyright (c) 1993-2009, Paul Mattes.
+ * All rights reserved.
  *
- * x3270, c3270, s3270 and tcl3270 are distributed in the hope that they will
- * be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the file LICENSE
- * for more details.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above copyright
+ *       notice, this list of conditions and the following disclaimer in the
+ *       documentation and/or other materials provided with the distribution.
+ *     * Neither the names of Paul Mattes nor the names of his contributors
+ *       may be used to endorse or promote products derived from this software
+ *       without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY PAUL MATTES "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
+ * EVENT SHALL PAUL MATTES BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 /*
@@ -44,6 +57,8 @@
 #include "utf8c.h"
 
 #define MB_MAX	16
+
+#define PE_MAX	1024
 
 #define	SC	1	/* save cursor position */
 #define RC	2	/* restore cursor position */
@@ -459,6 +474,8 @@ static char	csnames[] = "0AB";
 static int	cs_to_change;
 static int	pmi = 0;
 static char	pending_mbs[MB_MAX];
+static int	pe = 0;
+static unsigned char ped[PE_MAX];
 
 static Boolean  held_wrap = False;
 
@@ -1448,6 +1465,7 @@ dec_set(int ig1 _is_unused, int ig2 _is_unused)
 			rev_wraparound_mode = 1;
 			break;
 		    case 47:	/* alt buffer */
+		    case 1049:
 			ctlr_altbuffer(True);
 			break;
 		}
@@ -1480,6 +1498,7 @@ dec_reset(int ig1 _is_unused, int ig2 _is_unused)
 			rev_wraparound_mode = 0;
 			break;
 		    case 47:	/* alt buffer */
+		    case 1049:
 			ctlr_altbuffer(False);
 			break;
 		}
@@ -1509,6 +1528,7 @@ dec_save(int ig1 _is_unused, int ig2 _is_unused)
 			saved_rev_wraparound_mode = rev_wraparound_mode;
 			break;
 		    case 47:	/* alt buffer */
+		    case 1049:
 			saved_altbuffer = is_altbuffer;
 			break;
 		}
@@ -1544,6 +1564,7 @@ dec_restore(int ig1 _is_unused, int ig2 _is_unused)
 			rev_wraparound_mode = saved_rev_wraparound_mode;
 			break;
 		    case 47:	/* alt buffer */
+		    case 1049:	/* alt buffer */
 			ctlr_altbuffer(saved_altbuffer);
 			break;
 		}
@@ -1722,6 +1743,12 @@ ansi_process(unsigned int c)
 
 	fn = ansi_fn[st[(int)state][c]];
 	state = (*fn)(n[0], n[1]);
+
+	/* Saving pending escape data. */
+	if (state == DATA)
+	    	pe = 0;
+	else if (pe < PE_MAX)
+	    	ped[pe++] = c;
 }
 
 void
@@ -1818,5 +1845,576 @@ toggle_lineWrap(struct toggle *t _is_unused, enum toggle_type type _is_unused)
 	else
 		wraparound_mode = 0;
 }
+
+#if defined(X3270_TRACE) /*[*/
+
+/* Emit an SGR command. */
+static void
+emit_sgr(int mode)
+{
+    	space3270out((mode < 10)? 4: 5);
+	*obptr++ = 0x1b;
+	*obptr++ = '[';
+	if (mode > 9)
+	    	*obptr++ = '0' + (mode / 10);
+	*obptr++ = '0' + (mode % 10);
+	*obptr++ = 'm';
+}
+
+/* Emit a DEC Private Mode command. */
+static void
+emit_decpriv(int mode, char op)
+{
+    	space3270out((mode < 10)? 5: 6);
+	*obptr++ = 0x1b;
+	*obptr++ = '[';
+	*obptr++ = '?';
+	if (mode > 9)
+	    	*obptr++ = '0' + (mode / 10);
+	*obptr++ = '0' + (mode % 10);
+	*obptr++ = op;
+}
+
+/* Emit a CUP (cursor position) command. */
+static void
+emit_cup(int baddr)
+{
+    	if (baddr) {
+		char cup_buf[11];
+		int sl;
+
+		sl = sprintf(cup_buf, "\033[%d;%dH",
+			(baddr / COLS) + 1,
+			(baddr % COLS) + 1);
+		space3270out(sl);
+		strcpy((char *)obptr, cup_buf);
+		obptr += sl;
+	} else {
+	    	space3270out(3);
+		*obptr++ = 0x1b;
+		*obptr++ = '[';
+		*obptr++ = 'H';
+	}
+}
+
+/* Emit <n> spaces or a CUP, whichever is shorter. */
+static int
+ansi_dump_spaces(int spaces, int baddr)
+{
+	if (spaces) {
+		char cup_buf[11];
+		int sl;
+
+		/*
+		 * Move the cursor, if it takes less space than
+		 * expanding the spaces.
+		 * It is possible to optimize this further with clever
+		 * CU[UDFB] sequences, but not (yet) worth the effort.
+		 */
+		sl = sprintf(cup_buf, "\033[%d;%dH",
+			(baddr / COLS) + 1,
+			(baddr % COLS) + 1);
+		if (sl < spaces) {
+			space3270out(sl);
+			strcpy((char *)obptr, cup_buf);
+			obptr += sl;
+		} else {
+			space3270out(spaces);
+			while (spaces--)
+				*obptr++ = ' ';
+		}
+	}
+	return 0;
+}
+
+/*
+ * Snap the provided screen buffer (primary or alternate).
+ * This is (mostly) optimized to draw the minimum necessary, assuming a
+ * blank screen.
+ */
+static void
+ansi_snap_one(struct ea *buf)
+{
+    	int baddr;
+	int cur_gr = 0;
+	int cur_fg = 0;
+	int cur_bg = 0;
+	int spaces = 0;
+	static int uncolor_table[16] = {
+	    /* 0xf0 */ 0,
+	    /* 0xf1 */ 4,
+	    /* 0xf2 */ 1,
+	    /* 0xf3 */ 5,
+	    /* 0xf4 */ 2,
+	    /* 0xf5 */ 0, /* can't happen */
+#if defined(WC3270) /*[*/
+	    /* 0xf6 */ 6,
+#else /*][*/
+	    /* 0xf6 */ 3,
+#endif /*]*/
+#if defined(WC3270) /*[*/
+	    /* 0xf7 */ 7,
+#else /*][*/
+	    /* 0xf7 */ 0, /* can't happen */
+#endif /*]*/
+	    /* 0xf8 */ 0, /* can't happen */
+	    /* 0xf9 */ 0, /* can't happen */
+	    /* 0xfa */ 0, /* can't happen */
+	    /* 0xfb */ 0, /* can't happen */
+	    /* 0xfc */ 0, /* can't happen */
+#if defined(WC3270) /*[*/
+	    /* 0xfd */ 0, /* can't happen */
+#else /*][*/
+	    /* 0xfd */ 6, /* can't happen */
+#endif /*]*/
+	    /* 0xfe */ 0, /* can't happen */
+#if defined(WC3270) /*[*/
+	    /* 0xff */ 0, /* can't happen */
+#else /*][*/
+	    /* 0xff */ 7, /* can't happen */
+#endif /*]*/
+	};
+	char mb[16];
+	int len;
+	int xlen;
+	int i;
+	enum dbcs_state d;
+	int c;
+	int last_sgr = 0;
+#define	EMIT_SGR(n)	{ emit_sgr(n); last_sgr = (n); }
+
+	/* Draw what's on the screen. */
+	baddr = 0;
+	do {
+	    	int xgr = buf[baddr].gr;
+
+		/* Set the attributes. */
+	    	if (xgr != cur_gr) {
+		    	spaces = ansi_dump_spaces(spaces, baddr);
+		    	if ((xgr ^ cur_gr) & cur_gr) {
+				/*
+				 * Something turned off. Turn everything off,
+				 * then turn the remaining modes on below.
+				 */
+			    	EMIT_SGR(0);
+				xgr = 0;
+			} else {
+			    	/*
+				 * Clear the bits in xgr that are already set
+				 * in cur_gr.  Turn on the new modes.
+				 */
+			    	xgr &= ~cur_gr;
+			}
+			/* Turn on the attributes remaining in xgr. */
+		    	if (xgr & GR_INTENSIFY)
+			    	EMIT_SGR(1);
+		    	if (xgr & GR_UNDERLINE)
+			    	EMIT_SGR(4);
+		    	if (xgr & GR_BLINK)
+			    	EMIT_SGR(5);
+		    	if (xgr & GR_REVERSE)
+			    	EMIT_SGR(7);
+		    	cur_gr = buf[baddr].gr;
+		}
+
+		/* Set the colors. */
+		if (buf[baddr].fg != cur_fg) {
+		    	spaces = ansi_dump_spaces(spaces, baddr);
+		    	if (buf[baddr].fg)
+			    	c = uncolor_table[buf[baddr].fg & 0x0f];
+			else
+			    	c = 9;
+			EMIT_SGR(30 + c);
+			cur_fg = buf[baddr].fg;
+		}
+		if (buf[baddr].bg != cur_bg) {
+		    	spaces = ansi_dump_spaces(spaces, baddr);
+		    	if (buf[baddr].bg)
+			    	c = uncolor_table[buf[baddr].bg & 0x0f];
+			else
+			    	c = 9;
+			EMIT_SGR(40 + c);
+			cur_bg = buf[baddr].bg;
+		}
+
+		/* Expand the current character to multibyte. */
+		d = ctlr_dbcs_state(baddr);
+		if (IS_LEFT(d)) {
+		    	int xaddr = baddr;
+			INC_BA(xaddr);
+			len = ebcdic_to_multibyte(buf[baddr].cc << 8 |
+					    buf[xaddr].cc,
+					    mb, sizeof(mb));
+		} else if (IS_RIGHT(d)) {
+		    	len = 0;
+		} else {
+			len = ebcdic_to_multibyte(buf[baddr].cc,
+					    mb, sizeof(mb));
+		}
+		if (len > 0)
+			len--; /* terminating NUL */
+		xlen = 0;
+		for (i = 0; i < len; i++) {
+			if ((mb[i] & 0xff) == 0xff)
+				xlen++;
+		}
+
+		/* Optimize for white space. */
+		if (!cur_fg &&
+		    !cur_bg &&
+		    !cur_gr &&
+		    ((len + xlen) == 1) &&
+		    (mb[0] == ' ')) {
+		    	spaces++;
+		} else {
+		    	if (spaces)
+			    	spaces = ansi_dump_spaces(spaces, baddr);
+
+			/* Emit the current character. */
+			space3270out(len + xlen);
+			for (i = 0; i < len; i++) {
+				if ((mb[i] & 0xff) == 0xff)
+					*obptr++ = 0xff;
+				*obptr++ = mb[i];
+			}
+		}
+
+		INC_BA(baddr);
+	} while (baddr != 0);
+
+	/* Remove any attributes we set above. */
+	if (last_sgr != 0)
+		emit_sgr(0);
+}
+
+/* Snap the contents of the screen buffers in NVT mode. */
+void
+ansi_snap(void)
+{
+    	/*
+	 * Note that ea_buf is the live buffer, and aea_buf is the other
+	 * buffer.  So the task here is to draw the other buffer first,
+	 * then switch modes and draw the live one.
+	 */
+	if (is_altbuffer) {
+	    	/* Draw the primary screen first. */
+	    	ansi_snap_one(aea_buf);
+		emit_cup(0);
+
+		/* Switch to the alternate. */
+		emit_decpriv(47, 'h');
+
+		/* Draw the secondary, and stay in alternate mode. */
+		ansi_snap_one(ea_buf);
+	} else {
+	    	int i;
+		int any = 0;
+		static struct ea zea = { 0, 0, 0, 0, 0, 0, 0, 0 };
+
+		/* See if aea_buf has anything in it. */
+		for (i = 0; i < ROWS * COLS; i++) {
+		    	if (memcmp(&aea_buf[i], &zea, sizeof(struct ea))) {
+			    	any = 1;
+				break;
+			}
+		}
+
+		if (any) {
+			/* Switch to the alternate. */
+			emit_decpriv(47, 'h');
+
+			/* Draw the alternate screen. */
+			ansi_snap_one(aea_buf);
+			emit_cup(0);
+
+			/* Switch to the primary. */
+			emit_decpriv(47, 'l');
+		}
+
+		/* Draw the primary, and stay in primary mode. */
+		ansi_snap_one(ea_buf);
+	}
+}
+
+/*
+ * Snap the non-default terminal modes.
+ * This is a subtle piece of logic, and may harbor a few bugs yet.
+ */
+void
+ansi_snap_modes(void)
+{
+    	int i;
+	static char csdsel[4] = "()*+";
+
+	/* Set up the saved cursor (cursor, fg, bg, gr, cset, csd). */
+	if (saved_cursor != 0 ||
+	    saved_fg != 0 ||
+	    saved_bg != 0 ||
+	    saved_gr != 0 ||
+	    saved_cset != CS_G0 ||
+	    saved_csd[0] != CSD_US ||
+	    saved_csd[1] != CSD_US ||
+	    saved_csd[2] != CSD_US ||
+	    saved_csd[3] != CSD_US) {
+
+	    	if (saved_cursor != 0)
+		    	emit_cup(saved_cursor);
+		if (saved_fg != 0)
+		    	emit_sgr(30 + saved_fg);
+		if (saved_bg != 0)
+		    	emit_sgr(40 + saved_bg);
+		if (saved_gr != 0) {
+		    	if (saved_gr & GR_INTENSIFY)
+			    	emit_sgr(1);
+		    	if (saved_gr & GR_UNDERLINE)
+			    	emit_sgr(4);
+		    	if (saved_gr & GR_BLINK)
+			    	emit_sgr(5);
+		    	if (saved_gr & GR_REVERSE)
+			    	emit_sgr(7);
+		}
+		if (saved_cset != CS_G0) {
+		    	switch (saved_cset) {
+			case CS_G1:
+			    	space3270out(1);
+				*obptr++ = 0x0e;
+				break;
+			case CS_G2:
+			    	space3270out(2);
+				*obptr++ = 0x1b;
+				*obptr++ = 'N';
+				break;
+			case CS_G3:
+			    	space3270out(2);
+				*obptr++ = 0x1b;
+				*obptr++ = 'O';
+				break;
+			default:
+			    	break;
+			}
+		}
+		for (i = 0; i < 4; i++) {
+			if (saved_csd[i] != CSD_US) {
+				space3270out(3);
+				*obptr++ = 0x1b;
+				*obptr++ = csdsel[i];
+				*obptr++ = gnnames[saved_csd[i]];
+			}
+		}
+
+	    	/* Emit a SAVE CURSOR to stash these away. */
+		space3270out(2);
+		*obptr++ = 0x1b;
+		*obptr++ = '7';
+	}
+
+	/* Now set the above to their current values, except for the cursor. */
+	if (fg != saved_fg)
+		emit_sgr(30 + fg);
+	if (bg != saved_bg)
+		emit_sgr(40 + bg);
+	if (gr != saved_gr) {
+	    	emit_sgr(0);
+		if (gr & GR_INTENSIFY)
+			emit_sgr(1);
+		if (gr & GR_UNDERLINE)
+			emit_sgr(4);
+		if (gr & GR_BLINK)
+			emit_sgr(5);
+		if (gr & GR_REVERSE)
+			emit_sgr(7);
+	}
+	if (cset != saved_cset) {
+		switch (cset) {
+		case CS_G0:
+			space3270out(1);
+			*obptr++ = 0x0f;
+			break;
+		case CS_G1:
+			space3270out(1);
+			*obptr++ = 0x0e;
+			break;
+		case CS_G2:
+			space3270out(2);
+			*obptr++ = 0x1b;
+			*obptr++ = 'n';
+			break;
+		case CS_G3:
+			space3270out(2);
+			*obptr++ = 0x1b;
+			*obptr++ = 'o';
+			break;
+		default:
+			break;
+		}
+	}
+	for (i = 0; i < 4; i++) {
+		if (csd[i] != saved_csd[i]) {
+			space3270out(3);
+			*obptr++ = 0x1b;
+			*obptr++ = csdsel[i];
+			*obptr++ = gnnames[csd[i]];
+		}
+	}
+
+	/*
+	 * Handle appl_cursor, wrapaparound_mode, rev_wraparound_mode,
+	 * allow_wide_mode, wide_mode and altbuffer, both the saved values and
+	 * the current ones.
+	 */
+	if (saved_appl_cursor) {
+	    	emit_decpriv(1, 'h');		/* set */
+	    	emit_decpriv(1, 's');		/* save */
+		if (!appl_cursor)
+			emit_decpriv(1, 'l');	/* reset */
+	} else if (appl_cursor) {
+	    	emit_decpriv(1, 'h');		/* set */
+	}
+	if (saved_wide_mode) {
+	    	emit_decpriv(3, 'h');		/* set */
+		emit_decpriv(3, 's');		/* save */
+		if (!wide_mode)
+			emit_decpriv(3, 'l');	/* reset */
+	} else if (wide_mode) {
+	    	emit_decpriv(3, 'h');		/* set */
+	}
+	if (saved_wraparound_mode == 0) {
+	    	emit_decpriv(7, 'h');		/* set (no-wraparound mode) */
+		emit_decpriv(7, 's');		/* save */
+		if (wraparound_mode)
+			emit_decpriv(7, 'l');	/* reset */
+	} else if (!wraparound_mode) {
+	    	emit_decpriv(7, 'h');		/* set (no-wraparound mode) */
+	}
+	if (saved_allow_wide_mode) {
+	    	emit_decpriv(40, 'h');		/* set */
+		emit_decpriv(40, 's');		/* save */
+		if (!allow_wide_mode)
+			emit_decpriv(40, 'l');	/* reset */
+	} else if (allow_wide_mode) {
+	    	emit_decpriv(40, 'h');		/* set */
+	}
+	if (saved_rev_wraparound_mode) {
+	    	emit_decpriv(45, 'h');		/* set (rev--wraparound mode) */
+		emit_decpriv(45, 's');		/* save */
+		if (!rev_wraparound_mode)
+			emit_decpriv(45, 'l');	/* reset */
+	} else if (rev_wraparound_mode) {
+	    	emit_decpriv(45, 'h');		/* set (rev-wraparound mode) */
+	}
+	if (saved_altbuffer) {
+	    	emit_decpriv(47, 'h');		/* set */
+		emit_decpriv(47, 's');		/* save */
+		if (!is_altbuffer)
+			emit_decpriv(47, 'l');	/* reset */
+	} /* else not necessary to set it now -- it was already set when the
+	     screen was drawn */
+
+	/*
+	 * Now take care of auto_newline, insert mode, the scroll region
+	 * and tabs.
+	 */
+	if (auto_newline_mode) {
+	    	space3270out(4);
+		*obptr++ = 0x1b;
+		*obptr++ = '[';
+		*obptr++ = '4';
+		*obptr++ = 'h';
+	}
+	if (insert_mode) {
+	    	space3270out(5);
+		*obptr++ = 0x1b;
+		*obptr++ = '[';
+		*obptr++ = '2';
+		*obptr++ = '0';
+		*obptr++ = 'h';
+	}
+	if (scroll_top != 1 || scroll_bottom != ROWS) {
+	    	space3270out(10);
+		obptr += sprintf((char *)obptr, "\033[%d;%dr",
+			scroll_top, scroll_bottom);
+	}
+	if (tabs) {
+	    	unsigned char *deftabs;
+
+		deftabs = (unsigned char *)Malloc((COLS+7)/8);
+		for (i = 0; i < (COLS+7)/8; i++)
+			deftabs[i] = 0x01;
+		for (i = 0; i < COLS; i++) {
+			if (tabs[i/8] & 1<<(i%8)) {
+			    	if (!(deftabs[i/8] & 1<<(i%8))) {
+				    	/* Tab was cleared. */
+				    	space3270out(15);
+					obptr += sprintf((char *)obptr,
+						"\033[%d;%dH",
+						(cursor_addr / COLS) + 1,
+						((cursor_addr + i) % COLS) + 1);
+					*obptr++ = 0x1b;
+					*obptr++ = '[';
+					*obptr++ = '0';
+					*obptr++ = 'g';
+				}
+			} else {
+			    	if (deftabs[i/8] & 1<<(i%8)) {
+				    	/* Tab was set. */
+				    	space3270out(13);
+					obptr += sprintf((char *)obptr,
+						"\033[%d;%dH",
+						(cursor_addr / COLS) + 1,
+						((cursor_addr + i) % COLS) + 1);
+					*obptr++ = 0x1b;
+					*obptr++ = 'H';
+				}
+			}
+		}
+	}
+
+	/*
+	 * We're done moving the cursor for other purposes (saving it,
+	 * messing with tabs).  Put it where it should be now.
+	 */
+	emit_cup(cursor_addr);
+
+	/* Now add any pending single-character CS change. */
+	switch (once_cset) {
+	case CS_G2:
+	    	space3270out(2);
+		*obptr++ = 0x1b;
+		*obptr++ = 'N';
+		break;
+	case CS_G3:
+	    	space3270out(2);
+		*obptr++ = 0x1b;
+		*obptr++ = 'O';
+		break;
+	default:
+	    	break;
+	}
+
+	/* Now add any incomplete escape sequence. */
+	if (pe) {
+		int xlen = 0;
+
+		for (i = 0; i < pe; i++)
+			if (ped[i] == 0xff)
+			    	xlen++;
+	    	space3270out(pe + xlen);
+		for (i = 0; i < pe; i++) {
+			if (ped[i] == 0xff)
+			    	*obptr++ = 0xff;
+			*obptr++ = ped[i];
+		}
+	}
+
+    	/* Last, emit any incomplete multi-byte data. */
+    	if (pmi) {
+	    	space3270out(pmi);
+		for (i = 0; i < pmi; i++) {
+		    	*obptr++ = pending_mbs[i];
+		}
+	}
+}
+
+#endif /*]*/
 
 #endif /*]*/

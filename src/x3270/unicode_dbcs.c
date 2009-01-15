@@ -4162,8 +4162,10 @@ typedef struct {
 
 cpalias_t cpaliases16[] = {
     { "simplified-chinese",	"cp837" },
+    { "traditional-chinese",	"cp937" },
     { "chinese-gb18030",	"cp1388" },
-    { "japanese",		"cp300" },
+    { "japanese-1027",		"cp300" },
+    { "japanese-290",		"cp300" },
     { NULL,			NULL }
 };
 

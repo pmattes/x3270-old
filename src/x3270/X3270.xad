@@ -1,14 +1,28 @@
-! Copyright 1995-2008 by Paul Mattes.
-!  Permission to use, copy, modify, and distribute this software and its
-!  documentation for any purpose and without fee is hereby granted,
-!  provided that the above copyright notice appear in all copies and that
-!  both that copyright notice and this permission notice appear in
-!  supporting documentation.
 !
-! x3270, c3270, s3270 and tcl3270 are distributed in the hope that they will
-! be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
-! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the file LICENSE
-! for more details.
+! Copyright (c) 1995-2009, Paul Mattes.
+! All rights reserved.
+!
+! Redistribution and use in source and binary forms, with or without
+! modification, are permitted provided that the following conditions are met:
+!     * Redistributions of source code must retain the above copyright
+!       notice, this list of conditions and the following disclaimer.
+!     * Redistributions in binary form must reproduce the above copyright
+!       notice, this list of conditions and the following disclaimer in the
+!       documentation and/or other materials provided with the distribution.
+!     * Neither the names of Paul Mattes nor the names of his contributors
+!       may be used to endorse or promote products derived from this software
+!       without specific prior written permission.
+!
+! THIS SOFTWARE IS PROVIDED BY PAUL MATTES "AS IS" AND ANY EXPRESS OR IMPLIED
+! WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+! MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
+! EVENT SHALL PAUL MATTES BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+! SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+! PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+! OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+! WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+! OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+! ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 !
 ! x3270 app-defaults file.  This file is generally compiled into x3270, rather
 ! than installed.
@@ -127,6 +141,7 @@ x3270.charsetList:			U.S. English (CP 37): us-intl\n\
 #ifdef X3270_DBCS
 					Chinese Simplified (CP 836+837): simplified-chinese\n\
 					Chinese GB 18030 (CP 1388): chinese-gb18030\n\
+					Chinese Traditional (CP 937): traditional-chinese\n\
 #endif
 					Finnish (CP 278): finnish\n\
 					French (CP 297): french\n\
@@ -136,7 +151,8 @@ x3270.charsetList:			U.S. English (CP 37): us-intl\n\
 					Icelandic (CP 871): icelandic\n\
 					Italian (CP 280): italian\n\
 #ifdef X3270_DBCS
-					Japanese (CP 1027+300): japanese\n\
+					Japanese (CP 1027+300): japanese-1027\n\
+					Japanese (CP 290+300): japanese-290\n\
 #endif
 					Norwegian (CP 277): norwegian\n\
 					Open Systems (CP 1047): cp1047\n\
@@ -263,11 +279,13 @@ x3270.emulatorFontList.3270cg-1a,3270cg-1,iso10646-1,iso8859-1+gb2312.1980-0,iso
 					20-point 3270: 3270-20+-isas-song ti-medium-r-normal--16-160-72-72-c-160-gb2312.1980-0\n\
 					8x16: 8x16+-isas-song ti-medium-r-normal--16-160-72-72-c-160-gb2312.1980-0\n\
 					12x24: 12x24+-isas-song ti-medium-r-normal--24-240-72-72-c-240-gb2312.1980-0
-x3270.emulatorFontList.jisx0201.1976-0+jisx0208.1983-0,iso10646-1: \
+x3270.emulatorFontList.iso10646-1,jisx0201.1976-0+jisx0208.1983-0,iso10646-1: \
 					14-point: -misc-fixed-medium-r-normal--14-130-75-75-c-70-jisx0201.1976-0+-misc-fixed-medium-r-normal--14-130-75-75-c-140-jisx0208.1983-0\n\
 					16-point: -sony-fixed-medium-r-normal--16-150-75-75-c-80-jisx0201.1976-0+-jis-fixed-medium-r-normal--16-150-75-75-c-160-jisx0208.1983-0\n\
 					18-point: -sony-fixed-medium-r-normal--16-150-75-75-c-80-jisx0201.1976-0+-misc-fixed-medium-r-normal-ja-18-120-100-100-c-180-iso10646-1\n\
 					24-point: -sony-fixed-medium-r-normal--24-230-75-75-c-120-jisx0201.1976-0+-jis-fixed-medium-r-normal--24-230-75-75-c-240-jisx0208.1983-0
+x3270.emulatorFontList.3270cg-1a,3270cg-1,iso10646-1,iso8859-1+big5-0,iso10646-1: fixed+-wenquanyi-wenquanyi bitmap song-bold-r-normal--13-130-75-75-p-80-iso10646-1
+
 #endif
 !
 ! Print commands
@@ -1096,7 +1114,7 @@ x3270.message.statusConnecting:			Connecting
 #endif
 #ifdef X3270_FT
 x3270.message.ftComplete:			Transfer complete, %i bytes transferred\n\
-%.2lg Kbytes/sec in %s mode
+%.2g Kbytes/sec in %s mode
 x3270.message.ftUnable:				Cannot begin transfer
 x3270.message.ftStartTimeout:			Transfer did not start within 10s
 x3270.message.ftUserCancel:			Transfer cancelled by user
