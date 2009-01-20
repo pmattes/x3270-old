@@ -1,16 +1,31 @@
 /*
- * Copyright 1994-2008 by Paul Mattes.
- * RPQNAMES modifications Copyright 2004 by Don Russell.
- *  Permission to use, copy, modify, and distribute this software and its
- *  documentation for any purpose and without fee is hereby granted,
- *  provided that the above copyright notice appear in all copies and that
- *  both that copyright notice and this permission notice appear in
- *  supporting documentation.
- *
- * x3270, c3270, s3270 and tcl3270 are distributed in the hope that they will
- * be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the file LICENSE
- * for more details.
+ * Copyright (c) 1994-2009, Paul Mattes.
+ * Copyright (c) 2004, Don Russell.
+ * All rights reserved.
+ * 
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above copyright
+ *       notice, this list of conditions and the following disclaimer in the
+ *       documentation and/or other materials provided with the distribution.
+ *     * Neither the names of Paul Mattes, Don Russell nor their
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
+ * 
+ * THIS SOFTWARE IS PROVIDED BY PAUL MATTES AND DON RUSSELL "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL PAUL MATTES OR DON RUSSELL
+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY,
+ * OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT
+ * OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+ * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 /*
@@ -43,6 +58,9 @@
 #include "telnetc.h"
 #include "trace_dsc.h"
 #include "utilc.h"
+
+#define X3270_COMPAT 1	/* make x3270 compatible with all of the other
+			   emulators */
 
 /* Externals: ctlr.c */
 extern Boolean  screen_alt;
@@ -712,24 +730,39 @@ do_qr_usable_area(void)
 	SET16(obptr, maxCOLS);	/* usable width */
 	SET16(obptr, maxROWS);	/* usable height */
 	*obptr++ = 0x01;	/* units (mm) */
+#if defined(X3270_COMPAT) /*[*/
+	num = 100;
+	denom = 1;
+#else /*][*/
 	num = display_widthMM();
 	denom = display_width();
+#endif /*]*/
 	while (!(num %2) && !(denom % 2)) {
 		num /= 2;
 		denom /= 2;
 	}
 	SET16(obptr, (int)num);	/* Xr numerator */
 	SET16(obptr, (int)denom); /* Xr denominator */
+#if defined(X3270_COMPAT) /*[*/
+	num = 100;
+	denom = 1;
+#else /*][*/
 	num = display_heightMM();
 	denom = display_height();
+#endif /*]*/
 	while (!(num %2) && !(denom % 2)) {
 		num /= 2;
 		denom /= 2;
 	}
 	SET16(obptr, (int)num);	/* Yr numerator */
 	SET16(obptr, (int)denom); /* Yr denominator */
+#if defined(X3270_COMPAT) /*[*/
+	*obptr++ = 7;		/* AW */
+	*obptr++ = 7;		/* AH */
+#else /*][*/
 	*obptr++ = *char_width;	/* AW */
 	*obptr++ = *char_height;/* AH */
+#endif /*]*/
 	SET16(obptr, maxCOLS*maxROWS);	/* buffer, questionable */
 }
 
@@ -741,7 +774,7 @@ do_qr_color(void)
 
 	trace_ds("> QueryReply(Color)\n");
 
-	color_max = appres.color8? 8: 16; /* report on 8 or 16 colors */
+	color_max = (appres.color8 || !appres.m3279)? 8: 16;
 
 	space3270out(4 + 2*15);
 	*obptr++ = 0x00;	/* no options */
@@ -756,7 +789,7 @@ do_qr_color(void)
 			*obptr++ = 0x00;
 	}
 
-#if !defined(X3270_DISPLAY) /*[*/
+#if defined(X3270_COMPAT) || !defined(X3270_DISPLAY) /*[*/
 	/* Add background color. */
 	if (appres.m3279) {
 		space3270out(4);
@@ -835,8 +868,13 @@ do_qr_charsets(void)
 #endif /*]*/
 		*obptr++ = 0x82;	/* flags: GE, CGCSGID present */
 	*obptr++ = 0x00;		/* more flags */
+#if defined(X3270_COMPAT) /*[*/
+	*obptr++ = 7;			/* SDW */
+	*obptr++ = 7;			/* SDW */
+#else /*][*/
 	*obptr++ = *char_width;		/* SDW */
 	*obptr++ = *char_height;	/* SDW */
+#endif /*]*/
 	*obptr++ = 0x00;		/* no load PS */
 	*obptr++ = 0x00;
 	*obptr++ = 0x00;
@@ -868,7 +906,10 @@ do_qr_charsets(void)
 	}
 #endif /*]*/
 	SET32(obptr, cgcsgid);		/*  CGCSGID */
-	if (!*standard_font) {
+#if !defined(X3270_COMPAT) /*[*/
+	if (!*standard_font)
+#endif /*]*/
+	{
 		/* special 3270 font, includes APL */
 		*obptr++ = 0x01;/* SET 1: */
 		if (appres.apl_mode)
