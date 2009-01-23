@@ -1,1 +1,1 @@
-../wc3270/macros.c
+../x3270/macros.c

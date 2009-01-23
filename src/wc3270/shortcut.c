@@ -1,14 +1,30 @@
 /*
- * Copyright 2006-2008 by Paul Mattes.
- *   Permission to use, copy, modify, and distribute this software and its
- *   documentation for any purpose and without fee is hereby granted,
- *   provided that the above copyright notice appear in all copies and that
- *   both that copyright notice and this permission notice appear in
- *   supporting documentation.
- *
- * wc3270 is distributed in the hope that it will be useful, but WITHOUT ANY
- * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
- * FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
+ * Copyright (c) 1996-2009, Paul Mattes.
+ * All rights reserved.
+ * 
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above copyright
+ *       notice, this list of conditions and the following disclaimer in the
+ *       documentation and/or other materials provided with the distribution.
+ *     * Neither the name of Paul Mattes nor his contributors may be used
+ *       to endorse or promote products derived from this software without
+ *       specific prior written permission.
+ * 
+ * THIS SOFTWARE IS PROVIDED BY PAUL MATTES "AS IS" AND ANY EXPRESS
+ * OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL PAUL MATTES BE LIABLE FOR ANY DIRECT,
+ * INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
+ * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
  */
 
 /*
@@ -35,7 +51,8 @@
 //   shell link 
 HRESULT
 CreateLink(LPCSTR lpszPathObj, LPSTR lpszPathLink, LPSTR lpszDesc,
-    LPSTR lpszArgs, LPSTR lpszDir, int rows, int cols)
+    LPSTR lpszArgs, LPSTR lpszDir, int rows, int cols, wchar_t *font,
+    int pointsize, int codepage)
 {
 	HRESULT			hres;
 	int	 		initialized;
@@ -97,11 +114,11 @@ CreateLink(LPCSTR lpszPathObj, LPSTR lpszPathLink, LPSTR lpszDesc,
 		p.nFont = 0;
 		p.nInputBufferSize = 0;
 		p.dwFontSize.X = 0;
-		p.dwFontSize.Y = 12;
+		p.dwFontSize.Y = pointsize? pointsize: 12;
 		p.uFontFamily = 54; /* ? */
 		p.uFontWeight = 400; /* ? */
-		wcscpy(p.FaceName, L"Lucida Console");
-		p.uCursorSize = 0x19;
+		wcscpy(p.FaceName, font);
+		p.uCursorSize = /*0x19*/100;
 		p.bFullScreen = 0;
 		p.bQuickEdit = 0;
 		p.bInsertMode = 1;
@@ -128,8 +145,28 @@ CreateLink(LPCSTR lpszPathObj, LPSTR lpszPathLink, LPSTR lpszDesc,
 
 		hres = psldl->lpVtbl->AddDataBlock(psldl, &p);
 		if (!SUCCEEDED(hres)) {
-			fprintf(stderr, "AddDataBlock failed\n");
+			fprintf(stderr, "AddDataBlock(1) failed\n");
 			goto out;
+		}
+
+		if (codepage) {
+			NT_FE_CONSOLE_PROPS pfe;
+
+			memset(&pfe, '\0', sizeof(pfe));
+#if defined(_MSC_VER) /*[*/
+			pfe.cbSize = sizeof(pfe);
+			pfe.dwSignature = NT_FE_CONSOLE_PROPS_SIG;
+#else /*][*/
+			pfe.dbh.cbSize = sizeof(pfe);
+			pfe.dbh.dwSignature = NT_FE_CONSOLE_PROPS_SIG;
+#endif /*]*/
+			pfe.uCodePage = codepage;
+
+			hres = psldl->lpVtbl->AddDataBlock(psldl, &pfe);
+			if (!SUCCEEDED(hres)) {
+				fprintf(stderr, "AddDataBlock(2) failed\n");
+				goto out;
+			}
 		}
 	}
 
@@ -410,7 +447,7 @@ typedef struct {
  */
 HRESULT
 Piffle(char *title, LPCSTR lpszPathObj, LPSTR lpszPathLink, LPSTR lpszDesc,
-    LPSTR lpszArgs, LPSTR lpszDir, int rows, int cols)
+    LPSTR lpszArgs, LPSTR lpszDir, int rows, int cols, char *font)
 {
     	w98pif_t pif;
 	int sl;
@@ -453,6 +490,7 @@ Piffle(char *title, LPCSTR lpszPathObj, LPSTR lpszPathLink, LPSTR lpszDesc,
 	pif.vmm.window_width.data[1] = 0;
 	pif.vmm.window_height.data[0] = 0;
 	pif.vmm.window_height.data[1] = 0;
+	strcpy(pif.vmm.tt_font, font);
 
 	/* Create the file. */
 	f = fopen(lpszPathLink, "wb");

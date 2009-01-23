@@ -1,1 +1,1 @@
-../wc3270/actions.c
+../x3270/actions.c

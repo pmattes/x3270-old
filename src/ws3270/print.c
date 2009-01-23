@@ -1,1 +1,1 @@
-../wc3270/print.c
+../x3270/print.c

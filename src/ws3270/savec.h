@@ -1,1 +1,1 @@
-../s3270/savec.h
+../wc3270/savec.h

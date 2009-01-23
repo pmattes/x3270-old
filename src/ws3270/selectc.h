@@ -1,1 +1,1 @@
-../s3270/selectc.h
+../wc3270/selectc.h

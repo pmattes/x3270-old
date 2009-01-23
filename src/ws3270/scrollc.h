@@ -1,1 +1,1 @@
-../s3270/scrollc.h
+../wc3270/scrollc.h

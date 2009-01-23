@@ -1,1 +1,1 @@
-../wc3270/telnet.c
+../x3270/telnet.c
