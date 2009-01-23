@@ -1,5 +1,5 @@
 '\" t
-.TH tcl3270 1 "13 December 2008"
+.TH tcl3270 1 "22 January 2009"
 .SH "NAME"
 tcl3270 \-
 \s-1IBM\s+1 host access tool
@@ -80,7 +80,6 @@ the following options:
 .TP
 \fB\-charset\fP \fIname\fP
 Specifies an \s-1EBCDIC\s+1 host character set.
-See \s-1CHARACTER SETS\s+1 below.
 .TP
 \fB\-clear\fP \fItoggle\fP
 Sets the initial value of \fItoggle\fP to \fBfalse\fP.
@@ -153,7 +152,7 @@ T}	T{
 T}	T{
 .na
 .nh
-30
+32
 T}
 T{
 .na
@@ -2233,7 +2232,7 @@ RFC 1646, TN3270 Extensions for LUname and Printer Selection
 RFC 2355, TN3270 Enhancements
 .SH "COPYRIGHTS"
 .LP
-Modifications and original code Copyright 1993-2008 by Paul Mattes.
+Modifications and original code Copyright 1993-2009 by Paul Mattes.
 .br
 DFT File Transfer Code Copyright  October 1995 by Dick Altenbern.
 .br
@@ -2258,4 +2257,4 @@ tcl3270 is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
 .SH "VERSION"
-tcl3270 3.3.8p2
+tcl3270 3.3.8p3

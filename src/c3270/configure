@@ -6456,6 +6456,7 @@ if test $ac_cv_lib_ncursesw_wadd_wch = yes; then
 #define CURSES_WIDE 1
 _ACEOF
 
+Cw=1
 fi
 
 elif test "$ac_cv_lib_ncurses_newterm" = yes
@@ -6528,6 +6529,7 @@ if test $ac_cv_lib_ncurses_wadd_wch = yes; then
 #define CURSES_WIDE 1
 _ACEOF
 
+Cw=1
 fi
 
 elif test "$ac_cv_lib_curses_newterm" = yes
@@ -6600,9 +6602,14 @@ if test $ac_cv_lib_curses_wadd_wch = yes; then
 #define CURSES_WIDE 1
 _ACEOF
 
+Cw=1
 fi
 
 else	echo "What??? "
+fi
+if test "$Cw" != "1"
+then	{ echo "$as_me:$LINENO: WARNING: Wide curses not found -- c3270 will not be able to support multi-byte character encodings" >&5
+echo "$as_me: WARNING: Wide curses not found -- c3270 will not be able to support multi-byte character encodings" >&2;}
 fi
 
 

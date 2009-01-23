@@ -1,5 +1,5 @@
 '\" t
-.TH PR3287 1 "07 December 2008"
+.TH PR3287 1 "21 January 2009"
 .SH "NAME"
 pr3287 \-
 \s-1IBM\s+1
@@ -262,4 +262,4 @@ Derivative works based on this software must incorporate this copyright
 notice.
 .RE
 .SH "VERSION"
-pr3287 3.3.8p2
+pr3287 3.3.8p3

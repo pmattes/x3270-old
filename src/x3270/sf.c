@@ -741,7 +741,7 @@ do_qr_color(void)
 
 	trace_ds("> QueryReply(Color)\n");
 
-	color_max = appres.color8? 8: 16; /* report on 8 or 16 colors */
+	color_max = (!appres.m3279 || appres.color8)? 8: 16; /* report on 8 or 16 colors */
 
 	space3270out(4 + 2*15);
 	*obptr++ = 0x00;	/* no options */
@@ -852,7 +852,7 @@ do_qr_charsets(void)
 #if defined(X3270_DBCS) /*[*/
 	if (dbcs)
 		*obptr++ = 0x00;	/*  FLAGS: non-load, single-
-					    plane, single-bute */
+					    plane, single-byte */
 	else
 #endif /*]*/
 		*obptr++ = 0x10;	/*  FLAGS: non-loadable,
@@ -868,29 +868,28 @@ do_qr_charsets(void)
 	}
 #endif /*]*/
 	SET32(obptr, cgcsgid);		/*  CGCSGID */
-	if (!*standard_font) {
-		/* special 3270 font, includes APL */
-		*obptr++ = 0x01;/* SET 1: */
-		if (appres.apl_mode)
-		    *obptr++ = 0x00;/*  FLAGS: non-loadable, single-plane,
-					 single-byte, no compare */
-		else
-		    *obptr++ = 0x10;/*  FLAGS: non-loadable, single-plane,
-					 single-byte, no compare */
-		*obptr++ = 0xf1;/*  LCID */
+
+	/* special 3270 font, includes APL */
+	*obptr++ = 0x01;		/* SET 1: */
+	if (appres.apl_mode)
+		*obptr++ = 0x00;	/*  FLAGS: non-loadable, single-plane,
+					    single-byte, no compare */
+	else
+		*obptr++ = 0x10;	/*  FLAGS: non-loadable, single-plane,
+					    single-byte, no compare */
+	*obptr++ = 0xf1;		/*  LCID '1' */
 #if defined(X3270_DBCS) /*[*/
-		if (dbcs) {
-			*obptr++ = 0x00;/*  SW 0 */
-			*obptr++ = 0x00;/*  SH 0 */
-			*obptr++ = 0x00;/*  SUBSN */
-			*obptr++ = 0x00;/*  SUBSN */
-		}
-#endif /*]*/
-		*obptr++ = 0x03;/*  CGCSGID: 3179-style APL2 */
-		*obptr++ = 0xc3;
-		*obptr++ = 0x01;
-		*obptr++ = 0x36;
+	if (dbcs) {
+		*obptr++ = 0x00;	/*  SW 0 */
+		*obptr++ = 0x00;	/*  SH 0 */
+		*obptr++ = 0x00;	/*  SUBSN */
+		*obptr++ = 0x00;	/*  SUBSN */
 	}
+#endif /*]*/
+	*obptr++ = 0x03;		/*  CGCSGID: 3179-style APL2 */
+	*obptr++ = 0xc3;
+	*obptr++ = 0x01;
+	*obptr++ = 0x36;
 #if defined(X3270_DBCS) /*[*/
 	if (dbcs) {
 		*obptr++ = 0x80;	/* SET 0x80: */

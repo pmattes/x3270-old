@@ -1,5 +1,5 @@
 /*
- * Copyright 1995-2008 by Paul Mattes.
+ * Copyright 1995-2009 by Paul Mattes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
  *  provided that the above copyright notice appear in all copies and that
@@ -128,13 +128,13 @@ fallbacks.c: mkfb X3270.xad
 	./mkfb X3270.xad $@
 
 mkfb: mkfb.c
-	$(CC) $(CDEBUGFLAGS) -o mkfb mkfb.c
+	$(CC) $(CFLAGS) -o mkfb mkfb.c
 
 /* Build rule for x3270if.  This is specified explicitly instead of using
    ComplexProgramTarget, because we may want to install it somewhere other
    than under PROJECTROOT. */
 ProgramTargetName(x3270if): x3270if.c conf.h
-	$(CC) $(CDEBUGFLAGS) $(ALLDEFINES) -o x3270if x3270if.c $(EXTRA_LDOPTIONS) $(EXTRA_LIBRARIES)
+	$(CC) $(CFLAGS) -o x3270if x3270if.c $(EXTRA_LDOPTIONS) $(EXTRA_LIBRARIES)
 
 /* Rules for using and installing a separate app-defaults file. */
 @DEFINE_UAD@

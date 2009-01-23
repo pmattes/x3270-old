@@ -1,5 +1,5 @@
 /*
- * Modifications Copyright 1993-2008 by Paul Mattes.
+ * Modifications Copyright 1993-2009 by Paul Mattes.
  * Original X11 Port Copyright 1990 by Jeff Sparkes.
  *  Permission to use, copy, modify, and distribute this software and its
  *  documentation for any purpose and without fee is hereby granted,
@@ -1027,7 +1027,7 @@ screen_connect(Boolean ignored _is_unused)
 		 * dimensions, otherwise go to the default 24x80 for 3270
 		 * or SSCP mode.
 		 */
-		ctlr_erase(IN_ANSI? True: False);
+		ctlr_erase((IN_ANSI || IN_SSCP)? True: False);
 		if (IN_3270)
 			scroll_round();
 		cursor_on();

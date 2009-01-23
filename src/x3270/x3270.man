@@ -1,5 +1,5 @@
 '\" t
-.TH x3270 1 "07 December 2008"
+.TH x3270 1 "22 January 2009"
 .SH "NAME"
 x3270 \-
 \s-1IBM\s+1 host access tool
@@ -89,11 +89,9 @@ See \s-1APL SUPPORT\s+1 below.
 .TP
 \fB\-cc\fP \fIrange\fP:\fIvalue\fP[,...]
 Sets character classes.
-See \s-1CHARACTER CLASSES\s+1, below.
 .TP
 \fB\-charset\fP \fIname\fP
 Specifies an \s-1EBCDIC\s+1 host character set.
-See \s-1CHARACTER SETS\s+1 below.
 .TP
 \fB\-clear\fP \fItoggle\fP
 Sets the initial value of \fItoggle\fP to \fBfalse\fP.
@@ -102,7 +100,6 @@ below.
 .TP
 \fB\-efont\fP \fIname\fP
 Specifies a font for the emulator window.
-See \s-1FONTS\s+1 below.
 .TP
 \fB\-iconname\fP \fIname\fP
 Specifies an alternate title for the program icon.
@@ -186,7 +183,7 @@ T}	T{
 T}	T{
 .na
 .nh
-30
+32
 T}
 T{
 .na
@@ -287,7 +284,6 @@ Turns the scrollbar off.
 \fB\-scheme\fP \fIname\fP
 Specifes a color scheme to use in 3279 mode.
 This option has effect only in combination with 3279 emulation.
-See \s-1COLOR SCHEMES\s+1 below.
 .TP
 \fB\-script\fP
 Causes
@@ -4983,7 +4979,7 @@ RFC 1646, TN3270 Extensions for LUname and Printer Selection
 RFC 2355, TN3270 Enhancements
 .SH "COPYRIGHTS"
 .LP
-Modifications and original code Copyright 1993-2008 by Paul Mattes.
+Modifications and original code Copyright 1993-2009 by Paul Mattes.
 .br
 DFT File Transfer Code Copyright  October 1995 by Dick Altenbern.
 .br
@@ -5008,4 +5004,4 @@ x3270 is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
 .SH "VERSION"
-x3270 3.3.8p2
+x3270 3.3.8p3
