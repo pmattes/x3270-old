@@ -292,7 +292,10 @@ above, except that it generates hexadecimal
 <font size=-1>EBCDIC</font>
 codes.
 <dt><b>Info</b>(<i>message</i>)</dt><dd>
-Pops up an informational message.
+In x3270, pops up an informational message.
+In c3270 and wc3270, writes an informational message to the OIA (the line below
+the display).
+Not defined for s3270 or tcl3270.
 <dt><b>Expect</b>(<i>text</i>[,<i>timeout</i>])</dt><dd>
 Pauses the script until the specified
 <i>text</i>
@@ -629,12 +632,12 @@ ksh(1)
 <br>
 <a HREF="ws3270-man.html">ws3270(1)</a>
 <a NAME="Version"></a><h2>Version</h2>
-Version 3.3.9a7
+Version 3.3.9beta9
 <hr>
 <i>
 This HTML document and the accompanying troff document were generated with
 a set of write-only <b>m4</b> macros and the powerful <b>vi</b> editor.
-<br>Last modified 19 January 2009.
+<br>Last modified 14 February 2009.
 </i>
 </body>
 </html>

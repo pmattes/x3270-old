@@ -1,1 +1,1 @@
-../wc3270/screen.h
+../s3270/screen.h

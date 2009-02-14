@@ -16,6 +16,7 @@
 <a HREF="#Toggles">Toggles</a><br>
 <a HREF="#Actions">Actions</a><br>
 <a HREF="#File-Transfer">File Transfer</a><br>
+<a HREF="#The-PrintText-Action">The PrintText Action</a><br>
 <a HREF="#Nested-Scripts">Nested Scripts</a><br>
 <a HREF="#Passthru">Passthru</a><br>
 <a HREF="#Proxy">Proxy</a><br>
@@ -32,6 +33,8 @@ ws3270 -
 [<i>options</i>]
 [<i>host</i>]
 
+<br>
+<b>ws3270</b> [<i>options</i>] <i>session-file</i>.ws3270
 
 <a NAME="Description"></a><h2>Description</h2>
 <b>ws3270</b> opens
@@ -461,6 +464,37 @@ Larger values give better performance, but some hosts may not be able to
 support them.
 </dl>
 
+<a NAME="The-PrintText-Action"></a><h2>The PrintText Action</h2>
+The <b>PrintText</b> produces screen snapshots in a number of different
+forms.
+The default form wth no arguments sends a copy of the screen to the default
+printer.
+A single argument is
+the name of the printer to use.
+The font defaults to <b>Courier New</b> and the
+point size defaults to 8.
+These can be overridden by the <b>printer.font</b> and <b>printer.size</b>
+resources, respectively.
+Multiple arguments can include keywords to control the output of
+<b>PrintText</b>:
+<dl><dt><b>file</b> <i>filename</i></dt><dd>
+Save the output in a file.
+<dt><b>html</b></dt><dd>
+Save the output as HTML.  This option implies <b>file</b>.
+<dt><b>rtf</b></dt><dd>
+Save the output as RichText.  This option implies <b>file</b>.
+The font defaults to <b>Courier New</b> and the
+point size defaults to 8.
+These can be overridden by the <b>printer.font</b> and <b>printer.size</b>
+resources, respectively.
+<dt><b>modi</b></dt><dd>
+Render modified fields in italics.
+<dt><b>caption</b> <i>text</i></dt><dd>
+Add the specified <i>text</i> as a caption above the output.
+Within <i>text</i>, the special sequence <b>%T%</b> will be replaced with
+a timestamp.
+</dl>
+
 <a NAME="Nested-Scripts"></a><h2>Nested Scripts</h2>
 There are several types of
 nested script functions available.
@@ -662,12 +696,12 @@ WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
 OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
 ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 <a NAME="Version"></a><h2>Version</h2>
-ws3270 3.3.9a8
+ws3270 3.3.9beta9
 <hr>
 <i>
 This HTML document and the accompanying troff document were generated with
 a set of write-only <b>m4</b> macros and the powerful <b>vi</b> editor.
-<br>Last modified 23 January 2009.
+<br>Last modified 14 February 2009.
 </i>
 </body>
 </html>

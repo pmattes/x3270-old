@@ -309,7 +309,7 @@ ac_includes_default="\
 # include <unistd.h>
 #endif"
 
-ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS INSTALL_PROGRAM INSTALL_SCRIPT INSTALL_DATA CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT build build_cpu build_vendor build_os host host_cpu host_vendor host_os XANSI XPRECOMP NIXCCOPTIONS CPP UAD_FLAGS DEFINE_UAD FALLBACKS_O DEFINE_PR3287 IFONTDIR CIFONTDIR EGREP USE_ICONV LIBX3270DIR xmkmf_found DBCS SSL LIBOBJS LTLIBOBJS'
+ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS INSTALL_PROGRAM INSTALL_SCRIPT INSTALL_DATA CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT build build_cpu build_vendor build_os host host_cpu host_vendor host_os XANSI XPRECOMP NIXCCOPTIONS CPP UAD_FLAGS DEFINE_UAD FALLBACKS_O IFONTDIR CIFONTDIR EGREP USE_ICONV LIBX3270DIR xmkmf_found SSL LIBOBJS LTLIBOBJS'
 ac_subst_files=''
 
 # Initialize some variables set by options.
@@ -868,7 +868,6 @@ Optional Packages:
   --without-PACKAGE       do not use PACKAGE (same as --with-PACKAGE=no)
   --with-x                use the X Window System
   --with-all-xinstall     install all components in system X11 directory
-  --without-pr3287        don't build pr3287
   --with-fontdir=DIR      install fonts in directory DIR DIR=misc
   --with-iconv            ignore __STDC_ISO_10646__ and use iconv() instead
   --with-ssl=DIR          specify OpenSSL install directory
@@ -2922,20 +2921,6 @@ else
 fi;
 
 
-
-
-
-# Check whether --with-pr3287 or --without-pr3287 was given.
-if test "${with_pr3287+set}" = set; then
-  withval="$with_pr3287"
-
-fi;
-if test -d pr3287 -a "$with_pr3287" != "no"
-then	DEFINE_PR3287="#define PR3287 1"
-	pr3mf=pr3287/Makefile
-else	DEFINE_PR3287="#undef PR3287"
-	pr3mf=""
-fi
 
 
 
@@ -5779,10 +5764,8 @@ no)	;;
 #define X3270_DBCS 1
 _ACEOF
 
-	DBCS=-DX3270_DBCS=1
 	;;
 esac
-
 # Check whether --enable-ft or --disable-ft was given.
 if test "${enable_ft+set}" = set; then
   enableval="$enable_ft"
@@ -5908,7 +5891,7 @@ if test -f Imakefile
 then	cp Imakefile Imakefile.old
 fi
 
-                    ac_config_files="$ac_config_files Imakefile $pr3mf"
+          ac_config_files="$ac_config_files Imakefile"
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
 # tests run on this system so they can be shared between configure
@@ -6435,7 +6418,6 @@ do
   case "$ac_config_target" in
   # Handling of arguments.
   "Imakefile" ) CONFIG_FILES="$CONFIG_FILES Imakefile" ;;
-  "$pr3mf" ) CONFIG_FILES="$CONFIG_FILES $pr3mf" ;;
   "conf.h" ) CONFIG_HEADERS="$CONFIG_HEADERS conf.h" ;;
   *) { { echo "$as_me:$LINENO: error: invalid argument: $ac_config_target" >&5
 echo "$as_me: error: invalid argument: $ac_config_target" >&2;}
@@ -6546,14 +6528,12 @@ s,@CPP@,$CPP,;t t
 s,@UAD_FLAGS@,$UAD_FLAGS,;t t
 s,@DEFINE_UAD@,$DEFINE_UAD,;t t
 s,@FALLBACKS_O@,$FALLBACKS_O,;t t
-s,@DEFINE_PR3287@,$DEFINE_PR3287,;t t
 s,@IFONTDIR@,$IFONTDIR,;t t
 s,@CIFONTDIR@,$CIFONTDIR,;t t
 s,@EGREP@,$EGREP,;t t
 s,@USE_ICONV@,$USE_ICONV,;t t
 s,@LIBX3270DIR@,$LIBX3270DIR,;t t
 s,@xmkmf_found@,$xmkmf_found,;t t
-s,@DBCS@,$DBCS,;t t
 s,@SSL@,$SSL,;t t
 s,@LIBOBJS@,$LIBOBJS,;t t
 s,@LTLIBOBJS@,$LTLIBOBJS,;t t

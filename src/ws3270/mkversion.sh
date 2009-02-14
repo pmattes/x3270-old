@@ -1,1 +1,1 @@
-../wc3270/mkversion.sh
+../s3270/mkversion.sh

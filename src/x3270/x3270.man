@@ -1,5 +1,5 @@
 '\" t
-.TH x3270 1 "19 January 2009"
+.TH x3270 1 "14 February 2009"
 .SH "NAME"
 x3270 \-
 \s-1IBM\s+1 host access tool
@@ -8,6 +8,8 @@ x3270 \-
 [\fIoptions\fP]
 [\fIhost\fP]
 
+.br
+\fBx3270\fP [\fIoptions\fP] \fIsession-file\fP.x3270
 
 .SH "DESCRIPTION"
 \fBx3270\fP opens
@@ -89,11 +91,9 @@ See \s-1APL SUPPORT\s+1 below.
 .TP
 \fB\-cc\fP \fIrange\fP:\fIvalue\fP[,...]
 Sets character classes.
-See \s-1CHARACTER CLASSES\s+1, below.
 .TP
 \fB\-charset\fP \fIname\fP
 Specifies an \s-1EBCDIC\s+1 host character set.
-See \s-1CHARACTER SETS\s+1 below.
 .TP
 \fB\-clear\fP \fItoggle\fP
 Sets the initial value of \fItoggle\fP to \fBfalse\fP.
@@ -102,7 +102,6 @@ below.
 .TP
 \fB\-efont\fP \fIname\fP
 Specifies a font for the emulator window.
-See \s-1FONTS\s+1 below.
 .TP
 \fB\-iconname\fP \fIname\fP
 Specifies an alternate title for the program icon.
@@ -287,7 +286,6 @@ Turns the scrollbar off.
 \fB\-scheme\fP \fIname\fP
 Specifes a color scheme to use in 3279 mode.
 This option has effect only in combination with 3279 emulation.
-See \s-1COLOR SCHEMES\s+1 below.
 .TP
 \fB\-script\fP
 Causes
@@ -2176,6 +2174,48 @@ T}	T{
 begin marking the end of a selection
 T}
 .TE
+.SH "THE PRINTTEXT ACTION"
+The \fBPrintText\fP produces screen snapshots in a number of different
+forms.
+The default form wth no arguments sends a copy of the screen to the default
+printer.
+A single argument is
+the command to use to print, e.g., \fBlpr\fP.
+Multiple arguments can include keywords to control the output of
+\fBPrintText\fP:
+.TP
+\fBfile\fP \fIfilename\fP
+Save the output in a file.
+.TP
+\fBhtml\fP
+Save the output as HTML.  This option implies \fBfile\fP.
+.TP
+\fBrtf\fP
+Save the output as RichText.  This option implies \fBfile\fP.
+The font defaults to \fBCourier New\fP and the
+point size defaults to 8.
+These can be overridden by the \fBprinter.font\fP and \fBprinter.size\fP
+resources, respectively.
+.TP
+\fBstring\fP
+Return the output as a string.  This can only be used from scripts.
+.TP
+\fBmodi\fP
+Render modified fields in italics.
+.TP
+\fBcaption\fP \fItext\fP
+Add the specified \fItext\fP as a caption above the output.
+Within \fItext\fP, the special sequence \fB%T%\fP will be replaced with
+a timestamp.
+.TP
+\fBsecure\fP
+Disables the pop-up dialog.
+.TP
+\fBcommand\fP \fIcommand\fP
+Directs the output to a command.
+This allows one or more of the other keywords to be specified, while still
+sending the output to the printer.
+
 .SH "MACROS AND SCRIPTS"
 There are several types of
 macros and script functions available.
@@ -5045,4 +5085,4 @@ WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
 OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
 ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 .SH "VERSION"
-x3270 3.3.9a7
+x3270 3.3.9beta9

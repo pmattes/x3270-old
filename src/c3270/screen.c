@@ -1,14 +1,28 @@
 /*
- * Copyright 2000-2008 by Paul Mattes.
- *   Permission to use, copy, modify, and distribute this software and its
- *   documentation for any purpose and without fee is hereby granted,
- *   provided that the above copyright notice appear in all copies and that
- *   both that copyright notice and this permission notice appear in
- *   supporting documentation.
+ * Copyright (c) 2000-2009, Paul Mattes.
+ * All rights reserved.
  *
- * c3270 is distributed in the hope that it will be useful, but WITHOUT ANY
- * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
- * FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above copyright
+ *       notice, this list of conditions and the following disclaimer in the
+ *       documentation and/or other materials provided with the distribution.
+ *     * Neither the names of Paul Mattes nor the names of his contributors
+ *       may be used to endorse or promote products derived from this software
+ *       without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY PAUL MATTES "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
+ * EVENT SHALL PAUL MATTES BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 /*
@@ -59,6 +73,8 @@ extern int cCOLS;
 #include <curses.h>
 #endif /*]*/
 
+#define STATUS_PUSH_MS	5000
+
 static int cp[8][8][2];
 static int cmap[16] = {
 	COLOR_BLACK,	/* neutral black */
@@ -103,6 +119,7 @@ struct screen_spec altscreen_spec, defscreen_spec;
 static SCREEN *def_screen = NULL, *alt_screen = NULL;
 static SCREEN *cur_screen = NULL;
 static void parse_screen_spec(const char *str, struct screen_spec *spec);
+int regurg;
 #endif /*]*/
 
 static struct {
@@ -391,6 +408,7 @@ swap_screens(SCREEN *new_screen)
 {
 	set_term(new_screen);
 	cur_screen = new_screen;
+	/*regurg = TRUE;*/
 }
 #endif /*]*/
 
@@ -893,6 +911,16 @@ kybd_input(void)
 #else /*][*/
 		k = wgetch(stdscr);
 #endif /*]*/
+		trace_event("k=%d "
+#if defined(CURSES_WIDE) /*[*/
+			"wch=%u "
+#endif /*]*/
+			"regurg=%u\n",
+			k,
+#if defined(CURSES_WIDE) /*[*/
+			wch,
+#endif /*]*/
+			regurg);
 		if (k == ERR) {
 			if (first) {
 				if (failed_first) {
@@ -901,10 +929,26 @@ kybd_input(void)
 				}
 				failed_first = True;
 			}
+			trace_event("k == ERR, return\n");
 			return;
 		} else {
 			failed_first = False;
 		}
+#if defined(C3270_80_132) /*[*/
+		if (regurg) {
+		    regurg = FALSE;
+#if defined(CURSES_WIDE) /*[*/
+		    if (k != KEY_CODE_YES) {
+			trace_event("pushing back %u\n", wch);
+			unget_wch(wch);
+			continue;
+		    }
+#else /*][*/
+		    ungetch(k);
+		    continue;
+#endif /*]*/
+		}
+#endif /*]*/
 #if !defined(CURSES_WIDE) /*[*/
 		/* Differentiate between KEY_XXX and regular input. */
 		if (!(k & ~0xff)) {
@@ -1079,7 +1123,7 @@ kybd_input2(int k, ucs4_t ucs4, int alt)
 	}
 
 	/* Catch PF keys. */
-	for (i = 0; i < 63; i++) {
+	for (i = 1; i <= 24; i++) {
 		if (k == KEY_F(i)) {
 			(void) sprintf(buf, "%d", i);
 			action_internal(PF_action, IA_DEFAULT, buf, CN);
@@ -1200,7 +1244,19 @@ static enum keytype oia_compose_keytype = KT_STD;
 #define LUCNT	8
 static char oia_lu[LUCNT+1];
 
-static char *status_msg = "";
+static char *status_msg = "X Disconnected";
+static char *saved_status_msg = NULL;
+static unsigned long saved_status_timeout;
+
+static void
+cancel_status_push(void)
+{
+    	saved_status_msg = NULL;
+	if (saved_status_timeout) {
+	    	RemoveTimeOut(saved_status_timeout);
+		saved_status_timeout = 0;
+	}
+}
 
 void
 status_ctlr_done(void)
@@ -1214,15 +1270,40 @@ status_insert_mode(Boolean on)
 	status_im = on;
 }
 
+static void
+status_pop(void)
+{
+    	status_msg = saved_status_msg;
+	saved_status_msg = NULL;
+	saved_status_timeout = 0;
+}
+
+void
+status_push(char *msg)
+{
+    	if (saved_status_msg != NULL) {
+	    	/* Already showing something. */
+	    	RemoveTimeOut(saved_status_timeout);
+	} else {
+	    	saved_status_msg = status_msg;
+	}
+
+	saved_status_timeout = AddTimeOut(STATUS_PUSH_MS, status_pop);
+	status_msg = msg;
+}
+
 void
 status_minus(void)
 {
+    	cancel_status_push();
 	status_msg = "X -f";
 }
 
 void
 status_oerr(int error_type)
 {
+    	cancel_status_push();
+
 	switch (error_type) {
 	case KL_OERR_PROTECTED:
 		status_msg = "X Protected";
@@ -1239,7 +1320,11 @@ status_oerr(int error_type)
 void
 status_reset(void)
 {
-	if (kybdlock & KL_ENTER_INHIBIT)
+    	cancel_status_push();
+
+	if (!CONNECTED)
+	    	status_msg = "X Disconnected";
+	else if (kybdlock & KL_ENTER_INHIBIT)
 		status_msg = "X Inhibit";
 	else if (kybdlock & KL_DEFERRED_UNLOCK)
 		status_msg = "X";
@@ -1256,12 +1341,16 @@ status_reverse_mode(Boolean on)
 void
 status_syswait(void)
 {
+    	cancel_status_push();
+
 	status_msg = "X SYSTEM";
 }
 
 void
 status_twait(void)
 {
+    	cancel_status_push();
+
 	oia_undera = False;
 	status_msg = "X Wait";
 }
@@ -1293,6 +1382,8 @@ status_lu(const char *lu)
 static void
 status_connect(Boolean connected)
 {
+    	cancel_status_push();
+
 	if (connected) {
 		oia_boxsolid = IN_3270 && !IN_SSCP;
 		if (kybdlock & KL_AWAITING_FIRST)
@@ -1395,7 +1486,7 @@ draw_oia(void)
 		printw("?");
 
 	(void) attrset(defattr);
-	mvprintw(status_row, 8, "%-11s", status_msg);
+	mvprintw(status_row, 8, "%-35.35s", status_msg);
 	mvprintw(status_row, rmargin-36,
 	    "%c%c %c  %c%c%c",
 	    oia_compose? 'C': ' ',

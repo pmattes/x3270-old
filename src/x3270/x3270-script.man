@@ -1,5 +1,5 @@
 '\" t
-.TH X3270-SCRIPT 1 "19 January 2009"
+.TH X3270-SCRIPT 1 "14 February 2009"
 .SH "NAME"
 Scripting Facilities for x3270, s3270, ws3270 and c3270
 .SH "SYNOPSIS"
@@ -302,7 +302,10 @@ above, except that it generates hexadecimal
 codes.
 .TP
 \fBInfo\fP(\fImessage\fP)
-Pops up an informational message.
+In x3270, pops up an informational message.
+In c3270 and wc3270, writes an informational message to the OIA (the line below
+the display).
+Not defined for s3270 or tcl3270.
 .TP
 \fBExpect\fP(\fItext\fP[,\fItimeout\fP])
 Pauses the script until the specified
@@ -1161,4 +1164,4 @@ s3270(1)
 .br
 ws3270(1)
 .SH "VERSION"
-Version 3.3.9a7
+Version 3.3.9beta9

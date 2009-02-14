@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2007-2009, Paul Mattes.
- * All rights reserved.
+ * Copyright (c) 2009, Paul Mattes.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -9,9 +8,9 @@
  *     * Redistributions in binary form must reproduce the above copyright
  *       notice, this list of conditions and the following disclaimer in the
  *       documentation and/or other materials provided with the distribution.
- *     * Neither the names of Paul Mattes nor the names of his contributors
- *       may be used to endorse or promote products derived from this software
- *       without specific prior written permission.
+ *     * Neither the names of Paul Mattes, Jeff Sparkes, GTRC nor the names of
+ *       their contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY PAUL MATTES "AS IS" AND ANY EXPRESS OR IMPLIED
  * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
@@ -26,10 +25,14 @@
  */
 
 /*
- *	resolverc.h
- *		Hostname resolution.
+ *	readresc.h
+ *		A displayless 3270 Terminal Emulator
+ *		Header for resource file reader.
  */
 
-extern int
-resolve_host_and_port(const char *host, char *portname, unsigned short *pport,
-	struct sockaddr *sa, socklen_t *sa_len, char *errmsg, int em_size);
+typedef void (rrf_t)(const char *, const char *);
+
+extern int validate_and_split_resource(const char *where, const char *arg,
+	const char **left, unsigned *rnlenp, const char **right);
+extern int read_resource_filex(const char *filename, Boolean fatal,
+	rrf_t *rrf);

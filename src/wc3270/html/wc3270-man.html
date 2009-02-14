@@ -19,6 +19,7 @@
 <a HREF="#Actions">Actions</a><br>
 <a HREF="#Keymaps">Keymaps</a><br>
 <a HREF="#File-Transfer">File Transfer</a><br>
+<a HREF="#The-PrintText-Action">The PrintText Action</a><br>
 <a HREF="#Nested-Scripts">Nested Scripts</a><br>
 <a HREF="#Printer-Support">Printer Support</a><br>
 <a HREF="#Proxy">Proxy</a><br>
@@ -36,7 +37,8 @@ wc3270 -
 [<i>host</i>]
 
 <br>
-<b>wc3270</b> <i>session-file</i>.wc3270
+<b>wc3270</b> [<i>options</i>] <i>session-file</i>.wc3270
+
 <a NAME="Description"></a><h2>Description</h2>
 <b>wc3270</b> opens
 a telnet connection to an <font size=-1>IBM</font>
@@ -131,6 +133,11 @@ most hosts seem to work with them anyway.
 <p>
 The default model
 is <b>3278-4</b>.
+<dt><b>-mono</b></dt><dd>
+Prevents <b>wc3270</b> from using color, ignoring any color capabilities
+reported by the terminal.
+<dt><b>-noprompt</b></dt><dd>
+Disables command-prompt mode.
 <dt><b>-oversize</b> <i>cols</i><b>x</b><i>rows</i></dt><dd>
 Makes the screen larger than the default for the chosen model number.
 This option has effect only in combination with extended data stream support
@@ -151,6 +158,10 @@ The <i>host</i> can be an IP address or hostname.
 The optional <i>port</i> can be a number or a service name.
 For a list of supported proxy <i>types</i>, see <a HREF="#Proxy"><font size=-1>PROXY</font></a>
 below.
+<dt><b>-reconnect</b></dt><dd>
+Causes <b>wc3270</b>
+to automatically reconnect to the host if it ever disconnects.
+This option has effect only if a hostname is specified on the command line.
 <dt><b>-set</b> <i>toggle</i></dt><dd>
 Sets the initial value of <i>toggle</i> to <b>true</b>.
 The list of toggle names is under <a HREF="#Toggles"><font size=-1>TOGGLES</font></a>
@@ -446,6 +457,32 @@ possibly waiting for a response.
 <tr><td >*Transfer(<i>option</i>=<i>value</i>...)</td>	<td >file transfer</td></tr>
 <tr><td >Up</td>	<td >move cursor up</td></tr>
 </table>
+<p>
+Any of the above actions may be entered at the <b>wc3270></b> prompt;
+these commands are also available for use in keymaps
+(see <a HREF="#Keymaps"><font size=-1>KEYMAPS</font></a>).
+Command names are case-insensitive.
+Parameters can be specified with parentheses and commas, e.g.:
+<blockquote>PF(1)</blockquote>
+or with spaces, e.g.:
+<blockquote>PF 1</blockquote>
+Parameters can be quoted with double-quote characters, to allow spaces,
+commas, and parentheses to be used.
+<p>
+<b>wc3270</b> also supports the following interactive commands:
+<dl><dt><b>Help</b></dt><dd>
+Displays a list of available commands.
+<dt><b>Show</b></dt><dd>
+Displays statistics and settings.
+<dt><b>Trace</b></dt><dd>
+Turns tracing on or off.
+The command <b>trace on</b> enables data stream and keyboard event tracing;
+the command <b>trace off</b> disables it.
+The qualifier <b>data</b> or <b>keyboard</b> can be specified
+before <b>on</b> or <b>off</b> to enable or disable a particular trace.
+After <b>on</b>, a filename may be specified to override the default
+trace file name of <b>/tmp/x3trc.</b><i>pid</i>.
+</dl>
 <a NAME="Keymaps"></a><h2>Keymaps</h2>
 The <b>-keymap</b> option
 or the <b>wc3270.keymap</b> resource
@@ -777,6 +814,37 @@ Larger values give better performance, but some hosts may not be able to
 support them.
 </dl>
 
+<a NAME="The-PrintText-Action"></a><h2>The PrintText Action</h2>
+The <b>PrintText</b> produces screen snapshots in a number of different
+forms.
+The default form wth no arguments sends a copy of the screen to the default
+printer.
+A single argument is
+the name of the printer to use.
+The font defaults to <b>Courier New</b> and the
+point size defaults to 8.
+These can be overridden by the <b>printer.font</b> and <b>printer.size</b>
+resources, respectively.
+Multiple arguments can include keywords to control the output of
+<b>PrintText</b>:
+<dl><dt><b>file</b> <i>filename</i></dt><dd>
+Save the output in a file.
+<dt><b>html</b></dt><dd>
+Save the output as HTML.  This option implies <b>file</b>.
+<dt><b>rtf</b></dt><dd>
+Save the output as RichText.  This option implies <b>file</b>.
+The font defaults to <b>Courier New</b> and the
+point size defaults to 8.
+These can be overridden by the <b>printer.font</b> and <b>printer.size</b>
+resources, respectively.
+<dt><b>modi</b></dt><dd>
+Render modified fields in italics.
+<dt><b>caption</b> <i>text</i></dt><dd>
+Add the specified <i>text</i> as a caption above the output.
+Within <i>text</i>, the special sequence <b>%T%</b> will be replaced with
+a timestamp.
+</dl>
+
 <a NAME="Nested-Scripts"></a><h2>Nested Scripts</h2>
 <dl><dt><b>The String Action</b></dt><dd>
 The simplest method for
@@ -921,13 +989,17 @@ The resources available in <b>wc3270</b> are:
 <tr><td >m3279</td>	<td ><a HREF="#rn1">(note 1)</a></td>	<td >-model</td>	<td >3279 (color) emulation</td></tr>
 <tr><td >marginedPaste</td>	<td >False</td>	<td >-set marginedPaste</td>	<td >Keep left margin when pasting</td></tr>
 <tr><td >monoCase</td>	<td >False</td>	<td >-set monoCase</td>	<td >Mono-case mode</td></tr>
+<tr><td >noPrompt</td>	<td >False</td>	<td >-noprompt</td>	<td >Disable command-prompt mode</td></tr>
 <tr><td >numericLock</td>	<td >False</td>	<td >&nbsp;</td>	<td >Lock keyboard for numeric field error</td></tr>
 <tr><td >oerrLock</td>	<td >False</td>	<td >&nbsp;</td>	<td >Lock keyboard for input error</td></tr>
 <tr><td >oversize</td>	<td >&nbsp;</td>	<td >-oversize</td>	<td >Oversize screen dimensions</td></tr>
 <tr><td >port</td>	<td >telnet</td>	<td >-port</td>	<td >Non-default TCP port</td></tr>
 <tr><td >printer.*</td>	<td ><a HREF="#rn4">(note 4)</a></td>	<td >&nbsp;</td>	<td >Printer session config</td></tr>
 <tr><td >printerLu</td>	<td ><a HREF="#rn4">(note 4)</a></td>	<td >&nbsp;</td>	<td >Printer session config</td></tr>
+<tr><td >printTextFont</td>	<td >Courier New</td>	<td >&nbsp;</td>	<td >PrintText font name</td></tr>
+<tr><td >printTextSize</td>	<td >8</td>	<td >&nbsp;</td>	<td >PrintText font size</td></tr>
 <tr><td >quit</td>	<td >^\</td>	<td >&nbsp;</td>	<td ><font size=-1>NVT</font>-mode quit character</td></tr>
+<tr><td >reconnect</td>	<td >False</td>	<td >-reconnect</td>	<td >Automatically reconnect to host</td></tr>
 <tr><td >rprnt</td>	<td >^R</td>	<td >&nbsp;</td>	<td ><font size=-1>NVT</font>-mode reprint character</td></tr>
 <tr><td >secure</td>	<td >False</td>	<td >&nbsp;</td>	<td >Disable "dangerous" options</td></tr>
 <tr><td >termName</td>	<td ><a HREF="#rn2">(note 2)</a></td>	<td >-tn</td>	<td ><font size=-1>TELNET</font> terminal type string</td></tr>
@@ -1023,12 +1095,12 @@ WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
 OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
 ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 <a NAME="Version"></a><h2>Version</h2>
-wc3270 3.3.9a8
+wc3270 3.3.9beta9
 <hr>
 <i>
 This HTML document and the accompanying troff document were generated with
 a set of write-only <b>m4</b> macros and the powerful <b>vi</b> editor.
-<br>Last modified 23 January 2009.
+<br>Last modified 14 February 2009.
 </i>
 </body>
 </html>

@@ -116,8 +116,6 @@ typedef struct {
 	Boolean use_cursor_color;
 	Boolean allow_resize;
 	Boolean no_other;
-	Boolean do_confirms;
-	Boolean reconnect;
 	Boolean visual_select;
 	Boolean suppress_host;
 	Boolean suppress_font_menu;
@@ -125,10 +123,15 @@ typedef struct {
 	Boolean	keypad_on;
 # endif /*]*/
 #endif /*]*/
+#if defined(X3270_DISPLAY) || defined(C3270) /*[*/
+	Boolean do_confirms;
+	Boolean reconnect;
+#endif /*]*/
 #if defined(C3270) /*[*/
 	Boolean all_bold_on;
 	Boolean	curses_keypad;
 	Boolean cbreak_mode;
+	Boolean no_prompt;
 #endif /*]*/
 	Boolean	apl_mode;
 	Boolean scripted;
@@ -187,6 +190,7 @@ typedef struct {
 	char	*altscreen;
 	char	*defscreen;
 	Boolean	acs;
+	Boolean ascii_box_draw;
 #endif /*]*/
 	char	*conf_dir;
 	char	*model;
@@ -253,8 +257,9 @@ typedef struct {
 	char	*eof;
 #endif /*]*/
 
-#if defined(WC3270) /*[*/
 	char	*hostname;
+
+#if defined(WC3270) /*[*/
 	char	*title;
 #endif /*]*/
 

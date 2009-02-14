@@ -22,6 +22,7 @@
 <a HREF="#Status-Line">Status Line</a><br>
 <a HREF="#Icons">Icons</a><br>
 <a HREF="#Keymaps">Keymaps</a><br>
+<a HREF="#The-PrintText-Action">The PrintText Action</a><br>
 <a HREF="#Macros-and-Scripts">Macros and Scripts</a><br>
 <a HREF="#Composite-Characters">Composite Characters</a><br>
 <a HREF="#APL-Support">APL Support</a><br>
@@ -44,6 +45,8 @@ x3270 -
 [<i>options</i>]
 [<i>host</i>]
 
+<br>
+<b>x3270</b> [<i>options</i>] <i>session-file</i>.x3270
 
 <a NAME="Description"></a><h2>Description</h2>
 <b>x3270</b> opens
@@ -1032,6 +1035,41 @@ possibly waiting for a response.
 <tr><td >set-select(<i>atom</i>[,<i>atom</i>...]])</td>	<td >assign existing selection to atom(s)</td></tr>
 <tr><td >start-extend</td>	<td >begin marking the end of a selection</td></tr>
 </table>
+<a NAME="The-PrintText-Action"></a><h2>The PrintText Action</h2>
+The <b>PrintText</b> produces screen snapshots in a number of different
+forms.
+The default form wth no arguments sends a copy of the screen to the default
+printer.
+A single argument is
+the command to use to print, e.g., <b>lpr</b>.
+Multiple arguments can include keywords to control the output of
+<b>PrintText</b>:
+<dl><dt><b>file</b> <i>filename</i></dt><dd>
+Save the output in a file.
+<dt><b>html</b></dt><dd>
+Save the output as HTML.  This option implies <b>file</b>.
+<dt><b>rtf</b></dt><dd>
+Save the output as RichText.  This option implies <b>file</b>.
+The font defaults to <b>Courier New</b> and the
+point size defaults to 8.
+These can be overridden by the <b>printer.font</b> and <b>printer.size</b>
+resources, respectively.
+<dt><b>string</b></dt><dd>
+Return the output as a string.  This can only be used from scripts.
+<dt><b>modi</b></dt><dd>
+Render modified fields in italics.
+<dt><b>caption</b> <i>text</i></dt><dd>
+Add the specified <i>text</i> as a caption above the output.
+Within <i>text</i>, the special sequence <b>%T%</b> will be replaced with
+a timestamp.
+<dt><b>secure</b></dt><dd>
+Disables the pop-up dialog.
+<dt><b>command</b> <i>command</i></dt><dd>
+Directs the output to a command.
+This allows one or more of the other keywords to be specified, while still
+sending the output to the printer.
+</dl>
+
 <a NAME="Macros-and-Scripts"></a><h2>Macros and Scripts</h2>
 There are several types of
 macros and script functions available.
@@ -1476,12 +1514,12 @@ WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
 OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
 ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 <a NAME="Version"></a><h2>Version</h2>
-x3270 3.3.9a7
+x3270 3.3.9beta9
 <hr>
 <i>
 This HTML document and the accompanying troff document were generated with
 a set of write-only <b>m4</b> macros and the powerful <b>vi</b> editor.
-<br>Last modified 19 January 2009.
+<br>Last modified 14 February 2009.
 </i>
 </body>
 </html>

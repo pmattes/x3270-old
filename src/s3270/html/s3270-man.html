@@ -16,6 +16,7 @@
 <a HREF="#Toggles">Toggles</a><br>
 <a HREF="#Actions">Actions</a><br>
 <a HREF="#File-Transfer">File Transfer</a><br>
+<a HREF="#The-PrintText-Action">The PrintText Action</a><br>
 <a HREF="#Nested-Scripts">Nested Scripts</a><br>
 <a HREF="#Passthru">Passthru</a><br>
 <a HREF="#Proxy">Proxy</a><br>
@@ -33,6 +34,8 @@ s3270 -
 [<i>options</i>]
 [<i>host</i>]
 
+<br>
+<b>s3270</b> [<i>options</i>] <i>session-file</i>.s3270
 
 <a NAME="Description"></a><h2>Description</h2>
 <b>s3270</b> opens
@@ -131,7 +134,7 @@ Model 4 is the default.
 <tr><td ><center>Model Number</center></td>	<td ><center>Columns</center></td>	<td ><center>Rows</center></td></tr>
 
 <tr><td ><center>2</center></td>	<td ><center>80</center></td>	<td ><center>24</center></td></tr>
-<tr><td ><center>3</center></td>	<td ><center>80</center></td>	<td ><center>30</center></td></tr>
+<tr><td ><center>3</center></td>	<td ><center>80</center></td>	<td ><center>32</center></td></tr>
 <tr><td ><center>4</center></td>	<td ><center>80</center></td>	<td ><center>43</center></td></tr>
 <tr><td ><center>5</center></td>	<td ><center>132</center></td>	<td ><center>27</center></td></tr>
 </table>
@@ -243,6 +246,7 @@ Available sets include:
 <tr><td ><center>spanish</center></td>	<td ><center>284</center></td>	<td ><center>  iso8859-1</center></td></tr>
 <tr><td ><center>spanish-euro</center></td>	<td ><center>1145</center></td>	<td ><center>  iso8859-15</center></td></tr>
 <tr><td ><center>thai</center></td>	<td ><center>1160</center></td>	<td ><center>iso8859-11 tis620.2529-0</center></td></tr>
+<tr><td ><center>traditional-chinese</center></td>	<td ><center>937</center></td>	<td ><center> iso8859-1 + Big5-0</center></td></tr>
 <tr><td ><center>turkish</center></td>	<td ><center>1026</center></td>	<td ><center>iso8859-9</center></td></tr>
 <tr><td ><center>uk</center></td>	<td ><center>285</center></td>	<td ><center>  iso8859-1</center></td></tr>
 <tr><td ><center>uk-euro</center></td>	<td ><center>1146</center></td>	<td ><center>  iso8859-15</center></td></tr>
@@ -473,6 +477,39 @@ Larger values give better performance, but some hosts may not be able to
 support them.
 </dl>
 
+<a NAME="The-PrintText-Action"></a><h2>The PrintText Action</h2>
+The <b>PrintText</b> produces screen snapshots in a number of different
+forms.
+The default form wth no arguments sends a copy of the screen to the default
+printer.
+A single argument is
+the command to use to print, e.g., <b>lpr</b>.
+Multiple arguments can include keywords to control the output of
+<b>PrintText</b>:
+<dl><dt><b>file</b> <i>filename</i></dt><dd>
+Save the output in a file.
+<dt><b>html</b></dt><dd>
+Save the output as HTML.  This option implies <b>file</b>.
+<dt><b>rtf</b></dt><dd>
+Save the output as RichText.  This option implies <b>file</b>.
+The font defaults to <b>Courier New</b> and the
+point size defaults to 8.
+These can be overridden by the <b>printer.font</b> and <b>printer.size</b>
+resources, respectively.
+<dt><b>string</b></dt><dd>
+Return the output as a string.  This can only be used from scripts.
+<dt><b>modi</b></dt><dd>
+Render modified fields in italics.
+<dt><b>caption</b> <i>text</i></dt><dd>
+Add the specified <i>text</i> as a caption above the output.
+Within <i>text</i>, the special sequence <b>%T%</b> will be replaced with
+a timestamp.
+<dt><b>command</b> <i>command</i></dt><dd>
+Directs the output to a command.
+This allows one or more of the other keywords to be specified, while still
+sending the output to the printer.
+</dl>
+
 <a NAME="Nested-Scripts"></a><h2>Nested Scripts</h2>
 There are several types of
 nested script functions available.
@@ -488,7 +525,7 @@ The C backslash conventions are honored as follows.
 processing the string.)
 <table BORDER cols=2 width="75%">
 <tr><td >\b</td>	<td >Left</td></tr>
-<tr><td >\e<i>xx</i></td>	<td >EBCDIC character in hex</td></tr>
+<tr><td >\e<i>xxxx</i></td>	<td >EBCDIC character in hex</td></tr>
 <tr><td >\f</td>	<td >Clear*</td></tr>
 <tr><td >\n</td>	<td >Enter*</td></tr>
 <tr><td >\pa<i>n</i></td>	<td >PA(<i>n</i>)*</td></tr>
@@ -496,8 +533,15 @@ processing the string.)
 <tr><td >\r</td>	<td >Newline</td></tr>
 <tr><td >\t</td>	<td >Tab</td></tr>
 <tr><td >\T</td>	<td >BackTab</td></tr>
-<tr><td >\x<i>xx</i></td>	<td >ASCII character in hex</td></tr>
+<tr><td >\u<i>xxxx</i></td>	<td >Unicode character in hex</td></tr>
+<tr><td >\x<i>xxxx</i></td>	<td >Unicode character in hex</td></tr>
 </table>
+<p>
+Note that the numeric values for the \e, \u and \x sequences
+can be abbreviated to 2 digits.
+Note also that EBCDIC codes greater than 255 and some Unicode character codes
+represent DBCS characters, which will work only if s3270 is built with
+DBCS support and the host allows DBCS input in the current field.
 <p>
 <b>Note:</b>
 The strings are in <font size=-1>ASCII</font> and converted to <font size=-1>EBCDIC</font>,
@@ -570,7 +614,6 @@ The resources available in <b>s3270</b> are:
 <tr><td >erase</td>	<td >^H</td>	<td >&nbsp;</td>	<td ><font size=-1>NVT</font>-mode erase character</td></tr>
 <tr><td >extended</td>	<td >True</td>	<td >&nbsp;</td>	<td >Use 3270 extended data stream</td></tr>
 <tr><td >eventTrace</td>	<td >False</td>	<td >-trace</td>	<td >Event tracing</td></tr>
-<tr><td >ftCommand</td>	<td >ind$file</td>	<td >&nbsp;</td>	<td >Host file transfer command</td></tr>
 <tr><td >icrnl</td>	<td >False</td>	<td >&nbsp;</td>	<td >Map <font size=-1>CR</font> to <font size=-1>NL</font> on <font size=-1>NVT</font>-mode input</td></tr>
 <tr><td >inlcr</td>	<td >False</td>	<td >&nbsp;</td>	<td >Map <font size=-1>NL</font> to <font size=-1>CR</font> in <font size=-1>NVT</font>-mode input</td></tr>
 <tr><td >intr</td>	<td >^C</td>	<td >&nbsp;</td>	<td ><font size=-1>NVT</font>-mode interrupt character</td></tr>
@@ -633,34 +676,58 @@ RFC 1646, TN3270 Extensions for LUname and Printer Selection
 <br>
 RFC 2355, TN3270 Enhancements
 <a NAME="Copyrights"></a><h2>Copyrights</h2>
+Copyright &copy; 1993-2009, Paul Mattes.
+<br>
+Copyright &copy; 2004-2005, Don Russell.
+<br>
+Copyright &copy; 2004, Dick Altenbern.
+<br>
+Copyright &copy; 1990, Jeff Sparkes.
+<br>
+Copyright &copy; 1989, Georgia Tech Research Corporation (GTRC), Atlanta, GA
+ 30332.
+<br>
+All rights reserved.
 <p>
-Modifications and original code Copyright &copy; 1993-2008 by Paul Mattes.
-<br>
-DFT File Transfer Code Copyright  &copy; October 1995 by Dick Altenbern.
-<br>
-RPQNAMES Code Copyright  &copy; 2004, 2005 by Don Russell.
-<br>
-Original X11 Port Copyright &copy; 1990 by Jeff Sparkes.
-<blockquote>Permission to use, copy, modify, and distribute this software and its
-documentation for any purpose and without fee is hereby granted,
-provided that the above copyright notice appear in all copies and that
-both that copyright notice and this permission notice appear in
-supporting documentation.</blockquote>
-Copyright &copy; 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.
-<blockquote>All Rights Reserved.  GTRC hereby grants public use of this software.
-Derivative works based on this software must incorporate this copyright
-notice.</blockquote>
-<br>
-s3270 is distributed in the hope that it will be useful, but WITHOUT ANY
-WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+<dl>
+<dt>*</dt><dd>
+Redistributions of source code must retain the above copyright notice, this
+list of conditions and the following disclaimer.
+<dt>*</dt><dd>
+Redistributions in binary form must reproduce the above copyright
+notice, this list of conditions and the following disclaimer in the
+documentation and/or other materials provided with the distribution.
+<dt>*</dt><dd>
+Neither the names of Paul Mattes, Don Russell, Dick Altenbern, Jeff Sparkes,
+GTRC nor
+the names of their contributors may be used to endorse or promote
+products derived from this software without specific prior written
+permission.
+</dl>
+
+<p>
+THIS SOFTWARE IS PROVIDED BY PAUL MATTES, DON RUSSELL, DICK ALTENBERN, JEFF
+SPARKES AND GTRC
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
+TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL PAUL MATTES, DON RUSSELL, DICK
+ALTENBERN, JEFF
+SPARKES OR GTRC BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL
+EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 <a NAME="Version"></a><h2>Version</h2>
-s3270 3.3.8
+s3270 3.3.9beta9
 <hr>
 <i>
 This HTML document and the accompanying troff document were generated with
 a set of write-only <b>m4</b> macros and the powerful <b>vi</b> editor.
-<br>Last modified 11 October 2008.
+<br>Last modified 14 February 2009.
 </i>
 </body>
 </html>

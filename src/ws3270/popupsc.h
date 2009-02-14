@@ -1,1 +1,1 @@
-../wc3270/popupsc.h
+../s3270/popupsc.h

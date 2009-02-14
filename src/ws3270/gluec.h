@@ -1,1 +1,1 @@
-../wc3270/gluec.h
+../s3270/gluec.h

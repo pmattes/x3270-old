@@ -1,1 +1,1 @@
-../wc3270/dialogc.h
+../s3270/dialogc.h

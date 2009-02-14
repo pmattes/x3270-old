@@ -1,21 +1,32 @@
 /*
- * Modifications Copyright 1993-2008 by Paul Mattes.
- * Original X11 Port Copyright 1990 by Jeff Sparkes.
- *   Permission to use, copy, modify, and distribute this software and its
- *   documentation for any purpose and without fee is hereby granted,
- *   provided that the above copyright notice appear in all copies and that
- *   both that copyright notice and this permission notice appear in
- *   supporting documentation.
+ * Copyright (c) 1993-2009, Paul Mattes.
+ * Copyright (c) 1990, Jeff Sparkes.
+ * Copyright (c) 1989, Georgia Tech Research Corporation (GTRC), Atlanta, GA
+ *  30332.
+ * All rights reserved.
  *
- * Copyright 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.
- *   All Rights Reserved.  GTRC hereby grants public use of this software.
- *   Derivative works based on this software must incorporate this copyright
- *   notice.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above copyright
+ *       notice, this list of conditions and the following disclaimer in the
+ *       documentation and/or other materials provided with the distribution.
+ *     * Neither the names of Paul Mattes, Jeff Sparkes, GTRC nor the names of
+ *       their contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
  *
- * x3270, c3270, s3270 and tcl3270 are distributed in the hope that they will
- * be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the file LICENSE
- * for more details.
+ * THIS SOFTWARE IS PROVIDED BY PAUL MATTES, JEFF SPARKES AND GTRC "AS IS" AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL PAUL MATTES, JEFF SPARKES OR GTRC BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
  */
 
 /*
@@ -45,15 +56,18 @@
 #include "macrosc.h"
 #include "menubarc.h"
 #include "popupsc.h"
+#include "readresc.h"
 #include "screenc.h"
 #include "selectc.h"
 #include "tablesc.h"
 #include "telnetc.h"
 #include "togglesc.h"
 #include "trace_dsc.h"
+#include "unicodec.h"
 #include "utilc.h"
 
 #if defined(_WIN32) /*[*/
+#include <windows.h>
 #include "winversc.h"
 #endif /*]*/
 
@@ -61,11 +75,27 @@ extern void usage(char *);
 
 #define LAST_ARG	"--"
 
-#if defined(WC3270) /*[*/
-#define PROFILE_SFX	".wc3270"
-#define PROFILE_SFX_LEN	(sizeof(PROFILE_SFX) - 1)
-#define PROFILE_SSFX	".wc3"
-#define PROFILE_SSFX_LEN (sizeof(PROFILE_SSFX) - 1)
+#if defined(C3270) /*[*/
+# if defined(WC3270) /*[*/
+#  define PROFILE_SFX	".wc3270"
+#  define PROFILE_SSFX	".wc3"
+# else /*][*/
+#  define PROFILE_SFX	".c3270"
+# endif /*]*/
+#elif defined(S3270) /*[*/
+# if defined(WS3270) /*[*/
+#  define PROFILE_SFX	".ws3270"
+#  define PROFILE_SSFX	".ws3"
+# else /*][*/
+#  define PROFILE_SFX	".s3270"
+# endif /*]*/
+#elif defined(TCL3270) /*[*/
+#  define PROFILE_SFX	".tcl3270"
+#endif /*]*/
+
+#define PROFILE_SFX_LEN	(int)(sizeof(PROFILE_SFX) - 1)
+#if defined(_WIN32) /*[*/
+# define PROFILE_SSFX_LEN (int)(sizeof(PROFILE_SSFX) - 1)
 #endif /*]*/
 
 #if defined(C3270) /*[*/
@@ -93,9 +123,7 @@ Boolean		exiting = False;
 char	       *command_string = CN;
 static Boolean	sfont = False;
 Boolean	       *standard_font = &sfont;
-#if defined(WC3270) /*[*/
 char	       *profile_name = CN;
-#endif /*]*/
 
 struct toggle_name toggle_names[N_TOGGLES] = {
 	{ ResMonoCase,        MONOCASE },
@@ -147,9 +175,7 @@ parse_command_line(int argc, const char **argv, const char **cl_hostname)
 	char junk;
 	int hn_argc;
 	int model_number;
-#if defined(WC3270) /*[*/
 	int sl;
-#endif /*]*/
 
 	/* Figure out who we are */
 #if defined(_WIN32) /*[*/
@@ -218,20 +244,24 @@ parse_command_line(int argc, const char **argv, const char **cl_hostname)
 		}
 	}
 
-#if defined(WC3270) /*[*/
 	/* Merge in the profile. */
 	if (*cl_hostname != CN &&
 	    (((sl = strlen(*cl_hostname)) > PROFILE_SFX_LEN &&
-	      !strcasecmp(*cl_hostname + sl - PROFILE_SFX_LEN, PROFILE_SFX)) ||
-	     ((sl = strlen(*cl_hostname)) > PROFILE_SSFX_LEN &&
-	      !strcasecmp(*cl_hostname + sl - PROFILE_SSFX_LEN, PROFILE_SSFX)))) {
+	      !strcasecmp(*cl_hostname + sl - PROFILE_SFX_LEN, PROFILE_SFX))
+#if defined(_WIN32) /*[*/
+	     || ((sl = strlen(*cl_hostname)) > PROFILE_SSFX_LEN &&
+	      !strcasecmp(*cl_hostname + sl - PROFILE_SSFX_LEN, PROFILE_SSFX))
+#endif /*]*/
+	     )) {
 
 		const char *pname;
 
 		(void) read_resource_file(*cl_hostname, False);
+#if 0
 		if (appres.hostname == CN) {
 		    Error("Hostname not specified in session file.");
 		}
+#endif
 
 		pname = strrchr(*cl_hostname, '\\');
 		if (pname != CN)
@@ -245,15 +275,16 @@ parse_command_line(int argc, const char **argv, const char **cl_hostname)
 			!strcasecmp(profile_name + sl - PROFILE_SFX_LEN,
 				PROFILE_SFX)) {
 			profile_name[sl - PROFILE_SFX_LEN] = '\0';
+#if defined(_WIN32) /*[*/
 		} else if (sl > PROFILE_SSFX_LEN &&
 			!strcasecmp(profile_name + sl - PROFILE_SSFX_LEN,
 				PROFILE_SSFX)) {
 			profile_name[sl - PROFILE_SSFX_LEN] = '\0';
+#endif /*]*/
 		}
 
-		*cl_hostname = appres.hostname;
+		*cl_hostname = appres.hostname; /* might be NULL */
 	}
-#endif /*]*/
 
 	/*
 	 * Sort out model and color modes, based on the model number resource.
@@ -392,15 +423,22 @@ parse_options(int *argcp, const char **argv)
 #if defined(C3270) /*[*/
     { OptKeymap,   OPT_STRING,  False, ResKeymap,    offset(key_map) },
 #endif /*]*/
+#if defined(WS3270) /*[*/
+    { OptLocalCp,  OPT_INT,	False, ResLocalCp,   offset(local_cp) },
+#endif /*]*/
     { OptModel,    OPT_STRING,  False, ResKeymap,    offset(model) },
-#if defined(C3270) && !defined(_WIN32) /*[*/
+#if defined(C3270) /*[*/
+# if !defined(_WIN32) /*[*/
     { OptMono,     OPT_BOOLEAN, True,  ResMono,      offset(mono) },
+# endif /*]*/
+    { OptNoPrompt, OPT_BOOLEAN, True,  ResNoPrompt,  offset(no_prompt) },
 #endif /*]*/
     { OptOnce,     OPT_BOOLEAN, True,  ResOnce,      offset(once) },
     { OptOversize, OPT_STRING,  False, ResOversize,  offset(oversize) },
     { OptPort,     OPT_STRING,  False, ResPort,      offset(port) },
 #if defined(C3270) /*[*/
     { OptPrinterLu,OPT_STRING,  False, ResPrinterLu, offset(printer_lu) },
+    { OptReconnect,OPT_BOOLEAN, True,  ResReconnect, offset(reconnect) },
 #endif /*]*/
     { OptProxy,	   OPT_STRING,  False, ResProxy,     offset(proxy) },
 #if defined(S3270) /*[*/
@@ -456,6 +494,8 @@ parse_options(int *argcp, const char **argv)
 	appres.debug_tracing = True;
 #if defined(C3270) /*[*/
 	appres.compose_map = "latin1";
+	appres.do_confirms = True;
+	appres.reconnect = False;
 #endif /*]*/
 
 	appres.model = "4";
@@ -484,6 +524,7 @@ parse_options(int *argcp, const char **argv)
 	appres.meta_escape = "auto";
 	appres.curses_keypad = True;
 	appres.cbreak_mode = False;
+	appres.ascii_box_draw = False;
 #if defined(CURSES_WIDE) /*[*/
 	appres.acs = True;
 #endif /*]*/
@@ -524,6 +565,10 @@ parse_options(int *argcp, const char **argv)
 	appres.plugin_command = "x3270hist.pl";
 #endif /*]*/
 
+#if defined(WS3270) /*[*/
+	appres.local_cp = GetACP();
+#endif /*]*/
+
 #if defined(C3270) && !defined(_WIN32) /*[*/
 	/* Merge in the profile. */
 	merge_profile();
@@ -554,7 +599,7 @@ parse_options(int *argcp, const char **argv)
 				continue;
 			*(const char **)opts[j].aoff = argv[++i];
 			if (opts[j].res_name != CN)
-				add_resource(NewString(opts[j].name),
+				add_resource(NewString(opts[j].res_name),
 					     NewString(argv[i]));
 			break;
 		    case OPT_XRM:
@@ -751,9 +796,7 @@ static struct {
 #if defined(X3270_FT) /*[*/
 	{ ResDftBufferSize,offset(dft_buffer_size),XRM_INT },
 #endif /*]*/
-#if defined(WC3270) /*[*/
-	{ "hostname",	offset(hostname),	XRM_STRING },
-#endif /*]*/
+	{ ResHostname,	offset(hostname),	XRM_STRING },
 	{ ResHostsFile,	offset(hostsfile),	XRM_STRING },
 #if defined(X3270_ANSI) /*[*/
 	{ ResIcrnl,	offset(icrnl),		XRM_BOOLEAN },
@@ -774,6 +817,7 @@ static struct {
 	{ ResMetaEscape,offset(meta_escape),	XRM_STRING },
 	{ ResCursesKeypad,offset(curses_keypad),XRM_BOOLEAN },
 	{ ResCbreak,	offset(cbreak_mode),	XRM_BOOLEAN },
+	{ ResAsciiBoxDraw,offset(ascii_box_draw),	XRM_BOOLEAN },
 #if defined(CURSES_WIDE) /*[*/
 	{ ResAcs,	offset(acs),		XRM_BOOLEAN },
 #endif /*]*/
@@ -782,12 +826,18 @@ static struct {
 	{ ResKill,	offset(kill),		XRM_STRING },
 	{ ResLnext,	offset(lnext),		XRM_STRING },
 #endif /*]*/
+#if defined(WS3270) /*[*/
+	{ ResLocalCp,	offset(local_cp),	XRM_INT },
+#endif /*]*/
 	{ ResLoginMacro,offset(login_macro),	XRM_STRING },
 	{ ResM3279,	offset(m3279),		XRM_BOOLEAN },
 	{ ResModel,	offset(model),		XRM_STRING },
 	{ ResModifiedSel, offset(modified_sel),	XRM_BOOLEAN },
-#if defined(C3270) && !defined(_WIN32) /*[*/
+#if defined(C3270) /*[*/
+# if !defined(_WIN32) /*[*/
 	{ ResMono,	offset(mono),		XRM_BOOLEAN },
+# endif /*]*/
+	{ ResNoPrompt,	offset(no_prompt),	XRM_BOOLEAN },
 #endif /*]*/
 	{ ResNumericLock, offset(numeric_lock),	XRM_BOOLEAN },
 	{ ResOerrLock,	offset(oerr_lock),	XRM_BOOLEAN },
@@ -795,12 +845,14 @@ static struct {
 	{ ResPort,	offset(port),		XRM_STRING },
 #if defined(C3270) /*[*/
 	{ ResPrinterLu,	offset(printer_lu),	XRM_STRING },
-	{ ResPrintTextCommand,	NULL,		XRM_STRING },
 #endif /*]*/
 	{ ResProxy,	offset(proxy),		XRM_STRING },
 #if defined(X3270_ANSI) /*[*/
 	{ ResQuit,	offset(quit),		XRM_STRING },
 	{ ResRprnt,	offset(rprnt),		XRM_STRING },
+#endif /*]*/
+#if defined(C3270) /*[*/
+	{ ResReconnect,	offset(reconnect),	XRM_BOOLEAN },
 #endif /*]*/
 	{ ResSecure,	offset(secure),		XRM_BOOLEAN },
 	{ ResTermName,	offset(termname),	XRM_STRING },
@@ -820,6 +872,9 @@ static struct {
 	{ ResTypeahead,	offset(typeahead),	XRM_BOOLEAN },
 	{ ResUnlockDelay,offset(unlock_delay),	XRM_BOOLEAN },
 	{ ResUnlockDelayMs,offset(unlock_delay_ms),XRM_INT },
+#if defined(WC3270) /*[*/
+	{ ResVisualBell,offset(visual_bell),	XRM_BOOLEAN },
+#endif /*]*/
 #if defined(X3270_ANSI) /*[*/
 	{ ResWerase,	offset(werase),		XRM_STRING },
 #endif /*]*/
@@ -845,92 +900,39 @@ strncapcmp(const char *known, const char *unknown, unsigned unk_len)
 	return -1;
 }
 
-
-#if !defined(ME) /*[*/
-#if defined(C3270) /*[*/
-#if defined(WC3270) /*[*/
-#define ME	"wc3270"
-#else /*][*/
-#define ME	"c3270"
-#endif /*]*/
-#elif defined(TCL3270) /*][*/
-#define ME	"tcl3270"
-#else /*][*/
-#define ME	"s3270"
-#endif /*]*/
-#endif /*]*/
-
 void
 parse_xrm(const char *arg, const char *where)
 {
-	static char me_dot[] = ME ".";
-	static char me_star[] = ME "*";
-	unsigned match_len;
-	const char *s;
+	const char *name;
 	unsigned rnlen;
+	const char *s;
 	int i;
 	char *t;
 	void *address = NULL;
 	enum resource_type type = XRM_STRING;
+	Boolean quoted;
+	char c;
 #if defined(C3270) /*[*/
-	char *add_buf = CN;
 	char *hide;
 	Boolean arbitrary = False;
 #endif /*]*/
 
-	/* Enforce "-3270." or "-3270*" or "*". */
-	if (!strncmp(arg, me_dot, sizeof(me_dot)-1))
-		match_len = sizeof(me_dot)-1;
-	else if (!strncmp(arg, me_star, sizeof(me_star)-1))
-		match_len = sizeof(me_star)-1;
-	else if (arg[0] == '*')
-		match_len = 1;
-	else {
-		xs_warning("%s: Invalid resource syntax '%.*s', name must "
-		    "begin with '%s'",
-		    where, sizeof(me_dot)-1, arg, me_dot);
-		return;
-	}
-
-	/* Separate the parts. */
-	s = arg + match_len;
-	while (*s && *s != ':' && !isspace(*s))
-		s++;
-	rnlen = s - (arg + match_len);
-	if (!rnlen) {
-		xs_warning("%s: Invalid resource syntax, missing resource "
-		    "name", where);
-		return;
-	}
-	while (isspace(*s))
-		s++;
-	if (*s != ':') {
-		xs_warning("%s: Invalid resource syntax, missing ':'", where);
-		return;
-	}
-	s++;
-	while (isspace(*s))
-		s++;
+	/* Validate and split. */
+	if (validate_and_split_resource(where, arg, &name, &rnlen, &s) < 0)
+	    	return;
 
 	/* Look up the name. */
 	for (i = 0; resources[i].name != CN; i++) {
-		if (!strncapcmp(resources[i].name, arg + match_len, rnlen)) {
+		if (!strncapcmp(resources[i].name, name, rnlen)) {
 			address = resources[i].address;
 			type = resources[i].type;
-#if defined(C3270) /*[*/
-			if (address == NULL) {
-				add_buf = Malloc(strlen(s) + 1);
-				address = add_buf;
-			}
-#endif /*]*/
 			break;
 		}
 	}
 	if (address == NULL) {
 		for (i = 0; i < N_TOGGLES; i++) {
 			if (toggle_names[i].index >= 0 &&
-			    !strncapcmp(toggle_names[i].name, arg + match_len,
-			    rnlen)) {
+			    !strncapcmp(toggle_names[i].name, name, rnlen)) {
 				address =
 				    &appres.toggle[toggle_names[i].index].value;
 				type = XRM_BOOLEAN;
@@ -940,17 +942,25 @@ parse_xrm(const char *arg, const char *where)
 	}
 #if defined(C3270) /*[*/
 	if (address == NULL) {
-		if (!strncasecmp(ResKeymap ".", arg + match_len,
-		                 strlen(ResKeymap ".")) ||
-		    !strncasecmp("host.", arg + match_len, 5) ||
-		    !strncasecmp("printer.", arg + match_len, 8) ||
+		/*
+		 * Handle resources that are accessed only via get_resource().
+		 */
+		if (!strncasecmp(ResKeymap ".", name, strlen(ResKeymap ".")) ||
+		    !strncasecmp("host.", name, 5) ||
+		    !strncasecmp("printer.", name, 8) ||
+		    !strncasecmp(ResPrintTextFont, name,
+			    strlen(ResPrintTextFont)) ||
+		    !strncasecmp(ResPrintTextSize, name,
+			    strlen(ResPrintTextSize)) ||
 #if defined(_WIN32) /*[*/
-		    !strncasecmp(ResHostColorFor, arg + match_len,
+		    !strncasecmp(ResHostColorFor, name,
 			    strlen(ResHostColorFor)) ||
-		    !strncasecmp(ResConsoleColorForHostColor, arg + match_len,
+		    !strncasecmp(ResConsoleColorForHostColor, name,
 			    strlen(ResConsoleColorForHostColor))
 #else /*][*/
-		    !strncasecmp(ResCursesColorFor, arg + match_len,
+		    !strncasecmp(ResPrintTextCommand, name,
+			    strlen(ResPrintTextCommand)) ||
+		    !strncasecmp(ResCursesColorFor, name,
 			    strlen(ResCursesColorFor))
 #endif /*]*/
 		    ) {
@@ -962,7 +972,7 @@ parse_xrm(const char *arg, const char *where)
 #endif /*]*/
 	if (address == NULL) {
 		xs_warning("%s: Unknown resource name: %.*s",
-		    where, (int)rnlen, arg + match_len);
+		    where, (int)rnlen, name);
 		return;
 	}
 	switch (type) {
@@ -982,40 +992,40 @@ parse_xrm(const char *arg, const char *where)
 	case XRM_STRING:
 		t = Malloc(strlen(s) + 1);
 		*(char **)address = t;
-		if (*s == '"') {
-			Boolean quoted = False;
-			char c;
+		quoted = False;
 
-			s++;
-			while ((c = *s++) != '\0') {
-				if (quoted) {
-					switch (c) {
-					case 'n':
-						*t++ = '\n';
-						break;
-					case 'r':
-						*t++ = '\r';
-						break;
-					case 'b':
-						*t++ = '\b';
-						break;
-					default:
-						*t++ = c;
-						break;
-					}
-					quoted = False;
-				} else if (c == '\\') {
-					quoted = True;
-				} else if (c == '"') {
+		while ((c = *s++) != '\0') {
+			if (quoted) {
+				switch (c) {
+				case 'b':
+					*t++ = '\b';
 					break;
-				} else {
+				case 'f':
+					*t++ = '\f';
+					break;
+				case 'n':
+					*t++ = '\n';
+					break;
+				case 'r':
+					*t++ = '\r';
+					break;
+				case 't':
+					*t++ = '\t';
+					break;
+				default:
+					/* Leave other backslashes intact. */
+					*t++ = '\\';
 					*t++ = c;
+					break;
 				}
+				quoted = False;
+			} else if (c == '\\') {
+				quoted = True;
+			} else {
+				*t++ = c;
 			}
-			*t = '\0';
-		} else {
-			(void) strcpy(t, s);
 		}
+		*t = '\0';
 		break;
 	case XRM_INT: {
 		long n;
@@ -1037,115 +1047,92 @@ parse_xrm(const char *arg, const char *where)
 		char *rsname;
 
 		rsname = Malloc(rnlen + 1);
-		(void) strncpy(rsname, arg + match_len, rnlen);
+		(void) strncpy(rsname, name, rnlen);
 		rsname[rnlen] = '\0';
 		add_resource(rsname, hide);
 	}
 #endif /*]*/
 }
 
+/*
+ * Clean up a string for display (undo what parse_xrm does).
+ */
+char *
+safe_string(const char *s)
+{
+    	char *t = Malloc(1);
+	int tlen = 1;
+
+	*t = '\0';
+
+    	/*
+	 * Translate the string to UCS4 a character at a time.
+	 * If the result is a control code or backslash, expand it.
+	 * Otherwise, translate it back to the local encoding and
+	 * append it to the output.
+	 */
+    	while (*s) {
+	    	ucs4_t u;
+		int consumed;
+		enum me_fail error;
+
+	    	u = multibyte_to_unicode(s, strlen(s), &consumed, &error);
+		if (u == 0)
+		    	break;
+		if (u < ' ') {
+		    	char c = 0;
+			int inc = 0;
+
+		    	switch (u) {
+			case '\b':
+			    	c = 'b';
+				inc = 2;
+				break;
+			case '\f':
+			    	c = 'f';
+				inc = 2;
+				break;
+			case '\n':
+			    	c = 'n';
+				inc = 2;
+				break;
+			case '\r':
+			    	c = 'r';
+				inc = 2;
+				break;
+			case '\t':
+			    	c = 't';
+				inc = 2;
+				break;
+			default:
+				inc = 6;
+				break;
+			}
+
+			t = Realloc(t, tlen + inc);
+			if (inc == 2) {
+				*(t + tlen - 1) = '\\';
+				*(t + tlen) = c;
+			} else {
+			    	sprintf(t, "\\u%04x", u);
+			}
+			tlen += inc;
+		} else {
+		    	t = Realloc(t, tlen + consumed);
+			memcpy(t + tlen - 1, s, consumed);
+			tlen += consumed;
+		}
+		s += consumed;
+	}
+	*(t + tlen - 1) = '\0';
+	return t;
+}
+
 /* Read resources from a file. */
 int
 read_resource_file(const char *filename, Boolean fatal)
 {
-	FILE *f;
-	int ilen;
-	char buf[4096];
-	char *where;
-	int lno = 0;
-
-	f = fopen(filename, "r");
-	if (f == NULL) {
-		if (fatal)
-			xs_warning("Cannot open '%s': %s", filename,
-			    strerror(errno));
-		return -1;
-	}
-
-	/* Merge in what's in the file into the resource database. */
-	where = Malloc(strlen(filename) + 64);
-
-	ilen = 0;
-	while (fgets(buf + ilen, sizeof(buf) - ilen, f) != CN || ilen) {
-		char *s, *t;
-		unsigned sl;
-		Boolean bsl;
-
-		lno++;
-
-		/* Stip any trailing newline. */
-		sl = strlen(buf + ilen);
-		if (sl && (buf + ilen)[sl-1] == '\n')
-			(buf + ilen)[--sl] = '\0';
-
-		/*
-		 * Translate backslash-n to real newline characters, and
-		 * remember if the last character is a backslash.
-		 */
-		for (bsl = False, s = buf + ilen, t = s; *s; s++) {
-			if (bsl) {
-				if (*s == 'n')
-					*t++ = '\n';
-				else
-					*t++ = *s;
-				bsl = False;
-			} else if (*s == '\\')
-				bsl = True;
-			else {
-				*t++ = *s;
-				bsl = False;
-			}
-		}
-		*t = '\0';
-
-		/* Skip leading whitespace. */
-		s = buf;
-		while (isspace(*s))
-			s++;
-
-		/* Skip comments _before_ checking for line continuation. */
-		if (*s == '!') {
-		    ilen = 0;
-		    continue;
-		}
-		if (*s == '#') {
-			(void) sprintf(where, "%s:%d: Invalid profile "
-			    "syntax ('#' ignored)", filename, lno);
-			Warning(where);
-			ilen = 0;
-			continue;
-		}
-
-		/* If this line is a continuation, try again. */
-		if (bsl) {
-			ilen += strlen(buf + ilen);
-			if ((unsigned)ilen >= sizeof(buf) - 1) {
-				(void) sprintf(where, "%s:%d: Line too long\n",
-				    filename, lno);
-				Warning(where);
-				break;
-			}
-			continue;
-		}
-
-		/* Strip trailing whitespace and check for empty lines. */
-		sl = strlen(s);
-		while (sl && isspace(s[sl-1]))
-			s[--sl] = '\0';
-		if (!sl) {
-			ilen = 0;
-			continue;
-		}
-
-		/* Digest it. */
-		(void) sprintf(where, "%s:%d", filename, lno);
-		parse_xrm(s, where);
-
-		/* Get ready for the next iteration. */
-		ilen = 0;
-	}
-	Free(where);
-	return 0;
+    	return read_resource_filex(filename, fatal, parse_xrm);
 }
 
 /* Screen globals. */
@@ -1238,14 +1225,18 @@ action_output(const char *fmt, ...)
 	} else {
 		FILE *aout;
 
-#if defined(C3270) || defined(WC3270) /*[*/
+#if defined(C3270) /*[*/
 		screen_suspend();
 		aout = start_pager();
 		any_error_output = True;
 #else /*][*/
 		aout = stdout;
 #endif /*]*/
+#if defined(WC3270) /*[*/
+		pager_output(vmsgbuf);
+#else /*][*/
 		(void) fprintf(aout, "%s\n", vmsgbuf);
+#endif /*]*/
 		macro_output = True;
 	}
 }

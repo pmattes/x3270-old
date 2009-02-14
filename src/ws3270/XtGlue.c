@@ -1,1 +1,1 @@
-../wc3270/XtGlue.c
+../s3270/XtGlue.c

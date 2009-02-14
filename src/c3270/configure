@@ -309,7 +309,7 @@ ac_includes_default="\
 # include <unistd.h>
 #endif"
 
-ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS INSTALL_PROGRAM INSTALL_SCRIPT INSTALL_DATA CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT build build_cpu build_vendor build_os host host_cpu host_vendor host_os XPOSIX XANSI XPRECOMP BROKEN_NEWTERM CPP EGREP USE_ICONV PR CURSES_WIDE LESSPATH MOREPATH LIBX3270DIR DBCS SSL LIBOBJS LTLIBOBJS'
+ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS INSTALL_PROGRAM INSTALL_SCRIPT INSTALL_DATA CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT build build_cpu build_vendor build_os host host_cpu host_vendor host_os XPOSIX XANSI XPRECOMP BROKEN_NEWTERM CPP EGREP USE_ICONV CURSES_WIDE LESSPATH MOREPATH LIBX3270DIR DBCS SSL LIBOBJS LTLIBOBJS'
 ac_subst_files=''
 
 # Initialize some variables set by options.
@@ -861,7 +861,6 @@ Optional Packages:
   --without-PACKAGE       do not use PACKAGE (same as --with-PACKAGE=no)
   --without-readline      Don't use the readline library
   --with-iconv            ignore __STDC_ISO_10646__ and use iconv() instead
-  --without-pr3287        don't build pr3287
   --with-ssl=DIR          specify OpenSSL install directory
 
 Some influential environment variables:
@@ -3009,20 +3008,6 @@ _ACEOF
 esac
 
 
-
-# Check whether --with-pr3287 or --without-pr3287 was given.
-if test "${with_pr3287+set}" = set; then
-  withval="$with_pr3287"
-
-fi;
-if test -d pr3287 -a "$with_pr3287" != "no"
-then	PR=""
-	pr3mf=pr3287/Makefile
-else	PR="#"
-	pr3mf=""
-fi
-
-
 echo "$as_me:$LINENO: checking for library containing forkpty" >&5
 echo $ECHO_N "checking for library containing forkpty... $ECHO_C" >&6
 if test "${ac_cv_search_forkpty+set}" = set; then
@@ -3957,132 +3942,7 @@ fi
 
 done
 
-echo "$as_me:$LINENO: checking for library containing iconv" >&5
-echo $ECHO_N "checking for library containing iconv... $ECHO_C" >&6
-if test "${ac_cv_search_iconv+set}" = set; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  ac_func_search_save_LIBS=$LIBS
-ac_cv_search_iconv=no
-cat >conftest.$ac_ext <<_ACEOF
-/* confdefs.h.  */
-_ACEOF
-cat confdefs.h >>conftest.$ac_ext
-cat >>conftest.$ac_ext <<_ACEOF
-/* end confdefs.h.  */
-
-/* Override any gcc2 internal prototype to avoid an error.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-/* We use char because int might match the return type of a gcc2
-   builtin and then its argument prototype would still apply.  */
-char iconv ();
-int
-main ()
-{
-iconv ();
-  ;
-  return 0;
-}
-_ACEOF
-rm -f conftest.$ac_objext conftest$ac_exeext
-if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
-  (eval $ac_link) 2>conftest.er1
-  ac_status=$?
-  grep -v '^ *+' conftest.er1 >conftest.err
-  rm -f conftest.er1
-  cat conftest.err >&5
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); } &&
-	 { ac_try='test -z "$ac_c_werror_flag"
-			 || test ! -s conftest.err'
-  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
-  (eval $ac_try) 2>&5
-  ac_status=$?
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); }; } &&
-	 { ac_try='test -s conftest$ac_exeext'
-  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
-  (eval $ac_try) 2>&5
-  ac_status=$?
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); }; }; then
-  ac_cv_search_iconv="none required"
-else
-  echo "$as_me: failed program was:" >&5
-sed 's/^/| /' conftest.$ac_ext >&5
-
-fi
-rm -f conftest.err conftest.$ac_objext \
-      conftest$ac_exeext conftest.$ac_ext
-if test "$ac_cv_search_iconv" = no; then
-  for ac_lib in iconv; do
-    LIBS="-l$ac_lib  $ac_func_search_save_LIBS"
-    cat >conftest.$ac_ext <<_ACEOF
-/* confdefs.h.  */
-_ACEOF
-cat confdefs.h >>conftest.$ac_ext
-cat >>conftest.$ac_ext <<_ACEOF
-/* end confdefs.h.  */
-
-/* Override any gcc2 internal prototype to avoid an error.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-/* We use char because int might match the return type of a gcc2
-   builtin and then its argument prototype would still apply.  */
-char iconv ();
-int
-main ()
-{
-iconv ();
-  ;
-  return 0;
-}
-_ACEOF
-rm -f conftest.$ac_objext conftest$ac_exeext
-if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
-  (eval $ac_link) 2>conftest.er1
-  ac_status=$?
-  grep -v '^ *+' conftest.er1 >conftest.err
-  rm -f conftest.er1
-  cat conftest.err >&5
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); } &&
-	 { ac_try='test -z "$ac_c_werror_flag"
-			 || test ! -s conftest.err'
-  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
-  (eval $ac_try) 2>&5
-  ac_status=$?
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); }; } &&
-	 { ac_try='test -s conftest$ac_exeext'
-  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
-  (eval $ac_try) 2>&5
-  ac_status=$?
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); }; }; then
-  ac_cv_search_iconv="-l$ac_lib"
-break
-else
-  echo "$as_me: failed program was:" >&5
-sed 's/^/| /' conftest.$ac_ext >&5
-
-fi
-rm -f conftest.err conftest.$ac_objext \
-      conftest$ac_exeext conftest.$ac_ext
-  done
-fi
-LIBS=$ac_func_search_save_LIBS
-fi
-echo "$as_me:$LINENO: result: $ac_cv_search_iconv" >&5
-echo "${ECHO_T}$ac_cv_search_iconv" >&6
-if test "$ac_cv_search_iconv" != no; then
-  test "$ac_cv_search_iconv" = "none required" || LIBS="$ac_cv_search_iconv $LIBS"
-
-else
-  echo "$as_me:$LINENO: checking for library containing libiconv" >&5
+echo "$as_me:$LINENO: checking for library containing libiconv" >&5
 echo $ECHO_N "checking for library containing libiconv... $ECHO_C" >&6
 if test "${ac_cv_search_libiconv+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
@@ -4205,6 +4065,131 @@ echo "$as_me:$LINENO: result: $ac_cv_search_libiconv" >&5
 echo "${ECHO_T}$ac_cv_search_libiconv" >&6
 if test "$ac_cv_search_libiconv" != no; then
   test "$ac_cv_search_libiconv" = "none required" || LIBS="$ac_cv_search_libiconv $LIBS"
+
+else
+  echo "$as_me:$LINENO: checking for library containing iconv" >&5
+echo $ECHO_N "checking for library containing iconv... $ECHO_C" >&6
+if test "${ac_cv_search_iconv+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  ac_func_search_save_LIBS=$LIBS
+ac_cv_search_iconv=no
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+/* Override any gcc2 internal prototype to avoid an error.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+/* We use char because int might match the return type of a gcc2
+   builtin and then its argument prototype would still apply.  */
+char iconv ();
+int
+main ()
+{
+iconv ();
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_search_iconv="none required"
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+fi
+rm -f conftest.err conftest.$ac_objext \
+      conftest$ac_exeext conftest.$ac_ext
+if test "$ac_cv_search_iconv" = no; then
+  for ac_lib in iconv; do
+    LIBS="-l$ac_lib  $ac_func_search_save_LIBS"
+    cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+/* Override any gcc2 internal prototype to avoid an error.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+/* We use char because int might match the return type of a gcc2
+   builtin and then its argument prototype would still apply.  */
+char iconv ();
+int
+main ()
+{
+iconv ();
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_search_iconv="-l$ac_lib"
+break
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+fi
+rm -f conftest.err conftest.$ac_objext \
+      conftest$ac_exeext conftest.$ac_ext
+  done
+fi
+LIBS=$ac_func_search_save_LIBS
+fi
+echo "$as_me:$LINENO: result: $ac_cv_search_iconv" >&5
+echo "${ECHO_T}$ac_cv_search_iconv" >&6
+if test "$ac_cv_search_iconv" != no; then
+  test "$ac_cv_search_iconv" = "none required" || LIBS="$ac_cv_search_iconv $LIBS"
 
 else
   if test "$unkw"; then { { echo "$as_me:$LINENO: error: \"No iconv library function\"" >&5
@@ -6456,6 +6441,7 @@ if test $ac_cv_lib_ncursesw_wadd_wch = yes; then
 #define CURSES_WIDE 1
 _ACEOF
 
+Cw=1
 fi
 
 elif test "$ac_cv_lib_ncurses_newterm" = yes
@@ -6528,6 +6514,7 @@ if test $ac_cv_lib_ncurses_wadd_wch = yes; then
 #define CURSES_WIDE 1
 _ACEOF
 
+Cw=1
 fi
 
 elif test "$ac_cv_lib_curses_newterm" = yes
@@ -6600,9 +6587,14 @@ if test $ac_cv_lib_curses_wadd_wch = yes; then
 #define CURSES_WIDE 1
 _ACEOF
 
+Cw=1
 fi
 
 else	echo "What??? "
+fi
+if test "$Cw" != "1"
+then	{ echo "$as_me:$LINENO: WARNING: Wide curses not found -- c3270 will not be able to support multi-byte character encodings" >&5
+echo "$as_me: WARNING: Wide curses not found -- c3270 will not be able to support multi-byte character encodings" >&2;}
 fi
 
 
@@ -6831,7 +6823,7 @@ _ACEOF
 	;;
 esac
 
-                    ac_config_files="$ac_config_files Makefile $pr3mf"
+          ac_config_files="$ac_config_files Makefile"
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
 # tests run on this system so they can be shared between configure
@@ -7358,7 +7350,6 @@ do
   case "$ac_config_target" in
   # Handling of arguments.
   "Makefile" ) CONFIG_FILES="$CONFIG_FILES Makefile" ;;
-  "$pr3mf" ) CONFIG_FILES="$CONFIG_FILES $pr3mf" ;;
   "conf.h" ) CONFIG_HEADERS="$CONFIG_HEADERS conf.h" ;;
   *) { { echo "$as_me:$LINENO: error: invalid argument: $ac_config_target" >&5
 echo "$as_me: error: invalid argument: $ac_config_target" >&2;}
@@ -7469,7 +7460,6 @@ s,@BROKEN_NEWTERM@,$BROKEN_NEWTERM,;t t
 s,@CPP@,$CPP,;t t
 s,@EGREP@,$EGREP,;t t
 s,@USE_ICONV@,$USE_ICONV,;t t
-s,@PR@,$PR,;t t
 s,@CURSES_WIDE@,$CURSES_WIDE,;t t
 s,@LESSPATH@,$LESSPATH,;t t
 s,@MOREPATH@,$MOREPATH,;t t

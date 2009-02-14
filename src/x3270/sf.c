@@ -59,8 +59,13 @@
 #include "trace_dsc.h"
 #include "utilc.h"
 
-#define X3270_COMPAT 1	/* make x3270 compatible with all of the other
+/* #define X3270_COMPAT 1	make x3270 compatible with all of the other
 			   emulators */
+
+#define SW_3279_2	0x09
+#define SH_3279_2	0x0c
+#define Xr_3279_2	0x000a02e5
+#define Yr_3279_2	0x0002006f
 
 /* Externals: ctlr.c */
 extern Boolean  screen_alt;
@@ -721,8 +726,6 @@ do_qr_summary(void)
 static void
 do_qr_usable_area(void)
 {
-	unsigned short num, denom;
-
 	trace_ds("> QueryReply(UsableArea)\n");
 	space3270out(19);
 	*obptr++ = 0x01;	/* 12/14-bit addressing */
@@ -730,39 +733,16 @@ do_qr_usable_area(void)
 	SET16(obptr, maxCOLS);	/* usable width */
 	SET16(obptr, maxROWS);	/* usable height */
 	*obptr++ = 0x01;	/* units (mm) */
-#if defined(X3270_COMPAT) /*[*/
-	num = 100;
-	denom = 1;
-#else /*][*/
-	num = display_widthMM();
-	denom = display_width();
-#endif /*]*/
-	while (!(num %2) && !(denom % 2)) {
-		num /= 2;
-		denom /= 2;
-	}
-	SET16(obptr, (int)num);	/* Xr numerator */
-	SET16(obptr, (int)denom); /* Xr denominator */
-#if defined(X3270_COMPAT) /*[*/
-	num = 100;
-	denom = 1;
-#else /*][*/
-	num = display_heightMM();
-	denom = display_height();
-#endif /*]*/
-	while (!(num %2) && !(denom % 2)) {
-		num /= 2;
-		denom /= 2;
-	}
-	SET16(obptr, (int)num);	/* Yr numerator */
-	SET16(obptr, (int)denom); /* Yr denominator */
-#if defined(X3270_COMPAT) /*[*/
-	*obptr++ = 7;		/* AW */
-	*obptr++ = 7;		/* AH */
-#else /*][*/
-	*obptr++ = *char_width;	/* AW */
-	*obptr++ = *char_height;/* AH */
-#endif /*]*/
+	SET32(obptr, Xr_3279_2); /* Xr, canned from 3279-2 */
+	SET32(obptr, Yr_3279_2); /* Yr, canned from 3279-2 */
+
+				/*
+				 * If we ever implement graphics, these will
+				 * need to change.
+				 */
+	*obptr++ = SW_3279_2;	/* AW, canned from 3279-2 */
+	*obptr++ = SH_3279_2;	/* AH, canned from 3279-2 */
+
 	SET16(obptr, maxCOLS*maxROWS);	/* buffer, questionable */
 }
 
@@ -868,13 +848,8 @@ do_qr_charsets(void)
 #endif /*]*/
 		*obptr++ = 0x82;	/* flags: GE, CGCSGID present */
 	*obptr++ = 0x00;		/* more flags */
-#if defined(X3270_COMPAT) /*[*/
-	*obptr++ = 7;			/* SDW */
-	*obptr++ = 7;			/* SDW */
-#else /*][*/
-	*obptr++ = *char_width;		/* SDW */
-	*obptr++ = *char_height;	/* SDW */
-#endif /*]*/
+	*obptr++ = SW_3279_2;		/* SDW, canned from 3279-2 */
+	*obptr++ = SH_3279_2;		/* SDW, canned from 3279-2 */
 	*obptr++ = 0x00;		/* no load PS */
 	*obptr++ = 0x00;
 	*obptr++ = 0x00;
@@ -890,7 +865,7 @@ do_qr_charsets(void)
 #if defined(X3270_DBCS) /*[*/
 	if (dbcs)
 		*obptr++ = 0x00;	/*  FLAGS: non-load, single-
-					    plane, single-bute */
+					    plane, single-byte */
 	else
 #endif /*]*/
 		*obptr++ = 0x10;	/*  FLAGS: non-loadable,
@@ -906,39 +881,35 @@ do_qr_charsets(void)
 	}
 #endif /*]*/
 	SET32(obptr, cgcsgid);		/*  CGCSGID */
-#if !defined(X3270_COMPAT) /*[*/
-	if (!*standard_font)
-#endif /*]*/
-	{
-		/* special 3270 font, includes APL */
-		*obptr++ = 0x01;/* SET 1: */
-		if (appres.apl_mode)
-		    *obptr++ = 0x00;/*  FLAGS: non-loadable, single-plane,
-					 single-byte, no compare */
-		else
-		    *obptr++ = 0x10;/*  FLAGS: non-loadable, single-plane,
-					 single-byte, no compare */
-		*obptr++ = 0xf1;/*  LCID */
+
+	/* special 3270 font, includes APL */
+	*obptr++ = 0x01;/* SET 1: */
+	if (appres.apl_mode)
+		*obptr++ = 0x00;	/*  FLAGS: non-loadable, single-plane,
+					    single-byte, no compare */
+	else
+		*obptr++ = 0x10;	/*  FLAGS: non-loadable, single-plane,
+					    single-byte, no compare */
+	*obptr++ = 0xf1;		/*  LCID */
 #if defined(X3270_DBCS) /*[*/
-		if (dbcs) {
-			*obptr++ = 0x00;/*  SW 0 */
-			*obptr++ = 0x00;/*  SH 0 */
-			*obptr++ = 0x00;/*  SUBSN */
-			*obptr++ = 0x00;/*  SUBSN */
-		}
-#endif /*]*/
-		*obptr++ = 0x03;/*  CGCSGID: 3179-style APL2 */
-		*obptr++ = 0xc3;
-		*obptr++ = 0x01;
-		*obptr++ = 0x36;
+	if (dbcs) {
+		*obptr++ = 0x00;	/*  SW 0 */
+		*obptr++ = 0x00;	/*  SH 0 */
+		*obptr++ = 0x00;	/*  SUBSN */
+		*obptr++ = 0x00;	/*  SUBSN */
 	}
+#endif /*]*/
+	*obptr++ = 0x03;		/*  CGCSGID: 3179-style APL2 */
+	*obptr++ = 0xc3;
+	*obptr++ = 0x01;
+	*obptr++ = 0x36;
 #if defined(X3270_DBCS) /*[*/
 	if (dbcs) {
 		*obptr++ = 0x80;	/* SET 0x80: */
 		*obptr++ = 0x20;	/*  FLAGS: DBCS */
 		*obptr++ = 0xf8;	/*  LCID: 0xf8 */
-		*obptr++ = *char_width * 2; /* SW */
-		*obptr++ = *char_height; /* SH */
+		*obptr++ = SW_3279_2 * 2; /* SW, canned from 3279-2 */
+		*obptr++ = SH_3279_2;	/* SH, canned from 3279-2 */
 		*obptr++ = 0x41;	/*  SUBSN */
 		*obptr++ = 0x7f;	/*  SUBSN */
 		SET32(obptr, cgcsgid_dbcs); /* CGCSGID */

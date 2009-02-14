@@ -1,20 +1,32 @@
 /*
- * Modifications and original code Copyright 1993-2008 by Paul Mattes.
- * Original X11 Port Copyright 1990 by Jeff Sparkes.
- *   Permission to use, copy, modify, and distribute this software and its
- *   documentation for any purpose and without fee is hereby granted,
- *   provided that the above copyright notice appear in all copies and that
- *   both that copyright notice and this permission notice appear in
- *   supporting documentation.
+ * Copyright (c) 1993-2009, Paul Mattes.
+ * Copyright (c) 1990, Jeff Sparkes.
+ * Copyright (c) 1989, Georgia Tech Research Corporation (GTRC), Atlanta, GA
+ *  30332.
+ * All rights reserved.
  *
- * Copyright 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.
- *   All Rights Reserved.  GTRC hereby grants public use of this software.
- *   Derivative works based on this software must incorporate this copyright
- *   notice.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above copyright
+ *       notice, this list of conditions and the following disclaimer in the
+ *       documentation and/or other materials provided with the distribution.
+ *     * Neither the names of Paul Mattes, Jeff Sparkes, GTRC nor the names of
+ *       their contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
  *
- * c3270 and wc3270 are distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
- * or FITNESS FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
+ * THIS SOFTWARE IS PROVIDED BY PAUL MATTES, JEFF SPARKES AND GTRC "AS IS" AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL PAUL MATTES, JEFF SPARKES OR GTRC BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
  */
 
 /*
@@ -30,6 +42,7 @@
 #include <signal.h>
 #endif /*]*/
 #include <errno.h>
+#include <stdarg.h>
 #include "appres.h"
 #include "3270ds.h"
 #include "resources.h"
@@ -48,6 +61,7 @@
 #include "popupsc.h"
 #include "printerc.h"
 #include "screenc.h"
+#include "statusc.h"
 #include "telnetc.h"
 #include "togglesc.h"
 #include "trace_dsc.h"
@@ -68,6 +82,12 @@
 #include "windirsc.h"
 #endif /*]*/
 
+#if defined(_WIN32) /*[*/
+# define PROGRAM_NAME	"wc3270"
+#else /*][*/
+# define PROGRAM_NAME	"c3270"
+#endif /*]*/
+
 static void interact(void);
 static void stop_pager(void);
 
@@ -79,6 +99,9 @@ static char *completion_entry(const char *, int);
 /* Pager state. */
 #if !defined(_WIN32) /*[*/
 static FILE *pager = NULL;
+#else /*][*/
+static int pager_rowcnt = 0;
+static Boolean pager_q = False;
 #endif /*]*/
 
 #if !defined(_WIN32) /*[*/
@@ -323,7 +346,7 @@ main(int argc, char *argv[])
 	argc = parse_command_line(argc, (const char **)argv, &cl_hostname);
 
 	printf("%s\n\n"
-		"Copyright 1989-2008 by Paul Mattes, GTRC and others.\n"
+		"Copyright 1989-2009 by Paul Mattes, GTRC and others.\n"
 		"Type 'show copyright' for full copyright information.\n"
 		"Type 'help' for help information.\n\n",
 		build);
@@ -389,6 +412,14 @@ main(int argc, char *argv[])
 #endif /*]*/
 	initialize_toggles();
 
+#if 0
+	/* Can't have a prompt and aut-reconnect. */
+	if (appres.reconnect && !appres.no_prompt) {
+	    	Warning("Must have no-prompt mode for reconnect");
+		appres.reconnect = False;
+	}
+#endif
+
 	/* Connect to the host. */
 	screen_suspend();
 	if (cl_hostname != CN) {
@@ -407,7 +438,8 @@ main(int argc, char *argv[])
 			Error("Must specify hostname with secure option");
 		}
 		appres.once = False;
-		interact();
+		if (!appres.no_prompt)
+			interact();
 	}
 	screen_resume();
 	screen_disp(False);
@@ -421,17 +453,24 @@ main(int argc, char *argv[])
 			escape_pending = False;
 			screen_suspend();
 		}
-		if (!CONNECTED) {
+		if (!appres.no_prompt) {
+			if (!CONNECTED && !appres.reconnect) {
+				screen_suspend();
+				(void) printf("Disconnected.\n");
+				if (appres.once)
+					x3270_exit(0);
+				interact();
+				screen_resume();
+			} else if (escaped) {
+				interact();
+				trace_event("Done interacting.\n");
+				screen_resume();
+			}
+		} else if (!CONNECTED &&
+			   !appres.reconnect &&
+			   !appres.no_prompt) {
 			screen_suspend();
-			(void) printf("Disconnected.\n");
-			if (appres.once)
-				x3270_exit(0);
-			interact();
-			screen_resume();
-		} else if (escaped) {
-			interact();
-			trace_event("Done interacting.\n");
-			screen_resume();
+			x3270_exit(0);
 		}
 
 #if !defined(_WIN32) /*[*/
@@ -472,14 +511,14 @@ prompt_sigtstp_handler(int ignored _is_unused)
 }
 #endif /*]*/
 
-static void
+/*static*/ void
 interact(void)
 {
 	/* In case we got here because a command output, stop the pager. */
 	stop_pager();
 
 	trace_event("Interacting.\n");
-	if (appres.secure) {
+	if (appres.secure || appres.no_prompt) {
 		char s[10];
 
 		printf("[Press <Enter>] ");
@@ -534,11 +573,7 @@ interact(void)
 			exit(0);
 		}
 #else /*][*/
-#if defined(_WIN32) /*[*/
-		(void) printf("wc3270> ");
-#else /*][*/
-		(void) printf("c3270> ");
-#endif /*]*/
+		(void) printf(PROGRAM_NAME "> ");
 		(void) fflush(stdout);
 
 		/* Get the command, and trim white space. */
@@ -654,8 +689,59 @@ stop_pager(void)
 			pclose(pager);
 		pager = NULL;
 	}
+#else /*][*/
+	pager_rowcnt = 0;
+	pager_q = False;
 #endif /*]*/
 }
+
+#if defined(_WIN32) /*[*/
+void
+pager_output(const char *s)
+{
+    	if (pager_q)
+	    	return;
+
+	do {
+		char *nl;
+	    	int sl;
+
+		/* Pause for a screenful. */
+		if (pager_rowcnt >= maxROWS) {
+			printf("Press any key to continue . . . ");
+			fflush(stdout);
+			pager_q = screen_wait_for_key();
+			printf("\r                                \r");
+			pager_rowcnt = 0;
+			if (pager_q)
+			    	return;
+		}
+
+		/*
+		 * Look for an embedded newline.  If one is found, just print
+		 * up to it, so we can count the newline and possibly pause
+		 * partway through the string.
+		 */
+		nl = strchr(s, '\n');
+		if (nl != CN) {
+		    	sl = nl - s;
+			printf("%.*s\n", sl, s);
+			s = nl + 1;
+		} else {
+			printf("%s\n", s);
+			sl = strlen(s);
+			s = CN;
+		}
+
+		/* Account for the newline. */
+		pager_rowcnt++;
+
+		/* Account (conservatively) for any line wrap. */
+		pager_rowcnt += sl / maxCOLS;
+
+	} while (s != CN);
+}
+#endif /*]*/
 
 #if defined(HAVE_LIBREADLINE) /*[*/
 
@@ -837,6 +923,7 @@ status_dump(void)
 	const char *emode, *ftype, *ts;
 #if defined(X3270_TN3270E) /*[*/
 	const char *eopts;
+	const char *bplu;
 #endif /*]*/
 	const char *ptype;
 	extern int linemode; /* XXX */
@@ -854,6 +941,11 @@ status_dump(void)
 	action_output("%s %s", get_message("terminalName"), termtype);
 	if (connected_lu != CN && connected_lu[0])
 		action_output("%s %s", get_message("luName"), connected_lu);
+#if defined(X3270_TN3270E) /*[*/
+	bplu = net_query_bind_plu_name();
+	if (bplu != CN && bplu[0])
+	    	action_output("%s %s", get_message("bindPluName"), bplu);
+#endif /*]*/
 	action_output("%s %s (%s)", get_message("characterSet"),
 	    get_charset_name(),
 #if defined(X3270_DBCS) /*[*/
@@ -1007,31 +1099,34 @@ static void
 copyright_dump(void)
 {
 	action_output(" ");
-	action_output("Modifications and original code Copyright 1993, 1994, 1995, 1996,");
-	action_output(" 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008 by Paul Mattes.");
-	action_output("Original X11 Port Copyright 1990 by Jeff Sparkes.");
-	action_output("DFT File Transfer Code Copyright October 1995 by Dick Altenbern.");
-	action_output("RPQNAMES Code Copyright 2004, 2005 by Don Russell.");
-	action_output("  Permission to use, copy, modify, and distribute this software and its");
-	action_output("  documentation for any purpose and without fee is hereby granted,");
-	action_output("  provided that the above copyright notice appear in all copies and that");
-	action_output("  both that copyright notice and this permission notice appear in");
-	action_output("  supporting documentation.");
+	action_output("Copyright (c) 1993-2009, Paul Mattes.");
+	action_output("Copyright (c) 1990, Jeff Sparkes.");
+	action_output("Copyright (c) 1989, Georgia Tech Research Corporation (GTRC), Atlanta, GA");
+	action_output(" 30332.");
+	action_output("All rights reserved.");
 	action_output(" ");
-	action_output("Copyright 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.");
-	action_output("  All Rights Reserved.  GTRC hereby grants public use of this software.");
-	action_output("  Derivative works based on this software must incorporate this copyright");
-	action_output("  notice.");
+	action_output("Redistribution and use in source and binary forms, with or without");
+	action_output("modification, are permitted provided that the following conditions are met:");
+	action_output("    * Redistributions of source code must retain the above copyright");
+	action_output("      notice, this list of conditions and the following disclaimer.");
+	action_output("    * Redistributions in binary form must reproduce the above copyright");
+	action_output("      notice, this list of conditions and the following disclaimer in the");
+	action_output("      documentation and/or other materials provided with the distribution.");
+	action_output("    * Neither the names of Paul Mattes, Jeff Sparkes, GTRC nor the names of");
+	action_output("      their contributors may be used to endorse or promote products derived");
+	action_output("      from this software without specific prior written permission.");
 	action_output(" ");
-	action_output(
-#if defined(_WIN32) /*[*/
-	"wc3270"
-#else /*][*/
-	"c3270"
-#endif /*]*/
-	" is distributed in the hope that it will be useful, but WITHOUT ANY");
-	action_output("WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS");
-	action_output("FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.");
+	action_output("THIS SOFTWARE IS PROVIDED BY PAUL MATTES, JEFF SPARKES AND GTRC \"AS IS\" AND");
+	action_output("ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE");
+	action_output("IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE");
+	action_output("ARE DISCLAIMED. IN NO EVENT SHALL PAUL MATTES, JEFF SPARKES OR GTRC BE");
+	action_output("LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR");
+	action_output("CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF");
+	action_output("SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS");
+	action_output("INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN");
+	action_output("CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)");
+	action_output("ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE");
+	action_output("POSSIBILITY OF SUCH DAMAGE.");
 	action_output(" ");
 }
 
@@ -1135,8 +1230,53 @@ Escape_action(Widget w _is_unused, XEvent *event _is_unused, String *params _is_
     Cardinal *num_params _is_unused)
 {
 	action_debug(Escape_action, event, params, num_params);
-	if (!appres.secure)
+	if (!appres.secure && !appres.no_prompt) {
+	    	host_cancel_reconnect();
 		screen_suspend();
+	}
+}
+
+/* Popup an informational message. */
+void
+popup_an_info(const char *fmt, ...)
+{
+    	va_list args;
+	static char vmsgbuf[4096];
+	char *s, *t;
+	Boolean quoted = False;
+
+	va_start(args, fmt);
+	(void) vsprintf(vmsgbuf, fmt, args);
+	va_end(args);
+
+	/* Filter out the junk. */
+	for (s = t = vmsgbuf; *s; s++) {
+	    if (*s == '\n') {
+		*t = '\0';
+		break;
+	    } else if (!quoted && *s == '\\') {
+		quoted = True;
+	    } else if (*s >= ' ' && *s <= '~') {
+		*t++ = *s;
+		quoted = False;
+	    }
+	}
+	*t = '\0';
+
+	if (strlen(vmsgbuf))
+		status_push(vmsgbuf);
+}
+
+void
+Info_action(Widget w _is_unused, XEvent *event _is_unused, String *params,
+	Cardinal *num_params)
+{
+	action_debug(Info_action, event, params, num_params);
+
+    	if (!*num_params)
+	    	return;
+
+	popup_an_info("%s", params[0]);
 }
 
 #if !defined(_WIN32) /*[*/

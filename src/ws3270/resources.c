@@ -1,1 +1,1 @@
-../wc3270/resources.c
+../s3270/resources.c

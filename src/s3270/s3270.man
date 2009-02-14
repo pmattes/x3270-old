@@ -1,5 +1,5 @@
 '\" t
-.TH s3270 1 "11 October 2008"
+.TH s3270 1 "14 February 2009"
 .SH "NAME"
 s3270 \-
 \s-1IBM\s+1 host access tool
@@ -8,6 +8,8 @@ s3270 \-
 [\fIoptions\fP]
 [\fIhost\fP]
 
+.br
+\fBs3270\fP [\fIoptions\fP] \fIsession-file\fP.s3270
 
 .SH "DESCRIPTION"
 \fBs3270\fP opens
@@ -77,7 +79,6 @@ the following options:
 .TP
 \fB\-charset\fP \fIname\fP
 Specifies an \s-1EBCDIC\s+1 host character set.
-See \s-1CHARACTER SETS\s+1 below.
 .TP
 \fB\-clear\fP \fItoggle\fP
 Sets the initial value of \fItoggle\fP to \fBfalse\fP.
@@ -150,7 +151,7 @@ T}	T{
 T}	T{
 .na
 .nh
-30
+32
 T}
 T{
 .na
@@ -1162,6 +1163,45 @@ Can range from 256 to 32768.
 Larger values give better performance, but some hosts may not be able to
 support them.
 
+.SH "THE PRINTTEXT ACTION"
+The \fBPrintText\fP produces screen snapshots in a number of different
+forms.
+The default form wth no arguments sends a copy of the screen to the default
+printer.
+A single argument is
+the command to use to print, e.g., \fBlpr\fP.
+Multiple arguments can include keywords to control the output of
+\fBPrintText\fP:
+.TP
+\fBfile\fP \fIfilename\fP
+Save the output in a file.
+.TP
+\fBhtml\fP
+Save the output as HTML.  This option implies \fBfile\fP.
+.TP
+\fBrtf\fP
+Save the output as RichText.  This option implies \fBfile\fP.
+The font defaults to \fBCourier New\fP and the
+point size defaults to 8.
+These can be overridden by the \fBprinter.font\fP and \fBprinter.size\fP
+resources, respectively.
+.TP
+\fBstring\fP
+Return the output as a string.  This can only be used from scripts.
+.TP
+\fBmodi\fP
+Render modified fields in italics.
+.TP
+\fBcaption\fP \fItext\fP
+Add the specified \fItext\fP as a caption above the output.
+Within \fItext\fP, the special sequence \fB%T%\fP will be replaced with
+a timestamp.
+.TP
+\fBcommand\fP \fIcommand\fP
+Directs the output to a command.
+This allows one or more of the other keywords to be specified, while still
+sending the output to the printer.
+
 .SH "NESTED SCRIPTS"
 There are several types of
 nested script functions available.
@@ -1190,7 +1230,7 @@ T}
 T{
 .na
 .nh
-\ee\fIxx\fP
+\ee\fIxxxx\fP
 T}	T{
 .na
 .nh
@@ -1262,13 +1302,28 @@ T}
 T{
 .na
 .nh
-\ex\fIxx\fP
+\eu\fIxxxx\fP
 T}	T{
 .na
 .nh
-ASCII character in hex
+Unicode character in hex
+T}
+T{
+.na
+.nh
+\ex\fIxxxx\fP
+T}	T{
+.na
+.nh
+Unicode character in hex
 T}
 .TE
+.IP
+Note that the numeric values for the \ee, \eu and \ex sequences
+can be abbreviated to 2 digits.
+Note also that EBCDIC codes greater than 255 and some Unicode character codes
+represent DBCS characters, which will work only if s3270 is built with
+DBCS support and the host allows DBCS input in the current field.
 .IP
 \fBNote:\fP
 The strings are in \s-1ASCII\s+1 and converted to \s-1EBCDIC\s+1,
@@ -1561,23 +1616,6 @@ T}	T{
 .na
 .nh
 Event tracing
-T}
-T{
-.na
-.nh
-ftCommand
-T}	T{
-.na
-.nh
-ind$file
-T}	T{
-.na
-.nh
-\ 
-T}	T{
-.na
-.nh
-Host file transfer command
 T}
 T{
 .na
@@ -1948,30 +1986,52 @@ RFC 1646, TN3270 Extensions for LUname and Printer Selection
 .br
 RFC 2355, TN3270 Enhancements
 .SH "COPYRIGHTS"
+Copyright 1993-2009, Paul Mattes.
+.br
+Copyright 2004-2005, Don Russell.
+.br
+Copyright 2004, Dick Altenbern.
+.br
+Copyright 1990, Jeff Sparkes.
+.br
+Copyright 1989, Georgia Tech Research Corporation (GTRC), Atlanta, GA
+ 30332.
+.br
+All rights reserved.
 .LP
-Modifications and original code Copyright 1993-2008 by Paul Mattes.
-.br
-DFT File Transfer Code Copyright  October 1995 by Dick Altenbern.
-.br
-RPQNAMES Code Copyright  2004, 2005 by Don Russell.
-.br
-Original X11 Port Copyright 1990 by Jeff Sparkes.
-.RS
-Permission to use, copy, modify, and distribute this software and its
-documentation for any purpose and without fee is hereby granted,
-provided that the above copyright notice appear in all copies and that
-both that copyright notice and this permission notice appear in
-supporting documentation.
-.RE
-Copyright 1989 by Georgia Tech Research Corporation, Atlanta, GA 30332.
-.RS
-All Rights Reserved.  GTRC hereby grants public use of this software.
-Derivative works based on this software must incorporate this copyright
-notice.
-.RE
-.br
-s3270 is distributed in the hope that it will be useful, but WITHOUT ANY
-WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-FOR A PARTICULAR PURPOSE.  See the file LICENSE for more details.
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+.TP
+*
+Redistributions of source code must retain the above copyright notice, this
+list of conditions and the following disclaimer.
+.TP
+*
+Redistributions in binary form must reproduce the above copyright
+notice, this list of conditions and the following disclaimer in the
+documentation and/or other materials provided with the distribution.
+.TP
+*
+Neither the names of Paul Mattes, Don Russell, Dick Altenbern, Jeff Sparkes,
+GTRC nor
+the names of their contributors may be used to endorse or promote
+products derived from this software without specific prior written
+permission.
+
+.LP
+THIS SOFTWARE IS PROVIDED BY PAUL MATTES, DON RUSSELL, DICK ALTENBERN, JEFF
+SPARKES AND GTRC
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
+TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL PAUL MATTES, DON RUSSELL, DICK
+ALTENBERN, JEFF
+SPARKES OR GTRC BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL
+EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 .SH "VERSION"
-s3270 3.3.8
+s3270 3.3.9beta9
