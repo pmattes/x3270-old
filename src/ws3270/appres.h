@@ -1,1 +1,1 @@
-../x3270/appres.h
+../wc3270/appres.h

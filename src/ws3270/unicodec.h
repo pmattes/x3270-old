@@ -1,1 +1,1 @@
-../x3270/unicodec.h
+../wc3270/unicodec.h

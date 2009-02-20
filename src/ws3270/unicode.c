@@ -1,1 +1,1 @@
-../x3270/unicode.c
+../wc3270/unicode.c

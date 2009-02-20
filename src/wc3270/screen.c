@@ -220,14 +220,17 @@ static void blink_em(void);
 /*
  * Console event handler.
  */
-static BOOL
+BOOL WINAPI
 cc_handler(DWORD type)
 {
 	if (type == CTRL_C_EVENT) {
 		char *action;
 
 		/* Process it as a Ctrl-C. */
-		trace_event("Control-C received via Console Event Handler\n");
+		trace_event("Control-C received via Console Event Handler%s\n",
+			escaped? " (should be ignored)": "");
+		if (escaped)
+		    	return TRUE;
 		action = lookup_key(0x03, LEFT_CTRL_PRESSED);
 		if (action != CN) {
 			if (strcmp(action, "[ignore]"))
@@ -322,7 +325,7 @@ initscr(void)
 	}
 
 	/* Define a console handler. */
-	if (!SetConsoleCtrlHandler((PHANDLER_ROUTINE)cc_handler, TRUE)) {
+	if (!SetConsoleCtrlHandler(cc_handler, TRUE)) {
 		fprintf(stderr, "SetConsoleCtrlHandler failed: %s\n",
 				win32_strerror(GetLastError()));
 		return NULL;
@@ -2088,7 +2091,7 @@ draw_oia(void)
 	}
 
 	if (appres.m3279)
-	    	attrset(reverse_colors(FOREGROUND_INTENSITY | cmap_bg[COLOR_NEUTRAL_WHITE]));
+	    	attrset(cmap_fg[COLOR_NEUTRAL_BLACK] | cmap_bg[COLOR_GREY]);
 	else
 		attrset(reverse_colors(defattr));
 	mvprintw(status_row, 0, "4");
@@ -2106,7 +2109,7 @@ draw_oia(void)
 		printw("?");
 
 	if (appres.m3279)
-	    	attrset(FOREGROUND_INTENSITY | cmap_bg[COLOR_NEUTRAL_BLACK]);
+	    	attrset(cmap_fg[COLOR_GREY] | cmap_bg[COLOR_NEUTRAL_BLACK]);
 	else
 		attrset(defattr);
 	mvprintw(status_row, 8, "%-35.35s", status_msg);
@@ -2119,11 +2122,11 @@ draw_oia(void)
 	    status_im? 'I': ' ',
 	    oia_printer? 'P': ' ');
 	if (status_secure) {
-	    	attrset(get_color_pair(COLOR_GREEN, COLOR_NEUTRAL_BLACK) |
-			FOREGROUND_INTENSITY);
+	    	attrset(cmap_fg[COLOR_GREEN] | cmap_bg[COLOR_NEUTRAL_BLACK]);
 		printw("S");
 		if (appres.m3279)
-			attrset(FOREGROUND_INTENSITY | cmap_bg[COLOR_NEUTRAL_WHITE]);
+			attrset(cmap_fg[COLOR_GREY] |
+				cmap_bg[COLOR_NEUTRAL_BLACK]);
 		else
 			attrset(defattr);
 	} else

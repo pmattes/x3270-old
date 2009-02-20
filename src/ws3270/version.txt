@@ -1,1 +1,1 @@
-../x3270/version.txt
+../wc3270/version.txt

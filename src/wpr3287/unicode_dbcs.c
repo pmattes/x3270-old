@@ -1,1 +1,1 @@
-../x3270/unicode_dbcs.c
+../wc3270/unicode_dbcs.c

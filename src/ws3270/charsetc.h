@@ -1,1 +1,1 @@
-../x3270/charsetc.h
+../wc3270/charsetc.h

@@ -1,1 +1,1 @@
-../x3270/resources.h
+../wc3270/resources.h
