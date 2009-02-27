@@ -226,6 +226,7 @@ Available sets include:
 <tr><td ><center>belgian-euro</center></td>	<td ><center>1148</center></td>	<td ><center>  iso8859-15</center></td></tr>
 <tr><td ><center>bracket</center></td>	<td ><center>37</center></td>	<td ><center>  iso8859-1</center></td></tr>
 <tr><td ><center>brazilian</center></td>	<td ><center>275</center></td>	<td ><center>  iso8859-1</center></td></tr>
+<tr><td ><center>chinese-gb18030</center></td>	<td ><center>1388</center></td>	<td ><center> iso8859-1 + iso10646-1</center></td></tr>
 <tr><td ><center>cp1047</center></td>	<td ><center>1047</center></td>	<td ><center>  iso8859-1</center></td></tr>
 <tr><td ><center>cp870</center></td>	<td ><center>870</center></td>	<td ><center>  iso8859-2</center></td></tr>
 <tr><td ><center>finnish</center></td>	<td ><center>278</center></td>	<td ><center>  iso8859-1</center></td></tr>
@@ -240,11 +241,12 @@ Available sets include:
 <tr><td ><center>icelandic-euro</center></td>	<td ><center>1149</center></td>	<td ><center>  iso8859-15</center></td></tr>
 <tr><td ><center>italian</center></td>	<td ><center>280</center></td>	<td ><center>  iso8859-1</center></td></tr>
 <tr><td ><center>italian-euro</center></td>	<td ><center>1144</center></td>	<td ><center>  iso8859-15</center></td></tr>
-<tr><td ><center>japanese</center></td>	<td ><center>1027+300</center></td>	<td ><center>jisx0201.1976-0 + jisx0208.1983-0</center></td></tr>
+<tr><td ><center>japanese-kana</center></td>	<td ><center>930</center></td>	<td ><center>jisx0201.1976-0 + jisx0208.1983-0</center></td></tr>
+<tr><td ><center>japanese-latin</center></td>	<td ><center>939</center></td>	<td ><center>jisx0201.1976-0 + jisx0208.1983-0</center></td></tr>
 <tr><td ><center>norwegian</center></td>	<td ><center>277</center></td>	<td ><center>  iso8859-1</center></td></tr>
 <tr><td ><center>norwegian-euro</center></td>	<td ><center>1142</center></td>	<td ><center>  iso8859-15</center></td></tr>
 <tr><td ><center>russian</center></td>	<td ><center>880</center></td>	<td ><center>koi8-r</center></td></tr>
-<tr><td ><center>simplified-chinese</center></td>	<td ><center>836+837</center></td>	<td ><center> iso8859-1 + gb2312.1980-0</center></td></tr>
+<tr><td ><center>simplified-chinese</center></td>	<td ><center>935</center></td>	<td ><center> iso8859-1 + gb2312.1980-0</center></td></tr>
 <tr><td ><center>slovenian</center></td>	<td ><center>870</center></td>	<td ><center>iso8859-2</center></td></tr>
 <tr><td ><center>spanish</center></td>	<td ><center>284</center></td>	<td ><center>  iso8859-1</center></td></tr>
 <tr><td ><center>spanish-euro</center></td>	<td ><center>1145</center></td>	<td ><center>  iso8859-15</center></td></tr>
@@ -627,7 +629,7 @@ The resources available in <b>tcl3270</b> are:
 
 <tr><td >blankFill</td>	<td >False</td>	<td >-set blankFill</td>	<td >Blank Fill mode</td></tr>
 <tr><td >charset</td>	<td >bracket</td>	<td >-charset</td>	<td ><font size=-1>EBCDIC</font> character set</td></tr>
-<tr><td >charset.<i>foo</i></td>	<td >&nbsp;</td>	<td >&nbsp;</td>	<td >Definition of character set <i>foo</i></td></tr>
+<tr><td >dbcsCgcsgid</td>	<td >&nbsp;</td>	<td >&nbsp;</td>	<td >Override DBCS CGCSGID</td></tr>
 <tr><td >dsTrace</td>	<td >False</td>	<td >-trace</td>	<td >Data stream tracing</td></tr>
 <tr><td >eof</td>	<td >^D</td>	<td >&nbsp;</td>	<td ><font size=-1>NVT</font>-mode <font size=-1>EOF</font> character</td></tr>
 <tr><td >erase</td>	<td >^H</td>	<td >&nbsp;</td>	<td ><font size=-1>NVT</font>-mode erase character</td></tr>
@@ -647,6 +649,7 @@ The resources available in <b>tcl3270</b> are:
 <tr><td >port</td>	<td >telnet</td>	<td >-port</td>	<td >Non-default TCP port</td></tr>
 <tr><td >quit</td>	<td >^\</td>	<td >&nbsp;</td>	<td ><font size=-1>NVT</font>-mode quit character</td></tr>
 <tr><td >rprnt</td>	<td >^R</td>	<td >&nbsp;</td>	<td ><font size=-1>NVT</font>-mode reprint character</td></tr>
+<tr><td >sbcsCgcsgid</td>	<td >&nbsp;</td>	<td >&nbsp;</td>	<td >Override SBCS CGCSGID</td></tr>
 <tr><td >secure</td>	<td >False</td>	<td >&nbsp;</td>	<td >Disable "dangerous" options</td></tr>
 <tr><td >termName</td>	<td ><a HREF="#rn2">(note 2)</a></td>	<td >-tn</td>	<td ><font size=-1>TELNET</font> terminal type string</td></tr>
 <tr><td >traceDir</td>	<td >/tmp</td>	<td >&nbsp;</td>	<td >Directory for trace files</td></tr>
@@ -737,12 +740,12 @@ WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
 OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
 ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 <a NAME="Version"></a><h2>Version</h2>
-tcl3270 3.3.9beta9
+tcl3270 3.3.9ga11
 <hr>
 <i>
 This HTML document and the accompanying troff document were generated with
 a set of write-only <b>m4</b> macros and the powerful <b>vi</b> editor.
-<br>Last modified 14 February 2009.
+<br>Last modified 23 February 2009.
 </i>
 </body>
 </html>

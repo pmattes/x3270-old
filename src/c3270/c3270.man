@@ -1,5 +1,5 @@
 '\" t
-.TH c3270 1 "14 February 2009"
+.TH c3270 1 "23 February 2009"
 .SH "NAME"
 c3270 \-
 curses-based 
@@ -2387,23 +2387,6 @@ T}
 T{
 .na
 .nh
-charset.\fIfoo\fP
-T}	T{
-.na
-.nh
-\ 
-T}	T{
-.na
-.nh
-\ 
-T}	T{
-.na
-.nh
-Definition of character set \fIfoo\fP
-T}
-T{
-.na
-.nh
 composeMap
 T}	T{
 .na
@@ -2531,6 +2514,23 @@ T}	T{
 .na
 .nh
 80-col screen definition
+T}
+T{
+.na
+.nh
+dbcsCgcsgid
+T}	T{
+.na
+.nh
+\ 
+T}	T{
+.na
+.nh
+\ 
+T}	T{
+.na
+.nh
+Override DBCS CGCSGID
 T}
 T{
 .na
@@ -3011,6 +3011,23 @@ T}
 T{
 .na
 .nh
+sbcsCgcsgid
+T}	T{
+.na
+.nh
+\ 
+T}	T{
+.na
+.nh
+\ 
+T}	T{
+.na
+.nh
+Override SBCS CGCSGID
+T}
+T{
+.na
+.nh
 secure
 T}	T{
 .na
@@ -3217,4 +3234,4 @@ WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
 OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
 ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 .SH "VERSION"
-c3270 3.3.9beta9
+c3270 3.3.9ga11

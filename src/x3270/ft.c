@@ -1199,7 +1199,7 @@ ft_start(void)
 			if (receive_flag && !append_flag)
 			    unlink(ft_local_filename);
 		}
-		popup_an_error(get_message("ftUnable"));
+		popup_an_error("%s", get_message("ftUnable"));
 		allow_overwrite = False;
 		return 0;
 	}
@@ -1519,7 +1519,11 @@ ft_complete(const char *errmsg)
 			if (s > msg_copy)
 				*s = '\n';	/* yikes! */
 		}
-		popup_an_error(msg_copy);
+#if defined(C3270) /*[*/
+		printf("\r%79s\n", "");
+		fflush(stdout);
+#endif /*]*/
+		popup_an_error("%s", msg_copy);
 		Free(msg_copy);
 	} else {
 		struct timeval t1;
@@ -1534,12 +1538,16 @@ ft_complete(const char *errmsg)
 		(void) sprintf(buf, get_message("ftComplete"), ft_length,
 		    kbytes_sec, ft_is_cut ? "CUT" : "DFT");
 		if (ft_is_action) {
+#if defined(C3270) /*[*/
+			printf("\r%79s\n", "");
+			fflush(stdout);
+#endif /*]*/
 			sms_info("%s", buf);
 			sms_continue();
 		}
 #if defined(X3270_DISPLAY) && defined(X3270_MENUS) /*[*/
 		else
-			popup_an_info(buf);
+			popup_an_info("%s", buf);
 #endif /*]*/
 		Free(buf);
 	}
@@ -1558,6 +1566,10 @@ ft_update_length(void)
 
 		XtVaSetValues(ft_status, XtNlabel, text_string, NULL);
 	}
+#endif /*]*/
+#if defined(C3270) /*[*/
+	printf("\r%79s\rTransferred %lu bytes. ", "", ft_length);
+	fflush(stdout);
 #endif /*]*/
 }
 
@@ -1582,6 +1594,9 @@ ft_running(Boolean is_cut)
 		ft_update_length();
 		XtMapWidget(ft_status);
 	}
+#endif /*]*/
+#if defined(C3270) /*[*/
+	ft_update_length();
 #endif /*]*/
 }
 
@@ -1707,6 +1722,9 @@ Transfer_action(Widget w _is_unused, XEvent *event, String *params,
 	/* Check for interactive mode. */
 	if (xnparams == 0 && escaped) {
 	    	if (interactive_transfer(&xparams, &xnparams) < 0) {
+		    	printf("\n");
+			fflush(stdout);
+		    	action_output("Aborted");
 		    	return;
 		}
 	}
@@ -1947,11 +1965,17 @@ Transfer_action(Widget w _is_unused, XEvent *event, String *params,
 			if (receive_flag && !append_flag)
 			    unlink(ft_local_filename);
 		}
-		popup_an_error(get_message("ftUnable"));
+		popup_an_error("%s", get_message("ftUnable"));
 		return;
 	}
 	(void) emulate_input(cmd, strlen(cmd), False);
 	Free(cmd);
+#if defined(C3270) /*[*/
+	if (!escaped)
+	    	screen_suspend();
+	printf("Awaiting start of transfer... ");
+	fflush(stdout);
+#endif /*]*/
 
 	/* Get this thing started. */
 	ft_start_id = AddTimeOut(10 * 1000, ft_didnt_start);

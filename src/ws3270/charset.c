@@ -1,1 +1,1 @@
-../wc3270/charset.c
+../x3270/charset.c

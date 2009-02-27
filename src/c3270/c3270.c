@@ -39,8 +39,8 @@
 #include "globals.h"
 #if !defined(_WIN32) /*[*/
 #include <sys/wait.h>
-#include <signal.h>
 #endif /*]*/
+#include <signal.h>
 #include <errno.h>
 #include <stdarg.h>
 #include "appres.h"
@@ -308,7 +308,8 @@ pause_for_errors(void)
 	if (any_error_output) {
 		printf("[Press <Enter>] ");
 		fflush(stdout);
-		(void) fgets(s, sizeof(s), stdin);
+		if (fgets(s, sizeof(s), stdin) == NULL)
+			x3270_exit(1);
 		any_error_output = False;
 	}
 }
@@ -447,7 +448,11 @@ main(int argc, char *argv[])
 
 	/* Process events forever. */
 	while (1) {
-		if (!escaped)
+		if (!escaped
+#if defined(X3270_FT) /*[*/
+			|| ft_state != FT_NONE
+#endif /*]*/
+			)
 			(void) process_events(True);
 		if (appres.cbreak_mode && escape_pending) {
 			escape_pending = False;
@@ -461,7 +466,11 @@ main(int argc, char *argv[])
 					x3270_exit(0);
 				interact();
 				screen_resume();
-			} else if (escaped) {
+			} else if (escaped
+#if defined(X3270_FT) /*[*/
+				    && ft_state == FT_NONE
+#endif /*]*/
+				    ) {
 				interact();
 				trace_event("Done interacting.\n");
 				screen_resume();
@@ -523,20 +532,21 @@ interact(void)
 
 		printf("[Press <Enter>] ");
 		fflush(stdout);
-		(void) fgets(s, sizeof(s), stdin);
+		if (fgets(s, sizeof(s), stdin) == NULL)
+		    	x3270_exit(1);
 		return;
 	}
 
 #if !defined(_WIN32) /*[*/
 	/* Handle SIGTSTP differently at the prompt. */
 	signal(SIGTSTP, SIG_DFL);
+#endif /*]*/
 
 	/*
 	 * Ignore SIGINT at the prompt.
 	 * I'm sure there's more we could do.
 	 */
 	signal(SIGINT, SIG_IGN);
-#endif /*]*/
 
 	for (;;) {
 		int sl;
@@ -579,7 +589,11 @@ interact(void)
 		/* Get the command, and trim white space. */
 		if (fgets(buf, sizeof(buf), stdin) == CN) {
 			printf("\n");
+#if defined(_WIN32) /*[*/
+		    	continue;
+#else /*][*/
 			x3270_exit(0);
+#endif /*]*/
 		}
 		s = buf;
 #endif /*]*/
@@ -637,6 +651,9 @@ interact(void)
 	stop_pending = False;
 #if !defined(_WIN32) /*[*/
 	signal(SIGTSTP, SIG_IGN);
+#endif /*]*/
+#if defined(_WIN32) /*[*/
+	signal(SIGINT, SIG_DFL);
 #endif /*]*/
 }
 
@@ -954,17 +971,20 @@ status_dump(void)
 	    "SBCS"
 #endif /*]*/
 	    );
+	action_output("%s %s",
+		get_message("hostCodePage"),
+		get_host_codepage());
+	action_output("%s GCSGID %u, CPGID %u",
+		get_message("sbcsCgcsgid"),
+		(unsigned short)((cgcsgid >> 16) & 0xffff),
+		(unsigned short)(cgcsgid & 0xffff));
 #if defined(X3270_DBCS) /*[*/
 	if (dbcs)
-		action_output("%s %ld+%ld",
-			get_message("hostCodePage"),
-			cgcsgid & 0xffff,
-			cgcsgid_dbcs & 0xffff);
-	else
+		action_output("%s GCSGID %u, CPGID %u",
+			get_message("dbcsCgcsgid"),
+			(unsigned short)((cgcsgid_dbcs >> 16) & 0xffff),
+			(unsigned short)(cgcsgid_dbcs & 0xffff));
 #endif /*]*/
-		action_output("%s %ld",
-			get_message("hostCodePage"),
-			cgcsgid & 0xffff);
 #if !defined(_WIN32) /*[*/
 	action_output("%s %s", get_message("localeCodeset"), locale_codeset);
 	action_output("%s DBCS %s, wide curses %s",
@@ -1076,7 +1096,7 @@ status_dump(void)
 			for (i = 0; c[i].name; i++) {
 				if (i && !(i % 4)) {
 					*s = '\0';
-					action_output(buf);
+					action_output("%s", buf);
 					s = buf;
 				}
 				s += sprintf(s, "  %s %s", c[i].name,

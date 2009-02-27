@@ -3754,7 +3754,7 @@ screen_new_display_charsets(const char *display_charsets, const char *csnames)
 		lff = load_fixed_font(appres.efontname, display_charsets);
 		if (lff != CN) {
 			if (strcmp(appres.efontname, "3270")) {
-				popup_an_error(lff);
+				popup_an_error("%s", lff);
 			}
 			Free(lff);
 		} else
@@ -3797,7 +3797,7 @@ screen_new_display_charsets(const char *display_charsets, const char *csnames)
 				font_found = True;
 			} else {
 				/* Fatal. */
-				xs_error(lff);
+				xs_error("%s", lff);
 				Free(lff);
 				/*NOTREACHED*/
 				return False;
@@ -3809,6 +3809,15 @@ screen_new_display_charsets(const char *display_charsets, const char *csnames)
 			char *cs;
 			char *buf;
 			char *lasts;
+
+			if (strchr(display_charsets, '+') != NULL) {
+			    /*
+			     * Despite what the code below appears to be
+			     * able to do, we don't know how to search for a
+			     * DBCS font.  Bail here.
+			     */
+			    return False;
+			}
 
 			buf = cs_dup = NewString(display_charsets);
 			while (!font_found &&
@@ -3899,7 +3908,7 @@ screen_newfont(char *fontnames, Boolean do_popup, Boolean is_cs)
 	/* Try the new one. */
 	if ((lff = load_fixed_font(fontnames, required_display_charsets)) != CN) {
 		if (do_popup)
-			popup_an_error(lff);
+			popup_an_error("%s", lff);
 		Free(lff);
 		XtFree(old_font);
 		return;
@@ -4266,7 +4275,6 @@ lff_single(const char *name, const char *reqd_display_charset, Boolean is_dbcs)
 #endif /*]*/
 		if (!check_charset(matches[i], &f[i], reqd_display_charset,
 			    force, &font_csname, &scalable)) {
-			char *xp = expand_cslist(reqd_display_charset);
 
 			if (mod_count == 1) {
 				if (scalable) {
@@ -4276,6 +4284,9 @@ lff_single(const char *name, const char *reqd_display_charset, Boolean is_dbcs)
 						      "override)",
 						      name, name);
 				} else {
+					char *xp =
+					    expand_cslist(reqd_display_charset);
+
 					r = xs_buffer("Font '%s'\n"
 					    "implements %s, not %s\n"
 					    "(Specify '!%s' to override)",
@@ -4963,7 +4974,7 @@ add_font_to_menu(char *label, char *font)
 	}
 	f->font = NewString(font);
 	f->next = NULL;
-	/*f->label = label;*/
+	f->mlabel = label;
 	if (font_list)
 		font_last->next = f;
 	else
@@ -5001,7 +5012,7 @@ init_rsfonts(char *charset_name)
 		f = font_list->next;
 		if (font_list->parents)
 			Free(font_list->parents);
-		/*Free(font_list->label);  a leak! */
+		Free(font_list->mlabel);
 		Free(font_list->font);
 		Free(font_list);
 		font_list = f;
@@ -5102,7 +5113,7 @@ init_rsfonts(char *charset_name)
 					    	hier_name =
 						    xs_buffer("%s>%.*s>%s",
 							csn,
-							dash2 - names[i] - 1,
+							(int)(dash2 - names[i] - 1),
 							 names[i] + 1,
 							dash2 + 1);
 					} else
@@ -5137,7 +5148,7 @@ init_rsfonts(char *charset_name)
 					    	hier_name =
 						    xs_buffer("%s>%.*s>%s",
 							csn,
-							dash2 - names[i] - 1,
+							(int)(dash2 - names[i] - 1),
 							 names[i] + 1,
 							dash2 + 1);
 					} else
