@@ -1,0 +1,661 @@
+<!DOCTYPE doctype PUBLIC "-//w3c//dtd html 4.0 transitional//en">
+<html>
+<head>
+ <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+ <title>ws3270 Resources</title>
+ <link HREF="http://www.w3.org/StyleSheets/Core/Steely" TYPE="text/css" REL="stylesheet">
+ <style type="text/css">
+<!--
+.indented
+{
+    padding-left: 50pt;
+    padding-right: 50pt;
+}
+-->
+</style>
+</head>
+<body>
+<h1>ws3270 Resources</h1>
+ <i>Resources</i> are used to configure ws3270.  Resources are named items with
+ string, integer or Boolean values.
+ <p>
+ Resource definitions come from the following sources:
+ <ul>
+ <li>Default values are compiled into ws3270.</li>
+ <li>If a session file <b><i>foo</i>.ws3270</b> is specified on the command line,
+ its contents are applied.
+ These definitions override resource values defined by
+ compiled-in defaults.</li>
+ <li>Command-line options override all other resource definitions.  If more
+  than one command-line option sets a resource, the last one is used.</li>
+ </ul>
+ Many resources have their own command-line switches, which are listed below.
+ Those that do not can still be set from the command-line via the <b>-xrm</b>
+ command-line option.  For example the <a href=#bsdTm>ws3270.bsdTm</a> resource can be set by the
+ following command-line option:
+ <pre>
+     -xrm 'ws3270.bsdTm: true'
+ </pre>
+ Note that <b>-xrm</b> is supported on all of the 3270 emulators, not just on
+ x3270.
+ <h2>Resource File Syntax</h2>
+ A resource file
+ (session file)
+ has the following syntax.
+ <ul>
+  <li>Each definition consists of:
+  <pre>
+    <b>ws3270.</b><i>resource-name</i><b>:</b> <i>value</i>
+  </pre></li>
+  <li>Comment lines begin with <b>!</b>.</li>
+  <li>Line continuation is indicated by a backshash (<b>\</b>) character at
+   the end of a line.</li>
+ </ul>
+<h2>Alphabetical Resource List</h2>
+<a name="blankFill"></a>
+<b>Name:</b> ws3270.blankFill<br>
+<b>Type</b>: Boolean<br>
+<b>Default</b>: false<br>
+<b>Command Line</b>: -set blankFill
+, -clear blankFill
+<br>
+<b>Description</b>:<br>
+<p class=indented>    When true, in 3270 mode ws3270 will automatically convert
+    trailing blanks in a field to NULLs in order to insert a character, and will
+    automatically convert leading NULLs to blanks so that input data is not
+    squeezed to the left.  This works around some of the quirkier behavior of
+    real 3270 terminals.
+</p>
+<a name="bsdTm"></a>
+<b>Name:</b> ws3270.bsdTm<br>
+<b>Type</b>: Boolean<br>
+<b>Default</b>: false<br>
+<b>Description</b>:<br>
+<p class=indented>    Defines ws3270's response to the TELNET DO TIMING MARK option.  When set
+    to false, ws3270 will respond to DO TIMING MARK with
+    WONT
+    TIMING MARK, which is consistent with most modern TELNET clients.  When
+    true, ws3270 will respond with WILL TIMING MARK, which is consistent
+    with the old BSD <i>telnet</i> command and with previous versions of
+    ws3270.  In either case, ws3270 will never respond to a DONT TIMING MARK option.
+</p>
+<a name="certFile"></a>
+<b>Name:</b> ws3270.certFile<br>
+<b>Type</b>: String<br>
+<b>Command Line</b>: -certfile
+<br>
+<b>Description</b>:<br>
+<p class=indented>    Gives the name of a certificate file, used by the OpenSSL library.
+</p>
+<a name="charset"></a>
+<b>Name:</b> ws3270.charset<br>
+<b>Type</b>: String<br>
+<b>Default</b>: bracket<br>
+<b>Command Line</b>: -charset
+<br>
+<b>Description</b>:<br>
+<p class=indented>    This defines the host EBCDIC character set, that is, what glyph (image) is
+    displayed for each EBCDIC code sent by the host, and what EBCDIC code is
+    sent to the host for each character typed on the keyboard.
+    This is more correctly referred to as the <i>host code page</i>.
+    <p class="indented">
+    To display the character sets supported by ws3270, use the <b>-v</b>
+    command-line option.
+</p>
+<a name="color8"></a>
+<b>Name:</b> ws3270.color8<br>
+<b>Type</b>: Boolean<br>
+<b>Default</b>: false<br>
+<b>Description</b>:<br>
+<p class=indented>    If true, ws3270 will respond to a Query(Color) with a list of 8
+    supported colors.  If false, it will send a list
+    of 16 colors.  The 8-color setting is required for some hosts which
+    abort a session if 16 colors are reported.
+</p>
+<a name="confDir"></a>
+<b>Name:</b> ws3270.confDir<br>
+<b>Type</b>: String<br>
+<b>Default</b>: .<br>
+<b>Description</b>:<br>
+<p class=indented>    Defines the ws3270 configuration directory, where ws3270 will search for the
+    <b>ibm_hosts</b> file by default.  (See <a href=#hostsFile>ws3270.hostsFile</a>.)
+    <p class=indented>
+    The default is to search the directory where ws3270 was started, which
+    usually its installation directory.
+</p>
+<a name="dbcsCgcsgid"></a>
+<b>Name:</b> ws3270.dbcsCgcsgid<br>
+<b>Type</b>: String<br>
+<b>Description</b>:<br>
+<p class=indented>    Overrides the compiled-in value of the CGCSGID for the current host
+    character set, which will be reported to the host in response to a
+    Query(Character Sets).  The value is an integer, which can be prefixed with
+    '0x' to be in hexadecimal.  The upper 16 bits are the GCSGID (character
+    set) and the lower 16 bits are the CPGID (code page).  This value
+    applies only to the double-byte (DBCS) character set.  Use
+    <a href=#sbcsCgcsgid>ws3270.sbcsCgcsgid</a> for the single-byte (SBCS) character set.
+</p>
+<a name="dftBufferSize"></a>
+<b>Name:</b> ws3270.dftBufferSize<br>
+<b>Type</b>: Integer<br>
+<b>Default</b>: 4096<br>
+<b>Description</b>:<br>
+<p class=indented>    Specifies the default buffer size for DFT IND$FILE file transfers.  This
+    value can be overridden in the File Transfer dialog and by a parameter to
+    the <b>Transfer</b> action.
+</p>
+<a name="dsTrace"></a>
+<b>Name:</b> ws3270.dsTrace<br>
+<b>Type</b>: Boolean<br>
+<b>Default</b>: false<br>
+<b>Command Line</b>: -trace 
+, -set dsTrace
+, -clear dsTrace
+<br>
+<b>Description</b>:<br>
+<p class=indented>    When true, ws3270 writes a hexadecimal representation of all network
+    traffic (and its interpretation) into a file, which defaults to
+    <b>x3trc.<i>process-id</i>.txt</b> in the ws3270 Application Data directory.
+    If <a href=#traceFile>ws3270.traceFile</a> is defined, it gives the pathname
+    of the file instead.
+</p>
+<a name="eof"></a>
+<b>Name:</b> ws3270.eof<br>
+<b>Type</b>: String<br>
+<b>Default</b>: ^D<br>
+<b>Description</b>:<br>
+<p class=indented>    This setting is used only in NVT mode, and is similar in function to
+    the <i>stty</i> parameter of the same name.
+    <p class=indented>
+    When connected in line-at-a-time mode (when ws3270 gathers a line of input
+    before forwarding it to the host), entering this character at the
+    keyboard causes
+    the current line of
+    input to be forwarded to the host without a trailing CR/LF sequence.
+    <p class=indented>
+</p>
+<a name="erase"></a>
+<b>Name:</b> ws3270.erase<br>
+<b>Type</b>: String<br>
+<b>Default</b>: ^?<br>
+<b>Description</b>:<br>
+<p class=indented>    This setting is used only in NVT mode, and is similar in function to
+    the <i>stty</i> parameter of the same name.
+    <p class="indented">
+    When connected in line-at-a-time mode (ws3270 gathers a line of input
+    before forwarding it ot the host), entering this character at the keyboard
+    will cause ws3270 to discard the last character on the input line.
+    <p class="indented">
+    When connected in character-at-a-time mode (ws3270 sends each keystroke
+    to the host as it is entered), this is the character that will be sent
+    to the host by the <b>Erase</b> action.
+</p>
+<a name="eventTrace"></a>
+<b>Name:</b> ws3270.eventTrace<br>
+<b>Type</b>: Boolean<br>
+<b>Default</b>: false<br>
+<b>Command Line</b>: -set eventTrace
+, -clear eventTrace
+<br>
+<b>Description</b>:<br>
+<p class=indented>    When true, ws3270 traces information about keyboard and mouse
+    events into a file.
+    The default file name is
+    <b>x3trc.<i>process-id</i>.txt</b> in the ws3270 Application Data directory.
+    If <a href=#traceFile>ws3270.traceFile</a> is defined, it gives the pathname
+    of the file instead.
+</p>
+<a name="extended"></a>
+<b>Name:</b> ws3270.extended<br>
+<b>Type</b>: Boolean<br>
+<b>Default</b>: false<br>
+<b>Command Line</b>: -extended
+<br>
+<b>Description</b>:<br>
+<p class=indented>    <i>Deprecated resource -- replaced by <a href=#model>ws3270.model</a> syntax</i>
+    <p class="indented">
+    Indicates support for the 3270 Extended Data Stream.
+</p>
+<a name="hostname"></a>
+<b>Name:</b> ws3270.hostname<br>
+<b>Type</b>: String<br>
+<b>Description</b>:<br>
+<p class=indented>    Gives the name of the host to connect to.  The name can include the usual
+    options (prefixes to specify special connection options, LU names, and
+    port).  A hostname specified on the command line takes precedence over
+    <a href=#hostName>ws3270.hostName</a>.
+    <p class=indented>
+    The most common use of <a href=#hostName>ws3270.hostName</a> is in <i>session files</i>, where a
+    file is used to pass all of the options to establish a ws3270 session.
+</p>
+<a name="hostsFile"></a>
+<b>Name:</b> ws3270.hostsFile<br>
+<b>Type</b>: String<br>
+<b>Default</b>: ibm_hosts<br>
+<b>Description</b>:<br>
+<p class=indented>    The pathname of a file containing hostname aliases.
+    The file can also be used to define a set of actions to perform when
+    connecting to a host.
+    <p class="indented">
+    The format of the file is explained on the <i>ibm_hosts</i> manual page.
+</p>
+<a name="icrnl"></a>
+<b>Name:</b> ws3270.icrnl<br>
+<b>Type</b>: Boolean<br>
+<b>Default</b>: true<br>
+<b>Description</b>:<br>
+<p class=indented>    This setting is used only in NVT mode, and is similar in function to
+    the <i>stty</i> parameter of the same name.
+    It controls whether input carriage returns are mapped to newlines.
+</p>
+<a name="inlcr"></a>
+<b>Name:</b> ws3270.inlcr<br>
+<b>Type</b>: Boolean<br>
+<b>Default</b>: false<br>
+<b>Description</b>:<br>
+<p class=indented>    This setting is used only in NVT mode, and is similar in function to
+    the <i>stty</i> parameter of the same name.
+    It controls whether input newlines are mapped to carriage returns.
+</p>
+<a name="intr"></a>
+<b>Name:</b> ws3270.intr<br>
+<b>Type</b>: String<br>
+<b>Default</b>: ^C<br>
+<b>Description</b>:<br>
+<p class=indented>    This setting is used only in NVT mode, and is similar in function to
+    the <i>stty</i> parameter of the same name.
+    When this character is typed on the keyboard, the TELNET IP
+    (Interrupt Process) sequence is sent to the host.
+</p>
+<a name="kill"></a>
+<b>Name:</b> ws3270.kill<br>
+<b>Type</b>: String<br>
+<b>Default</b>: ^U<br>
+<b>Description</b>:<br>
+<p class=indented>    This setting is used only in NVT mode, and is similar in function to
+    the <i>stty</i> parameter of the same name.
+    <p class=indented>
+    When connected in line-at-a-time mode (when ws3270 gathers a line of input
+    before forwarding it to the host), entering this character at the
+    keyboard causes
+    the current input line to be erased.
+    <p class=indented>
+    When connected in character-at-a-time mode (when ws3270 sends each
+    keystroke to the host), this is the ASCII character that is sent to
+    the host by the <b>DeleteField</b>
+    action.
+</p>
+<a name="lineWrap"></a>
+<b>Name:</b> ws3270.lineWrap<br>
+<b>Type</b>: Boolean<br>
+<b>Default</b>: true<br>
+<b>Command Line</b>: -set lineWrap
+, -clear lineWrap
+<br>
+<b>Description</b>:<br>
+<p class=indented>    This setting is used only in NVT mode.
+    When true, ws3270 will automatically insert a 
+    CR/LF sequence when output reaches the end of a line.  When false,
+    output will pile up at the end of each line until the host sends a
+    CR/LF sequence.
+</p>
+<a name="loginMacro"></a>
+<b>Name:</b> ws3270.loginMacro<br>
+<b>Type</b>: String<br>
+<b>Description</b>:<br>
+<p class=indented>    Defines a sequence of commands to run as soon as a host connection is
+    established.  Usually these would be commands used to navigate through
+    login screens, such <b>String</b>, <b>Tab</b> and <b>Enter</b>.
+    <p class=indented>
+    If a <a href=#hostsFile>ws3270.hostsFile</a> is in use and a matching entry is found, the login
+    macro from that entry will be used in preference to the <a href=#loginMacro>ws3270.loginMacro</a>.
+</p>
+<a name="lnext"></a>
+<b>Name:</b> ws3270.lnext<br>
+<b>Type</b>: String<br>
+<b>Default</b>: ^V<br>
+<b>Description</b>:<br>
+<p class=indented>    This setting is used only in NVT mode, and is similar in function to
+    the <i>stty</i> parameter of the same name.
+    <p class=indented>
+    When connected in line-at-a-time mode (when ws3270 gathers a line of input
+    before forwarding it to the host), entering this character at the
+    keyboard removes any special meaning from the next character entered.
+</p>
+<a name="m3279"></a>
+<b>Name:</b> ws3270.m3279<br>
+<b>Type</b>: Boolean<br>
+<b>Default</b>: false<br>
+<b>Command Line</b>: -color
+<br>
+<b>Description</b>:<br>
+<p class=indented>    <i>Deprecated resource -- replaced by <a href=#model>ws3270.model</a> syntax</i>
+    <p class=indented>
+    Indicates support for color (a 3279 terminal).
+</p>
+<a name="model"></a>
+<b>Name:</b> ws3270.model<br>
+<b>Type</b>: String<br>
+<b>Default</b>: 3279-4-E<br>
+<b>Command Line</b>: -model
+<br>
+<b>Description</b>:<br>
+<p class=indented>    The terminal model that ws3270 is emulating.  The model is in three parts,
+    separated by dashes; each part is optional.
+    <ul>
+	<li>3278 or 3279<br>
+	    3278 specifies a monochrome (green) 3270 display.
+	     <br>
+	    3279 specifies a color 3270 display.
+	     </li>
+	<li>2, 3, 4 or 5</br>
+	    The model number, which determines the size of the screen.</br>
+	    Model 2 has 24 rows and 80 columns.</br>
+	    Model 3 has 32 rows and 80 columns.</br>
+	    Model 4 has 43 rows and 80 columns.</br>
+	    Model 5 has 27 rows and 132 columns.</br>
+	    The default is
+	     4.
+	     </li>
+	<li>E</br>
+	    An optional suffix which indicates support for the 3270 Extended
+	     Data Stream (color, extended attributes, Query Reply).  3279
+	     implies E.</li>
+	     </ul>
+</p>
+<a name="monoCase"></a>
+<b>Name:</b> ws3270.monoCase<br>
+<b>Type</b>: Boolean<br>
+<b>Default</b>: false<br>
+<b>Command Line</b>: -set monoCase
+, -clear monoCase
+<br>
+<b>Description</b>:<br>
+<p class=indented>    When true, causes ws3270 to run in uppercase-only mode.
+</p>
+<a name="numericLock"></a>
+<b>Name:</b> ws3270.numericLock<br>
+<b>Type</b>: Boolean<br>
+<b>Default</b>: false<br>
+<b>Description</b>:<br>
+<p class=indented>    When true, causes ws3270 to lock the keyboard when non-numeric data
+    is entered into fields with the Numeric attribute.
+</p>
+<a name="onlcr"></a>
+<b>Name:</b> ws3270.onlcr<br>
+<b>Type</b>: Boolean<br>
+<b>Default</b>: true<br>
+<b>Description</b>:<br>
+<p class=indented>    Used only in NVT line-at-a-time mode; similar to the <i>stty</i> parameter
+    of the same name.
+    It controls whether output newlines are mapped to CR/LF sequences.
+</p>
+<a name="oerrLock"></a>
+<b>Name:</b> ws3270.oerrLock<br>
+<b>Type</b>: Boolean<br>
+<b>Default</b>: true<br>
+<b>Description</b>:<br>
+<p class=indented>    If true, operator errors (typing into protected fields,
+    insert overflow, etc.) will cause the keyboard to lock with an error
+    message in the OIA (status line).  If false, these
+    errors will simply cause the terminal bell will ring, without any
+    keyboard lock or message.
+</p>
+<a name="once"></a>
+<b>Name:</b> ws3270.once<br>
+<b>Type</b>: Boolean<br>
+<b>Default</b>: false<br>
+<b>Command Line</b>: -once
+<br>
+<b>Description</b>:<br>
+<p class=indented>    When true, ws3270 will exit as soon as a host disconnects.
+    The default is <b>false</b> if no hostname is specified on the command
+    line,
+    <b>true</b> otherwise.
+</p>
+<a name="oversize"></a>
+<b>Name:</b> ws3270.oversize<br>
+<b>Type</b>: String<br>
+<b>Command Line</b>: -oversize
+<br>
+<b>Description</b>:<br>
+<p class=indented>    Sets the screen dimensions to be larger than the default for the
+    chosen model.  Its value is a string in the format
+    <b><i>cols</i>x<i>rows</i></b>.
+    It is used only if the <a href=#model>ws3270.model</a> includes the "-E" (extended
+    data stream) suffix, and only if the specified dimensions are larger than
+    the model number defaults.  Also, only hosts that support the Query Reply
+    structured field will function properly with ws3270 in this mode.
+</p>
+<a name="port"></a>
+<b>Name:</b> ws3270.port<br>
+<b>Type</b>: String<br>
+<b>Default</b>: telnet<br>
+<b>Command Line</b>: -port
+<br>
+<b>Description</b>:<br>
+<p class=indented>    The name of the default TCP port for ws3270 to connect to.  This can be
+    either a symbolic name from /etc/services, or an integer.
+</p>
+<a name="proxy"></a>
+<b>Name:</b> ws3270.proxy<br>
+<b>Type</b>: String<br>
+<b>Command Line</b>: -proxy
+<br>
+<b>Description</b>:<br>
+<p class=indented>    Defines a proxy server that ws3270 will use to connect to hosts.
+    The value is of the form
+    <b><i>type</i>:<i>server</i></b>[<b>:<i>port</i></b>],
+    where options for <i>type</i> are described on the ws3270 manual page.
+</p>
+<a name="quit"></a>
+<b>Name:</b> ws3270.quit<br>
+<b>Type</b>: String<br>
+<b>Default</b>: ^\<br>
+<b>Description</b>:<br>
+<p class=indented>    This setting is used only in NVT mode, and is similar in function to
+    the <i>stty</i> parameter of the same name.
+    When connected in line-at-a-time mode (when ws3270
+    gathers a line of input before forwarding it to the host),
+    entering this character at the keyboard causes the
+    TELNET BREAK sequence to be sent to the host.
+</p>
+<a name="rprnt"></a>
+<b>Name:</b> ws3270.rprnt<br>
+<b>Type</b>: String<br>
+<b>Default</b>: ^R<br>
+<b>Description</b>:<br>
+<p class=indented>    This setting is used only in NVT mode, and is similar in function to
+    the <i>stty</i> parameter of the same name.
+    When connected in line-at-a-time mode (when ws3270
+    gathers a line of input before forwarding it to the host), entering this
+    character at the keyboard causes the current input line to be redisplayed.
+</p>
+<a name="sbcsCgcsgid"></a>
+<b>Name:</b> ws3270.sbcsCgcsgid<br>
+<b>Type</b>: String<br>
+<b>Description</b>:<br>
+<p class=indented>    Overrides the compiled-in value of the CGCSGID for the current host
+    character set.  The value is an integer, which can be prefixed with '0x'
+    to be in hexadecimal.  The upper 16 bits are the GCSGID (character
+    set) and the lower 16 bits are the CPGID (code page).  This value
+    applies only to the single-byte (SBCS) character set.  Use
+    <a href=#dbcsCgcsgid>ws3270.dbcsCgcsgid</a> for the double-byte (DBCS) character set.
+</p>
+<a name="screenTrace"></a>
+<b>Name:</b> ws3270.screenTrace<br>
+<b>Type</b>: Boolean<br>
+<b>Default</b>: false<br>
+<b>Command Line</b>: -set screenTrace
+, -clear screenTrace
+<br>
+<b>Description</b>:<br>
+<p class=indented>    When true, ws3270 will save an ASCII version of the screen image in
+    a file every time it changes.
+    The file name defaults to
+    <b>x3scr.<i>pid</i>.txt</b> in the ws3270 Application Data directory.
+    If the <a href=#screenTraceFile>ws3270.screenTraceFile</a> resource is defined, it defines the
+    file name.
+</p>
+<a name="screenTraceFile"></a>
+<b>Name:</b> ws3270.screenTraceFile<br>
+<b>Type</b>: String<br>
+<b>Description</b>:<br>
+<p class=indented>    If defined, gives the name of the file that screen traces will be
+    written into.
+</p>
+<a name="suppressActions"></a>
+<b>Name:</b> ws3270.suppressActions<br>
+<b>Type</b>: String<br>
+<b>Description</b>:<br>
+<p class=indented>    A list of whitespace-separated action names, with or without parentheses,
+    which are to be ignored.  The actions will be completely inaccessible,
+    whether by keymaps, scripts, macros or the Execute an Action menu option.
+    This resource is intended to be used as a security precaution for users
+    who can define their own keymaps, but who do not have access to resource
+    definitions or command-line options.
+</p>
+<a name="termName"></a>
+<b>Name:</b> ws3270.termName<br>
+<b>Type</b>: String<br>
+<b>Command Line</b>: -tn
+<br>
+<b>Description</b>:<br>
+<p class=indented>    An alternate name to be sent in response to the host's TELNET DO OPTION
+    TERMINAL-NAME request.  The default is <b>IBM-</b>, followed by the
+    value of <a href=#model>ws3270.model</a>.
+</p>
+<a name="traceFile"></a>
+<b>Name:</b> ws3270.traceFile<br>
+<b>Type</b>: String<br>
+<b>Command Line</b>: -tracefile
+<br>
+<b>Description</b>:<br>
+<p class=indented>    If defined, gives the name of the file that data stream and event traces
+    will be written into.
+</p>
+<a name="traceFileSize"></a>
+<b>Name:</b> ws3270.traceFileSize<br>
+<b>Type</b>: String<br>
+<b>Command Line</b>: -tracefilesize
+<br>
+<b>Description</b>:<br>
+<p class=indented>    If defined, gives a limit on the size of the file that data stream and
+    event traces will be written into.  If not defined, or defined as <b>0</b>,
+    there
+    will be no limit on the size of the file.  The value is a number, followed
+    by an optional suffix.  If the suffix is <b>K</b> (e.g., 128K),
+    the value will be multiplied by 1024.
+    If the suffix is <b>M</b>, the value will be multiplied
+    by (1024*1024).  The size limit enforced at operation boundaries, not per
+    byte, so the actual file may grow slightly larger.  When the file size
+    exceeds the limit, the second half of the file will be written over the
+    first, so that in steady state, the file size will vary between half the
+    <a href=#traceFileSize>ws3270.traceFileSize</a> and the entire <a href=#traceFileSize>ws3270.traceFileSize</a>.
+</p>
+<a name="typeahead"></a>
+<b>Name:</b> ws3270.typeahead<br>
+<b>Type</b>: Boolean<br>
+<b>Default</b>: true<br>
+<b>Description</b>:<br>
+<p class=indented>    When true, ws3270 will store keystrokes in a buffer when the
+    keyboard is locked.  When false, these keystrokes will be dropped.
+</p>
+<a name="unlockDelay"></a>
+<b>Name:</b> ws3270.unlockDelay<br>
+<b>Type</b>: Boolean<br>
+<b>Default</b>: true<br>
+<b>Description</b>:<br>
+<p class=indented>    When ws3270 sends the host an AID (the <b>Enter</b>, <b>Clear</b>, <b>PF</b>
+    or <b>PA</b>
+    actions), it locks the keyboard until the host sends a reply to
+    unlock it.  Some hosts unlock the keyboard before they are actually
+    finished processing the command, which can cause scripts to malfunction
+    subtly.  To avoid this, ws3270 implements a hack to briefly delay actually
+    unlocking the keyboard.
+    When <a href=#unlockDelay>ws3270.unlockDelay</a> is true, the keyboard unlock
+    will be delayed for <a href=#unlockDelayMs>ws3270.unlockDelayMs</a> milliseconds.  Setting it to
+    false removes this delay, except when executing a macro.
+</p>
+<a name="unlockDelayMs"></a>
+<b>Name:</b> ws3270.unlockDelayMs<br>
+<b>Type</b>: Integer<br>
+<b>Default</b>: 350<br>
+<b>Description</b>:<br>
+<p class=indented>    Overrides the default value for the unlock delay (the delay between the
+    host unlocking the keyboard and ws3270 actually performing the unlock).
+    The value is in milliseconds; use 0 to turn off the delay completely,
+    including for macros.
+</p>
+<a name="werase"></a>
+<b>Name:</b> ws3270.werase<br>
+<b>Type</b>: String<br>
+<b>Default</b>: ^W<br>
+<b>Description</b>:<br>
+<p class=indented>    This setting is used only in NVT mode, and is similar in function to
+    the <i>stty</i> parameter of the same name.
+    When connected in line-at-a-time mode (when ws3270
+    gathers a line of input before forwarding it to the host), entering
+    this character at the keyboard erases the last word of input.
+    <p class=indented>
+    When connected in character-at-a-time mode (when ws3270 sends each
+    keystroke to the host), this is the ASCII character that is sent to
+    the host by the <b>DeleteWord</b> action.
+</p>
+<h2>Index of All Resources</h2>
+<table border cols=4 width="75%">
+<tr> <td><a href="#blankFill">blankFill</a></td> <td><a href="#bsdTm">bsdTm</a></td> <td><a href="#certFile">certFile</a></td> <td><a href="#charset">charset</a></td> </tr>
+<tr> <td><a href="#color8">color8</a></td> <td><a href="#confDir">confDir</a></td> <td><a href="#dbcsCgcsgid">dbcsCgcsgid</a></td> <td><a href="#dftBufferSize">dftBufferSize</a></td> </tr>
+<tr> <td><a href="#dsTrace">dsTrace</a></td> <td><a href="#eof">eof</a></td> <td><a href="#erase">erase</a></td> <td><a href="#eventTrace">eventTrace</a></td> </tr>
+<tr> <td><a href="#extended">extended</a></td> <td><a href="#hostname">hostname</a></td> <td><a href="#hostsFile">hostsFile</a></td> <td><a href="#icrnl">icrnl</a></td> </tr>
+<tr> <td><a href="#inlcr">inlcr</a></td> <td><a href="#intr">intr</a></td> <td><a href="#kill">kill</a></td> <td><a href="#lineWrap">lineWrap</a></td> </tr>
+<tr> <td><a href="#loginMacro">loginMacro</a></td> <td><a href="#lnext">lnext</a></td> <td><a href="#m3279">m3279</a></td> <td><a href="#model">model</a></td> </tr>
+<tr> <td><a href="#monoCase">monoCase</a></td> <td><a href="#numericLock">numericLock</a></td> <td><a href="#onlcr">onlcr</a></td> <td><a href="#oerrLock">oerrLock</a></td> </tr>
+<tr> <td><a href="#once">once</a></td> <td><a href="#oversize">oversize</a></td> <td><a href="#port">port</a></td> <td><a href="#proxy">proxy</a></td> </tr>
+<tr> <td><a href="#quit">quit</a></td> <td><a href="#rprnt">rprnt</a></td> <td><a href="#sbcsCgcsgid">sbcsCgcsgid</a></td> <td><a href="#screenTrace">screenTrace</a></td> </tr>
+<tr> <td><a href="#screenTraceFile">screenTraceFile</a></td> <td><a href="#suppressActions">suppressActions</a></td> <td><a href="#termName">termName</a></td> <td><a href="#traceFile">traceFile</a></td> </tr>
+<tr> <td><a href="#traceFileSize">traceFileSize</a></td> <td><a href="#typeahead">typeahead</a></td> <td><a href="#unlockDelay">unlockDelay</a></td> <td><a href="#unlockDelayMs">unlockDelayMs</a></td> </tr>
+<tr> <td><a href="#werase">werase</a></td> </tr>
+</table>
+<h2>Basic Configuration Resources</h2>
+<table border cols=4 width="75%">
+<tr> <td><a href="#charset">charset</a></td> <td><a href="#hostname">hostname</a></td> <td><a href="#model">model</a></td> <td><a href="#port">port</a></td> </tr>
+<tr> <td><a href="#proxy">proxy</a></td> </tr>
+</table>
+<h2>NVT-Mode Resources</h2>
+<table border cols=4 width="75%">
+<tr> <td><a href="#eof">eof</a></td> <td><a href="#erase">erase</a></td> <td><a href="#icrnl">icrnl</a></td> <td><a href="#inlcr">inlcr</a></td> </tr>
+<tr> <td><a href="#intr">intr</a></td> <td><a href="#kill">kill</a></td> <td><a href="#lineWrap">lineWrap</a></td> <td><a href="#lnext">lnext</a></td> </tr>
+<tr> <td><a href="#onlcr">onlcr</a></td> <td><a href="#quit">quit</a></td> <td><a href="#rprnt">rprnt</a></td> <td><a href="#werase">werase</a></td> </tr>
+</table>
+<h2>Protocol Resources</h2>
+<table border cols=4 width="75%">
+<tr> <td><a href="#bsdTm">bsdTm</a></td> <td><a href="#color8">color8</a></td> <td><a href="#dbcsCgcsgid">dbcsCgcsgid</a></td> <td><a href="#dftBufferSize">dftBufferSize</a></td> </tr>
+<tr> <td><a href="#sbcsCgcsgid">sbcsCgcsgid</a></td> <td><a href="#termName">termName</a></td> </tr>
+</table>
+<h2>Terminal Interaction Resources</h2>
+<table border cols=4 width="75%">
+<tr> <td><a href="#blankFill">blankFill</a></td> <td><a href="#numericLock">numericLock</a></td> <td><a href="#oerrLock">oerrLock</a></td> </tr>
+</table>
+<h2>Security Resources</h2>
+<table border cols=4 width="75%">
+<tr> <td><a href="#certFile">certFile</a></td> <td><a href="#suppressActions">suppressActions</a></td> </tr>
+</table>
+<h2>Tracing Resources</h2>
+<table border cols=4 width="75%">
+<tr> <td><a href="#dsTrace">dsTrace</a></td> <td><a href="#eventTrace">eventTrace</a></td> <td><a href="#screenTrace">screenTrace</a></td> <td><a href="#screenTraceFile">screenTraceFile</a></td> </tr>
+<tr> <td><a href="#traceFile">traceFile</a></td> <td><a href="#traceFileSize">traceFileSize</a></td> </tr>
+</table>
+<h2>Other Resources</h2>
+<table border cols=4 width="75%">
+<tr> <td><a href="#confDir">confDir</a></td> <td><a href="#hostsFile">hostsFile</a></td> <td><a href="#loginMacro">loginMacro</a></td> <td><a href="#monoCase">monoCase</a></td> </tr>
+<tr> <td><a href="#once">once</a></td> <td><a href="#oversize">oversize</a></td> <td><a href="#typeahead">typeahead</a></td> <td><a href="#unlockDelay">unlockDelay</a></td> </tr>
+<tr> <td><a href="#unlockDelayMs">unlockDelayMs</a></td> </tr>
+</table>
+<h2>Deprecated Resources</h2>
+<table border cols=4 width="75%">
+<tr> <td><a href="#extended">extended</a></td> <td><a href="#m3279">m3279</a></td> </tr>
+</table>
+<p><i>ws3270 verson 3.3.9ga12 Mon Mar 23 21:06:46 CDT 2009
+
+</body>

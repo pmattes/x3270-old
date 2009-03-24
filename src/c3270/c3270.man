@@ -1,5 +1,5 @@
 '\" t
-.TH c3270 1 "23 February 2009"
+.TH c3270 1 "23 March 2009"
 .SH "NAME"
 c3270 \-
 curses-based 
@@ -268,6 +268,10 @@ printer session.
 Causes \fBc3270\fP
 to automatically reconnect to the host if it ever disconnects.
 This option has effect only if a hostname is specified on the command line.
+.TP
+\fB\-rv\fP
+Switches c3270 from a white-on-black display to a black-on-white
+display.
 .TP
 \fB\-secure\fP
 Disables the interactive \fBc3270>\fP prompt.
@@ -1808,7 +1812,7 @@ Controls what happens when the destination file already exists.
 \fBappend\fP appends the source file to the destination file.
 .TP
 \fBRecfm\fP
-Controls the record  of files created on the host.
+Controls the record format of files created on the host.
 \fBfixed\fP creates a file with fixed-length records.
 \fBvariable\fP creates a file with variable-length records.
 \fBundefined\fP creates a file with undefined-length records (\s-1TSO\s+1 hosts only).
@@ -1861,7 +1865,7 @@ Save the output as HTML.  This option implies \fBfile\fP.
 Save the output as RichText.  This option implies \fBfile\fP.
 The font defaults to \fBCourier New\fP and the
 point size defaults to 8.
-These can be overridden by the \fBprinter.font\fP and \fBprinter.size\fP
+These can be overridden by the \fBprintTextFont\fP and \fBprintTextSize\fP
 resources, respectively.
 .TP
 \fBstring\fP
@@ -3234,4 +3238,4 @@ WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
 OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
 ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 .SH "VERSION"
-c3270 3.3.9ga11
+c3270 3.3.9ga12

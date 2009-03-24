@@ -1,5 +1,5 @@
 '\" t
-.TH x3270 1 "23 February 2009"
+.TH x3270 1 "23 March 2009"
 .SH "NAME"
 x3270 \-
 \s-1IBM\s+1 host access tool
@@ -2194,7 +2194,7 @@ Save the output as HTML.  This option implies \fBfile\fP.
 Save the output as RichText.  This option implies \fBfile\fP.
 The font defaults to \fBCourier New\fP and the
 point size defaults to 8.
-These can be overridden by the \fBprinter.font\fP and \fBprinter.size\fP
+These can be overridden by the \fBprintTextFont\fP and \fBprintTextSize\fP
 resources, respectively.
 .TP
 \fBstring\fP
@@ -2437,7 +2437,7 @@ a keymap that maps some other keysym onto the \fBCompose\fP action.
 .PP
 Keyboard entry of \s-1APL\s+1 characters is supported through the \fBapl\fP
 keymap modifier.
-This modifier defines the "Alt" key as an \s-1APL\s+1  key, with a
+This modifier defines the "Alt" key as an \s-1APL\s+1 shift key, with a
 typical \s-1APL\s+1 keyboard layout, e.g.,
 "Alt" pressed with the \fBA\fP key results in the \s-1APL\s+1 "alpha" symbol.
 Overstruck characters such as "quad-quote" are not defined as single
@@ -5085,4 +5085,4 @@ WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
 OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
 ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 .SH "VERSION"
-x3270 3.3.9ga11
+x3270 3.3.9ga12

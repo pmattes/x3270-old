@@ -1,5 +1,5 @@
 '\" t
-.TH IBM_HOSTS 5 "23 February 2009"
+.TH IBM_HOSTS 5 "23 March 2009"
 .SH "NAME"
 ibm_hosts \- host database for x3270 and c3270
 .SH "SYNOPSIS"
@@ -9,7 +9,7 @@ The \fBibm_hosts\fP
 file contains information regarding IBM hosts on the network.
 An \fIIBM host\fP is a host which can communicate with a 3270 terminal
 emulator such as \fBx3270\fP or \fBc3270\fP.
-Each line defines a name in the following 
+Each line defines a name in the following format
 (optional fields are shown in brackets):
 .LP
 \fIname\fP	\fItype\fP [\fIopt\fP:]...[\fIluname\fP@]\fIhostname\fP[:\fIport\fP] [\fIactions\fP]

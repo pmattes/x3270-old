@@ -1,5 +1,5 @@
 '\" t
-.TH X3270-SCRIPT 1 "23 February 2009"
+.TH X3270-SCRIPT 1 "23 March 2009"
 .SH "NAME"
 Scripting Facilities for x3270, s3270, ws3270 and c3270
 .SH "SYNOPSIS"
@@ -1119,7 +1119,7 @@ Controls what happens when the destination file already exists.
 \fBappend\fP appends the source file to the destination file.
 .TP
 \fBRecfm\fP
-Controls the record  of files created on the host.
+Controls the record format of files created on the host.
 \fBfixed\fP creates a file with fixed-length records.
 \fBvariable\fP creates a file with variable-length records.
 \fBundefined\fP creates a file with undefined-length records (\s-1TSO\s+1 hosts only).
@@ -1164,4 +1164,4 @@ s3270(1)
 .br
 ws3270(1)
 .SH "VERSION"
-Version 3.3.9ga11
+Version 3.3.9ga12

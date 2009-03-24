@@ -181,9 +181,13 @@ static char *base_keymap =
        "Alt <Key>3:      PA(3)\n"
        "Alt <Key>^:      Key(notsign)\n"
        "Alt <Key>c:      Clear\n"
+       "Alt <Key>C:      Clear\n"
        "Alt <Key>l:      Redraw\n"
+       "Alt <Key>L:      Redraw\n"
        "Alt <Key>m:      Compose\n"
+       "Alt <Key>M:      Compose\n"
        "Alt <Key>p:      PrintText\n"
+       "Alt <Key>P:      PrintText\n"
       "Ctrl <Key>]:      Escape\n"
      "Shift <Key>F1:     PF(13)\n"
      "Shift <Key>F2:     PF(14)\n"
@@ -203,19 +207,24 @@ static char *base_keymap =
 static char *base_3270_keymap =
       "Ctrl <Key>a:      Attn\n"
        "Alt <Key>a:      Attn\n"
+       "Alt <Key>A:      Attn\n"
       "Ctrl <Key>c:      Clear\n"
       "Ctrl <Key>d:      Dup\n"
        "Alt <Key>d:      Dup\n"
+       "Alt <Key>D:      Dup\n"
       "Ctrl <Key>f:      FieldMark\n"
        "Alt <Key>f:      FieldMark\n"
+       "Alt <Key>F:      FieldMark\n"
       "Ctrl <Key>h:      Erase\n"
        "Alt <Key>i:      Insert\n"
+       "Alt <Key>I:      Insert\n"
       "Ctrl <Key>i:      Tab\n"
       "Ctrl <Key>j:      Newline\n"
       "Ctrl <Key>l:      Redraw\n"
       "Ctrl <Key>m:      Enter\n"
       "Ctrl <Key>r:      Reset\n"
        "Alt <Key>r:      Reset\n"
+       "Alt <Key>R:      Reset\n"
       "Ctrl <Key>u:      DeleteField\n"
       "Ctrl <Key>v:      Paste\n"
            "<Key>INSERT: ToggleInsert\n"
@@ -1308,23 +1317,25 @@ Info_action(Widget w _is_unused, XEvent *event _is_unused, String *params,
 #define DEFAULT_PROFILE	"~/.c3270pro"
 
 /* Read in the .c3270pro file. */
-void
+Boolean
 merge_profile(void)
 {
 	const char *fname;
 	char *profile_name;
+	Boolean did_read = False;
 
 	/* Check for the no-profile environment variable. */
 	if (getenv(NO_PROFILE_ENV) != CN)
-		return;
+		return did_read;
 
 	/* Read the file. */
 	fname = getenv(PROFILE_ENV);
 	if (fname == CN || *fname == '\0')
 		fname = DEFAULT_PROFILE;
 	profile_name = do_subst(fname, True, True);
-	(void) read_resource_file(profile_name, False);
+	did_read = (read_resource_file(profile_name, False) >= 0);
 	Free(profile_name);
+	return did_read;
 }
 
 #endif /*]*/
